@@ -1,2 +1,2 @@
 # LightWeight_Stable_ReinfLearning
-Lightweight, stable, efficient implement of reinforcement learning
+Lightweight, stable, efficient PyTorch implement of reinforcement learning
