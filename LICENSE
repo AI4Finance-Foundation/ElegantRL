@@ -1,5 +1,18 @@
 Copyright [2019] [郑佳豪 Zen4 Jia1Hao2 Yonv1943]
 
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
 注明代码来源时，只需简单地在注释里写上 Yonv1943 这几个特异性非常高的字符即可，
 或者你也可以详细地写上这份代码的网址。（一般是GitHub）
 You simply need to write 'Yonv1943' in the comment, when annotating the source of this code. 
@@ -23,15 +36,3 @@ Yon取自唱过《海阔天空》的BeYond乐队，Yon: Yonder那；V (Victory)�
 到高二的时候，在遇到了我的物理老师和数学老师后，我的三观才开始成形。
 因此1943是一个比较重要的时间点，值得纪念。
 （若有人通过长时间的推理，依然把1943解读为年份，那么此人的推理能力下限低）
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
