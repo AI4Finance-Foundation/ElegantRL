@@ -11,10 +11,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 """
-beta1 stable
 2019-07-01 ZenJiaHao, GitHub: Yonv1943
 2019-08-01 soft_update
-2019-08-02 multi-action
+2019-08-02 multi-action(plan to, undone)
 
 LunarLanderContinuous-v2: 1182s 78E
 LunarLander-v2 (Discrete): 1487s E147
@@ -69,6 +68,7 @@ class Arguments:
     # if 'iter_num > max_step' or 'done', break. Then reset the env and start a new round of training
 
     '''algorithm'''
+    action_num = 1  # plan to do, undone
     gamma = 0.99  # discount for future rewards
     # big gamma leads to a long-term strategy
     explore_noise = 0.4  # action = select_action(state) + noise, 'explore_noise': sigma of noise
@@ -358,6 +358,19 @@ def report_plot(recorders, smooth_kernel, mod_dir, save_name):
     plt.show()
 
 
+def get_env_info(env):
+    state_dim = env.observation_space.shape[0]
+    is_continuous = bool(str(env.action_space)[:3] == 'Box')  # Continuous or Discrete
+    if is_continuous:
+        action_dim = env.action_space.shape[0]
+        action_max = float(env.action_space.high[0])
+    else:
+        action_dim = env.action_space.n  # Discrete
+        action_max = None
+        print('action_space: Discrete:', action_dim)
+    return state_dim, action_dim, action_max
+
+
 def train():
     args = Arguments()
 
@@ -400,18 +413,8 @@ def train():
 
     '''env init'''
     env = gym.make(env_name)
-    env.seed(random_seed)
-    target_reward = target_reward if isinstance(target_reward, int) \
-        else env.spec.reward_threshold
-    state_dim = env.observation_space.shape[0]
-    is_continuous = bool(str(env.action_space)[:3] == 'Box')  # Continuous or Discrete
-    if is_continuous:
-        action_dim = env.action_space.shape[0]
-        action_max = float(env.action_space.high[0])
-    else:
-        action_dim = env.action_space.n  # Discrete
-        action_max = None
-        print('action_space: Discrete:', action_dim)
+    state_dim, action_dim, action_max = get_env_info(env)
+    action_num = args.action_num
 
     '''mod init'''
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
@@ -519,14 +522,8 @@ def evals():
 
     '''env init'''
     env = gym.make(env_name)
-    state_dim = env.observation_space.shape[0]
-    try:
-        action_dim = env.action_space.shape[0]
-        action_max = float(env.action_space.high[0])
-    except IndexError:
-        action_dim = env.action_space.n  # Discrete
-        action_max = None
-        print('action_space: Discrete:', action_dim)
+    state_dim, action_dim, action_max = get_env_info(env)
+    action_num = args.action_num
 
     '''mod init'''
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
