@@ -2,7 +2,7 @@
 Lightweight, stable, efficient PyTorch implement of reinforcement learning
 
 # run
-python3 DelayDDPG.py 
+`python3 DelayDDPG.py`
 
 All code is written in ↑ this file
 
