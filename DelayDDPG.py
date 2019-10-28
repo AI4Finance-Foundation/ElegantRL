@@ -14,7 +14,6 @@ import torch.nn.functional as F
 2019-07-01 ZenJiaHao, GitHub: Yonv1943
 2019-08-01 soft_update
 2019-08-02 multi-action(plan to, undone)
-
 LunarLanderContinuous-v2: 1182s 78E
 LunarLander-v2 (Discrete): 1487s E147
 BipedalWalker-v2: 2100s E165
@@ -24,11 +23,9 @@ BipedalWalker-v2: 2100s E165
 class Arguments:
     """
     All the hyper-parameter is here.
-
     If you are not familiar with this algorithm,
     then I do not recommend that you modify other parameters that are not listed here.
     The comments below are all my subjective guesses for reference only!
-
     If you wanna change this code, please keep READABILITY and ELEGANT! (read 'import this')
     Write by GitHub: Yonv1943 Zen4 Jia1Hao2, 2019-07-07
     """
@@ -80,8 +77,8 @@ class Arguments:
     # 'explore_noise' and 'explore_noise' act on 'action' (in range(-1, 1)), before 'action*action_max'
 
     """Continuous_Action"""
-    if 'LunarLanderContinuous-v2':
-        env_name = "LunarLanderContinuous-v2"
+    # if 'LunarLanderContinuous-v2':
+    #     env_name = "LunarLanderContinuous-v2"
     # if 'Pendulum-v0':
     #     env_name = "Pendulum-v0"
     #     max_step = 200
@@ -98,8 +95,8 @@ class Arguments:
     #     is_remove = False
 
     """Discrete_Action"""
-    # if 'LunarLander-v2':
-    #     env_name = "LunarLander-v2"
+    if 'LunarLander-v2':
+        env_name = "LunarLander-v2"
     # if 'CartPole-v0':
     #     env_name = "CartPole-v0"
     #     target_reward = 195
@@ -360,15 +357,22 @@ def report_plot(recorders, smooth_kernel, mod_dir, save_name):
 
 def get_env_info(env):
     state_dim = env.observation_space.shape[0]
-    is_continuous = bool(str(env.action_space)[:3] == 'Box')  # Continuous or Discrete
-    if is_continuous:
-        action_dim = env.action_space.shape[0]
-        action_max = float(env.action_space.high[0])
-    else:
+
+    if isinstance(env.action_space, gym.spaces.Discrete):
         action_dim = env.action_space.n  # Discrete
         action_max = None
         print('action_space: Discrete:', action_dim)
-    return state_dim, action_dim, action_max
+    elif isinstance(env.action_space, gym.spaces.Box):
+        action_dim = env.action_space.shape[0]  # Continuous
+        action_max = float(env.action_space.high[0])
+    else:
+        action_dim = None
+        action_max = None
+        print('Error: env.action_space in get_env_info(env)')
+        exit()
+
+    target_reward = env.spec.reward_threshold
+    return state_dim, action_dim, action_max, target_reward
 
 
 def train():
@@ -384,7 +388,6 @@ def train():
     soft_update_tau = args.soft_update_tau
     mod_dim = args.mod_dim
 
-    target_reward = args.target_reward
     smooth_kernel = args.smooth_kernel
     print_gap = args.print_gap
     max_step = args.max_step
@@ -413,7 +416,7 @@ def train():
 
     '''env init'''
     env = gym.make(env_name)
-    state_dim, action_dim, action_max = get_env_info(env)
+    state_dim, action_dim, action_max, target_reward = get_env_info(env)
     action_num = args.action_num
 
     '''mod init'''
