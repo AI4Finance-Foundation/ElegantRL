@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 """
 Github: Yonv1943 Zen4 Jia1 hao2
+https://github.com/Yonv1943/DL_RL_Zoo/blob/master/RNN
 
 The source of training data 
 https://github.com/L1aoXingyu/
