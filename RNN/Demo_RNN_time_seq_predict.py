@@ -143,21 +143,23 @@ def run_train_lstm():
         weights = np.tanh(np.arange(len(train_y)) * (np.e / len(train_y)))
         weights = torch.tensor(weights, dtype=torch.float32, device=device)
 
-    # for e in range(384):
-    #     out = net(batch_var_x)
-    #
-    #     # loss = criterion(out, batch_var_y)
-    #     loss = (out - batch_var_y) ** 2 * weights
-    #     loss = loss.mean()
-    #
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     optimizer.step()
-    #
-    #     if e % 64 == 0:
-    #         print('Epoch: {:4}, Loss: {:.5f}'.format(e, loss.item()))
-    # torch.save(net.state_dict(), '{}/net.pth'.format(mod_dir))
-
+    print("Training Start")
+    for e in range(384):
+        out = net(batch_var_x)
+    
+        # loss = criterion(out, batch_var_y)
+        loss = (out - batch_var_y) ** 2 * weights
+        loss = loss.mean()
+    
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    
+        if e % 64 == 0:
+            print('Epoch: {:4}, Loss: {:.5f}'.format(e, loss.item()))
+    torch.save(net.state_dict(), '{}/net.pth'.format(mod_dir))
+    print("Save in:", '{}/net.pth'.format(mod_dir))
+    
     '''eval'''
     net.load_state_dict(torch.load('{}/net.pth'.format(mod_dir), map_location=lambda storage, loc: storage))
     net = net.eval()
