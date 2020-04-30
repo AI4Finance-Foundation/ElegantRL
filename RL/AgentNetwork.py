@@ -3,15 +3,35 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 
+"""
+2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
+2019-11-11 Issay-0.0 [Essay Consciousness]
+2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
+2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
+2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
+2020-04-22 Issay-0.2 [Essay, LongDear's Cerebellum (Little Brain)]
+
+I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
+They feel more like a Cerebellum (Little Brain) for Machines.
+"""
+
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, state_dim, action_dim, mid_dim, use_densenet):
         super(Actor, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),
-            nn.Linear(mid_dim * 4, action_dim), nn.Tanh(),
-        )
+
+        if use_densenet:
+            mid_layer = DenseNet(mid_dim)
+            out_layer = nn.Linear(mid_dim * 4, action_dim)
+        else:
+            mid_layer = ResNet(mid_dim)
+            out_layer = nn.Linear(mid_dim, action_dim)
+
+        net_list = [nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                    mid_layer,
+                    out_layer, nn.Tanh(), ]
+        self.net = nn.Sequential(*net_list)
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, s, noise_std=0.0):
@@ -29,13 +49,24 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(Critic, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),
-            nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1)),
-        )
+
+        if use_densenet:
+            mid_layer = DenseNet(mid_dim)
+            out_layer = nn.Linear(mid_dim * 4, action_dim)
+        else:
+            mid_layer = ResNet(mid_dim)
+            out_layer = nn.Linear(mid_dim, action_dim)
+
+        if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
+            # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
+            out_layer = nn.utils.spectral_norm(out_layer)
+
+        net_list = [nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                    mid_layer,
+                    out_layer, nn.Tanh(), ]
+        self.net = nn.Sequential(*net_list)
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -43,7 +74,43 @@ class Critic(nn.Module):
         return q
 
 
-class QNetwork(nn.Module):
+class CriticTwin(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
+        super(CriticTwin, self).__init__()
+
+        net1__net2 = list()
+        for _ in range(2):
+            if use_densenet:
+                mid_layer = DenseNet(mid_dim)
+                out_layer = nn.Linear(mid_dim * 4, action_dim)
+            else:
+                mid_layer = ResNet(mid_dim)
+                out_layer = nn.Linear(mid_dim, action_dim)
+
+            if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
+                # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
+                out_layer = nn.utils.spectral_norm(out_layer)
+
+            net_list = [nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                        mid_layer,
+                        out_layer, ]
+            net1__net2.append(nn.Sequential(*net_list))
+
+        self.net1, self.net2 = net1__net2
+
+    def forward(self, s, a):
+        x = torch.cat((s, a), dim=1)
+        q1 = self.net1(x)
+        return q1
+
+    def get_q1_q2(self, s, a):
+        x = torch.cat((s, a), dim=1)
+        q1 = self.net1(x)
+        q2 = self.net2(x)
+        return q1, q2
+
+
+class QNetwork(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim):
         super(QNetwork, self).__init__()
         self.net = nn.Sequential(
@@ -61,7 +128,7 @@ class QNetwork(nn.Module):
         return q
 
 
-class ActorCritic(nn.Module):
+class ActorCritic(nn.Module):  # class AgentIntelAC
     def __init__(self, state_dim, action_dim, mid_dim):
         super(ActorCritic, self).__init__()
         self.enc_s = nn.Sequential(
@@ -133,9 +200,9 @@ class ActorCritic(nn.Module):
         return q_target, a
 
 
-class LinearNet(nn.Module):
+class ResNet(nn.Module):
     def __init__(self, mid_dim):
-        super(LinearNet, self).__init__()
+        super(ResNet, self).__init__()
         self.dense1 = nn.Sequential(
             nn.Linear(mid_dim * 1, mid_dim * 1),
             HardSwish(),
@@ -145,13 +212,10 @@ class LinearNet(nn.Module):
             HardSwish(),
         )
 
-        self.dropout = nn.Dropout(p=0.2)
-
     def forward(self, x1):
         x2 = self.dense1(x1)
-        x3 = self.dense2(x2)
-        self.dropout.p = rd.uniform(0.0, 0.2)
-        return self.dropout(x3)
+        x3 = self.dense2(x2) + x1
+        return x3
 
 
 class DenseNet(nn.Module):

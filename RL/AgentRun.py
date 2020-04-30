@@ -23,8 +23,8 @@ They feel more like a Cerebellum (Little Brain) for Machines.
 """
 
 
-class Arguments:  # in default
-    def __init__(self, gpu_id=None):
+class Arguments:  # default working setting and hyper-parameter
+    def __init__(self):
         self.agent_class = AgentSNAC
         self.env_name = "LunarLanderContinuous-v2"
         self.net_dim = 2 ** 8  # the network width
@@ -39,8 +39,9 @@ class Arguments:  # in default
         self.pol_noise = 0.4  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
 
         self.is_remove = True  # remove the pre-training data? (True, False, None:ask me)
-        self.gpu_id = sys.argv[0][-4] if gpu_id is None else gpu_id
         self.cwd = 'AC_Methods_LL'  # current work directory
+        gpu_id = sys.argv[0][-4]
+        self.gpu_id = gpu_id if gpu_id.isdigit() else '0'
         self.random_seed = 1943 + int(self.gpu_id)
 
     def init_for_training(self):  # remove cwd, choose GPU, set random seed, set CPU threads
@@ -245,8 +246,8 @@ def whether_remove_history(cwd, remove=None):  # 2020-03-03
     if remove:
         shutil.rmtree(cwd, ignore_errors=True)
         print("| Remove")
-    if not os.path.exists(cwd):
-        os.mkdir(cwd)
+
+    os.makedirs(cwd, exist_ok=True)
 
     shutil.copy(sys.argv[-1], cwd)  # copy *.py to cwd
     print('copy {} to {}'.format(sys.argv[-1], cwd))
@@ -257,11 +258,40 @@ def whether_remove_history(cwd, remove=None):  # 2020-03-03
 
 
 def run_demo():
+    """
+    Default Agent: AgentSNAC (Spectral Normalization Actor-critic methods)
+    Default Environment: LunarLanderContinuous-v2
+    Default setting see 'class Arguments()' for details
+    """
     args = Arguments()
-    # Default setting see 'class Arguments()' for details
-    # Agent chooses AgentSNAC (Spectral Normalization Actor-critic methods) by default.
-    # Environment chooses "LunarLanderContinuous-v2" by default.
     args.init_for_training()
+    while not run_train(**vars(args)):
+        args.random_seed += 42
+
+
+def run_td3(gpu_id, cwd):
+    from AgentZoo import AgentTD3
+    args = Arguments()
+
+    '''
+    DenseNet, SN, Hard Update
+    '''
+
+    args.agent_class = AgentTD3
+    args.gpu_id = gpu_id
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.exp_noise = 0.1
+    args.pol_noise = 0.2
+    args.max_epoch = 2 ** 12
+    args.max_memo = 2 ** 18
+
+    args.init_for_training()
+
+    args.env_name = "LunarLanderContinuous-v2"
+    while not run_train(**vars(args)):
+        args.random_seed += 42
+
+    args.env_name = "BipedalWalker-v3"
     while not run_train(**vars(args)):
         args.random_seed += 42
 
@@ -289,7 +319,7 @@ def run_demo_single_process():
     #     args.random_seed += 42
 
 
-def run_demo_multi_process():
+def run_demo_multi_process_todo():
     cwd = 'AC_Methods_MP'  # all the files save in here
     os.makedirs(cwd, exist_ok=True)
 
@@ -301,7 +331,18 @@ def run_demo_multi_process():
     [process.join() for process in processes]
 
 
+def run_multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
+    os.makedirs(cwd, exist_ok=True)  # all the files save in here
+
+    '''run in multiprocessing'''
+    import multiprocessing as mp
+    os.system('cp {} {}/'.format(sys.argv[-1], cwd))
+    processes = [mp.Process(target=target_func, args=(gpu_id, cwd)) for gpu_id in gpu_tuple]
+    [process.start() for process in processes]
+    [process.join() for process in processes]
+
+
 if __name__ == '__main__':
     # run_demo()
-    run_demo_single_process()
-    # run_demo_multi_process()
+    # run_td3(gpu_id=0, cwd='AC_TD3_HardUpdate')
+    run_multi_process(run_td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3_HardUpdate')

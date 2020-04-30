@@ -6,13 +6,14 @@ import numpy as np
 import numpy.random as rd
 import torch
 import torch.nn as nn
-from AgentRun
+
 from AgentNetwork import Actor, Critic  # class AgentSNAC
 from AgentNetwork import ActorCritic  # class AgentIntelAC
 from AgentNetwork import QNetwork  # class AgentQLearning
+from AgentNetwork import CriticTwin  # class AgentTD3
 
 """
-2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943
+2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
 2019-11-11 Issay-0.0 [Essay Consciousness]
 2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
@@ -26,6 +27,9 @@ They feel more like a Cerebellum (Little Brain) for Machines.
 
 class AgentSNAC:
     def __init__(self, state_dim, action_dim, net_dim):
+        use_densenet = True
+        use_spectral_norm = True
+        learning_rate = 4e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''dim and idx'''
@@ -36,24 +40,24 @@ class AgentSNAC:
 
         '''network'''
         actor_dim = net_dim
-        act = Actor(state_dim, action_dim, actor_dim).to(self.device)
+        act = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         act.train()
         self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=1e-4, betas=(0.5, 0.99))
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate / 4, betas=(0.5, 0.99))
 
-        act_target = Actor(state_dim, action_dim, actor_dim).to(self.device)
+        act_target = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         act_target.eval()
         self.act_target = act_target
         self.act_target.load_state_dict(act.state_dict())
 
         '''critic'''
         critic_dim = int(net_dim * 1.25)
-        cri = Critic(state_dim, action_dim, critic_dim).to(self.device)
+        cri = Critic(state_dim, action_dim, critic_dim, use_densenet, use_spectral_norm).to(self.device)
         cri.train()
         self.cri = cri
-        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=4e-4, betas=(0.5, 0.99))
+        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate, betas=(0.5, 0.99))
 
-        cri_target = Critic(state_dim, action_dim, critic_dim).to(self.device)
+        cri_target = Critic(state_dim, action_dim, critic_dim, use_densenet, use_spectral_norm).to(self.device)
         cri_target.eval()
         self.cri_target = cri_target
         self.cri_target.load_state_dict(cri.state_dict())
@@ -178,8 +182,9 @@ class AgentSNAC:
 
 
 class AgentQLearning(AgentSNAC):
-    def __init__(self, state_dim, action_dim, net_dim):
+    def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
         super(AgentSNAC, self).__init__()
+        learning_rate = 4e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''dim and idx'''
@@ -194,7 +199,7 @@ class AgentQLearning(AgentSNAC):
         act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
         act.train()
         self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=4e-4, betas=(0.5, 0.99))
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate, betas=(0.5, 0.99))
 
         act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
         act_target.eval()
@@ -441,6 +446,113 @@ class AgentIntelAC(AgentSNAC):
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
+class AgentTD3(AgentSNAC):
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentSNAC, self).__init__()
+        use_densenet = True
+        use_spectral_norm = True
+        learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''dim and idx'''
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + action_dim
+
+        '''network'''
+        actor_dim = net_dim
+        act = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
+        act.train()
+        self.act = act
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate / 4, betas=(0.5, 0.99))
+
+        act_target = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
+        act_target.eval()
+        self.act_target = act_target
+        self.act_target.load_state_dict(act.state_dict())
+
+        '''critic'''
+        critic_dim = int(net_dim * 1.25)
+        cri = CriticTwin(state_dim, action_dim, critic_dim,
+                         use_densenet, use_spectral_norm).to(self.device)  # TD3
+        cri.train()
+        self.cri = cri
+        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate, betas=(0.5, 0.99))
+
+        cri_target = CriticTwin(state_dim, action_dim, critic_dim,
+                                use_densenet, use_spectral_norm).to(self.device)  # TD3
+        cri_target.eval()
+        self.cri_target = cri_target
+        self.cri_target.load_state_dict(cri.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        self.update_counter = 0
+        self.loss_c_sum = 0.0
+        self.rho = 0.5
+
+    def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + memories.size / memories.max_size
+        batch_size = int(batch_size * k)
+        iter_num = int(iter_num * k)
+
+        for _ in range(iter_num):
+            with torch.no_grad():
+                memory = memories.sample(batch_size)
+                memory = torch.tensor(memory, device=self.device)
+
+                reward = memory[:, 0:1]
+                undone = memory[:, 1:2]
+                state = memory[:, 2:self.state_idx]
+                action = memory[:, self.state_idx:self.action_idx]
+                next_state = memory[:, self.action_idx:]
+
+                next_action = self.act_target(next_state, policy_noise)
+                q_target1, q_target2 = self.cri_target.get_q1_q2(next_state, next_action)
+                q_target = torch.min(q_target1, q_target2)  # TD3
+                q_target = reward + undone * gamma * q_target
+
+            '''loss C'''
+            q_eval1, q_eval2 = self.cri.get_q1_q2(state, action)  # TD3
+            critic_loss = self.criterion(q_eval1, q_target) + self.criterion(q_eval2, q_target)
+            loss_c_tmp = critic_loss.item() * 0.5  # TD3
+            loss_c_sum += loss_c_tmp
+            self.loss_c_sum += loss_c_tmp
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''loss A'''
+            action_cur = self.act(state)
+            actor_loss = -self.cri(state, action_cur).mean()
+            loss_a_sum += actor_loss.item()
+
+            self.act_optimizer.zero_grad()
+            actor_loss.backward()
+            self.act_optimizer.step()
+
+            self.update_counter += 1
+            if self.update_counter == update_gap:
+                self.update_counter = 0
+
+                self.act_target.load_state_dict(self.act.state_dict())
+                self.cri_target.load_state_dict(self.cri.state_dict())
+                # self.soft_update(self.act_target, self.act, tau=0.01)
+                # self.soft_update(self.cri_target, self.cri, tau=0.01)
+
+                rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
+                self.rho = self.rho * 0.75 + rho * 0.25
+                self.act_optimizer.param_groups[0]['lr'] = 1e-4 * self.rho
+                self.loss_c_sum = 0.0
+
+        return loss_a_sum / iter_num, loss_c_sum / iter_num,
+
+
 """utils"""
 
 
@@ -583,18 +695,18 @@ class Recorder:
         self.train_timer = timer()  # train_time
         return is_solved
 
-    def show_and_save(self, env_name, cwd):  # 2020-04-04
+    def show_and_save(self, env_name, cwd):  # 2020-04-30
         iter_used = self.total_step  # int(sum(np.array(self.record_epoch)[:, -1]))
         time_used = int(timer() - self.start_time)
         print('Used Time:', time_used)
         self.train_time = int(self.train_time)  # train_time
         print('TrainTime:', self.train_time)  # train_time
 
-        print_str1 = "{} R AVE {:7.2f} STD {:7.2f}".format(env_name, self.reward_avg, self.reward_std)
-        print_str2 = "Epoch-Sec-iTer {}E-{}S-{}T".format(self.epoch, self.train_time, iter_used)  # train_time
-        os.mkfifo('{}/{} {}.txt'.format(cwd, print_str1, print_str2))
-        print(print_str1)
-        print(print_str2)
+        print_str = "{}-AVE{:.2f}-STD{:.2f}-{}E-{}S-{}T".format(
+            env_name, self.reward_avg, self.reward_std, self.epoch, self.train_time, iter_used)  # train_time
+        print(print_str)
+        nod_path = '{}/{}.txt'.format(cwd, print_str)
+        os.mknod(nod_path, ) if not os.path.exists(nod_path) else None
 
         np.save('%s/record_epoch.npy' % cwd, self.record_epoch)
         np.save('%s/record_eval.npy' % cwd, self.record_eval)
@@ -614,7 +726,7 @@ class RewardNorm:
 
 
 def get_eva_reward(agent, env_list, max_step, max_action):  # class Recorder 2020-01-11
-    act = agent.act  # agent.net
+    act = agent.act_target  # agent.net, target network is our target
     act.eval()
 
     env_list_copy = env_list.copy()
