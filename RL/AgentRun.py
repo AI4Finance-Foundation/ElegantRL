@@ -9,7 +9,7 @@ from AgentZoo import AgentSNAC
 from AgentZoo import Memories, Recorder, RewardNorm
 
 """
-2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943
+2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
 2019-11-11 Issay-0.0 [Essay Consciousness]
 2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
@@ -54,35 +54,6 @@ class Arguments:  # in default
         torch.set_num_threads(8)
 
 
-def run_main():
-    cwd = 'AC_Methods'
-    os.makedirs(cwd, exist_ok=True)
-
-    '''run in single process'''
-    args = Arguments()
-    from AgentZoo import AgentQLearning
-    args.agent_class = AgentQLearning
-    # args.env_name = "CartPole-v1"
-    args.env_name = "LunarLander-v2"
-    args.init_for_training()
-    while not run_train(**vars(args)):
-        args.random_seed += 42
-
-    # args = Arguments()
-    # args.env_name = "LunarLanderContinuous-v2"
-    # args.cwd = './{}/LL_{}'.format(cwd, args.gpu_id)
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
-    '''run in multiprocessing'''
-    # import multiprocessing as mp
-    # os.system('cp {} {}/'.format(sys.argv[-1], cwd))
-    # processes = [mp.Process(target=run_train_mp, args=(gpu_id, cwd)) for gpu_id in range(4)]
-    # [process.start() for process in processes]
-    # [process.join() for process in processes]
-
-
 def run_train_mp(gpu_id, cwd):
     args = Arguments(gpu_id)
 
@@ -92,11 +63,11 @@ def run_train_mp(gpu_id, cwd):
     while not run_train(**vars(args)):
         args.random_seed += 42
 
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    while not run_train(**vars(args)):
-        args.random_seed += 42
+    # args.env_name = "BipedalWalker-v3"
+    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
 
     # args.env_name = "BipedalWalkerHardcore-v3"
     # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
@@ -121,7 +92,7 @@ def run_train_mp(gpu_id, cwd):
 
 def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
               batch_size, update_gap, gamma, exp_noise, pol_noise,  # update
-              **_kwargs):  # 2020-0202
+              **_kwargs):  # 2020-0430
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
 
@@ -145,6 +116,7 @@ def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch
                 memo, iter_num, batch_size, pol_noise, update_gap, gamma, )
 
             if np.isnan(actor_loss) or np.isnan(critic_loss):
+                print("ValueError: loss value should not be 'nan'. Please run again.")
                 return False
 
             with torch.no_grad():  # just the GPU memory
@@ -154,9 +126,9 @@ def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch
                     break
 
     except KeyboardInterrupt:
-        print("KeyboardInterrupt")
+        print("raise KeyboardInterrupt while training.")
     except AssertionError:  # for BipedWalker BUG 2020-03-03
-        print("AssertionError: May be caused by r.LengthSquared() > 0.0f")
+        print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
         return False
 
     train_time = recorder.show_and_save(env_name, cwd)
@@ -198,11 +170,14 @@ def get_env_info(env):  # 2020-02-02
     return state_dim, action_dim, action_max, target_reward
 
 
-def draw_plot_with_npy(mod_dir, train_time):  # 2020-03-03
+def draw_plot_with_npy(mod_dir, train_time):  # 2020-04-40
     record_epoch = np.load('%s/record_epoch.npy' % mod_dir)
     # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
     record_eval = np.load('%s/record_eval.npy' % mod_dir)
     # record_eval.append((epoch, eval_reward, eval_std))
+
+    if len(record_eval.shape) == 1:
+        record_eval = np.array([[0., 0., 0.]])
 
     train_time = int(train_time)
     iter_num = int(sum(record_epoch[:, -1]))
@@ -278,5 +253,55 @@ def whether_remove_history(cwd, remove=None):  # 2020-03-03
     del shutil
 
 
+"""demo"""
+
+
+def run_demo():
+    args = Arguments()
+    # Default setting see 'class Arguments()' for details
+    # Agent chooses AgentSNAC (Spectral Normalization Actor-critic methods) by default.
+    # Environment chooses "LunarLanderContinuous-v2" by default.
+    args.init_for_training()
+    while not run_train(**vars(args)):
+        args.random_seed += 42
+
+
+def run_demo_single_process():
+    args = Arguments()
+
+    '''run single process (discrete action space)'''
+    from AgentZoo import AgentQLearning
+    args.agent_class = AgentQLearning
+    args.env_name = "LunarLander-v2"
+    args.gpu_id = 0
+    args.cwd = 'AC_Methods'
+    args.init_for_training()
+    while not run_train(**vars(args)):
+        args.random_seed += 42
+    # args.env_name = "CartPole-v1" # a single task,
+
+    '''run single process (continuous action space)'''
+    # from AgentZoo import AgentSNAC
+    # args.agent_class = AgentSNAC
+    # args.env_name = "LunarLanderContinuous-v2"
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
+
+def run_demo_multi_process():
+    cwd = 'AC_Methods_MP'  # all the files save in here
+    os.makedirs(cwd, exist_ok=True)
+
+    '''run in multiprocessing'''
+    import multiprocessing as mp
+    os.system('cp {} {}/'.format(sys.argv[-1], cwd))
+    processes = [mp.Process(target=run_train_mp, args=(gpu_id, cwd)) for gpu_id in range(4)]
+    [process.start() for process in processes]
+    [process.join() for process in processes]
+
+
 if __name__ == '__main__':
-    run_main()
+    # run_demo()
+    run_demo_single_process()
+    # run_demo_multi_process()
