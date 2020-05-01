@@ -55,42 +55,6 @@ class Arguments:  # default working setting and hyper-parameter
         torch.set_num_threads(8)
 
 
-def run_train_mp(gpu_id, cwd):
-    args = Arguments(gpu_id)
-
-    args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    while not run_train(**vars(args)):
-        args.random_seed += 42
-
-    # args.env_name = "BipedalWalker-v3"
-    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
-    # args.env_name = "BipedalWalkerHardcore-v3"
-    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
-    # args.net_dim = int(2 ** 9)
-    # args.max_memo = 2 ** 16 * 24
-    # args.batch_size = int(2 ** 9 * 1.5)
-    # args.max_epoch = 2 ** 14
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
-    # import pybullet_envs  # for python-bullet-gym
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 18
-    # args.is_remove = True
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
-
 def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
               batch_size, update_gap, gamma, exp_noise, pol_noise,  # update
               **_kwargs):  # 2020-0430
@@ -104,7 +68,7 @@ def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch
     memo = Memories(max_memo, memo_dim=1 + 1 + state_dim + memo_action_dim + state_dim)
     memo.save_or_load_memo(cwd, is_save=False)
 
-    recorder = Recorder(agent, max_step, max_action, target_reward, env_name, )
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
     r_norm = RewardNorm(n_max=target_reward, n_min=recorder.reward_avg)
 
     try:
@@ -122,7 +86,7 @@ def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch
 
             with torch.no_grad():  # just the GPU memory
                 is_solved = recorder.show_and_check_reward(
-                    epoch, epoch_reward, iter_num, actor_loss, critic_loss, )
+                    epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd)
                 if is_solved:
                     break
 
@@ -134,7 +98,7 @@ def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch
 
     train_time = recorder.show_and_save(env_name, cwd)
 
-    agent.save_or_load_model(cwd, is_save=True)
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
     memo.save_or_load_memo(cwd, is_save=True)
 
     draw_plot_with_npy(cwd, train_time)
@@ -257,7 +221,7 @@ def whether_remove_history(cwd, remove=None):  # 2020-03-03
 """demo"""
 
 
-def run_demo():
+def run__demo():
     """
     Default Agent: AgentSNAC (Spectral Normalization Actor-critic methods)
     Default Environment: LunarLanderContinuous-v2
@@ -269,7 +233,47 @@ def run_demo():
         args.random_seed += 42
 
 
-def run_td3(gpu_id, cwd):
+def run__sn_ac(gpu_id, cwd):
+    from AgentZoo import AgentSNAC
+    args = Arguments()
+
+    args.agent_class = AgentSNAC
+    args.gpu_id = gpu_id
+
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not run_train(**vars(args)):
+        args.random_seed += 42
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not run_train(**vars(args)):
+        args.random_seed += 42
+
+    # args.env_name = "BipedalWalkerHardcore-v3"
+    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
+    # args.net_dim = int(2 ** 9)
+    # args.max_memo = 2 ** 16 * 24
+    # args.batch_size = int(2 ** 9 * 1.5)
+    # args.max_epoch = 2 ** 14
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
+    # import pybullet_envs  # for python-bullet-gym
+    # args.env_name = "MinitaurBulletEnv-v0"
+    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 18
+    # args.is_remove = True
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
+
+def run__td3(gpu_id, cwd):
     from AgentZoo import AgentTD3
     args = Arguments()
 
@@ -279,7 +283,6 @@ def run_td3(gpu_id, cwd):
 
     args.agent_class = AgentTD3
     args.gpu_id = gpu_id
-    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     args.exp_noise = 0.1
     args.pol_noise = 0.2
     args.max_epoch = 2 ** 12
@@ -288,50 +291,17 @@ def run_td3(gpu_id, cwd):
     args.init_for_training()
 
     args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     while not run_train(**vars(args)):
         args.random_seed += 42
 
     args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
     while not run_train(**vars(args)):
         args.random_seed += 42
 
 
-def run_demo_single_process():
-    args = Arguments()
-
-    '''run single process (discrete action space)'''
-    from AgentZoo import AgentQLearning
-    args.agent_class = AgentQLearning
-    args.env_name = "LunarLander-v2"
-    args.gpu_id = 0
-    args.cwd = 'AC_Methods'
-    args.init_for_training()
-    while not run_train(**vars(args)):
-        args.random_seed += 42
-    # args.env_name = "CartPole-v1" # a single task,
-
-    '''run single process (continuous action space)'''
-    # from AgentZoo import AgentSNAC
-    # args.agent_class = AgentSNAC
-    # args.env_name = "LunarLanderContinuous-v2"
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
-
-def run_demo_multi_process_todo():
-    cwd = 'AC_Methods_MP'  # all the files save in here
-    os.makedirs(cwd, exist_ok=True)
-
-    '''run in multiprocessing'''
-    import multiprocessing as mp
-    os.system('cp {} {}/'.format(sys.argv[-1], cwd))
-    processes = [mp.Process(target=run_train_mp, args=(gpu_id, cwd)) for gpu_id in range(4)]
-    [process.start() for process in processes]
-    [process.join() for process in processes]
-
-
-def run_multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
+def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
     os.makedirs(cwd, exist_ok=True)  # all the files save in here
 
     '''run in multiprocessing'''
@@ -343,6 +313,10 @@ def run_multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
 
 
 if __name__ == '__main__':
-    # run_demo()
-    # run_td3(gpu_id=0, cwd='AC_TD3_HardUpdate')
-    run_multi_process(run_td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3_HardUpdate')
+    # run__demo()
+
+    # run__td3(gpu_id=0, cwd='AC_TD3_HardUpdate')
+    # run__multi_process(run__td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3_HardUpdate')
+
+    # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
+    run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')

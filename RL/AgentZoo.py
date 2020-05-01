@@ -29,7 +29,8 @@ class AgentSNAC:
     def __init__(self, state_dim, action_dim, net_dim):
         use_densenet = True
         use_spectral_norm = True
-        learning_rate = 4e-4
+        self.lr_c = 4e-4  # learning rate of critic
+        self.lr_a = 1e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''dim and idx'''
@@ -43,7 +44,7 @@ class AgentSNAC:
         act = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         act.train()
         self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate / 4, betas=(0.5, 0.99))
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.lr_a, betas=(0.5, 0.99))
 
         act_target = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         act_target.eval()
@@ -55,7 +56,7 @@ class AgentSNAC:
         cri = Critic(state_dim, action_dim, critic_dim, use_densenet, use_spectral_norm).to(self.device)
         cri.train()
         self.cri = cri
-        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate, betas=(0.5, 0.99))
+        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=self.lr_c, betas=(0.5, 0.99))
 
         cri_target = Critic(state_dim, action_dim, critic_dim, use_densenet, use_spectral_norm).to(self.device)
         cri_target.eval()
@@ -147,7 +148,7 @@ class AgentSNAC:
 
                 rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
                 self.rho = self.rho * 0.75 + rho * 0.25
-                self.act_optimizer.param_groups[0]['lr'] = 1e-4 * self.rho
+                self.act_optimizer.param_groups[0]['lr'] = self.lr_a * self.rho
                 self.loss_c_sum = 0.0
 
         return loss_a_sum / iter_num, loss_c_sum / iter_num,
@@ -162,14 +163,14 @@ class AgentSNAC:
         for target_param, param in zip(target.parameters(), source.parameters()):
             target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
 
-    def save_or_load_model(self, mod_dir, is_save):
-        act_save_path = '{}/actor.pth'.format(mod_dir)
-        cri_save_path = '{}/critic.pth'.format(mod_dir)
+    def save_or_load_model(self, cwd, is_save):  # 2020-04-30
+        act_save_path = '{}/actor.pth'.format(cwd)
+        cri_save_path = '{}/critic.pth'.format(cwd)
 
         if is_save:
             torch.save(self.act.state_dict(), act_save_path)
             torch.save(self.cri.state_dict(), cri_save_path)
-            print("Saved act and cri:", mod_dir)
+            # print("Saved act and cri:", cwd)
         elif os.path.exists(act_save_path):
             act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
             self.act.load_state_dict(act_dict)
@@ -177,9 +178,10 @@ class AgentSNAC:
             cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
             self.cri.load_state_dict(cri_dict)
             self.cri_target.load_state_dict(cri_dict)
+            print("Load act and cri:", cwd)
         else:
-            print("FileNotFound when load_model: {}".format(mod_dir))
-
+            print("FileNotFound when load_model:", cwd)
+            # pass
 
 class AgentQLearning(AgentSNAC):
     def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
@@ -450,7 +452,7 @@ class AgentTD3(AgentSNAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentSNAC, self).__init__()
         use_densenet = True
-        use_spectral_norm = True
+        use_spectral_norm = False
         learning_rate = 4e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -636,9 +638,10 @@ class Recorder:
         self.reward_avg = np.average(self.rewards)
         self.reward_std = float(np.std(self.rewards))
         self.reward_target = target_reward
+        self.reward_max = self.reward_avg
 
         self.record_epoch = list()  # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
-        self.record_eval = list()  # record_eval.append((epoch, reward_avg, reward_std))
+        self.record_eval = [(0, self.reward_avg, self.reward_std), ]  # [(epoch, reward_avg, reward_std), ]
         self.total_step = 0
 
         self.epoch = 0
@@ -647,7 +650,7 @@ class Recorder:
         self.start_time = self.show_time = timer()
         print("epoch| reward    r_ave    r_std  |loss_A  loss_B  |step")
 
-    def show_and_check_reward(self, epoch, epoch_reward, iter_num, actor_loss, critic_loss):
+    def show_and_check_reward0(self, epoch, epoch_reward, iter_num, actor_loss, critic_loss):
         self.train_time += timer() - self.train_timer  # train_time
 
         self.epoch = epoch
@@ -695,6 +698,56 @@ class Recorder:
         self.train_timer = timer()  # train_time
         return is_solved
 
+    def show_and_check_reward(self, epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd):
+        self.train_time += timer() - self.train_timer  # train_time
+
+        self.epoch = epoch
+        self.record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
+        self.total_step += iter_num
+
+        '''show reward'''
+        if timer() - self.show_time > self.show_gap:
+            self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action)
+            self.reward_avg = np.average(self.rewards)
+            self.reward_std = float(np.std(self.rewards))
+            self.record_eval.append((epoch, self.reward_avg, self.reward_std))
+
+            slice_reward = np.array(self.record_epoch[-self.smooth_kernel:])[:, 0]
+            smooth_reward = np.average(slice_reward, axis=0)
+            print("{:4} |{:7.2f}  {:7.2f}  {:7.2f}  |{:6.2f}  {:6.2f}  |{:.2e}".format(
+                epoch, smooth_reward, self.reward_avg, self.reward_std,
+                actor_loss, critic_loss, self.total_step))
+
+            self.show_time = timer()  # reset show_time after get_eva_reward_batch !
+        else:
+            self.rewards = list()
+
+        '''check reward'''
+        is_solved = False
+        if self.reward_avg >= self.reward_max:  # and len(self.rewards) > 1:  # 2020-04-30
+            self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action))
+            self.reward_avg = np.average(self.rewards)
+
+            if self.reward_avg >= self.reward_max:  # 2020-04-30
+                res_env_len = len(self.env_list) - len(self.rewards)
+                self.rewards.extend(get_eva_reward(
+                    self.agent, self.env_list[:res_env_len], self.max_step, self.max_action))
+                self.reward_avg = np.average(self.rewards)
+
+                self.reward_max = self.reward_avg  # 2020-04-30
+                self.agent.save_or_load_model(cwd, is_save=True)
+                if self.reward_avg >= self.reward_target:
+                    print("########## Solved! ###########")
+                    is_solved = True
+
+            self.reward_std = float(np.std(self.rewards))
+            self.record_eval[-1] = (self.epoch, self.reward_avg, self.reward_std)  # refresh
+            print("{:4} |{:7.2f}  {:7.2f}  {:7.2f}  |{:16}|{:.2e}".format(
+                self.epoch, self.reward_max, self.reward_avg, self.reward_std, 'MaxReward', self.total_step))
+
+        self.train_timer = timer()  # train_time
+        return is_solved
+
     def show_and_save(self, env_name, cwd):  # 2020-04-30
         iter_used = self.total_step  # int(sum(np.array(self.record_epoch)[:, -1]))
         time_used = int(timer() - self.start_time)
@@ -702,7 +755,7 @@ class Recorder:
         self.train_time = int(self.train_time)  # train_time
         print('TrainTime:', self.train_time)  # train_time
 
-        print_str = "{}-AVE{:.2f}-STD{:.2f}-{}E-{}S-{}T".format(
+        print_str = "{}-{:.2f}AVE-{:.2f}STD-{}E-{}S-{}T".format(
             env_name, self.reward_avg, self.reward_std, self.epoch, self.train_time, iter_used)  # train_time
         print(print_str)
         nod_path = '{}/{}.txt'.format(cwd, print_str)
@@ -726,7 +779,7 @@ class RewardNorm:
 
 
 def get_eva_reward(agent, env_list, max_step, max_action):  # class Recorder 2020-01-11
-    act = agent.act_target  # agent.net, target network is our target
+    act = agent.act  # agent.net, target network is our target
     act.eval()
 
     env_list_copy = env_list.copy()

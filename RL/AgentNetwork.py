@@ -20,6 +20,7 @@ class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet):
         super(Actor, self).__init__()
 
+        inp_layer = nn.Linear(state_dim, mid_dim)
         if use_densenet:
             mid_layer = DenseNet(mid_dim)
             out_layer = nn.Linear(mid_dim * 4, action_dim)
@@ -27,10 +28,9 @@ class Actor(nn.Module):
             mid_layer = ResNet(mid_dim)
             out_layer = nn.Linear(mid_dim, action_dim)
 
-        net_list = [nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                    mid_layer,
-                    out_layer, nn.Tanh(), ]
-        self.net = nn.Sequential(*net_list)
+        self.net = nn.Sequential(inp_layer, nn.ReLU(),
+                                 mid_layer,
+                                 out_layer, nn.Tanh(), )
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -52,6 +52,7 @@ class Critic(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(Critic, self).__init__()
 
+        inp_layer = nn.Linear(state_dim + action_dim, mid_dim)
         if use_densenet:
             mid_layer = DenseNet(mid_dim)
             out_layer = nn.Linear(mid_dim * 4, action_dim)
@@ -63,10 +64,9 @@ class Critic(nn.Module):
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
             out_layer = nn.utils.spectral_norm(out_layer)
 
-        net_list = [nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                    mid_layer,
-                    out_layer, nn.Tanh(), ]
-        self.net = nn.Sequential(*net_list)
+        self.net = nn.Sequential(inp_layer, nn.ReLU(),
+                                 mid_layer,
+                                 out_layer, )
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -80,6 +80,7 @@ class CriticTwin(nn.Module):
 
         net1__net2 = list()
         for _ in range(2):
+            inp_layer = nn.Linear(state_dim + action_dim, mid_dim)
             if use_densenet:
                 mid_layer = DenseNet(mid_dim)
                 out_layer = nn.Linear(mid_dim * 4, action_dim)
@@ -91,10 +92,9 @@ class CriticTwin(nn.Module):
                 # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
                 out_layer = nn.utils.spectral_norm(out_layer)
 
-            net_list = [nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                        mid_layer,
-                        out_layer, ]
-            net1__net2.append(nn.Sequential(*net_list))
+            net1__net2.append(nn.Sequential(inp_layer, nn.ReLU(),
+                                            mid_layer,
+                                            out_layer, ))
 
         self.net1, self.net2 = net1__net2
 
