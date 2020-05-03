@@ -72,24 +72,34 @@ class AgentSNAC:
     def inactive_in_env(self, env, memories, max_step, explore_noise, action_max, r_norm):
         self.act.eval()
 
-        iter_num = 0
-        epoch_reward = 0
-        state = env.reset()
+        rewards = list()
+        steps = list()
 
-        for iter_num in range(max_step):
-            action = self.select_actions(state[np.newaxis],
-                                         explore_noise if rd.rand() < 0.5 else 0.0)[0]
+        step_counter = 0
+        while step_counter < max_step:
+            t = 0
+            reward_sum = 0
+            state = env.reset()
 
-            # action_max == None, when action space is 'Discrete'
-            next_state, reward, done, _ = env.step((action * action_max) if action_max else action)
-            memories.add(np.hstack((r_norm(reward), 1 - float(done), state, action, next_state)))
+            for t in range(max_step):
+                action = self.select_actions(state[np.newaxis],
+                                             explore_noise if rd.rand() < 0.5 else 0.0)[0]
 
-            state = next_state
-            epoch_reward += reward
+                # action_max == None, when action space is 'Discrete'
+                next_state, reward, done, _ = env.step((action * action_max) if action_max else action)
+                memories.add(np.hstack((r_norm(reward), 1 - float(done), state, action, next_state)))
 
-            if done:
-                break
-        return epoch_reward, iter_num
+                state = next_state
+                reward_sum += reward
+
+                if done:
+                    break
+
+            rewards.append(reward_sum)
+            t += 1
+            steps.append(t)
+            step_counter += t
+        return rewards, steps
 
     def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
         loss_a_sum = 0.0
@@ -578,65 +588,16 @@ class Recorder:
         self.train_time = 0  # train_time
         self.train_timer = timer()  # train_time
         self.start_time = self.show_time = timer()
-        print("epoch| reward    r_max    r_ave    r_std |loss_A  loss_B |step")
-
-    def show_and_check_reward(self, epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd):
-        self.train_time += timer() - self.train_timer  # train_time
-
-        self.epoch = epoch
-        self.record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
-        self.total_step += iter_num
-
-        '''show reward'''
-        if timer() - self.show_time > self.show_gap:
-            self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action)
-            self.reward_avg = np.average(self.rewards)
-            self.reward_std = float(np.std(self.rewards))
-            self.record_eval.append((epoch, self.reward_avg, self.reward_std))
-
-            slice_reward = np.array(self.record_epoch[-self.smooth_kernel:])[:, 0]
-            smooth_reward = np.average(slice_reward, axis=0)
-            print("{:4} |{:7.2f}  {:7.2f}  {:7.2f} |{:6.2f}  {:6.2f} |{:.2e}".format(
-                epoch, smooth_reward, self.reward_avg, self.reward_std,
-                actor_loss, critic_loss, self.total_step))
-
-            self.show_time = timer()  # reset show_time after get_eva_reward_batch !
-        else:
-            self.rewards = list()
-
-        '''check reward'''
-        is_solved = False
-        if self.reward_avg >= self.reward_max:  # and len(self.rewards) > 1:  # 2020-04-30
-            self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action))
-            self.reward_avg = np.average(self.rewards)
-
-            if self.reward_avg >= self.reward_max:  # 2020-04-30
-                res_env_len = len(self.env_list) - len(self.rewards)
-                self.rewards.extend(get_eva_reward(
-                    self.agent, self.env_list[:res_env_len], self.max_step, self.max_action))
-                self.reward_avg = np.average(self.rewards)
-
-                self.reward_max = self.reward_avg  # 2020-04-30
-                self.agent.save_or_load_model(cwd, is_save=True)
-                if self.reward_avg >= self.reward_target:
-                    print("########## Solved! ###########")
-                    is_solved = True
-
-            self.reward_std = float(np.std(self.rewards))
-            self.record_eval[-1] = (self.epoch, self.reward_avg, self.reward_std)  # refresh
-            print("{:4} |{:7}  {:7.2f}  {:7.2f}  |{:6.2f}  {:6.2f} |{:.2e}".format(
-                self.epoch, '', self.reward_avg, self.reward_std, actor_loss, critic_loss, self.total_step))
-
-        self.train_timer = timer()  # train_time
-        return is_solved
+        print("epoch|   reward   r_max    r_ave    r_std | loss_A  loss_C |step")
 
     def show_reward(self, epoch, epoch_rewards, iter_numbers, actor_loss, critic_loss):
         self.train_time += timer() - self.train_timer  # train_time
 
         self.epoch = epoch
 
-        # self.record_epoch.append((epoch_rewards, actor_loss, critic_loss, iter_numbers))
-        # self.total_step += iter_numbers
+        if isinstance(epoch_rewards, float):
+            epoch_rewards = (epoch_rewards,)
+            iter_numbers = (iter_numbers,)
         for reward, iter_num in zip(epoch_rewards, iter_numbers):
             self.record_epoch.append((reward, actor_loss, critic_loss, iter_num))
             self.total_step += iter_num
@@ -645,11 +606,11 @@ class Recorder:
             self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action)
             self.reward_avg = np.average(self.rewards)
             self.reward_std = float(np.std(self.rewards))
-            self.record_eval.append((epoch, self.reward_avg, self.reward_std))
+            self.record_eval.append((len(self.record_epoch), self.reward_avg, self.reward_std))
 
             slice_reward = np.array(self.record_epoch[-self.smooth_kernel:])[:, 0]
             smooth_reward = np.average(slice_reward, axis=0)
-            print("{:4} |{:7.2f}  {:7.2f}  {:7.2f}  {:7.2f} |{:6.2f}  {:6.2f} |{:.2e}".format(
+            print("{:4} |{:8.2f} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
                 len(self.record_epoch),
                 smooth_reward, self.reward_max, self.reward_avg, self.reward_std,
                 actor_loss, critic_loss, self.total_step))
@@ -658,28 +619,29 @@ class Recorder:
         else:
             self.rewards = list()
 
-    def check_reward(self, cwd, actor_loss, critic_loss):
+    def check_reward(self, cwd, actor_loss, critic_loss):  # 2020-04-30
         is_solved = False
         if self.reward_avg >= self.reward_max:  # and len(self.rewards) > 1:  # 2020-04-30
             self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action))
             self.reward_avg = np.average(self.rewards)
 
-            self.reward_max = self.reward_avg  # 2020-04-30
-            self.agent.save_or_load_model(cwd, is_save=True)
-
-            if self.reward_avg >= self.reward_target:  # 2020-04-30
-                res_env_len = len(self.env_list) - len(self.rewards)
-                self.rewards.extend(get_eva_reward(
-                    self.agent, self.env_list[:res_env_len], self.max_step, self.max_action))
-                self.reward_avg = np.average(self.rewards)
+            if self.reward_avg >= self.reward_max:
+                self.reward_max = self.reward_avg
+                self.agent.save_or_load_model(cwd, is_save=True)
 
                 if self.reward_avg >= self.reward_target:
-                    print("########## Solved! ###########")
-                    is_solved = True
+                    res_env_len = len(self.env_list) - len(self.rewards)
+                    self.rewards.extend(get_eva_reward(
+                        self.agent, self.env_list[:res_env_len], self.max_step, self.max_action))
+                    self.reward_avg = np.average(self.rewards)
+
+                    if self.reward_avg >= self.reward_target:
+                        print("########## Solved! ###########")
+                        is_solved = True
 
             self.reward_std = float(np.std(self.rewards))
             self.record_eval[-1] = (self.epoch, self.reward_avg, self.reward_std)  # refresh
-            print("{:4} |{:7}  {:7.2f}  {:7.2f}  {:7.2f} |{:6.2f}  {:6.2f} |{:.2e}".format(
+            print("{:4} |{:8} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
                 len(self.record_epoch),
                 '', self.reward_max, self.reward_avg, self.reward_std,
                 actor_loss, critic_loss, self.total_step, ))
@@ -718,13 +680,13 @@ class RewardNorm:
 
 
 def get_eva_reward(agent, env_list, max_step, max_action):  # class Recorder 2020-01-11
-    act = agent.act  # agent.net, target network is our target
+    act = agent.act  # agent.net,
     act.eval()
 
     env_list_copy = env_list.copy()
     eva_size = len(env_list_copy)  # 100
 
-    sum_rewards = [0, ] * eva_size
+    sum_rewards = [0.0, ] * eva_size
     states = [env.reset() for env in env_list_copy]
 
     reward_sums = list()

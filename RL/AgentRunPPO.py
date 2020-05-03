@@ -14,22 +14,20 @@ from AgentRun import get_env_info, draw_plot_with_npy  # for run__ppo()
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, num_inputs, num_outputs, layer_norm=True):
+    def __init__(self, action_dim, critic_dim, mid_dim, layer_norm=True):
         super(ActorCritic, self).__init__()
 
-        mid_dim = 96
-
-        actor_fc1 = nn.Linear(num_inputs, mid_dim)
+        actor_fc1 = nn.Linear(action_dim, mid_dim)
         actor_fc2 = nn.Linear(mid_dim, mid_dim)
-        actor_fc3 = nn.Linear(mid_dim, num_outputs)
+        actor_fc3 = nn.Linear(mid_dim, critic_dim)
         self.actor_fc = nn.Sequential(
             actor_fc1, HardSwish(),
             actor_fc2, HardSwish(),
             actor_fc3,
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, num_outputs), requires_grad=True)
+        self.actor_logstd = nn.Parameter(torch.zeros(1, critic_dim), requires_grad=True)
 
-        critic_fc1 = nn.Linear(num_inputs, mid_dim)
+        critic_fc1 = nn.Linear(action_dim, mid_dim)
         critic_fc2 = nn.Linear(mid_dim, mid_dim)
         critic_fc3 = nn.Linear(mid_dim, 1)
         self.critic_fc = nn.Sequential(
@@ -103,8 +101,7 @@ class AgentPPO:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        actor_dim = net_dim
-        act = ActorCritic(state_dim, action_dim, actor_dim).to(self.device)
+        act = ActorCritic(state_dim, action_dim, net_dim).to(self.device)
         act.train()
         self.act = act
         self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.act_lr, betas=(0.5, 0.99))
@@ -117,7 +114,7 @@ class AgentPPO:
         self.loss_coeff_value = 0.5
         self.loss_coeff_entropy = 0.02  # 0.01
 
-    def inactive_in_env(self, env, max_step, max_memo, running_state):
+    def inactive_in_env_ppo(self, env, max_step, max_memo, max_action, running_state):
         # step1: perform current policy to collect trajectories
         # this is an on-policy method!
         memory = MemoryList()
@@ -135,15 +132,16 @@ class AgentPPO:
                 actions, log_probs, q_value = self.select_actions(state[np.newaxis], explore_noise=True)
                 action = actions[0]
                 log_prob = log_probs[0]
-                q_value = q_value[0]  # ??
+                q_value = q_value[0]
 
-                next_state, reward, done, _ = env.step(action)
+                next_state, reward, done, _ = env.step(action * max_action)
                 reward_sum += reward
 
                 next_state = running_state(next_state)  # if state_norm:
                 mask = 0 if done else 1
 
-                memory.push(state, q_value, action, log_prob, mask, next_state, reward)
+                # memory.push(state, q_value, action, log_prob, mask, next_state, reward)
+                memory.push(state, q_value, action, log_prob, mask, reward)
 
                 if done:
                     break
@@ -156,7 +154,7 @@ class AgentPPO:
             step_counter += t
         return rewards, steps, memory
 
-    def update_parameter(self, memory, batch_size, gamma, ep_ratio):
+    def update_parameter_ppo(self, memory, batch_size, gamma, ep_ratio):
         clip = 0.2
         lamda = 0.97
         num_epoch = 10
@@ -169,7 +167,7 @@ class AgentPPO:
         all_mask = torch.tensor(all_batch.mask, dtype=torch.float32, device=self.device)
         all_action = torch.tensor(all_batch.action, dtype=torch.float32, device=self.device)
         all_state = torch.tensor(all_batch.state, dtype=torch.float32, device=self.device)
-        all_log_prob = torch.tensor(all_batch.logproba, dtype=torch.float32, device=self.device)
+        all_log_prob = torch.tensor(all_batch.log_prob, dtype=torch.float32, device=self.device)
         # next_state not use?
 
         '''calculate prev (return, value, advantage)'''
@@ -233,11 +231,14 @@ class AgentPPO:
     def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states)
-        a_noise, log_prob = self.act.get__a__log_prob(actions)
-        a_noise = a_noise.cpu().data.numpy()
+
         if explore_noise == 0.0:
-            return a_noise
+            actions = actions.cpu().data.numpy()
+            return actions
         else:
+            a_noise, log_prob = self.act.get__a__log_prob(actions)
+            a_noise = a_noise.cpu().data.numpy()
+
             log_prob = log_prob.cpu().data.numpy()
 
             q_value = self.act.critic(states)
@@ -264,12 +265,13 @@ class AgentPPO:
 
 
 class MemoryList:
-    def __init__(self):
+    def __init__(self, ):
         self.memory = []
         from collections import namedtuple
         self.transition = namedtuple(
             'Transition',
-            ('state', 'value', 'action', 'logproba', 'mask', 'next_state', 'reward')
+            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
+            ('state', 'value', 'action', 'log_prob', 'mask', 'reward')
         )
 
     def push(self, *args):
@@ -371,10 +373,10 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
-                rewards, steps, memory = agent.inactive_in_env(
-                    env, max_step, max_memo, running_state)
+                rewards, steps, memory = agent.inactive_in_env_ppo(
+                    env, max_step, max_memo, max_action, running_state)
 
-            l_total, l_value = agent.update_parameter(
+            l_total, l_value = agent.update_parameter_ppo(
                 memory, batch_size, gamma, ep_ratio=1 - epoch / max_epoch)
 
             if np.isnan(l_total) or np.isnan(l_value):
@@ -412,6 +414,7 @@ def run__ppo(gpu_id, cwd):
     args.gpu_id = gpu_id
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 8
+    args.net_dim = 96
     args.gamma = 0.995
 
     args.init_for_training()

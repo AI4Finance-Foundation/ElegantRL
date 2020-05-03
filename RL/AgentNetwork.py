@@ -16,6 +16,11 @@ They feel more like a Cerebellum (Little Brain) for Machines.
 """
 
 
+def layer_norm(layer, std=1.0, bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet):
         super(Actor, self).__init__()
@@ -23,12 +28,14 @@ class Actor(nn.Module):
         if use_densenet:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                      DenseNet(mid_dim),
-                                     nn.Linear(mid_dim * 4, action_dim), nn.Tanh(), )
+                                     nn.Linear(mid_dim * 4, action_dim),  nn.Tanh(), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                      ResNet(mid_dim),
-                                     nn.Linear(mid_dim, action_dim), nn.Tanh(), )
+                                     nn.Linear(mid_dim, action_dim),  nn.Tanh(), )
 
+        # layer_norm(self.net[0], std=1.0)
+        layer_norm(self.net[-2], std=0.01)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, s, noise_std=0.0):
@@ -62,6 +69,9 @@ class Critic(nn.Module):
         if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
             self.net[-1] = nn.utils.spectral_norm(self.net[-1])
+
+        # layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[-1], std=1.0)
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -213,6 +223,9 @@ class ResNet(nn.Module):
             HardSwish(),
         )
 
+        layer_norm(self.dense1[0], std=1.0)
+        layer_norm(self.dense2[0], std=1.0)
+
     def forward(self, x1):
         x2 = self.dense1(x1)
         x3 = self.dense2(x2) + x1
@@ -230,6 +243,9 @@ class DenseNet(nn.Module):
             nn.Linear(mid_dim * 2, mid_dim * 2),
             HardSwish(),
         )
+
+        layer_norm(self.dense1[0], std=1.0)
+        layer_norm(self.dense2[0], std=1.0)
 
         self.dropout = nn.Dropout(p=0.1)
 

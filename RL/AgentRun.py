@@ -35,8 +35,8 @@ class Arguments:  # default working setting and hyper-parameter
         self.update_gap = 2 ** 7  # update the target_net, delay update
 
         self.gamma = 0.99  # discount factor of future rewards
-        self.exp_noise = 0.25  # action = select_action(state) + noise, 'explore_noise': sigma of noise
-        self.pol_noise = 0.5  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
+        self.exp_noise = 2 ** -2  # action = select_action(state) + noise, 'explore_noise': sigma of noise
+        self.pol_noise = 2 ** -1  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
 
         self.is_remove = True  # remove the pre-training data? (True, False, None:ask me)
         self.cwd = 'AC_Methods_LL'  # current work directory
@@ -74,21 +74,42 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
-                epoch_reward, iter_num = agent.inactive_in_env(
+                rewards, steps = agent.inactive_in_env(
                     env, memo, max_step, exp_noise, max_action, r_norm)
 
             actor_loss, critic_loss = agent.update_parameter(
-                memo, iter_num, batch_size, pol_noise, update_gap, gamma)
+                memo, sum(steps), batch_size, pol_noise, update_gap, gamma)
 
             if np.isnan(actor_loss) or np.isnan(critic_loss):
                 print("ValueError: loss value should not be 'nan'. Please run again.")
                 return False
 
             with torch.no_grad():  # just the GPU memory
-                is_solved = recorder.show_and_check_reward(
-                    epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd)
+                # is_solved = recorder.show_and_check_reward(
+                #     epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd)
+                recorder.show_reward(epoch, rewards, steps, actor_loss, critic_loss)
+                is_solved = recorder.check_reward(cwd, actor_loss, critic_loss)
                 if is_solved:
                     break
+        # for epoch in range(max_epoch):
+        #     with torch.no_grad():  # just the GPU memory
+        #         epoch_reward, iter_num = agent.inactive_in_env(
+        #             env, memo, max_step, exp_noise, max_action, r_norm)
+        #
+        #     actor_loss, critic_loss = agent.update_parameter(
+        #         memo, iter_num, batch_size, pol_noise, update_gap, gamma)
+        #
+        #     if np.isnan(actor_loss) or np.isnan(critic_loss):
+        #         print("ValueError: loss value should not be 'nan'. Please run again.")
+        #         return False
+        #
+        #     with torch.no_grad():  # just the GPU memory
+        #         # is_solved = recorder.show_and_check_reward(
+        #         #     epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd)
+        #         recorder.show_reward(epoch, epoch_reward, iter_num, actor_loss, critic_loss)
+        #         is_solved = recorder.check_reward(cwd, actor_loss, critic_loss)
+        #         if is_solved:
+        #             break
 
     except KeyboardInterrupt:
         print("raise KeyboardInterrupt while training.")
@@ -116,7 +137,7 @@ def get_env_info(env):  # 2020-02-02
         action_max = None
     elif isinstance(env.action_space, gym.spaces.Box):
         action_dim = env.action_space.shape[0]  # Continuous
-        action_max = float(env.action_space.high[0]) * 0.999999
+        action_max = float(env.action_space.high[0]) # * 0.999999
         # np.float32(0.9999999), np.float16(0.999)
     else:
         action_dim = None
@@ -360,9 +381,9 @@ if __name__ == '__main__':
     # run__multi_process(run__td3, gpu_tuple=(2, 3), cwd='AC_TD3_HardUpdate')
 
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
-    # run__multi_process(run__sn_ac, gpu_tuple=(2, 3), cwd='AC_SNAC_AdamGamma995')
+    run__multi_process(run__sn_ac, gpu_tuple=(0, 1), cwd='AC_SNAC')
 
     # run__intel_ac(gpu_id=0, cwd='AC_SNAC')
-    run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
+    # run__multi_process(run__intel_ac, gpu_tuple=(2, 3), cwd='AC_IntelAC')
 
     pass
