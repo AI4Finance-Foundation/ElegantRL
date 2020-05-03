@@ -35,8 +35,8 @@ class Arguments:  # default working setting and hyper-parameter
         self.update_gap = 2 ** 7  # update the target_net, delay update
 
         self.gamma = 0.99  # discount factor of future rewards
-        self.exp_noise = 0.2  # action = select_action(state) + noise, 'explore_noise': sigma of noise
-        self.pol_noise = 0.4  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
+        self.exp_noise = 0.25  # action = select_action(state) + noise, 'explore_noise': sigma of noise
+        self.pol_noise = 0.5  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
 
         self.is_remove = True  # remove the pre-training data? (True, False, None:ask me)
         self.cwd = 'AC_Methods_LL'  # current work directory
@@ -55,9 +55,9 @@ class Arguments:  # default working setting and hyper-parameter
         torch.set_num_threads(8)
 
 
-def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-              batch_size, update_gap, gamma, exp_noise, pol_noise,  # update
-              **_kwargs):  # 2020-0430
+def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                batch_size, update_gap, gamma, exp_noise, pol_noise,  # update
+                **_kwargs):  # 2020-0430
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
 
@@ -78,7 +78,7 @@ def run_train(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch
                     env, memo, max_step, exp_noise, max_action, r_norm)
 
             actor_loss, critic_loss = agent.update_parameter(
-                memo, iter_num, batch_size, pol_noise, update_gap, gamma, )
+                memo, iter_num, batch_size, pol_noise, update_gap, gamma)
 
             if np.isnan(actor_loss) or np.isnan(critic_loss):
                 print("ValueError: loss value should not be 'nan'. Please run again.")
@@ -229,27 +229,68 @@ def run__demo():
     """
     args = Arguments()
     args.init_for_training()
-    while not run_train(**vars(args)):
+    while not train_agent(**vars(args)):
         args.random_seed += 42
 
 
-def run__sn_ac(gpu_id, cwd):
+def run__sn_ac(gpu_id, cwd='AC_SNAC'):
     from AgentZoo import AgentSNAC
     args = Arguments()
 
     args.agent_class = AgentSNAC
     args.gpu_id = gpu_id
+    args.gamma = 0.995
 
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not run_train(**vars(args)):
+    while not train_agent(**vars(args)):
         args.random_seed += 42
 
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not run_train(**vars(args)):
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
+
+    # args.env_name = "BipedalWalkerHardcore-v3"
+    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
+    # args.net_dim = int(2 ** 9)
+    # args.max_memo = 2 ** 16 * 24
+    # args.batch_size = int(2 ** 9 * 1.5)
+    # args.max_epoch = 2 ** 14
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
+    # import pybullet_envs  # for python-bullet-gym
+    # args.env_name = "MinitaurBulletEnv-v0"
+    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 18
+    # args.is_remove = True
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
+
+def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
+    from AgentZoo import AgentIntelAC
+    args = Arguments()
+
+    args.agent_class = AgentIntelAC
+    args.gpu_id = gpu_id
+
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent(**vars(args)):
         args.random_seed += 42
 
     # args.env_name = "BipedalWalkerHardcore-v3"
@@ -292,12 +333,12 @@ def run__td3(gpu_id, cwd):
 
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    while not run_train(**vars(args)):
+    while not train_agent(**vars(args)):
         args.random_seed += 42
 
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    while not run_train(**vars(args)):
+    while not train_agent(**vars(args)):
         args.random_seed += 42
 
 
@@ -315,8 +356,13 @@ def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
 if __name__ == '__main__':
     # run__demo()
 
-    # run__td3(gpu_id=0, cwd='AC_TD3_HardUpdate')
-    # run__multi_process(run__td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3_HardUpdate')
+    # run__td3(gpu_id=0, cwd='AC_TD3_ResNet')
+    # run__multi_process(run__td3, gpu_tuple=(2, 3), cwd='AC_TD3_HardUpdate')
 
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
-    run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
+    # run__multi_process(run__sn_ac, gpu_tuple=(2, 3), cwd='AC_SNAC_AdamGamma995')
+
+    # run__intel_ac(gpu_id=0, cwd='AC_SNAC')
+    run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
+
+    pass

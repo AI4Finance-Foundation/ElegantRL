@@ -20,17 +20,14 @@ class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet):
         super(Actor, self).__init__()
 
-        inp_layer = nn.Linear(state_dim, mid_dim)
         if use_densenet:
-            mid_layer = DenseNet(mid_dim)
-            out_layer = nn.Linear(mid_dim * 4, action_dim)
+            self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                     DenseNet(mid_dim),
+                                     nn.Linear(mid_dim * 4, action_dim), nn.Tanh(), )
         else:
-            mid_layer = ResNet(mid_dim)
-            out_layer = nn.Linear(mid_dim, action_dim)
-
-        self.net = nn.Sequential(inp_layer, nn.ReLU(),
-                                 mid_layer,
-                                 out_layer, nn.Tanh(), )
+            self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                     ResNet(mid_dim),
+                                     nn.Linear(mid_dim, action_dim), nn.Tanh(), )
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -39,8 +36,9 @@ class Actor(nn.Module):
         return a if noise_std == 0.0 else self.add_noise(a, noise_std)
 
     def add_noise(self, a, noise_std):  # 2020-03-03
-        noise_normal = torch.randn_like(a, device=self.device) * noise_std
-        a_temp = a + noise_normal
+        # noise_normal = torch.randn_like(a, device=self.device) * noise_std
+        # a_temp = a + noise_normal
+        a_temp = torch.normal(a, noise_std)
         mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.float32)  # 2019-12-30
 
         noise_uniform = torch.rand_like(a, device=self.device)
@@ -52,21 +50,18 @@ class Critic(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(Critic, self).__init__()
 
-        inp_layer = nn.Linear(state_dim + action_dim, mid_dim)
         if use_densenet:
-            mid_layer = DenseNet(mid_dim)
-            out_layer = nn.Linear(mid_dim * 4, action_dim)
+            self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                     DenseNet(mid_dim),
+                                     nn.Linear(mid_dim * 4, action_dim), )
         else:
-            mid_layer = ResNet(mid_dim)
-            out_layer = nn.Linear(mid_dim, action_dim)
+            self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                     ResNet(mid_dim),
+                                     nn.Linear(mid_dim, action_dim), )
 
         if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
-            out_layer = nn.utils.spectral_norm(out_layer)
-
-        self.net = nn.Sequential(inp_layer, nn.ReLU(),
-                                 mid_layer,
-                                 out_layer, )
+            self.net[-1] = nn.utils.spectral_norm(self.net[-1])
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -80,21 +75,20 @@ class CriticTwin(nn.Module):
 
         net1__net2 = list()
         for _ in range(2):
-            inp_layer = nn.Linear(state_dim + action_dim, mid_dim)
             if use_densenet:
-                mid_layer = DenseNet(mid_dim)
-                out_layer = nn.Linear(mid_dim * 4, action_dim)
+                net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                    DenseNet(mid_dim),
+                                    nn.Linear(mid_dim * 4, action_dim), )
             else:
-                mid_layer = ResNet(mid_dim)
-                out_layer = nn.Linear(mid_dim, action_dim)
+                net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                    ResNet(mid_dim),
+                                    nn.Linear(mid_dim, action_dim), )
 
             if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
                 # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
-                out_layer = nn.utils.spectral_norm(out_layer)
+                net[-1] = nn.utils.spectral_norm(net[-1])
 
-            net1__net2.append(nn.Sequential(inp_layer, nn.ReLU(),
-                                            mid_layer,
-                                            out_layer, ))
+            net1__net2.append(net)
 
         self.net1, self.net2 = net1__net2
 
@@ -129,37 +123,44 @@ class QNetwork(nn.Module):  # class AgentQLearning
 
 
 class ActorCritic(nn.Module):  # class AgentIntelAC
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, state_dim, action_dim, mid_dim, use_densenet):
         super(ActorCritic, self).__init__()
         self.enc_s = nn.Sequential(
-            nn.Linear(state_dim, mid_dim),
-            nn.ReLU(),
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
         )
         self.enc_a = nn.Sequential(
-            nn.Linear(action_dim, mid_dim),
-            nn.ReLU(),
+            nn.Linear(action_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
         )
 
-        self.dec_a = nn.Sequential(
-            nn.Linear(mid_dim * 4, mid_dim),
-            HardSwish(),
-            nn.Linear(mid_dim, action_dim),
-            nn.Tanh(),
-        )
-        self.dec_q = nn.Sequential(
-            nn.Linear(mid_dim * 4, mid_dim),
-            HardSwish(),
-            nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
-        )
+        if use_densenet:
+            self.net = DenseNet(mid_dim)
+            self.dec_a = nn.Sequential(
+                nn.Linear(mid_dim * 4, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, action_dim), nn.Tanh(),
+            )
+            self.dec_q = nn.Sequential(
+                nn.Linear(mid_dim * 4, mid_dim), HardSwish(),
+                nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
+            )
+        else:
+            self.net = ResNet(mid_dim)
+            self.dec_a = nn.Sequential(
+                nn.Linear(mid_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, action_dim), nn.Tanh(),
+            )
+            self.dec_q = nn.Sequential(
+                nn.Linear(mid_dim, mid_dim), HardSwish(),
+                nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
+            )
 
-        self.net = DenseNet(mid_dim)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def add_noise(self, a, noise_std):  # 2020-03-03
-        noise_normal = torch.randn_like(a, device=self.device) * noise_std
-        a_temp = a + noise_normal
+        # noise_normal = torch.randn_like(a, device=self.device) * noise_std
+        # a_temp = a + noise_normal
+        a_temp = torch.normal(a, noise_std)
         mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.float32)  # 2019-12-30
 
         noise_uniform = torch.rand_like(a, device=self.device)
@@ -230,12 +231,12 @@ class DenseNet(nn.Module):
             HardSwish(),
         )
 
-        self.dropout = nn.Dropout(p=0.2)
+        self.dropout = nn.Dropout(p=0.1)
 
     def forward(self, x1):
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
         x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        self.dropout.p = rd.uniform(0.0, 0.2)
+        self.dropout.p = rd.uniform(0.0, 0.1)
         return self.dropout(x3)
 
 
