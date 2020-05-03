@@ -6,7 +6,7 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 
-from AgentRun import Recorder  # for train_agent_ppo()
+from AgentZoo import Recorder  # for train_agent_ppo()
 from AgentRun import Arguments  # for run__ppo()
 from AgentRun import get_env_info, draw_plot_with_npy  # for run__ppo()
 
@@ -367,14 +367,15 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
     # memo = Memories(max_memo, memo_dim=1 + 1 + state_dim + memo_action_dim + state_dim)
     # memo.save_or_load_memo(cwd, is_save=False)
 
-    recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
+    running_stat = ZFilter((state_dim,), clip=5.0)
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name,
+                        running_stat=running_stat)
     # r_norm = RewardNorm(n_max=target_reward, n_min=recorder.reward_avg)
-    running_state = ZFilter((state_dim,), clip=5.0)
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
                 rewards, steps, memory = agent.inactive_in_env_ppo(
-                    env, max_step, max_memo, max_action, running_state)
+                    env, max_step, max_memo, max_action, running_stat)
 
             l_total, l_value = agent.update_parameter_ppo(
                 memory, batch_size, gamma, ep_ratio=1 - epoch / max_epoch)
@@ -435,5 +436,5 @@ def run__ppo(gpu_id, cwd):
 if __name__ == '__main__':
     from AgentRun import run__multi_process
 
-    # run__ppo(gpu_id=0, cwd='AC_PPO_beta')
+    # run__ppo(gpu_id=0, cwd='AC_PPO')
     run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')

@@ -137,7 +137,7 @@ def get_env_info(env):  # 2020-02-02
         action_max = None
     elif isinstance(env.action_space, gym.spaces.Box):
         action_dim = env.action_space.shape[0]  # Continuous
-        action_max = float(env.action_space.high[0]) # * 0.999999
+        action_max = float(env.action_space.high[0])  # * 0.999999
         # np.float32(0.9999999), np.float16(0.999)
     else:
         action_dim = None
@@ -381,9 +381,11 @@ if __name__ == '__main__':
     # run__multi_process(run__td3, gpu_tuple=(2, 3), cwd='AC_TD3_HardUpdate')
 
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
-    run__multi_process(run__sn_ac, gpu_tuple=(0, 1), cwd='AC_SNAC')
+    run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
 
     # run__intel_ac(gpu_id=0, cwd='AC_SNAC')
-    # run__multi_process(run__intel_ac, gpu_tuple=(2, 3), cwd='AC_IntelAC')
+    run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
 
+    from AgentRunPPO import run__ppo
+    run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
     pass

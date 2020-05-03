@@ -67,7 +67,7 @@ class AgentSNAC:
 
         self.update_counter = 0
         self.loss_c_sum = 0.0
-        self.clip = 0.5
+        self.rho = 0.5
 
     def inactive_in_env(self, env, memories, max_step, explore_noise, action_max, r_norm):
         self.act.eval()
@@ -157,8 +157,8 @@ class AgentSNAC:
                 self.cri_target.load_state_dict(self.cri.state_dict())
 
                 rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
-                self.clip = self.clip * 0.75 + rho * 0.25
-                self.act_optimizer.param_groups[0]['lr'] = self.lr_a * self.clip
+                self.rho = self.rho * 0.75 + rho * 0.25
+                self.act_optimizer.param_groups[0]['lr'] = self.lr_a * self.rho
                 self.loss_c_sum = 0.0
 
         return loss_a_sum / iter_num, loss_c_sum / iter_num,
@@ -212,7 +212,7 @@ class AgentQLearning(AgentSNAC):
         act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
         act.train()
         self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate, betas=(0.5, 0.99))
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate)
 
         act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
         act_target.eval()
@@ -285,6 +285,7 @@ class AgentIntelAC(AgentSNAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentSNAC, self).__init__()
         use_densenet = True
+        learning_rate = 4e-4
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -301,7 +302,7 @@ class AgentIntelAC(AgentSNAC):
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.net_optimizer = torch.optim.Adam(self.act.parameters(), lr=4e-4, betas=(0.5, 0.99))
+        self.net_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
         self.criterion = nn.SmoothL1Loss()
 
         self.update_counter = 0
@@ -407,7 +408,7 @@ class AgentTD3(AgentSNAC):
         act = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         act.train()
         self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate / 4, betas=(0.5, 0.99))
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate / 4)
 
         act_target = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         act_target.eval()
@@ -420,7 +421,7 @@ class AgentTD3(AgentSNAC):
                          use_densenet, use_spectral_norm).to(self.device)  # TD3
         cri.train()
         self.cri = cri
-        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate, betas=(0.5, 0.99))
+        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate)
 
         cri_target = CriticTwin(state_dim, action_dim, critic_dim,
                                 use_densenet, use_spectral_norm).to(self.device)  # TD3
@@ -561,7 +562,8 @@ class Memories:  # Experiment Replay Buffer 2020-02-02
 
 class Recorder:
     def __init__(self, agent, max_step, max_action, target_reward,
-                 env_name, eva_size=100, show_gap=2 ** 7, smooth_kernel=2 ** 4):
+                 env_name, eva_size=100, show_gap=2 ** 7, smooth_kernel=2 ** 4,
+                 running_stat=None):
         self.show_gap = show_gap
         self.smooth_kernel = smooth_kernel
 
@@ -583,6 +585,7 @@ class Recorder:
         self.record_epoch = list()  # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
         self.record_eval = [(0, self.reward_avg, self.reward_std), ]  # [(epoch, reward_avg, reward_std), ]
         self.total_step = 0
+        self.running_stat = running_stat
 
         self.epoch = 0
         self.train_time = 0  # train_time
@@ -603,7 +606,8 @@ class Recorder:
             self.total_step += iter_num
 
         if timer() - self.show_time > self.show_gap:
-            self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action)
+            self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action,
+                                          self.running_stat)
             self.reward_avg = np.average(self.rewards)
             self.reward_std = float(np.std(self.rewards))
             self.record_eval.append((len(self.record_epoch), self.reward_avg, self.reward_std))
@@ -622,7 +626,8 @@ class Recorder:
     def check_reward(self, cwd, actor_loss, critic_loss):  # 2020-04-30
         is_solved = False
         if self.reward_avg >= self.reward_max:  # and len(self.rewards) > 1:  # 2020-04-30
-            self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action))
+            self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action,
+                                               self.running_stat))
             self.reward_avg = np.average(self.rewards)
 
             if self.reward_avg >= self.reward_max:
@@ -640,7 +645,7 @@ class Recorder:
                         is_solved = True
 
             self.reward_std = float(np.std(self.rewards))
-            self.record_eval[-1] = (self.epoch, self.reward_avg, self.reward_std)  # refresh
+            self.record_eval[-1] = (len(self.record_epoch), self.reward_avg, self.reward_std)  # refresh
             print("{:4} |{:8} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
                 len(self.record_epoch),
                 '', self.reward_max, self.reward_avg, self.reward_std,
@@ -679,7 +684,7 @@ class RewardNorm:
         return n * self.k
 
 
-def get_eva_reward(agent, env_list, max_step, max_action):  # class Recorder 2020-01-11
+def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  # class Recorder 2020-01-11
     act = agent.act  # agent.net,
     act.eval()
 
@@ -691,6 +696,8 @@ def get_eva_reward(agent, env_list, max_step, max_action):  # class Recorder 202
 
     reward_sums = list()
     for iter_num in range(max_step):
+        if running_state:
+            states = [running_state(state, update=False) for state in states]  # if state_norm:
         actions = agent.select_actions(states)
 
         next_states = list()
