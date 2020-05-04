@@ -11,6 +11,7 @@ from AgentNetwork import Actor, Critic  # class AgentSNAC
 from AgentNetwork import ActorCritic  # class AgentIntelAC
 from AgentNetwork import QNetwork  # class AgentQLearning
 from AgentNetwork import CriticTwin  # class AgentTD3
+from AgentNetwork import ActorCriticPPO  # class AgentPPO
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -497,6 +498,182 @@ class AgentTD3(AgentSNAC):
         return loss_a_sum / iter_num, loss_c_sum / iter_num,
 
 
+class AgentPPO:
+    def __init__(self, state_dim, action_dim, net_dim):
+        # super(AgentSNAC, self).__init__()
+        """
+        Refer: https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py
+        Refer: Schulman, John, et al. "Proximal policy optimization algorithms." arXiv preprint arXiv:1707.06347 (2017).
+        Refer: https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py
+        Refer: https://github.com/openai/baselines/tree/master/baselines/ppo2
+        """
+        self.act_lr = 4e-4  # learning rate of actor
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        act = ActorCriticPPO(state_dim, action_dim, net_dim).to(self.device)
+        act.train()
+        self.act = act
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.act_lr, betas=(0.5, 0.99))
+
+        self.criterion = nn.SmoothL1Loss()
+
+        self.clip = 0.5  # constant
+        self.update_counter = 0
+        self.loss_c_sum = 0.0
+        self.loss_coeff_value = 0.5
+        self.loss_coeff_entropy = 0.02  # 0.01
+
+    def inactive_in_env_ppo(self, env, max_step, max_memo, max_action, state_norme):
+        # step1: perform current policy to collect trajectories
+        # this is an on-policy method!
+        memory = MemoryList()
+        rewards = []
+        steps = []
+
+        step_counter = 0
+        while step_counter < max_memo:
+            state = env.reset()
+            reward_sum = 0
+            t = 0
+
+            state = state_norme(state)  # if state_norm:
+            for t in range(max_step):
+                actions, log_probs, q_value = self.select_actions(state[np.newaxis], explore_noise=True)
+                action = actions[0]
+                log_prob = log_probs[0]
+                q_value = q_value[0]
+
+                next_state, reward, done, _ = env.step(action * max_action)
+                reward_sum += reward
+
+                next_state = state_norme(next_state)  # if state_norm:
+                mask = 0 if done else 1
+
+                # memory.push(state, q_value, action, log_prob, mask, next_state, reward)
+                memory.push(state, q_value, action, log_prob, mask, reward)
+
+                if done:
+                    break
+
+                state = next_state
+            rewards.append(reward_sum)
+
+            t += 1
+            steps.append(t)
+            step_counter += t
+        return rewards, steps, memory
+
+    def update_parameter_ppo(self, memory, batch_size, gamma, ep_ratio):
+        clip = 0.2
+        lamda = 0.97
+        num_epoch = 10
+
+        all_batch = memory.sample()
+        max_memo = len(memory)
+
+        all_reward = torch.tensor(all_batch.reward, dtype=torch.float32, device=self.device)
+        all_value = torch.tensor(all_batch.value, dtype=torch.float32, device=self.device)
+        all_mask = torch.tensor(all_batch.mask, dtype=torch.float32, device=self.device)
+        all_action = torch.tensor(all_batch.action, dtype=torch.float32, device=self.device)
+        all_state = torch.tensor(all_batch.state, dtype=torch.float32, device=self.device)
+        all_log_prob = torch.tensor(all_batch.log_prob, dtype=torch.float32, device=self.device)
+        # next_state not use?
+
+        '''calculate prev (return, value, advantage)'''
+        all_deltas = torch.empty(max_memo, dtype=torch.float32, device=self.device)
+        all_returns = torch.empty(max_memo, dtype=torch.float32, device=self.device)
+        all_advantages = torch.empty(max_memo, dtype=torch.float32, device=self.device)
+
+        prev_return = 0
+        prev_value = 0
+        prev_advantage = 0
+        for i in range(max_memo - 1, -1, -1):
+            all_deltas[i] = all_reward[i] + gamma * prev_value * all_mask[i] - all_value[i]
+            all_returns[i] = all_reward[i] + gamma * prev_return * all_mask[i]
+            # ref: https://arxiv.org/pdf/1506.02438.pdf (generalization advantage estimate)
+            all_advantages[i] = all_deltas[i] + gamma * lamda * prev_advantage * all_mask[i]
+
+            prev_return = all_returns[i]
+            prev_value = all_value[i]
+            prev_advantage = all_advantages[i]
+
+        all_advantages = (all_advantages - all_advantages.mean()) / (all_advantages.std() + 1e-6)  # if advantage_norm:
+
+        '''mini all_batch sample'''
+        loss_total = loss_value = None
+
+        for i_epoch in range(int(num_epoch * max_memo / batch_size)):
+            # sample from current all_batch
+            ind = rd.choice(max_memo, batch_size, replace=False)
+            states = all_state[ind]
+            actions = all_action[ind]
+            old_log_probs = all_log_prob[ind]
+            new_log_probs = self.act.get__log_prob(states, actions)
+            advantages = all_advantages[ind]
+            returns = all_returns[ind]
+
+            new_values = self.act.critic(states).flatten()
+
+            ratio = torch.exp(new_log_probs - old_log_probs)
+            surr1 = ratio * advantages
+            surr2 = ratio.clamp(1 - self.clip, 1 + self.clip) * advantages
+            loss_surr = - torch.mean(torch.min(surr1, surr2))
+
+            minibatch_return_6std = 6 * returns.std()  # if lossvalue_norm:
+            loss_value = torch.mean((new_values - returns).pow(2)) / minibatch_return_6std
+
+            loss_entropy = torch.mean(torch.exp(new_log_probs) * new_log_probs)
+
+            loss_total = loss_surr + self.loss_coeff_value * loss_value + self.loss_coeff_entropy * loss_entropy
+            self.act_optimizer.zero_grad()
+            loss_total.backward()
+            self.act_optimizer.step()
+
+        '''schedule (clip, adam)'''
+        # ep_ratio = 1 - (now_epoch / max_epoch)
+        self.clip = clip * ep_ratio
+        self.act_optimizer.param_groups[0]['lr'] = self.act_lr * ep_ratio
+
+        # return loss_total.data, loss_surr.data, loss_value.data, loss_entropy.data
+        return loss_total.item(), loss_value.item(),
+
+    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states)
+
+        if explore_noise == 0.0:
+            actions = actions.cpu().data.numpy()
+            return actions
+        else:
+            a_noise, log_prob = self.act.get__a__log_prob(actions)
+            a_noise = a_noise.cpu().data.numpy()
+
+            log_prob = log_prob.cpu().data.numpy()
+
+            q_value = self.act.critic(states)
+            q_value = q_value.cpu().data.numpy()
+            return a_noise, log_prob, q_value
+
+    def save_or_load_model(self, mod_dir, is_save):
+        act_save_path = '{}/actor.pth'.format(mod_dir)
+        # cri_save_path = '{}/critic.pth'.format(mod_dir)
+
+        if is_save:
+            torch.save(self.act.state_dict(), act_save_path)
+            # torch.save(self.cri.state_dict(), cri_save_path)
+            # print("Saved act and cri:", mod_dir)
+        elif os.path.exists(act_save_path):
+            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
+            self.act.load_state_dict(act_dict)
+            # self.act_target.load_state_dict(act_dict)
+            # cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
+            # self.cri.load_state_dict(cri_dict)
+            # self.cri_target.load_state_dict(cri_dict)
+        else:
+            print("FileNotFound when load_model: {}".format(mod_dir))
+
+
 """utils"""
 
 
@@ -561,10 +738,30 @@ class Memories:  # Experiment Replay Buffer 2020-02-02
             print("Load Memories:", save_path)
 
 
+class MemoryList:
+    def __init__(self, ):
+        self.memory = []
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition',
+            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
+            ('state', 'value', 'action', 'log_prob', 'mask', 'reward')
+        )
+
+    def push(self, *args):
+        self.memory.append(self.transition(*args))
+
+    def sample(self):
+        return self.transition(*zip(*self.memory))
+
+    def __len__(self):
+        return len(self.memory)
+
+
 class Recorder:
     def __init__(self, agent, max_step, max_action, target_reward,
                  env_name, eva_size=100, show_gap=2 ** 7, smooth_kernel=2 ** 4,
-                 running_stat=None):
+                 state_norm=None):
         self.show_gap = show_gap
         self.smooth_kernel = smooth_kernel
 
@@ -586,7 +783,7 @@ class Recorder:
         self.record_epoch = list()  # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
         self.record_eval = [(0, self.reward_avg, self.reward_std), ]  # [(epoch, reward_avg, reward_std), ]
         self.total_step = 0
-        self.running_stat = running_stat
+        self.running_stat = state_norm
 
         self.epoch = 0
         self.train_time = 0  # train_time
@@ -663,7 +860,7 @@ class Recorder:
         print('TrainTime:', self.train_time)  # train_time
 
         print_str = "{}-{:.2f}AVE-{:.2f}STD-{}E-{}S-{}T".format(
-            env_name, self.reward_avg, self.reward_std, self.epoch, self.train_time, iter_used)  # train_time
+            env_name, self.reward_max, self.reward_std, self.epoch, self.train_time, iter_used)  # train_time
         print(print_str)
         nod_path = '{}/{}.txt'.format(cwd, print_str)
         os.mknod(nod_path, ) if not os.path.exists(nod_path) else None
@@ -675,14 +872,97 @@ class Recorder:
         return self.train_time
 
 
-class RewardNorm:
-    def __init__(self, n_max, n_min):
-        self.k = 128 / (n_max - n_min)  # todo 2 * 128 / (n_max - n_min)
+class RewardNormalization:
+    def __init__(self, n_max, n_min, size=2**7):
+        self.k = size / (n_max - n_min)
         # print(';;RewardNorm', n_max, n_min)
         # print(';;RewardNorm', self(n_max), self(n_min))
 
     def __call__(self, n):
         return n * self.k
+
+
+class RunningStat:  # for class AutoNormalization
+    def __init__(self, shape):
+        self._n = 0
+        self._M = np.zeros(shape)
+        self._S = np.zeros(shape)
+
+    def push(self, x):
+        x = np.asarray(x)
+        # assert x.shape == self._M.shape
+        self._n += 1
+        if self._n == 1:
+            self._M[...] = x
+        else:
+            pre_memo = self._M.copy()
+            self._M[...] = pre_memo + (x - pre_memo) / self._n
+            self._S[...] = self._S + (x - pre_memo) * (x - self._M)
+
+    @property
+    def n(self):
+        return self._n
+
+    @property
+    def mean(self):
+        return self._M
+
+    @property
+    def var(self):
+        return self._S / (self._n - 1) if self._n > 1 else np.square(self._M)
+
+    @property
+    def std(self):
+        return np.sqrt(self.var)
+
+    @property
+    def shape(self):
+        return self._M.shape
+
+
+class AutoNormalization:
+    def __init__(self, shape, demean=True, destd=True, clip=10.0):
+        self.demean = demean
+        self.destd = destd
+        self.clip = clip
+
+        self.rs = RunningStat(shape)
+
+    def __call__(self, x, update=True):
+        if update:
+            self.rs.push(x)
+        if self.demean:
+            x = x - self.rs.mean
+        if self.destd:
+            x = x / (self.rs.std + 1e-8)
+        if self.clip:
+            x = np.clip(x, -self.clip, self.clip)
+        return x
+
+    @staticmethod
+    def output_shape(input_space):
+        return input_space.shape
+
+
+class OrnsteinUhlenbeckProcess(object):
+    def __init__(self, size, theta=0.15, sigma=0.3, x0=0.0, dt=1e-2):
+        """
+        Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py
+        I think that:
+        It makes Zero-mean Gaussian Noise more stable.
+        It helps agent explore better in a inertial system.
+        """
+        self.theta = theta
+        self.sigma = sigma
+        self.x0 = x0
+        self.dt = dt
+        self.size = size
+
+    def __call__(self):
+        noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
+        x = self.x0 - self.theta * self.x0 * self.dt + noise
+        self.x0 = x  # update x0
+        return x
 
 
 def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  # class Recorder 2020-01-11

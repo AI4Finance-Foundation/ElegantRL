@@ -5,8 +5,9 @@ import gym
 import torch
 import numpy as np
 
-from AgentZoo import AgentSNAC
-from AgentZoo import Memories, Recorder, RewardNorm
+from AgentZoo import Recorder
+from AgentZoo import Memories, RewardNormalization
+from AgentZoo import AutoNormalization  # for PPO
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -24,8 +25,8 @@ They feel more like a Cerebellum (Little Brain) for Machines.
 
 
 class Arguments:  # default working setting and hyper-parameter
-    def __init__(self):
-        self.agent_class = AgentSNAC
+    def __init__(self, agent_class):
+        self.agent_class = agent_class
         self.env_name = "LunarLanderContinuous-v2"
         self.net_dim = 2 ** 8  # the network width
         self.max_step = 2 ** 10  # max steps in one epoch
@@ -33,6 +34,7 @@ class Arguments:  # default working setting and hyper-parameter
         self.max_epoch = 2 ** 10  # max num of train_epoch
         self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
         self.update_gap = 2 ** 7  # update the target_net, delay update
+        self.reward_size = 2 ** 7  # do the normalization for reward
 
         self.gamma = 0.99  # discount factor of future rewards
         self.exp_noise = 2 ** -2  # action = select_action(state) + noise, 'explore_noise': sigma of noise
@@ -56,7 +58,7 @@ class Arguments:  # default working setting and hyper-parameter
 
 
 def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-                batch_size, update_gap, gamma, exp_noise, pol_noise,  # update
+                batch_size, update_gap, gamma, exp_noise, pol_noise, reward_size,  # update
                 **_kwargs):  # 2020-0430
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
@@ -69,7 +71,7 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
     memo.save_or_load_memo(cwd, is_save=False)
 
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
-    r_norm = RewardNorm(n_max=target_reward, n_min=recorder.reward_avg)
+    r_norm = RewardNormalization(n_max=target_reward, n_min=recorder.reward_avg, size=reward_size)
 
     try:
         for epoch in range(max_epoch):
@@ -120,7 +122,58 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
     train_time = recorder.show_and_save(env_name, cwd)
 
     # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
-    memo.save_or_load_memo(cwd, is_save=True)
+    # memo.save_or_load_memo(cwd, is_save=True)
+
+    draw_plot_with_npy(cwd, train_time)
+    return True
+
+
+def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                    batch_size, gamma,
+                    **_kwargs):  # 2020-0430
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env)
+
+    agent = agent_class(state_dim, action_dim, net_dim)
+    agent.save_or_load_model(cwd, is_save=False)
+
+    # memo_action_dim = action_dim if max_action else 1  # Discrete action space
+    # memo = Memories(max_memo, memo_dim=1 + 1 + state_dim + memo_action_dim + state_dim)
+    # memo.save_or_load_memo(cwd, is_save=False)
+
+    state_norm = AutoNormalization((state_dim,), clip=6.0)
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name,
+                        state_norm=state_norm)
+    # r_norm = RewardNorm(n_max=target_reward, n_min=recorder.reward_avg)
+    try:
+        for epoch in range(max_epoch):
+            with torch.no_grad():  # just the GPU memory
+                rewards, steps, memory = agent.inactive_in_env_ppo(
+                    env, max_step, max_memo, max_action, state_norm)
+
+            l_total, l_value = agent.update_parameter_ppo(
+                memory, batch_size, gamma, ep_ratio=1 - epoch / max_epoch)
+
+            if np.isnan(l_total) or np.isnan(l_value):
+                print("ValueError: loss value should not be 'nan'. Please run again.")
+                return False
+
+            with torch.no_grad():  # for saving the GPU memory
+                recorder.show_reward(epoch, rewards, steps, l_value, l_total)
+                is_solved = recorder.check_reward(cwd, l_value, l_total)
+                if is_solved:
+                    break
+
+    except KeyboardInterrupt:
+        print("raise KeyboardInterrupt while training.")
+    except AssertionError:  # for BipedWalker BUG 2020-03-03
+        print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
+        return False
+
+    train_time = recorder.show_and_save(env_name, cwd)
+
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
+    # memo.save_or_load_memo(cwd, is_save=True)
 
     draw_plot_with_npy(cwd, train_time)
     return True
@@ -248,17 +301,36 @@ def run__demo():
     Default Environment: LunarLanderContinuous-v2
     Default setting see 'class Arguments()' for details
     """
-    args = Arguments()
+    from AgentZoo import AgentSNAC
+    args = Arguments(AgentSNAC)
     args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
 
+    # args.env_name = "BipedalWalkerHardcore-v3"
+    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
+    # args.net_dim = int(2 ** 9)
+    # args.max_memo = 2 ** 16 * 24
+    # args.batch_size = int(2 ** 9 * 1.5)
+    # args.max_epoch = 2 ** 14
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
+    # import pybullet_envs  # for python-bullet-gym
+    # args.env_name = "MinitaurBulletEnv-v0"
+    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 18
+    # args.is_remove = True
+    # args.init_for_training()
+    # while not run_train(**vars(args)):
+    #     args.random_seed += 42
+
 
 def run__sn_ac(gpu_id, cwd='AC_SNAC'):
     from AgentZoo import AgentSNAC
-    args = Arguments()
-
-    args.agent_class = AgentSNAC
+    args = Arguments(AgentSNAC)
     args.gpu_id = gpu_id
     args.gamma = 0.995
 
@@ -274,42 +346,22 @@ def run__sn_ac(gpu_id, cwd='AC_SNAC'):
     while not train_agent(**vars(args)):
         args.random_seed += 42
 
-    # args.env_name = "BipedalWalkerHardcore-v3"
-    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
-    # args.net_dim = int(2 ** 9)
-    # args.max_memo = 2 ** 16 * 24
-    # args.batch_size = int(2 ** 9 * 1.5)
-    # args.max_epoch = 2 ** 14
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
-    # import pybullet_envs  # for python-bullet-gym
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 18
-    # args.is_remove = True
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
-
 
 def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
     from AgentZoo import AgentIntelAC
-    args = Arguments()
-
-    args.agent_class = AgentIntelAC
+    args = Arguments(AgentIntelAC)
     args.gpu_id = gpu_id
 
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.reward_size = 2 ** 7
     args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
 
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.reward_size = 2 ** 8
     args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
@@ -324,26 +376,10 @@ def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
     # while not run_train(**vars(args)):
     #     args.random_seed += 42
 
-    # import pybullet_envs  # for python-bullet-gym
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 18
-    # args.is_remove = True
-    # args.init_for_training()
-    # while not run_train(**vars(args)):
-    #     args.random_seed += 42
 
-
-def run__td3(gpu_id, cwd):
-    from AgentZoo import AgentTD3
-    args = Arguments()
-
-    '''
-    DenseNet, SN, Hard Update
-    '''
-
-    args.agent_class = AgentTD3
+def run__td3(gpu_id, cwd='AC_TD3'):
+    from AgentZoo import AgentTD3  # DenseNet, SN, Hard Update
+    args = Arguments(AgentTD3)
     args.gpu_id = gpu_id
     args.exp_noise = 0.1
     args.pol_noise = 0.2
@@ -360,6 +396,30 @@ def run__td3(gpu_id, cwd):
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
     while not train_agent(**vars(args)):
+        args.random_seed += 42
+
+
+def run__ppo(gpu_id, cwd='AC_PPO'):
+    from AgentZoo import AgentPPO
+    args = Arguments(AgentPPO)
+    args.gpu_id = gpu_id
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 8
+    args.net_dim = 96
+    args.gamma = 0.995
+
+    args.init_for_training()
+
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent_ppo(**vars(args)):
+        args.random_seed += 42
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent_ppo(**vars(args)):
         args.random_seed += 42
 
 
@@ -387,5 +447,6 @@ if __name__ == '__main__':
     # run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
 
     from AgentRunPPO import run__ppo
+
     run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
     pass

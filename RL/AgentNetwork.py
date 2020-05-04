@@ -28,11 +28,11 @@ class Actor(nn.Module):
         if use_densenet:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                      DenseNet(mid_dim),
-                                     nn.Linear(mid_dim * 4, action_dim),  nn.Tanh(), )
+                                     nn.Linear(mid_dim * 4, action_dim), nn.Tanh(), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                      ResNet(mid_dim),
-                                     nn.Linear(mid_dim, action_dim),  nn.Tanh(), )
+                                     nn.Linear(mid_dim, action_dim), nn.Tanh(), )
 
         # layer_norm(self.net[0], std=1.0)
         layer_norm(self.net[-2], std=0.01)
@@ -211,6 +211,72 @@ class ActorCritic(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
+class ActorCriticPPO(nn.Module):
+    def __init__(self, action_dim, critic_dim, mid_dim, layer_norm=True):
+        super(ActorCriticPPO, self).__init__()
+
+        actor_fc1 = nn.Linear(action_dim, mid_dim)
+        actor_fc2 = nn.Linear(mid_dim, mid_dim)
+        actor_fc3 = nn.Linear(mid_dim, critic_dim)
+        self.actor_fc = nn.Sequential(
+            actor_fc1, HardSwish(),
+            actor_fc2, HardSwish(),
+            actor_fc3,
+        )
+        self.actor_logstd = nn.Parameter(torch.zeros(1, critic_dim), requires_grad=True)
+
+        critic_fc1 = nn.Linear(action_dim, mid_dim)
+        critic_fc2 = nn.Linear(mid_dim, mid_dim)
+        critic_fc3 = nn.Linear(mid_dim, 1)
+        self.critic_fc = nn.Sequential(
+            critic_fc1, HardSwish(),
+            critic_fc2, HardSwish(),
+            critic_fc3,
+        )
+
+        if layer_norm:
+            self.layer_norm(actor_fc1, std=1.0)
+            self.layer_norm(actor_fc2, std=1.0)
+            self.layer_norm(actor_fc3, std=0.01)
+
+            self.layer_norm(critic_fc1, std=1.0)
+            self.layer_norm(critic_fc2, std=1.0)
+            self.layer_norm(critic_fc3, std=1.0)
+
+    @staticmethod
+    def layer_norm(layer, std=1.0, bias_const=0.0):
+        torch.nn.init.orthogonal_(layer.weight, std)
+        torch.nn.init.constant_(layer.bias, bias_const)
+
+    def forward(self, s):
+        a_mean = self.actor_fc(s)
+        return a_mean
+
+    def get__log_prob(self, s, a_inp):
+        a_mean = self.actor_fc(s)
+        a_log_std = self.actor_logstd.expand_as(a_mean)
+        a_std = torch.exp(a_log_std)
+        log_prob = -(a_log_std + (a_inp - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        log_prob = log_prob.sum(1)
+        return log_prob
+
+    def critic(self, s):
+        q = self.critic_fc(s)
+        return q
+
+    def get__a__log_prob(self, a_mean):
+        a_log_std = self.actor_logstd.expand_as(a_mean)
+        a_std = torch.exp(a_log_std)
+        a_noise = torch.normal(a_mean, a_std)
+
+        log_prob = -(a_log_std + (a_noise - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        log_prob = log_prob.sum(1)
+        return a_noise, log_prob
+
+
+"""utils"""
+
+
 class ResNet(nn.Module):
     def __init__(self, mid_dim):
         super(ResNet, self).__init__()
@@ -263,24 +329,3 @@ class HardSwish(nn.Module):
 
     def forward(self, x):
         return self.relu6(x + 3.) / 6. * x
-
-
-class OrnsteinUhlenbeckProcess(object):
-    def __init__(self, size, theta=0.15, sigma=0.3, x0=0.0, dt=1e-2):
-        """
-        Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py
-        I think that:
-        It makes Zero-mean Gaussian Noise more stable.
-        It helps agent explore better in a inertial system.
-        """
-        self.theta = theta
-        self.sigma = sigma
-        self.x0 = x0
-        self.dt = dt
-        self.size = size
-
-    def __call__(self):
-        noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
-        x = self.x0 - self.theta * self.x0 * self.dt + noise
-        self.x0 = x  # update x0
-        return x

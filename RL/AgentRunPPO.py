@@ -13,9 +13,9 @@ from AgentRun import get_env_info, draw_plot_with_npy  # for run__ppo()
 '''AgentNetwork'''
 
 
-class ActorCritic(nn.Module):
+class ActorCriticPPO(nn.Module):
     def __init__(self, action_dim, critic_dim, mid_dim, layer_norm=True):
-        super(ActorCritic, self).__init__()
+        super(ActorCriticPPO, self).__init__()
 
         actor_fc1 = nn.Linear(action_dim, mid_dim)
         actor_fc2 = nn.Linear(mid_dim, mid_dim)
@@ -101,7 +101,7 @@ class AgentPPO:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        act = ActorCritic(state_dim, action_dim, net_dim).to(self.device)
+        act = ActorCriticPPO(state_dim, action_dim, net_dim).to(self.device)
         act.train()
         self.act = act
         self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.act_lr, betas=(0.5, 0.99))
@@ -114,7 +114,7 @@ class AgentPPO:
         self.loss_coeff_value = 0.5
         self.loss_coeff_entropy = 0.02  # 0.01
 
-    def inactive_in_env_ppo(self, env, max_step, max_memo, max_action, running_state):
+    def inactive_in_env_ppo(self, env, max_step, max_memo, max_action, state_norme):
         # step1: perform current policy to collect trajectories
         # this is an on-policy method!
         memory = MemoryList()
@@ -127,7 +127,7 @@ class AgentPPO:
             reward_sum = 0
             t = 0
 
-            state = running_state(state)  # if state_norm:
+            state = state_norme(state)  # if state_norm:
             for t in range(max_step):
                 actions, log_probs, q_value = self.select_actions(state[np.newaxis], explore_noise=True)
                 action = actions[0]
@@ -137,7 +137,7 @@ class AgentPPO:
                 next_state, reward, done, _ = env.step(action * max_action)
                 reward_sum += reward
 
-                next_state = running_state(next_state)  # if state_norm:
+                next_state = state_norme(next_state)  # if state_norm:
                 mask = 0 if done else 1
 
                 # memory.push(state, q_value, action, log_prob, mask, next_state, reward)
@@ -284,7 +284,7 @@ class MemoryList:
         return len(self.memory)
 
 
-class RunningStat:
+class RunningStat:  # for class AutoNormalization
     def __init__(self, shape):
         self._n = 0
         self._M = np.zeros(shape)
@@ -322,12 +322,7 @@ class RunningStat:
         return self._M.shape
 
 
-class ZFilter:
-    """
-    y = (x-mean)/std
-    using running estimates of mean,std
-    """
-
+class AutoNormalization:
     def __init__(self, shape, demean=True, destd=True, clip=10.0):
         self.demean = demean
         self.destd = destd
@@ -367,15 +362,15 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
     # memo = Memories(max_memo, memo_dim=1 + 1 + state_dim + memo_action_dim + state_dim)
     # memo.save_or_load_memo(cwd, is_save=False)
 
-    running_stat = ZFilter((state_dim,), clip=5.0)
+    state_norm = AutoNormalization((state_dim,), clip=5.0)
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name,
-                        running_stat=running_stat)
+                        state_norm=state_norm)
     # r_norm = RewardNorm(n_max=target_reward, n_min=recorder.reward_avg)
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
                 rewards, steps, memory = agent.inactive_in_env_ppo(
-                    env, max_step, max_memo, max_action, running_stat)
+                    env, max_step, max_memo, max_action, state_norm)
 
             l_total, l_value = agent.update_parameter_ppo(
                 memory, batch_size, gamma, ep_ratio=1 - epoch / max_epoch)
@@ -384,9 +379,7 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
                 print("ValueError: loss value should not be 'nan'. Please run again.")
                 return False
 
-            with torch.no_grad():  # just the GPU memory
-                # is_solved = recorder.show_and_check_reward(
-                #     epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd)
+            with torch.no_grad():  # for saving the GPU memory
                 recorder.show_reward(epoch, rewards, steps, l_value, l_total)
                 is_solved = recorder.check_reward(cwd, l_value, l_total)
                 if is_solved:
