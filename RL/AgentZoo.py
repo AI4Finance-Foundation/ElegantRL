@@ -835,7 +835,8 @@ class Recorder:
                 if self.reward_avg >= self.reward_target:
                     res_env_len = len(self.env_list) - len(self.rewards)
                     self.rewards.extend(get_eva_reward(
-                        self.agent, self.env_list[:res_env_len], self.max_step, self.max_action))
+                        self.agent, self.env_list[:res_env_len], self.max_step, self.max_action,
+                        self.running_stat))
                     self.reward_avg = np.average(self.rewards)
 
                     if self.reward_avg >= self.reward_target:

@@ -162,6 +162,7 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
                 recorder.show_reward(epoch, rewards, steps, l_value, l_total)
                 is_solved = recorder.check_reward(cwd, l_value, l_total)
                 if is_solved:
+                    print(';;;', is_solved)
                     break
 
     except KeyboardInterrupt:
@@ -399,7 +400,7 @@ def run__td3(gpu_id, cwd='AC_TD3'):
         args.random_seed += 42
 
 
-def run__ppo(gpu_id, cwd='AC_PPO'):
+def run__ppo(gpu_id=0, cwd='AC_PPO'):
     from AgentZoo import AgentPPO
     args = Arguments(AgentPPO)
     args.gpu_id = gpu_id
@@ -437,16 +438,14 @@ def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
 if __name__ == '__main__':
     # run__demo()
 
-    # run__td3(gpu_id=0, cwd='AC_TD3_ResNet')
-    # run__multi_process(run__td3, gpu_tuple=(2, 3), cwd='AC_TD3_HardUpdate')
-
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
     # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
-
     # run__intel_ac(gpu_id=0, cwd='AC_SNAC')
     # run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
 
-    from AgentRunPPO import run__ppo
-
+    # run__ppo(gpu_id=0, cwd='AC_PPO')
     run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
+
+    # run__td3(gpu_id=0, cwd='AC_TD3')
+    run__multi_process(run__td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3')
     pass
