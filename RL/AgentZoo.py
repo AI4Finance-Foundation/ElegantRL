@@ -285,7 +285,7 @@ class AgentIntelAC(AgentSNAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentSNAC, self).__init__()
         use_densenet = True
-        learning_rate = 4e-4
+        self.learning_rate = 4e-4
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -302,7 +302,7 @@ class AgentIntelAC(AgentSNAC):
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.net_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+        self.net_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.criterion = nn.SmoothL1Loss()
 
         self.update_counter = 0
@@ -363,6 +363,7 @@ class AgentIntelAC(AgentSNAC):
                 self.rho = self.rho * 0.75 + rho * 0.25
                 self.loss_c_sum = 0.0
 
+                # self.net_optimizer.param_groups[0]['lr'] = self.learning_rate * max(self.rho, 0.1)
                 if self.rho > 0.1:
                     self.act_target.load_state_dict(self.act.state_dict())
 
@@ -591,7 +592,7 @@ class Recorder:
         self.train_time = 0  # train_time
         self.train_timer = timer()  # train_time
         self.start_time = self.show_time = timer()
-        print("epoch|   reward   r_max    r_ave    r_std | loss_A  loss_C |step")
+        print("epoch|   reward   r_max    r_ave    r_std |  loss_A loss_C |step")
 
     def show_reward(self, epoch, epoch_rewards, iter_numbers, actor_loss, critic_loss):
         self.train_time += timer() - self.train_timer  # train_time
@@ -676,7 +677,7 @@ class Recorder:
 
 class RewardNorm:
     def __init__(self, n_max, n_min):
-        self.k = 2 * 128 / (n_max - n_min)
+        self.k = 128 / (n_max - n_min)  # todo 2 * 128 / (n_max - n_min)
         # print(';;RewardNorm', n_max, n_min)
         # print(';;RewardNorm', self(n_max), self(n_min))
 

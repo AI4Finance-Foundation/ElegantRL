@@ -381,10 +381,10 @@ if __name__ == '__main__':
     # run__multi_process(run__td3, gpu_tuple=(2, 3), cwd='AC_TD3_HardUpdate')
 
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
-    run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
+    # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
 
     # run__intel_ac(gpu_id=0, cwd='AC_SNAC')
-    run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
+    # run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
 
     from AgentRunPPO import run__ppo
     run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
