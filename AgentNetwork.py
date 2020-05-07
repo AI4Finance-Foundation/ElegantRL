@@ -28,11 +28,11 @@ class Actor(nn.Module):
         if use_densenet:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                      DenseNet(mid_dim),
-                                     nn.Linear(mid_dim * 4, action_dim),  nn.Tanh(), )
+                                     nn.Linear(mid_dim * 4, action_dim), nn.Tanh(), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                     ResNet(mid_dim),
-                                     nn.Linear(mid_dim, action_dim),  nn.Tanh(), )
+                                     LinearNet(mid_dim),
+                                     nn.Linear(mid_dim, action_dim), nn.Tanh(), )
 
         # layer_norm(self.net[0], std=1.0)
         layer_norm(self.net[-2], std=0.01)
@@ -53,18 +53,18 @@ class Actor(nn.Module):
         return a_noise
 
 
-class Critic(nn.Module):
+class Critic(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(Critic, self).__init__()
 
         if use_densenet:
             self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                      DenseNet(mid_dim),
-                                     nn.Linear(mid_dim * 4, action_dim), )
+                                     nn.Linear(mid_dim * 4, 1), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                     ResNet(mid_dim),
-                                     nn.Linear(mid_dim, action_dim), )
+                                     LinearNet(mid_dim),
+                                     nn.Linear(mid_dim, 1), )
 
         if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
@@ -79,28 +79,52 @@ class Critic(nn.Module):
         return q
 
 
+class CriticAdvantage(nn.Module):  # 2020-05-05 fix bug
+    def __init__(self, state_dim, mid_dim, use_densenet, use_spectral_norm):
+        super(CriticAdvantage, self).__init__()
+
+        if use_densenet:
+            self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                     DenseNet(mid_dim),
+                                     nn.Linear(mid_dim * 4, 1), )
+        else:
+            self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                     LinearNet(mid_dim),
+                                     nn.Linear(mid_dim, 1), )
+
+        if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
+            # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
+            self.net[-1] = nn.utils.spectral_norm(self.net[-1])
+
+        # layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[-1], std=1.0)
+
+    def forward(self, s):
+        q = self.net(s)
+        return q
+
+
 class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(CriticTwin, self).__init__()
 
-        net1__net2 = list()
-        for _ in range(2):
+        def build_net():
             if use_densenet:
                 net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                     DenseNet(mid_dim),
                                     nn.Linear(mid_dim * 4, action_dim), )
             else:
                 net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    ResNet(mid_dim),
+                                    LinearNet(mid_dim),
                                     nn.Linear(mid_dim, action_dim), )
 
             if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
                 # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
                 net[-1] = nn.utils.spectral_norm(net[-1])
+            return net
 
-            net1__net2.append(net)
-
-        self.net1, self.net2 = net1__net2
+        self.net1 = build_net()
+        self.net2 = build_net()
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -155,7 +179,7 @@ class ActorCritic(nn.Module):  # class AgentIntelAC
                 nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
             )
         else:
-            self.net = ResNet(mid_dim)
+            self.net = LinearNet(mid_dim)
             self.dec_a = nn.Sequential(
                 nn.Linear(mid_dim, mid_dim), HardSwish(),
                 nn.Linear(mid_dim, action_dim), nn.Tanh(),
@@ -211,9 +235,75 @@ class ActorCritic(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class ResNet(nn.Module):
+class ActorCriticPPO(nn.Module):
+    def __init__(self, action_dim, critic_dim, mid_dim, layer_norm=True):
+        super(ActorCriticPPO, self).__init__()
+
+        actor_fc1 = nn.Linear(action_dim, mid_dim)
+        actor_fc2 = nn.Linear(mid_dim, mid_dim)
+        actor_fc3 = nn.Linear(mid_dim, critic_dim)
+        self.actor_fc = nn.Sequential(
+            actor_fc1, HardSwish(),
+            actor_fc2, HardSwish(),
+            actor_fc3,
+        )
+        self.actor_logstd = nn.Parameter(torch.zeros(1, critic_dim), requires_grad=True)
+
+        critic_fc1 = nn.Linear(action_dim, mid_dim)
+        critic_fc2 = nn.Linear(mid_dim, mid_dim)
+        critic_fc3 = nn.Linear(mid_dim, 1)
+        self.critic_fc = nn.Sequential(
+            critic_fc1, HardSwish(),
+            critic_fc2, HardSwish(),
+            critic_fc3,
+        )
+
+        if layer_norm:
+            self.layer_norm(actor_fc1, std=1.0)
+            self.layer_norm(actor_fc2, std=1.0)
+            self.layer_norm(actor_fc3, std=0.01)
+
+            self.layer_norm(critic_fc1, std=1.0)
+            self.layer_norm(critic_fc2, std=1.0)
+            self.layer_norm(critic_fc3, std=1.0)
+
+    @staticmethod
+    def layer_norm(layer, std=1.0, bias_const=0.0):
+        torch.nn.init.orthogonal_(layer.weight, std)
+        torch.nn.init.constant_(layer.bias, bias_const)
+
+    def forward(self, s):
+        a_mean = self.actor_fc(s)
+        return a_mean
+
+    def get__log_prob(self, s, a_inp):
+        a_mean = self.actor_fc(s)
+        a_log_std = self.actor_logstd.expand_as(a_mean)
+        a_std = torch.exp(a_log_std)
+        log_prob = -(a_log_std + (a_inp - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        log_prob = log_prob.sum(1)
+        return log_prob
+
+    def critic(self, s):
+        q = self.critic_fc(s)
+        return q
+
+    def get__a__log_prob(self, a_mean):
+        a_log_std = self.actor_logstd.expand_as(a_mean)
+        a_std = torch.exp(a_log_std)
+        a_noise = torch.normal(a_mean, a_std)
+
+        log_prob = -(a_log_std + (a_noise - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        log_prob = log_prob.sum(1)
+        return a_noise, log_prob
+
+
+"""utils"""
+
+
+class LinearNet(nn.Module):
     def __init__(self, mid_dim):
-        super(ResNet, self).__init__()
+        super(LinearNet, self).__init__()
         self.dense1 = nn.Sequential(
             nn.Linear(mid_dim * 1, mid_dim * 1),
             HardSwish(),
@@ -228,7 +318,7 @@ class ResNet(nn.Module):
 
     def forward(self, x1):
         x2 = self.dense1(x1)
-        x3 = self.dense2(x2) + x1
+        x3 = self.dense2(x2)
         return x3
 
 
@@ -263,24 +353,3 @@ class HardSwish(nn.Module):
 
     def forward(self, x):
         return self.relu6(x + 3.) / 6. * x
-
-
-class OrnsteinUhlenbeckProcess(object):
-    def __init__(self, size, theta=0.15, sigma=0.3, x0=0.0, dt=1e-2):
-        """
-        Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py
-        I think that:
-        It makes Zero-mean Gaussian Noise more stable.
-        It helps agent explore better in a inertial system.
-        """
-        self.theta = theta
-        self.sigma = sigma
-        self.x0 = x0
-        self.dt = dt
-        self.size = size
-
-    def __call__(self):
-        noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
-        x = self.x0 - self.theta * self.x0 * self.dt + noise
-        self.x0 = x  # update x0
-        return x
