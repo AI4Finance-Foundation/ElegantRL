@@ -620,8 +620,7 @@ class AgentPPO:
             surr2 = ratio.clamp(1 - self.clip, 1 + self.clip) * advantages
             loss_surr = - torch.mean(torch.min(surr1, surr2))
 
-            minibatch_return_6std = 6 * returns.std()  # if lossvalue_norm:
-            loss_value = torch.mean((new_values - returns).pow(2)) / minibatch_return_6std
+            loss_value = torch.mean((new_values - returns).pow(2)) / (returns.std()*6.0)
 
             loss_entropy = torch.mean(torch.exp(new_log_probs) * new_log_probs)
 
@@ -772,9 +771,10 @@ class Recorder:
         self.max_action = max_action
         self.e1 = 3
         self.e2 = int(eva_size // np.e)
+        self.running_stat = state_norm
 
         '''reward'''
-        self.rewards = get_eva_reward(agent, self.env_list[:5], max_step, max_action)
+        self.rewards = get_eva_reward(agent, self.env_list[:5], max_step, max_action, self.running_stat)
         self.reward_avg = np.average(self.rewards)
         self.reward_std = float(np.std(self.rewards))
         self.reward_target = target_reward
@@ -783,7 +783,6 @@ class Recorder:
         self.record_epoch = list()  # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
         self.record_eval = [(0, self.reward_avg, self.reward_std), ]  # [(epoch, reward_avg, reward_std), ]
         self.total_step = 0
-        self.running_stat = state_norm
 
         self.epoch = 0
         self.train_time = 0  # train_time

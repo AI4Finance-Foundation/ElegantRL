@@ -122,7 +122,7 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
     train_time = recorder.show_and_save(env_name, cwd)
 
     # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
-    # memo.save_or_load_memo(cwd, is_save=True)
+    memo.save_or_load_memo(cwd, is_save=True)
 
     draw_plot_with_npy(cwd, train_time)
     return True
@@ -353,29 +353,29 @@ def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
     args = Arguments(AgentIntelAC)
     args.gpu_id = gpu_id
 
-    args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    args.reward_size = 2 ** 7
-    args.init_for_training()
-    while not train_agent(**vars(args)):
-        args.random_seed += 42
-
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    args.reward_size = 2 ** 8
-    args.init_for_training()
-    while not train_agent(**vars(args)):
-        args.random_seed += 42
-
-    # args.env_name = "BipedalWalkerHardcore-v3"
-    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
-    # args.net_dim = int(2 ** 9)
-    # args.max_memo = 2 ** 16 * 24
-    # args.batch_size = int(2 ** 9 * 1.5)
-    # args.max_epoch = 2 ** 14
+    # args.env_name = "LunarLanderContinuous-v2"
+    # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    # args.reward_size = 2 ** 7
     # args.init_for_training()
-    # while not run_train(**vars(args)):
+    # while not train_agent(**vars(args)):
     #     args.random_seed += 42
+    #
+    # args.env_name = "BipedalWalker-v3"
+    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    # args.reward_size = 2 ** 8
+    # args.init_for_training()
+    # while not train_agent(**vars(args)):
+    #     args.random_seed += 42
+
+    args.env_name = "BipedalWalkerHardcore-v3"
+    args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
+    args.net_dim = int(2 ** 9)
+    args.max_memo = int(2 ** 20)
+    args.batch_size = int(2 ** 9.5)
+    args.max_epoch = 2 ** 14
+    args.init_for_training()
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
 
 
 def run__td3(gpu_id, cwd='AC_TD3'):
@@ -387,35 +387,35 @@ def run__td3(gpu_id, cwd='AC_TD3'):
     args.max_epoch = 2 ** 12
     args.max_memo = 2 ** 18
 
-    args.init_for_training()
-
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
 
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    while not train_agent(**vars(args)):
-        args.random_seed += 42
+    # args.env_name = "BipedalWalker-v3"
+    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    # while not train_agent(**vars(args)):
+    #     args.random_seed += 42
 
 
 def run__ppo(gpu_id=0, cwd='AC_PPO'):
     from AgentZoo import AgentPPO
     args = Arguments(AgentPPO)
     args.gpu_id = gpu_id
-    args.max_memo = 2 ** 11
+    args.max_memo = 2 ** 12
     args.batch_size = 2 ** 8
-    args.net_dim = 96
-    args.gamma = 0.995
+    args.net_dim = 2 ** 7
+    args.gamma = 0.99
+    args.max_epoch = 2 ** 14
 
     args.init_for_training()
 
-    args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    while not train_agent_ppo(**vars(args)):
-        args.random_seed += 42
+    # args.env_name = "LunarLanderContinuous-v2"
+    # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    # args.init_for_training()
+    # while not train_agent_ppo(**vars(args)):
+    #     args.random_seed += 42
 
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
@@ -429,7 +429,9 @@ def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
 
     '''run in multiprocessing'''
     import multiprocessing as mp
-    os.system('cp {} {}/'.format(sys.argv[-1], cwd))
+    os.system('cp {} {}/AgentRun.py.backup/'.format(sys.argv[-1], cwd))
+    os.system('cp {} {}/AgentZoo.py.backup/'.format('AgentZoo.py', cwd))
+    os.system('cp {} {}/AgentNetwork.py.backup/'.format('AgentNetwork.py', cwd))
     processes = [mp.Process(target=target_func, args=(gpu_id, cwd)) for gpu_id in gpu_tuple]
     [process.start() for process in processes]
     [process.join() for process in processes]
@@ -440,12 +442,13 @@ if __name__ == '__main__':
 
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
     # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
-    # run__intel_ac(gpu_id=0, cwd='AC_SNAC')
-    # run__multi_process(run__intel_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_IntelAC')
+
+    # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')
+    run__multi_process(run__intel_ac, gpu_tuple=(2, 3), cwd='AC_IntelAC_BWHC')
 
     # run__ppo(gpu_id=0, cwd='AC_PPO')
-    run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
+    # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
 
     # run__td3(gpu_id=0, cwd='AC_TD3')
-    run__multi_process(run__td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3')
+    # run__multi_process(run__td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3')
     pass

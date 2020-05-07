@@ -83,8 +83,7 @@ class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(CriticTwin, self).__init__()
 
-        net1__net2 = list()
-        for _ in range(2):
+        def build_net():
             if use_densenet:
                 net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                     DenseNet(mid_dim),
@@ -97,10 +96,9 @@ class CriticTwin(nn.Module):
             if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
                 # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
                 net[-1] = nn.utils.spectral_norm(net[-1])
-
-            net1__net2.append(net)
-
-        self.net1, self.net2 = net1__net2
+            return net
+        self.net1 = build_net()
+        self.net2 = build_net()
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
