@@ -31,7 +31,7 @@ class Actor(nn.Module):
                                      nn.Linear(mid_dim * 4, action_dim), nn.Tanh(), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                     ResNet(mid_dim),
+                                     LinearNet(mid_dim),
                                      nn.Linear(mid_dim, action_dim), nn.Tanh(), )
 
         # layer_norm(self.net[0], std=1.0)
@@ -53,18 +53,18 @@ class Actor(nn.Module):
         return a_noise
 
 
-class Critic(nn.Module):
+class Critic(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(Critic, self).__init__()
 
         if use_densenet:
             self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                      DenseNet(mid_dim),
-                                     nn.Linear(mid_dim * 4, action_dim), )
+                                     nn.Linear(mid_dim * 4, 1), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                     ResNet(mid_dim),
-                                     nn.Linear(mid_dim, action_dim), )
+                                     LinearNet(mid_dim),
+                                     nn.Linear(mid_dim, 1), )
 
         if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
@@ -79,6 +79,31 @@ class Critic(nn.Module):
         return q
 
 
+class CriticAdvantage(nn.Module):  # 2020-05-05 fix bug
+    def __init__(self, state_dim, mid_dim, use_densenet, use_spectral_norm):
+        super(CriticAdvantage, self).__init__()
+
+        if use_densenet:
+            self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                     DenseNet(mid_dim),
+                                     nn.Linear(mid_dim * 4, 1), )
+        else:
+            self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                     LinearNet(mid_dim),
+                                     nn.Linear(mid_dim, 1), )
+
+        if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
+            # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
+            self.net[-1] = nn.utils.spectral_norm(self.net[-1])
+
+        # layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[-1], std=1.0)
+
+    def forward(self, s):
+        q = self.net(s)
+        return q
+
+
 class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
         super(CriticTwin, self).__init__()
@@ -90,13 +115,14 @@ class CriticTwin(nn.Module):
                                     nn.Linear(mid_dim * 4, action_dim), )
             else:
                 net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    ResNet(mid_dim),
+                                    LinearNet(mid_dim),
                                     nn.Linear(mid_dim, action_dim), )
 
             if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
                 # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
                 net[-1] = nn.utils.spectral_norm(net[-1])
             return net
+
         self.net1 = build_net()
         self.net2 = build_net()
 
@@ -153,7 +179,7 @@ class ActorCritic(nn.Module):  # class AgentIntelAC
                 nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
             )
         else:
-            self.net = ResNet(mid_dim)
+            self.net = LinearNet(mid_dim)
             self.dec_a = nn.Sequential(
                 nn.Linear(mid_dim, mid_dim), HardSwish(),
                 nn.Linear(mid_dim, action_dim), nn.Tanh(),
@@ -275,9 +301,9 @@ class ActorCriticPPO(nn.Module):
 """utils"""
 
 
-class ResNet(nn.Module):
+class LinearNet(nn.Module):
     def __init__(self, mid_dim):
-        super(ResNet, self).__init__()
+        super(LinearNet, self).__init__()
         self.dense1 = nn.Sequential(
             nn.Linear(mid_dim * 1, mid_dim * 1),
             HardSwish(),
@@ -292,7 +318,7 @@ class ResNet(nn.Module):
 
     def forward(self, x1):
         x2 = self.dense1(x1)
-        x3 = self.dense2(x2) + x1
+        x3 = self.dense2(x2)
         return x3
 
 

@@ -34,7 +34,7 @@ class Arguments:  # default working setting and hyper-parameter
         self.max_epoch = 2 ** 10  # max num of train_epoch
         self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
         self.update_gap = 2 ** 7  # update the target_net, delay update
-        self.reward_size = 2 ** 7  # do the normalization for reward
+        self.reward_scale = 2 ** 7  # do the normalization for reward
 
         self.gamma = 0.99  # discount factor of future rewards
         self.exp_noise = 2 ** -2  # action = select_action(state) + noise, 'explore_noise': sigma of noise
@@ -51,6 +51,7 @@ class Arguments:  # default working setting and hyper-parameter
         whether_remove_history(self.cwd, self.is_remove)
 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(self.gpu_id)
+        # env.seed()  # env has random seed too.
         np.random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
         torch.set_default_dtype(torch.float32)
@@ -58,7 +59,7 @@ class Arguments:  # default working setting and hyper-parameter
 
 
 def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-                batch_size, update_gap, gamma, exp_noise, pol_noise, reward_size,  # update
+                batch_size, update_gap, gamma, exp_noise, pol_noise, reward_scale,  # update
                 **_kwargs):  # 2020-0430
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
@@ -71,7 +72,7 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
     memo.save_or_load_memo(cwd, is_save=False)
 
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
-    r_norm = RewardNormalization(n_max=target_reward, n_min=recorder.reward_avg, size=reward_size)
+    r_norm = RewardNormalization(n_max=target_reward, n_min=recorder.reward_avg, size=reward_scale)
 
     try:
         for epoch in range(max_epoch):
@@ -93,25 +94,6 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
                 is_solved = recorder.check_reward(cwd, actor_loss, critic_loss)
                 if is_solved:
                     break
-        # for epoch in range(max_epoch):
-        #     with torch.no_grad():  # just the GPU memory
-        #         epoch_reward, iter_num = agent.inactive_in_env(
-        #             env, memo, max_step, exp_noise, max_action, r_norm)
-        #
-        #     actor_loss, critic_loss = agent.update_parameter(
-        #         memo, iter_num, batch_size, pol_noise, update_gap, gamma)
-        #
-        #     if np.isnan(actor_loss) or np.isnan(critic_loss):
-        #         print("ValueError: loss value should not be 'nan'. Please run again.")
-        #         return False
-        #
-        #     with torch.no_grad():  # just the GPU memory
-        #         # is_solved = recorder.show_and_check_reward(
-        #         #     epoch, epoch_reward, iter_num, actor_loss, critic_loss, cwd)
-        #         recorder.show_reward(epoch, epoch_reward, iter_num, actor_loss, critic_loss)
-        #         is_solved = recorder.check_reward(cwd, actor_loss, critic_loss)
-        #         if is_solved:
-        #             break
 
     except KeyboardInterrupt:
         print("raise KeyboardInterrupt while training.")
@@ -333,7 +315,6 @@ def run__sn_ac(gpu_id, cwd='AC_SNAC'):
     from AgentZoo import AgentSNAC
     args = Arguments(AgentSNAC)
     args.gpu_id = gpu_id
-    args.gamma = 0.995
 
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
@@ -373,6 +354,7 @@ def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
     args.max_memo = int(2 ** 20)
     args.batch_size = int(2 ** 9.5)
     args.max_epoch = 2 ** 14
+    args.reward_scale = int(2 ** 6.5)
     args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
@@ -393,10 +375,10 @@ def run__td3(gpu_id, cwd='AC_TD3'):
     while not train_agent(**vars(args)):
         args.random_seed += 42
 
-    # args.env_name = "BipedalWalker-v3"
-    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
 
 
 def run__ppo(gpu_id=0, cwd='AC_PPO'):
@@ -444,11 +426,11 @@ if __name__ == '__main__':
     # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
 
     # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')
-    run__multi_process(run__intel_ac, gpu_tuple=(2, 3), cwd='AC_IntelAC_BWHC')
+    # run__multi_process(run__intel_ac, gpu_tuple=(2, 3), cwd='AC_IntelAC_BWHC')
 
     # run__ppo(gpu_id=0, cwd='AC_PPO')
     # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
 
     # run__td3(gpu_id=0, cwd='AC_TD3')
-    # run__multi_process(run__td3, gpu_tuple=(0, 1, 2, 3), cwd='AC_TD3')
+    # run__multi_process(run__td3, gpu_tuple=(0, 1,), cwd='AC_TD3')
     pass

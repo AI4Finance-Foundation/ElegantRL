@@ -394,7 +394,7 @@ class AgentIntelAC(AgentSNAC):
 class AgentTD3(AgentSNAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentSNAC, self).__init__()
-        use_densenet = False
+        use_densenet = True
         use_spectral_norm = False
         learning_rate = 4e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -525,8 +525,6 @@ class AgentPPO:
         self.loss_coeff_entropy = 0.02  # 0.01
 
     def inactive_in_env_ppo(self, env, max_step, max_memo, max_action, state_norme):
-        # step1: perform current policy to collect trajectories
-        # this is an on-policy method!
         memory = MemoryList()
         rewards = []
         steps = []
@@ -831,14 +829,15 @@ class Recorder:
                 self.reward_max = self.reward_avg
                 self.agent.save_or_load_model(cwd, is_save=True)
 
-                if self.reward_avg >= self.reward_target:
+                if self.reward_max >= self.reward_target:
                     res_env_len = len(self.env_list) - len(self.rewards)
                     self.rewards.extend(get_eva_reward(
                         self.agent, self.env_list[:res_env_len], self.max_step, self.max_action,
                         self.running_stat))
                     self.reward_avg = np.average(self.rewards)
+                    self.reward_max = self.reward_avg
 
-                    if self.reward_avg >= self.reward_target:
+                    if self.reward_max >= self.reward_target:
                         print("########## Solved! ###########")
                         is_solved = True
 
