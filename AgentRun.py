@@ -7,6 +7,7 @@ import numpy as np
 
 from AgentZoo import Recorder
 from AgentZoo import Memories, RewardNormalization
+from AgentZoo import ReplayBuffer  # for SAC
 from AgentZoo import AutoNormalization  # for PPO
 
 """
@@ -42,8 +43,7 @@ class Arguments:  # default working setting and hyper-parameter
 
         self.is_remove = True  # remove the pre-training data? (True, False, None:ask me)
         self.cwd = 'AC_Methods_LL'  # current work directory
-        gpu_id = sys.argv[0][-4]
-        self.gpu_id = gpu_id if gpu_id.isdigit() else '0'
+        self.gpu_id = 0
         self.random_seed = 1943 + int(self.gpu_id)
 
     def init_for_training(self):  # remove cwd, choose GPU, set random seed, set CPU threads
@@ -79,6 +79,7 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
             with torch.no_grad():  # just the GPU memory
                 rewards, steps = agent.inactive_in_env(
                     env, memo, max_step, exp_noise, max_action, r_norm)
+                memo.refresh_indices()
 
             actor_loss, critic_loss = agent.update_parameter(
                 memo, sum(steps), batch_size, pol_noise, update_gap, gamma)
@@ -144,9 +145,49 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
                 recorder.show_reward(epoch, rewards, steps, l_value, l_total)
                 is_solved = recorder.check_reward(cwd, l_value, l_total)
                 if is_solved:
-                    print(';;;', is_solved)
                     break
 
+    except KeyboardInterrupt:
+        print("raise KeyboardInterrupt while training.")
+    except AssertionError:  # for BipedWalker BUG 2020-03-03
+        print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
+        return False
+
+    train_time = recorder.show_and_save(env_name, cwd)
+
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
+    # memo.save_or_load_memo(cwd, is_save=True)
+
+    draw_plot_with_npy(cwd, train_time)
+    return True
+
+
+def train_agent_sac(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                    batch_size, gamma,
+                    **_kwargs):  # 2020-0430
+    reward_scale = 1
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env)
+
+    agent = agent_class(env, state_dim, action_dim, net_dim)
+
+    memo = ReplayBuffer(max_memo)
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
+
+    agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)  # init memory before training
+
+    try:
+        for epoch in range(max_epoch):
+            with torch.no_grad():
+                rewards, steps = agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)
+
+            loss_a, loss_c = agent.update_parameter_sac(memo, max_step, batch_size)
+
+            with torch.no_grad():  # for saving the GPU memory
+                recorder.show_reward(epoch, rewards, steps, loss_a, loss_c)
+                is_solved = recorder.check_reward(cwd, loss_a, loss_c)
+                if is_solved:
+                    break
     except KeyboardInterrupt:
         print("raise KeyboardInterrupt while training.")
     except AssertionError:  # for BipedWalker BUG 2020-03-03
@@ -193,10 +234,16 @@ def get_env_info(env):  # 2020-02-02
 
 
 def draw_plot_with_npy(mod_dir, train_time):  # 2020-04-40
-    record_epoch = np.load('%s/record_epoch.npy' % mod_dir)
+    record_epoch = np.load('%s/record_epoch.npy' % mod_dir)  # , allow_pickle=True)
     # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
-    record_eval = np.load('%s/record_eval.npy' % mod_dir)
+    record_eval = np.load('%s/record_eval.npy' % mod_dir)  # , allow_pickle=True)
     # record_eval.append((epoch, eval_reward, eval_std))
+
+    # print(';record_epoch:', record_epoch.shape)
+    # print(';record_eval:', record_eval.shape)
+    # print(record_epoch)
+    # # print(record_eval)
+    # exit()
 
     if len(record_eval.shape) == 1:
         record_eval = np.array([[0., 0., 0.]])
@@ -270,8 +317,9 @@ def whether_remove_history(cwd, remove=None):  # 2020-03-03
 
     os.makedirs(cwd, exist_ok=True)
 
-    shutil.copy(sys.argv[-1], cwd)  # copy *.py to cwd
-    print('copy {} to {}'.format(sys.argv[-1], cwd))
+    shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
+    shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
+    shutil.copy('AgentNetwork.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
     del shutil
 
 
@@ -343,18 +391,19 @@ def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
     #
     # args.env_name = "BipedalWalker-v3"
     # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    # args.reward_size = 2 ** 8
+    # args.reward_size = 2 ** 8 # todo may need to change?
     # args.init_for_training()
     # while not train_agent(**vars(args)):
     #     args.random_seed += 42
 
     args.env_name = "BipedalWalkerHardcore-v3"
     args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
-    args.net_dim = int(2 ** 9)
+    args.net_dim = int(2 ** 8.5)
     args.max_memo = int(2 ** 20)
-    args.batch_size = int(2 ** 9.5)
+    args.batch_size = int(2 ** 9)
     args.max_epoch = 2 ** 14
     args.reward_scale = int(2 ** 6.5)
+    args.is_remove = None
     args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
@@ -406,14 +455,31 @@ def run__ppo(gpu_id=0, cwd='AC_PPO'):
         args.random_seed += 42
 
 
+def run__sac(gpu_id=0, cwd='AC_SAC'):
+    from AgentZoo import AgentSAC
+    args = Arguments(AgentSAC)
+    args.gpu_id = gpu_id
+    args.reward_scale = 1.0  # important
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent_sac(**vars(args)):
+        args.random_seed += 42
+
+    # args.env_name = "LunarLanderContinuous-v2"
+    # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    #
+    # args.init_for_training()
+    # while not train_agent_sac(**vars(args)):
+    #     args.random_seed += 42
+
+
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
     os.makedirs(cwd, exist_ok=True)  # all the files save in here
 
     '''run in multiprocessing'''
     import multiprocessing as mp
-    os.system('cp {} {}/AgentRun.py.backup/'.format(sys.argv[-1], cwd))
-    os.system('cp {} {}/AgentZoo.py.backup/'.format('AgentZoo.py', cwd))
-    os.system('cp {} {}/AgentNetwork.py.backup/'.format('AgentNetwork.py', cwd))
     processes = [mp.Process(target=target_func, args=(gpu_id, cwd)) for gpu_id in gpu_tuple]
     [process.start() for process in processes]
     [process.join() for process in processes]
@@ -425,12 +491,16 @@ if __name__ == '__main__':
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
     # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
 
-    # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')
-    # run__multi_process(run__intel_ac, gpu_tuple=(2, 3), cwd='AC_IntelAC_BWHC')
-
-    # run__ppo(gpu_id=0, cwd='AC_PPO')
-    # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
+    # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')  # todo not dropout
+    # run__multi_process(run__intel_ac, gpu_tuple=(0, 1), cwd='AC_IntelAC')
 
     # run__td3(gpu_id=0, cwd='AC_TD3')
     # run__multi_process(run__td3, gpu_tuple=(0, 1,), cwd='AC_TD3')
-    pass
+
+    # run__ppo(gpu_id=1, cwd='AC_PPO')
+    # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
+
+    run__sac(gpu_id=0, cwd='AC_SAC')
+    # run__multi_process(run__sac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SAC')
+
+    print('Finish:', sys.argv[-1])

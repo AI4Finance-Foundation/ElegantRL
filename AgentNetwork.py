@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import numpy.random as rd
+
+# import numpy.random as rd
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -69,6 +70,63 @@ class Critic(nn.Module):  # 2020-05-05 fix bug
         if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
             self.net[-1] = nn.utils.spectral_norm(self.net[-1])
+
+        # layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[-1], std=1.0)
+
+    def forward(self, s, a):
+        x = torch.cat((s, a), dim=1)
+        q = self.net(x)
+        return q
+
+
+class ActorSAC(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_net):
+        super(ActorSAC, self).__init__()
+
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_net), nn.ReLU(),
+                                 nn.Linear(mid_net, mid_net), nn.ReLU(), )
+        self.net__mean = nn.Linear(mid_net, action_dim)
+        self.net__log_std = nn.Linear(mid_net, action_dim)
+
+        self.min__log_std = -20.0
+        self.max__log_std = 2.0
+        self.constant_pi = np.log(np.sqrt(2 * np.pi))  # for def get__a__log_prob()
+
+    def forward(self, state):
+        x = self.net(state)
+        action_mean = self.net__mean(x)
+        return action_mean
+
+    def actor(self, state):
+        x = self.net(state)
+        action_mean = self.net__mean(x)
+        log_std = self.net__log_std(x)
+        log_std = log_std.clamp(self.min__log_std, self.max__log_std)
+        action_std = log_std.exp()
+        return action_mean, action_std
+
+    def get__a__log_prob(self, states):
+        a_mean, a_std = self.actor(states)
+        noise = torch.randn_like(a_mean, requires_grad=True)  # device=self.device
+        a_noise = a_mean + a_std * noise
+        a_tanh = a_noise.tanh()
+
+        # from torch.distributions.normal import Normal
+        # log_prob_mean = Normal(a_mean, a_std).log_prob(a_noise)
+        # log_prob_noise = log_prob_mean - (1-a_tanh.pow(2) + epsilon)).log() # epsilon=1e-6
+        log_prob_mean = -(a_std.log() + self.constant_pi + ((a_noise - a_mean) / a_std).pow(2) * 0.5)
+        log_prob_noise = log_prob_mean - (-a_tanh.pow(2) + 1.000001).log()
+        return a_tanh, log_prob_noise
+
+
+class CriticSAC(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
+        super(CriticSAC, self).__init__()
+
+        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, 1), )
 
         # layer_norm(self.net[0], std=1.0)
         # layer_norm(self.net[-1], std=1.0)
@@ -236,64 +294,55 @@ class ActorCritic(nn.Module):  # class AgentIntelAC
 
 
 class ActorCriticPPO(nn.Module):
-    def __init__(self, action_dim, critic_dim, mid_dim, layer_norm=True):
+    def __init__(self, action_dim, critic_dim, mid_dim):
         super(ActorCriticPPO, self).__init__()
 
-        actor_fc1 = nn.Linear(action_dim, mid_dim)
-        actor_fc2 = nn.Linear(mid_dim, mid_dim)
-        actor_fc3 = nn.Linear(mid_dim, critic_dim)
         self.actor_fc = nn.Sequential(
-            actor_fc1, HardSwish(),
-            actor_fc2, HardSwish(),
-            actor_fc3,
+            nn.Linear(action_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, critic_dim),
         )
         self.actor_logstd = nn.Parameter(torch.zeros(1, critic_dim), requires_grad=True)
 
-        critic_fc1 = nn.Linear(action_dim, mid_dim)
-        critic_fc2 = nn.Linear(mid_dim, mid_dim)
-        critic_fc3 = nn.Linear(mid_dim, 1)
         self.critic_fc = nn.Sequential(
-            critic_fc1, HardSwish(),
-            critic_fc2, HardSwish(),
-            critic_fc3,
+            nn.Linear(action_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, 1),
         )
 
-        if layer_norm:
-            self.layer_norm(actor_fc1, std=1.0)
-            self.layer_norm(actor_fc2, std=1.0)
-            self.layer_norm(actor_fc3, std=0.01)
+        self.constant_pi = np.log(np.sqrt(2 * np.pi))
 
-            self.layer_norm(critic_fc1, std=1.0)
-            self.layer_norm(critic_fc2, std=1.0)
-            self.layer_norm(critic_fc3, std=1.0)
-
-    @staticmethod
-    def layer_norm(layer, std=1.0, bias_const=0.0):
-        torch.nn.init.orthogonal_(layer.weight, std)
-        torch.nn.init.constant_(layer.bias, bias_const)
+        '''layer_norm'''
+        for layer in (self.actor_fc[0], self.actor_fc[2],
+                      self.critic_fc[0], self.critic_fc[2], self.critic_fc[4]):
+            layer_norm(layer, std=1.0)
+        layer_norm(self.actor_fc[4], std=0.01)  # output layer for action
 
     def forward(self, s):
         a_mean = self.actor_fc(s)
         return a_mean
 
-    def get__log_prob(self, s, a_inp):
-        a_mean = self.actor_fc(s)
-        a_log_std = self.actor_logstd.expand_as(a_mean)
-        a_std = torch.exp(a_log_std)
-        log_prob = -(a_log_std + (a_inp - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
-        log_prob = log_prob.sum(1)
-        return log_prob
-
     def critic(self, s):
         q = self.critic_fc(s)
         return q
 
-    def get__a__log_prob(self, a_mean):
+    def get__log_prob(self, a_mean, a_inp):  # for update_parameter
+        a_log_std = self.actor_logstd.expand_as(a_mean)
+        a_std = a_log_std.exp()
+
+        # log_prob = -(a_log_std + (a_inp - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        log_prob = -(a_log_std + self.constant_pi + (a_mean - a_inp) / a_std).pow(2) * 0.5
+        log_prob = log_prob.sum(1)
+        return log_prob
+
+    def get__a__log_prob(self, a_mean):  # for select action
         a_log_std = self.actor_logstd.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
+
         a_noise = torch.normal(a_mean, a_std)
 
-        log_prob = -(a_log_std + (a_noise - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        # log_prob = -(a_log_std + (a_noise - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
+        log_prob = -(a_log_std + self.constant_pi + ((a_mean - a_noise) / a_std).pow(2) / 2)
         log_prob = log_prob.sum(1)
         return a_noise, log_prob
 
@@ -337,13 +386,14 @@ class DenseNet(nn.Module):
         layer_norm(self.dense1[0], std=1.0)
         layer_norm(self.dense2[0], std=1.0)
 
-        self.dropout = nn.Dropout(p=0.1)
+        # self.dropout = nn.Dropout(p=0.1)
 
     def forward(self, x1):
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
         x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        self.dropout.p = rd.uniform(0.0, 0.1)
-        return self.dropout(x3)
+        # self.dropout.p = rd.uniform(0.0, 0.1)
+        # return self.dropout(x3)
+        return x3
 
 
 class HardSwish(nn.Module):
