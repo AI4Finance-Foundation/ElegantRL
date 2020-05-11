@@ -1,17 +1,20 @@
 import os
 from time import time as timer
-
+import copy
+import random  # for class ReplayBuffer
 import gym
 import numpy as np
 import numpy.random as rd
 import torch
 import torch.nn as nn
+from torch.distributions.normal import Normal
 
 from AgentNetwork import Actor, Critic  # class AgentSNAC
 from AgentNetwork import ActorCritic  # class AgentIntelAC
 from AgentNetwork import QNetwork  # class AgentQLearning
 from AgentNetwork import CriticTwin  # class AgentTD3
 from AgentNetwork import ActorCriticPPO  # class AgentPPO
+from AgentNetwork import ActorSAC, CriticSAC  # class AgentSAC
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -19,10 +22,17 @@ from AgentNetwork import ActorCriticPPO  # class AgentPPO
 2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
-2020-04-22 Issay-0.2 [Essay, LongDear's Cerebellum (Little Brain)]
+2020-05-05 Issay-0.2 [Essay, LongDear's Cerebellum (Little Brain)]
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
+
+Refer: (TD3) https://github.com/sfujim/TD3
+Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2
+Refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py
+Refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py
+Refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2
+Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac
 """
 
 
@@ -371,98 +381,6 @@ class AgentIntelAC(AgentSNAC):
         loss_c_avg = (loss_c_sum / iter_num_c) if iter_num_c else 0.0
         return loss_a_avg, loss_c_avg
 
-    def update_parameter_fail(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-
-        batch_size = int(batch_size * (1.0 + memories.size / memories.max_size))
-        iter_num_c = int(iter_num * (1.0 + memories.size / 2 ** 18))
-        iter_num_a = 0
-
-        for _ in range(int(iter_num_c * (1 - self.rho))):  # todo
-            with torch.no_grad():
-                memory = memories.sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
-
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
-
-                q_target, next_action0 = self.act_target.next__q_a_fix_bug(state, next_state, policy_noise)
-                q_target = reward + undone * gamma * q_target
-
-            '''loss C'''
-            q_eval = self.act.critic(state, action)
-            critic_loss = self.criterion(q_eval, q_target)
-            # loss_c_tmp = critic_loss.item() # todo: no summary
-            # loss_c_sum += loss_c_tmp
-            # self.loss_c_sum += loss_c_tmp
-
-            '''term A'''
-            actor_term = self.criterion(self.act(next_state), next_action0)
-
-            '''united loss'''
-            united_loss = critic_loss + actor_term * (1 - self.rho)
-
-            self.net_optimizer.zero_grad()
-            united_loss.backward()
-            self.net_optimizer.step()
-
-        for _ in range(iter_num_c):
-            with torch.no_grad():
-                memory = memories.sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
-
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
-
-                q_target, next_action0 = self.act_target.next__q_a_fix_bug(state, next_state, policy_noise)
-                q_target = reward + undone * gamma * q_target
-
-            '''loss C'''
-            q_eval = self.act.critic(state, action)
-            critic_loss = self.criterion(q_eval, q_target)
-            loss_c_tmp = critic_loss.item()
-            loss_c_sum += loss_c_tmp
-            self.loss_c_sum += loss_c_tmp
-
-            '''term A'''
-            actor_term = self.criterion(self.act(next_state), next_action0)
-
-            '''loss A'''
-            action_cur = self.act(state)
-            actor_loss = -self.act_target.critic(state, action_cur).mean()
-            loss_a_sum += actor_loss.item()
-            iter_num_a += 1
-
-            '''united loss'''
-            united_loss = critic_loss + actor_term * (1 - self.rho) + actor_loss * (self.rho * 0.5)
-
-            self.net_optimizer.zero_grad()
-            united_loss.backward()
-            self.net_optimizer.step()
-
-            self.update_counter += 1
-            if self.update_counter == update_gap:
-                self.update_counter = 0
-
-                rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
-                self.rho = self.rho * 0.75 + rho * 0.25
-                self.loss_c_sum = 0.0
-
-                # self.net_optimizer.param_groups[0]['lr'] = self.learning_rate * max(self.rho, 0.1)
-                if self.rho > 0.1:
-                    self.act_target.load_state_dict(self.act.state_dict())
-
-        loss_a_avg = (loss_a_sum / iter_num_a) if iter_num_a else 0.0
-        loss_c_avg = (loss_c_sum / iter_num_c) if iter_num_c else 0.0
-        return loss_a_avg, loss_c_avg
-
     def save_or_load_model(self, mod_dir, is_save):
         act_save_path = '{}/actor.pth'.format(mod_dir)
         # cri_save_path = '{}/critic.pth'.format(mod_dir)
@@ -593,10 +511,6 @@ class AgentPPO:
     def __init__(self, state_dim, action_dim, net_dim):
         # super(AgentSNAC, self).__init__()
         """
-        Refer: https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py
-        Refer: Schulman, John, et al. "Proximal policy optimization algorithms." arXiv preprint arXiv:1707.06347 (2017).
-        Refer: https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py
-        Refer: https://github.com/openai/baselines/tree/master/baselines/ppo2
         """
         self.act_lr = 4e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -763,6 +677,158 @@ class AgentPPO:
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
+class AgentSAC:
+    def __init__(self, env, state_dim, action_dim, net_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.learning_rate = 3e-4
+
+        use_densenet = False
+        use_spectral_norm = False
+
+        '''network'''
+        self.act = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
+
+        cri_dim = int(net_dim * 1.25)
+        self.cri = CriticSAC(state_dim, action_dim, cri_dim, use_densenet, use_spectral_norm).to(self.device)
+        self.cri2 = CriticSAC(state_dim, action_dim, cri_dim, use_densenet, use_spectral_norm).to(self.device)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+        self.cri2_optimizer = torch.optim.Adam(self.cri2.parameters(), lr=self.learning_rate)
+
+        self.cri_target = copy.deepcopy(self.cri).to(self.device)
+        self.cri2_target = copy.deepcopy(self.cri2).to(self.device)
+
+        '''extension'''
+        self.target_entropy = -1
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+
+        self.alpha_optim = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+
+        '''training'''
+        self.state = env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
+
+    @staticmethod
+    def soft_target_update(target, source, tau=5e-3):
+        for target_param, param in zip(target.parameters(), source.parameters()):
+            target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+
+    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states)
+
+        if explore_noise != 0.0:
+            pis = self.act.actor(states)
+            actions = Normal(*pis).sample()
+        actions = actions.tanh()
+        actions = actions.cpu().data.numpy()
+        return actions
+
+    def save_or_load_model(self, mod_dir, is_save):
+        act_save_path = '{}/actor.pth'.format(mod_dir)
+        # cri_save_path = '{}/critic.pth'.format(mod_dir)
+
+        if is_save:
+            torch.save(self.act.state_dict(), act_save_path)
+            # torch.save(self.cri.state_dict(), cri_save_path)
+            # print("Saved act and cri:", mod_dir)
+        elif os.path.exists(act_save_path):
+            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
+            self.act.load_state_dict(act_dict)
+            # self.act_target.load_state_dict(act_dict)
+            # cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
+            # self.cri.load_state_dict(cri_dict)
+            # self.cri_target.load_state_dict(cri_dict)
+        else:
+            print("FileNotFound when load_model: {}".format(mod_dir))
+
+    def inactive_in_env_sac(self, env, memo, max_step, max_action, reward_scale, gamma):
+        rewards = list()
+        steps = list()
+        for t in range(max_step):
+            action = self.select_actions((self.state,), explore_noise=True)[0]
+
+            next_state, reward, done, _ = env.step(action * max_action)
+            res_reward = reward * reward_scale
+            mask = 0.0 if done else gamma
+
+            self.reward_sum += reward
+            self.step_sum += 1
+
+            memo.add(self.state, action, res_reward, next_state, mask)
+            self.state = next_state
+            if done:
+                rewards.append(self.reward_sum)
+                self.reward_sum = 0.0
+                steps.append(self.step_sum)
+                self.step_sum = 0
+
+                # reset the environment
+                self.state = env.reset()
+        return rewards, steps
+
+    def update_parameter_sac(self, memo, max_step, batch_size):
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+        iter_num = max_step
+        for _ in range(iter_num):
+            with torch.no_grad():
+                # smaple batch of samples from the replay buffer
+                states, actions, rewards, next_states, marks = [
+                    torch.tensor(ary, dtype=torch.float32, device=self.device)
+                    for ary in memo.sample(batch_size)
+                ]
+                rewards = rewards.unsqueeze(-1)
+                marks = marks.unsqueeze(-1)  # mark == (1-float(done)) * gamma
+
+            actions_noise, log_prob = self.act.get__a__log_prob(states)
+
+            '''auto alpha'''
+            alpha_loss = -(self.log_alpha * (self.target_entropy + log_prob).detach()).mean()
+            self.alpha_optim.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optim.step()
+
+            '''actor loss'''
+            alpha = self.log_alpha.exp()
+            q0_min = torch.min(self.cri(states, actions_noise), self.cri2(states, actions_noise))
+            actor_loss = (alpha * log_prob - q0_min).mean()
+            self.act_optimizer.zero_grad()
+            actor_loss.backward()
+            self.act_optimizer.step()
+
+            '''critic loss'''
+            q1_value = self.cri(states, actions)
+            q2_value = self.cri2(states, actions)
+            with torch.no_grad():
+                next_actions_noise, next_log_prob = self.act.get__a__log_prob(next_states)
+
+                next_q0_min = torch.min(self.cri_target(next_states, next_actions_noise),
+                                        self.cri2_target(next_states, next_actions_noise))
+                next_target_q_value = next_q0_min - next_log_prob * alpha
+                target_q_value = rewards + marks * next_target_q_value
+            qf1_loss = (q1_value - target_q_value).pow(2).mean()
+            qf2_loss = (q2_value - target_q_value).pow(2).mean()
+            # qf1
+            self.cri_optimizer.zero_grad()
+            qf1_loss.backward()
+            self.cri_optimizer.step()
+            # qf2
+            self.cri2_optimizer.zero_grad()
+            qf2_loss.backward()
+            self.cri2_optimizer.step()
+
+            loss_a_sum += actor_loss.item()
+            loss_c_sum += (qf1_loss.item() + qf2_loss.item()) * 0.5
+            self.soft_target_update(self.cri_target, self.cri)
+            self.soft_target_update(self.cri2_target, self.cri2)
+
+        loss_a = loss_a_sum / iter_num
+        loss_c = loss_c_sum / iter_num
+        return loss_a, loss_c
+
+
 """utils"""
 
 
@@ -849,6 +915,41 @@ class MemoryList:
 
     def __len__(self):
         return len(self.memory)
+
+
+class ReplayBuffer:
+    def __init__(self, memory_size):
+        self.storage = []
+        self.memory_size = memory_size
+        self.next_idx = 0
+
+    # add the samples
+    def add(self, obs, action, reward, obs_, done):
+        data = (obs, action, reward, obs_, done)
+        if self.next_idx >= len(self.storage):
+            self.storage.append(data)
+        else:
+            self.storage[self.next_idx] = data
+        # get the next idx
+        self.next_idx = (self.next_idx + 1) % self.memory_size
+
+    # encode samples
+    def _encode_sample(self, idx):
+        obses, actions, rewards, obses_, dones = [], [], [], [], []
+        for i in idx:
+            data = self.storage[i]
+            obs, action, reward, obs_, done = data
+            obses.append(np.array(obs, copy=False))
+            actions.append(np.array(action, copy=False))
+            rewards.append(reward)
+            obses_.append(np.array(obs_, copy=False))
+            dones.append(done)
+        return np.array(obses), np.array(actions), np.array(rewards), np.array(obses_), np.array(dones)
+
+    # sample from the memory
+    def sample(self, batch_size):
+        idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
+        return self._encode_sample(idxes)
 
 
 class Recorder:

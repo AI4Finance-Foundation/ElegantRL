@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import numpy.random as rd
+# import numpy.random as rd
+from torch.distributions.normal import Normal
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -69,6 +70,58 @@ class Critic(nn.Module):  # 2020-05-05 fix bug
         if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
             # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
             self.net[-1] = nn.utils.spectral_norm(self.net[-1])
+
+        # layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[-1], std=1.0)
+
+    def forward(self, s, a):
+        x = torch.cat((s, a), dim=1)
+        q = self.net(x)
+        return q
+
+
+class ActorSAC(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_net):
+        super(ActorSAC, self).__init__()
+        self.log_std_min = -20
+        self.log_std_max = 2
+
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_net), nn.ReLU(),
+                                 nn.Linear(mid_net, mid_net), nn.ReLU(), )
+        self.net_mean = nn.Linear(mid_net, action_dim)
+        self.net_log_std = nn.Linear(mid_net, action_dim)
+
+    def forward(self, state):
+        x = self.net(state)
+        action_mean = self.net_mean(x)
+        return action_mean
+
+    def actor(self, state):
+        x = self.net(state)
+        action_mean = self.net_mean(x)
+        log_std = self.net_log_std(x)
+        log_std = log_std.clamp(self.log_std_min, self.log_std_max)
+        action_std = log_std.exp()
+        return action_mean, action_std
+
+    def get__a__log_prob(self, states):
+        a_mean, a_std = self.actor(states)
+        noise = torch.randn_like(a_mean, requires_grad=True)  # device=self.device
+        pre_tanh_value = a_mean + a_std * noise
+        actions_noise = pre_tanh_value.tanh()
+
+        # log_prob = Normal(a_mean, a_std).log_prob(pre_tanh_value) - (-actions_noise.pow(2) + (1 + 1e-6)).log()
+        log_prob = Normal(a_mean, a_std).log_prob(pre_tanh_value) - (-actions_noise.pow(2) + (1 + 1e-6)).log()
+        return actions_noise, log_prob
+
+
+class CriticSAC(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
+        super(CriticSAC, self).__init__()
+
+        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, 1), )
 
         # layer_norm(self.net[0], std=1.0)
         # layer_norm(self.net[-1], std=1.0)

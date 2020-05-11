@@ -7,6 +7,7 @@ import numpy as np
 
 from AgentZoo import Recorder
 from AgentZoo import Memories, RewardNormalization
+from AgentZoo import ReplayBuffer  # for SAC
 from AgentZoo import AutoNormalization  # for PPO
 
 """
@@ -161,6 +162,47 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
     return True
 
 
+def train_agent_sac(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                    batch_size, gamma,
+                    **_kwargs):  # 2020-0430
+    reward_scale = 1
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env)
+
+    agent = agent_class(env, state_dim, action_dim, net_dim)
+
+    memo = ReplayBuffer(max_memo)
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
+
+    agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)  # init memory before training
+
+    try:
+        for epoch in range(max_epoch):
+            with torch.no_grad():
+                rewards, steps = agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)
+
+            loss_a, loss_c = agent.update_parameter_sac(memo, max_step, batch_size)
+
+            with torch.no_grad():  # for saving the GPU memory
+                recorder.show_reward(epoch, rewards, steps, loss_a, loss_c)
+                is_solved = recorder.check_reward(cwd, loss_a, loss_c)
+                if is_solved:
+                    break
+    except KeyboardInterrupt:
+        print("raise KeyboardInterrupt while training.")
+    except AssertionError:  # for BipedWalker BUG 2020-03-03
+        print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
+        return False
+
+    train_time = recorder.show_and_save(env_name, cwd)
+
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
+    # memo.save_or_load_memo(cwd, is_save=True)
+
+    draw_plot_with_npy(cwd, train_time)
+    return True
+
+
 """utils"""
 
 
@@ -192,9 +234,9 @@ def get_env_info(env):  # 2020-02-02
 
 
 def draw_plot_with_npy(mod_dir, train_time):  # 2020-04-40
-    record_epoch = np.load('%s/record_epoch.npy' % mod_dir)#, allow_pickle=True)
+    record_epoch = np.load('%s/record_epoch.npy' % mod_dir)  # , allow_pickle=True)
     # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
-    record_eval = np.load('%s/record_eval.npy' % mod_dir)#, allow_pickle=True)
+    record_eval = np.load('%s/record_eval.npy' % mod_dir)  # , allow_pickle=True)
     # record_eval.append((epoch, eval_reward, eval_std))
 
     # print(';record_epoch:', record_epoch.shape)
@@ -413,6 +455,26 @@ def run__ppo(gpu_id=0, cwd='AC_PPO'):
         args.random_seed += 42
 
 
+def run__sac(gpu_id=0, cwd='AC_SAC'):
+    from AgentZoo import AgentSAC
+    args = Arguments(AgentSAC)
+    args.gpu_id = gpu_id
+    args.reward_scale = 1.0  # important
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent_sac(**vars(args)):
+        args.random_seed += 42
+
+    # args.env_name = "LunarLanderContinuous-v2"
+    # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    #
+    # args.init_for_training()
+    # while not train_agent_sac(**vars(args)):
+    #     args.random_seed += 42
+
+
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
     os.makedirs(cwd, exist_ok=True)  # all the files save in here
 
@@ -430,13 +492,15 @@ if __name__ == '__main__':
     # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
 
     # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')  # todo not dropout
-    # run__intel_ac(gpu_id=1, cwd='AC_IntelAC_BWHC')  # todo not dropout
-    run__intel_ac(gpu_id=0, cwd='AC_IntelAC_BWHC')  # todo update_c
     # run__multi_process(run__intel_ac, gpu_tuple=(0, 1), cwd='AC_IntelAC')
-
-    # run__ppo(gpu_id=1, cwd='AC_PPO_2020_0508') # todo PPO may have .py move bug (cwd 'AC_Methods_LL')
-    # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
 
     # run__td3(gpu_id=0, cwd='AC_TD3')
     # run__multi_process(run__td3, gpu_tuple=(0, 1,), cwd='AC_TD3')
+
+    # run__ppo(gpu_id=1, cwd='AC_PPO')
+    # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
+
+    run__sac(gpu_id=0, cwd='AC_SAC')
+    # run__multi_process(run__sac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SAC')
+
     print('Finish:', sys.argv[-1])
