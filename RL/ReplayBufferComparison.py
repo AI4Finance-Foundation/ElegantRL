@@ -29,7 +29,7 @@ class MemoryList:
     def add_memo(self, memory_tuple):
         self.memories.append(memory_tuple)
 
-    def del_memo(self):
+    def init_after_add_memo(self):
         del_len = len(self.memories) - self.max_len
         if del_len > 0:
             del self.memories[:del_len]
@@ -39,7 +39,11 @@ class MemoryList:
 
     def random_sample(self, batch_size, device):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        indices = rd.choice(self.now_len, batch_size, replace=False)
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
 
         '''convert list into array'''
         arrays = [list()
@@ -60,7 +64,7 @@ class MemoryTuple:
         self.memories = list()
 
         self.max_len = memo_max_len
-        self.now_len = None  # init in del_memo()
+        self.now_len = None  # init in init_after_add_memo()
 
         from collections import namedtuple
         self.transition = namedtuple(
@@ -70,7 +74,7 @@ class MemoryTuple:
     def add_memo(self, args):
         self.memories.append(self.transition(*args))
 
-    def del_memo(self):
+    def init_after_add_memo(self):
         del_len = len(self.memories) - self.max_len
         if del_len > 0:
             del self.memories[:del_len]
@@ -80,7 +84,11 @@ class MemoryTuple:
 
     def random_sample(self, batch_size, device):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        indices = rd.choice(self.now_len, batch_size, replace=False)
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
 
         '''convert tuple into array'''
         arrays = self.transition(*zip(*[self.memories[i] for i in indices]))
@@ -91,41 +99,39 @@ class MemoryTuple:
         return tensors
 
 
-class MemoryArray:  # Experiment Replay Buffer 2020-04-04
+class MemoryArray:  # 2020-05-20
     def __init__(self, memo_max_len, state_dim, action_dim, ):
-        self.ptr_u = 0  # pointer_for_update
+        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+        self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
+
+        self.next_idx = 0
         self.is_full = False
-
         self.max_len = memo_max_len
-        self.now_len = 0  # real-time memories size
+        self.now_len = self.max_len if self.is_full else self.next_idx
 
-        memo_dim = state_dim + action_dim + 1 + state_dim + 1
-        # self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
-
-        self.state_dim = state_dim
-        self.action_dim = action_dim
         self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
         self.action_idx = self.state_idx + action_dim
 
-    def add_memo(self, memory_tuple):
-        # self.memories[self.ptr_u, :] = np.hstack(memory_tuple)
-        self.memories[self.ptr_u, :] = torch.tensor(np.hstack(memory_tuple), device=self.device)
-
-        self.ptr_u += 1
-        if self.ptr_u == self.max_len:
-            self.ptr_u = 0
+    def add_memo(self, memo_tuple):
+        self.memories[self.next_idx] = np.hstack(memo_tuple)
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
             self.is_full = True
-            print('Memories is full')
-        self.now_len = self.max_len if self.is_full else self.ptr_u
+            self.next_idx = 0
+
+    def init_after_add_memo(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
 
     def random_sample(self, batch_size, device):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        indices = rd.choice(self.now_len, batch_size, replace=False)
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
 
         memory = self.memories[indices]
-        # memory = torch.tensor(memory, device=device)
+        memory = torch.tensor(memory, device=device)
 
         '''convert array into torch.tensor'''
         tensors = (
@@ -136,9 +142,6 @@ class MemoryArray:  # Experiment Replay Buffer 2020-04-04
             memory[:, self.action_idx:],  # next_states
         )
         return tensors
-
-    def del_memo(self):
-        pass
 
 
 def uniform_exploration(env, max_step, max_action, gamma, reward_scale, memo, action_dim):
@@ -172,7 +175,7 @@ def uniform_exploration(env, max_step, max_action, gamma, reward_scale, memo, ac
             reward_sum = 0.0
             step = 1
 
-    memo.del_memo()
+    memo.init_after_add_memo()
     return rewards, steps
 
 
@@ -196,7 +199,7 @@ def run_compare_speed_of_replay_buffer():
 
         # memo = MemoryTuple(memo_max_len)
         # memo = MemoryList(memo_max_len)
-        memo = MemoryArray(memo_max_len, state_dim, action_dim)  # todo choose MemoryXXX
+        memo = MemoryArray(memo_max_len, state_dim, action_dim)
 
         uniform_exploration(env, max_step, max_action, gamma, reward_scale, memo, action_dim)
         for i in range(8):
