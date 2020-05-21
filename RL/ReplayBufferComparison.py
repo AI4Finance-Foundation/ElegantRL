@@ -11,11 +11,11 @@ import numpy.random as rd
 2020-0505 ZenJiaHao Github: YonV1943
 Compare the running speed of different ReplayBuffer(Memory) implement.
 
-ReplayBuffer    UsedTime(s
-MemoryList:     26          list()
-MemoryTuple:    22          collections.namedtuple
-MemoryArray:    17          numpy.array
-MemoryTensor:   17          torch.tensor
+ReplayBuffer    UsedTime(s) Storage(memories)
+MemoryList:     24          list()
+MemoryTuple:    20          collections.namedtuple
+MemoryArray:    13          numpy.array
+MemoryTensor:   13          torch.tensor (GPU/CPU)
 '''
 
 
@@ -182,7 +182,7 @@ def uniform_exploration(env, max_step, max_action, gamma, reward_scale, memo, ac
 def run_compare_speed_of_replay_buffer():
     from AgentRun import get_env_info
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = sys.argv[-1][-4]
+    os.environ['CUDA_VISIBLE_DEVICES'] = '3'  # sys.argv[-1][-4]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     batch_size = 2 ** 8
@@ -197,8 +197,8 @@ def run_compare_speed_of_replay_buffer():
         env = gym.make(env_name)
         state_dim, action_dim, max_action, target_reward = get_env_info(env)
 
-        # memo = MemoryTuple(memo_max_len)
         # memo = MemoryList(memo_max_len)
+        # memo = MemoryTuple(memo_max_len)
         memo = MemoryArray(memo_max_len, state_dim, action_dim)
 
         uniform_exploration(env, max_step, max_action, gamma, reward_scale, memo, action_dim)
