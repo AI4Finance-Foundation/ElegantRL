@@ -81,6 +81,7 @@ class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN -< Double Q
             # layer_norm(self.net[0], std=1.0)
             # layer_norm(self.net[-1], std=1.0)
             return net
+
         self.net1 = build_cri_net()
         self.net2 = build_cri_net()
 
@@ -111,7 +112,7 @@ class MemoryArray:
             self.is_full = True
             self.next_idx = 0
 
-    def del_memo(self):
+    def init_after_add_memo(self):
         self.memo_len = self.memo_max_len if self.is_full else self.next_idx
 
     def random_sample(self, batch_size, device):
@@ -223,7 +224,7 @@ class AgentSAC:
                 self.step_sum = 0
 
                 self.state = env.reset()
-        memo.del_memo()
+        memo.init_after_add_memo()
         return rewards, steps
 
     def update_parameter_sac(self, memo, max_step, batch_size, update_gap):
@@ -294,7 +295,9 @@ def train_agent_sac(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name, show_gap=2 ** 8)
 
     with torch.no_grad():
-        rewards, steps = agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)
+        # rewards, steps = agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)
+        from ReplayBufferComparison import uniform_exploration
+        rewards, steps = uniform_exploration(env, max_step, max_action, gamma, reward_scale, memo, action_dim)
     recorder.show_reward(rewards, steps, 0, 0)
 
     try:
@@ -347,4 +350,4 @@ if __name__ == '__main__':
     # run__sac(gpu_id=0, cwd='AC_SAC')
     from AgentRun import run__multi_process
 
-    run__multi_process(run__sac, gpu_tuple=(2, 3), cwd='AC_SAC')
+    run__multi_process(run__sac, gpu_tuple=(0, 1), cwd='AC_SAC_HS')

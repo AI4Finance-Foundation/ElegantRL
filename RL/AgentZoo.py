@@ -1,20 +1,18 @@
 import os
 from time import time as timer
-import copy
-import random  # for class ReplayBuffer
+
 import gym
 import numpy as np
 import numpy.random as rd
 import torch
 import torch.nn as nn
-from torch.distributions.normal import Normal
 
-from AgentNetwork import Actor, Critic  # class AgentSNAC
-from AgentNetwork import ActorCritic  # class AgentIntelAC
-from AgentNetwork import QNetwork  # class AgentQLearning
-from AgentNetwork import CriticTwin  # class AgentTD3
-from AgentNetwork import ActorCriticPPO  # class AgentPPO
-from AgentNetwork import ActorSAC, CriticSAC  # class AgentSAC
+from AgentNetwork import QNetwork  # QLearning
+from AgentNetwork import Actor, Critic
+from AgentNetwork import ActorCritic  # IntelAC
+from AgentNetwork import CriticTwin  # TD3, SAC
+from AgentNetwork import ActorCriticPPO  # PPO
+from AgentNetwork import ActorSAC  # SAC
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -22,7 +20,7 @@ from AgentNetwork import ActorSAC, CriticSAC  # class AgentSAC
 2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
-2020-05-05 Issay-0.2 [Essay, LongDear's Cerebellum (Little Brain)]
+2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
@@ -98,7 +96,7 @@ class AgentSNAC:
 
                 # action_max == None, when action space is 'Discrete'
                 next_state, reward, done, _ = env.step((action * action_max) if action_max else action)
-                memories.add(np.hstack((r_norm(reward), 1 - float(done), state, action, next_state)))
+                memories.add_memo(np.hstack((r_norm(reward), 1 - float(done), state, action, next_state)))
 
                 state = next_state
                 reward_sum += reward
@@ -116,13 +114,13 @@ class AgentSNAC:
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        k = 1.0 + memories.size / memories.max_size
+        k = 1.0 + memories.now_len / memories.max_len
         batch_size = int(batch_size * k)
         iter_num = int(iter_num * k)
 
         for _ in range(iter_num):
             with torch.no_grad():
-                memory = memories.sample(batch_size)
+                memory = memories.random_sample(batch_size)
                 memory = torch.tensor(memory, device=self.device)
 
                 reward = memory[:, 0:1]
@@ -238,13 +236,13 @@ class AgentQLearning(AgentSNAC):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        k = 1.0 + memories.size / memories.max_size
+        k = 1.0 + memories.now_len / memories.max_len
         batch_size = int(batch_size * k)
         iter_num = int(iter_num * k)
 
         for _ in range(iter_num):
             with torch.no_grad():
-                memory = memories.sample(batch_size)
+                memory = memories.random_sample(batch_size)
                 memory = torch.tensor(memory, device=self.device)
 
                 reward = memory[:, 0:1]
@@ -324,13 +322,13 @@ class AgentIntelAC(AgentSNAC):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        batch_size = int(batch_size * (1.0 + memories.size / memories.max_size))
-        iter_num_c = int(iter_num * (1.0 + memories.size / 2 ** 18))
+        batch_size = int(batch_size * (1.0 + memories.now_len / memories.max_len))
+        iter_num_c = int(iter_num * (1.0 + memories.now_len / 2 ** 18))
         iter_num_a = 0
 
         for _ in range(iter_num_c):
             with torch.no_grad():
-                memory = memories.sample(batch_size)
+                memory = memories.random_sample(batch_size)
                 memory = torch.tensor(memory, device=self.device)
 
                 reward = memory[:, 0:1]
@@ -403,8 +401,7 @@ class AgentIntelAC(AgentSNAC):
 class AgentTD3(AgentSNAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentSNAC, self).__init__()
-        use_densenet = True
-        use_spectral_norm = False
+        use_densenet = False
         learning_rate = 4e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -428,14 +425,12 @@ class AgentTD3(AgentSNAC):
 
         '''critic'''
         critic_dim = int(net_dim * 1.25)
-        cri = CriticTwin(state_dim, action_dim, critic_dim,
-                         use_densenet, use_spectral_norm).to(self.device)  # TD3
+        cri = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)  # TD3
         cri.train()
         self.cri = cri
         self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate)
 
-        cri_target = CriticTwin(state_dim, action_dim, critic_dim,
-                                use_densenet, use_spectral_norm).to(self.device)  # TD3
+        cri_target = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)  # TD3
         cri_target.eval()
         self.cri_target = cri_target
         self.cri_target.load_state_dict(cri.state_dict())
@@ -450,13 +445,13 @@ class AgentTD3(AgentSNAC):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        k = 1.0 + memories.size / memories.max_size
+        k = 1.0 + memories.now_len / memories.max_len
         batch_size = int(batch_size * k)
         iter_num = int(iter_num * k)
 
         for _ in range(iter_num):
             with torch.no_grad():
-                memory = memories.sample(batch_size)
+                memory = memories.random_sample(batch_size)
                 memory = torch.tensor(memory, device=self.device)
 
                 reward = memory[:, 0:1]
@@ -572,7 +567,7 @@ class AgentPPO:
         lamda = 0.97
         num_epoch = 10
 
-        all_batch = memory.sample()
+        all_batch = memory.random_sample()
         max_memo = len(memory)
 
         all_reward = torch.tensor(all_batch.reward, dtype=torch.float32, device=self.device)
@@ -680,224 +675,213 @@ class AgentPPO:
 class AgentSAC:
     def __init__(self, env, state_dim, action_dim, net_dim):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.learning_rate = 3e-4
-
-        use_densenet = False
-        use_spectral_norm = False
+        self.learning_rate = 2e-4
 
         '''network'''
         self.act = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
 
-        cri_dim = int(net_dim * 1.25)
-        self.cri = CriticSAC(state_dim, action_dim, cri_dim, use_densenet, use_spectral_norm).to(self.device)
-        self.cri2 = CriticSAC(state_dim, action_dim, cri_dim, use_densenet, use_spectral_norm).to(self.device)
+        self.act_target = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
+
+        self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
-        self.cri2_optimizer = torch.optim.Adam(self.cri2.parameters(), lr=self.learning_rate)
 
-        self.cri_target = copy.deepcopy(self.cri).to(self.device)
-        self.cri2_target = copy.deepcopy(self.cri2).to(self.device)
+        # from copy import deepcopy
+        # self.cri_target = copy.deepcopy(self.cri).to(self.device)
+        # same as:
+        self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
 
-        '''extension'''
-        self.target_entropy = -1
+        self.criterion = nn.MSELoss()
+
+        '''extension: alpha and entropy'''
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-
-        self.alpha_optim = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.target_entropy = -1
 
         '''training'''
         self.state = env.reset()
         self.reward_sum = 0.0
         self.step_sum = 0
+        self.update_counter = 0
 
     @staticmethod
-    def soft_target_update(target, source, tau=5e-3):
+    def soft_target_update(target, source, tau=4e-3):
         for target_param, param in zip(target.parameters(), source.parameters()):
             target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
     def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states)
 
-        if explore_noise != 0.0:
-            pis = self.act.actor(states)
-            actions = Normal(*pis).sample()
+        if explore_noise == 0.0:
+            actions = self.act(states)
+        else:
+            a_means, a_stds = self.act.actor(states)
+            actions = torch.normal(a_means, a_stds)
+
         actions = actions.tanh()
         actions = actions.cpu().data.numpy()
         return actions
 
     def save_or_load_model(self, mod_dir, is_save):
         act_save_path = '{}/actor.pth'.format(mod_dir)
-        # cri_save_path = '{}/critic.pth'.format(mod_dir)
+        cri_save_path = '{}/critic.pth'.format(mod_dir)
 
         if is_save:
             torch.save(self.act.state_dict(), act_save_path)
-            # torch.save(self.cri.state_dict(), cri_save_path)
+            torch.save(self.cri.state_dict(), cri_save_path)
             # print("Saved act and cri:", mod_dir)
         elif os.path.exists(act_save_path):
             act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
             self.act.load_state_dict(act_dict)
             # self.act_target.load_state_dict(act_dict)
-            # cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
-            # self.cri.load_state_dict(cri_dict)
+            cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
+            self.cri.load_state_dict(cri_dict)
             # self.cri_target.load_state_dict(cri_dict)
         else:
             print("FileNotFound when load_model: {}".format(mod_dir))
 
-    def inactive_in_env_sac(self, env, memo, max_step, max_action, reward_scale, gamma):
+    def update_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
         rewards = list()
         steps = list()
         for t in range(max_step):
+            '''inactive with environment'''
             action = self.select_actions((self.state,), explore_noise=True)[0]
-
             next_state, reward, done, _ = env.step(action * max_action)
-            res_reward = reward * reward_scale
-            mask = 0.0 if done else gamma
 
             self.reward_sum += reward
             self.step_sum += 1
 
-            memo.add(self.state, action, res_reward, next_state, mask)
+            '''update memory (replay buffer)'''
+            reward_ = reward * reward_scale
+            mask = 0.0 if done else gamma
+            memo.add_memo((reward_, mask, self.state, action, next_state))
+
             self.state = next_state
             if done:
                 rewards.append(self.reward_sum)
                 self.reward_sum = 0.0
+
                 steps.append(self.step_sum)
                 self.step_sum = 0
 
-                # reset the environment
                 self.state = env.reset()
+        memo.init_after_add_memo()
         return rewards, steps
 
-    def update_parameter_sac(self, memo, max_step, batch_size):
+    def update_parameters(self, memo, max_step, batch_size, update_gap):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
-        iter_num = max_step
-        for _ in range(iter_num):
+        for _ in range(max_step):
             with torch.no_grad():
-                # smaple batch of samples from the replay buffer
-                states, actions, rewards, next_states, marks = [
-                    torch.tensor(ary, dtype=torch.float32, device=self.device)
-                    for ary in memo.sample(batch_size)
-                ]
-                rewards = rewards.unsqueeze(-1)
-                marks = marks.unsqueeze(-1)  # mark == (1-float(done)) * gamma
+                rewards, marks, states, actions, next_states = memo.random_sample(batch_size, self.device)
 
-            actions_noise, log_prob = self.act.get__a__log_prob(states)
+            """actor loss"""
 
-            '''auto alpha'''
+            '''stochastic policy'''
+            actions_noise, log_prob = self.act.get__a__log_prob(states, self.device)
+            '''auto alpha for actor'''
             alpha_loss = -(self.log_alpha * (self.target_entropy + log_prob).detach()).mean()
-            self.alpha_optim.zero_grad()
+            self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
-            self.alpha_optim.step()
-
+            self.alpha_optimizer.step()
             '''actor loss'''
             alpha = self.log_alpha.exp()
-            q0_min = torch.min(self.cri(states, actions_noise), self.cri2(states, actions_noise))
+            q0_min = torch.min(*self.cri(states, actions_noise))
             actor_loss = (alpha * log_prob - q0_min).mean()
+            loss_a_sum += actor_loss.item()
             self.act_optimizer.zero_grad()
             actor_loss.backward()
             self.act_optimizer.step()
 
-            '''critic loss'''
-            q1_value = self.cri(states, actions)
-            q2_value = self.cri2(states, actions)
+            """critic loss1"""
+
+            '''q0_target'''
             with torch.no_grad():
-                next_actions_noise, next_log_prob = self.act.get__a__log_prob(next_states)
+                next_actions_noise, next_log_prob = self.act_target.get__a__log_prob(next_states, self.device)
 
-                next_q0_min = torch.min(self.cri_target(next_states, next_actions_noise),
-                                        self.cri2_target(next_states, next_actions_noise))
-                next_target_q_value = next_q0_min - next_log_prob * alpha
-                target_q_value = rewards + marks * next_target_q_value
-            qf1_loss = (q1_value - target_q_value).pow(2).mean()
-            qf2_loss = (q2_value - target_q_value).pow(2).mean()
-            # qf1
+                next_q0_min = torch.min(*self.cri_target(next_states, next_actions_noise))
+                next_q0_target = next_q0_min - next_log_prob * alpha
+                q0_target = rewards + marks * next_q0_target
+            '''q1 and q2'''
+            q1_value, q2_value = self.cri(states, actions)
+            '''critic loss'''
+            critic_loss = self.criterion(q1_value, q0_target) + self.criterion(q2_value, q0_target)
+            loss_c_sum += critic_loss.item() * 0.5
             self.cri_optimizer.zero_grad()
-            qf1_loss.backward()
+            critic_loss.backward()
             self.cri_optimizer.step()
-            # qf2
-            self.cri2_optimizer.zero_grad()
-            qf2_loss.backward()
-            self.cri2_optimizer.step()
 
-            loss_a_sum += actor_loss.item()
-            loss_c_sum += (qf1_loss.item() + qf2_loss.item()) * 0.5
-            self.soft_target_update(self.cri_target, self.cri)
-            self.soft_target_update(self.cri2_target, self.cri2)
+            """critic loss2"""
+            with torch.no_grad():
+                rewards, marks, states, actions, next_states = memo.random_sample(batch_size, self.device)
+            '''q0_target'''
+            with torch.no_grad():
+                next_actions_noise, next_log_prob = self.act_target.get__a__log_prob(next_states, self.device)
 
-        loss_a = loss_a_sum / iter_num
-        loss_c = loss_c_sum / iter_num
+                next_q0_min = torch.min(*self.cri_target(next_states, next_actions_noise))
+                next_q0_target = next_q0_min - next_log_prob * alpha
+                q0_target = rewards + marks * next_q0_target
+            '''q1 and q2'''
+            q1_value, q2_value = self.cri(states, actions)
+            '''critic loss'''
+            critic_loss = self.criterion(q1_value, q0_target) + self.criterion(q2_value, q0_target)
+            loss_c_sum += critic_loss.item() * 0.5
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            """target update"""
+            self.soft_target_update(self.act_target, self.act)  # todo soft
+            self.soft_target_update(self.cri_target, self.cri)  # todo soft
+            # self.update_counter += 1
+            # if self.update_counter > update_gap:
+            #     self.update_counter = 0
+            #     self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
+
+        loss_a = loss_a_sum / max_step
+        loss_c = loss_c_sum / max_step
         return loss_a, loss_c
+
+
+def initial_exploration(env, memo, max_step, max_action, reward_scale, gamma, action_dim):
+    state = env.reset()
+
+    rewards = list()
+    reward_sum = 0.0
+    steps = list()
+    step = 0
+
+    global_step = 0
+    while global_step < max_step:
+        # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
+        action = rd.uniform(-1.0, +1.0, size=action_dim)  # uniform exploration
+
+        next_state, reward, done, _ = env.step(action * max_action)
+        reward_sum += reward
+        step += 1
+
+        adjust_reward = reward * reward_scale
+        mask = 0.0 if done else gamma
+        memo.add_memo((adjust_reward, mask, state, action, next_state))
+
+        state = next_state
+        if done:
+            rewards.append(reward_sum)
+            steps.append(step)
+            global_step += step
+
+            state = env.reset()  # reset the environment
+            reward_sum = 0.0
+            step = 1
+
+    memo.init_after_add_memo()
+    return rewards, steps
 
 
 """utils"""
 
 
-class Memories:  # Experiment Replay Buffer 2020-02-02 # todo indices should be better
-    def __init__(self, max_size, memo_dim):
-        self.ptr_u = 0  # pointer_for_update
-        self.ptr_s = 0  # pointer_for_sample
-        self.is_full = False
-        self.indices = np.arange(max_size)
-
-        self.size = 0  # real-time memories size
-        self.max_size = max_size
-
-        self.memories = np.empty((max_size, memo_dim), dtype=np.float32)
-
-    def add(self, memory):
-        self.memories[self.ptr_u, :] = memory
-
-        self.ptr_u += 1
-        if self.ptr_u == self.max_size:
-            self.ptr_u = 0
-            self.is_full = True
-            print('Memories is_full')
-        self.size = self.max_size if self.is_full else self.ptr_u
-
-    def sample(self, batch_size):
-        self.ptr_s += batch_size
-        if self.ptr_s >= self.size:
-            self.ptr_s = batch_size
-            rd.shuffle(self.indices[:self.size])
-
-        batch_memories = self.memories[self.indices[self.ptr_s - batch_size:self.ptr_s]]
-        return batch_memories
-
-    def save_or_load_memo(self, net_dir, is_save):
-        save_path = "%s/memories.npy" % net_dir
-        if is_save:
-            ptr_u = self.max_size if self.is_full else self.ptr_u
-            np.save(save_path, self.memories[:ptr_u])
-            print('Saved memories.npy in:', net_dir)
-        elif not os.path.exists(save_path):
-            print("FileNotFound when load_memories:", save_path)
-        else:  # exist
-            memories = np.load(save_path)
-
-            memo_len = memories.shape[0]
-            if memo_len > self.max_size:
-                memo_len = self.max_size
-                self.ptr_u = self.max_size
-                print("Memories_num change:", memo_len)
-            else:
-                self.ptr_u = memo_len
-                self.size = memo_len
-                print("Memories_num:", self.ptr_u)
-
-            self.memories[:self.ptr_u] = memories[:memo_len]
-            if self.ptr_u == self.max_size:
-                self.ptr_u = 0
-                self.is_full = True
-                print('Memories is_full!')
-
-            print("Load Memories:", save_path)
-
-    def refresh_indices(self):
-        self.ptr_s = 0
-        rd.shuffle(self.indices[:self.size])
-
-
-class MemoryList:
+class MemoryList:  # todo del, for PPO
     def __init__(self, ):
         self.memory = []
         from collections import namedtuple
@@ -917,45 +901,135 @@ class MemoryList:
         return len(self.memory)
 
 
-class ReplayBuffer:
-    def __init__(self, memory_size):
-        self.storage = []
-        self.memory_size = memory_size
+class BufferList:
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = len(self.memories)
+
+    def add_memo(self, memory_tuple):
+        self.memories.append(memory_tuple)
+
+    def init_after_add_memo(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert list into array'''
+        arrays = [list()
+                  for _ in range(5)]  # len(self.memories[0]) == 5
+        for index in indices:
+            items = self.memories[index]
+            for item, array in zip(items, arrays):
+                array.append(item)
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+
+
+class BufferTuple:  # todo plan for PPO
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = None  # init in init_after_add_memo()
+
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition', ('reward', 'mask', 'state', 'action', 'next_state',)
+        )
+
+    def add_memo(self, args):
+        self.memories.append(self.transition(*args))
+
+    def init_after_add_memo(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert tuple into array'''
+        arrays = self.transition(*zip(*[self.memories[i] for i in indices]))
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+
+
+class BufferArray:  # 2020-05-20
+    def __init__(self, memo_max_len, state_dim, action_dim, ):
+        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+        self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
+
         self.next_idx = 0
+        self.is_full = False
+        self.max_len = memo_max_len
+        self.now_len = self.max_len if self.is_full else self.next_idx
 
-    # add the samples
-    def add(self, obs, action, reward, obs_, done):
-        data = (obs, action, reward, obs_, done)
-        if self.next_idx >= len(self.storage):
-            self.storage.append(data)
-        else:
-            self.storage[self.next_idx] = data
-        # get the next idx
-        self.next_idx = (self.next_idx + 1) % self.memory_size
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + action_dim
 
-    # encode samples
-    def _encode_sample(self, idx):
-        obses, actions, rewards, obses_, dones = [], [], [], [], []
-        for i in idx:
-            data = self.storage[i]
-            obs, action, reward, obs_, done = data
-            obses.append(np.array(obs, copy=False))
-            actions.append(np.array(action, copy=False))
-            rewards.append(reward)
-            obses_.append(np.array(obs_, copy=False))
-            dones.append(done)
-        return np.array(obses), np.array(actions), np.array(rewards), np.array(obses_), np.array(dones)
+    def add_memo(self, memo_tuple):
+        self.memories[self.next_idx] = np.hstack(memo_tuple)
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
+            self.is_full = True
+            self.next_idx = 0
 
-    # sample from the memory
-    def sample(self, batch_size):
-        idxes = [random.randint(0, len(self.storage) - 1) for _ in range(batch_size)]
-        return self._encode_sample(idxes)
+    def init_after_add_memo(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        memory = self.memories[indices]
+        memory = torch.tensor(memory, device=device)
+
+        '''convert array into torch.tensor'''
+        tensors = (
+            memory[:, 0:1],  # rewards
+            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            memory[:, 2:self.state_idx],  # states
+            memory[:, self.state_idx:self.action_idx],  # actions
+            memory[:, self.action_idx:],  # next_states
+        )
+        return tensors
 
 
 class Recorder:
     def __init__(self, agent, max_step, max_action, target_reward,
                  env_name, eva_size=100, show_gap=2 ** 7, smooth_kernel=2 ** 4,
-                 state_norm=None):
+                 state_norm=None, **_kwargs):
         self.show_gap = show_gap
         self.smooth_kernel = smooth_kernel
 
@@ -985,16 +1059,15 @@ class Recorder:
         self.start_time = self.show_time = timer()
         print("epoch|   reward   r_max    r_ave    r_std |  loss_A loss_C |step")
 
-    def show_reward(self, epoch, epoch_rewards, iter_numbers, actor_loss, critic_loss):
+    def show_reward(self, epoch_rewards, iter_numbers, loss_a, loss_c):
         self.train_time += timer() - self.train_timer  # train_time
-
-        self.epoch = epoch
+        self.epoch += len(epoch_rewards)
 
         if isinstance(epoch_rewards, float):
             epoch_rewards = (epoch_rewards,)
             iter_numbers = (iter_numbers,)
         for reward, iter_num in zip(epoch_rewards, iter_numbers):
-            self.record_epoch.append((reward, actor_loss, critic_loss, iter_num))
+            self.record_epoch.append((reward, loss_a, loss_c, iter_num))
             self.total_step += iter_num
 
         if timer() - self.show_time > self.show_gap:
@@ -1009,13 +1082,13 @@ class Recorder:
             print("{:4} |{:8.2f} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
                 len(self.record_epoch),
                 smooth_reward, self.reward_max, self.reward_avg, self.reward_std,
-                actor_loss, critic_loss, self.total_step))
+                loss_a, loss_c, self.total_step))
 
             self.show_time = timer()  # reset show_time after get_eva_reward_batch !
         else:
             self.rewards = list()
 
-    def check_reward(self, cwd, actor_loss, critic_loss):  # 2020-04-30
+    def check_reward(self, cwd, loss_a, loss_c):  # 2020-05-05
         is_solved = False
         if self.reward_avg >= self.reward_max:  # and len(self.rewards) > 1:  # 2020-04-30
             self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action,
@@ -1024,6 +1097,8 @@ class Recorder:
 
             if self.reward_avg >= self.reward_max:
                 self.reward_max = self.reward_avg
+
+                '''NOTICE! Recorder saves the agent with max reward automatically. '''
                 self.agent.save_or_load_model(cwd, is_save=True)
 
                 if self.reward_max >= self.reward_target:
@@ -1043,7 +1118,7 @@ class Recorder:
             print("{:4} |{:8} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
                 len(self.record_epoch),
                 '', self.reward_max, self.reward_avg, self.reward_std,
-                actor_loss, critic_loss, self.total_step, ))
+                loss_a, loss_c, self.total_step, ))
 
         self.train_timer = timer()  # train_time
         return is_solved

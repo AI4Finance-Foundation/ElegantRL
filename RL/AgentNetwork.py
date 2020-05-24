@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
+# import torch.nn.functional as F
 import numpy as np
+
 # import numpy.random as rd
-from torch.distributions.normal import Normal
 
 """
-2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
+2019-07-01 ZenJiaHao, GitHub: YonV1943 DL_RL_Zoo RL
 2019-11-11 Issay-0.0 [Essay Consciousness]
 2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
-2020-04-22 Issay-0.2 [Essay, LongDear's Cerebellum (Little Brain)]
+2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
@@ -32,7 +33,6 @@ class Actor(nn.Module):
                                      nn.Linear(mid_dim * 4, action_dim), nn.Tanh(), )
         else:
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                     LinearNet(mid_dim),
                                      nn.Linear(mid_dim, action_dim), nn.Tanh(), )
 
         # layer_norm(self.net[0], std=1.0)
@@ -81,15 +81,17 @@ class Critic(nn.Module):  # 2020-05-05 fix bug
 
 
 class ActorSAC(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_net):
+    def __init__(self, state_dim, action_dim, mid_dim):
         super(ActorSAC, self).__init__()
         self.log_std_min = -20
         self.log_std_max = 2
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_net), nn.ReLU(),
-                                 nn.Linear(mid_net, mid_net), nn.ReLU(), )
-        self.net_mean = nn.Linear(mid_net, action_dim)
-        self.net_log_std = nn.Linear(mid_net, action_dim)
+        '''network'''
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+        self.net_mean = nn.Linear(mid_dim, action_dim)
+        self.net_log_std = nn.Linear(mid_dim, action_dim)
 
     def forward(self, state):
         x = self.net(state)
@@ -98,38 +100,59 @@ class ActorSAC(nn.Module):
 
     def actor(self, state):
         x = self.net(state)
+
         action_mean = self.net_mean(x)
+
         log_std = self.net_log_std(x)
         log_std = log_std.clamp(self.log_std_min, self.log_std_max)
         action_std = log_std.exp()
+
         return action_mean, action_std
 
-    def get__a__log_prob(self, states):
+    def get__a__log_prob(self, states, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         a_mean, a_std = self.actor(states)
-        noise = torch.randn_like(a_mean, requires_grad=True)  # device=self.device
-        pre_tanh_value = a_mean + a_std * noise
-        actions_noise = pre_tanh_value.tanh()
 
-        # log_prob = Normal(a_mean, a_std).log_prob(pre_tanh_value) - (-actions_noise.pow(2) + (1 + 1e-6)).log()
-        log_prob = Normal(a_mean, a_std).log_prob(pre_tanh_value) - (-actions_noise.pow(2) + (1 + 1e-6)).log()
-        return actions_noise, log_prob
+        '''add noise to action, stochastic policy'''
+        noise = torch.randn_like(a_mean, requires_grad=True, device=device)
+        a_noise = a_mean + a_std * noise
+        a_noise_tanh = a_noise.tanh()
+
+        '''calculate log_prob according to mean and std of action (stochastic policy)'''
+        # from torch.distributions.normal import Normal
+        # log_prob_noise = Normal(a_mean, a_std).log_prob(a_noise)
+        # same as:
+        # log_prob_noise = -(a_noise - a_mean).pow(2) /(2* a_std.pow(2)) - a_std.log() - np.log(np.sqrt(2 * np.pi))
+        # same as:
+        # self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        log_prob_noise = -(((a_noise - a_mean) / a_std).pow(2) * 0.5 + a_std.log() + self.constant_log_sqrt_2pi)
+
+        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
+        # same as:
+        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
 
-class CriticSAC(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
-        super(CriticSAC, self).__init__()
+class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN -< Double Q-learning
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super(CriticTwin, self).__init__()
 
-        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1), )
+        def build_cri_net():
+            net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                nn.Linear(mid_dim, 1), )
+            # layer_norm(self.net[0], std=1.0)
+            # layer_norm(self.net[-1], std=1.0)
+            return net
 
-        # layer_norm(self.net[0], std=1.0)
-        # layer_norm(self.net[-1], std=1.0)
+        self.net1 = build_cri_net()
+        self.net2 = build_cri_net()
 
-    def forward(self, s, a):
-        x = torch.cat((s, a), dim=1)
-        q = self.net(x)
-        return q
+    def forward(self, state, action):
+        x = torch.cat((state, action), dim=1)
+        q_value1 = self.net1(x)
+        q_value2 = self.net2(x)
+        return q_value1, q_value2
 
 
 class CriticAdvantage(nn.Module):  # 2020-05-05 fix bug
@@ -155,40 +178,6 @@ class CriticAdvantage(nn.Module):  # 2020-05-05 fix bug
     def forward(self, s):
         q = self.net(s)
         return q
-
-
-class CriticTwin(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim, use_densenet, use_spectral_norm):
-        super(CriticTwin, self).__init__()
-
-        def build_net():
-            if use_densenet:
-                net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    DenseNet(mid_dim),
-                                    nn.Linear(mid_dim * 4, action_dim), )
-            else:
-                net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    LinearNet(mid_dim),
-                                    nn.Linear(mid_dim, action_dim), )
-
-            if use_spectral_norm:  # NOTICE: spectral normalization is conflict with soft target update.
-                # self.net[-1] = nn.utils.spectral_norm(nn.Linear(...)),
-                net[-1] = nn.utils.spectral_norm(net[-1])
-            return net
-
-        self.net1 = build_net()
-        self.net2 = build_net()
-
-    def forward(self, s, a):
-        x = torch.cat((s, a), dim=1)
-        q1 = self.net1(x)
-        return q1
-
-    def get_q1_q2(self, s, a):
-        x = torch.cat((s, a), dim=1)
-        q1 = self.net1(x)
-        q2 = self.net2(x)
-        return q1, q2
 
 
 class QNetwork(nn.Module):  # class AgentQLearning
@@ -323,10 +312,10 @@ class ActorCriticPPO(nn.Module):
 
     def get__log_prob(self, a_mean, a_inp):  # for update_parameter
         a_log_std = self.actor_logstd.expand_as(a_mean)
-        a_std = torch.exp(a_log_std)
+        a_std = a_log_std.exp()
 
         # log_prob = -(a_log_std + (a_inp - a_mean).pow(2) / (2 * a_std.pow(2)) + np.log(2 * np.pi) * 0.5)
-        log_prob = -(a_log_std + self.constant_pi + ((a_mean - a_inp) / a_std).pow(2) / 2)
+        log_prob = -(a_log_std + self.constant_pi + (a_mean - a_inp) / a_std).pow(2) * 0.5
         log_prob = log_prob.sum(1)
         return log_prob
 

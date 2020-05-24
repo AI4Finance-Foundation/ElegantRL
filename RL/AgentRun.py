@@ -6,8 +6,7 @@ import torch
 import numpy as np
 
 from AgentZoo import Recorder
-from AgentZoo import Memories, RewardNormalization
-from AgentZoo import ReplayBuffer  # for SAC
+from AgentZoo import BufferArray, initial_exploration
 from AgentZoo import AutoNormalization  # for PPO
 
 """
@@ -26,20 +25,22 @@ They feel more like a Cerebellum (Little Brain) for Machines.
 
 
 class Arguments:  # default working setting and hyper-parameter
-    def __init__(self, agent_class):
-        self.agent_class = agent_class
+    def __init__(self, class_agent):
+        self.class_agent = class_agent
         self.env_name = "LunarLanderContinuous-v2"
         self.net_dim = 2 ** 8  # the network width
         self.max_step = 2 ** 10  # max steps in one epoch
         self.max_memo = 2 ** 17  # memories capacity (memories: replay buffer)
-        self.max_epoch = 2 ** 10  # max num of train_epoch
+        self.max_epoch = 2 ** 10  # max times of train_epoch
         self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
         self.update_gap = 2 ** 7  # update the target_net, delay update
-        self.reward_scale = 2 ** 7  # do the normalization for reward
+        self.reward_scale = 2 ** 0  # a fix target reward usually be closed to 256
 
         self.gamma = 0.99  # discount factor of future rewards
-        self.exp_noise = 2 ** -2  # action = select_action(state) + noise, 'explore_noise': sigma of noise
-        self.pol_noise = 2 ** -1  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
+
+        # todo remove extension for (Deterministic Policy: TD3, SNAC, DDPG)
+        # self.exp_noise = 2 ** -2  # action = select_action(state) + noise, 'explore_noise': sigma of noise
+        # self.pol_noise = 2 ** -1  # actor_target(next_state) + noise,  'policy_noise': sigma of noise
 
         self.is_remove = True  # remove the pre-training data? (True, False, None:ask me)
         self.cwd = 'AC_Methods_LL'  # current work directory
@@ -58,13 +59,13 @@ class Arguments:  # default working setting and hyper-parameter
         torch.set_num_threads(8)
 
 
-def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-                batch_size, update_gap, gamma, exp_noise, pol_noise, reward_scale,  # update
-                **_kwargs):  # 2020-0430
+def train_agent0(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                 batch_size, update_gap, gamma, exp_noise, pol_noise, reward_scale,  # update
+                 **_kwargs):  # 2020-0430
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
 
-    agent = agent_class(state_dim, action_dim, net_dim)
+    agent = class_agent(state_dim, action_dim, net_dim)
     agent.save_or_load_model(cwd, is_save=False)
 
     memo_action_dim = action_dim if max_action else 1  # Discrete action space
@@ -111,13 +112,13 @@ def train_agent(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epo
     return True
 
 
-def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+def train_agent_ppo(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
                     batch_size, gamma,
                     **_kwargs):  # 2020-0430
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
 
-    agent = agent_class(state_dim, action_dim, net_dim)
+    agent = class_agent(state_dim, action_dim, net_dim)
     agent.save_or_load_model(cwd, is_save=False)
 
     # memo_action_dim = action_dim if max_action else 1  # Discrete action space
@@ -162,14 +163,14 @@ def train_agent_ppo(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
     return True
 
 
-def train_agent_sac(agent_class, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-                    batch_size, gamma,
-                    **_kwargs):  # 2020-0430
+def train_agent_sac0(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                     batch_size, gamma,
+                     **_kwargs):  # 2020-0430
     reward_scale = 1
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
 
-    agent = agent_class(env, state_dim, action_dim, net_dim)
+    agent = class_agent(env, state_dim, action_dim, net_dim)
 
     memo = ReplayBuffer(max_memo)
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
@@ -184,7 +185,7 @@ def train_agent_sac(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
             loss_a, loss_c = agent.update_parameter_sac(memo, max_step, batch_size)
 
             with torch.no_grad():  # for saving the GPU memory
-                recorder.show_reward(epoch, rewards, steps, loss_a, loss_c)
+                recorder.show_reward(rewards, steps, loss_a, loss_c)
                 is_solved = recorder.check_reward(cwd, loss_a, loss_c)
                 if is_solved:
                     break
@@ -198,6 +199,55 @@ def train_agent_sac(agent_class, env_name, cwd, net_dim, max_step, max_memo, max
 
     # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
     # memo.save_or_load_memo(cwd, is_save=True)
+
+    draw_plot_with_npy(cwd, train_time)
+    return True
+
+
+def train_agent(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                batch_size, gamma, update_gap, reward_scale,
+                **_kwargs):  # 2020-05-20
+    env = gym.make(env_name)
+    '''init'''
+    state_dim, action_dim, max_action, target_reward = get_env_info(env)
+    agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
+    buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)
+
+    '''loop'''
+    with torch.no_grad():  # update replay buffer
+        # rewards, steps = agent.update_buffer(
+        #     env, buffer, max_step, max_action, reward_scale, gamma)
+        rewards, steps = initial_exploration(
+            env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
+    recorder.show_reward(rewards, steps, 0, 0)
+    try:
+        for epoch in range(max_epoch):
+            '''update replay buffer by interact with environment'''
+            with torch.no_grad():  # for saving the GPU buffer
+                rewards, steps = agent.update_buffer(env, buffer, max_step, max_action, reward_scale, gamma)
+
+            '''update network parameters by random sampling buffer for stochastic gradient descent'''
+            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, update_gap)
+
+            '''show/check the reward, save the max reward actor'''
+            with torch.no_grad():  # for saving the GPU buffer
+                '''NOTICE! Recorder saves the agent with max reward automatically. '''
+                recorder.show_reward(rewards, steps, loss_a, loss_c)
+
+                is_solved = recorder.check_reward(cwd, loss_a, loss_c)
+            if is_solved:
+                break
+    except KeyboardInterrupt:
+        print("raise KeyboardInterrupt while training.")
+    # except AssertionError:  # for BipedWalker BUG 2020-03-03
+    #     print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
+    #     return False
+
+    train_time = recorder.show_and_save(env_name, cwd)
+
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
+    # buffer.save_or_load_memo(cwd, is_save=True)
 
     draw_plot_with_npy(cwd, train_time)
     return True
@@ -459,20 +509,33 @@ def run__sac(gpu_id=0, cwd='AC_SAC'):
     from AgentZoo import AgentSAC
     args = Arguments(AgentSAC)
     args.gpu_id = gpu_id
-    args.reward_scale = 1.0  # important
-
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    while not train_agent_sac(**vars(args)):
-        args.random_seed += 42
 
     # args.env_name = "LunarLanderContinuous-v2"
     # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    #
+    # args.init_for_training()
+    # while not train_agent(**vars(args)):
+    #     args.random_seed += 42
+
+    # args.env_name = "BipedalWalker-v3"
+    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
     # args.init_for_training()
     # while not train_agent_sac(**vars(args)):
     #     args.random_seed += 42
+
+    import pybullet_envs  # for python-bullet-gym
+    args.env_name = "MinitaurBulletEnv-v0"
+    args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
+    args.max_epoch = 2 ** 13
+    args.max_memo = 2 ** 18
+    args.reward_scale = 2 ** 4
+    args.is_remove = True
+
+    args.eva_size = 2 ** 4  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+
+    args.init_for_training()
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
 
 
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
@@ -491,7 +554,7 @@ if __name__ == '__main__':
     # run__sn_ac(gpu_id=0, cwd='AC_SNAC')
     # run__multi_process(run__sn_ac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
 
-    # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')  # todo not dropout
+    # run__intel_ac(gpu_id=0, cwd='AC_IntelAC')
     # run__multi_process(run__intel_ac, gpu_tuple=(0, 1), cwd='AC_IntelAC')
 
     # run__td3(gpu_id=0, cwd='AC_TD3')
@@ -500,7 +563,7 @@ if __name__ == '__main__':
     # run__ppo(gpu_id=1, cwd='AC_PPO')
     # run__multi_process(run__ppo, gpu_tuple=(0, 1, 2, 3), cwd='AC_PPO')
 
-    run__sac(gpu_id=0, cwd='AC_SAC')
+    # run__sac(gpu_id=0, cwd='AC_SAC')
     # run__multi_process(run__sac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SAC')
 
     print('Finish:', sys.argv[-1])
