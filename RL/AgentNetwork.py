@@ -256,7 +256,7 @@ class ActorCritic(nn.Module):  # class AgentIntelAC
         q = self.dec_q(q_)
         return q
 
-    def next__q_a_fix_bug(self, s, s_next, noise_std):
+    def next__q_a(self, s, s_next, noise_std):
         s_ = self.enc_s(s)
         a_ = self.net(s_)
         a = self.dec_a(a_)

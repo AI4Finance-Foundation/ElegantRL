@@ -163,51 +163,11 @@ def train_agent_ppo(class_agent, env_name, cwd, net_dim, max_step, max_memo, max
     return True
 
 
-def train_agent_sac0(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-                     batch_size, gamma,
-                     **_kwargs):  # 2020-0430
-    reward_scale = 1
-    env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward = get_env_info(env)
-
-    agent = class_agent(env, state_dim, action_dim, net_dim)
-
-    memo = ReplayBuffer(max_memo)
-    recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
-
-    agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)  # init memory before training
-
-    try:
-        for epoch in range(max_epoch):
-            with torch.no_grad():
-                rewards, steps = agent.inactive_in_env_sac(env, memo, max_step, max_action, reward_scale, gamma)
-
-            loss_a, loss_c = agent.update_parameter_sac(memo, max_step, batch_size)
-
-            with torch.no_grad():  # for saving the GPU memory
-                recorder.show_reward(rewards, steps, loss_a, loss_c)
-                is_solved = recorder.check_reward(cwd, loss_a, loss_c)
-                if is_solved:
-                    break
-    except KeyboardInterrupt:
-        print("raise KeyboardInterrupt while training.")
-    except AssertionError:  # for BipedWalker BUG 2020-03-03
-        print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
-        return False
-
-    train_time = recorder.show_and_save(env_name, cwd)
-
-    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
-    # memo.save_or_load_memo(cwd, is_save=True)
-
-    draw_plot_with_npy(cwd, train_time)
-    return True
-
-
 def train_agent(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
                 batch_size, gamma, update_gap, reward_scale,
                 **_kwargs):  # 2020-05-20
     env = gym.make(env_name)
+
     '''init'''
     state_dim, action_dim, max_action, target_reward = get_env_info(env)
     agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
@@ -256,7 +216,7 @@ def train_agent(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epo
 """utils"""
 
 
-def get_env_info(env):  # 2020-02-02
+def get_env_info(env, be_quiet):  # 2020-02-02
     state_dim = env.observation_space.shape[0]
 
     if isinstance(env.action_space, gym.spaces.Discrete):
@@ -277,9 +237,10 @@ def get_env_info(env):  # 2020-02-02
         print('! Error: target_reward is None', target_reward)
         exit()
 
-    print("| env_name: {}".format(repr(env)[10:-1]))
-    print("| state_dim: {}, action_dim: {}, target_reward: {}".format(
-        state_dim, action_dim, target_reward))
+    if be_quiet:
+        print("| env_name: {}".format(repr(env)[10:-1]))
+        print("| state_dim: {}, action_dim: {}, target_reward: {}".format(
+            state_dim, action_dim, target_reward))
     return state_dim, action_dim, action_max, target_reward
 
 
@@ -356,7 +317,7 @@ def draw_plot_with_npy(mod_dir, train_time):  # 2020-04-40
     # plt.pause(4)
 
 
-def whether_remove_history(cwd, remove=None):  # 2020-03-03
+def whether_remove_history(cwd, remove=None):  # 2020-03-03 # todo remove -> is_remove
     import shutil
 
     if remove is None:
@@ -432,31 +393,29 @@ def run__intel_ac(gpu_id, cwd='AC_IntelAC'):
     args = Arguments(AgentIntelAC)
     args.gpu_id = gpu_id
 
-    # args.env_name = "LunarLanderContinuous-v2"
-    # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    # args.reward_size = 2 ** 7
-    # args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
-    #
-    # args.env_name = "BipedalWalker-v3"
-    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    # args.reward_size = 2 ** 8 # todo may need to change?
-    # args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
-
-    args.env_name = "BipedalWalkerHardcore-v3"
-    args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
-    args.net_dim = int(2 ** 8.5)
-    args.max_memo = int(2 ** 20)
-    args.batch_size = int(2 ** 9)
-    args.max_epoch = 2 ** 14
-    args.reward_scale = int(2 ** 6.5)
-    args.is_remove = None
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     args.init_for_training()
     while not train_agent(**vars(args)):
         args.random_seed += 42
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
+
+    # args.env_name = "BipedalWalkerHardcore-v3"
+    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
+    # args.net_dim = int(2 ** 8.5)
+    # args.max_memo = int(2 ** 20)
+    # args.batch_size = int(2 ** 9)
+    # args.max_epoch = 2 ** 14
+    # args.reward_scale = int(2 ** 6.5)
+    # args.is_remove = None
+    # args.init_for_training()
+    # while not train_agent(**vars(args)):
+    #     args.random_seed += 42
 
 
 def run__td3(gpu_id, cwd='AC_TD3'):
@@ -522,20 +481,42 @@ def run__sac(gpu_id=0, cwd='AC_SAC'):
     # while not train_agent_sac(**vars(args)):
     #     args.random_seed += 42
 
-    import pybullet_envs  # for python-bullet-gym
-    args.env_name = "MinitaurBulletEnv-v0"
-    args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 18
-    args.reward_scale = 2 ** 4
-    args.is_remove = True
+    # import pybullet_envs  # for python-bullet-gym
+    # args.env_name = "MinitaurBulletEnv-v0"
+    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 20
+    # args.net_dim = 2 ** 9
+    # args.max_step = 2 ** 12
+    # args.batch_size = 2 ** 8
+    # args.reward_scale = 2 ** 3
+    # args.is_remove = True
+    #
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    #
+    # args.init_for_training()
+    # while not train_agent(**vars(args)):
+    #     args.random_seed += 42
 
-    args.eva_size = 2 ** 4  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-
-    args.init_for_training()
-    while not train_agent(**vars(args)):
-        args.random_seed += 42
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "AntBulletEnv-v0"
+    # args.cwd = './{}/Ant_{}'.format(cwd, args.gpu_id)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 20
+    # args.max_step = 2 ** 10
+    # args.net_dim = 2 ** 8
+    # args.batch_size = 2 ** 8
+    # args.reward_scale = 2 ** -3
+    # args.is_remove = True
+    #
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    #
+    # args.init_for_training()
+    # while not train_agent(**vars(args)):
+    #     args.random_seed += 42
 
 
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
@@ -546,6 +527,158 @@ def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
     processes = [mp.Process(target=target_func, args=(gpu_id, cwd)) for gpu_id in gpu_tuple]
     [process.start() for process in processes]
     [process.join() for process in processes]
+
+
+def process__buffer(q_aggr, qs_dist, args,
+                    **_kwargs):
+    max_memo = args.max_memo
+    env_name = args.env_name
+    max_step = args.max_step
+    batch_size = args.batch_size
+    repeat_times = 2
+
+    reward_scale = args.reward_scale
+    gamma = args.gamma
+
+    '''init'''
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env, be_quiet=False)
+    buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
+
+    workers_num = len(qs_dist)
+
+    '''loop'''
+    with torch.no_grad():  # update replay buffer
+        # rewards, steps = agent.update_buffer(
+        #     env, buffer, max_step, max_action, reward_scale, gamma)
+        rewards, steps = initial_exploration(
+            env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
+
+    is_training = True
+    while is_training:
+        for i in range(workers_num):
+            memo_array, is_solved = q_aggr.get()
+            buffer.extend_memo(memo_array)
+            if is_solved:
+                is_training = False
+
+        buffer.init_before_sample()
+        for i in range(max_step * repeat_times):
+            # batch_arrays = buffer.random_sample(batch_size, device=None) # todo
+            for q_dist in qs_dist:
+                batch_arrays = buffer.random_sample(batch_size, device=None)  # todo slower
+                q_dist.put(batch_arrays)
+
+    print('|| Exit: process__buffer')
+
+
+def process__workers(gpu_id, root_cwd, q_aggr, q_dist, args,
+                     **_kwargs):
+    class_agent = args.class_agent
+    env_name = args.env_name
+    cwd = args.cwd
+    net_dim = args.net_dim
+    max_step = args.max_step
+    # max_memo = args.max_memo
+    max_epoch = args.max_epoch
+    batch_size = args.batch_size * 1.5
+    gamma = args.gamma
+    update_gap = args.update_gap
+    reward_scale = args.reward_scale
+
+    cwd = '{}/{}_{}'.format(root_cwd, cwd, gpu_id)
+    os.makedirs(cwd, exist_ok=True)
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+    random_seed = 42 + gpu_id
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    torch.set_default_dtype(torch.float32)
+    torch.set_num_threads(8)
+
+    env = gym.make(env_name)
+    is_solved = False
+
+    class BufferArrayMP(BufferArray):
+        def init_before_sample(self):
+            q_aggr.put((self.memories, is_solved))
+            # self.now_len = self.max_len if self.is_full else self.next_idx
+
+        def random_sample(self, _batch_size, device=None):
+            batch_arrays = q_dist.get()
+
+            '''convert array into torch.tensor'''
+            tensors = [torch.tensor(ary, device=device) for ary in batch_arrays]
+            return tensors
+
+    '''init'''
+    state_dim, action_dim, max_action, target_reward = get_env_info(env, be_quiet=True)
+    agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
+    buffer = BufferArrayMP(max_step, state_dim, action_dim)  # experiment replay buffer
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)
+
+    '''loop'''
+    # with torch.no_grad():  # update replay buffer
+    #     # rewards, steps = agent.update_buffer(
+    #     #     env, buffer, max_step, max_action, reward_scale, gamma)
+    #     rewards, steps = initial_exploration(
+    #         env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
+    # recorder.show_reward(rewards, steps, 0, 0)
+    try:
+        for epoch in range(max_epoch):
+            '''update replay buffer by interact with environment'''
+            with torch.no_grad():  # for saving the GPU buffer
+                rewards, steps = agent.update_buffer(env, buffer, max_step, max_action, reward_scale, gamma)
+
+            '''update network parameters by random sampling buffer for stochastic gradient descent'''
+            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, update_gap)
+
+            '''show/check the reward, save the max reward actor'''
+            with torch.no_grad():  # for saving the GPU buffer
+                '''NOTICE! Recorder saves the agent with max reward automatically. '''
+                recorder.show_reward(rewards, steps, loss_a, loss_c)
+
+                is_solved = recorder.check_reward(cwd, loss_a, loss_c)
+            if is_solved:
+                break
+    except KeyboardInterrupt:
+        print("raise KeyboardInterrupt while training.")
+    # except AssertionError:  # for BipedWalker BUG 2020-03-03
+    #     print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
+    #     return False
+
+    train_time = recorder.show_and_save(env_name, cwd)
+
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
+    # buffer.save_or_load_memo(cwd, is_save=True)
+
+    draw_plot_with_npy(cwd, train_time)
+    return True
+
+
+def run__multi_workers(gpu_tuple=(0, 1), root_cwd='AC_Methods_MP'):
+    print('GPU: {} | CWD: {}'.format(gpu_tuple, root_cwd))
+    whether_remove_history(root_cwd, remove=True)  # todo
+
+    from AgentZoo import AgentSAC
+    args = Arguments(AgentSAC)
+    args.env_name = "BipedalWalker-v3"
+    # args.env_name = "LunarLanderContinuous-v2"
+
+    args.show_gap = 2 ** 8  # for Recorder
+
+    '''run in multiprocessing'''
+    import multiprocessing as mp
+    workers_num = len(gpu_tuple)
+    queue_aggr = mp.Queue(maxsize=workers_num)  # queue of aggregation
+    queues_dist = [mp.Queue(maxsize=args.max_step) for _ in range(workers_num)]  # queue of distribution
+
+    processes = [mp.Process(target=process__buffer, args=(queue_aggr, queues_dist, args))]
+    processes.extend([mp.Process(target=process__workers, args=(gpu_id, root_cwd, queue_aggr, queue_dist, args))
+                      for gpu_id, queue_dist in zip(gpu_tuple, queues_dist)])
+
+    [process.start() for process in processes]
+    # [process.join() for process in processes]
+    [process.close() for process in processes]
 
 
 if __name__ == '__main__':
@@ -565,5 +698,8 @@ if __name__ == '__main__':
 
     # run__sac(gpu_id=0, cwd='AC_SAC')
     # run__multi_process(run__sac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SAC')
+
+    '''multi worker'''
+    run__multi_workers(gpu_tuple=(2, 3), root_cwd='AC_SAC_MP')
 
     print('Finish:', sys.argv[-1])
