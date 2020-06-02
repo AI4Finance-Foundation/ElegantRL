@@ -169,7 +169,7 @@ def train_agent(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epo
     env = gym.make(env_name)
 
     '''init'''
-    state_dim, action_dim, max_action, target_reward = get_env_info(env)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env, is_print=False)
     agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
     buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)
@@ -213,19 +213,68 @@ def train_agent(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epo
     return True
 
 
+def train_agent_discrete(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
+                         batch_size, gamma, update_gap, reward_scale,
+                         **_kwargs):  # 2020-05-20
+    env = gym.make(env_name)
+
+    '''init'''
+    state_dim, action_dim, action_max, target_reward = get_env_info(env, is_print=True)
+    assert isinstance(action_max, int)  # means Discrete action space
+
+    agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
+    buffer = BufferArray(max_memo, state_dim, action_dim=1)  # experiment replay buffer
+    recorder = Recorder(agent, max_step, action_max, target_reward, env_name, **_kwargs)
+
+    '''loop'''
+    with torch.no_grad():  # update replay buffer
+        rewards, steps = initial_exploration(
+            env, buffer, max_step, action_max, reward_scale, gamma, action_dim)
+    recorder.show_reward(rewards, steps, 0, 0)
+    try:
+        for epoch in range(max_epoch):
+            '''update replay buffer by interact with environment'''
+            with torch.no_grad():  # for saving the GPU buffer
+                rewards, steps = agent.update_buffer(env, buffer, max_step, action_max, reward_scale, gamma)
+
+            '''update network parameters by random sampling buffer for stochastic gradient descent'''
+            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, update_gap)
+
+            '''show/check the reward, save the max reward actor'''
+            with torch.no_grad():  # for saving the GPU buffer
+                '''NOTICE! Recorder saves the agent with max reward automatically. '''
+                recorder.show_reward(rewards, steps, loss_a, loss_c)
+
+                is_solved = recorder.check_reward(cwd, loss_a, loss_c)
+            if is_solved:
+                break
+    except KeyboardInterrupt:
+        print("raise KeyboardInterrupt while training.")
+    # except AssertionError:  # for BipedWalker BUG 2020-03-03
+    #     print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
+    #     return False
+
+    train_time = recorder.show_and_save(env_name, cwd)
+
+    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
+    # buffer.save_or_load_memo(cwd, is_save=True)
+
+    draw_plot_with_npy(cwd, train_time)
+    return True
+
+
 """utils"""
 
 
-def get_env_info(env, be_quiet):  # 2020-02-02
+def get_env_info(env, is_print):  # 2020-02-02
     state_dim = env.observation_space.shape[0]
 
     if isinstance(env.action_space, gym.spaces.Discrete):
         action_dim = env.action_space.n  # Discrete
-        action_max = None
+        action_max = int(1)  # todo
     elif isinstance(env.action_space, gym.spaces.Box):
         action_dim = env.action_space.shape[0]  # Continuous
-        action_max = float(env.action_space.high[0])  # * 0.999999
-        # np.float32(0.9999999), np.float16(0.999)
+        action_max = float(env.action_space.high[0])
     else:
         action_dim = None
         action_max = None
@@ -237,10 +286,10 @@ def get_env_info(env, be_quiet):  # 2020-02-02
         print('! Error: target_reward is None', target_reward)
         exit()
 
-    if be_quiet:
-        print("| env_name: {}".format(repr(env)[10:-1]))
-        print("| state_dim: {}, action_dim: {}, target_reward: {}".format(
-            state_dim, action_dim, target_reward))
+    if is_print:
+        print("| env_name: {} {}".format(repr(env)[10:-1], 'Discrete' if isinstance(action_max, int) else 'Continuous'))
+        print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
+            state_dim, action_dim, action_max, target_reward))
     return state_dim, action_dim, action_max, target_reward
 
 
@@ -469,11 +518,11 @@ def run__sac(gpu_id=0, cwd='AC_SAC'):
     args = Arguments(AgentSAC)
     args.gpu_id = gpu_id
 
-    # args.env_name = "LunarLanderContinuous-v2"
-    # args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    # args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent(**vars(args)):
+        args.random_seed += 42
 
     # args.env_name = "BipedalWalker-v3"
     # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
@@ -519,6 +568,17 @@ def run__sac(gpu_id=0, cwd='AC_SAC'):
     #     args.random_seed += 42
 
 
+def run__dqn(gpu_id, cwd='RL_DQN'):
+    from AgentZoo import AgentDQN
+    args = Arguments(AgentDQN)
+    args.gpu_id = gpu_id
+
+    args.env_name = "CartPole-v0"
+    args.cwd = '{}/{}'.format(cwd, args.env_name)
+    args.init_for_training()
+    train_agent_discrete(**vars(args))
+
+
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
     os.makedirs(cwd, exist_ok=True)  # all the files save in here
 
@@ -542,7 +602,7 @@ def process__buffer(q_aggr, qs_dist, args,
 
     '''init'''
     env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward = get_env_info(env, be_quiet=False)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env, is_print=False)
     buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
 
     workers_num = len(qs_dist)
@@ -611,7 +671,7 @@ def process__workers(gpu_id, root_cwd, q_aggr, q_dist, args,
             return tensors
 
     '''init'''
-    state_dim, action_dim, max_action, target_reward = get_env_info(env, be_quiet=True)
+    state_dim, action_dim, max_action, target_reward = get_env_info(env, is_print=True)
     agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
     buffer = BufferArrayMP(max_step, state_dim, action_dim)  # experiment replay buffer
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)
@@ -699,7 +759,10 @@ if __name__ == '__main__':
     # run__sac(gpu_id=0, cwd='AC_SAC')
     # run__multi_process(run__sac, gpu_tuple=(0, 1, 2, 3), cwd='AC_SAC')
 
-    '''multi worker'''
-    run__multi_workers(gpu_tuple=(2, 3), root_cwd='AC_SAC_MP')
+    '''Discrete action space'''
+    run__dqn(gpu_id=sys.argv[-1][-4], cwd='RL_DQN')
+
+    # '''multi worker'''
+    # run__multi_workers(gpu_tuple=(2, 3), root_cwd='AC_SAC_MP')
 
     print('Finish:', sys.argv[-1])

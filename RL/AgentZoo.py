@@ -115,7 +115,6 @@ class AgentSNAC:
         batch_size = int(batch_size * k)
         iter_step = int(max_step * k)
 
-        # rewards = masks = states = actions = next_states = None
         for _ in range(iter_step):
             with torch.no_grad():
                 rewards, masks, states, actions, next_states = memo.random_sample(batch_size, self.device)
@@ -186,93 +185,6 @@ class AgentSNAC:
             cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
             self.cri.load_state_dict(cri_dict)
             # self.cri_target.load_state_dict(cri_dict)
-        else:
-            print("FileNotFound when load_model: {}".format(mod_dir))
-
-
-class AgentQLearning(AgentSNAC):
-    def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
-        super(AgentSNAC, self).__init__()
-        learning_rate = 4e-4
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        '''dim and idx'''
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        memo_action_dim = 1  # Discrete action space
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + memo_action_dim
-
-        '''network'''
-        actor_dim = net_dim
-        act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
-        act.train()
-        self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate)
-
-        act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
-        act_target.eval()
-        self.act_target = act_target
-        self.act_target.load_state_dict(act.state_dict())
-
-        self.criterion = nn.SmoothL1Loss()
-
-        self.update_counter = 0
-
-    def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-
-        k = 1.0 + memories.now_len / memories.max_len
-        batch_size = int(batch_size * k)
-        iter_num = int(iter_num * k)
-
-        for _ in range(iter_num):
-            with torch.no_grad():
-                memory = memories.random_sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
-
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
-
-                q_target = self.act_target(next_state).max(dim=1, keepdim=True)[0]
-                q_target = reward + undone * gamma * q_target
-
-            self.act.train()
-            action = action.type(torch.long)
-            q_eval = self.act(state).gather(1, action)
-            critic_loss = self.criterion(q_eval, q_target)
-            loss_c_sum += critic_loss.item()
-
-            self.act_optimizer.zero_grad()
-            critic_loss.backward()
-            self.act_optimizer.step()
-
-            self.update_counter += 1
-            if self.update_counter == update_gap:
-                self.update_counter = 0
-                self.act_target.load_state_dict(self.act.state_dict())
-
-        return loss_a_sum / iter_num, loss_c_sum / iter_num,
-
-    def select_actions(self, states, explore_noise=0.0):  # state -> ndarray shape: (1, state_dim)
-        states = torch.tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()
-        return actions
-
-    def save_or_load_model(self, mod_dir, is_save):
-        act_save_path = '{}/actor.pth'.format(mod_dir)
-
-        if is_save:
-            torch.save(self.act.state_dict(), act_save_path)
-            print("Saved act and cri:", mod_dir)
-        elif os.path.exists(act_save_path):
-            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
-            self.act.load_state_dict(act_dict)
-            self.act_target.load_state_dict(act_dict)
         else:
             print("FileNotFound when load_model: {}".format(mod_dir))
 
@@ -815,7 +727,95 @@ class AgentSAC:
         return loss_a, loss_c
 
 
-def initial_exploration(env, memo, max_step, max_action, reward_scale, gamma, action_dim):
+class AgentDQN(AgentSNAC):  # 2020-06-01
+    def __init__(self, env, state_dim, action_dim, net_dim):  # 2020-04-30
+        super(AgentSNAC, self).__init__()
+        learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''dim and idx'''
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        memo_action_dim = 1  # Discrete action space
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + memo_action_dim
+
+        '''network'''
+        actor_dim = net_dim
+        act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
+        act.train()
+        self.act = act
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate)
+
+        act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
+        act_target.eval()
+        self.act_target = act_target
+        self.act_target.load_state_dict(act.state_dict())
+
+        self.criterion = nn.MSELoss()
+
+        '''training record'''
+        self.state = env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
+        self.update_counter = 0
+
+        '''extension: rho and loss_c'''
+        self.explore_noise = 0.1
+        self.policy_noise = 0.2
+
+    def update_parameters(self, memo, max_step, batch_size, update_gap):
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + memo.now_len / memo.max_len
+        batch_size = int(batch_size * k)
+        iter_step = int(max_step * k)
+
+        for _ in range(iter_step):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = memo.random_sample(batch_size, self.device)
+
+                q_target = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_target = rewards + masks * q_target
+
+            self.act.train()
+            actions = actions.type(torch.long)
+            q_eval = self.act(states).gather(1, actions)
+            critic_loss = self.criterion(q_eval, q_target)
+            loss_c_sum += critic_loss.item()
+
+            self.act_optimizer.zero_grad()
+            critic_loss.backward()
+            self.act_optimizer.step()
+
+            self.update_counter += 1
+            if self.update_counter == update_gap:
+                self.update_counter = 0
+                self.act_target.load_state_dict(self.act.state_dict())
+
+        return loss_a_sum / iter_step, loss_c_sum / iter_step,
+
+    def select_actions(self, states, explore_noise=0.0):  # state -> ndarray shape: (1, state_dim)
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()
+        return actions
+
+    def save_or_load_model(self, mod_dir, is_save):
+        act_save_path = '{}/actor.pth'.format(mod_dir)
+
+        if is_save:
+            torch.save(self.act.state_dict(), act_save_path)
+            print("Saved neural network:", mod_dir)
+        elif os.path.exists(act_save_path):
+            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
+            self.act.load_state_dict(act_dict)
+            self.act_target.load_state_dict(act_dict)
+        else:
+            print("FileNotFound when load_model: {}".format(mod_dir))
+
+
+def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, action_dim):
     state = env.reset()
 
     rewards = list()
@@ -823,12 +823,23 @@ def initial_exploration(env, memo, max_step, max_action, reward_scale, gamma, ac
     steps = list()
     step = 0
 
+    if isinstance(action_max, int) and action_max == int(1):
+        def random_uniform_policy_for_discrete_action():
+            return rd.randint(action_dim)
+
+        get_random_action = random_uniform_policy_for_discrete_action
+        action_max = int(1)
+    else:
+        def random_uniform_policy_for_continuous_action():
+            return rd.uniform(-1, 1, size=action_dim)
+
+        get_random_action = random_uniform_policy_for_continuous_action
+
     global_step = 0
     while global_step < max_step:
         # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
-        action = rd.uniform(-1.0, +1.0, size=action_dim)  # uniform exploration
-
-        next_state, reward, done, _ = env.step(action * max_action)
+        action = get_random_action()
+        next_state, reward, done, _ = env.step(action * action_max)
         reward_sum += reward
         step += 1
 
@@ -1224,11 +1235,12 @@ class OrnsteinUhlenbeckProcess:
 
 
 def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  # class Recorder 2020-01-11
-    act = agent.act  # agent.net,
+    """max_action can be None for Discrete action space"""
+    act = agent.act
     act.eval()
 
     env_list_copy = env_list.copy()
-    eva_size = len(env_list_copy)  # 100
+    eva_size = len(env_list_copy)
 
     sum_rewards = [0.0, ] * eva_size
     states = [env.reset() for env in env_list_copy]
