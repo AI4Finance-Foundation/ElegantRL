@@ -8,19 +8,22 @@ import torch
 import torch.nn as nn
 
 from AgentNetwork import QNetwork  # QLearning
-from AgentNetwork import Actor, Critic
+from AgentNetwork import ActorDPG, Critic
+from AgentNetwork import ActorDL, CriticSN  # SN_AC
 from AgentNetwork import ActorCritic  # IntelAC
 from AgentNetwork import CriticTwin  # TD3, SAC
-from AgentNetwork import ActorCriticPPO  # PPO
+from AgentNetwork import ActorPPO, CriticAdvantage, ActorCriticPPO  # PPO
 from AgentNetwork import ActorSAC  # SAC
 
 """
-2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
+2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo/RL
 2019-11-11 Issay-0.0 [Essay Consciousness]
 2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
 2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
+2020-05-27 Issay-0.3 Pipeline Update for SAC
+2020-06-06 Issay-0.3 check PPO, SAC. Plan to add discrete SAC.
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
@@ -34,143 +37,95 @@ Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tr
 """
 
 
-class AgentSNAC:
+class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
     def __init__(self, state_dim, action_dim, net_dim):
-        use_densenet = True
-        use_spectral_norm = True
-        self.lr_c = 4e-4  # learning rate of critic
-        self.lr_a = 1e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        '''dim and idx'''
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + action_dim
-
         '''network'''
-        actor_dim = net_dim
-        act = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
-        act.train()
-        self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.lr_a, )  # betas=(0.5, 0.99))
+        self.act = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=2e-4)
 
-        act_target = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
-        act_target.eval()
-        self.act_target = act_target
-        self.act_target.load_state_dict(act.state_dict())
+        self.act_target = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
 
-        '''critic'''
-        critic_dim = int(net_dim * 1.25)
-        cri = Critic(state_dim, action_dim, critic_dim, use_densenet, use_spectral_norm).to(self.device)
-        cri.train()
-        self.cri = cri
-        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=self.lr_c, )  # betas=(0.5, 0.99))
+        self.cri = Critic(state_dim, action_dim, net_dim).to(self.device)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=2e-4)
 
-        cri_target = Critic(state_dim, action_dim, critic_dim, use_densenet, use_spectral_norm).to(self.device)
-        cri_target.eval()
-        self.cri_target = cri_target
-        self.cri_target.load_state_dict(cri.state_dict())
+        self.cri_target = Critic(state_dim, action_dim, net_dim).to(self.device)
+        self.cri_target.load_state_dict(self.cri.state_dict())
 
-        self.criterion = nn.SmoothL1Loss()
+        self.criterion = nn.MSELoss()
 
-        self.update_counter = 0
-        self.loss_c_sum = 0.0
-        self.rho = 0.5
+        '''training record'''
+        self.step_sum = 0
 
-    def inactive_in_env(self, env, memories, max_step, explore_noise, action_max, r_norm):
-        self.act.eval()
+        '''extension'''
+        self.ou_noise = OrnsteinUhlenbeckProcess(size=action_dim, sigma=0.3)
+        # OU-Process has too much hyper-parameters.
 
-        rewards = list()
-        steps = list()
+    def update_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
+        state = env.reset()
+        step_sum = 1
+        reward_sum = 0.0
 
-        step_counter = 0
-        while step_counter < max_step:
-            t = 0
-            reward_sum = 0
-            state = env.reset()
+        for t in range(max_step):
+            '''inactive with environment'''
+            action = self.select_actions((state,))[0]
+            action += self.ou_noise()
+            next_state, reward, done, _ = env.step(action * max_action)
 
-            for t in range(max_step):
-                action = self.select_actions(state[np.newaxis],
-                                             explore_noise if rd.rand() < 0.5 else 0.0)[0]
+            reward_sum += reward
+            step_sum += 1
 
-                # action_max == None, when action space is 'Discrete'
-                next_state, reward, done, _ = env.step((action * action_max) if action_max else action)
-                memories.add_memo(np.hstack((r_norm(reward), 1 - float(done), state, action, next_state)))
+            '''update replay buffer'''
+            reward_ = reward * reward_scale
+            mask = 0.0 if done else gamma
+            memo.add_memo((reward_, mask, state, action, next_state))
 
-                state = next_state
-                reward_sum += reward
+            state = next_state
+            if done:
+                break
+        self.step_sum = step_sum
+        return (reward_sum,), (step_sum,)
 
-                if done:
-                    break
-
-            rewards.append(reward_sum)
-            t += 1
-            steps.append(t)
-            step_counter += t
-        return rewards, steps
-
-    def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
+    def update_parameters(self, memo, _max_step, batch_size, _update_gap):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        k = 1.0 + memories.now_len / memories.max_len
-        batch_size = int(batch_size * k)
-        iter_num = int(iter_num * k)
-
-        for _ in range(iter_num):
+        # Here, the step_sum we interact in env is equal to the parameters update times
+        update_times = self.step_sum
+        for _ in range(update_times):
             with torch.no_grad():
-                memory = memories.random_sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
+                rewards, masks, states, actions, next_states = memo.random_sample(batch_size, self.device)
 
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
+                next_action = self.act_target(next_states)
+                next_q_target = self.cri_target(next_states, next_action)
+                q_target = rewards + masks * next_q_target
 
-                # next_action0 = self.act_target(next_state, policy_noise)
-                # q_target = self.cri_target(next_state, next_action)
-                next_action0 = self.act_target(next_state)
-                next_action1 = self.act_target.add_noise(next_action0, policy_noise)
-                q_target0 = self.cri_target(next_state, next_action0)
-                q_target1 = self.cri_target(next_state, next_action1)
-                q_target = (q_target0 + q_target1) * 0.5
-                q_target = reward + undone * gamma * q_target
-
-            '''loss C'''
-            q_eval = self.cri(state, action)
+            """critic loss"""
+            q_eval = self.cri(states, actions)
             critic_loss = self.criterion(q_eval, q_target)
-            loss_c_tmp = critic_loss.item()
-            loss_c_sum += loss_c_tmp
-            self.loss_c_sum += loss_c_tmp
+            loss_c_sum += critic_loss.item()
 
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
             self.cri_optimizer.step()
 
-            '''loss A'''
-            action_cur = self.act(state)
-            actor_loss = -self.cri(state, action_cur).mean()
+            """actor loss"""
+            action_cur = self.act(states)
+            actor_loss = -self.cri(states, action_cur).mean()  # update parameters by sample policy gradient
             loss_a_sum += actor_loss.item()
 
             self.act_optimizer.zero_grad()
             actor_loss.backward()
             self.act_optimizer.step()
 
-            self.update_counter += 1
-            if self.update_counter == update_gap:
-                self.update_counter = 0
+            self.soft_target_update(self.act_target, self.act)
+            self.soft_target_update(self.cri_target, self.cri)
 
-                self.act_target.load_state_dict(self.act.state_dict())
-                self.cri_target.load_state_dict(self.cri.state_dict())
-
-                rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
-                self.rho = self.rho * 0.75 + rho * 0.25
-                self.act_optimizer.param_groups[0]['lr'] = self.lr_a * self.rho
-                self.loss_c_sum = 0.0
-
-        return loss_a_sum / iter_num, loss_c_sum / iter_num,
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / update_times
+        return loss_a_avg, loss_c_avg
 
     def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
@@ -178,18 +133,18 @@ class AgentSNAC:
         return actions
 
     @staticmethod
-    def soft_update(target, source, tau=0.005):
+    def soft_target_update(target, source, tau=5e-3):
         for target_param, param in zip(target.parameters(), source.parameters()):
-            target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
+            target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
-    def save_or_load_model(self, cwd, is_save):  # 2020-04-30
-        act_save_path = '{}/actor.pth'.format(cwd)
-        cri_save_path = '{}/critic.pth'.format(cwd)
+    def save_or_load_model(self, mod_dir, is_save):  # 2020-05-20
+        act_save_path = '{}/actor.pth'.format(mod_dir)
+        cri_save_path = '{}/critic.pth'.format(mod_dir)
 
         if is_save:
             torch.save(self.act.state_dict(), act_save_path)
             torch.save(self.cri.state_dict(), cri_save_path)
-            # print("Saved act and cri:", cwd)
+            # print("Saved act and cri:", mod_dir)
         elif os.path.exists(act_save_path):
             act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
             self.act.load_state_dict(act_dict)
@@ -197,186 +152,345 @@ class AgentSNAC:
             cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
             self.cri.load_state_dict(cri_dict)
             self.cri_target.load_state_dict(cri_dict)
-            print("Load act and cri:", cwd)
-        else:
-            print("FileNotFound when load_model:", cwd)
-            # pass
-
-
-class AgentQLearning(AgentSNAC):
-    def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
-        super(AgentSNAC, self).__init__()
-        learning_rate = 4e-4
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        '''dim and idx'''
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        memo_action_dim = 1  # Discrete action space
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + memo_action_dim
-
-        '''network'''
-        actor_dim = net_dim
-        act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
-        act.train()
-        self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate)
-
-        act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
-        act_target.eval()
-        self.act_target = act_target
-        self.act_target.load_state_dict(act.state_dict())
-
-        self.criterion = nn.SmoothL1Loss()
-
-        self.update_counter = 0
-
-    def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-
-        k = 1.0 + memories.now_len / memories.max_len
-        batch_size = int(batch_size * k)
-        iter_num = int(iter_num * k)
-
-        for _ in range(iter_num):
-            with torch.no_grad():
-                memory = memories.random_sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
-
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
-
-                q_target = self.act_target(next_state).max(dim=1, keepdim=True)[0]
-                q_target = reward + undone * gamma * q_target
-
-            self.act.train()
-            action = action.type(torch.long)
-            q_eval = self.act(state).gather(1, action)
-            critic_loss = self.criterion(q_eval, q_target)
-            loss_c_sum += critic_loss.item()
-
-            self.act_optimizer.zero_grad()
-            critic_loss.backward()
-            self.act_optimizer.step()
-
-            self.update_counter += 1
-            if self.update_counter == update_gap:
-                self.update_counter = 0
-                self.act_target.load_state_dict(self.act.state_dict())
-
-        return loss_a_sum / iter_num, loss_c_sum / iter_num,
-
-    def select_actions(self, states, explore_noise=0.0):  # state -> ndarray shape: (1, state_dim)
-        states = torch.tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()
-        return actions
-
-    def save_or_load_model(self, mod_dir, is_save):
-        act_save_path = '{}/actor.pth'.format(mod_dir)
-
-        if is_save:
-            torch.save(self.act.state_dict(), act_save_path)
-            print("Saved act and cri:", mod_dir)
-        elif os.path.exists(act_save_path):
-            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
-            self.act.load_state_dict(act_dict)
-            self.act_target.load_state_dict(act_dict)
         else:
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentIntelAC(AgentSNAC):
+class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient)
     def __init__(self, state_dim, action_dim, net_dim):
-        super(AgentSNAC, self).__init__()
-        use_densenet = True
+        use_densenet = False  # soft target update is conflict with use_densenet
+        use_sn = False  # soft target update is conflict with use_sn (Spectral Normalization)
         self.learning_rate = 4e-4
-
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        '''dim and idx'''
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + action_dim
+        '''network'''
+        actor_dim = net_dim
+        self.act = ActorDL(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
+
+        self.act_target = ActorDL(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        critic_dim = int(net_dim * 1.25)
+        self.cri = CriticSN(state_dim, action_dim, critic_dim, use_densenet, use_sn).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.cri_target = CriticSN(state_dim, action_dim, critic_dim, use_densenet, use_sn).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
+        self.update_counter = 0  # delay update counter
+
+    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
+        explore_rate = 0.5  # explore rate when update_buffer()
+        explore_noise = 0.2  # standard deviation of explore noise
+        self.act.eval()
+
+        rewards = list()
+        steps = list()
+        for t in range(max_step):
+            '''inactive with environment'''
+            explore_noise_temp = explore_noise if rd.rand() < explore_rate else 0
+            action = self.select_actions((self.state,), explore_noise_temp)[0]
+            next_state, reward, done, _ = env.step(action * max_action)
+
+            self.reward_sum += reward
+            self.step_sum += 1
+
+            '''update replay buffer'''
+            reward_ = reward * reward_scale
+            mask = 0.0 if done else gamma
+            buffer.add_memo((reward_, mask, self.state, action, next_state))
+
+            self.state = next_state
+            if done:
+                rewards.append(self.reward_sum)
+                self.reward_sum = 0.0
+
+                steps.append(self.step_sum)
+                self.step_sum = 0
+
+                self.state = env.reset()
+        return rewards, steps
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        policy_noise = 0.2  # standard deviation of policy noise
+        update_freq = 2  # delay update frequency, for soft target update
+        self.act.train()
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for i in range(update_times * repeat_times):
+            with torch.no_grad():
+                reward, mask, state, action, next_state = buffer.random_sample(batch_size_, self.device)
+
+                next_action = self.act_target(next_state, policy_noise)
+                q_target = self.cri_target(next_state, next_action)
+                q_target = reward + mask * q_target
+
+            '''critic_loss'''
+            q_eval = self.cri(state, action)
+            critic_loss = self.criterion(q_eval, q_target)
+            loss_c_sum += critic_loss.item()
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_loss'''
+            if i % repeat_times == 0:
+                action_pg = self.act(state)  # policy gradient
+                actor_loss = -self.cri(state, action_pg).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+
+                self.act_optimizer.zero_grad()
+                actor_loss.backward()
+                self.act_optimizer.step()
+
+            '''soft target update'''
+            self.update_counter += 1
+            if self.update_counter == update_freq:
+                self.update_counter = 0
+                self.soft_target_update(self.act_target, self.act)  # soft target update
+                self.soft_target_update(self.cri_target, self.cri)  # soft target update
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states, explore_noise).cpu().data.numpy()
+        return actions
+
+    @staticmethod
+    def soft_target_update(target, source, tau=5e-3):
+        for target_param, param in zip(target.parameters(), source.parameters()):
+            target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+
+    def save_or_load_model(self, mod_dir, is_save):  # 2020-05-20
+        act_save_path = '{}/actor.pth'.format(mod_dir)
+        cri_save_path = '{}/critic.pth'.format(mod_dir)
+
+        if is_save:
+            torch.save(self.act.state_dict(), act_save_path)
+            torch.save(self.cri.state_dict(), cri_save_path)
+            # print("Saved act and cri:", mod_dir)
+        elif os.path.exists(act_save_path):
+            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
+            self.act.load_state_dict(act_dict)
+            self.act_target.load_state_dict(act_dict)
+            cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
+            self.cri.load_state_dict(cri_dict)
+            self.cri_target.load_state_dict(cri_dict)
+        else:
+            print("FileNotFound when load_model: {}".format(mod_dir))
+
+
+class AgentSNAC(AgentBasicAC):
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        use_densenet = True  # SNAC
+        use_sn = True  # SNAC, use_sn (Spectral Normalization)
+        self.learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        actor_dim = net_dim
+        self.act = ActorDL(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
+
+        self.act_target = ActorDL(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        critic_dim = int(net_dim * 1.25)
+        self.cri = CriticSN(state_dim, action_dim, critic_dim, use_densenet, use_sn).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.cri_target = CriticSN(state_dim, action_dim, critic_dim, use_densenet, use_sn).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
+        self.update_counter = 0
+
+        '''extension'''
+        self.loss_c_sum = 0.0
+        self.rho = 0.5
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        policy_noise = 0.4  # standard deviation of policy noise
+        update_freq = 2 ** 7  # delay update frequency, for hard target update
+        self.act.train()
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for i in range(update_times * repeat_times):
+            with torch.no_grad():
+                reward, mask, state, action, next_state = buffer.random_sample(batch_size_, self.device)
+
+                next_a = self.act_target(next_state)
+                next_a_noisy = self.act_target.add_noise(next_a, policy_noise)
+                next_q = self.cri_target(next_state, next_a)
+                next_q_noisy = self.cri_target(next_state, next_a_noisy)
+                next_q_target = (next_q + next_q_noisy) * 0.5  # SNAC, more smooth and more stable q value
+                next_q_target = reward + mask * next_q_target
+
+            '''critic_loss'''
+            q_eval = self.cri(state, action)
+            critic_loss = self.criterion(q_eval, next_q_target)
+            loss_c_tmp = critic_loss.item()
+            loss_c_sum += loss_c_tmp
+            self.loss_c_sum += loss_c_tmp  # extension
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_loss'''
+            if i % repeat_times == 0 and self.rho > 0.001:  # 2.6
+                actions_pg = self.act(state)  # policy gradient
+                actor_loss = -self.cri(state, actions_pg).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+
+                self.act_optimizer.zero_grad()
+                actor_loss.backward()
+                # https://stackoverflow.com/questions/54716377/
+                # how-to-do-gradient-clipping-in-pytorch/54716953#54716953
+                # torch.nn.utils.clip_grad_norm_(self.act.parameters(), max_norm=4)
+                self.act_optimizer.step()
+
+            '''target update'''
+            self.update_counter += 1
+            if self.update_counter == update_freq:
+                self.update_counter = 0
+                self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
+                self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+
+                rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
+                self.rho = (self.rho + rho) * 0.5
+                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * self.rho
+                self.loss_c_sum = 0.0
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+
+class AgentInterAC(AgentBasicAC):
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        use_densenet = True
+        # use_sn = True  # SNAC, use_sn (Spectral Normalization)
+        self.learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
         self.act = ActorCritic(state_dim, action_dim, net_dim, use_densenet).to(self.device)
         self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+
         self.act_target = ActorCritic(state_dim, action_dim, net_dim, use_densenet).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.net_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.criterion = nn.SmoothL1Loss()
 
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
         self.update_counter = 0
+
+        '''extension'''
         self.loss_c_sum = 0.0
         self.rho = 0.5
 
-    def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        policy_noise = 0.4  # standard deviation of policy noise
+        update_freq = 2 ** 7  # delay update frequency, for soft target update
+        self.act.eval()
+
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        batch_size = int(batch_size * (1.0 + memories.now_len / memories.max_len))
-        iter_num_c = int(iter_num * (1.0 + memories.now_len / 2 ** 18))
-        iter_num_a = 0
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
 
-        for _ in range(iter_num_c):
+        for i in range(update_times * repeat_times):
             with torch.no_grad():
-                memory = memories.random_sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
+                reward, mask, state, action, next_state = buffer.random_sample(batch_size_, self.device)
 
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
+                next_q_target, next_action = self.act_target.next__q_a(
+                    state, next_state, policy_noise)
+                q_target = reward + mask * next_q_target
 
-                q_target, next_action0 = self.act_target.next__q_a_fix_bug(state, next_state, policy_noise)
-                q_target = reward + undone * gamma * q_target
-
-            '''loss C'''
+            '''critic loss'''
             q_eval = self.act.critic(state, action)
             critic_loss = self.criterion(q_eval, q_target)
             loss_c_tmp = critic_loss.item()
             loss_c_sum += loss_c_tmp
-            self.loss_c_sum += loss_c_tmp
+            self.loss_c_sum += loss_c_tmp  # extension
 
-            '''term A'''
-            actor_term = self.criterion(self.act(next_state), next_action0)
+            '''actor correction term'''
+            actor_term = self.criterion(self.act(next_state), next_action)
 
-            '''loss A'''
-            action_cur = self.act(state)
-            actor_loss = -self.act_target.critic(state, action_cur).mean()
-            loss_a_sum += actor_loss.item()
-            iter_num_a += 1
+            if i % repeat_times == 0:
+                '''actor loss'''
+                action_cur = self.act(state)  # policy gradient
+                actor_loss = -self.act_target.critic(state, action_cur).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
 
-            '''united loss'''
-            united_loss = critic_loss + actor_term * (1 - self.rho) + actor_loss * (self.rho * 0.5)
+                united_loss = critic_loss + actor_term * (1 - self.rho) + actor_loss * (self.rho * 0.5)
+            else:
+                united_loss = critic_loss + actor_term * (1 - self.rho)
 
-            self.net_optimizer.zero_grad()
+            """united loss"""
+            self.act_optimizer.zero_grad()
             united_loss.backward()
-            self.net_optimizer.step()
+            self.act_optimizer.step()
 
             self.update_counter += 1
-            if self.update_counter == update_gap:
+            if self.update_counter == update_freq:
                 self.update_counter = 0
 
-                rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
-                self.rho = self.rho * 0.75 + rho * 0.25
+                rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
+                self.rho = (self.rho + rho) * 0.5
                 self.loss_c_sum = 0.0
 
-                # self.net_optimizer.param_groups[0]['lr'] = self.learning_rate * max(self.rho, 0.1)
                 if self.rho > 0.1:
                     self.act_target.load_state_dict(self.act.state_dict())
 
-        loss_a_avg = (loss_a_sum / iter_num_a) if iter_num_a else 0.0
-        loss_c_avg = (loss_c_sum / iter_num_c) if iter_num_c else 0.0
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
         return loss_a_avg, loss_c_avg
 
     def save_or_load_model(self, mod_dir, is_save):
@@ -398,111 +512,290 @@ class AgentIntelAC(AgentSNAC):
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentTD3(AgentSNAC):
+class AgentTD3(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
-        super(AgentSNAC, self).__init__()
-        use_densenet = False
-        learning_rate = 4e-4
+        super(AgentBasicAC, self).__init__()
+        self.learning_rate = 4e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        '''dim and idx'''
-        self.state_dim = state_dim
-        self.action_dim = action_dim
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + action_dim
 
         '''network'''
         actor_dim = net_dim
-        act = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
-        act.train()
-        self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate / 4)
+        self.act = ActorDPG(state_dim, action_dim, actor_dim).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
 
-        act_target = Actor(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
-        act_target.eval()
-        self.act_target = act_target
-        self.act_target.load_state_dict(act.state_dict())
+        self.act_target = ActorDPG(state_dim, action_dim, actor_dim).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
 
-        '''critic'''
         critic_dim = int(net_dim * 1.25)
-        cri = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)  # TD3
-        cri.train()
-        self.cri = cri
-        self.cri_optimizer = torch.optim.Adam(cri.parameters(), lr=learning_rate)
+        self.cri = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-        cri_target = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)  # TD3
-        cri_target.eval()
-        self.cri_target = cri_target
-        self.cri_target.load_state_dict(cri.state_dict())
+        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
 
-        self.criterion = nn.SmoothL1Loss()
+        self.criterion = nn.MSELoss()
 
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
         self.update_counter = 0
-        self.loss_c_sum = 0.0
-        self.rho = 0.5
 
-    def update_parameter(self, memories, iter_num, batch_size, policy_noise, update_gap, gamma):  # 2020-02-02
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        policy_noise = 0.2  # standard deviation of policy noise
+        update_freq = 2 * repeat_times  # delay update frequency, for soft target update
+        self.act.train()
+
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
-        k = 1.0 + memories.now_len / memories.max_len
-        batch_size = int(batch_size * k)
-        iter_num = int(iter_num * k)
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
 
-        for _ in range(iter_num):
+        for i in range(update_times * repeat_times):
             with torch.no_grad():
-                memory = memories.random_sample(batch_size)
-                memory = torch.tensor(memory, device=self.device)
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
 
-                reward = memory[:, 0:1]
-                undone = memory[:, 1:2]
-                state = memory[:, 2:self.state_idx]
-                action = memory[:, self.state_idx:self.action_idx]
-                next_state = memory[:, self.action_idx:]
+                next_a = self.act_target(next_s, policy_noise)
+                next_q_target = torch.min(*self.cri_target.get__q1_q2(next_s, next_a))  # TD3
+                q_target = reward + mask * next_q_target
 
-                next_action = self.act_target(next_state, policy_noise)
-                q_target1, q_target2 = self.cri_target.get_q1_q2(next_state, next_action)
-                q_target = torch.min(q_target1, q_target2)  # TD3
-                q_target = reward + undone * gamma * q_target
-
-            '''loss C'''
-            q_eval1, q_eval2 = self.cri.get_q1_q2(state, action)  # TD3
+            '''critic_loss'''
+            q_eval1, q_eval2 = self.cri.get__q1_q2(state, action)  # TD3
             critic_loss = self.criterion(q_eval1, q_target) + self.criterion(q_eval2, q_target)
-            loss_c_tmp = critic_loss.item() * 0.5  # TD3
-            loss_c_sum += loss_c_tmp
-            self.loss_c_sum += loss_c_tmp
+            loss_c_sum += critic_loss.item() * 0.5  # TD3
 
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
             self.cri_optimizer.step()
 
-            '''loss A'''
-            action_cur = self.act(state)
-            actor_loss = -self.cri(state, action_cur).mean()
+            '''actor_loss'''
+            if i % repeat_times == 0:
+                action_pg = self.act(state)  # policy gradient
+                actor_loss = -self.cri(state, action_pg).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+
+                self.act_optimizer.zero_grad()
+                actor_loss.backward()
+                self.act_optimizer.step()
+
+            '''target update'''
+            self.update_counter += 1
+            if self.update_counter == update_freq:
+                self.update_counter = 0
+                self.soft_target_update(self.act_target, self.act)  # soft target update
+                self.soft_target_update(self.cri_target, self.cri)  # soft target update
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+
+class AgentPPO_Fail(AgentBasicAC): # todo
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        self.learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        self.act = ActorPPO(state_dim, action_dim, net_dim).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
+
+        self.cri = CriticAdvantage(state_dim, action_dim, net_dim).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.criterion = nn.MSELoss()
+
+        '''extension'''
+        self.loss_c_sum = 0.0
+        self.clip_adv = 0.5
+
+    def update_buffer_ppo(self, env, max_step, max_action, reward_scale, gamma, state_norm):
+        buffer = BufferListPPO()
+        self.act.eval()
+
+        rewards = list()
+        steps = list()
+        step_counter = 0
+        while step_counter < max_step:
+            state = env.reset()
+            state = state_norm(state)  # if state_norm:
+
+            reward_sum = 0.0
+            step_sum = 0
+
+            for step_sum in range(max_step):
+                '''inactive with environment'''
+                action, log_prob, q_value = self.select_actions((state,), explore_noise=True)
+                action = action[0]
+                log_prob = log_prob[0]
+                q_value = q_value[0]
+
+                next_state, reward, done, _ = env.step(action * max_action)
+                next_state = state_norm(next_state)  # if state_norm:
+                reward_sum += reward
+
+                '''update replay buffer'''
+                reward_ = reward * reward_scale
+                mask = 0.0 if done else gamma
+                buffer.add_tuple(state, q_value, action, log_prob, mask, reward_)
+
+                if done:
+                    break
+
+                state = next_state
+
+            rewards.append(reward_sum)
+            steps.append(step_sum)
+            step_counter += step_sum
+
+        return rewards, steps, buffer
+
+    def update_parameters_ppo(self, buffer, batch_size, ep_ratio):
+        clip = 0.2
+        loss_coeff_value = 0.5  # coefficient of value function
+        loss_coeff_entropy = 0.02  # coefficient of entropy # 0.01 by default
+
+        lambda_adv = 0.97
+        repeat_times = 8
+        self.act.train()
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        all_batch = buffer.all_sample()
+        max_step = len(buffer)
+
+        all_reward = torch.tensor(all_batch.reward, dtype=torch.float32, device=self.device)
+        all_mask = torch.tensor(all_batch.mask, dtype=torch.float32, device=self.device)
+        all_state = torch.tensor(all_batch.state, dtype=torch.float32, device=self.device)
+        all_action = torch.tensor(all_batch.action, dtype=torch.float32, device=self.device)
+        all_value = torch.tensor(all_batch.value, dtype=torch.float32, device=self.device)
+        all_log_prob = torch.tensor(all_batch.log_prob, dtype=torch.float32, device=self.device)
+
+        '''compute prev (value, return, advantage)'''
+        # Generalization Advantage Estimate. ICLR. 2016.
+        # https://arxiv.org/pdf/1506.02438.pdf
+        all_delta = torch.empty(max_step, dtype=torch.float32, device=self.device)
+        all_return = torch.empty(max_step, dtype=torch.float32, device=self.device)
+        all_advantage = torch.empty(max_step, dtype=torch.float32, device=self.device)
+
+        prev_return = 0
+        prev_value = 0
+        prev_advantage = 0
+
+        for i in range(max_step - 1, -1, -1):
+            all_delta[i] = all_reward[i] + all_mask[i] * prev_value - all_value[i]
+            all_return[i] = all_reward[i] + all_mask[i] * prev_return
+            all_advantage[i] = all_delta[i] + all_mask[i] * lambda_adv * prev_advantage
+
+            prev_value = all_value[i]
+            prev_return = all_return[i]
+            prev_advantage = all_advantage[i]
+
+        # normalization for all_advantage
+        all_advantage = (all_advantage - all_advantage.mean()) / (all_advantage.std() + 1e-6)  # if advantage_norm:
+
+        '''mini batch sample'''
+        loss_total = critic_loss = None
+
+        sample_times = int(repeat_times * max_step / batch_size)
+        for i_epoch in range(sample_times):
+            '''random sample'''
+            indices = rd.choice(max_step, batch_size, replace=True)
+
+            state = all_state[indices]
+            action = all_action[indices]
+            advantage = all_advantage[indices]
+            log_prob = all_log_prob[indices]
+            return_ = all_return[indices]
+
+            """Adaptive KL Penalty Coefficient
+            loss_KLPEN = surrogate_obj + value_obj * loss_coeff_value + entropy_obj * loss_coeff_entropy
+            loss_KLPEN = (value_obj * loss_coeff_value)  (surrogate_obj + entropy_obj * loss_coeff_entropy)
+            loss_KLPEN = critic_loss + actor_loss
+            """
+
+            '''critic_loss'''
+            new_value = self.cri(state).flatten()  # policy gradient
+            # state-value function (advantage function)
+            value_obj = self.criterion(new_value, return_) / (return_.std() * 6.0)
+            critic_loss = value_obj * loss_coeff_value
+            loss_c_sum += critic_loss.item()
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_loss'''
+            new_action = self.act(state)
+            new_log_prob = self.act.get__log_prob(new_action, action)
+
+            # surrogate objective of TRPO
+            ratio = torch.exp(new_log_prob - log_prob)
+            surrogate_obj0 = advantage * ratio
+            surrogate_obj1 = advantage * ratio.clamp(1 - self.clip_adv, 1 + self.clip_adv)
+            surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
+
+            # policy entropy
+            entropy_obj = (new_log_prob.exp() * new_log_prob).mean()
+            actor_loss = surrogate_obj + entropy_obj * loss_coeff_entropy
             loss_a_sum += actor_loss.item()
 
             self.act_optimizer.zero_grad()
             actor_loss.backward()
             self.act_optimizer.step()
 
-            self.update_counter += 1
-            if self.update_counter == update_gap:
-                self.update_counter = 0
+        '''adjust the learning rate'''
+        self.clip_adv = clip * ep_ratio  # ep_ratio = 1 - (now_epoch / max_epoch)
+        self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * ep_ratio
 
-                # self.act_target.load_state_dict(self.act.state_dict())
-                # self.cri_target.load_state_dict(self.cri.state_dict())
-                self.soft_update(self.act_target, self.act, tau=0.01)
-                self.soft_update(self.cri_target, self.cri, tau=0.01)
+        loss_a_avg = loss_a_sum / sample_times
+        loss_c_avg = loss_c_sum / sample_times
+        return loss_a_avg, loss_c_avg
 
-                rho = np.exp(-(self.loss_c_sum / update_gap) ** 2)
-                self.rho = self.rho * 0.75 + rho * 0.25
-                self.act_optimizer.param_groups[0]['lr'] = 1e-4 * self.rho
-                self.loss_c_sum = 0.0
+    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states)
 
-        return loss_a_sum / iter_num, loss_c_sum / iter_num,
+        if explore_noise == 0.0:
+            actions = actions.cpu().data.numpy()
+            return actions
+        else:
+            a_noise, log_prob = self.act.get__a__log_prob(actions)
+            a_noise = a_noise.cpu().data.numpy()
+
+            log_prob = log_prob.cpu().data.numpy()
+
+            q_value = self.cri(states)
+            q_value = q_value.cpu().data.numpy()
+            return a_noise, log_prob, q_value
+
+    def save_or_load_model(self, mod_dir, is_save):
+        act_save_path = '{}/actor.pth'.format(mod_dir)
+        cri_save_path = '{}/critic.pth'.format(mod_dir)
+
+        if is_save:
+            torch.save(self.act.state_dict(), act_save_path)
+            torch.save(self.cri.state_dict(), cri_save_path)
+            # print("Saved act and cri:", mod_dir)
+        elif os.path.exists(act_save_path):
+            act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
+            self.act.load_state_dict(act_dict)
+            cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
+            self.cri.load_state_dict(cri_dict)
+        else:
+            print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentPPO:
+class AgentPPO: # todo
     def __init__(self, state_dim, action_dim, net_dim):
         # super(AgentSNAC, self).__init__()
         """
@@ -567,7 +860,7 @@ class AgentPPO:
         lamda = 0.97
         num_epoch = 10
 
-        all_batch = memory.random_sample()
+        all_batch = memory.sample()
         max_memo = len(memory)
 
         all_reward = torch.tensor(all_batch.reward, dtype=torch.float32, device=self.device)
@@ -672,178 +965,196 @@ class AgentPPO:
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentSAC:
-    def __init__(self, env, state_dim, action_dim, net_dim):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class AgentSAC(AgentBasicAC): # todo
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        # use_densenet = False
         self.learning_rate = 2e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        self.act = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
+        actor_dim = net_dim
+        self.act = ActorSAC(state_dim, action_dim, actor_dim).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
         self.act_target = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
 
-        self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+        critic_dim = int(net_dim * 1.25)
+        self.cri = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate * 2)
 
-        # from copy import deepcopy
-        # self.cri_target = copy.deepcopy(self.cri).to(self.device)
-        # same as:
-        self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
+        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
 
         self.criterion = nn.MSELoss()
 
-        '''extension: alpha and entropy'''
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step_sum = 0
+        self.update_counter = 0
+
+        '''extension: auto-alpha for maximum entropy'''
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.log_alpha.exp()
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
         self.target_entropy = -1
 
-        '''training'''
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        # policy_noise == (1.0 or True)  # stochastic policy choose noise_std by itself
+        update_freq = 2 * repeat_times  # delay update frequency, for soft target update
+        self.act.train()
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for i in range(update_times * repeat_times):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
+
+                next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s, self.device)
+                next_q_target = torch.min(*self.cri_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
+                q_target = reward + mask * next_q_target
+            '''critic_loss'''
+            q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
+            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+            loss_c_sum += critic_loss.item() * 0.5  # CriticTwin
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_loss'''
+            if i % repeat_times == 0:
+                # stochastic policy
+                actions_noise, log_prob = self.act.get__a__log_prob(state, self.device)  # policy gradient
+                # auto alpha
+                alpha_loss = -(self.log_alpha * (self.target_entropy + log_prob).detach()).mean()
+                self.alpha_optimizer.zero_grad()
+                alpha_loss.backward()
+                self.alpha_optimizer.step()
+
+                # policy gradient
+                self.alpha = self.log_alpha.exp()
+                q_eval_pg = self.cri(state, actions_noise)  # policy gradient # todo
+                actor_loss = (log_prob * self.alpha - q_eval_pg).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+
+                self.act_optimizer.zero_grad()
+                actor_loss.backward()
+                self.act_optimizer.step()
+
+            """target update"""
+            self.update_counter += 1
+            if self.update_counter == update_freq:
+                self.update_counter = 0
+                self.soft_target_update(self.act_target, self.act)  # soft target update
+                self.soft_target_update(self.cri_target, self.cri)  # soft target update
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+
+class AgentDQN(AgentBasicAC):  # 2020-06-06 # todo
+    def __init__(self, env, state_dim, action_dim, net_dim):  # 2020-04-30
+        super(AgentBasicAC, self).__init__()
+        self.learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''dim and idx'''
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        memo_action_dim = 1  # Discrete action space
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + memo_action_dim
+
+        '''network'''
+        actor_dim = net_dim
+        act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
+        act.train()
+        self.act = act
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate)
+
+        act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
+        act_target.eval()
+        self.act_target = act_target
+        self.act_target.load_state_dict(act.state_dict())
+
+        self.criterion = nn.MSELoss()
+
+        '''training record'''
         self.state = env.reset()
         self.reward_sum = 0.0
         self.step_sum = 0
         self.update_counter = 0
 
-    @staticmethod
-    def soft_target_update(target, source, tau=4e-3):
-        for target_param, param in zip(target.parameters(), source.parameters()):
-            target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+        '''extension: rho and loss_c'''
+        self.explore_noise = 0.1
+        self.policy_noise = 0.2
 
-    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
+    def update_parameters(self, buffer, max_step, batch_size_, update_gap):
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size_ * k)
+        iter_step = int(max_step * k)
+
+        for _ in range(iter_step):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size_, self.device)
+
+                q_target = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_target = rewards + masks * q_target
+
+            self.act.train()
+            actions = actions.type(torch.long)
+            q_eval = self.act(states).gather(1, actions)
+            critic_loss = self.criterion(q_eval, q_target)
+            loss_c_sum += critic_loss.item()
+
+            self.act_optimizer.zero_grad()
+            critic_loss.backward()
+            self.act_optimizer.step()
+
+            self.update_counter += 1
+            if self.update_counter == update_gap:
+                self.update_counter = 0
+                self.act_target.load_state_dict(self.act.state_dict())
+
+        return loss_a_sum / iter_step, loss_c_sum / iter_step,
+
+    def select_actions(self, states, explore_noise=0.0):  # state -> ndarray shape: (1, state_dim)
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
-
-        if explore_noise == 0.0:
-            actions = self.act(states)
-        else:
-            a_means, a_stds = self.act.actor(states)
-            actions = torch.normal(a_means, a_stds)
-
-        actions = actions.tanh()
-        actions = actions.cpu().data.numpy()
+        actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()
         return actions
 
     def save_or_load_model(self, mod_dir, is_save):
         act_save_path = '{}/actor.pth'.format(mod_dir)
-        cri_save_path = '{}/critic.pth'.format(mod_dir)
 
         if is_save:
             torch.save(self.act.state_dict(), act_save_path)
-            torch.save(self.cri.state_dict(), cri_save_path)
-            # print("Saved act and cri:", mod_dir)
+            # print("Saved neural network:", mod_dir)
         elif os.path.exists(act_save_path):
             act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
             self.act.load_state_dict(act_dict)
-            # self.act_target.load_state_dict(act_dict)
-            cri_dict = torch.load(cri_save_path, map_location=lambda storage, loc: storage)
-            self.cri.load_state_dict(cri_dict)
-            # self.cri_target.load_state_dict(cri_dict)
+            self.act_target.load_state_dict(act_dict)
         else:
             print("FileNotFound when load_model: {}".format(mod_dir))
 
-    def update_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
-        rewards = list()
-        steps = list()
-        for t in range(max_step):
-            '''inactive with environment'''
-            action = self.select_actions((self.state,), explore_noise=True)[0]
-            next_state, reward, done, _ = env.step(action * max_action)
 
-            self.reward_sum += reward
-            self.step_sum += 1
-
-            '''update memory (replay buffer)'''
-            reward_ = reward * reward_scale
-            mask = 0.0 if done else gamma
-            memo.add_memo((reward_, mask, self.state, action, next_state))
-
-            self.state = next_state
-            if done:
-                rewards.append(self.reward_sum)
-                self.reward_sum = 0.0
-
-                steps.append(self.step_sum)
-                self.step_sum = 0
-
-                self.state = env.reset()
-        memo.init_after_add_memo()
-        return rewards, steps
-
-    def update_parameters(self, memo, max_step, batch_size, update_gap):
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-        for _ in range(max_step):
-            with torch.no_grad():
-                rewards, marks, states, actions, next_states = memo.random_sample(batch_size, self.device)
-
-            """actor loss"""
-
-            '''stochastic policy'''
-            actions_noise, log_prob = self.act.get__a__log_prob(states, self.device)
-            '''auto alpha for actor'''
-            alpha_loss = -(self.log_alpha * (self.target_entropy + log_prob).detach()).mean()
-            self.alpha_optimizer.zero_grad()
-            alpha_loss.backward()
-            self.alpha_optimizer.step()
-            '''actor loss'''
-            alpha = self.log_alpha.exp()
-            q0_min = torch.min(*self.cri(states, actions_noise))
-            actor_loss = (alpha * log_prob - q0_min).mean()
-            loss_a_sum += actor_loss.item()
-            self.act_optimizer.zero_grad()
-            actor_loss.backward()
-            self.act_optimizer.step()
-
-            """critic loss1"""
-
-            '''q0_target'''
-            with torch.no_grad():
-                next_actions_noise, next_log_prob = self.act_target.get__a__log_prob(next_states, self.device)
-
-                next_q0_min = torch.min(*self.cri_target(next_states, next_actions_noise))
-                next_q0_target = next_q0_min - next_log_prob * alpha
-                q0_target = rewards + marks * next_q0_target
-            '''q1 and q2'''
-            q1_value, q2_value = self.cri(states, actions)
-            '''critic loss'''
-            critic_loss = self.criterion(q1_value, q0_target) + self.criterion(q2_value, q0_target)
-            loss_c_sum += critic_loss.item() * 0.5
-            self.cri_optimizer.zero_grad()
-            critic_loss.backward()
-            self.cri_optimizer.step()
-
-            """critic loss2"""
-            with torch.no_grad():
-                rewards, marks, states, actions, next_states = memo.random_sample(batch_size, self.device)
-            '''q0_target'''
-            with torch.no_grad():
-                next_actions_noise, next_log_prob = self.act_target.get__a__log_prob(next_states, self.device)
-
-                next_q0_min = torch.min(*self.cri_target(next_states, next_actions_noise))
-                next_q0_target = next_q0_min - next_log_prob * alpha
-                q0_target = rewards + marks * next_q0_target
-            '''q1 and q2'''
-            q1_value, q2_value = self.cri(states, actions)
-            '''critic loss'''
-            critic_loss = self.criterion(q1_value, q0_target) + self.criterion(q2_value, q0_target)
-            loss_c_sum += critic_loss.item() * 0.5
-            self.cri_optimizer.zero_grad()
-            critic_loss.backward()
-            self.cri_optimizer.step()
-
-            """target update"""
-            self.soft_target_update(self.act_target, self.act)  # todo soft
-            self.soft_target_update(self.cri_target, self.cri)  # todo soft
-            # self.update_counter += 1
-            # if self.update_counter > update_gap:
-            #     self.update_counter = 0
-            #     self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
-
-        loss_a = loss_a_sum / max_step
-        loss_c = loss_c_sum / max_step
-        return loss_a, loss_c
-
-
-def initial_exploration(env, memo, max_step, max_action, reward_scale, gamma, action_dim):
+def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, action_dim):
     state = env.reset()
 
     rewards = list()
@@ -851,12 +1162,23 @@ def initial_exploration(env, memo, max_step, max_action, reward_scale, gamma, ac
     steps = list()
     step = 0
 
+    if isinstance(action_max, int) and action_max == int(1):
+        def random_uniform_policy_for_discrete_action():
+            return rd.randint(action_dim)
+
+        get_random_action = random_uniform_policy_for_discrete_action
+        action_max = int(1)
+    else:
+        def random_uniform_policy_for_continuous_action():
+            return rd.uniform(-1, 1, size=action_dim)
+
+        get_random_action = random_uniform_policy_for_continuous_action
+
     global_step = 0
     while global_step < max_step:
         # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
-        action = rd.uniform(-1.0, +1.0, size=action_dim)  # uniform exploration
-
-        next_state, reward, done, _ = env.step(action * max_action)
+        action = get_random_action()
+        next_state, reward, done, _ = env.step(action * action_max)
         reward_sum += reward
         step += 1
 
@@ -874,7 +1196,7 @@ def initial_exploration(env, memo, max_step, max_action, reward_scale, gamma, ac
             reward_sum = 0.0
             step = 1
 
-    memo.init_after_add_memo()
+    memo.init_before_sample()
     return rewards, steps
 
 
@@ -1001,7 +1323,22 @@ class BufferArray:  # 2020-05-20
             self.is_full = True
             self.next_idx = 0
 
-    def init_after_add_memo(self):
+    def extend_memo(self, memo_array):  # 2019-12-12
+        size = memo_array.shape[0]
+        next_idx = self.next_idx + size
+        if next_idx < self.max_len:
+            self.memories[self.next_idx:next_idx] = memo_array
+        if next_idx >= self.max_len:
+            if next_idx > self.max_len:
+                self.memories[self.next_idx:self.max_len] = memo_array[:self.max_len - self.next_idx]
+            self.is_full = True
+            next_idx = next_idx - self.max_len
+            self.memories[0:next_idx] = memo_array[-next_idx:]
+        else:
+            self.memories[self.next_idx:next_idx] = memo_array
+        self.next_idx = next_idx
+
+    def init_before_sample(self):
         self.now_len = self.max_len if self.is_full else self.next_idx
 
     def random_sample(self, batch_size, device):
@@ -1011,9 +1348,9 @@ class BufferArray:  # 2020-05-20
         # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
         # same as:
         indices = rd.randint(self.now_len, size=batch_size)
-
         memory = self.memories[indices]
-        memory = torch.tensor(memory, device=device)
+        if device:
+            memory = torch.tensor(memory, device=device)
 
         '''convert array into torch.tensor'''
         tensors = (
@@ -1123,7 +1460,7 @@ class Recorder:
         self.train_timer = timer()  # train_time
         return is_solved
 
-    def show_and_save(self, env_name, cwd):  # 2020-04-30
+    def print_and_save_npy(self, env_name, cwd):  # 2020-04-30
         iter_used = self.total_step  # int(sum(np.array(self.record_epoch)[:, -1]))
         time_used = int(timer() - self.start_time)
         print('Used Time:', time_used)
@@ -1215,7 +1552,7 @@ class AutoNormalization:
         return input_space.shape
 
 
-class OrnsteinUhlenbeckProcess(object):
+class OrnsteinUhlenbeckProcess:
     def __init__(self, size, theta=0.15, sigma=0.3, x0=0.0, dt=1e-2):
         """
         Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py
@@ -1237,11 +1574,12 @@ class OrnsteinUhlenbeckProcess(object):
 
 
 def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  # class Recorder 2020-01-11
-    act = agent.act  # agent.net,
+    """max_action can be None for Discrete action space"""
+    act = agent.act
     act.eval()
 
     env_list_copy = env_list.copy()
-    eva_size = len(env_list_copy)  # 100
+    eva_size = len(env_list_copy)
 
     sum_rewards = [0.0, ] * eva_size
     states = [env.reset() for env in env_list_copy]
