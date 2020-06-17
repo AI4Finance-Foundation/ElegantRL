@@ -104,7 +104,7 @@ def train_agent__off_policy(
     draw_plot_with_npy(cwd, train_time)
 
 
-def train_agent_ppo(
+def train_agent__on_policy(
         class_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
         env_name, max_step, max_memo, max_epoch, **_kwargs):  # 2020-0430
     env = gym.make(env_name)
@@ -114,17 +114,15 @@ def train_agent_ppo(
     agent.save_or_load_model(cwd, is_save=False)
 
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
-    # r_norm = RewardNorm(n_max=target_reward, n_min=recorder.reward_avg)
-    # running_state = ZFilter((state_dim,), clip=5.0)
 
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
-                rewards, steps, memory = agent.inactive_in_env_ppo(
+                rewards, steps, buffer = agent.update_buffer_ppo(
                     env, max_step, max_memo, max_action, reward_scale, gamma)
 
-            loss_a, loss_c = agent.update_parameter_ppo(
-                memory, batch_size, repeat_times)
+            loss_a, loss_c = agent.update_parameters_ppo(
+                buffer, batch_size, repeat_times)
 
             with torch.no_grad():  # just the GPU memory
                 recorder.show_reward(rewards, steps, loss_a, loss_c)
@@ -312,9 +310,9 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 
     os.makedirs(cwd, exist_ok=True)
 
-    shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
-    shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
-    shutil.copy('AgentNetwork.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy('AgentNet.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
     del shutil
 
 
@@ -339,17 +337,15 @@ def run__demo(gpu_id, cwd='AC_BasicAC'):
 
 
 def run__zoo(gpu_id, cwd='AC_Zoo'):
-    from AgentZoo import AgentSNAC
+    # from AgentZoo import AgentSNAC
     # from AgentZoo import AgentDDPG
     # from AgentZoo import AgentTD3
     # from AgentZoo import AgentPPO
-    # from AgentZoo import AgentSAC
+    from AgentZoo import AgentSAC
     # from AgentZoo import AgentBasicAC
     # from AgentZoo import AgentInterAC
 
-    # from AgentZoo import AgentDQN
-
-    args = Arguments(AgentSNAC)
+    args = Arguments(AgentSAC)
     args.gpu_id = gpu_id
 
     args.env_name = "LunarLanderContinuous-v2"
@@ -410,28 +406,27 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
 
 
 def run__ppo(gpu_id, cwd):
-    from AgentZoo import AgentPPO
-    args = Arguments(AgentPPO)
+    # from AgentZoo import AgentPPO
+    from AgentZoo import AgentAdvSAC
+    args = Arguments(AgentAdvSAC)
 
     args.gpu_id = gpu_id
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 8
-    args.repeat_times = 2 ** 3
-    args.net_dim = 2 ** 7
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 8
     args.gamma = 0.99
-
-    args.init_for_training()
 
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not train_agent_ppo(**vars(args)):
+    while not train_agent__on_policy(**vars(args)):
         args.random_seed += 42
 
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not train_agent_ppo(**vars(args)):
+    while not train_agent__on_policy(**vars(args)):
         args.random_seed += 42
 
 
@@ -451,7 +446,7 @@ def run__dqn(gpu_id, cwd='RL_DQN'):
     train_agent_discrete(**vars(args))
 
 
-def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='AC_Methods_MP'):
+def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='RL_MP'):
     os.makedirs(cwd, exist_ok=True)  # all the files save in here
 
     '''run in multiprocessing'''
@@ -579,7 +574,7 @@ def process__workers(gpu_id, root_cwd, q_aggr, q_dist, args, **_kwargs):
     return True
 
 
-def run__multi_workers(gpu_tuple=(0, 1), root_cwd='AC_Methods_MP'):
+def run__multi_workers(gpu_tuple=(0, 1), root_cwd='RL_MP'):
     print('GPU: {} | CWD: {}'.format(gpu_tuple, root_cwd))
     whether_remove_history(root_cwd, is_remove=True)
 
