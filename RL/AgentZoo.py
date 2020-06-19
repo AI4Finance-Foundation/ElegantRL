@@ -805,9 +805,8 @@ class AgentDeepSAC(AgentBasicAC):
                 # q_eval_pg = self.cri(state, actions_noise)  # policy gradient
                 q_eval_pg = torch.min(*self.cri.get__q1_q2(state, actions_noise))  # policy gradient, stable but slower
 
-                actor_loss = (log_prob * self.alpha - q_eval_pg).mean()  # policy gradient
+                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
-                # loss_a_sum += self.alpha.item()
 
                 self.act_optimizer.zero_grad()
                 actor_loss.backward()
