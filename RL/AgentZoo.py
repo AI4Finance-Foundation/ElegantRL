@@ -7,11 +7,11 @@ import numpy.random as rd
 import torch
 import torch.nn as nn
 
-from AgentNet import QNetwork  # QLearning
-from AgentNet import ActorDPG, Critic
+from AgentNet import QNetwork, QNetDL  # QLearning
+from AgentNet import ActorDPG, Critic  # DDPG
 from AgentNet import ActorDN, CriticSN  # SN_AC
 from AgentNet import ActorCritic  # IntelAC
-from AgentNet import CriticTwin  # TD3, SAC
+from AgentNet import CriticTwin, CriticSharedTwin  # TD3, SAC
 from AgentNet import ActorPPO, ActorAdvSAC, CriticAdvantage
 from AgentNet import ActorSAC  # SAC
 
@@ -28,12 +28,13 @@ from AgentNet import ActorSAC  # SAC
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 
-Refer: (TD3) https://github.com/sfujim/TD3
-Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2
+Refer: (TD3) https://github.com/sfujim/TD3 good+
+Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good+
 Refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py
 Refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py
 Refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2
 Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac
+Refer: (SQL) https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py Bad code
 """
 
 
@@ -167,7 +168,7 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient
         actor_dim = net_dim
         self.act = ActorDN(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         self.act.train()
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate * 0.5)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
         self.act_target = ActorDN(state_dim, action_dim, actor_dim, use_densenet).to(self.device)
         self.act_target.eval()
@@ -291,18 +292,20 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient
     def save_or_load_model(self, cwd, is_save):  # 2020-05-20
         act_save_path = '{}/actor.pth'.format(cwd)
         cri_save_path = '{}/critic.pth'.format(cwd)
+        has_act = 'act' in dir(self)
+        has_cri = 'cri' in dir(self)
 
         def load_torch_file(network, save_path):
             network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
             network.load_state_dict(network_dict)
 
         if is_save:
-            torch.save(self.act.state_dict(), act_save_path)
-            torch.save(self.cri.state_dict(), cri_save_path)
+            torch.save(self.act.state_dict(), act_save_path) if has_act else None
+            torch.save(self.cri.state_dict(), cri_save_path) if has_cri else None
             # print("Saved act and cri:", mod_dir)
         elif os.path.exists(act_save_path):
-            load_torch_file(self.act, act_save_path)
-            load_torch_file(self.cri, cri_save_path)
+            load_torch_file(self.act, act_save_path) if has_act else None
+            load_torch_file(self.cri, cri_save_path) if has_cri else None
         else:
             print("FileNotFound when load_model: {}".format(cwd))
 
@@ -387,7 +390,7 @@ class AgentSNAC(AgentBasicAC):
             self.cri_optimizer.step()
 
             '''actor_loss'''
-            if i % repeat_times == 0 and self.rho > 0.001:  # 2.6
+            if i % repeat_times == 0 and self.rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 actions_pg = self.act(state)  # policy gradient
                 actor_loss = -self.cri(state, actions_pg).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
@@ -403,8 +406,8 @@ class AgentSNAC(AgentBasicAC):
             self.update_counter += 1
             if self.update_counter == update_freq:
                 self.update_counter = 0
-                self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
                 self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+                self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
 
                 rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
                 self.rho = (self.rho + rho) * 0.5
@@ -441,7 +444,7 @@ class AgentInterAC(AgentBasicAC):
         self.step = 0
         self.update_counter = 0
 
-        '''extension'''
+        '''extension: auto learning rate of actor'''
         self.loss_c_sum = 0.0
         self.rho = 0.5
 
@@ -511,29 +514,12 @@ class AgentInterAC(AgentBasicAC):
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
         return loss_a_avg, loss_c_avg
 
-    def save_or_load_model(self, cwd, is_save):  # 2020-05-20
-        act_save_path = '{}/actor.pth'.format(cwd)
-
-        # cri_save_path = '{}/critic.pth'.format(cwd)
-
-        def load_torch_file(network, save_path):
-            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
-            network.load_state_dict(network_dict)
-
-        if is_save:
-            torch.save(self.act.state_dict(), act_save_path)
-            # torch.save(self.cri.state_dict(), cri_save_path)
-            # print("Saved act and cri:", mod_dir)
-        elif os.path.exists(act_save_path):
-            load_torch_file(self.act, act_save_path)
-            # load_torch_file(self.cri, cri_save_path)
-        else:
-            print("FileNotFound when load_model: {}".format(cwd))
-
 
 class AgentTD3(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
+        use_dn = False
+        use_sn = False
         self.learning_rate = 2e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -548,11 +534,11 @@ class AgentTD3(AgentBasicAC):
         self.act_target.load_state_dict(self.act.state_dict())
 
         critic_dim = int(net_dim * 1.25)
-        self.cri = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri = CriticTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
         self.cri.train()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
         self.cri_target.eval()
         self.cri_target.load_state_dict(self.cri.state_dict())
 
@@ -624,25 +610,27 @@ class AgentTD3(AgentBasicAC):
 class AgentSAC(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
+        use_dn = False
+        use_sn = False
         self.learning_rate = 2e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
         actor_dim = net_dim
-        self.act = ActorSAC(state_dim, action_dim, actor_dim).to(self.device)
+        self.act = ActorSAC(state_dim, action_dim, actor_dim, use_dn).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-        self.act_target = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = ActorSAC(state_dim, action_dim, net_dim, use_dn).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
         critic_dim = int(net_dim * 1.25)
-        self.cri = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri = CriticTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
         self.cri.train()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim).to(self.device)
+        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
         self.cri_target.eval()
         self.cri_target.load_state_dict(self.cri.state_dict())
 
@@ -658,10 +646,10 @@ class AgentSAC(AgentBasicAC):
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
-        self.target_entropy = -1  # todo: cloud be a negative number? Due to Gauss Dist. -> Tanh()?
+        self.target_entropy = -1  # why a negative number? Due to Gauss Dist. -> Tanh()?
 
         '''constant'''
-        self.explore_rate = 1.0  # explore rate when update_buffer()
+        self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
         self.update_freq = 2  # delay update frequency, for soft target update
 
@@ -698,7 +686,7 @@ class AgentSAC(AgentBasicAC):
                 # stochastic policy
                 actions_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
                 # auto alpha
-                alpha_loss = -(self.log_alpha * (self.target_entropy + log_prob).detach()).mean()
+                alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
                 self.alpha_optimizer.zero_grad()
                 alpha_loss.backward()
                 self.alpha_optimizer.step()
@@ -706,7 +694,6 @@ class AgentSAC(AgentBasicAC):
                 # policy gradient
                 self.alpha = self.log_alpha.exp()
                 q_eval_pg = self.cri(state, actions_noise)  # policy gradient
-                # q_eval_pg = torch.min(*self.cri.get__q1_q2(state, actions_noise))  # policy gradient # todo
                 actor_loss = (log_prob * self.alpha - q_eval_pg).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
 
@@ -720,6 +707,125 @@ class AgentSAC(AgentBasicAC):
                 self.update_counter = 0
                 self.soft_target_update(self.act_target, self.act)  # soft target update
                 self.soft_target_update(self.cri_target, self.cri)  # soft target update
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+
+class AgentDeepSAC(AgentBasicAC):
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        use_dn = True  # and use hard target update
+        use_sn = True  # and use hard target update
+        self.learning_rate = 2e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        actor_dim = net_dim
+        self.act = ActorSAC(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+
+        self.act_target = ActorSAC(state_dim, action_dim, net_dim, use_dn).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        critic_dim = int(net_dim * 1.25)
+        self.cri = CriticSharedTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.cri_target = CriticSharedTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0
+
+        '''extension: auto-alpha for maximum entropy'''
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.log_alpha.exp()
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.target_entropy = -1  # why a negative number? Due to Gauss Dist. -> Tanh()?
+        '''extension: auto learning rate of actor'''
+        self.loss_c_sum = 0.0
+        self.rho = 0.5
+
+        '''constant'''
+        self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
+        self.explore_noise = True  # stochastic policy choose noise_std by itself.
+        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
+        self.act.train()
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for i in range(update_times * repeat_times):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
+
+                next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
+                next_q_target = torch.min(*self.cri_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
+                q_target = reward + mask * next_q_target
+            '''critic_loss'''
+            q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
+            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+            loss_c_sum += critic_loss.item() * 0.5  # CriticTwin
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_loss'''
+            if i % repeat_times == 0 and self.rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+                # stochastic policy
+                actions_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
+                # auto alpha
+                alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
+                self.alpha_optimizer.zero_grad()
+                alpha_loss.backward()
+                self.alpha_optimizer.step()
+
+                # policy gradient
+                self.alpha = self.log_alpha.exp()
+                # q_eval_pg = self.cri(state, actions_noise)  # policy gradient
+                q_eval_pg = torch.min(*self.cri.get__q1_q2(state, actions_noise))  # policy gradient, stable but slower
+
+                actor_loss = (log_prob * self.alpha - q_eval_pg).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+                # loss_a_sum += self.alpha.item()
+
+                self.act_optimizer.zero_grad()
+                actor_loss.backward()
+                self.act_optimizer.step()
+
+            """target update"""
+            self.update_counter += 1
+            if self.update_counter >= update_freq:
+                self.update_counter = 0
+                # self.soft_target_update(self.act_target, self.act)  # soft target update
+                # self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+                self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
+
+                rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
+                self.rho = (self.rho + rho) * 0.5
+                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * self.rho
+                self.loss_c_sum = 0.0
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
@@ -748,7 +854,7 @@ class AgentPPO:
 
         # collect tuple (reward, mask, state, action, log_prob, )
         # PPO is an on policy RL algorithm.
-        buffer = BufferTuplePPO()
+        buffer = BufferTupleOnPolicy()
 
         rewards = list()
         steps = list()
@@ -789,7 +895,7 @@ class AgentPPO:
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        lambda_adv = 0.97  # todo why 0.97? cannot seem to use 0.99
+        lambda_adv = 0.97  # why 0.97? cannot seem to use 0.99
         lambda_entropy = 0.01
         # repeat_times = 8
 
@@ -888,9 +994,10 @@ class AgentPPO:
             log_prob = log_prob.cpu().data.numpy()
             return a_noise, log_prob
 
-    def save_or_load_model(self, mod_dir, is_save):
-        act_save_path = '{}/actor.pth'.format(mod_dir)
-        cri_save_path = '{}/critic.pth'.format(mod_dir)
+    def save_or_load_model(self, cwd, is_save):  # 2020-05-20
+        act_save_path = '{}/actor.pth'.format(cwd)
+        cri_save_path = '{}/critic.pth'.format(cwd)
+        has_cri = 'cri' in dir(self)
 
         def load_torch_file(network, save_path):
             network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
@@ -898,13 +1005,13 @@ class AgentPPO:
 
         if is_save:
             torch.save(self.act.state_dict(), act_save_path)
-            torch.save(self.cri.state_dict(), cri_save_path)
+            torch.save(self.cri.state_dict(), cri_save_path) if has_cri else None
             # print("Saved act and cri:", mod_dir)
         elif os.path.exists(act_save_path):
             load_torch_file(self.act, act_save_path)
-            load_torch_file(self.cri, cri_save_path)
+            load_torch_file(self.cri, cri_save_path) if has_cri else None
         else:
-            print("FileNotFound when load_model: {}".format(mod_dir))
+            print("FileNotFound when load_model: {}".format(cwd))
 
 
 class AgentAdvSAC(AgentPPO):
@@ -928,7 +1035,7 @@ class AgentAdvSAC(AgentPPO):
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        lambda_adv = 0.97  # todo why 0.97? cannot seem to use 0.99
+        lambda_adv = 0.97  # why 0.97? cannot seem to use 0.99
         lambda_entropy = 0.01
         # repeat_times = 8
 
@@ -1029,10 +1136,9 @@ class AgentAdvSAC(AgentPPO):
             return a_noise, log_prob
 
 
-class AgentDQN(AgentBasicAC):  # 2020-06-06 # todo
-    def __init__(self, env, state_dim, action_dim, net_dim):  # 2020-04-30
-        super(AgentBasicAC, self).__init__()
-        self.learning_rate = 4e-4
+class AgentDQN:  # 2020-06-06
+    def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
+        self.learning_rate = 2e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''dim and idx'''
@@ -1047,38 +1153,59 @@ class AgentDQN(AgentBasicAC):  # 2020-06-06 # todo
         act = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
         act.train()
         self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=learning_rate)
-
-        act_target = QNetwork(state_dim, action_dim, actor_dim).to(self.device)
-        act_target.eval()
-        self.act_target = act_target
-        self.act_target.load_state_dict(act.state_dict())
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.learning_rate)
 
         self.criterion = nn.MSELoss()
 
         '''training record'''
-        self.state = env.reset()
+        self.state = None  # env.reset()
         self.reward_sum = 0.0
         self.step = 0
-        self.update_counter = 0
+        self.action_dim = action_dim  # for update_buffer() epsilon-greedy
 
-        '''extension: rho and loss_c'''
-        self.explore_noise = 0.1
-        self.policy_noise = 0.2
+    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
+        explore_rate = 0.1  # explore rate when update_buffer()
+        self.act.eval()
 
-    def update_parameters(self, buffer, max_step, batch_size_, update_gap):
-        loss_a_sum = 0.0
+        rewards = list()
+        steps = list()
+        for _ in range(max_step):
+            '''inactive with environment'''
+            if rd.rand() < explore_rate:  # explored policy for DQN: epsilon-Greedy
+                action = rd.randint(self.action_dim)
+            else:
+                action = self.select_actions((self.state,), )[0]
+            next_state, reward, done, _ = env.step(action * max_action)
+
+            self.reward_sum += reward
+            self.step += 1
+
+            '''update replay buffer'''
+            reward_ = reward * reward_scale
+            mask = 0.0 if done else gamma
+            buffer.add_memo((reward_, mask, self.state, action, next_state))
+
+            self.state = next_state
+            if done:
+                rewards.append(self.reward_sum)
+                self.reward_sum = 0.0
+
+                steps.append(self.step)
+                self.step = 0
+
+                self.state = env.reset()
+        return rewards, steps
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        # in general, repeat_times == 1, and it is not necessary
         loss_c_sum = 0.0
 
-        k = 1.0 + buffer.now_len / buffer.max_len
-        batch_size_ = int(batch_size_ * k)
-        iter_step = int(max_step * k)
-
-        for _ in range(iter_step):
+        update_times = int(max_step * repeat_times)
+        for _ in range(update_times):
             with torch.no_grad():
-                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size_, self.device)
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size, self.device)
 
-                q_target = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_target = self.act(next_states).max(dim=1, keepdim=True)[0]
                 q_target = rewards + masks * q_target
 
             self.act.train()
@@ -1091,16 +1218,13 @@ class AgentDQN(AgentBasicAC):  # 2020-06-06 # todo
             critic_loss.backward()
             self.act_optimizer.step()
 
-            self.update_counter += 1
-            if self.update_counter == update_gap:
-                self.update_counter = 0
-                self.act_target.load_state_dict(self.act.state_dict())
+        loss_a_avg = 0.0
+        loss_c_avg = loss_c_sum / update_times
+        return loss_a_avg, loss_c_avg
 
-        return loss_a_sum / iter_step, loss_c_sum / iter_step,
-
-    def select_actions(self, states, explore_noise=0.0):  # state -> ndarray shape: (1, state_dim)
+    def select_actions(self, states):  # state -> ndarray shape: (1, state_dim)
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()
+        actions = self.act(states).argmax(dim=1).cpu().data.numpy()  # discrete action space
         return actions
 
     def save_or_load_model(self, mod_dir, is_save):
@@ -1112,9 +1236,94 @@ class AgentDQN(AgentBasicAC):  # 2020-06-06 # todo
         elif os.path.exists(act_save_path):
             act_dict = torch.load(act_save_path, map_location=lambda storage, loc: storage)
             self.act.load_state_dict(act_dict)
-            self.act_target.load_state_dict(act_dict)
         else:
             print("FileNotFound when load_model: {}".format(mod_dir))
+
+
+class AgentNoisyDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
+    def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
+        super(AgentBasicAC, self).__init__()
+        self.learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''dim and idx'''
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        memo_action_dim = 1  # Discrete action space
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + memo_action_dim
+
+        '''network'''
+        actor_dim = net_dim
+        act = QNetDL(state_dim, action_dim, actor_dim).to(self.device)
+        act.train()
+        self.act = act
+        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.learning_rate)
+
+        act_target = QNetDL(state_dim, action_dim, actor_dim).to(self.device)
+        act_target.eval()
+        self.act_target = act_target
+        self.act_target.load_state_dict(act.state_dict())
+
+        self.criterion = nn.MSELoss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0
+
+        '''extension: rho and loss_c'''
+        self.explore_rate = 0.2  # explore rate when update_buffer()
+        self.explore_noise = 0.2  # standard deviation of explore noise
+        self.update_freq = 2  # delay update frequency, for soft target update
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        update_freq = self.update_freq  # delay update frequency, for soft target update
+        self.act.train()
+
+        # loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for _ in range(update_times):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size_, self.device)
+
+                q_target_next = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_target = rewards + masks * q_target_next
+
+            self.act.train()
+            actions = actions.type(torch.long)
+            q_eval = self.act(states).gather(1, actions)
+            critic_loss = self.criterion(q_eval, q_target)
+            loss_c_sum += critic_loss.item()
+
+            self.act_optimizer.zero_grad()
+            critic_loss.backward()
+            self.act_optimizer.step()
+
+            self.update_counter += 1
+            if self.update_counter == update_freq:
+                self.update_counter = 0
+                self.act_target.load_state_dict(self.act.state_dict())
+
+        loss_a_avg = 0.0
+        loss_c_avg = loss_c_sum / update_times
+        return loss_a_avg, loss_c_avg
+
+    def select_actions(self, states, explore_noise=0.0):  # state -> ndarray shape: (1, state_dim)
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()  # discrete action space
+        return actions
+
+
+class AgentEBM(AgentBasicAC):  # Energy Based Model (Soft Q-learning) I'm not sure. # plan todo
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
 
 
 def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, action_dim):
@@ -1166,26 +1375,6 @@ def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, ac
 """utils"""
 
 
-class BufferTuplePPO:
-    def __init__(self, ):
-        self.memory = []
-        from collections import namedtuple
-        self.transition = namedtuple(
-            'Transition',
-            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
-            ('reward', 'mask', 'state', 'action', 'log_prob')
-        )
-
-    def push(self, *args):
-        self.memory.append(self.transition(*args))
-
-    def sample(self):
-        return self.transition(*zip(*self.memory))
-
-    def __len__(self):
-        return len(self.memory)
-
-
 class BufferList:
     def __init__(self, memo_max_len):
         self.memories = list()
@@ -1226,7 +1415,7 @@ class BufferList:
         return tensors
 
 
-class BufferTuple:  # todo plan for PPO
+class BufferTuple:
     def __init__(self, memo_max_len):
         self.memories = list()
 
@@ -1264,6 +1453,26 @@ class BufferTuple:  # todo plan for PPO
         tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
                    for ary in arrays]
         return tensors
+
+
+class BufferTupleOnPolicy:
+    def __init__(self, ):
+        self.memory = []
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition',
+            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
+            ('reward', 'mask', 'state', 'action', 'log_prob')
+        )
+
+    def push(self, *args):
+        self.memory.append(self.transition(*args))
+
+    def sample(self):
+        return self.transition(*zip(*self.memory))
+
+    def __len__(self):
+        return len(self.memory)
 
 
 class BufferArray:  # 2020-05-20

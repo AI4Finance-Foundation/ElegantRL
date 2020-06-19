@@ -60,11 +60,12 @@ def train_agent__off_policy(
         env_name, max_step, max_memo, max_epoch, **_kwargs):  # 2020-06-01
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
+    assert not is_discrete
 
     '''init'''
     agent = class_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
-    buffer = BufferArray(max_memo, state_dim, action_dim=1 if is_discrete else action_dim)  # experiment replay buffer
+    buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
     recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)  # unnecessary
 
     '''loop'''
@@ -142,54 +143,53 @@ def train_agent__on_policy(
     return True
 
 
-def train_agent_discrete(class_agent, env_name, cwd, net_dim, max_step, max_memo, max_epoch,  # env
-                         batch_size, gamma, update_gap, reward_scale,
-                         **_kwargs):  # 2020-05-20
+def train_agent_discrete(
+        class_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
+        env_name, max_step, max_memo, max_epoch, **_kwargs):  # 2020-05-20
     env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
+    assert is_discrete
 
     '''init'''
-    state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print=True)
-    assert isinstance(action_max, int)  # means Discrete action space
-
-    agent = class_agent(env, state_dim, action_dim, net_dim)  # training agent
+    agent = class_agent(state_dim, action_dim, net_dim)  # training agent
+    agent.state = env.reset()
     buffer = BufferArray(max_memo, state_dim, action_dim=1)  # experiment replay buffer
-    recorder = Recorder(agent, max_step, action_max, target_reward, env_name, **_kwargs)
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)
 
     '''loop'''
     with torch.no_grad():  # update replay buffer
         rewards, steps = initial_exploration(
-            env, buffer, max_step, action_max, reward_scale, gamma, action_dim)
-    recorder.show_reward(rewards, steps, 0, 0)
+            env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
+    recorder.show_reward(rewards, steps, loss_a=0, loss_c=0)
     try:
         for epoch in range(max_epoch):
-            '''update replay buffer by interact with environment'''
+            # update replay buffer by interact with environment
             with torch.no_grad():  # for saving the GPU buffer
-                rewards, steps = agent.update_buffer(env, buffer, max_step, action_max, reward_scale, gamma)
+                rewards, steps = agent.update_buffer(
+                    env, buffer, max_step, max_action, reward_scale, gamma)
 
-            '''update network parameters by random sampling buffer for stochastic gradient descent'''
-            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, update_gap)
+            # update network parameters by random sampling buffer for gradient descent
+            buffer.init_before_sample()
+            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
 
-            '''show/check the reward, save the max reward actor'''
+            # show/check the reward, save the max reward actor
             with torch.no_grad():  # for saving the GPU buffer
-                '''NOTICE! Recorder saves the agent with max reward automatically. '''
+                # NOTICE! Recorder saves the agent with max reward automatically.
                 recorder.show_reward(rewards, steps, loss_a, loss_c)
 
                 is_solved = recorder.check_reward(cwd, loss_a, loss_c)
             if is_solved:
                 break
     except KeyboardInterrupt:
-        print("raise KeyboardInterrupt while training.")
+        print("| raise KeyboardInterrupt and break training loop")
     # except AssertionError:  # for BipedWalker BUG 2020-03-03
     #     print("AssertionError: OpenAI gym r.LengthSquared() > 0.0f ??? Please run again.")
-    #     return False
 
     train_time = recorder.print_and_save_npy(env_name, cwd)
 
-    # agent.save_or_load_model(cwd, is_save=True)  # save max reward agent in Recorder
-    # buffer.save_or_load_memo(cwd, is_save=True)
-
+    if is_solved:
+        agent.save_or_load_model(cwd, is_save=True)
     draw_plot_with_npy(cwd, train_time)
-    return True
 
 
 """utils"""
@@ -432,13 +432,14 @@ def run__ppo(gpu_id, cwd):
 
 def run__dqn(gpu_id, cwd='RL_DQN'):
     from AgentZoo import AgentDQN
+    # from AgentZoo import AgentNoisyDQN
     args = Arguments(AgentDQN)
     args.gpu_id = gpu_id
 
-    # args.env_name = "CartPole-v0"
-    # args.cwd = '{}/{}'.format(cwd, args.env_name)
-    # args.init_for_training()
-    # train_agent_discrete(**vars(args))
+    args.env_name = "CartPole-v0"
+    args.cwd = '{}/{}'.format(cwd, args.env_name)
+    args.init_for_training()
+    train_agent_discrete(**vars(args))
 
     args.env_name = "LunarLander-v2"
     args.cwd = '{}/{}'.format(cwd, args.env_name)
