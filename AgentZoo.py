@@ -7,11 +7,11 @@ import numpy.random as rd
 import torch
 import torch.nn as nn
 
-from AgentNet import QNetwork, QNetworkDL  # QLearning
+from AgentNet import QNetwork, QNetDL  # QLearning
 from AgentNet import ActorDPG, Critic  # DDPG
 from AgentNet import ActorDN, CriticSN  # SN_AC
-from AgentNet import ActorCritic  # IntelAC
-from AgentNet import CriticTwin  # TD3, SAC
+from AgentNet import ActorCriticDPG, ActorCriticSPG  # IntelAC, IntelSAC
+from AgentNet import CriticTwin, CriticSharedTwin  # TD3, SAC
 from AgentNet import ActorPPO, ActorAdvSAC, CriticAdvantage
 from AgentNet import ActorSAC  # SAC
 
@@ -28,12 +28,13 @@ from AgentNet import ActorSAC  # SAC
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 
-Refer: (TD3) https://github.com/sfujim/TD3
-Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2
+Refer: (TD3) https://github.com/sfujim/TD3 good+
+Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good+
 Refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py
 Refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py
 Refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2
 Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac
+Refer: (SQL) https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py Bad code
 """
 
 
@@ -389,7 +390,7 @@ class AgentSNAC(AgentBasicAC):
             self.cri_optimizer.step()
 
             '''actor_loss'''
-            if i % repeat_times == 0 and self.rho > 0.001:  # 2.6
+            if i % repeat_times == 0 and self.rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 actions_pg = self.act(state)  # policy gradient
                 actor_loss = -self.cri(state, actions_pg).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
@@ -427,11 +428,11 @@ class AgentInterAC(AgentBasicAC):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        self.act = ActorCritic(state_dim, action_dim, net_dim).to(self.device)
+        self.act = ActorCriticDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-        self.act_target = ActorCritic(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = ActorCriticDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
@@ -443,7 +444,7 @@ class AgentInterAC(AgentBasicAC):
         self.step = 0
         self.update_counter = 0
 
-        '''extension'''
+        '''extension: auto learning rate of actor'''
         self.loss_c_sum = 0.0
         self.rho = 0.5
 
@@ -487,6 +488,8 @@ class AgentInterAC(AgentBasicAC):
                 '''actor loss'''
                 action_cur = self.act(state)  # policy gradient
                 actor_loss = -self.act_target.critic(state, action_cur).mean()  # policy gradient
+                # NOTICE! It is very important to use act_target.critic here instead act.critic
+                # Or you can use act.critic.deepcopy(). Whatever you cannot use act.critic directly.
                 loss_a_sum += actor_loss.item()
 
                 united_loss = critic_loss + actor_term * (1 - self.rho) + actor_loss * (self.rho * 0.5)
@@ -508,6 +511,151 @@ class AgentInterAC(AgentBasicAC):
 
                 if self.rho > 0.1:
                     self.act_target.load_state_dict(self.act.state_dict())
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+
+class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        use_dn = True  # and use hard target update
+        use_sn = True  # and use hard target update
+        self.learning_rate = 2e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        actor_dim = net_dim
+        self.act = ActorCriticSPG(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act.train()
+
+        # critic_dim = int(net_dim * 1.25)
+        # self.cri = ActorCriticSPG(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
+        # self.cri.train()
+        self.cri = self.act
+
+        # self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        # self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+        para_list = list(self.act.parameters())  # + list(self.cri.parameters())
+        self.act_optimizer = torch.optim.Adam(para_list, lr=self.learning_rate)
+
+        self.act_target = ActorCriticSPG(state_dim, action_dim, net_dim, use_dn).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        # self.cri_target = ActorCriticSPG(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
+        # self.cri_target.eval()
+        # self.cri_target.load_state_dict(self.cri.state_dict())
+        self.cri_target = self.act_target
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0
+
+        '''extension: auto-alpha for maximum entropy'''
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.log_alpha.exp()
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.target_entropy = -1  # why a negative number? Due to Gauss Dist. -> Tanh()?
+        '''extension: auto learning rate of actor'''
+        self.loss_c_sum = 0.0
+        self.rho = 0.5
+
+        '''constant'''
+        self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
+        self.explore_noise = True  # stochastic policy choose noise_std by itself.
+        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
+        self.act.train()
+        repeat_times = 2  # todo
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for i in range(update_times * repeat_times):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
+
+                next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
+                next_q_target = torch.min(*self.cri_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                # next_q_target = torch.min(*self.act.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
+                q_target = reward + mask * next_q_target
+            '''critic_loss'''
+            q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
+            # q1_value, q2_value = self.act.get__q1_q2(state, action)  # CriticTwin
+            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+            loss_c_sum += critic_loss.item() * 0.5  # CriticTwin
+
+            # self.cri_optimizer.zero_grad()
+            # critic_loss.backward()
+            # self.cri_optimizer.step()
+
+            '''actor correction term'''
+            # a_mean1, a_std1 = self.act.get__a__std(state)
+            a_mean2, a_std2 = self.act_target.get__a__std(state)
+            # actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
+
+            '''actor_loss'''
+            if i % repeat_times == 0 and self.rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+                # stochastic policy
+                # a_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
+                a_mean1, a_std1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
+
+                # auto alpha
+                alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
+                self.alpha_optimizer.zero_grad()
+                alpha_loss.backward()
+                self.alpha_optimizer.step()
+
+                # policy gradient
+                self.alpha = self.log_alpha.exp()
+                # q_eval_pg = self.cri(state, actions_noise)  # policy gradient
+                q_eval_pg = torch.min(
+                    *self.cri_target.get__q1_q2(state, a_noise))  # policy gradient, stable but slower
+                # q_eval_pg = torch.min(
+                #     *self.act_target.get__q1_q2(state, actions_noise))  # policy gradient, stable but slower
+                # In Integrated DeepSAC, it is important to use cri_target instead of cri.
+
+                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+
+                actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
+                united_loss = critic_loss + actor_term * (1 - self.rho) + actor_loss * (self.rho * 0.5)
+            else:
+                a_mean1, a_std1 = self.act.get__a__std(state)
+
+                actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
+                united_loss = critic_loss + actor_term * (1 - self.rho)
+
+            self.act_optimizer.zero_grad()
+            united_loss.backward()
+            self.act_optimizer.step()
+
+            """target update"""
+            self.update_counter += 1
+            if self.update_counter >= update_freq:
+                self.update_counter = 0
+                # self.soft_target_update(self.act_target, self.act)  # soft target update
+                # self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+                # self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
+
+                rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
+                self.rho = (self.rho + rho) * 0.5
+                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * self.rho
+                self.loss_c_sum = 0.0
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
@@ -731,11 +879,11 @@ class AgentDeepSAC(AgentBasicAC):
         self.act_target.load_state_dict(self.act.state_dict())
 
         critic_dim = int(net_dim * 1.25)
-        self.cri = CriticTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
+        self.cri = CriticSharedTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
         self.cri.train()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
+        self.cri_target = CriticSharedTwin(state_dim, action_dim, critic_dim, use_dn, use_sn).to(self.device)
         self.cri_target.eval()
         self.cri_target.load_state_dict(self.cri.state_dict())
 
@@ -752,6 +900,9 @@ class AgentDeepSAC(AgentBasicAC):
         self.alpha = self.log_alpha.exp()
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
         self.target_entropy = -1  # why a negative number? Due to Gauss Dist. -> Tanh()?
+        '''extension: auto learning rate of actor'''
+        self.loss_c_sum = 0.0
+        self.rho = 0.5
 
         '''constant'''
         self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
@@ -787,7 +938,7 @@ class AgentDeepSAC(AgentBasicAC):
             self.cri_optimizer.step()
 
             '''actor_loss'''
-            if i % repeat_times == 0:
+            if i % repeat_times == 0 and self.rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 # stochastic policy
                 actions_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
                 # auto alpha
@@ -798,8 +949,10 @@ class AgentDeepSAC(AgentBasicAC):
 
                 # policy gradient
                 self.alpha = self.log_alpha.exp()
-                q_eval_pg = self.cri(state, actions_noise)  # policy gradient
-                actor_loss = (log_prob * self.alpha - q_eval_pg).mean()  # policy gradient
+                # q_eval_pg = self.cri(state, actions_noise)  # policy gradient
+                q_eval_pg = torch.min(*self.cri.get__q1_q2(state, actions_noise))  # policy gradient, stable but slower
+
+                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
 
                 self.act_optimizer.zero_grad()
@@ -814,6 +967,11 @@ class AgentDeepSAC(AgentBasicAC):
                 # self.soft_target_update(self.cri_target, self.cri)  # soft target update
                 self.act_target.load_state_dict(self.act.state_dict())  # hard target update
                 self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
+
+                rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
+                self.rho = (self.rho + rho) * 0.5
+                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * self.rho
+                self.loss_c_sum = 0.0
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
@@ -1243,12 +1401,12 @@ class AgentNoisyDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
 
         '''network'''
         actor_dim = net_dim
-        act = QNetworkDL(state_dim, action_dim, actor_dim).to(self.device)
+        act = QNetDL(state_dim, action_dim, actor_dim).to(self.device)
         act.train()
         self.act = act
         self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.learning_rate)
 
-        act_target = QNetworkDL(state_dim, action_dim, actor_dim).to(self.device)
+        act_target = QNetDL(state_dim, action_dim, actor_dim).to(self.device)
         act_target.eval()
         self.act_target = act_target
         self.act_target.load_state_dict(act.state_dict())
@@ -1307,6 +1465,12 @@ class AgentNoisyDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states, explore_noise).argmax(dim=1).cpu().data.numpy()  # discrete action space
         return actions
+
+
+class AgentEBM(AgentBasicAC):  # Energy Based Model (Soft Q-learning) I'm not sure. # plan todo
+    # def __init__(self, state_dim, action_dim, net_dim):
+    #     super(AgentBasicAC, self).__init__()
+    pass
 
 
 def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, action_dim):
