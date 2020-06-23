@@ -517,11 +517,11 @@ class AgentInterAC(AgentBasicAC):
         return loss_a_avg, loss_c_avg
 
 
-class AgentISAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
+class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         use_dn = True  # and use hard target update
-        # use_sn = True  # and use hard target update
+        use_sn = True  # and use hard target update
         self.learning_rate = 2e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -574,7 +574,6 @@ class AgentISAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
         update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
         self.act.train()
-        repeat_times = 2  # todo
 
         loss_a_sum = 0.0
         loss_c_sum = 0.0
