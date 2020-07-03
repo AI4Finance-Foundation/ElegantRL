@@ -9,11 +9,15 @@ import numpy as np  # import numpy.random as rd
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
 2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
+2020-06-06 Issay-0.3 check, DPG, SDG, InterAC, InterSAC
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 
-2020-06-06 Issay-0.3 check, plan to add DPG, SDG, discrete SAC
+[future] plan to add:
+Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
+Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
+some variants of DQN: Rainbow DQN, Ape-X
 """
 
 
@@ -492,9 +496,9 @@ class QNetwork(nn.Module):  # class AgentQLearning
         return q
 
 
-class QNetDL(nn.Module):  # class AgentQLearning
+class QNetworkDL(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim, ):
-        super(QNetDL, self).__init__()
+        super(QNetworkDL, self).__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             DenseNet(mid_dim),

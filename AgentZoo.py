@@ -7,7 +7,7 @@ import numpy.random as rd
 import torch
 import torch.nn as nn
 
-from AgentNet import QNetwork, QNetDL  # QLearning
+from AgentNet import QNetwork, QNetworkDL  # QLearning
 from AgentNet import ActorDPG, Critic  # DDPG
 from AgentNet import ActorDN, CriticSN  # SN_AC
 from AgentNet import ActorCriticDPG, ActorCriticSPG  # IntelAC, IntelSAC
@@ -25,16 +25,17 @@ from AgentNet import ActorSAC  # SAC
 2020-05-27 Issay-0.3 Pipeline Update for SAC
 2020-06-06 Issay-0.3 check PPO, SAC. Plan to add discrete SAC.
 
+
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 
 Refer: (TD3) https://github.com/sfujim/TD3 good+
 Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good+
-Refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py
-Refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py
-Refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2
-Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac
-Refer: (SQL) https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py Bad code
+Refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py good++
+Refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py bad
+Refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2 normal
+Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac bad
+Refer: (SQL) https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py bad-
 """
 
 
@@ -521,7 +522,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         use_dn = True  # and use hard target update
-        use_sn = True  # and use hard target update
+        # use_sn = True  # and use hard target update
         self.learning_rate = 2e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -574,7 +575,6 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
         update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
         self.act.train()
-        repeat_times = 2  # todo
 
         loss_a_sum = 0.0
         loss_c_sum = 0.0
@@ -1000,7 +1000,7 @@ class AgentPPO:
 
         # collect tuple (reward, mask, state, action, log_prob, )
         # PPO is an on policy RL algorithm.
-        buffer = BufferTupleOnPolicy()
+        buffer = BufferTuplePPO()
 
         rewards = list()
         steps = list()
@@ -1160,7 +1160,7 @@ class AgentPPO:
             print("FileNotFound when load_model: {}".format(cwd))
 
 
-class AgentAdvSAC(AgentPPO):
+class AgentAdvPPO(AgentPPO):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentPPO, self).__init__()
         self.learning_rate = 2e-4  # learning rate of actor
@@ -1401,12 +1401,12 @@ class AgentNoisyDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
 
         '''network'''
         actor_dim = net_dim
-        act = QNetDL(state_dim, action_dim, actor_dim).to(self.device)
+        act = QNetworkDL(state_dim, action_dim, actor_dim).to(self.device)
         act.train()
         self.act = act
         self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.learning_rate)
 
-        act_target = QNetDL(state_dim, action_dim, actor_dim).to(self.device)
+        act_target = QNetworkDL(state_dim, action_dim, actor_dim).to(self.device)
         act_target.eval()
         self.act_target = act_target
         self.act_target.load_state_dict(act.state_dict())
@@ -1602,7 +1602,7 @@ class BufferTuple:
         return tensors
 
 
-class BufferTupleOnPolicy:
+class BufferTuplePPO:
     def __init__(self, ):
         self.memory = []
         from collections import namedtuple
@@ -1799,7 +1799,7 @@ class Recorder:
         return self.train_time
 
 
-class OrnsteinUhlenbeckProcess:
+class OrnsteinUhlenbeckProcess:  # I hate OU Process because there are too much hyper-parameters.
     def __init__(self, size, theta=0.15, sigma=0.3, x0=0.0, dt=1e-2):
         """
         Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py

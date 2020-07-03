@@ -1,0 +1,39 @@
+(base) yonv@amax2:~/code/ReinfLearn$ python3 beta0.py 
+  Model: DDPG_0
+| Remove
+/mnt/sdb1/yonv/conda3/lib/python3.7/site-packages/gym/logger.py:30: UserWarning: WARN: Box bound precision lowered by casting to float32
+  warnings.warn(colorize('%s: %s'%('WARN', msg % args), 'yellow'))
+  4     SmoR: -106      EpiR -120       |A -1.475, C 0.089
+ 11     SmoR: -105      EpiR -81        |A 0.249, C 0.092
+ 39     SmoR: -107      EpiR -109       |A 3.793, C 0.269
+ 44     SmoR: -106      EpiR -111       |A 5.143, C 0.250
+ 46     SmoR: -94       EpiR  53        |A 3.961, C 0.217
+ 49     SmoR: -90       EpiR -95        |A 2.367, C 0.230
+ 66     SmoR: -109      EpiR -107       |A 3.893, C 0.292
+ 73     SmoR: -96       EpiR -41        |A 3.528, C 0.326
+ 79     SmoR: -75       EpiR -64        |A 2.478, C 0.337
+ 83     SmoR: -47       EpiR -43        |A 0.461, C 0.348
+ 85     SmoR: -11       EpiR 239        |A -2.547, C 0.289
+ 96     SmoR: -27       EpiR 275        |A -4.115, C 0.323
+103     SmoR: -52       EpiR -79        |A -5.784, C 0.323
+107     SmoR: -20       EpiR  12        |A -6.948, C 0.333
+111     SmoR:   7       EpiR -37        |A -7.072, C 0.334
+114     SmoR:   9       EpiR -53        |A -8.504, C 0.337
+118     SmoR:  38       EpiR 287        |A -9.877, C 0.378
+122     SmoR:  44       EpiR 293        |A -11.474, C 0.375
+124     SmoR:  69       EpiR  14        |A -11.144, C 0.349
+126     SmoR:  67       EpiR 129        |A -12.061, C 0.335
+Eval: 301.32
+130     SmoR:  75       EpiR  51        |A -13.342, C 0.347
+133     SmoR:  85       EpiR  26        |A -14.518, C 0.375
+Eval: 302.35
+136     SmoR: 107       EpiR 298        |A -15.434, C 0.390
+Eval: 304.26
+########## Solved! ###########
+137     SmoR: 130       EpiR 304        |A -15.836, C 0.428
+TimeUsed: 1262
+Saved: DDPG_0
+Matplotlib Plot: DDPG_0_plot.png
+qt.qpa.screen: QXcbConnection: Could not connect to display localhost:10.0
+Could not connect to any X display.
+(base) yonv@amax2:~/code/ReinfLearn$ 

@@ -340,10 +340,11 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
     # from AgentZoo import AgentSNAC
     # from AgentZoo import AgentDDPG
     # from AgentZoo import AgentTD3
-    # from AgentZoo import AgentPPO
+    # from AgentZoo import AgentPPO # you can't run PPO here. goto run__ppo(). PPO need its hyper-parameters
     from AgentZoo import AgentSAC
     # from AgentZoo import AgentBasicAC
     # from AgentZoo import AgentInterAC
+    # from AgentZoo import AgentInterSAC
 
     args = Arguments(AgentSAC)
     args.gpu_id = gpu_id
@@ -407,8 +408,8 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
 
 def run__ppo(gpu_id, cwd):
     # from AgentZoo import AgentPPO
-    from AgentZoo import AgentAdvSAC
-    args = Arguments(AgentAdvSAC)
+    from AgentZoo import AgentAdvPPO
+    args = Arguments(AgentAdvPPO)
 
     args.gpu_id = gpu_id
     args.max_memo = 2 ** 12
@@ -602,12 +603,12 @@ def run__multi_workers(gpu_tuple=(0, 1), root_cwd='RL_MP'):
 
 
 if __name__ == '__main__':
-    run__demo(gpu_id=0, cwd='AC_BasicAC')
-    # run__zoo(gpu_id=0, cwd='AC_SNAC')
+    # run__demo(gpu_id=0, cwd='AC_BasicAC')
+    run__zoo(gpu_id=0, cwd='AC_SAC')
     # run__ppo(gpu_id=1, cwd='AC_PPO')
 
-    # run__multi_process(run__zoo, gpu_tuple=(0, 1, 2, 3), cwd='AC_SNAC')
-    run__multi_process(run__ppo, gpu_tuple=(2, 3), cwd='AC_PPO')
+    # run__multi_process(run__zoo, gpu_tuple=(0, 1, 2, 3), cwd='AC_ZooMP')
+    # run__multi_process(run__ppo, gpu_tuple=(2, 3), cwd='AC_PPO')
     # run__multi_workers(gpu_tuple=(2, 3), root_cwd='AC_SAC_MP')
 
     # '''Discrete action space'''
