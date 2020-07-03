@@ -11,22 +11,28 @@ After I finish the part of multi-agent, I will officially release it.
 
 You can see these gif/png ↓ in file "Result".
 
-LunarLanderContinuous-V2:
+LunarLanderContinuous-v2:
 ![LunarLanderTwinDelay3](https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/LunarLanderTwinDelay3.gif)
-BipedalWalkerHardcore-V2-total: 
+BipedalWalkerHardcore-v2: 
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (Mainland China)
 
 For example, the training log is the following two figure.
+The name of the log file is `plot_<Episode>_<TotalStep>_<Second>UsedTime.png` when agent reaches the default target reward.
+
++ The left is an luck result of BasicAC: `plot_0072E_22405T_701s.png`.
++ The right is an slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
+
+Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and InterSAC. There are more stable than other algorithm.
 
 <p float="left">
-  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="100" />
-  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="100" /> 
+  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
+  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
 </p>
 
+In the above two figure. 
 
-The wait todo.
 
 
 You can see more training log in file "Result". 
