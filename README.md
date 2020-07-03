@@ -34,6 +34,7 @@ Although BasicAC is my improved DDPG, it is still not stable enough. You can try
 In the above two figure. 
 + Blue curve: Total reward (with explore noise)
 + Red curve: Total reward (without explore noise, mean and std)
++ Grey area: The step of one episode while exploring.
 + Green curve: 'loss' value of actor (mean of Q value estimate)
 + Green area: loss value of critic
 
