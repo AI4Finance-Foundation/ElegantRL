@@ -49,7 +49,7 @@ You can see more training log in file "Result".
 3. 可读性如何？代码足够优雅吗？代码注释有吗？
 4. 易用性如何？某个模块的耦合程度会不会太高？我不想花太多时间安装一堆依赖。 -->
 
-The following Readme in English is written for Necip and other people can't read Chinese.
+The following Readme in English is written for Necip and other people who can't read Chinese.
 
 # Requirement
 
@@ -68,7 +68,7 @@ This is why I said it **lightweight**.
     AgentRun.py  # Choose your DRL agent here. Then run this python file for training.
     AgentZoo.py  # There are many model-free DRL algorithms here. You can learn these algorithm here.
     AgentNet.py  # The neural network architecture for actor and critic is here. 
-There are only 3 python file in my DRL PyTorch implement. 
+There are only 3 python file in my DRL PyTorch implement. (I will add more detail later.)
 
 # run
     python3 AgentRun.py
@@ -76,19 +76,20 @@ There are only 3 python file in my DRL PyTorch implement.
 + In default, it will train a stable-DDPG in LunarLanderContinuous-v2 for 2000 second.
 + It would choose CPU or GPU automatically. Don't worry, I never use `.cuda()`.
 + It would save the log and model parameters file in Current Working Directory `cwd='AC_BasicAC'`. 
-+ It would print the total reward while training. Maybe I use TensorBoardX (If there are many people want this function).
++ It would print the total reward while training. Maybe I should use TensorBoardX?
 + There are many comment in the code. I believe these comments can answer some of your questions.
 
 ### How to use other DRL?
 For example, if you want to use SAC, do the following: (I don't like import argprase)
 
-1. Can you see `run__xxx()` in `AgentRun.py`? Have a see.
-2. `run__zoo()` is used to run an off-policy algorithm. If you want to run on-policy algorithm such as PPO, use `run__ppo()`.
+1. See `run__xxx()` in `AgentRun.py`.
+2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
 
 ---
-If Necip want me to translate the following Chinese into English. I will. 
+## If Necip want me to translate the following Chinese into English. I will. 
+---
 
 ## 为何我要写这个库？
 Github上有很多深度强化学习无模型算法的开源库。为何我还要重复造轮子呢？
