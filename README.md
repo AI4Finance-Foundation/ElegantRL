@@ -19,10 +19,10 @@ BipedalWalkerHardcore-v2:
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (Mainland China)
 
 For example, the training log is the following two figure.
-The name of the log file is `plot_<Episode>_<TotalStep>_<Second>UsedTime.png` when agent reaches the default target reward.
 
-+ The left is an luck result of BasicAC: `plot_0072E_22405T_701s.png`.
-+ The right is an slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
++ The first is an luck result of BasicAC: `plot_0072E_22405T_701s.png`.
++ The second is an slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
++ The name of the log figure is `plot_<Episode>_<TotalStep>_<Second>UsedTime.png` when agent reaches the default target reward.
 
 Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and InterSAC. There are more stable than other algorithm.
 
@@ -32,6 +32,10 @@ Although BasicAC is my improved DDPG, it is still not stable enough. You can try
 </p>
 
 In the above two figure. 
++ Blue curve: Total reward (with explore noise)
++ Red curve: Total reward (without explore noise, mean and std)
++ Green curve: 'loss' value of actor (mean of Q value estimate)
++ Green area: loss value of critic
 
 
 
@@ -82,6 +86,8 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
 
+---
+If Necip want me to translate the following Chinese. I will. 
 
 ## 为何我要写这个库？
 Github上有很多深度强化学习无模型算法的开源库。为何我还要重复造轮子呢？
