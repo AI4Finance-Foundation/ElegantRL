@@ -13,18 +13,18 @@ You can see these gif/png ↓ in file "Result".
 
 LunarLanderContinuous-V2:
 ![LunarLanderTwinDelay3](https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/LunarLanderTwinDelay3.gif)
-
 BipedalWalkerHardcore-V2-total: 
-![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BipedalWalkerHardcore-v2-total.gif)
+![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (Mainland China)
 
 For example, the training log is the following two figure.
 
-<figure>
-<img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" />
-<img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" />
-</figure>
+<p float="left">
+  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="100" />
+  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="100" /> 
+</p>
+
 
 The wait todo.
 
