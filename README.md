@@ -7,7 +7,7 @@ DDPG, TD3, PPO, SAC, InterAC, InterSAC and DQN (model-free DRL)
 It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
 
-### Show results
+# Show results
 
 You can see these gif/png ↓ in file "Result".
 
