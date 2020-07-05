@@ -82,8 +82,8 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 
 ### Model-free DRL Algorithms
 
-![model-free DRL 2020](https://github.com/Yonv1943/DL_RL_Zoo/upload/master/Result/model-free DRL 2020.png)
-You can find above figure in `./Result/model-free DRL 2020.png` or `*.pdf`.
+![model-free_DRL_2020](https://github.com/Yonv1943/DL_RL_Zoo/upload/master/Result/model-free_DRL_2020.png)
+You can find above figure in `./Result/model-free_DRL_2020.png` or `*.pdf`.
 More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 + [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 + [Policy Gradient Algorithms translated by Ewan Li in Chinese](https://tomaxent.com/2019/04/14/%E7%AD%96%E7%95%A5%E6%A2%AF%E5%BA%A6%E6%96%B9%E6%B3%95/)
