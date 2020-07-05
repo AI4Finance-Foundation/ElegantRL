@@ -42,13 +42,6 @@ In the above two figure.
 
 You can see more training log in file "Result". 
 
-<!-- When I look for code on Github, I will ask the following questions:
-
-1. How many human 'stars' this code?
-2. What is the actual effect of this code?
-3. 可读性如何？代码足够优雅吗？代码注释有吗？
-4. 易用性如何？某个模块的耦合程度会不会太高？我不想花太多时间安装一堆依赖。 -->
-
 The following Readme in English is written for Necip and other people who can't read Chinese.
 
 # Requirement
@@ -86,6 +79,14 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
+
+### Model-free DRL Algorithms
+
+![model-free DRL 2020](https://github.com/Yonv1943/DL_RL_Zoo/upload/master/Result/model-free DRL 2020.png)
+You can find above figure in `./Result/model-free DRL 2020.png` or `*.pdf`.
+More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
++ [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
++ [Policy Gradient Algorithms translated by Ewan Li in Chinese](https://tomaxent.com/2019/04/14/%E7%AD%96%E7%95%A5%E6%A2%AF%E5%BA%A6%E6%96%B9%E6%B3%95/)
 
 ---
 ## If Necip want me to translate the following Chinese into English. I will. 
