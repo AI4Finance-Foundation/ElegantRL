@@ -91,6 +91,10 @@ More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 ---
 ## If Necip want me to translate the following Chinese into English. I will. 
 ---
+More details see ↓ (write in Chinese)
+
+更多详细的内容见 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
+
 
 ## 为何我要写这个库？
 Github上有很多深度强化学习无模型算法的开源库。为何我还要重复造轮子呢？
