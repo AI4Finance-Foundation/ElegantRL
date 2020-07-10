@@ -277,8 +277,6 @@ class LazyMultiStepMemory(LazyMemory):
             self._append(state, action, reward, next_state, done)
 
 
-
-
 def update_params(optim, loss, retain_graph=False):
     optim.zero_grad()
     loss.backward(retain_graph=retain_graph)
@@ -474,7 +472,6 @@ class SacdAgent:
         return entropy_loss
 
     def save_models(self, save_dir):
-        super().save_models(save_dir)
         self.policy.save(os.path.join(save_dir, 'policy.pth'))
         self.online_critic.save(os.path.join(save_dir, 'online_critic.pth'))
         self.target_critic.save(os.path.join(save_dir, 'target_critic.pth'))
@@ -499,7 +496,6 @@ class SacdAgent:
                 action = self.env.action_space.sample()
             else:
                 action = self.explore(state)
-
 
             next_state, reward, done, _ = self.env.step(action)
 
@@ -527,13 +523,41 @@ class SacdAgent:
         # We log running mean of training rewards.
         self.train_return.append(episode_return)
 
-        print(f'Episode: {self.episodes:<4}  '
-              f'Episode steps: {episode_steps:<4}  '
-              f'Return: {episode_return:<5.1f}')
+        # print(f'Episode: {self.episodes:<4}  '
+        #       f'Episode steps: {episode_steps:<4}  '
+        #       f'Return: {episode_return:<5.1f}')
 
     def is_update(self):
         return self.steps % self.update_interval == 0 \
                and self.steps >= self.start_steps
+
+    def learn(self):
+        assert hasattr(self, 'q1_optim') and hasattr(self, 'q2_optim') and \
+               hasattr(self, 'policy_optim') and hasattr(self, 'alpha_optim')
+
+        self.learning_steps += 1
+
+        if self.use_per:
+            batch, weights = self.memory.sample(self.batch_size)
+        else:
+            batch = self.memory.sample(self.batch_size)
+            # Set priority weights to 1 when we don't use PER.
+            weights = 1.
+
+        q1_loss, q2_loss, errors, mean_q1, mean_q2 = \
+            self.calc_critic_loss(batch, weights)
+        policy_loss, entropies = self.calc_policy_loss(batch, weights)
+        entropy_loss = self.calc_entropy_loss(entropies, weights)
+
+        update_params(self.q1_optim, q1_loss)
+        update_params(self.q2_optim, q2_loss)
+        update_params(self.policy_optim, policy_loss)
+        update_params(self.alpha_optim, entropy_loss)
+
+        self.alpha = self.log_alpha.exp()
+
+        if self.use_per:
+            self.memory.update_priority(errors)
 
     def evaluate(self):
         num_episodes = 0
@@ -567,12 +591,7 @@ class SacdAgent:
 
         # self.writer.add_scalar(
         #     'reward/test', mean_return, self.steps)
-        print('-' * 60)
+        # print('-' * 60)
         print(f'Num steps: {self.steps:<5}  '
               f'return: {mean_return:<5.1f}')
-        print('-' * 60)
-
-    @staticmethod
-    def save_models(save_dir):
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        # print('-' * 60)

@@ -1,15 +1,15 @@
 import os
-
+import sys
 from sac_d_zoo import SacdAgent
 from sac_d_env import make_pytorch_env
 
 """
 Soft Actor-Critic for Discrete Action Settings
 https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch
-bad+ (why should I install nn_builder and TensorFlow2 in a PyTorch implement?)
+normal-- (why should I install nn_builder and TensorFlow2 in a PyTorch implement?)
 
 https://github.com/ku2482/sac-discrete.pytorch
-good--
+normal-
 """
 
 
@@ -32,6 +32,8 @@ def run():
         'log_interval': 10,
         'eval_interval': 5000,
     }
+    gpu_id = sys.argv[-1][-4]
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     env_id = 'MsPacmanNoFrameskip-v4'
 
     # Create environments.
@@ -42,7 +44,7 @@ def run():
     log_dir = os.path.join('logs', env_id, f'sac_discrete')
 
     agent = SacdAgent(
-        env=env, test_env=test_env, log_dir=log_dir, cuda=False,
+        env=env, test_env=test_env, log_dir=log_dir, cuda=True,
         seed=0, **config)
     agent.run()
 
