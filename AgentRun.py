@@ -19,6 +19,10 @@ from AgentZoo import BufferArray, initial_exploration
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
+In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
+Actually, they "learn game feel" or "get a soft touch". In Chinese "shou3 gan3". 
+Learn more about policy gradient algorithms in:
+https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 
 2020-04-28 Add Discrete Env CartPole, Pendulum
 """
@@ -41,6 +45,8 @@ class Arguments:  # default working setting and hyper-parameter
         self.is_remove = True  # remove the pre-training data? (True, False, None:ask me)
         self.env_name = "LunarLanderContinuous-v2"
         self.cwd = 'AC_Methods_LL'  # current work directory
+
+        self.show_gap = 2 ** 7  # show the Reward and Loss of actor and critic per show_gap seconds
 
     def init_for_training(self):  # remove cwd, choose GPU, set random seed, set CPU threads
         print('GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
@@ -109,20 +115,20 @@ def train_agent__on_policy(
         class_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
         env_name, max_step, max_memo, max_epoch, **_kwargs):  # 2020-0430
     env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
+    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
 
     agent = class_agent(state_dim, action_dim, net_dim)
     agent.save_or_load_model(cwd, is_save=False)
 
-    recorder = Recorder(agent, max_step, max_action, target_reward, env_name)
+    recorder = Recorder(agent, max_step, max_action, target_reward, env_name, **_kwargs)
 
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
-                rewards, steps, buffer = agent.update_buffer_ppo(
+                rewards, steps, buffer = agent.update_buffer_online(
                     env, max_step, max_memo, max_action, reward_scale, gamma)
 
-            loss_a, loss_c = agent.update_parameters_ppo(
+            loss_a, loss_c = agent.update_parameters_online(
                 buffer, batch_size, repeat_times)
 
             with torch.no_grad():  # just the GPU memory
@@ -195,7 +201,7 @@ def train_agent_discrete(
 """utils"""
 
 
-def get_env_info(env, is_print):  # 2020-06-01
+def get_env_info(env, is_print):  # 2020-06-06
     state_dim = env.observation_space.shape[0]
 
     try:
@@ -337,16 +343,15 @@ def run__demo(gpu_id, cwd='AC_BasicAC'):
 
 
 def run__zoo(gpu_id, cwd='AC_Zoo'):
-    # from AgentZoo import AgentSNAC
-    # from AgentZoo import AgentDDPG
-    # from AgentZoo import AgentTD3
-    # from AgentZoo import AgentPPO # you can't run PPO here. goto run__ppo(). PPO need its hyper-parameters
-    from AgentZoo import AgentSAC
-    # from AgentZoo import AgentBasicAC
-    # from AgentZoo import AgentInterAC
-    # from AgentZoo import AgentInterSAC
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDeepSAC
 
-    args = Arguments(AgentSAC)
+    assert class_agent in {
+        Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
+        Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
+    }  # you can't run PPO here. goto run__ppo(). PPO need its hyper-parameters
+
+    args = Arguments(class_agent)
     args.gpu_id = gpu_id
 
     args.env_name = "LunarLanderContinuous-v2"
@@ -407,9 +412,11 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
 
 
 def run__ppo(gpu_id, cwd):
-    # from AgentZoo import AgentPPO
-    from AgentZoo import AgentAdvPPO
-    args = Arguments(AgentAdvPPO)
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentGAE
+
+    assert class_agent in {Zoo.AgentPPO, Zoo.AgentPPO}
+    args = Arguments(class_agent)
 
     args.gpu_id = gpu_id
     args.max_memo = 2 ** 12
@@ -434,8 +441,10 @@ def run__ppo(gpu_id, cwd):
 def run__dqn(gpu_id, cwd='RL_DQN'):
     from AgentZoo import AgentDQN
     # from AgentZoo import AgentNoisyDQN
+    # from AgentZoo import AgentDoubleDQN
     args = Arguments(AgentDQN)
     args.gpu_id = gpu_id
+    args.show_gap = 2 ** 5
 
     args.env_name = "CartPole-v0"
     args.cwd = '{}/{}'.format(cwd, args.env_name)
