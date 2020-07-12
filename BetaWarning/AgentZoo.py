@@ -7,13 +7,13 @@ import numpy.random as rd
 import torch
 import torch.nn as nn
 
-from AgentNet import QNet, QNetDL, QNetTwin  # Q-learning based
-from AgentNet import ActorDPG, Critic  # DDPG
+from AgentNet import QNet, QNetTwin  # Q-learning based
+from AgentNet import ActorDPG, Critic, CriticTwin  # DDPG, TD3
 from AgentNet import ActorDN, CriticSN  # SN_AC
-from AgentNet import ActCriDPG, AcrCriSPG, ActCriAdv  # IntelAC, IntelSAC, InterAdv
-from AgentNet import CriticTwin, CriticTwinShared  # TD3, SAC
-from AgentNet import ActorPPO, ActorAdv, CriticAdv  # PPO, AdvPPO
-from AgentNet import ActorSAC  # SAC
+from AgentNet import ActorSAC, CriticTwinShared  # SAC
+from AgentNet import ActorPPO, CriticAdv  # PPO
+from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
+from AgentNet import InterDPG, InterSPG  # InterXXX means Sharing parameters between Actor and Critic
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo/RL
@@ -433,11 +433,11 @@ class AgentInterAC(AgentBasicAC):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        self.act = ActCriDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act = InterDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-        self.act_target = ActCriDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = InterDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
@@ -532,7 +532,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         '''network'''
         actor_dim = net_dim
-        self.act = AcrCriSPG(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act = InterSPG(state_dim, action_dim, actor_dim, use_dn).to(self.device)
         self.act.train()
 
         # critic_dim = int(net_dim * 1.25)
@@ -545,7 +545,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         para_list = list(self.act.parameters())  # + list(self.cri.parameters())
         self.act_optimizer = torch.optim.Adam(para_list, lr=self.learning_rate)
 
-        self.act_target = AcrCriSPG(state_dim, action_dim, net_dim, use_dn).to(self.device)
+        self.act_target = InterSPG(state_dim, action_dim, net_dim, use_dn).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
@@ -998,7 +998,7 @@ class AgentPPO:
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_buffer_ppo(self, env, max_step, max_memo, max_action, reward_scale, gamma):
+    def update_buffer_online(self, env, max_step, max_memo, max_action, reward_scale, gamma):
         self.act.eval()
         self.cri.eval()
 
@@ -1041,7 +1041,7 @@ class AgentPPO:
             step_counter += step_sum
         return rewards, steps, buffer
 
-    def update_parameters_gae(self, buffer, batch_size, repeat_times):
+    def update_parameters_online(self, buffer, batch_size, repeat_times):
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -1164,24 +1164,26 @@ class AgentPPO:
             print("FileNotFound when load_model: {}".format(cwd))
 
 
-class AgentAdv(AgentPPO):
+class AgentGAE(AgentPPO):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentPPO, self).__init__()
         self.learning_rate = 2e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        self.act = ActorAdv(state_dim, action_dim, net_dim).to(self.device)
+        self.act = ActorGAE(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
 
-        self.cri = CriticAdv(state_dim, net_dim).to(self.device)
+        self.cri = CriticAdvTwin(state_dim, net_dim).to(self.device)
         self.cri.train()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
+        # cannot use actor target network
+        # not need to use critic target network
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_parameters_gae(self, buffer, batch_size, repeat_times):
+    def update_parameters_online(self, buffer, batch_size, repeat_times):
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -1200,136 +1202,7 @@ class AgentAdv(AgentPPO):
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
         ]
         # with torch.no_grad():
-        all__new_v = self.cri(all_state).detach_()
-
-        '''compute old_v (old policy value), adv_v (advantage value) 
-        refer: Generalization Advantage Estimate. ICLR 2016. 
-        https://arxiv.org/pdf/1506.02438.pdf'''
-        all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # delta of q value
-        all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-        all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
-
-        prev_old_v = 0  # old q value
-        prev_new_v = 0  # new q value
-        prev_adv_v = 0  # advantage q value
-        for i in range(max_memo - 1, -1, -1):
-            all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
-            all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
-            all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * lambda_adv
-
-            prev_old_v = all__old_v[i]
-            prev_new_v = all__new_v[i]
-            prev_adv_v = all__adv_v[i]
-
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
-
-        '''mini batch sample'''
-        sample_times = int(repeat_times * max_memo / batch_size)
-        for _ in range(sample_times):
-            '''random sample'''
-            # indices = rd.choice(max_memo, batch_size, replace=True)  # False)
-            indices = rd.randint(max_memo, size=batch_size)
-
-            state = all_state[indices]
-            action = all_action[indices]
-            advantage = all__adv_v[indices]
-            old_value = all__old_v[indices].unsqueeze(1)
-            old_log_prob = all_log_prob[indices]
-
-            """Adaptive KL Penalty Coefficient
-            loss_KLPEN = surrogate_obj + value_obj * lambda_value + entropy_obj * lambda_entropy
-            loss_KLPEN = (value_obj * lambda_value) + (surrogate_obj + entropy_obj * lambda_entropy)
-            loss_KLPEN = (critic_loss) + (actor_loss)
-            """
-
-            '''critic_loss'''
-            new_log_prob = self.act.compute__log_prob(state, action)
-
-            new_value = self.cri(state)
-            critic_loss = self.criterion(new_value, old_value) / (old_value.std() + 1e-6)
-            loss_c_sum += critic_loss.item()  # just for print
-            self.cri_optimizer.zero_grad()
-            critic_loss.backward()
-            self.cri_optimizer.step()
-
-            '''actor_loss'''
-            # surrogate objective of TRPO
-            ratio = (new_log_prob - old_log_prob).exp()
-            surrogate_obj0 = advantage * ratio
-            surrogate_obj1 = advantage * ratio.clamp(1 - clip, 1 + clip)
-            surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
-            # policy entropy
-            loss_entropy = (new_log_prob.exp() * new_log_prob).mean()
-
-            actor_loss = surrogate_obj + loss_entropy * lambda_entropy
-            loss_a_sum += actor_loss.item()  # just for print
-            self.act_optimizer.zero_grad()
-            actor_loss.backward()
-            self.act_optimizer.step()
-
-        loss_a_avg = loss_a_sum / sample_times
-        loss_c_avg = loss_c_sum / sample_times
-        return loss_a_avg, loss_c_avg
-
-    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
-        states = torch.tensor(states, dtype=torch.float32, device=self.device)
-
-        if explore_noise == 0.0:
-            a_mean = self.act(states)
-            a_mean = a_mean.cpu().data.numpy()
-            return a_mean
-        else:
-            a_noise, log_prob = self.act.get__a__log_prob(states)
-            a_noise = a_noise.cpu().data.numpy()
-            log_prob = log_prob.cpu().data.numpy()
-            return a_noise, log_prob
-
-
-class AgentInterAdv(AgentPPO):
-    def __init__(self, state_dim, action_dim, net_dim):
-        super(AgentPPO, self).__init__()
-        self.learning_rate = 2e-4  # learning rate of actor
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        '''network'''
-        self.act = ActCriAdv(state_dim, action_dim, net_dim).to(self.device)
-        self.act.train()
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
-
-        self.act_target = ActCriAdv(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target.eval()
-        self.act_target.load_state_dict(self.act.state_dict())
-
-        # self.cri = CriticAdv(state_dim, net_dim).to(self.device)
-        # self.cri.train()
-        # self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
-
-        self.criterion = nn.SmoothL1Loss()
-
-        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
-        self.update_counter = 0  # delay update counter
-
-    def update_parameters_gae(self, buffer, batch_size, repeat_times):
-        self.act.train()
-        # self.cri.train()
-        clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        lambda_adv = 0.98  # Could be 0.97 or 0.98. Wait but why? Cannot use 0.99.
-        lambda_entropy = 0.01  # could be 0.02. Set greater when speed up training in a easy task.
-        # repeat_times = 2 ** 4 # could be 2 ** 3. Set smaller when speed up training in a easy task.
-
-        loss_a_sum = 0.0  # just for print
-        loss_c_sum = 0.0  # just for print
-
-        '''the batch for training'''
-        max_memo = len(buffer)
-        all_batch = buffer.sample()
-        all_reward, all_mask, all_state, all_action, all_log_prob = [
-            torch.tensor(ary, dtype=torch.float32, device=self.device)
-            for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
-        ]
-        # with torch.no_grad():
-        # all__new_v = self.cri(all_state).detach_()
-        all__new_v = self.act.get__q_min(all_state).detach_()
+        all__new_v = torch.min(*self.cri(all_state)).detach_()
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: Generalization Advantage Estimate. ICLR 2016. 
@@ -1373,16 +1246,16 @@ class AgentInterAdv(AgentPPO):
             """
 
             '''critic_loss'''
-            # new_log_prob = self.act.compute__log_prob(state, action)
-            # new_log_prob, new_value1, new_value2 = self.act.compute__log_prob(state, action)
-            new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
+            new_log_prob = self.act.compute__log_prob(state, action)
+            new_value1, new_value2 = self.cri(state)
+            # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
                            self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
             loss_c_sum += critic_loss.item()  # just for print
-            # self.cri_optimizer.zero_grad()
-            # critic_loss.backward()
-            # self.cri_optimizer.step()
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
 
             '''actor_loss'''
             # surrogate objective of TRPO
@@ -1395,37 +1268,13 @@ class AgentInterAdv(AgentPPO):
 
             actor_loss = surrogate_obj + loss_entropy * lambda_entropy
             loss_a_sum += actor_loss.item()  # just for print
-
-            # self.act_optimizer.zero_grad()
-            # actor_loss.backward()
-            # self.act_optimizer.step()
-
-            united_loss = critic_loss + actor_loss
             self.act_optimizer.zero_grad()
-            united_loss.backward()
+            actor_loss.backward()
             self.act_optimizer.step()
-
-            if self.update_counter >= self.update_freq:
-                self.update_counter = 0
-                # self.soft_target_update(self.act_target, self.act)  # soft target update
-                self.act_target.load_state_dict(self.act.state_dict())
 
         loss_a_avg = loss_a_sum / sample_times
         loss_c_avg = loss_c_sum / sample_times
         return loss_a_avg, loss_c_avg
-
-    def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
-        states = torch.tensor(states, dtype=torch.float32, device=self.device)
-
-        if explore_noise == 0.0:
-            a_mean = self.act(states)
-            a_mean = a_mean.cpu().data.numpy()
-            return a_mean
-        else:
-            a_noise, log_prob = self.act.get__a__log_prob(states)
-            a_noise = a_noise.cpu().data.numpy()
-            log_prob = log_prob.cpu().data.numpy()
-            return a_noise, log_prob
 
 
 class AgentDQN:  # 2020-06-06
@@ -1624,7 +1473,7 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
         return a_ints
 
 
-class AgentEBM(AgentBasicAC):  # Energy Based Model (Soft Q-learning) I'm not sure. # plan todo
+class AgentEBM(AgentBasicAC):  # Energy Based Model (Soft Q-learning) I'm not sure. # plan
     # def __init__(self, state_dim, action_dim, net_dim):
     #     super(AgentBasicAC, self).__init__()
     pass
@@ -1761,7 +1610,7 @@ class BufferTuple:
 
 class BufferTuplePPO:
     def __init__(self, ):
-        self.memory = []
+        self.storage_list = list()
         from collections import namedtuple
         self.transition = namedtuple(
             'Transition',
@@ -1770,13 +1619,16 @@ class BufferTuplePPO:
         )
 
     def push(self, *args):
-        self.memory.append(self.transition(*args))
+        self.storage_list.append(self.transition(*args))
+
+    def extend(self, storage_list):
+        self.storage_list.extend(storage_list)
 
     def sample(self):
-        return self.transition(*zip(*self.memory))
+        return self.transition(*zip(*self.storage_list))
 
     def __len__(self):
-        return len(self.memory)
+        return len(self.storage_list)
 
 
 class BufferArray:  # 2020-05-20

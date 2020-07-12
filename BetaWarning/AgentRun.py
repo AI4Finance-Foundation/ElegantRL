@@ -125,10 +125,10 @@ def train_agent__on_policy(
     try:
         for epoch in range(max_epoch):
             with torch.no_grad():  # just the GPU memory
-                rewards, steps, buffer = agent.update_buffer_ppo(
+                rewards, steps, buffer = agent.update_buffer_online(
                     env, max_step, max_memo, max_action, reward_scale, gamma)
 
-            loss_a, loss_c = agent.update_parameters_gae(
+            loss_a, loss_c = agent.update_parameters_online(
                 buffer, batch_size, repeat_times)
 
             with torch.no_grad():  # just the GPU memory
@@ -414,7 +414,7 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
 
 def run__ppo(gpu_id, cwd):
     # from AgentZoo import AgentPPO
-    from AgentZoo import AgentAdv
+    from AgentZoo import AgentGAE
     from AgentZoo import AgentInterAdv
     args = Arguments(AgentInterAdv)
 

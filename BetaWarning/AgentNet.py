@@ -10,6 +10,7 @@ import numpy as np  # import numpy.random as rd
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
 2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
 2020-06-06 Issay-0.3 check, DPG, SDG, InterAC, InterSAC
+2020-07-07 Issay-0.3 AgentAdv
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
@@ -21,9 +22,9 @@ some variants of DQN: Rainbow DQN, Ape-X
 """
 
 
-class ActCriDPG(nn.Module):  # class AgentIntelAC
+class InterDPG(nn.Module):  # class AgentIntelAC
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(ActCriDPG, self).__init__()
+        super(InterDPG, self).__init__()
         self.enc_s = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
@@ -86,9 +87,9 @@ class ActCriDPG(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class AcrCriSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
+class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
     def __init__(self, state_dim, action_dim, mid_dim, use_dn=True, use_sn=True):  # plan todo use_dn
-        super(AcrCriSPG, self).__init__()
+        super(InterSPG, self).__init__()
         self.log_std_min = -20
         self.log_std_max = 2
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
@@ -161,7 +162,7 @@ class AcrCriSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic 
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
         log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)  # todo
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
     def get__a__std(self, state):
         s_ = self.enc_s(state)
@@ -206,70 +207,6 @@ class AcrCriSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic 
         q2 = self.dec_q2(q_)
         return q1, q2
 
-class ActCriAdv(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
-        super().__init__()
-
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),
-        )
-        self.net__mean = nn.Linear(mid_dim * 4, action_dim)
-        self.net__std_log = nn.Linear(mid_dim * 4, action_dim)
-        self.net__q1 = nn.Linear(mid_dim * 4, 1)
-        self.net__q2 = nn.Linear(mid_dim * 4, 1)
-
-        self.log_std_min = -20
-        self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        layer_norm(self.net[0], std=1.0)
-        layer_norm(self.net[2], std=1.0)
-        layer_norm(self.net__mean, std=0.01)  # output layer for action
-        layer_norm(self.net__std_log, std=0.01)  # output layer for std_log
-        layer_norm(self.net__q1, std=1.0)  # output layer for q value
-        layer_norm(self.net__q2, std=1.0)  # TwinCritic (DoubleDQN TD3)
-
-    def forward(self, s):
-        x = self.net(s)
-        a_mean = self.net__mean(x)
-        return a_mean
-
-    def get__q_min(self, s):
-        x = self.net(s)
-        q1 = self.net__q1(x)
-        q2 = self.net__q2(x)
-        return torch.min(q1, q2)
-
-    def get__a__log_prob(self, state):
-        x = self.net(state)
-        a_mean = self.net__mean(x)
-        a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
-        a_std = torch.exp(a_log_std)
-
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi).sum(1)
-        return a_noise, log_prob
-
-    def compute__log_prob(self, state, a_noise):
-        x = self.net(state)
-        a_mean = self.net__mean(x)
-        a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
-        a_std = torch.exp(a_log_std)
-
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
-        log_prob = log_prob.sum(1)
-
-        q1 = self.net__q1(x)
-        q2 = self.net__q2(x)
-        return log_prob, q1, q2
 
 class ActorDPG(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
@@ -367,7 +304,7 @@ class ActorSAC(nn.Module):
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
         log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)  # todo
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
 
 class ActorPPO(nn.Module):
@@ -409,16 +346,16 @@ class ActorPPO(nn.Module):
         return log_prob.sum(1)
 
 
-class ActorAdv(nn.Module):
+class ActorGAE(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(ActorAdv, self).__init__()
+        super(ActorGAE, self).__init__()
 
-        self.net = nn.Sequential(
-            # nn.BatchNorm1d(state_dim),
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        self.net__mean = nn.Linear(mid_dim, action_dim)
-        self.net__std_log = nn.Linear(mid_dim, action_dim)
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 DenseNet(mid_dim),
+                                 )
+        self.net__mean = nn.Linear(mid_dim * 4, action_dim)
+        self.net__std_log = nn.Linear(mid_dim * 4, action_dim)
 
         self.log_std_min = -20
         self.log_std_max = 2
@@ -426,7 +363,7 @@ class ActorAdv(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         layer_norm(self.net[0], std=1.0)
-        layer_norm(self.net[2], std=1.0)
+        # layer_norm(self.net[2], std=1.0)
         layer_norm(self.net__mean, std=0.01)  # output layer for action
         layer_norm(self.net__std_log, std=0.01)  # output layer for std_log
 
@@ -545,6 +482,30 @@ class CriticAdv(nn.Module):  # 2020-05-05 fix bug
         return q
 
 
+class CriticAdvTwin(nn.Module):  # 2020-05-05 fix bug
+    def __init__(self, state_dim, mid_dim):
+        super(CriticAdvTwin, self).__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),
+        )
+        self.net_q1 = nn.Linear(mid_dim * 4, 1)
+        self.net_q2 = nn.Linear(mid_dim * 4, 1)
+
+        layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[2], std=1.0)
+        layer_norm(self.net_q1, std=0.1)  # output layer for q value
+        layer_norm(self.net_q2, std=0.1)  # output layer for q value
+
+    def forward(self, s):
+        x = self.net(s)
+        q1 = self.net_q1(x)
+        q2 = self.net_q2(x)
+        return q1, q2
+
+
 class QNet(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim):
         super(QNet, self).__init__()
@@ -557,24 +518,6 @@ class QNet(nn.Module):  # class AgentQLearning
 
     def forward(self, s):
         q = self.net(s)
-        return q
-
-
-class QNetDL(nn.Module):  # class AgentQLearning
-    def __init__(self, state_dim, action_dim, mid_dim, ):
-        super(QNetDL, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),
-        )
-        self.net_q = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    def forward(self, s, noise_std=0.0):
-        x = self.net(s)
-        if noise_std != 0.0:
-            x += torch.randn_like(x, device=self.device) * noise_std
-        q = self.net_q(x)
         return q
 
 
