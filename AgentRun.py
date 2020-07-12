@@ -415,7 +415,7 @@ def run__ppo(gpu_id, cwd):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentGAE
 
-    assert class_agent in {Zoo.AgentPPO, Zoo.AgentPPO}
+    assert class_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
     args = Arguments(class_agent)
 
     args.gpu_id = gpu_id
