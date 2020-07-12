@@ -8,7 +8,7 @@ beta1 Discrete GAE argmax
 """
 
 
-class AgentDiscreteGAE(AgentPPO):
+class AgentDiscreteGAE(AgentPPO):  # wait to be elegant
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentPPO, self).__init__()
         self.learning_rate = 2e-4  # learning rate of actor
@@ -195,7 +195,7 @@ class AgentDiscreteGAE(AgentPPO):
             return a_int, a_noise, log_prob
 
 
-def run__ppo(gpu_id, cwd):
+def run__ppo_discrete(gpu_id, cwd):
     # import AgentZoo as Zoo
     # class_agent = Zoo.AgentGAE
     #
@@ -229,4 +229,4 @@ def run__ppo(gpu_id, cwd):
 
 if __name__ == '__main__':
     # run__ppo(gpu_id=sys.argv[-1][-4], cwd='AC_GAE_Discrete')
-    run__multi_process(run__ppo, gpu_tuple=((0, 1), (2, 3))[0], cwd='AC_GAE')
+    run__multi_process(run__ppo_discrete, gpu_tuple=((0, 1), (2, 3))[0], cwd='AC_GAE')

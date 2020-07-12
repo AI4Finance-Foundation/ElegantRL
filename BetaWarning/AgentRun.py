@@ -325,7 +325,7 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 """demo"""
 
 
-def run__demo(gpu_id, cwd='AC_BasicAC'):
+def run__demo(gpu_id, cwd='RL_BasicAC'):
     from AgentZoo import AgentSNAC as AgentClass
 
     args = Arguments(AgentClass)
@@ -342,17 +342,16 @@ def run__demo(gpu_id, cwd='AC_BasicAC'):
     train_agent__off_policy(**vars(args))
 
 
-def run__zoo(gpu_id, cwd='AC_Zoo'):
-    # from AgentZoo import AgentSNAC
-    # from AgentZoo import AgentDDPG
-    # from AgentZoo import AgentTD3
-    # from AgentZoo import AgentPPO # you can't run PPO here. goto run__ppo(). PPO need its hyper-parameters
-    from AgentZoo import AgentSAC
-    # from AgentZoo import AgentBasicAC
-    # from AgentZoo import AgentInterAC
-    # from AgentZoo import AgentInterSAC
+def run__zoo(gpu_id, cwd='RL_Zoo'):
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDeepSAC
 
-    args = Arguments(AgentSAC)
+    assert class_agent in {
+        Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
+        Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
+    }  # you can't run PPO here. goto run__ppo(). PPO need its hyper-parameters
+
+    args = Arguments(class_agent)
     args.gpu_id = gpu_id
 
     args.env_name = "LunarLanderContinuous-v2"
@@ -412,11 +411,12 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
     #     args.random_seed += 42
 
 
-def run__ppo(gpu_id, cwd):
-    # from AgentZoo import AgentPPO
-    from AgentZoo import AgentGAE
-    from AgentZoo import AgentInterAdv
-    args = Arguments(AgentInterAdv)
+def run__ppo(gpu_id, cwd='RL_PPO'):
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentGAE
+
+    assert class_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
+    args = Arguments(class_agent)
 
     args.gpu_id = gpu_id
     args.max_memo = 2 ** 12
@@ -438,11 +438,44 @@ def run__ppo(gpu_id, cwd):
         args.random_seed += 42
 
 
+def run__ppo_discrete(gpu_id, cwd='RL_DiscreteGAE'):
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDiscreteGAE
+
+    assert class_agent in {Zoo.AgentDiscreteGAE, }
+    args = Arguments(class_agent=class_agent)
+
+    args.gpu_id = gpu_id
+    args.max_memo = 2 ** 10
+    args.batch_size = 2 ** 8
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 7
+
+    args.env_name = "CartPole-v0"
+    args.cwd = './{}/CP_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent__on_policy(**vars(args)):
+        args.random_seed += 42
+
+    args.gpu_id = gpu_id
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 8
+
+    args.env_name = "LunarLander-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent__on_policy(**vars(args)):
+        args.random_seed += 42
+
+
 def run__dqn(gpu_id, cwd='RL_DQN'):
-    from AgentZoo import AgentDQN
-    # from AgentZoo import AgentNoisyDQN
-    # from AgentZoo import AgentDoubleDQN
-    args = Arguments(AgentDQN)
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDoubleDQN
+    assert class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN}
+
+    args = Arguments(class_agent)
     args.gpu_id = gpu_id
     args.show_gap = 2 ** 5
 
@@ -455,6 +488,9 @@ def run__dqn(gpu_id, cwd='RL_DQN'):
     args.cwd = '{}/{}'.format(cwd, args.env_name)
     args.init_for_training()
     train_agent_discrete(**vars(args))
+
+
+"""demo plan to do multi-agent"""
 
 
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='RL_MP'):
