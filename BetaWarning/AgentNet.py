@@ -21,9 +21,9 @@ some variants of DQN: Rainbow DQN, Ape-X
 """
 
 
-class ActorCriticDPG(nn.Module):  # class AgentIntelAC
+class ActCriDPG(nn.Module):  # class AgentIntelAC
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(ActorCriticDPG, self).__init__()
+        super(ActCriDPG, self).__init__()
         self.enc_s = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
@@ -86,9 +86,9 @@ class ActorCriticDPG(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class ActorCriticSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
+class AcrCriSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
     def __init__(self, state_dim, action_dim, mid_dim, use_dn=True, use_sn=True):  # plan todo use_dn
-        super(ActorCriticSPG, self).__init__()
+        super(AcrCriSPG, self).__init__()
         self.log_std_min = -20
         self.log_std_max = 2
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
@@ -206,6 +206,70 @@ class ActorCriticSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stocha
         q2 = self.dec_q2(q_)
         return q1, q2
 
+class ActCriAdv(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),
+        )
+        self.net__mean = nn.Linear(mid_dim * 4, action_dim)
+        self.net__std_log = nn.Linear(mid_dim * 4, action_dim)
+        self.net__q1 = nn.Linear(mid_dim * 4, 1)
+        self.net__q2 = nn.Linear(mid_dim * 4, 1)
+
+        self.log_std_min = -20
+        self.log_std_max = 2
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        layer_norm(self.net[0], std=1.0)
+        layer_norm(self.net[2], std=1.0)
+        layer_norm(self.net__mean, std=0.01)  # output layer for action
+        layer_norm(self.net__std_log, std=0.01)  # output layer for std_log
+        layer_norm(self.net__q1, std=1.0)  # output layer for q value
+        layer_norm(self.net__q2, std=1.0)  # TwinCritic (DoubleDQN TD3)
+
+    def forward(self, s):
+        x = self.net(s)
+        a_mean = self.net__mean(x)
+        return a_mean
+
+    def get__q_min(self, s):
+        x = self.net(s)
+        q1 = self.net__q1(x)
+        q2 = self.net__q2(x)
+        return torch.min(q1, q2)
+
+    def get__a__log_prob(self, state):
+        x = self.net(state)
+        a_mean = self.net__mean(x)
+        a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = torch.exp(a_log_std)
+
+        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
+        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        a_noise = a_mean + a_std * noise
+
+        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
+        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi).sum(1)
+        return a_noise, log_prob
+
+    def compute__log_prob(self, state, a_noise):
+        x = self.net(state)
+        a_mean = self.net__mean(x)
+        a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = torch.exp(a_log_std)
+
+        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
+        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
+        log_prob = log_prob.sum(1)
+
+        q1 = self.net__q1(x)
+        q2 = self.net__q2(x)
+        return log_prob, q1, q2
 
 class ActorDPG(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
@@ -345,9 +409,9 @@ class ActorPPO(nn.Module):
         return log_prob.sum(1)
 
 
-class ActorAdvSAC(nn.Module):
+class ActorAdv(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(ActorAdvSAC, self).__init__()
+        super(ActorAdv, self).__init__()
 
         self.net = nn.Sequential(
             # nn.BatchNorm1d(state_dim),
@@ -430,9 +494,9 @@ class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q
         return q_value1, q_value2
 
 
-class CriticSharedTwin(nn.Module):  # 2020-06-18
+class CriticTwinShared(nn.Module):  # 2020-06-18
     def __init__(self, state_dim, action_dim, mid_dim, use_dn, use_sn):  # todo
-        super(CriticSharedTwin, self).__init__()
+        super(CriticTwinShared, self).__init__()
 
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                  DenseNet(mid_dim), )
@@ -464,9 +528,9 @@ class CriticSN(nn.Module):  # SN: Spectral Normalization # 2020-05-05 fix bug
         return q
 
 
-class CriticAdvantage(nn.Module):  # 2020-05-05 fix bug
+class CriticAdv(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, mid_dim):
-        super(CriticAdvantage, self).__init__()
+        super(CriticAdv, self).__init__()
 
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -481,9 +545,9 @@ class CriticAdvantage(nn.Module):  # 2020-05-05 fix bug
         return q
 
 
-class QNetwork(nn.Module):  # class AgentQLearning
+class QNet(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(QNetwork, self).__init__()
+        super(QNet, self).__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -496,9 +560,9 @@ class QNetwork(nn.Module):  # class AgentQLearning
         return q
 
 
-class QNetworkDL(nn.Module):  # class AgentQLearning
+class QNetDL(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim, ):
-        super(QNetworkDL, self).__init__()
+        super(QNetDL, self).__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             DenseNet(mid_dim),
@@ -512,6 +576,33 @@ class QNetworkDL(nn.Module):  # class AgentQLearning
             x += torch.randn_like(x, device=self.device) * noise_std
         q = self.net_q(x)
         return q
+
+
+class QNetTwin(nn.Module):  # class AgentQLearning
+    def __init__(self, state_dim, action_dim, mid_dim, ):
+        super().__init__()  # same as: super(QNetworkDL, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),
+        )
+        self.net_q1 = nn.Linear(mid_dim * 4, action_dim)
+        self.net_q2 = nn.Linear(mid_dim * 4, action_dim)
+        # self.net_q1 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
+        # self.net_q2 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def forward(self, s, noise_std=0.0):
+        x = self.net(s)
+        q1 = self.net_q1(x)
+        q2 = self.net_q2(x)
+        return torch.min(q1, q2)
+
+    def get__q1_q2(self, s):
+        x = self.net(s)
+        q1 = self.net_q1(x)
+        q2 = self.net_q2(x)
+        return q1, q2
 
 
 """utils"""
