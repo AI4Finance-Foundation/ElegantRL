@@ -2,8 +2,8 @@
 Many people suggested that I could call it "3-Python-file-RL (PyTorch)"
 
 Model-free Deep Reinforcement Learning (DRL) Algorithm: 
-+ DDPG, TD3(GAE), PPO, SAC, InterAC, InterSAC (I don't add A2C and TRPO because they are no good enough.)
-+ DQN ( DRL), DoubleDQN, GAE for discrete action.
++ **DDPG, TD3(GAE), PPO, SAC, InterAC, InterSAC** (I don't add A2C and TRPO because they are no good enough.)
++ **DQN ( DRL), DoubleDQN, GAE for discrete action**
 + More DQN (wait for adding Rainbow, Ape-X, SAC for discrete)
 + Multi-agent (wait for adding MADDPG, COMA, QMIX, QTRAN etc.)
 
@@ -72,8 +72,8 @@ This is why I said it **lightweight**.
     AgentZoo.py  # There are many model-free DRL algorithms here. You can learn these algorithm here.
     AgentNet.py  # The neural network architecture for actor and critic is here. 
     ----folder---
-    BetaWarning  # I put the latest version here. You can find lots of bug here.
-    History      # I put the historical files here. You can find the bug-free code here.
+    BetaWarning  # I put the latest version here. You can find lots of bug here, but new.
+    History      # I put the historical files here. You can find the bug-free code here, but old.
 There are only 3 python file in my DRL PyTorch implement. (I will add more detail later.)
 
 # run
