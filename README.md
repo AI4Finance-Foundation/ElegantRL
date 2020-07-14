@@ -1,11 +1,20 @@
 ## An lightweight, stable, efficient DRL PyTorch implement
 Many people suggested that I could call it "3-Python-file-RL (PyTorch)"
 
-Model-free Deep Reinforcement Learning (DRL) Algorithm: **DDPG, TD3, PPO, SAC, InterAC, InterSAC and DQN ( DRL), DoubleDQN, GAE for discrete action**.
+Model-free Deep Reinforcement Learning (DRL) Algorithm: 
++ DDPG, TD3(GAE), PPO, SAC, InterAC, InterSAC (I don't add A2C and TRPO because they are no good enough.)
++ DQN ( DRL), DoubleDQN, GAE for discrete action.
++ More DQN (wait for adding Rainbow, Ape-X, SAC for discrete)
++ Multi-agent (wait for adding MADDPG, COMA, QMIX, QTRAN etc.)
 
 It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
-I am still learning English. 
+Maybe you can find Multi-agent in folder 'BetaWarning'.
+
+I am still learning English. 我的英文不好，还望包涵。
+More details see ↓ (write in Chinese)
+
+更多详细的内容见知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
 
 # Show results
 
@@ -95,9 +104,6 @@ More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 ---
 ## If Necip want me to translate the following Chinese into English. I will. 
 ---
-More details see ↓ (write in Chinese)
-
-更多详细的内容见知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
 
 
 ## 为何我要写这个库？
