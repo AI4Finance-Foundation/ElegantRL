@@ -325,10 +325,10 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 """demo"""
 
 
-def run__demo(gpu_id, cwd='AC_BasicAC'):
-    from AgentZoo import AgentSNAC as AgentClass
+def run__demo(gpu_id, cwd='RL_BasicAC'):
+    from AgentZoo import AgentBasicAC
 
-    args = Arguments(AgentClass)
+    args = Arguments(class_agent=AgentBasicAC)
     args.gpu_id = gpu_id
 
     args.env_name = "LunarLanderContinuous-v2"
@@ -342,7 +342,7 @@ def run__demo(gpu_id, cwd='AC_BasicAC'):
     train_agent__off_policy(**vars(args))
 
 
-def run__zoo(gpu_id, cwd='AC_Zoo'):
+def run__zoo(gpu_id, cwd='RL_Zoo'):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentDeepSAC
 
@@ -411,7 +411,7 @@ def run__zoo(gpu_id, cwd='AC_Zoo'):
     #     args.random_seed += 42
 
 
-def run__ppo(gpu_id, cwd):
+def run__ppo(gpu_id, cwd='RL_PPO'):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentGAE
 
@@ -438,11 +438,44 @@ def run__ppo(gpu_id, cwd):
         args.random_seed += 42
 
 
+def run__ppo_discrete(gpu_id, cwd='RL_DiscreteGAE'):
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDiscreteGAE
+
+    assert class_agent in {Zoo.AgentDiscreteGAE, }
+    args = Arguments(class_agent=class_agent)
+
+    args.gpu_id = gpu_id
+    args.max_memo = 2 ** 10
+    args.batch_size = 2 ** 8
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 7
+
+    args.env_name = "CartPole-v0"
+    args.cwd = './{}/CP_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent__on_policy(**vars(args)):
+        args.random_seed += 42
+
+    args.gpu_id = gpu_id
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 8
+
+    args.env_name = "LunarLander-v2"
+    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    while not train_agent__on_policy(**vars(args)):
+        args.random_seed += 42
+
+
 def run__dqn(gpu_id, cwd='RL_DQN'):
-    from AgentZoo import AgentDQN
-    # from AgentZoo import AgentNoisyDQN
-    # from AgentZoo import AgentDoubleDQN
-    args = Arguments(AgentDQN)
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDoubleDQN
+    assert class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN}
+
+    args = Arguments(class_agent)
     args.gpu_id = gpu_id
     args.show_gap = 2 ** 5
 
@@ -455,6 +488,9 @@ def run__dqn(gpu_id, cwd='RL_DQN'):
     args.cwd = '{}/{}'.format(cwd, args.env_name)
     args.init_for_training()
     train_agent_discrete(**vars(args))
+
+
+"""demo plan to do multi-agent"""
 
 
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='RL_MP'):
@@ -612,8 +648,8 @@ def run__multi_workers(gpu_tuple=(0, 1), root_cwd='RL_MP'):
 
 
 if __name__ == '__main__':
-    # run__demo(gpu_id=0, cwd='AC_BasicAC')
-    run__zoo(gpu_id=0, cwd='AC_SAC')
+    run__demo(gpu_id=0, cwd='AC_BasicAC')
+    # run__zoo(gpu_id=0, cwd='AC_SAC')
     # run__ppo(gpu_id=1, cwd='AC_PPO')
 
     # run__multi_process(run__zoo, gpu_tuple=(0, 1, 2, 3), cwd='AC_ZooMP')
