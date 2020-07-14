@@ -635,6 +635,26 @@ def build_actor_net_for_spg(state_dim, action_dim, mid_dim, use_dn):
     return net__mid, net__mean, net__std_log
 
 
+def build_critic_net_for_dpg(state_dim, action_dim, mid_dim, use_dn):
+    # for DPG (Deterministic Policy Gradient)
+
+    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+        net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+            nn.Linear(mid_dim * 4, action_dim),
+        )
+    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+        net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
+
+    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+    return net
+
+
 def build_critic_network(state_dim, action_dim, mid_dim, use_dn, use_sn):
     nn_list = list()
     nn_list.extend([nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(), ])

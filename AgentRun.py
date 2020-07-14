@@ -68,7 +68,7 @@ def train_agent__off_policy(
     state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
     assert not is_discrete
 
-    '''init'''
+    '''init: agent, buffer, recorder'''
     agent = class_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
     buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
@@ -201,7 +201,7 @@ def train_agent_discrete(
 """utils"""
 
 
-def get_env_info(env, is_print):  # 2020-06-06
+def get_env_info(env, is_print=True):  # 2020-06-06
     state_dim = env.observation_space.shape[0]
 
     try:
@@ -323,6 +323,144 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 
 
 """demo"""
+
+
+def run__tutorial():
+    # It is a DQN tutorial, we need 10s for training.
+    # This simplify DQN can't work well on harder task.
+    # Other RL algorithms can work well on harder task but complicated.
+
+    env_name = 'CartPole-v0'  # a tutorial RL env. We need 10s for training.
+    env = gym.make(env_name)  # an OpenAI standard env
+
+    # from AgentRun import get_env_info
+    # state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
+    # assert is_discrete is True  # DQN is for discrete action space.
+    # """ You will see the following:
+    # | env_name: <CartPoleEnv<CartPole-v0>>, action space: Discrete
+    # | state_dim: 4, action_dim: 2, action_max: 1, target_reward: 195.0
+    # """
+    state_dim = 4
+    action_dim = 2
+    target_reward = 195.0
+
+    '''I copy the code from AgentDQN to the following for tutorial.'''
+
+    net_dim = 2 ** 7  # the dimension (or width) of network
+    learning_rate = 2e-4
+    max_buffer = 2 ** 12  # the max storage number of replay buffer.
+    max_epoch = 2 ** 12  # epoch or episodes when training step
+    max_step = 2 ** 9  # the max step that actor interact with env before training critic
+    gamma = 0.99  # reward discount factor (gamma must less than 1.0)
+    batch_size = 2 ** 7  # batch_size for network training
+    criterion = torch.nn.MSELoss()  # criterion for critic's q_value estimate
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # choose GPU or CPU automatically
+
+    from AgentNet import QNet
+    act = QNet(state_dim, action_dim, net_dim).to(device)
+    act.train()
+    act_target = QNet(state_dim, action_dim, net_dim).to(device)
+    act_target.eval()
+    # AgentDQN chooses action with the largest q value outputing by Q_Network. Q_Network is an actor.
+    # AgentDQN outputs q_value by Q_Network. Q_Network is also a critic.
+    act_optim = torch.optim.Adam(act.parameters(), lr=learning_rate)
+
+    # from AgentRun import BufferList # simpler but slower
+    from AgentZoo import BufferArray  # faster but a bit complicated
+    buffer = BufferArray(max_buffer, state_dim, action_dim=1)  # experiment replay buffer, discrete action is an int
+
+    '''training loop'''
+    from AgentZoo import soft_target_update
+    self_state = env.reset()
+    self_r_sum = 0.0  # the sum of rewards of an episode
+    self_steps = 0  # the steps of an episode
+
+    total_step = 0
+    import time
+    import numpy.random as rd
+    start_time = time.time()
+
+    for _ in range(max_step):  # collect some buffer before training
+        '''inactive with environment'''
+        action = rd.randint(action_dim)
+        next_state, reward, done, _ = env.step(action)
+
+        self_r_sum += reward
+        self_steps += 1
+    total_step += max_step
+
+    for epoch in range(max_epoch):
+
+        '''update_buffer'''
+        explore_rate = 0.25  # explore rate when update_buffer(), epsilon-greedy
+        # act.eval()
+        rewards = list()
+        steps = list()
+        for _ in range(max_step):
+            '''inactive with environment'''
+            if rd.rand() < explore_rate:  # explored policy for DQN: epsilon-Greedy
+                action = rd.randint(action_dim)
+            else:
+                # action = self.select_actions((self.state,), )[0]
+                states = torch.tensor((self_state,), dtype=torch.float32, device=device)
+                actions = act_target(states).argmax(dim=1).cpu().data.numpy()  # discrete action space
+                action = actions[0]
+            next_state, reward, done, _ = env.step(action)
+
+            self_r_sum += reward
+            self_steps += 1
+
+            '''update replay buffer'''
+            mask = 0.0 if done else gamma
+            buffer.add_memo((reward, mask, self_state, action, next_state))
+
+            self_state = next_state
+            if done:
+                rewards.append(self_r_sum)
+                self_r_sum = 0.0
+
+                steps.append(self_steps)
+                self_steps = 0
+
+                self_state = env.reset()
+
+        total_step += sum(steps)
+        avg_reward = np.average(rewards)
+        print(end=f'Reward: {avg_reward:<8.2f}\t'
+                  f'Step: {total_step:<8}\t')
+
+        '''update_parameters'''
+        loss_c_sum = 0.0
+        update_times = max_step
+        buffer.init_before_sample()  # update the buffer.now_len
+        for _ in range(update_times):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size, device)
+
+                next_q_target = act(next_states).max(dim=1, keepdim=True)[0]
+                q_target = rewards + masks * next_q_target
+
+            act.train()
+            actions = actions.type(torch.long)
+            q_eval = act(states).gather(1, actions)
+            critic_loss = criterion(q_eval, q_target)
+            loss_c_sum += critic_loss.item()
+
+            act_optim.zero_grad()
+            critic_loss.backward()
+            act_optim.step()
+
+            soft_target_update(act_target, act, tau=5e-3)
+
+        # loss_a_avg = 0.0
+        loss_c_avg = loss_c_sum / update_times
+        print(f'Loss: {loss_c_avg:<.2f}')
+
+        if avg_reward > target_reward:
+            print(f"Reach target_reward: {avg_reward:.2f} > {target_reward:<.2f}")
+            break
+    used_time = int(time.time() - start_time)
+    print(f"\tTraining UsedTime: {used_time}s")
 
 
 def run__demo(gpu_id, cwd='RL_BasicAC'):
