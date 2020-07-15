@@ -201,7 +201,7 @@ def train_agent_discrete(
 """utils"""
 
 
-def get_env_info(env, is_print=True):  # 2020-06-06
+def get_env_info(env, is_print=True, target_reward=None):  # 2020-06-06
     state_dim = env.observation_space.shape[0]
 
     try:
@@ -219,10 +219,11 @@ def get_env_info(env, is_print=True):  # 2020-06-06
               "| I need: state_dim, action_dim, action_max, target_reward, is_discrete")
         raise AttributeError
 
-    target_reward = env.spec.reward_threshold
+    if target_reward is None:
+        target_reward = env.spec.reward_threshold
     if target_reward is None:
         print("| Could you assign these value manually? \n"
-              "| I need: target_reward")
+              "| I need: target_reward. ")
         raise ValueError
 
     if is_print:
@@ -326,9 +327,10 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 
 
 def run__tutorial():
-    # It is a DQN tutorial, we need 10s for training.
+    # It is a DQN tutorial, we need 1min for training.
     # This simplify DQN can't work well on harder task.
     # Other RL algorithms can work well on harder task but complicated.
+    # You can change this code and make the training finish in 10 seconds as an execrise.
 
     env_name = 'CartPole-v0'  # a tutorial RL env. We need 10s for training.
     env = gym.make(env_name)  # an OpenAI standard env
@@ -372,8 +374,11 @@ def run__tutorial():
     '''training loop'''
     from AgentZoo import soft_target_update
     self_state = env.reset()
-    self_r_sum = 0.0  # the sum of rewards of an episode
     self_steps = 0  # the steps of an episode
+    self_r_sum = 0.0  # the sum of rewards of an episode with exploration
+
+    self_r_max = -np.inf  # the max r_sum without exploration
+    eva_env = gym.make(env_name)
 
     total_step = 0
     import time
@@ -392,7 +397,7 @@ def run__tutorial():
     for epoch in range(max_epoch):
 
         '''update_buffer'''
-        explore_rate = 0.25  # explore rate when update_buffer(), epsilon-greedy
+        explore_rate = 0.1  # explore rate when update_buffer(), epsilon-greedy
         # act.eval()
         rewards = list()
         steps = list()
@@ -437,7 +442,7 @@ def run__tutorial():
             with torch.no_grad():
                 rewards, masks, states, actions, next_states = buffer.random_sample(batch_size, device)
 
-                next_q_target = act(next_states).max(dim=1, keepdim=True)[0]
+                next_q_target = act_target(next_states).max(dim=1, keepdim=True)[0]
                 q_target = rewards + masks * next_q_target
 
             act.train()
@@ -450,11 +455,25 @@ def run__tutorial():
             critic_loss.backward()
             act_optim.step()
 
-            soft_target_update(act_target, act, tau=5e-3)
+            soft_target_update(act_target, act, tau=5e-2)
 
         # loss_a_avg = 0.0
         loss_c_avg = loss_c_sum / update_times
         print(f'Loss: {loss_c_avg:<.2f}')
+
+        # evaluate the true reward of this agent without exploration
+        eva_reward = list()
+        for _ in range(4):
+            eva_state = eva_env.reset()
+            eva_r_sum = 0.0
+            for _ in range(max_step):
+                '''inactive with environment'''
+                eva_states = torch.tensor((eva_state,), dtype=torch.float32, device=device)
+                eva_a_int = act_target(eva_states).argmax(dim=1).cpu().data.numpy()[0]  # discrete action space
+                eva_next_state, reward, done, _ = env.step(eva_a_int)
+
+                eva_r_sum += reward
+                eva_state = eva_next_state
 
         if avg_reward > target_reward:
             print(f"Reach target_reward: {avg_reward:.2f} > {target_reward:<.2f}")
