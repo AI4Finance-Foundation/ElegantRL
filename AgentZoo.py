@@ -78,7 +78,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             '''inactive with environment'''
             action = self.select_actions((state,))[0] + self.ou_noise()
             action = action.clip(-1, 1)
-            next_state, reward, done, _ = env.steps(action * max_action)
+            next_state, reward, done, _ = env.step(action * max_action)
 
             reward_sum += reward
 
@@ -213,7 +213,7 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient
             '''inactive with environment'''
             explore_noise_ = explore_noise if rd.rand() < explore_rate else 0
             action = self.select_actions((self.state,), explore_noise_)[0]
-            next_state, reward, done, _ = env.steps(action * max_action)
+            next_state, reward, done, _ = env.step(action * max_action)
 
             self.reward_sum += reward
             self.step += 1
@@ -1021,7 +1021,7 @@ class AgentPPO:
                 action = action[0]
                 log_prob = log_prob[0]
 
-                next_state, reward, done, _ = env.steps(action * max_action)
+                next_state, reward, done, _ = env.step(action * max_action)
                 reward_sum += reward
 
                 # next_state = running_state(next_state)  # if state_norm:
@@ -1320,7 +1320,7 @@ class AgentDiscreteGAE:  # wait to be elegant
                 a_int, action, log_prob = [res[0] for res in self.select_actions((state,), explore_noise=True)]
 
                 # next_state, reward, done, _ = env.step(action * max_action)
-                next_state, reward, done, _ = env.steps(a_int)  # discrete action
+                next_state, reward, done, _ = env.step(a_int)  # discrete action
                 reward_sum += reward
 
                 # next_state = running_state(next_state)  # if state_norm:
@@ -1521,7 +1521,7 @@ class AgentDQN:  # 2020-06-06
                 action = rd.randint(self.action_dim)
             else:
                 action = self.select_actions((self.state,), )[0]
-            next_state, reward, done, _ = env.steps(action * max_action)
+            next_state, reward, done, _ = env.step(action * max_action)
 
             self.r_sum += reward
             self.steps += 1
@@ -1709,7 +1709,7 @@ def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, ac
     while global_step < max_step:
         # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
         action = get_random_action()
-        next_state, reward, done, _ = env.steps(action * action_max)
+        next_state, reward, done, _ = env.step(action * action_max)
         reward_sum += reward
         step += 1
 
@@ -2082,7 +2082,7 @@ def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  
         if max_action:  # Continuous action space
             actions *= max_action
         for i in range(len(env_list_copy) - 1, -1, -1):
-            next_state, reward, done, _ = env_list_copy[i].steps(actions[i])
+            next_state, reward, done, _ = env_list_copy[i].step(actions[i])
 
             next_states.insert(0, next_state)
             sum_rewards[i] += reward
