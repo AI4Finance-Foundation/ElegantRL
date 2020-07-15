@@ -77,9 +77,6 @@ def soft_target_update(target, online, tau=5e-3):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 
-'''run'''
-
-
 def run__tutorial_discrete_action():
     """It is a DQN tutorial, we need 1min for training.
     This simplify DQN can't work well on harder task.
@@ -254,7 +251,7 @@ def run__tutorial_continuous_action():
     max_step = 2 ** 8  # the max step that actor interact with env before training critic
     gamma = 0.99  # reward discount factor (gamma must less than 1.0)
     batch_size = 2 ** 7  # batch_size for network training
-    update_freq = 2 ** 7  # delay update frequent
+    update_freq = 2 ** 7
     criterion = torch.nn.SmoothL1Loss()  # criterion for critic's q_value estimate
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # choose GPU or CPU automatically
 
@@ -286,7 +283,6 @@ def run__tutorial_continuous_action():
     self_r_sum = 0.0  # the sum of rewards of an episode with exploration
     total_step = 0
     explore_noise = 0.05
-    policy_noise = 0.1
 
     evaluator = EvaluateRewardSV(env)  # SV: Simplify Version for tutorial
     max_reward = evaluator.get_eva_reward__sv(act, max_step, action_max, is_discrete)
@@ -345,12 +341,11 @@ def run__tutorial_continuous_action():
         update_times = max_step
         buffer.init_before_sample()  # update the buffer.now_len
         for i in range(update_times):
-            for _ in range(2):  # TTUR: Two Time-scale Update Rule
+            for _ in range(2):  # Two Time-scale Update Rule (TTUR)
                 with torch.no_grad():
                     reward, mask, state, action, next_state = buffer.random_sample(batch_size, device)
 
                     next_action = act_target(next_state)
-                    # next_action = torch.normal(next_action, policy_noise).clamp(-1, 1)
                     next_q_target = cri_target(next_state, next_action)
                     q_target = reward + mask * next_q_target
 
@@ -399,5 +394,8 @@ def run__tutorial_continuous_action():
 
 
 if __name__ == '__main__':
+    # import os
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
     run__tutorial_discrete_action()
     # run__tutorial_continuous_action()
