@@ -68,15 +68,15 @@ This is why I said it **lightweight**.
 
 # File Structure
     -----file----
-    Tutorial.py  # It is a turorial for RL learner. There are simplify DQN and simplify DDPG here.
+    AgentRun.py  # Choose your RL agent here. Then run it for training.
+    AgentZoo.py  # Many model-free RL algorithms are here.
+    AgentNet.py  # The neural network architectures are here. 
+    Tutorial.py  # It is a turorial for RL learner. Simplify DQN and DDPG are here.
     
-    AgentRun.py  # Choose your DRL agent here. Then run this python file for training.
-    AgentZoo.py  # There are many model-free DRL algorithms here. You can learn these algorithm here.
-    AgentNet.py  # The neural network architecture for actor and critic is here. 
     ----folder---
     BetaWarning  # I put the latest version here. You can find lots of bug here, but new.
     History      # I put the historical files here. You can find the bug-free code here, but old.
-There are only 3 python file in my DRL PyTorch implement. (I will add more detail later.)
+There are only 3 python file in my DRL PyTorch implement. (`Tutorial.py` is **not** the part of this lib.)
 
 # run
     python3 AgentRun.py
