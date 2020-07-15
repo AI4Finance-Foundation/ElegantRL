@@ -68,6 +68,8 @@ This is why I said it **lightweight**.
 
 # File Structure
     -----file----
+    Tutorial.py  # It is a turorial for RL learner. There are simplify DQN and simplify DDPG here.
+    
     AgentRun.py  # Choose your DRL agent here. Then run this python file for training.
     AgentZoo.py  # There are many model-free DRL algorithms here. You can learn these algorithm here.
     AgentNet.py  # The neural network architecture for actor and critic is here. 
