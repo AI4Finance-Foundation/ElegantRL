@@ -35,12 +35,9 @@ class EvaluateRewardSV:  # SV: Simplify Version. Only for tutorial.
 class QNet(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )
-        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, action_dim), )
 
     def forward(self, s):
         q = self.net(s)
@@ -61,7 +58,7 @@ class Actor(nn.Module):
 
 class Critic(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(Critic, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, 1), )
@@ -218,6 +215,11 @@ def run__tutorial_discrete_action():
     used_time = int(time.time() - start_time)
     print(f"|\tTraining UsedTime: {used_time}s")
 
+    '''open a window and show the env'''
+    for _ in range(4):
+        eva_reward = evaluator.get_eva_reward__sv(act, max_step, action_max, is_discrete, is_render=True)
+        print(f'|Evaluated reward is: {eva_reward}')
+
 
 def run__tutorial_continuous_action():
     """It is a DDPG tutorial, we need about 300s for training.
@@ -232,15 +234,14 @@ def run__tutorial_continuous_action():
     state_dim = 3
     action_dim = 1
     action_max = 2.0
-    target_reward = -100.0
+    target_reward = -200.0
     is_discrete = False
     # from AgentRun import get_env_info
-    # state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(
-    #     env, is_print=True, target_reward=-100.0)
+    # state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
     # assert is_discrete is False  # DDPG is for discrete action space.
     """ You will see the following:
     | env_name: <PendulumEnv<Pendulum-v0>>, action space: Continuous
-    | state_dim: 3, action_dim: 1, action_max: 2.0, target_reward: 0.0
+    | state_dim: 3, action_dim: 1, action_max: 2.0, target_reward: -200.0
     """
 
     ''' I copy the code from AgentDQN to the following for tutorial.'''
@@ -391,6 +392,11 @@ def run__tutorial_continuous_action():
 
     used_time = int(time.time() - start_time)
     print(f"|\tTraining UsedTime: {used_time}s")
+
+    '''open a window and show the env'''
+    for _ in range(4):
+        eva_reward = evaluator.get_eva_reward__sv(act, max_step, action_max, is_discrete, is_render=True)
+        print(f'| Evaluated reward is: {eva_reward}')
 
 
 if __name__ == '__main__':
