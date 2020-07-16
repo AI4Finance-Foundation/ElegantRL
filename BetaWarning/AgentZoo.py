@@ -27,6 +27,8 @@ from AgentNet import InterDPG, InterSPG  # InterXXX means Sharing parameters bet
 
 
 2020-07-07 wait todo: 
+    cancel update_freq except TD3
+    use_dn
     def save_or_load_model() should be staticmethod, and move from class to global
     change xxx_ppo into xxx_online
 
@@ -67,7 +69,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
 
         '''extension'''
         self.ou_noise = OrnsteinUhlenbeckProcess(size=action_dim, sigma=0.3)
-        # OU-Process has too much hyper-parameters.
+        # I hate OU-Process in RL because of its too much hyper-parameters.
 
     def update_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
         reward_sum = 0.0
@@ -126,8 +128,8 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             actor_loss.backward()
             self.act_optimizer.step()
 
-            self.soft_target_update(self.act_target, self.act)
-            self.soft_target_update(self.cri_target, self.cri)
+            soft_target_update(self.act_target, self.act)
+            soft_target_update(self.cri_target, self.cri)
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / update_times
@@ -137,11 +139,6 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states, explore_noise).cpu().data.numpy()
         return actions
-
-    @staticmethod
-    def soft_target_update(target, source, tau=5e-3):
-        for target_param, param in zip(target.parameters(), source.parameters()):
-            target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
     def save_or_load_model(self, mod_dir, is_save):  # 2020-05-20
         act_save_path = '{}/actor.pth'.format(mod_dir)
@@ -162,11 +159,11 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient)
+class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG without OU-Process)
     def __init__(self, state_dim, action_dim, net_dim):
         use_dn = False  # soft target update is conflict with use_densenet
         use_sn = False  # soft target update is conflict with use_sn (Spectral Normalization)
-        self.learning_rate = 4e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -198,9 +195,9 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient
 
         '''constant'''
         self.explore_rate = 0.5  # explore rate when update_buffer()
-        self.explore_noise = 0.1  # standard deviation of explore noise
-        self.policy_noise = 0.2  # standard deviation of policy noise
-        self.update_freq = 2  # delay update frequency, for soft target update
+        self.explore_noise = 0.05  # standard deviation of explore noise
+        self.policy_noise = 0.1  # standard deviation of policy noise
+        self.update_freq = 1  # set as 1 or 2 for soft target update
 
     def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
         explore_rate = self.explore_rate  # explore rate when update_buffer()
@@ -277,8 +274,8 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient
             self.update_counter += 1
             if self.update_counter == update_freq:
                 self.update_counter = 0
-                self.soft_target_update(self.act_target, self.act)  # soft target update
-                self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                soft_target_update(self.act_target, self.act)  # soft target update
+                soft_target_update(self.cri_target, self.cri)  # soft target update
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
@@ -289,12 +286,7 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, Policy Gradient
         actions = self.act(states, explore_noise)  # tensor
         return actions.cpu().data.numpy()  # array
 
-    @staticmethod
-    def soft_target_update(target, online, tau=5e-3):
-        for target_param, param in zip(target.parameters(), online.parameters()):
-            target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
-
-    def save_or_load_model(self, cwd, is_save):  # 2020-05-20
+    def save_or_load_model(self, cwd, is_save):  # 2020-07-07
         act_save_path = '{}/actor.pth'.format(cwd)
         cri_save_path = '{}/critic.pth'.format(cwd)
         has_act = 'act' in dir(self)
@@ -651,8 +643,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.update_counter += 1
             if self.update_counter >= update_freq:
                 self.update_counter = 0
-                # self.soft_target_update(self.act_target, self.act)  # soft target update
-                # self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                # soft_target_update(self.act_target, self.act)  # soft target update
+                # soft_target_update(self.cri_target, self.cri)  # soft target update
                 self.act_target.load_state_dict(self.act.state_dict())  # hard target update
                 # self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
 
@@ -750,8 +742,8 @@ class AgentTD3(AgentBasicAC):
             self.update_counter += 1
             if self.update_counter == update_freq:
                 self.update_counter = 0
-                self.soft_target_update(self.act_target, self.act)  # soft target update
-                self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                soft_target_update(self.act_target, self.act)  # soft target update
+                soft_target_update(self.cri_target, self.cri)  # soft target update
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
@@ -856,8 +848,8 @@ class AgentSAC(AgentBasicAC):
             self.update_counter += 1
             if self.update_counter >= update_freq:
                 self.update_counter = 0
-                self.soft_target_update(self.act_target, self.act)  # soft target update
-                self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                soft_target_update(self.act_target, self.act)  # soft target update
+                soft_target_update(self.cri_target, self.cri)  # soft target update
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
@@ -967,8 +959,8 @@ class AgentDeepSAC(AgentBasicAC):
             self.update_counter += 1
             if self.update_counter >= update_freq:
                 self.update_counter = 0
-                # self.soft_target_update(self.act_target, self.act)  # soft target update
-                # self.soft_target_update(self.cri_target, self.cri)  # soft target update
+                # soft_target_update(self.act_target, self.act)  # soft target update
+                # soft_target_update(self.cri_target, self.cri)  # soft target update
                 self.act_target.load_state_dict(self.act.state_dict())  # hard target update
                 self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
 
@@ -1497,17 +1489,16 @@ class AgentDQN:  # 2020-06-06
 
         '''network'''
         actor_dim = net_dim
-        act = QNet(state_dim, action_dim, actor_dim).to(self.device)
-        act.train()
-        self.act = act
-        self.act_optimizer = torch.optim.Adam(act.parameters(), lr=self.learning_rate)
+        self.act = QNet(state_dim, action_dim, actor_dim).to(self.device)
+        self.act.train()
+        self.act_optim = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
         self.criterion = nn.MSELoss()
 
         '''training record'''
         self.state = None  # env.reset()
-        self.reward_sum = 0.0
-        self.step = 0
+        self.r_sum = 0.0  # the sum of rewards of an episode
+        self.steps = 0
         self.action_dim = action_dim  # for update_buffer() epsilon-greedy
 
     def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
@@ -1524,8 +1515,8 @@ class AgentDQN:  # 2020-06-06
                 action = self.select_actions((self.state,), )[0]
             next_state, reward, done, _ = env.step(action * max_action)
 
-            self.reward_sum += reward
-            self.step += 1
+            self.r_sum += reward
+            self.steps += 1
 
             '''update replay buffer'''
             reward_ = reward * reward_scale
@@ -1534,11 +1525,11 @@ class AgentDQN:  # 2020-06-06
 
             self.state = next_state
             if done:
-                rewards.append(self.reward_sum)
-                self.reward_sum = 0.0
+                rewards.append(self.r_sum)
+                self.r_sum = 0.0
 
-                steps.append(self.step)
-                self.step = 0
+                steps.append(self.steps)
+                self.steps = 0
 
                 self.state = env.reset()
         return rewards, steps
@@ -1561,9 +1552,9 @@ class AgentDQN:  # 2020-06-06
             critic_loss = self.criterion(q_eval, q_target)
             loss_c_sum += critic_loss.item()
 
-            self.act_optimizer.zero_grad()
+            self.act_optim.zero_grad()
             critic_loss.backward()
-            self.act_optimizer.step()
+            self.act_optim.step()
 
         loss_a_avg = 0.0
         loss_c_avg = loss_c_sum / update_times
@@ -1655,7 +1646,7 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
             self.update_counter += 1
             if self.update_counter == update_freq:
                 self.update_counter = 0
-                # self.soft_target_update(self.act_target, self.act)
+                # soft_target_update(self.act_target, self.act)
                 self.act_target.load_state_dict(self.act.state_dict())  # hard target update
 
                 # trust_rho = self.trust_rho.get_trust_rho()
@@ -1745,7 +1736,7 @@ class BufferList:
     def add_memo(self, memory_tuple):
         self.memories.append(memory_tuple)
 
-    def init_after_add_memo(self):
+    def init_before_sample(self):
         del_len = len(self.memories) - self.max_len
         if del_len > 0:
             del self.memories[:del_len]
@@ -1790,7 +1781,7 @@ class BufferTuple:
     def add_memo(self, args):
         self.memories.append(self.transition(*args))
 
-    def init_after_add_memo(self):
+    def init_before_sample(self):
         del_len = len(self.memories) - self.max_len
         if del_len > 0:
             del self.memories[:del_len]
@@ -2054,8 +2045,15 @@ class OrnsteinUhlenbeckProcess:  # I hate OU Process because there are too much 
         return x
 
 
+def soft_target_update(target, online, tau=5e-3):
+    for target_param, param in zip(target.parameters(), online.parameters()):
+        target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
+
+
 def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  # class Recorder 2020-01-11
-    """max_action can be None for Discrete action space"""
+    # this function is a bit complicated. I don't recommend you to change it.
+    # max_action is None, when env is discrete action space
+
     act = agent.act
     act.eval()
 

@@ -9,8 +9,9 @@ import numpy as np  # import numpy.random as rd
 2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
 2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
-2020-06-06 Issay-0.3 check, DPG, SDG, InterAC, InterSAC
-2020-07-07 Issay-0.3 AgentAdv
+2020-06-06 check, DPG, SDG, InterAC, InterSAC
+2020-07-07 AgentAdv
+2020-07-14 build network (simplify)
 
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
@@ -591,44 +592,67 @@ def layer_norm(layer, std=1.0, bias_const=1e-6):
 
 
 def build_actor_net_for_dpg(state_dim, action_dim, mid_dim, use_dn):
-    # for deterministic policy gradient
-    nn_list = list()
-    nn_list.extend([nn.Linear(state_dim, mid_dim), nn.ReLU(), ])
+    # for DPG (Deterministic Policy Gradient)
 
-    if use_dn:  # use DenseNet (replace all conv2d layers into linear layers)
-        nn_list.extend([DenseNet(mid_dim),
-                        nn.Linear(mid_dim * 4, 1), ])
-    else:
-        nn_list.extend([nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                        nn.Linear(mid_dim, action_dim), nn.Tanh(), ])
+    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+        net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+            nn.Linear(mid_dim * 4, action_dim),
+        )
+    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+        net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
-    # layer_norm(self.net[0], std=1.0)
-    layer_norm(nn_list[-2], std=0.01)  # output layer for action
-
-    net = nn.Sequential(*nn_list)
+    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
     return net
 
 
 def build_actor_net_for_spg(state_dim, action_dim, mid_dim, use_dn):
-    # for stochastic policy gradient
-    nn_list = list()
-    nn_list.extend([nn.Linear(state_dim, mid_dim), nn.ReLU(), ])
+    # for SPG (Stochastic Policy Gradient)
 
-    if use_dn:  # use DenseNet (replace all conv2d layers into linear layers)
-        nn_list.append(DenseNet(mid_dim), )
+    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+        net__mid = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+        )
         layer_dim = mid_dim * 4
-    else:
-        nn_list.extend([nn.Linear(mid_dim, mid_dim), nn.ReLU(), ])
+    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+        net__mid = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+        )
         layer_dim = mid_dim * 1
 
-    net = nn.Sequential(*nn_list)
     net__mean = nn.Linear(layer_dim, action_dim)
+    layer_norm(net__mean, std=0.01)  # net[-1] is output layer for action, it is no necessary.
+
     net__std_log = nn.Linear(layer_dim, action_dim)
 
-    # layer_norm(self.net[0], std=1.0)
-    layer_norm(net__mean, std=0.01)  # output layer for action
+    return net__mid, net__mean, net__std_log
 
-    return net, net__mean, net__std_log
+
+def build_critic_net_for_dpg(state_dim, action_dim, mid_dim, use_dn):
+    # for DPG (Deterministic Policy Gradient)
+
+    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+        net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+            nn.Linear(mid_dim * 4, action_dim),
+        )
+    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+        net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
+
+    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+    return net
 
 
 def build_critic_network(state_dim, action_dim, mid_dim, use_dn, use_sn):

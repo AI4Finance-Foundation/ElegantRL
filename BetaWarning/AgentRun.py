@@ -68,7 +68,7 @@ def train_agent__off_policy(
     state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
     assert not is_discrete
 
-    '''init'''
+    '''init: agent, buffer, recorder'''
     agent = class_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
     buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
@@ -169,7 +169,7 @@ def train_agent_discrete(
     recorder.show_reward(rewards, steps, loss_a=0, loss_c=0)
     try:
         for epoch in range(max_epoch):
-            # update replay buffer by interact with environment
+            # update replay buffer by interact with environment # todo change # into ''''''
             with torch.no_grad():  # for saving the GPU buffer
                 rewards, steps = agent.update_buffer(
                     env, buffer, max_step, max_action, reward_scale, gamma)
@@ -201,8 +201,12 @@ def train_agent_discrete(
 """utils"""
 
 
-def get_env_info(env, is_print):  # 2020-06-06
-    state_dim = env.observation_space.shape[0]
+def get_env_info(env, is_print=True):  # 2020-06-06
+    env_name = env.unwrapped.spec.id
+
+    state_shape = env.observation_space.shape
+    assert len(state_shape) == 1
+    state_dim = state_shape[0]
 
     try:
         is_discrete = isinstance(env.action_space, gym.spaces.Discrete)
@@ -220,13 +224,17 @@ def get_env_info(env, is_print):  # 2020-06-06
         raise AttributeError
 
     target_reward = env.spec.reward_threshold
+    '''some extra rulues'''
+    if env_name == 'Pendulum-v0':
+        target_reward = -100.0
+
     if target_reward is None:
         print("| Could you assign these value manually? \n"
-              "| I need: target_reward")
-        raise ValueError
+              "| I need: target_reward. ")
+        assert target_reward is not None
 
     if is_print:
-        print("| env_name: {}, action space: {}".format(repr(env)[10:-1], 'Discrete' if is_discrete else 'Continuous'))
+        print("| env_name: {}, action space: {}".format(env_name, 'is_discrete' if is_discrete else 'Continuous'))
         print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
             state_dim, action_dim, action_max, target_reward))
     return state_dim, action_dim, action_max, target_reward, is_discrete
@@ -326,18 +334,18 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 
 
 def run__demo(gpu_id, cwd='RL_BasicAC'):
-    from AgentZoo import AgentSNAC as AgentClass
-
-    args = Arguments(AgentClass)
+    """BasicAC is a DDPG without OU-Process.
+    It is simply but unstable, low effective.
+    Sometimes DDPG can't reach target reward in harder env.
+    See run__zoo() to get more effective model-free RL algorithms.
+    """
+    # from AgentZoo import AgentDDPG
+    from AgentZoo import AgentBasicAC
+    args = Arguments(class_agent=AgentBasicAC)
     args.gpu_id = gpu_id
 
-    args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    train_agent__off_policy(**vars(args))
-
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.env_name = "Pendulum-v0"
+    args.cwd = './{}/Pendulum_{}'.format(cwd, gpu_id)
     args.init_for_training()
     train_agent__off_policy(**vars(args))
 
@@ -349,10 +357,25 @@ def run__zoo(gpu_id, cwd='RL_Zoo'):
     assert class_agent in {
         Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
         Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
-    }  # you can't run PPO here. goto run__ppo(). PPO need its hyper-parameters
+    }  # you can't run PPO here. goto run__ppo(). PPO need special hyper-parameters
+    ''' Compare with other algorithm, DDPG and A2C is unstable and low effective.
+    
+    I need DDPG as a tutorial so there are a DDPG implementation.
+    DDPG will train for a long time in the following env.
+    
+    A2C introduce the advantage function and you can find this structure in PPO and SAC.
+    So I didn't provide A2C implementation in my code.
+    If many people want me to provide A2C. I will.
+    '''
 
     args = Arguments(class_agent)
     args.gpu_id = gpu_id
+
+    """args.env_name = "Pendulum-v0"
+    It is a easy task. But it has not default target reward. 
+    You can manually set as -100.0. Its reward is in (-inf to 0.0].
+    Its continuous action spaces is (-2, +2). Its action_dim == 1.
+    """
 
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
@@ -438,7 +461,7 @@ def run__ppo(gpu_id, cwd='RL_PPO'):
         args.random_seed += 42
 
 
-def run__ppo_discrete(gpu_id, cwd='RL_DiscreteGAE'):
+def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentDiscreteGAE
 
@@ -643,13 +666,13 @@ def run__multi_workers(gpu_tuple=(0, 1), root_cwd='RL_MP'):
                       for gpu_id, queue_dist in zip(gpu_tuple, queues_dist)])
 
     [process.start() for process in processes]
-    # [process.join() for process in processes]
+    [process.join() for process in processes]
     [process.close() for process in processes]
 
 
 if __name__ == '__main__':
-    # run__demo(gpu_id=0, cwd='AC_BasicAC')
-    run__zoo(gpu_id=0, cwd='AC_SAC')
+    run__demo(gpu_id=0, cwd='AC_BasicAC')
+    # run__zoo(gpu_id=0, cwd='AC_SAC')
     # run__ppo(gpu_id=1, cwd='AC_PPO')
 
     # run__multi_process(run__zoo, gpu_tuple=(0, 1, 2, 3), cwd='AC_ZooMP')
