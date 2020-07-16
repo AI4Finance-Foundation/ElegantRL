@@ -1055,7 +1055,7 @@ class AgentPPO:
         all_new_value = self.cri(all_state).detach_()
 
         '''compute old_v (old policy value), adv_v (advantage value) 
-        refer: Generalization Advantage Estimate. ICLR 2016. 
+        refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
         https://arxiv.org/pdf/1506.02438.pdf'''
         all_delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
         all_old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value

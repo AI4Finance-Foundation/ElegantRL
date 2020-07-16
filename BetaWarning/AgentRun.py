@@ -353,19 +353,19 @@ def run__demo(gpu_id, cwd='RL_BasicAC'):
 def run__zoo(gpu_id, cwd='RL_Zoo'):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentDeepSAC
-
     assert class_agent in {
         Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
         Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
     }  # you can't run PPO here. goto run__ppo(). PPO need special hyper-parameters
-    ''' Compare with other algorithm, DDPG and A2C is unstable and low effective.
+    ''' Compare with other algorithm, DDPG, A2C TRPO is unstable and low effective.
     
     I need DDPG as a tutorial so there are a DDPG implementation.
     DDPG will train for a long time in the following env.
     
     A2C introduce the advantage function and you can find this structure in PPO and SAC.
-    So I didn't provide A2C implementation in my code.
-    If many people want me to provide A2C. I will.
+    TRPO's author use a surrogate object to simplify the KL penalty and get PPO.
+    So I didn't provide A2C or TRPO implementation in my code.
+    If many people want me to provide A2C or TRPO. I will.
     '''
 
     args = Arguments(class_agent)
@@ -437,8 +437,17 @@ def run__zoo(gpu_id, cwd='RL_Zoo'):
 def run__ppo(gpu_id, cwd='RL_PPO'):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentGAE
-
     assert class_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
+    '''PPO and GAE is online policy. 
+    The memory in replay buffer will only be saved for one episode.
+    
+    TRPO's author use a surrogate object to simplify the KL penalty and get PPO.
+    So I provide PPO instead of TRPO here.
+    
+    GAE is Generalization Advantage Estimate. 
+    RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
+    AgentGAE is a PPO using GAE and output log_std of action by an actor network.
+    '''
     args = Arguments(class_agent)
 
     args.gpu_id = gpu_id
@@ -451,24 +460,27 @@ def run__ppo(gpu_id, cwd='RL_PPO'):
     args.env_name = "LunarLanderContinuous-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not train_agent__on_policy(**vars(args)):
-        args.random_seed += 42
+    train_agent__on_policy(**vars(args))
 
     args.env_name = "BipedalWalker-v3"
     args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not train_agent__on_policy(**vars(args)):
-        args.random_seed += 42
+    train_agent__on_policy(**vars(args))
 
 
 def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     import AgentZoo as Zoo
     class_agent = Zoo.AgentDiscreteGAE
-
     assert class_agent in {Zoo.AgentDiscreteGAE, }
-    args = Arguments(class_agent=class_agent)
+    '''DiscreteGAE is a modify PPO+GAE. It is an online policy too.
+    The action vector can be a probability of discrete action.
+    Although it is design by myself, it is so simple and 
+    maybe other people had figured it out many years ago.
+    '''
 
+    args = Arguments(class_agent=class_agent)
     args.gpu_id = gpu_id
+
     args.max_memo = 2 ** 10
     args.batch_size = 2 ** 8
     args.repeat_times = 2 ** 4
@@ -477,8 +489,7 @@ def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     args.env_name = "CartPole-v0"
     args.cwd = './{}/CP_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not train_agent__on_policy(**vars(args)):
-        args.random_seed += 42
+    train_agent__on_policy(**vars(args))
 
     args.gpu_id = gpu_id
     args.max_memo = 2 ** 12
@@ -489,8 +500,7 @@ def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     args.env_name = "LunarLander-v2"
     args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
     args.init_for_training()
-    while not train_agent__on_policy(**vars(args)):
-        args.random_seed += 42
+    train_agent__on_policy(**vars(args))
 
 
 def run__dqn(gpu_id, cwd='RL_DQN'):
