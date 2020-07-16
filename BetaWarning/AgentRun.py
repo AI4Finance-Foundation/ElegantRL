@@ -29,8 +29,8 @@ https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 
 
 class Arguments:  # default working setting and hyper-parameter
-    def __init__(self, class_agent):
-        self.class_agent = class_agent
+    def __init__(self):
+        self.class_agent = None
         self.net_dim = 2 ** 7  # the network width
         self.max_step = 2 ** 10  # max steps in one epoch
         self.max_memo = 2 ** 17  # memories capacity (memories: replay buffer)
@@ -49,6 +49,7 @@ class Arguments:  # default working setting and hyper-parameter
         self.show_gap = 2 ** 7  # show the Reward and Loss of actor and critic per show_gap seconds
 
     def init_for_training(self):  # remove cwd, choose GPU, set random seed, set CPU threads
+        assert self.class_agent is not None
         print('GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
         whether_remove_history(self.cwd, self.is_remove)
 
@@ -169,7 +170,7 @@ def train_agent_discrete(
     recorder.show_reward(rewards, steps, loss_a=0, loss_c=0)
     try:
         for epoch in range(max_epoch):
-            # update replay buffer by interact with environment # todo change # into ''''''
+            # update replay buffer by interact with environment
             with torch.no_grad():  # for saving the GPU buffer
                 rewards, steps = agent.update_buffer(
                     env, buffer, max_step, max_action, reward_scale, gamma)
@@ -226,7 +227,7 @@ def get_env_info(env, is_print=True):  # 2020-06-06
     target_reward = env.spec.reward_threshold
     '''some extra rulues'''
     if env_name == 'Pendulum-v0':
-        target_reward = -100.0
+        target_reward = -200.0
 
     if target_reward is None:
         print("| Could you assign these value manually? \n"
@@ -333,30 +334,15 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 """demo"""
 
 
-def run__demo(gpu_id, cwd='RL_BasicAC'):
-    """BasicAC is a DDPG without OU-Process.
-    It is simply but unstable, low effective.
-    Sometimes DDPG can't reach target reward in harder env.
-    See run__zoo() to get more effective model-free RL algorithms.
-    """
-    # from AgentZoo import AgentDDPG
-    from AgentZoo import AgentBasicAC
-    args = Arguments(class_agent=AgentBasicAC)
-    args.gpu_id = gpu_id
-
-    args.env_name = "Pendulum-v0"
-    args.cwd = './{}/Pendulum_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    train_agent__off_policy(**vars(args))
-
-
 def run__zoo(gpu_id, cwd='RL_Zoo'):
     import AgentZoo as Zoo
-    class_agent = Zoo.AgentDeepSAC
-    assert class_agent in {
+    args = Arguments()
+    args.class_agent = Zoo.AgentDeepSAC
+    assert args.class_agent in {
         Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
         Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
     }  # you can't run PPO here. goto run__ppo(). PPO need special hyper-parameters
+    args.gpu_id = gpu_id
     ''' Compare with other algorithm, DDPG, A2C TRPO is unstable and low effective.
     
     I need DDPG as a tutorial so there are a DDPG implementation.
@@ -368,22 +354,25 @@ def run__zoo(gpu_id, cwd='RL_Zoo'):
     If many people want me to provide A2C or TRPO. I will.
     '''
 
-    args = Arguments(class_agent)
-    args.gpu_id = gpu_id
-
     """args.env_name = "Pendulum-v0"
     It is a easy task. But it has not default target reward. 
-    You can manually set as -100.0. Its reward is in (-inf to 0.0].
+    I had manually set as -200.0 in get_env_info(). Easy to reach -200 (-100 is harder)
+    Its reward is in (-inf to 0.0].
     Its continuous action spaces is (-2, +2). Its action_dim == 1.
     """
+    args.env_name = "Pendulum-v0"
+    args.cwd = './{}/Pendulum_{}'.format(cwd, gpu_id)
+    args.init_for_training()
+    train_agent__off_policy(**vars(args))
+    exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = './{}/LL_{}'.format(cwd, gpu_id)
+    args.cwd = './{}/LunarLander_{}'.format(cwd, gpu_id)
     args.init_for_training()
     train_agent__off_policy(**vars(args))
 
     args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.cwd = './{}/BipedalWalker_{}'.format(cwd, gpu_id)
     args.init_for_training()
     train_agent__off_policy(**vars(args))
 
@@ -436,8 +425,9 @@ def run__zoo(gpu_id, cwd='RL_Zoo'):
 
 def run__ppo(gpu_id, cwd='RL_PPO'):
     import AgentZoo as Zoo
-    class_agent = Zoo.AgentGAE
-    assert class_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
+    args = Arguments()
+    args.class_agent = Zoo.AgentGAE
+    assert args.class_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
     '''PPO and GAE is online policy. 
     The memory in replay buffer will only be saved for one episode.
     
@@ -448,7 +438,6 @@ def run__ppo(gpu_id, cwd='RL_PPO'):
     RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     '''
-    args = Arguments(class_agent)
 
     args.gpu_id = gpu_id
     args.max_memo = 2 ** 12
@@ -470,16 +459,15 @@ def run__ppo(gpu_id, cwd='RL_PPO'):
 
 def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     import AgentZoo as Zoo
-    class_agent = Zoo.AgentDiscreteGAE
-    assert class_agent in {Zoo.AgentDiscreteGAE, }
+    args = Arguments()
+    args.class_agent = Zoo.AgentDiscreteGAE
+    assert args.class_agent in {Zoo.AgentDiscreteGAE, }
+    args.gpu_id = gpu_id
     '''DiscreteGAE is a modify PPO+GAE. It is an online policy too.
     The action vector can be a probability of discrete action.
     Although it is design by myself, it is so simple and 
     maybe other people had figured it out many years ago.
     '''
-
-    args = Arguments(class_agent=class_agent)
-    args.gpu_id = gpu_id
 
     args.max_memo = 2 ** 10
     args.batch_size = 2 ** 8
@@ -505,10 +493,9 @@ def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
 
 def run__dqn(gpu_id, cwd='RL_DQN'):
     import AgentZoo as Zoo
-    class_agent = Zoo.AgentDoubleDQN
-    assert class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN}
-
-    args = Arguments(class_agent)
+    args = Arguments()
+    args.class_agent = Zoo.AgentDoubleDQN
+    assert args.class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN}
     args.gpu_id = gpu_id
     args.show_gap = 2 ** 5
 
@@ -659,7 +646,8 @@ def run__multi_workers(gpu_tuple=(0, 1), root_cwd='RL_MP'):
     whether_remove_history(root_cwd, is_remove=True)
 
     from AgentZoo import AgentSAC
-    args = Arguments(AgentSAC)
+    args = Arguments()
+    args.class_agent = AgentSAC
     args.env_name = "BipedalWalker-v3"
     # args.env_name = "LunarLanderContinuous-v2"
 

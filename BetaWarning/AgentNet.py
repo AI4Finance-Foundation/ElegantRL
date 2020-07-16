@@ -89,7 +89,7 @@ class InterDPG(nn.Module):  # class AgentIntelAC
 
 
 class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn=True, use_sn=True):  # plan todo use_dn
+    def __init__(self, state_dim, action_dim, mid_dim):  # plan todo use_dn
         super(InterSPG, self).__init__()
         self.log_std_min = -20
         self.log_std_max = 2
@@ -209,9 +209,9 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         return q1, q2
 
 
-class ActorDPG(nn.Module):
+class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
-        super(ActorDPG, self).__init__()
+        super(Actor, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -250,7 +250,7 @@ class ActorDN(nn.Module):  # dn: DenseNet
         return a_noise
 
 
-class ActorSAC(nn.Module):
+class ActorSAC(nn.Module):  # todo plan to mega ActorSAC and ActorPPO into ActorSPG
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super(ActorSAC, self).__init__()
         self.log_std_min = -20
@@ -415,10 +415,10 @@ class Critic(nn.Module):  # 2020-05-05 fix bug
 
 
 class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q-learning
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn, use_sn):
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super(CriticTwin, self).__init__()
-        self.net1 = build_critic_network(state_dim, action_dim, mid_dim, use_dn, use_sn)
-        self.net2 = build_critic_network(state_dim, action_dim, mid_dim, use_dn, use_sn)
+        self.net1 = build_critic_network(state_dim, action_dim, mid_dim, use_dn)
+        self.net2 = build_critic_network(state_dim, action_dim, mid_dim, use_dn)
 
     def forward(self, state, action):
         x = torch.cat((state, action), dim=1)
@@ -433,7 +433,7 @@ class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q
 
 
 class CriticTwinShared(nn.Module):  # 2020-06-18
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn, use_sn):  # todo
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):  # todo
         super(CriticTwinShared, self).__init__()
 
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
@@ -456,9 +456,9 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
 
 class CriticSN(nn.Module):  # SN: Spectral Normalization # 2020-05-05 fix bug
-    def __init__(self, state_dim, action_dim, mid_dim, use_dense, use_sn):
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super(CriticSN, self).__init__()
-        self.net = build_critic_network(state_dim, action_dim, mid_dim, use_dense, use_sn)
+        self.net = build_critic_network(state_dim, action_dim, mid_dim, use_dn)
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -651,27 +651,24 @@ def build_critic_net_for_dpg(state_dim, action_dim, mid_dim, use_dn):
             nn.Linear(mid_dim, action_dim),
         )
 
-    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for actor, it is no necessary.
     return net
 
 
-def build_critic_network(state_dim, action_dim, mid_dim, use_dn, use_sn):
-    nn_list = list()
-    nn_list.extend([nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(), ])
+def build_critic_network(state_dim, action_dim, mid_dim, use_dn):
+    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+        net = nn.Sequential(
+            nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+            nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1)),
+            # Notice that spectral normalization is conflict with soft target update.
+        )
+    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+        net = nn.Sequential(
+            nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
 
-    if use_dn:  # use DenseNet (replace all conv2d layers into linear layers)
-        nn_list.extend([DenseNet(mid_dim),
-                        nn.Linear(mid_dim * 4, 1), ])
-    else:
-        nn_list.extend([nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                        nn.Linear(mid_dim, 1), ])
-
-    if use_sn:  # NOTICE: spectral normalization is conflict with soft target update.
-        # output_layer = nn.utils.spectral_norm(nn.Linear(...)),
-        nn_list[-1] = nn.utils.spectral_norm(nn_list[-1])
-
-    # layer_norm(self.net[0], std=1.0)
-    # layer_norm(self.net[-1], std=1.0)
-
-    net = nn.Sequential(*nn_list)
+    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for critic, it is no necessary.
     return net

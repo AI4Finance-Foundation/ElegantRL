@@ -170,7 +170,7 @@ class SacdAgent:
                 state = self.test_env.reset()
                 state = torch.tensor((state,), dtype=torch.float32, device=self.device)
                 action = self.act(state).item()
-                next_state, reward, done, _ = self.test_env.step(action)
+                next_state, reward, done, _ = self.test_env.steps(action)
 
                 reward_sum += reward
 
@@ -257,7 +257,7 @@ def run():
             else:  # stochacstic
                 action = self.explore(self.state)
 
-            next_state, reward, done, _ = self.env.step(action)
+            next_state, reward, done, _ = self.env.steps(action)
 
             self.reward_sum += reward
             self.step += 1
