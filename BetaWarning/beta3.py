@@ -285,6 +285,8 @@ def mp__update_buffer(args, q_i_buf, q__buf):  # update replay buffer by interac
 
 def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
     max_step = args.max_step
+    cwd = args.cwd
+
     print_gap = 2 ** 6
     env_name = args.env_name
     gpu_id = args.gpu_id
@@ -308,33 +310,29 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
     act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
 
-    print(f"{'GPU':3}  {'MaxR':>8} |"
-          f"{'ExpR':>8}  {'ExpS':>8}  {'LossA':>8}  {'LossC':>8} |"
-          f"{'R avg':>8}  {'R std':>8}")
+    print(f"{'GPU':3}  {'MaxR':>8}  {'R avg':>8}  {'R std':>8} |"
+          f"{'ExpR':>8}  {'ExpS':>8}  {'LossA':>8}  {'LossC':>8}")
 
     is_solved = False
     start_time = timer()
     print_time = timer()
 
-    def get_eval_r_list(eval_num):  # env, eval_num, act, max_step, max_action, ):
-        reward_list = list()
-        while len(reward_list) < eval_num:
-            reward_item = 0.0
+    def get_episode_reward():  # env, eval_num, act, max_step, max_action, ):
+        reward_item = 0.0
 
-            state = env.reset()
-            for _ in range(max_step):
-                s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
-                a_tensor = act(s_tensor)
-                action = a_tensor.detach_().numpy()[0]
+        state = env.reset()
+        for _ in range(max_step):
+            s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
+            a_tensor = act(s_tensor)
+            action = a_tensor.detach_().numpy()[0]
 
-                next_state, reward, done, _ = env.step(action * max_action)
-                reward_item += reward
+            next_state, reward, done, _ = env.step(action * max_action)
+            reward_item += reward
 
-                if done:
-                    break
-                state = next_state
-            reward_list.append(reward_item)
-        return reward_list
+            if done:
+                break
+            state = next_state
+        return reward_item
 
     while q_i_eva_get is not None:
         '''update actor'''
@@ -345,13 +343,18 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             recorder_exp.append((exp_r_avg, total_step, loss_a_avg, loss_c_avg))
 
         '''evaluate actor'''
-        reward_list = get_eval_r_list(eval_num=16)
+        reward_list = [get_episode_reward() for _ in range(16)]
         eva_r_avg = np.average(reward_list)
         if eva_r_avg > eva_r_max:  # check 1
-            reward_list.extend(get_eval_r_list(eval_num=100-len(reward_list)))
+            reward_list.extend([get_episode_reward() for _ in range(100 - len(reward_list))])
             eva_r_avg = np.average(reward_list)
             if eva_r_avg > eva_r_max:  # check 2
                 eva_r_max = eva_r_avg
+
+                act_save_path = f'{cwd}/actor.pth'
+                print(f'{gpu_id:<3}  {eva_r_max:8.2f}  saved actor in {act_save_path}')
+                torch.save(act.state_dict(), act_save_path)
+
         eva_r_std = np.std(reward_list)
         recorder_eva.append((eva_r_avg, eva_r_std))
 
@@ -365,9 +368,8 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
 
         if timer() - print_time > print_gap:
             print_time = timer()
-            print(f'{gpu_id:<3}  {eva_r_max:8.2f} |'
-                  f'{exp_r_avg:8.2f}  {total_step:8.2e}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f} |'
-                  f'{eva_r_avg:8.2f}  {eva_r_std:8.2f}')
+            print(f'{gpu_id:<3}  {eva_r_max:8.2f}  {eva_r_avg:8.2f}  {eva_r_std:8.2f} |'
+                  f'{exp_r_avg:8.2f}  {total_step:8.2e}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}')
 
     pass
 
