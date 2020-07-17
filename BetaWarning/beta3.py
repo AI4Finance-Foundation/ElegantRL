@@ -164,61 +164,73 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
 '''multi-process'''
 
 
-def mp__update_params(args, q__net, q__buf, q__eva, ):  # update network parameters using replay buffer
+def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update network parameters using replay buffer
     max_memo = args.max_memo
     net_dim = args.net_dim
     max_epoch = args.max_epoch
     max_step = args.max_step
     batch_size = args.batch_size
     repeat_times = args.repeat_times
+    args.init_for_training()
     del args
 
-    state_dim, action_dim = q__buf.get()  # q__buf 1.
+    state_dim, action_dim = q_o_buf.get()  # q__buf 1.
     agent = AgentDeepSAC(state_dim, action_dim, net_dim)
-    q__net.put(agent.act)  # q__net 1.
-    q__eva.put(agent.act)  # q__eva 1.
+
+    from copy import deepcopy
+    act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
+    act_cpu.eval()
+    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
+    q_i_buf.put(act_cpu)  # q_i_buf 1.
+    # q_i_buf.put(act_cpu)  # q_i_buf 2. # todo warning
+    q_i_eva.put(act_cpu)  # q_i_eva 1.
 
     buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
 
     '''initial_exploration'''
-    buffer_array, reward_list, step_list = q__buf.get()  # q__buf 2.
+    buffer_array, reward_list, step_list = q_o_buf.get()  # q__buf 2.
     buffer.extend_memo(buffer_array)
 
-    start_time = timer()
-    for epoch in range(int(2 ** 12)):  # epoch is episode
-        buffer_array, reward_list, step_list = q__buf.get()  # q__buf n.
+    for epoch in range(max_epoch):  # epoch is episode
+        buffer_array, reward_list, step_list = q_o_buf.get()  # q__buf n.
         reward_avg = np.average(reward_list)
         step_sum = sum(step_list)
 
         buffer.extend_memo(buffer_array)
         buffer.init_before_sample()
 
-        agent.update_params(buffer, max_step, batch_size, repeat_times)
-        q__net.put(agent.act.state_dict())  # q__net n.
-        q__eva.put((agent.act.state_dict(), reward_avg, step_sum))  # q__eva n.
+        loss_a_avg, loss_c_avg = agent.update_params(buffer, max_step, batch_size, repeat_times)
 
-    q__net.put(None)  # q__net -1.
-    q__eva.put(None)  # q__eva -1.
-    print("UsedTime:", int(timer() - start_time))
+        act_cpu.load_state_dict(agent.act.state_dict())
+        q_i_buf.put(act_cpu)  # q_i_buf n.
+        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
+
+        if q_o_eva.qsize() > 0:
+            is_solved = q_o_eva.get()  # q_o_eva n.
+            if is_solved:
+                break
+
+    q_i_buf.put(None)  # q_i_buf -1.
+    q_i_eva.put(None)  # q_i_eva -1.
     pass
 
 
-def mp__update_buffer(args, q__net, q__buf):  # update replay buffer by interacting with env
+def mp__update_buffer(args, q_i_buf, q__buf):  # update replay buffer by interacting with env
     env_name = args.env_name
     max_step = args.max_step
     reward_scale = args.reward_scale
     gamma = args.gamma
     del args
 
+    torch.set_num_threads(8)
+
     env = gym.make(env_name)
     state_dim, action_dim, max_action, _, is_discrete = get_env_info(env, is_print=False)
     q__buf.put((state_dim, action_dim))  # q__buf 1.
 
     '''build evaluated only actor'''
-    q__net_get = q__net.get()  # q__net 1.
-    act = q__net_get.to(torch.device("cpu"))  # q__net_get ==  act.to(device_gpu)
-    act.eval()
-    [setattr(param, 'requires_grad', False) for param in act.parameters()]
+    q_i_buf_get = q_i_buf.get()  # q_i_buf 1.
+    act = q_i_buf_get  # q_i_buf_get == act.to(device_cpu), requires_grad=False
 
     buffer_array, reward_list, step_list = get__buffer_reward_step(
         env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete)
@@ -227,7 +239,7 @@ def mp__update_buffer(args, q__net, q__buf):  # update replay buffer by interact
 
     explore_noise = True
     state = env.reset()
-    while q__net_get is not None:
+    while q_i_buf_get is not None:
         buffer_list = list()
 
         reward_list = list()
@@ -239,7 +251,6 @@ def mp__update_buffer(args, q__net, q__buf):  # update replay buffer by interact
         global_step = 0
         while global_step < max_step:
             '''select action'''
-            # action = rd.randint(action_dim) if is_discrete else rd.uniform(-1, 1, size=action_dim)
             s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
             a_tensor = act(s_tensor, explore_noise)
             action = a_tensor.detach_().numpy()[0]
@@ -267,44 +278,45 @@ def mp__update_buffer(args, q__net, q__buf):  # update replay buffer by interact
         buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
         q__buf.put((buffer_array, reward_list, step_list))  # q__buf n.
 
-        q__net_get = q__net.get()  # q__net n.
-        act.load_state_dict(q__net_get)  # q__net_get == act.state_dict()
+        q_i_buf_get = q_i_buf.get()  # q_i_buf n.
+        act = q_i_buf_get
     pass
 
 
-def mp__evaluate_agent(args, q__eva, ):  # evaluate agent and get its total reward of an episode
+def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
     max_step = args.max_step
-    eval_num = 4
+    print_gap = 2 ** 6
     env_name = args.env_name
+    gpu_id = args.gpu_id
     del args
 
+    torch.set_num_threads(8)
+
     '''recorder'''
-    exp_r_avg_list = list()  # explored reward average
-    exp_s_sum_list = list()  # explored step sum
-    global_step = 0
-    eva_r_avg_list = list()  # evaluated reward average
-    eva_r_std_list = list()  # evaluated reward standard deviation
+    eva_r_max = -np.inf
+    exp_r_avg = -np.inf
+    total_step = 0
+    loss_a_avg = 0
+    loss_c_avg = 0
+    recorder_exp = list()  # exp_r_avg, total_step, loss_a_avg, loss_c_avg
+    recorder_eva = list()  # eva_r_avg, eva_r_std
 
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
 
     '''build evaluated only actor'''
-    q__eva_get = q__eva.get()  # q__eva 1.
-    act = q__eva_get.to(torch.device("cpu"))  # q__eva_get == act.to(device_gpu)
-    act.eval()
-    [setattr(param, 'requires_grad', False) for param in act.parameters()]
+    q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
+    act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
 
-    while q__eva_get is not None:
-        '''update actor'''
-        q__eva_get = q__eva.get()  # q__eva n.
-        act_load_dict, exp_r_avg, exp_s_sum = q__eva_get
+    print(f"{'GPU':3}  {'MaxR':>8} |"
+          f"{'ExpR':>8}  {'ExpS':>8}  {'LossA':>8}  {'LossC':>8} |"
+          f"{'R avg':>8}  {'R std':>8}")
 
-        act.load_state_dict(act_load_dict)
-        exp_r_avg_list.append(exp_r_avg)
-        exp_s_sum_list.append(exp_s_sum)
-        global_step += exp_s_sum
+    is_solved = False
+    start_time = timer()
+    print_time = timer()
 
-        '''evaluate actor'''
+    def get_eval_r_list(eval_num):  # env, eval_num, act, max_step, max_action, ):
         reward_list = list()
         while len(reward_list) < eval_num:
             reward_item = 0.0
@@ -322,44 +334,72 @@ def mp__evaluate_agent(args, q__eva, ):  # evaluate agent and get its total rewa
                     break
                 state = next_state
             reward_list.append(reward_item)
+        return reward_list
 
+    while q_i_eva_get is not None:
+        '''update actor'''
+        while q_i_eva.qsize():  # get the latest
+            q_i_eva_get = q_i_eva.get()  # q_i_eva n.
+            act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
+            total_step += exp_s_sum
+            recorder_exp.append((exp_r_avg, total_step, loss_a_avg, loss_c_avg))
+
+        '''evaluate actor'''
+        reward_list = get_eval_r_list(eval_num=16)
         eva_r_avg = np.average(reward_list)
-        eva_r_avg_list.append(eva_r_avg)
+        if eva_r_avg > eva_r_max:  # check 1
+            reward_list.extend(get_eval_r_list(eval_num=100-len(reward_list)))
+            eva_r_avg = np.average(reward_list)
+            if eva_r_avg > eva_r_max:  # check 2
+                eva_r_max = eva_r_avg
         eva_r_std = np.std(reward_list)
-        eva_r_std_list.append(eva_r_std)
-        print(f'|  ExpR {exp_r_avg:8.2f}  Step {exp_s_sum:8.2e}  '
-              f'|  AvgR {eva_r_avg:8.2f}  StdR {eva_r_std:8.2f}')
+        recorder_eva.append((eva_r_avg, eva_r_std))
+
+        if eva_r_max > target_reward:
+            is_solved = True
+            used_time = int(timer() - start_time)
+            print(f'######### solve: {used_time:8}  {total_step:8.2e}  \n'
+                  f'######### solve: {eva_r_avg:8.2f}  {eva_r_std:8.2f} ')
+
+        q_o_eva.put(is_solved)  # q_o_eva n.
+
+        if timer() - print_time > print_gap:
+            print_time = timer()
+            print(f'{gpu_id:<3}  {eva_r_max:8.2f} |'
+                  f'{exp_r_avg:8.2f}  {total_step:8.2e}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f} |'
+                  f'{eva_r_avg:8.2f}  {eva_r_std:8.2f}')
 
     pass
 
 
 def run__mp():
-    q__net = mp.Queue(maxsize=2)
-    q__buf = mp.Queue(maxsize=2)
-    q__eva = mp.Queue(maxsize=2)
+    q_i_buf = mp.Queue(maxsize=8)  # buffer I
+    q_o_buf = mp.Queue(maxsize=8)  # buffer O
+    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
 
     cwd = 'MP_SAC'
-    gpu_id = '3'
+    gpu_id = sys.argv[-1][-4]
 
     args = Arguments()
     args.class_agent = True  # todo
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
+    # args.env_name = "BipedalWalker-v3"
+    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LunarLander_{}'.format(cwd, gpu_id)
+    args.gpu_id = gpu_id
 
     process = [
-        mp.Process(target=mp__update_params, args=(args, q__net, q__buf, q__eva,)),  # main process, train agent
-        mp.Process(target=mp__update_buffer, args=(args, q__net, q__buf,)),  # assist, collect buffer
-        mp.Process(target=mp__evaluate_agent, args=(args, q__eva,)),  # assist, evaluate agent
+        mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
+        # main process, train agent
+        mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),  # assist, collect buffer
+        mp.Process(target=mp__evaluated_act, args=(args, q_i_eva, q_o_eva)),  # assist, evaluate agent
     ]
 
     [p.start() for p in process]
-    [p.join() for p in process]
+    process[2].join()  # waiting the stop signal from process[2]
     [p.close() for p in process]
 
 
 if __name__ == '__main__':
     run__mp()
-    pass
