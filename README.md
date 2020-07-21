@@ -33,7 +33,7 @@ For example, the training log is the following two figure.
 + The second is an slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
 + The name of the log figure is `plot_<Episode>_<TotalStep>_<UsedTimeInSecond>.png` when agent reaches the default target reward.
 
-Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and InterSAC. There are more stable than other algorithm.
+Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and DeepSAC. There are more stable than other algorithm.
 
 <p float="left">
   <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
