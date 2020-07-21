@@ -71,7 +71,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         self.ou_noise = OrnsteinUhlenbeckProcess(size=action_dim, sigma=0.3)
         # I hate OU-Process in RL because of its too much hyper-parameters.
 
-    def update_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
+    def update_replay_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
         reward_sum = 0.0
         step = 0
 
@@ -96,7 +96,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         self.step = step  # update_parameters() need self.step
         return (reward_sum,), (step,)
 
-    def update_parameters(self, memo, _max_step, batch_size, _update_gap):
+    def update_network_param(self, memo, _max_step, batch_size, _update_gap):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
@@ -2079,3 +2079,4 @@ def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  
     act.train()
 
     return reward_sums
+

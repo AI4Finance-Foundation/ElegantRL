@@ -74,7 +74,7 @@ def soft_target_update(target, online, tau=5e-3):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 
-def run__tutorial_discrete_action():
+def run__tutorial__dqn_discrete_action():
     """It is a DQN tutorial, we need 1min for training.
     This simplify DQN can't work well on harder task.
     Other RL algorithms can work well on harder task but complicated.
@@ -215,8 +215,13 @@ def run__tutorial_discrete_action():
     used_time = int(time.time() - start_time)
     print(f"|\tTraining UsedTime: {used_time}s")
 
+    '''open a window and show the env'''
+    for _ in range(4):
+        eva_reward = evaluator.get_eva_reward__sv(act, max_step, action_max, is_discrete, is_render=True)
+        print(f'|Evaluated reward is: {eva_reward}')
 
-def run__tutorial_continuous_action():
+
+def run__tutorial__ddpg_continuous_action():
     """It is a DDPG tutorial, we need about 300s for training.
     I hate OU Process because of its lots of hyper-parameters. So this DDPG has no OU Process.
     This simplify DDPG can't work well on harder task.
@@ -229,15 +234,14 @@ def run__tutorial_continuous_action():
     state_dim = 3
     action_dim = 1
     action_max = 2.0
-    target_reward = -100.0
+    target_reward = -200.0
     is_discrete = False
     # from AgentRun import get_env_info
-    # state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(
-    #     env, is_print=True, target_reward=-100.0)
+    # state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
     # assert is_discrete is False  # DDPG is for discrete action space.
     """ You will see the following:
     | env_name: <PendulumEnv<Pendulum-v0>>, action space: Continuous
-    | state_dim: 3, action_dim: 1, action_max: 2.0, target_reward: 0.0
+    | state_dim: 3, action_dim: 1, action_max: 2.0, target_reward: -200.0
     """
 
     ''' I copy the code from AgentDQN to the following for tutorial.'''
@@ -389,10 +393,16 @@ def run__tutorial_continuous_action():
     used_time = int(time.time() - start_time)
     print(f"|\tTraining UsedTime: {used_time}s")
 
+    '''open a window and show the env'''
+    for _ in range(4):
+        eva_reward = evaluator.get_eva_reward__sv(act, max_step, action_max, is_discrete, is_render=True)
+        print(f'| Evaluated reward is: {eva_reward}')
+
 
 if __name__ == '__main__':
     # import os
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = str(0)
+    '''If you want to set GPU id, use above codes.'''
 
-    run__tutorial_discrete_action()
-    # run__tutorial_continuous_action()
+    run__tutorial__dqn_discrete_action()
+    # run__tutorial__ddpg_continuous_action()

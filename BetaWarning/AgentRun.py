@@ -47,6 +47,7 @@ class Arguments:  # default working setting and hyper-parameter
         self.cwd = 'AC_Methods_LL'  # current work directory
 
         self.show_gap = 2 ** 7  # show the Reward and Loss of actor and critic per show_gap seconds
+        self.eva_size = 2 ** 6  # for evaluated reward average
 
     def init_for_training(self):  # remove cwd, choose GPU, set random seed, set CPU threads
         assert self.class_agent is not None
@@ -84,12 +85,12 @@ def train_agent__off_policy(
         for epoch in range(max_epoch):
             # update replay buffer by interact with environment
             with torch.no_grad():  # for saving the GPU buffer
-                rewards, steps = agent.update_buffer(
+                rewards, steps = agent.update_replay_buffer(
                     env, buffer, max_step, max_action, reward_scale, gamma)
 
             # update network parameters by random sampling buffer for gradient descent
             buffer.init_before_sample()
-            loss_a, loss_c = agent.update_parameters(
+            loss_a, loss_c = agent.update_network_param(
                 buffer, max_step, batch_size, repeat_times)
 
             # show/check the reward, save the max reward actor
@@ -172,12 +173,12 @@ def train_agent_discrete(
         for epoch in range(max_epoch):
             # update replay buffer by interact with environment
             with torch.no_grad():  # for saving the GPU buffer
-                rewards, steps = agent.update_buffer(
+                rewards, steps = agent.update_replay_buffer(
                     env, buffer, max_step, max_action, reward_scale, gamma)
 
             # update network parameters by random sampling buffer for gradient descent
             buffer.init_before_sample()
-            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+            loss_a, loss_c = agent.update_network_param(buffer, max_step, batch_size, repeat_times)
 
             # show/check the reward, save the max reward actor
             with torch.no_grad():  # for saving the GPU buffer
@@ -613,10 +614,10 @@ def process__workers(gpu_id, root_cwd, q_aggr, q_dist, args, **_kwargs):
         for epoch in range(max_epoch):
             '''update replay buffer by interact with environment'''
             with torch.no_grad():  # for saving the GPU buffer
-                rewards, steps = agent.update_buffer(env, buffer, max_step, max_action, reward_scale, gamma)
+                rewards, steps = agent.update_replay_buffer(env, buffer, max_step, max_action, reward_scale, gamma)
 
             '''update network parameters by random sampling buffer for stochastic gradient descent'''
-            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, update_gap)
+            loss_a, loss_c = agent.update_network_param(buffer, max_step, batch_size, update_gap)
 
             '''show/check the reward, save the max reward actor'''
             with torch.no_grad():  # for saving the GPU buffer
