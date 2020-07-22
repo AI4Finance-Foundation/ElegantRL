@@ -42,15 +42,13 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         self.dec_q = nn.Sequential(nn.Linear(net_out_dim, mid_dim), HardSwish(),
                                    nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), )
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     def add_noise(self, a, noise_std):  # 2020-03-03
-        # noise_normal = torch.randn_like(a, device=self.device) * noise_std
+        # noise_normal = torch.randn_like(a) * noise_std
         # a_temp = a + noise_normal
         a_temp = torch.normal(a, noise_std)
         mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.float32)  # 2019-12-30
 
-        noise_uniform = torch.rand_like(a, device=self.device)
+        noise_uniform = torch.rand_like(a)
         a_noise = noise_uniform * mask + a_temp * (-mask + 1)
         return a_noise
 

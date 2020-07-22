@@ -8,6 +8,7 @@ import numpy as np
 import numpy.random as rd
 
 from AgentZoo import initial_exploration
+from AgentZoo import BufferArray, BufferArrayGPU
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -86,12 +87,12 @@ def train_agent__off_policy(
         for epoch in range(max_epoch):
             # update replay buffer by interact with environment
             with torch.no_grad():  # for saving the GPU buffer
-                rewards, steps = agent.update_replay_buffer(
+                rewards, steps = agent.update_buffer(
                     env, buffer, max_step, max_action, reward_scale, gamma)
 
             # update network parameters by random sampling buffer for gradient descent
             buffer.init_before_sample()
-            loss_a, loss_c = agent.update_network_param(
+            loss_a, loss_c = agent.update_parameters(
                 buffer, max_step, batch_size, repeat_times)
 
             # show/check the reward, save the max reward actor
@@ -609,242 +610,6 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
 
     buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
     return buffer_array, reward_list, step_list
-
-
-'''experiment replay buffer'''
-
-
-class BufferList:
-    def __init__(self, memo_max_len):
-        self.memories = list()
-
-        self.max_len = memo_max_len
-        self.now_len = len(self.memories)
-
-    def add_memo(self, memory_tuple):
-        self.memories.append(memory_tuple)
-
-    def init_before_sample(self):
-        del_len = len(self.memories) - self.max_len
-        if del_len > 0:
-            del self.memories[:del_len]
-            # print('Length of Deleted Memories:', del_len)
-
-        self.now_len = len(self.memories)
-
-    def random_sample(self, batch_size, device):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
-        indices = rd.randint(self.now_len, size=batch_size)
-
-        '''convert list into array'''
-        arrays = [list()
-                  for _ in range(5)]  # len(self.memories[0]) == 5
-        for index in indices:
-            items = self.memories[index]
-            for item, array in zip(items, arrays):
-                array.append(item)
-
-        '''convert array into torch.tensor'''
-        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
-                   for ary in arrays]
-        return tensors
-
-
-class BufferArray:  # 2020-05-20
-    def __init__(self, memo_max_len, state_dim, action_dim, ):
-        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
-        self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
-
-        self.next_idx = 0
-        self.is_full = False
-        self.max_len = memo_max_len
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + action_dim
-
-    def add_memo(self, memo_tuple):
-        # memo_array == (reward, mask, state, action, next_state)
-        self.memories[self.next_idx] = np.hstack(memo_tuple)
-        self.next_idx = self.next_idx + 1
-        if self.next_idx >= self.max_len:
-            self.is_full = True
-            self.next_idx = 0
-
-    def extend_memo(self, memo_array):  # 2020-07-07
-        # assert isinstance(memo_array, np.ndarray)
-        size = memo_array.shape[0]
-        next_idx = self.next_idx + size
-        if next_idx < self.max_len:
-            self.memories[self.next_idx:next_idx] = memo_array
-        if next_idx >= self.max_len:
-            if next_idx > self.max_len:
-                self.memories[self.next_idx:self.max_len] = memo_array[:self.max_len - self.next_idx]
-            self.is_full = True
-            next_idx = next_idx - self.max_len
-            self.memories[0:next_idx] = memo_array[-next_idx:]
-        else:
-            self.memories[self.next_idx:next_idx] = memo_array
-        self.next_idx = next_idx
-
-    def init_before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-    def random_sample(self, batch_size, device):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
-        indices = rd.randint(self.now_len, size=batch_size)
-        memory = self.memories[indices]
-        if device:
-            memory = torch.tensor(memory, device=device)
-
-        '''convert array into torch.tensor'''
-        tensors = (
-            memory[:, 0:1],  # rewards
-            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
-            memory[:, 2:self.state_idx],  # states
-            memory[:, self.state_idx:self.action_idx],  # actions
-            memory[:, self.action_idx:],  # next_states
-        )
-        return tensors
-
-
-class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
-    def __init__(self, memo_max_len, state_dim, action_dim, ):
-        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
-        assert torch.cuda.is_available()
-        self.device = torch.device("cuda")
-        self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
-
-        self.next_idx = 0
-        self.is_full = False
-        self.max_len = memo_max_len
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + action_dim
-
-    def add_memo(self, memo_tuple):
-        """memo_tuple == (reward, mask, state, action, next_state)
-        """
-        memo_array = np.hstack(memo_tuple)
-        self.memories[self.next_idx] = torch.tensor(memo_array, device=self.device)
-        self.next_idx = self.next_idx + 1
-        if self.next_idx >= self.max_len:
-            self.is_full = True
-            self.next_idx = 0
-
-    def extend_memo(self, memo_array):  # 2020-07-07
-        # assert isinstance(memo_array, np.ndarray)
-        size = memo_array.shape[0]
-        memo_tensor = torch.tensor(memo_array, device=self.device)
-
-        next_idx = self.next_idx + size
-        if next_idx < self.max_len:
-            self.memories[self.next_idx:next_idx] = memo_tensor
-        if next_idx >= self.max_len:
-            if next_idx > self.max_len:
-                self.memories[self.next_idx:self.max_len] = memo_tensor[:self.max_len - self.next_idx]
-            self.is_full = True
-            next_idx = next_idx - self.max_len
-            self.memories[0:next_idx] = memo_tensor[-next_idx:]
-        else:
-            self.memories[self.next_idx:next_idx] = memo_tensor
-        self.next_idx = next_idx
-
-    def init_before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-    def random_sample(self, batch_size, _device):  # _device should remove
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
-        indices = rd.randint(self.now_len, size=batch_size)
-        memory = self.memories[indices]
-        # if device:
-        #     memory = torch.tensor(memory, device=device)
-
-        '''convert array into torch.tensor'''
-        tensors = (
-            memory[:, 0:1],  # rewards
-            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
-            memory[:, 2:self.state_idx],  # states
-            memory[:, self.state_idx:self.action_idx],  # actions
-            memory[:, self.action_idx:],  # next_states
-        )
-        return tensors
-
-
-class BufferTuple:
-    def __init__(self, memo_max_len):
-        self.memories = list()
-
-        self.max_len = memo_max_len
-        self.now_len = None  # init in init_after_add_memo()
-
-        from collections import namedtuple
-        self.transition = namedtuple(
-            'Transition', ('reward', 'mask', 'state', 'action', 'next_state',)
-        )
-
-    def add_memo(self, args):
-        self.memories.append(self.transition(*args))
-
-    def init_before_sample(self):
-        del_len = len(self.memories) - self.max_len
-        if del_len > 0:
-            del self.memories[:del_len]
-            # print('Length of Deleted Memories:', del_len)
-
-        self.now_len = len(self.memories)
-
-    def random_sample(self, batch_size, device):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
-        indices = rd.randint(self.now_len, size=batch_size)
-
-        '''convert tuple into array'''
-        arrays = self.transition(*zip(*[self.memories[i] for i in indices]))
-
-        '''convert array into torch.tensor'''
-        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
-                   for ary in arrays]
-        return tensors
-
-
-class BufferTupleOnline:
-    def __init__(self, ):
-        self.storage_list = list()
-        from collections import namedtuple
-        self.transition = namedtuple(
-            'Transition',
-            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
-            ('reward', 'mask', 'state', 'action', 'log_prob')
-        )
-
-    def push(self, *args):
-        self.storage_list.append(self.transition(*args))
-
-    def extend(self, storage_list):
-        self.storage_list.extend(storage_list)
-
-    def sample(self):
-        return self.transition(*zip(*self.storage_list))
-
-    def __len__(self):
-        return len(self.storage_list)
 
 
 """demo"""
@@ -1367,10 +1132,10 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
 
         if eva_r_max > target_reward:
             is_solved = True
-            if used_time is not None:
+            if used_time is None:
                 used_time = int(time.time() - start_time)
-                print(f'### GPU:{gpu_id} solve  '
-                      f'Time {used_time:8   }  Step {total_step:8.2e}  '
+                print(f'#### GPU:{gpu_id} solve  '
+                      f'Time {used_time}  Step {total_step:8.2e}  '
                       f'avgR {eva_r_avg:8.2f}  stdR {eva_r_std:8.2f} ')
 
         q_o_eva.put(is_solved)  # q_o_eva n.
@@ -1399,51 +1164,52 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     # print('; quit: evaluate')
 
 
-def run__mp(gpu_id, cwd='MP__beta'):
+def run__mp(gpu_id=None, cwd='MP__beta'):
     import AgentZoo as Zoo
     args = Arguments()
     args.class_agent = Zoo.AgentDeepSAC
+    args.gpu_id = gpu_id if gpu_id is not None else sys.argv[-1][-4]
     assert args.class_agent in {
         Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
         Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
     }
-    args.gpu_id = gpu_id
-    # args.env_name = "BipedalWalker-v3"
-    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
-    args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = './{}/LunarLander_{}'.format(cwd, gpu_id)
-
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "AntBulletEnv-v0"
-    # args.cwd = './{}/Ant_{}'.format(cwd, args.gpu_id)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 20
-    # args.max_step = 2 ** 10
-    # args.net_dim = 2 ** 8
-    # args.batch_size = 2 ** 8
-    # args.reward_scale = 2 ** -3
-    # args.is_remove = True
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
 
     import multiprocessing as mp
     q_i_buf = mp.Queue(maxsize=8)  # buffer I
     q_o_buf = mp.Queue(maxsize=8)  # buffer O
     q_i_eva = mp.Queue(maxsize=8)  # evaluate I
     q_o_eva = mp.Queue(maxsize=8)  # evaluate O
-    process = [
-        mp.Process(target=mp__update_params,
-                   args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),  # main process, train agent
-        mp.Process(target=mp__update_buffer,
-                   args=(args, q_i_buf, q_o_buf,)),  # assist, collect buffer
-        mp.Process(target=mp_evaluate_agent,
-                   args=(args, q_i_eva, q_o_eva)),  # assist, evaluate agent
-    ]
 
-    [p.start() for p in process]
-    [p.join() for p in process]
-    [p.close() for p in process]
+    def build_for_mp():
+        process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
+                   mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
+                   mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+        [p.start() for p in process]
+        [p.join() for p in process]
+        [p.close() for p in process]
+
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    build_for_mp()
+
+    args.env_name = "BipedalWalker-v3"
+    args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    build_for_mp()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "AntBulletEnv-v0"
+    args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    args.max_epoch = 2 ** 13
+    args.max_memo = 2 ** 20
+    args.max_step = 2 ** 10
+    args.net_dim = 2 ** 8
+    args.batch_size = 2 ** 9
+    args.reward_scale = 2 ** -2
+    args.is_remove = True
+    args.eva_size = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    build_for_mp()
 
 
 if __name__ == '__main__':
