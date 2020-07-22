@@ -1,11 +1,11 @@
 import os
 import sys
+from time import time as timer  # for reward recorder
 
 import gym
 import torch
 import numpy as np
 
-from AgentZoo import Recorder
 from AgentZoo import BufferArray, initial_exploration
 
 """
@@ -332,6 +332,224 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
     del shutil
 
 
+class Recorder:
+    def __init__(self, agent, max_step, max_action, target_reward,
+                 env_name, eva_size=100, show_gap=2 ** 7, smooth_kernel=2 ** 4,
+                 state_norm=None, **_kwargs):
+        self.show_gap = show_gap
+        self.smooth_kernel = smooth_kernel
+
+        '''get_eva_reward(agent, env_list, max_step, max_action)'''
+        self.agent = agent
+        self.env_list = [gym.make(env_name) for _ in range(eva_size)]
+        self.max_step = max_step
+        self.max_action = max_action
+        self.e1 = 3
+        self.e2 = int(eva_size // np.e)
+        self.running_stat = state_norm
+
+        '''reward'''
+        self.rewards = get_eva_reward(agent, self.env_list[:5], max_step, max_action, self.running_stat)
+        self.reward_avg = np.average(self.rewards)
+        self.reward_std = float(np.std(self.rewards))
+        self.reward_target = target_reward
+        self.reward_max = self.reward_avg
+
+        self.record_epoch = list()  # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
+        self.record_eval = [(0, self.reward_avg, self.reward_std), ]  # [(epoch, reward_avg, reward_std), ]
+        self.total_step = 0
+
+        self.epoch = 0
+        self.train_time = 0  # train_time
+        self.train_timer = timer()  # train_time
+        self.start_time = self.show_time = timer()
+        print("epoch|   reward   r_max    r_ave    r_std |  loss_A loss_C |step")
+
+    def show_reward(self, epoch_rewards, iter_numbers, loss_a, loss_c):
+        self.train_time += timer() - self.train_timer  # train_time
+        self.epoch += len(epoch_rewards)
+
+        if isinstance(epoch_rewards, float):
+            epoch_rewards = (epoch_rewards,)
+            iter_numbers = (iter_numbers,)
+        for reward, iter_num in zip(epoch_rewards, iter_numbers):
+            self.record_epoch.append((reward, loss_a, loss_c, iter_num))
+            self.total_step += iter_num
+
+        if timer() - self.show_time > self.show_gap:
+            self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action,
+                                          self.running_stat)
+            self.reward_avg = np.average(self.rewards)
+            self.reward_std = float(np.std(self.rewards))
+            self.record_eval.append((len(self.record_epoch), self.reward_avg, self.reward_std))
+
+            slice_reward = np.array(self.record_epoch[-self.smooth_kernel:])[:, 0]
+            smooth_reward = np.average(slice_reward, axis=0)
+            print("{:4} |{:8.2f} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
+                len(self.record_epoch),
+                smooth_reward, self.reward_max, self.reward_avg, self.reward_std,
+                loss_a, loss_c, self.total_step))
+
+            self.show_time = timer()  # reset show_time after get_eva_reward_batch !
+        else:
+            self.rewards = list()
+
+    def check_reward(self, cwd, loss_a, loss_c):  # 2020-05-05
+        is_solved = False
+        if self.reward_avg >= self.reward_max:  # and len(self.rewards) > 1:  # 2020-04-30
+            self.rewards.extend(get_eva_reward(self.agent, self.env_list[:self.e2], self.max_step, self.max_action,
+                                               self.running_stat))
+            self.reward_avg = np.average(self.rewards)
+
+            if self.reward_avg >= self.reward_max:
+                self.reward_max = self.reward_avg
+
+                '''NOTICE! Recorder saves the agent with max reward automatically. '''
+                self.agent.save_or_load_model(cwd, is_save=True)
+
+                if self.reward_max >= self.reward_target:
+                    res_env_len = len(self.env_list) - len(self.rewards)
+                    self.rewards.extend(get_eva_reward(
+                        self.agent, self.env_list[:res_env_len], self.max_step, self.max_action,
+                        self.running_stat))
+                    self.reward_avg = np.average(self.rewards)
+                    self.reward_max = self.reward_avg
+
+                    if self.reward_max >= self.reward_target:
+                        print("########## Solved! ###########")
+                        is_solved = True
+
+            self.reward_std = float(np.std(self.rewards))
+            self.record_eval[-1] = (len(self.record_epoch), self.reward_avg, self.reward_std)  # refresh
+            print("{:4} |{:8} {:8.2f} {:8.2f} {:8.2f} |{:8.2f} {:6.2f} |{:.2e}".format(
+                len(self.record_epoch),
+                '', self.reward_max, self.reward_avg, self.reward_std,
+                loss_a, loss_c, self.total_step, ))
+
+        self.train_timer = timer()  # train_time
+        return is_solved
+
+    def print_and_save_npy(self, env_name, cwd):  # 2020-04-30
+        iter_used = self.total_step  # int(sum(np.array(self.record_epoch)[:, -1]))
+        time_used = int(timer() - self.start_time)
+        print('Used Time:', time_used)
+        self.train_time = int(self.train_time)  # train_time
+        print('TrainTime:', self.train_time)  # train_time
+
+        print_str = "{}-{:.2f}AVE-{:.2f}STD-{}E-{}S-{}T".format(
+            env_name, self.reward_max, self.reward_std, self.epoch, self.train_time, iter_used)  # train_time
+        print(print_str)
+        nod_path = '{}/{}.txt'.format(cwd, print_str)
+        os.mknod(nod_path, ) if not os.path.exists(nod_path) else None
+
+        np.save('%s/record_epoch.npy' % cwd, self.record_epoch)
+        np.save('%s/record_eval.npy' % cwd, self.record_eval)
+        print("Saved record_*.npy in:", cwd)
+
+        return self.train_time
+
+
+def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  # class Recorder 2020-01-11
+    # this function is a bit complicated. I don't recommend you to change it.
+    # max_action is None, when env is discrete action space
+
+    act = agent.act
+    act.eval()
+
+    env_list_copy = env_list.copy()
+    eva_size = len(env_list_copy)
+
+    sum_rewards = [0.0, ] * eva_size
+    states = [env.reset() for env in env_list_copy]
+
+    reward_sums = list()
+    for iter_num in range(max_step):
+        if running_state:
+            states = [running_state(state, update=False) for state in states]  # if state_norm:
+        actions = agent.select_actions(states)
+
+        next_states = list()
+        done_list = list()
+        if max_action:  # Continuous action space
+            actions *= max_action
+        for i in range(len(env_list_copy) - 1, -1, -1):
+            next_state, reward, done, _ = env_list_copy[i].step(actions[i])
+
+            next_states.insert(0, next_state)
+            sum_rewards[i] += reward
+            done_list.insert(0, done)
+            if done:
+                reward_sums.append(sum_rewards[i])
+                del sum_rewards[i]
+                del env_list_copy[i]
+        states = next_states
+
+        if len(env_list_copy) == 0:
+            break
+    else:
+        reward_sums.extend(sum_rewards)
+    act.train()
+
+    return reward_sums
+
+
+def get_episode_reward(env, act, max_step, max_action, ) -> float:  # 2020-07-07
+    reward_item = 0.0
+
+    state = env.reset()
+    for _ in range(max_step):
+        s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
+        a_tensor = act(s_tensor)
+        action = a_tensor.detach_().numpy()[0]
+
+        next_state, reward, done, _ = env.step(action * max_action)
+        reward_item += reward
+
+        if done:
+            break
+        state = next_state
+    return reward_item
+
+
+def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete,
+                            **_kwargs) -> (np.ndarray, list, list):  # 2020-07-07
+    buffer_list = list()
+
+    reward_list = list()
+    reward_item = 0.0
+
+    step_list = list()
+    step_item = 0
+
+    state = env.reset()
+
+    global_step = 0
+    while global_step < max_step:
+        action = rd.randint(action_dim) if is_discrete else rd.uniform(-1, 1, size=action_dim)
+        next_state, reward, done, _ = env.step(action * max_action)
+        reward_item += reward
+        step_item += 1
+
+        adjust_reward = reward * reward_scale
+        mask = 0.0 if done else gamma
+        buffer_list.append((adjust_reward, mask, state, action, next_state))
+
+        if done:
+            global_step += step_item
+
+            reward_list.append(reward_item)
+            reward_item = 0.0
+            step_list.append(step_item)
+            step_item = 0
+
+            state = env.reset()
+        else:
+            state = next_state
+
+    buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
+    return buffer_array, reward_list, step_list
+
+
 """demo"""
 
 
@@ -511,7 +729,7 @@ def run__dqn(gpu_id, cwd='RL_DQN'):
     train_agent_discrete(**vars(args))
 
 
-"""demo plan to do multi-agent"""
+"""demo plan to do multi-agent 2020-05-05"""
 
 
 def run__multi_process(target_func, gpu_tuple=(0, 1), cwd='RL_MP'):
@@ -669,9 +887,256 @@ def run__multi_workers(gpu_tuple=(0, 1), root_cwd='RL_MP'):
     [process.close() for process in processes]
 
 
+'''demo plan to do multi-process mix CPU and GPU 2020-07-07'''
+
+
+def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update network parameters using replay buffer
+    class_agent = args.class_agent
+    max_memo = args.max_memo
+    net_dim = args.net_dim
+    max_epoch = args.max_epoch
+    max_step = args.max_step
+    batch_size = args.batch_size
+    repeat_times = args.repeat_times
+    args.init_for_training()
+    del args
+
+    state_dim, action_dim = q_o_buf.get()  # q__buf 1.
+    agent = class_agent(state_dim, action_dim, net_dim)
+
+    from copy import deepcopy
+    act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
+    act_cpu.eval()
+    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
+    q_i_buf.put(act_cpu)  # q_i_buf 1.
+    # q_i_buf.put(act_cpu)  # q_i_buf 2. # warning
+    q_i_eva.put(act_cpu)  # q_i_eva 1.
+
+    buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
+
+    '''initial_exploration'''
+    buffer_array, reward_list, step_list = q_o_buf.get()  # q__buf 2.
+    buffer.extend_memo(buffer_array)
+
+    for epoch in range(max_epoch):  # epoch is episode
+        buffer_array, reward_list, step_list = q_o_buf.get()  # q__buf n.
+        reward_avg = np.average(reward_list)
+        step_sum = sum(step_list)
+
+        buffer.extend_memo(buffer_array)
+        buffer.init_before_sample()
+
+        loss_a_avg, loss_c_avg = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+
+        act_cpu.load_state_dict(agent.act.state_dict())
+        q_i_buf.put(act_cpu)  # q_i_buf n.
+        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
+
+        if q_o_eva.qsize() > 0:
+            is_solved = q_o_eva.get()  # q_o_eva n.
+            if is_solved:
+                break
+
+    q_i_buf.put(None)  # q_i_buf -1.
+    q_i_eva.put(None)  # q_i_eva -1.
+    pass
+
+
+def mp__update_buffer(args, q_i_buf, q__buf):  # update replay buffer by interacting with env
+    env_name = args.env_name
+    max_step = args.max_step
+    reward_scale = args.reward_scale
+    gamma = args.gamma
+    del args
+
+    torch.set_num_threads(8)
+
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, _, is_discrete = get_env_info(env, is_print=False)
+    q__buf.put((state_dim, action_dim))  # q__buf 1.
+
+    '''build evaluated only actor'''
+    q_i_buf_get = q_i_buf.get()  # q_i_buf 1.
+    act = q_i_buf_get  # q_i_buf_get == act.to(device_cpu), requires_grad=False
+
+    buffer_array, reward_list, step_list = get__buffer_reward_step(
+        env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete)
+
+    q__buf.put((buffer_array, reward_list, step_list))  # q__buf 2.
+
+    explore_noise = True
+    state = env.reset()
+    while q_i_buf_get is not None:
+        buffer_list = list()
+
+        reward_list = list()
+        reward_item = 0.0
+
+        step_list = list()
+        step_item = 0
+
+        global_step = 0
+        while global_step < max_step:
+            '''select action'''
+            s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
+            a_tensor = act(s_tensor, explore_noise)
+            action = a_tensor.detach_().numpy()[0]
+
+            next_state, reward, done, _ = env.step(action * max_action)
+            reward_item += reward
+            step_item += 1
+
+            adjust_reward = reward * reward_scale
+            mask = 0.0 if done else gamma
+            buffer_list.append((adjust_reward, mask, state, action, next_state))
+
+            if done:
+                global_step += step_item
+
+                reward_list.append(reward_item)
+                reward_item = 0.0
+                step_list.append(step_item)
+                step_item = 0
+
+                state = env.reset()
+            else:
+                state = next_state
+
+        buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
+        q__buf.put((buffer_array, reward_list, step_list))  # q__buf n.
+
+        q_i_buf_get = q_i_buf.get()  # q_i_buf n.
+        act = q_i_buf_get
+    pass
+
+
+def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
+    max_step = args.max_step
+    cwd = args.cwd
+    eva_size = args.eva_size
+    show_gap = args.show_gap
+    env_name = args.env_name
+    gpu_id = args.gpu_id
+    del args
+    from time import time as timer
+
+    torch.set_num_threads(8)
+
+    '''recorder'''
+    eva_r_max = -np.inf
+    exp_r_avg = -np.inf
+    total_step = 0
+    loss_a_avg = 0
+    loss_c_avg = 0
+    recorder_exp = list()  # exp_r_avg, total_step, loss_a_avg, loss_c_avg
+    recorder_eva = list()  # eva_r_avg, eva_r_std
+
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
+
+    '''build evaluated only actor'''
+    q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
+    act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
+
+    print(f"{'GPU':3}  {'MaxR':>8}  {'R avg':>8}  {'R std':>8} |"
+          f"{'ExpR':>8}  {'ExpS':>8}  {'LossA':>8}  {'LossC':>8}")
+
+    is_solved = False
+    start_time = timer()
+    print_time = timer()
+
+    while q_i_eva_get is not None:
+        '''update actor'''
+        while q_i_eva.qsize():  # get the latest
+            q_i_eva_get = q_i_eva.get()  # q_i_eva n.
+            act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
+            total_step += exp_s_sum
+            recorder_exp.append((exp_r_avg, total_step, loss_a_avg, loss_c_avg))
+
+        '''evaluate actor'''
+        reward_list = [get_episode_reward(env, act, max_step, max_action, )
+                       for _ in range(8)]
+        eva_r_avg = np.average(reward_list)
+        if eva_r_avg > eva_r_max:  # check 1
+            reward_list.extend([get_episode_reward(env, act, max_step, max_action, )
+                                for _ in range(eva_size - len(reward_list))])
+            eva_r_avg = np.average(reward_list)
+            if eva_r_avg > eva_r_max:  # check 2
+                eva_r_max = eva_r_avg
+
+                act_save_path = f'{cwd}/actor.pth'
+                print(f'{gpu_id:<3}  {eva_r_max:8.2f}')
+                torch.save(act.state_dict(), act_save_path)
+
+        eva_r_std = np.std(reward_list)
+        recorder_eva.append((eva_r_avg, eva_r_std))
+
+        if eva_r_max > target_reward:
+            is_solved = True
+            used_time = int(timer() - start_time)
+            print(f'######### solve: {used_time:8}  {total_step:8.2e}  \n'
+                  f'######### solve: {eva_r_avg:8.2f}  {eva_r_std:8.2f} ')
+
+        q_o_eva.put(is_solved)  # q_o_eva n.
+
+        if timer() - print_time > show_gap:
+            print_time = timer()
+            print(f'{gpu_id:<3}  {eva_r_max:8.2f}  {eva_r_avg:8.2f}  {eva_r_std:8.2f} |'
+                  f'{exp_r_avg:8.2f}  {total_step:8.2e}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}')
+
+    pass
+
+
+def run__mp(gpu_id, cwd='MP__beta'):
+    import multiprocessing as mp
+    q_i_buf = mp.Queue(maxsize=8)  # buffer I
+    q_o_buf = mp.Queue(maxsize=8)  # buffer O
+    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
+
+    import AgentZoo as Zoo
+    args = Arguments()
+    args.class_agent = Zoo.AgentDeepSAC
+    assert args.class_agent in {
+        Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
+        Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
+    }
+    args.gpu_id = gpu_id
+    # args.env_name = "BipedalWalker-v3"
+    # args.cwd = './{}/BW_{}'.format(cwd, gpu_id)
+    args.env_name = "LunarLanderContinuous-v2"
+    args.cwd = './{}/LunarLander_{}'.format(cwd, gpu_id)
+
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "AntBulletEnv-v0"
+    # args.cwd = './{}/Ant_{}'.format(cwd, args.gpu_id)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 20
+    # args.max_step = 2 ** 10
+    # args.net_dim = 2 ** 8
+    # args.batch_size = 2 ** 8
+    # args.reward_scale = 2 ** -3
+    # args.is_remove = True
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+
+    process = [
+        mp.Process(target=mp__update_params,
+                   args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),  # main process, train agent
+        mp.Process(target=mp__update_buffer,
+                   args=(args, q_i_buf, q_o_buf,)),  # assist, collect buffer
+        mp.Process(target=mp__evaluated_act,
+                   args=(args, q_i_eva, q_o_eva)),  # assist, evaluate agent
+    ]
+
+    [p.start() for p in process]
+    [p.join() for p in process]
+    [p.close() for p in process]
+
+
 if __name__ == '__main__':
-    run__demo(gpu_id=0, cwd='AC_BasicAC')
-    # run__zoo(gpu_id=0, cwd='AC_SAC')
+    run__zoo(gpu_id=0, cwd='AC_SAC')
     # run__ppo(gpu_id=1, cwd='AC_PPO')
 
     # run__multi_process(run__zoo, gpu_tuple=(0, 1, 2, 3), cwd='AC_ZooMP')
