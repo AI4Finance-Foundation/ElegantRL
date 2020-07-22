@@ -1,12 +1,13 @@
 import os
 import sys
-from time import time as timer  # for reward recorder
+import time  # for reward recorder
 
 import gym
 import torch
 import numpy as np
+import numpy.random as rd
 
-from AgentZoo import BufferArray, initial_exploration
+from AgentZoo import initial_exploration
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
@@ -242,10 +243,70 @@ def get_env_info(env, is_print=True):  # 2020-06-06
     return state_dim, action_dim, action_max, target_reward, is_discrete
 
 
-def draw_plot_with_npy(mod_dir, train_time):  # 2020-04-40
-    record_epoch = np.load('%s/record_epoch.npy' % mod_dir)  # , allow_pickle=True)
+def draw_plot_with_2npy(cwd, train_time):  # 2020-07-07
+    record_explore = np.load('%s/record_explore.npy' % cwd)  # , allow_pickle=True)
+    # record_explore.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
+    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # , allow_pickle=True)
+    # record_evaluate.append((total_step, eva_r_avg, eva_r_std))
+
+    if len(record_evaluate.shape) == 1:
+        record_evaluate = np.array([[0., 0., 0.]])
+
+    train_time = int(train_time)
+    total_step = int(record_evaluate[-1][0])
+    save_title = f"plot_Step_Time_{total_step:06}_{train_time}"
+    save_path = "{}/{}.png".format(cwd, save_title)
+
+    """plot"""
+    import matplotlib as mpl  # draw figure in Terminal
+    mpl.use('Agg')
+    import matplotlib.pyplot as plt
+    # plt.style.use('ggplot')
+
+    fig, axs = plt.subplots(2)
+    plt.title(save_title, y=2.3)
+
+    ax11 = axs[0]
+    ax11_color = 'royalblue'
+    ax11_label = 'explore R'
+    exp_step = record_explore[:, 0]
+    exp_reward = record_explore[:, 1]
+    ax11.plot(exp_step, exp_reward, label=ax11_label, color=ax11_color)
+
+    ax12 = axs[0]
+    ax12_color = 'lightcoral'
+    ax12_label = 'Epoch R'
+    eva_step = record_evaluate[:, 0]
+    r_avg = record_evaluate[:, 1]
+    r_std = record_evaluate[:, 2]
+    ax12.plot(eva_step, r_avg, label=ax12_label, color=ax12_color)
+    ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
+
+    ax21 = axs[1]
+    ax21_color = 'darkcyan'
+    ax21_label = '-lossA'
+    exp_loss_a = -record_explore[:, 2]
+    ax21.set_ylabel(ax21_label, color=ax21_color)
+    ax21.plot(exp_step, -exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
+    ax21.tick_params(axis='y', labelcolor=ax21_color)
+
+    ax22 = axs[1].twinx()
+    ax22_color = 'darkcyan'
+    ax22_label = 'lossC'
+    exp_loss_c = record_explore[:, 3]
+    ax22.set_ylabel(ax22_label, color=ax22_color)
+    ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
+    ax22.tick_params(axis='y', labelcolor=ax22_color)
+
+    plt.savefig(save_path)
+    # plt.pause(4)
+    # plt.show()
+
+
+def draw_plot_with_npy(cwd, train_time):  # 2020-04-40
+    record_epoch = np.load('%s/record_epoch.npy' % cwd)  # , allow_pickle=True)
     # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
-    record_eval = np.load('%s/record_eval.npy' % mod_dir)  # , allow_pickle=True)
+    record_eval = np.load('%s/record_eval.npy' % cwd)  # , allow_pickle=True)
     # record_eval.append((epoch, eval_reward, eval_std))
 
     # print(';record_epoch:', record_epoch.shape)
@@ -261,7 +322,7 @@ def draw_plot_with_npy(mod_dir, train_time):  # 2020-04-40
     iter_num = int(sum(record_epoch[:, -1]))
     epoch_num = int(record_eval[-1, 0])
     save_title = "plot_{:04}E_{}T_{}s".format(epoch_num, iter_num, train_time)
-    save_path = "{}/{}.png".format(mod_dir, save_title)
+    save_path = "{}/{}.png".format(cwd, save_title)
 
     """plot"""
     import matplotlib as mpl  # draw figure in Terminal
@@ -361,12 +422,12 @@ class Recorder:
 
         self.epoch = 0
         self.train_time = 0  # train_time
-        self.train_timer = timer()  # train_time
-        self.start_time = self.show_time = timer()
+        self.train_time = time.time()  # train_time
+        self.start_time = self.show_time = time.time()
         print("epoch|   reward   r_max    r_ave    r_std |  loss_A loss_C |step")
 
     def show_reward(self, epoch_rewards, iter_numbers, loss_a, loss_c):
-        self.train_time += timer() - self.train_timer  # train_time
+        self.train_time += time.time() - self.train_time  # train_time
         self.epoch += len(epoch_rewards)
 
         if isinstance(epoch_rewards, float):
@@ -376,7 +437,7 @@ class Recorder:
             self.record_epoch.append((reward, loss_a, loss_c, iter_num))
             self.total_step += iter_num
 
-        if timer() - self.show_time > self.show_gap:
+        if time.time() - self.show_time > self.show_gap:
             self.rewards = get_eva_reward(self.agent, self.env_list[:self.e1], self.max_step, self.max_action,
                                           self.running_stat)
             self.reward_avg = np.average(self.rewards)
@@ -390,7 +451,7 @@ class Recorder:
                 smooth_reward, self.reward_max, self.reward_avg, self.reward_std,
                 loss_a, loss_c, self.total_step))
 
-            self.show_time = timer()  # reset show_time after get_eva_reward_batch !
+            self.show_time = time.time()  # reset show_time after get_eva_reward_batch !
         else:
             self.rewards = list()
 
@@ -426,12 +487,12 @@ class Recorder:
                 '', self.reward_max, self.reward_avg, self.reward_std,
                 loss_a, loss_c, self.total_step, ))
 
-        self.train_timer = timer()  # train_time
+        self.train_time = time.time()  # train_time
         return is_solved
 
     def print_and_save_npy(self, env_name, cwd):  # 2020-04-30
         iter_used = self.total_step  # int(sum(np.array(self.record_epoch)[:, -1]))
-        time_used = int(timer() - self.start_time)
+        time_used = int(time.time() - self.start_time)
         print('Used Time:', time_used)
         self.train_time = int(self.train_time)  # train_time
         print('TrainTime:', self.train_time)  # train_time
@@ -493,7 +554,7 @@ def get_eva_reward(agent, env_list, max_step, max_action, running_state=None):  
     return reward_sums
 
 
-def get_episode_reward(env, act, max_step, max_action, ) -> float:  # 2020-07-07
+def get_episode_reward(env, act, max_step, max_action, ) -> float:
     reward_item = 0.0
 
     state = env.reset()
@@ -512,7 +573,7 @@ def get_episode_reward(env, act, max_step, max_action, ) -> float:  # 2020-07-07
 
 
 def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete,
-                            **_kwargs) -> (np.ndarray, list, list):  # 2020-07-07
+                            **_kwargs) -> (np.ndarray, list, list):
     buffer_list = list()
 
     reward_list = list()
@@ -548,6 +609,242 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
 
     buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
     return buffer_array, reward_list, step_list
+
+
+'''experiment replay buffer'''
+
+
+class BufferList:
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = len(self.memories)
+
+    def add_memo(self, memory_tuple):
+        self.memories.append(memory_tuple)
+
+    def init_before_sample(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert list into array'''
+        arrays = [list()
+                  for _ in range(5)]  # len(self.memories[0]) == 5
+        for index in indices:
+            items = self.memories[index]
+            for item, array in zip(items, arrays):
+                array.append(item)
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+
+
+class BufferArray:  # 2020-05-20
+    def __init__(self, memo_max_len, state_dim, action_dim, ):
+        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+        self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
+
+        self.next_idx = 0
+        self.is_full = False
+        self.max_len = memo_max_len
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + action_dim
+
+    def add_memo(self, memo_tuple):
+        # memo_array == (reward, mask, state, action, next_state)
+        self.memories[self.next_idx] = np.hstack(memo_tuple)
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
+            self.is_full = True
+            self.next_idx = 0
+
+    def extend_memo(self, memo_array):  # 2020-07-07
+        # assert isinstance(memo_array, np.ndarray)
+        size = memo_array.shape[0]
+        next_idx = self.next_idx + size
+        if next_idx < self.max_len:
+            self.memories[self.next_idx:next_idx] = memo_array
+        if next_idx >= self.max_len:
+            if next_idx > self.max_len:
+                self.memories[self.next_idx:self.max_len] = memo_array[:self.max_len - self.next_idx]
+            self.is_full = True
+            next_idx = next_idx - self.max_len
+            self.memories[0:next_idx] = memo_array[-next_idx:]
+        else:
+            self.memories[self.next_idx:next_idx] = memo_array
+        self.next_idx = next_idx
+
+    def init_before_sample(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+        memory = self.memories[indices]
+        if device:
+            memory = torch.tensor(memory, device=device)
+
+        '''convert array into torch.tensor'''
+        tensors = (
+            memory[:, 0:1],  # rewards
+            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            memory[:, 2:self.state_idx],  # states
+            memory[:, self.state_idx:self.action_idx],  # actions
+            memory[:, self.action_idx:],  # next_states
+        )
+        return tensors
+
+
+class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
+    def __init__(self, memo_max_len, state_dim, action_dim, ):
+        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+        assert torch.cuda.is_available()
+        self.device = torch.device("cuda")
+        self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
+
+        self.next_idx = 0
+        self.is_full = False
+        self.max_len = memo_max_len
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + action_dim
+
+    def add_memo(self, memo_tuple):
+        """memo_tuple == (reward, mask, state, action, next_state)
+        """
+        memo_array = np.hstack(memo_tuple)
+        self.memories[self.next_idx] = torch.tensor(memo_array, device=self.device)
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
+            self.is_full = True
+            self.next_idx = 0
+
+    def extend_memo(self, memo_array):  # 2020-07-07
+        # assert isinstance(memo_array, np.ndarray)
+        size = memo_array.shape[0]
+        memo_tensor = torch.tensor(memo_array, device=self.device)
+
+        next_idx = self.next_idx + size
+        if next_idx < self.max_len:
+            self.memories[self.next_idx:next_idx] = memo_tensor
+        if next_idx >= self.max_len:
+            if next_idx > self.max_len:
+                self.memories[self.next_idx:self.max_len] = memo_tensor[:self.max_len - self.next_idx]
+            self.is_full = True
+            next_idx = next_idx - self.max_len
+            self.memories[0:next_idx] = memo_tensor[-next_idx:]
+        else:
+            self.memories[self.next_idx:next_idx] = memo_tensor
+        self.next_idx = next_idx
+
+    def init_before_sample(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+    def random_sample(self, batch_size, _device):  # _device should remove
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+        memory = self.memories[indices]
+        # if device:
+        #     memory = torch.tensor(memory, device=device)
+
+        '''convert array into torch.tensor'''
+        tensors = (
+            memory[:, 0:1],  # rewards
+            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            memory[:, 2:self.state_idx],  # states
+            memory[:, self.state_idx:self.action_idx],  # actions
+            memory[:, self.action_idx:],  # next_states
+        )
+        return tensors
+
+
+class BufferTuple:
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = None  # init in init_after_add_memo()
+
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition', ('reward', 'mask', 'state', 'action', 'next_state',)
+        )
+
+    def add_memo(self, args):
+        self.memories.append(self.transition(*args))
+
+    def init_before_sample(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert tuple into array'''
+        arrays = self.transition(*zip(*[self.memories[i] for i in indices]))
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+
+
+class BufferTupleOnline:
+    def __init__(self, ):
+        self.storage_list = list()
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition',
+            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
+            ('reward', 'mask', 'state', 'action', 'log_prob')
+        )
+
+    def push(self, *args):
+        self.storage_list.append(self.transition(*args))
+
+    def extend(self, storage_list):
+        self.storage_list.extend(storage_list)
+
+    def sample(self):
+        return self.transition(*zip(*self.storage_list))
+
+    def __len__(self):
+        return len(self.storage_list)
 
 
 """demo"""
@@ -901,7 +1198,7 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     args.init_for_training()
     del args
 
-    state_dim, action_dim = q_o_buf.get()  # q__buf 1.
+    state_dim, action_dim = q_o_buf.get()  # q_o_buf 1.
     agent = class_agent(state_dim, action_dim, net_dim)
 
     from copy import deepcopy
@@ -912,20 +1209,23 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     # q_i_buf.put(act_cpu)  # q_i_buf 2. # warning
     q_i_eva.put(act_cpu)  # q_i_eva 1.
 
-    buffer = BufferArray(max_memo, state_dim, action_dim)  # experiment replay buffer
+    buffer = BufferArrayGPU(max_memo, state_dim, action_dim)  # experiment replay buffer
 
     '''initial_exploration'''
-    buffer_array, reward_list, step_list = q_o_buf.get()  # q__buf 2.
+    buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf 2.
+    reward_avg = np.average(reward_list)
+    step_sum = sum(step_list)
     buffer.extend_memo(buffer_array)
 
+    q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva 1.
+
     for epoch in range(max_epoch):  # epoch is episode
-        buffer_array, reward_list, step_list = q_o_buf.get()  # q__buf n.
+        buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf n.
         reward_avg = np.average(reward_list)
         step_sum = sum(step_list)
-
         buffer.extend_memo(buffer_array)
-        buffer.init_before_sample()
 
+        buffer.init_before_sample()
         loss_a_avg, loss_c_avg = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
 
         act_cpu.load_state_dict(agent.act.state_dict())
@@ -936,42 +1236,38 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
             is_solved = q_o_eva.get()  # q_o_eva n.
             if is_solved:
                 break
-
-    q_i_buf.put(None)  # q_i_buf -1.
-    q_i_eva.put(None)  # q_i_eva -1.
-    pass
+    # print('; quit: params')
 
 
-def mp__update_buffer(args, q_i_buf, q__buf):  # update replay buffer by interacting with env
+def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by interacting with env
     env_name = args.env_name
     max_step = args.max_step
     reward_scale = args.reward_scale
     gamma = args.gamma
     del args
 
-    torch.set_num_threads(8)
+    torch.set_num_threads(4)
 
     env = gym.make(env_name)
     state_dim, action_dim, max_action, _, is_discrete = get_env_info(env, is_print=False)
-    q__buf.put((state_dim, action_dim))  # q__buf 1.
+    q_o_buf.put((state_dim, action_dim))  # q_o_buf 1.
 
     '''build evaluated only actor'''
     q_i_buf_get = q_i_buf.get()  # q_i_buf 1.
-    act = q_i_buf_get  # q_i_buf_get == act.to(device_cpu), requires_grad=False
+    act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
 
     buffer_array, reward_list, step_list = get__buffer_reward_step(
         env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete)
 
-    q__buf.put((buffer_array, reward_list, step_list))  # q__buf 2.
+    q_o_buf.put((buffer_array, reward_list, step_list))  # q_o_buf 2.
 
     explore_noise = True
     state = env.reset()
-    while q_i_buf_get is not None:
+    is_training = True
+    while is_training:
         buffer_list = list()
-
         reward_list = list()
         reward_item = 0.0
-
         step_list = list()
         step_item = 0
 
@@ -1003,14 +1299,17 @@ def mp__update_buffer(args, q_i_buf, q__buf):  # update replay buffer by interac
                 state = next_state
 
         buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
-        q__buf.put((buffer_array, reward_list, step_list))  # q__buf n.
+        q_o_buf.put((buffer_array, reward_list, step_list))  # q_o_buf n.
 
-        q_i_buf_get = q_i_buf.get()  # q_i_buf n.
-        act = q_i_buf_get
-    pass
+        try:
+            q_i_buf_get = q_i_buf.get()  # q_i_buf n.
+        except FileNotFoundError:
+            is_training = False
+        act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
+    # print('; quit: buffer')
 
 
-def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
+def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
     max_step = args.max_step
     cwd = args.cwd
     eva_size = args.eva_size
@@ -1018,9 +1317,8 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     env_name = args.env_name
     gpu_id = args.gpu_id
     del args
-    from time import time as timer
 
-    torch.set_num_threads(8)
+    torch.set_num_threads(4)
 
     '''recorder'''
     eva_r_max = -np.inf
@@ -1028,8 +1326,8 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     total_step = 0
     loss_a_avg = 0
     loss_c_avg = 0
-    recorder_exp = list()  # exp_r_avg, total_step, loss_a_avg, loss_c_avg
-    recorder_eva = list()  # eva_r_avg, eva_r_std
+    recorder_exp = list()  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
+    recorder_eva = list()  # total_step, eva_r_avg, eva_r_std
 
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
@@ -1038,21 +1336,17 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
     act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
 
-    print(f"{'GPU':3}  {'MaxR':>8}  {'R avg':>8}  {'R std':>8} |"
-          f"{'ExpR':>8}  {'ExpS':>8}  {'LossA':>8}  {'LossC':>8}")
+    print(f"{'GPU':3}  {'Step':>8}  {'MaxR':>8} |"
+          f"{'avgR':>8}  {'stdR':>8} |"
+          f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
 
     is_solved = False
-    start_time = timer()
-    print_time = timer()
+    start_time = time.time()
+    print_time = time.time()
 
-    while q_i_eva_get is not None:
-        '''update actor'''
-        while q_i_eva.qsize():  # get the latest
-            q_i_eva_get = q_i_eva.get()  # q_i_eva n.
-            act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
-            total_step += exp_s_sum
-            recorder_exp.append((exp_r_avg, total_step, loss_a_avg, loss_c_avg))
-
+    used_time = None
+    is_training = True
+    while is_training:
         '''evaluate actor'''
         reward_list = [get_episode_reward(env, act, max_step, max_action, )
                        for _ in range(8)]
@@ -1061,39 +1355,51 @@ def mp__evaluated_act(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             reward_list.extend([get_episode_reward(env, act, max_step, max_action, )
                                 for _ in range(eva_size - len(reward_list))])
             eva_r_avg = np.average(reward_list)
-            if eva_r_avg > eva_r_max:  # check 2
+            if eva_r_avg > eva_r_max:  # check final
                 eva_r_max = eva_r_avg
 
                 act_save_path = f'{cwd}/actor.pth'
-                print(f'{gpu_id:<3}  {eva_r_max:8.2f}')
                 torch.save(act.state_dict(), act_save_path)
+                print(f"{gpu_id:<3}  {total_step:8.2e}  {eva_r_max:8.2f} |")
 
         eva_r_std = np.std(reward_list)
-        recorder_eva.append((eva_r_avg, eva_r_std))
+        recorder_eva.append((total_step, eva_r_avg, eva_r_std))
 
         if eva_r_max > target_reward:
             is_solved = True
-            used_time = int(timer() - start_time)
-            print(f'######### solve: {used_time:8}  {total_step:8.2e}  \n'
-                  f'######### solve: {eva_r_avg:8.2f}  {eva_r_std:8.2f} ')
+            if used_time is not None:
+                used_time = int(time.time() - start_time)
+                print(f'### GPU:{gpu_id} solve  '
+                      f'Time {used_time:8   }  Step {total_step:8.2e}  '
+                      f'avgR {eva_r_avg:8.2f}  stdR {eva_r_std:8.2f} ')
 
         q_o_eva.put(is_solved)  # q_o_eva n.
 
-        if timer() - print_time > show_gap:
-            print_time = timer()
-            print(f'{gpu_id:<3}  {eva_r_max:8.2f}  {eva_r_avg:8.2f}  {eva_r_std:8.2f} |'
-                  f'{exp_r_avg:8.2f}  {total_step:8.2e}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}')
+        if time.time() - print_time > show_gap:
+            print_time = time.time()
+            print(f"{gpu_id:<3}  {total_step:8.2e}  {eva_r_max:8.2f} |"
+                  f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
+                  f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
 
-    pass
+        '''update actor'''
+        while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
+            time.sleep(1)
+        while q_i_eva.qsize():  # get the latest actor
+            try:
+                q_i_eva_get = q_i_eva.get()  # q_i_eva n.
+            except FileNotFoundError:
+                is_training = False
+                break
+            act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
+            total_step += exp_s_sum
+            recorder_exp.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
+    np.save('%s/record_explore.npy' % cwd, recorder_exp)
+    np.save('%s/record_evaluate.npy' % cwd, recorder_eva)
+    draw_plot_with_2npy(cwd, train_time=time.time() - start_time)
+    # print('; quit: evaluate')
 
 
 def run__mp(gpu_id, cwd='MP__beta'):
-    import multiprocessing as mp
-    q_i_buf = mp.Queue(maxsize=8)  # buffer I
-    q_o_buf = mp.Queue(maxsize=8)  # buffer O
-    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
-
     import AgentZoo as Zoo
     args = Arguments()
     args.class_agent = Zoo.AgentDeepSAC
@@ -1121,12 +1427,17 @@ def run__mp(gpu_id, cwd='MP__beta'):
     # args.eva_size = 2 ** 5  # for Recorder
     # args.show_gap = 2 ** 8  # for Recorder
 
+    import multiprocessing as mp
+    q_i_buf = mp.Queue(maxsize=8)  # buffer I
+    q_o_buf = mp.Queue(maxsize=8)  # buffer O
+    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
     process = [
         mp.Process(target=mp__update_params,
                    args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),  # main process, train agent
         mp.Process(target=mp__update_buffer,
                    args=(args, q_i_buf, q_o_buf,)),  # assist, collect buffer
-        mp.Process(target=mp__evaluated_act,
+        mp.Process(target=mp_evaluate_agent,
                    args=(args, q_i_eva, q_o_eva)),  # assist, evaluate agent
     ]
 
