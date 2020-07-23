@@ -567,7 +567,7 @@ class AgentSNAC(AgentBasicAC):
                 self.act_target.load_state_dict(self.act.state_dict())  # hard target update
                 self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
 
-                trust_rho = self.trust_rho.get_trust_rho()
+                trust_rho = self.trust_rho.update_rho()
                 self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * trust_rho
 
         loss_a_avg = loss_a_sum / update_times
@@ -575,7 +575,7 @@ class AgentSNAC(AgentBasicAC):
         return loss_a_avg, loss_c_avg
 
 
-class AgentInterAC(AgentBasicAC):
+class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         # use_dn = True  # SNAC, use_dn (DenseNet) and (Spectral Normalization)
@@ -600,8 +600,7 @@ class AgentInterAC(AgentBasicAC):
         self.update_counter = 0
 
         '''extension: auto learning rate of actor'''
-        self.loss_c_sum = 0.0
-        self.rho = 0.5
+        self.trust = TrustRho()
 
         '''constant'''
         self.explore_rate = 0.5  # explore rate when update_buffer()
@@ -634,7 +633,7 @@ class AgentInterAC(AgentBasicAC):
             critic_loss = self.criterion(q_eval, q_target)
             loss_c_tmp = critic_loss.item()
             loss_c_sum += loss_c_tmp
-            self.loss_c_sum += loss_c_tmp  # extension
+            self.trust.append_loss_c(loss_c_tmp)
 
             '''actor correction term'''
             actor_term = self.criterion(self.act(next_state), next_action)
@@ -647,9 +646,9 @@ class AgentInterAC(AgentBasicAC):
                 # Or you can use act.critic.deepcopy(). Whatever you cannot use act.critic directly.
                 loss_a_sum += actor_loss.item()
 
-                united_loss = critic_loss + actor_term * (1 - self.rho) + actor_loss * (self.rho * 0.5)
+                united_loss = critic_loss + actor_term * (1 - self.trust.rho) + actor_loss * (self.trust.rho * 0.5)
             else:
-                united_loss = critic_loss + actor_term * (1 - self.rho)
+                united_loss = critic_loss + actor_term * (1 - self.trust.rho)
 
             """united loss"""
             self.act_optimizer.zero_grad()
@@ -660,11 +659,8 @@ class AgentInterAC(AgentBasicAC):
             if self.update_counter == update_freq:
                 self.update_counter = 0
 
-                rho = np.exp(-(self.loss_c_sum / update_freq) ** 2)
-                self.rho = (self.rho + rho) * 0.5
-                self.loss_c_sum = 0.0
-
-                if self.rho > 0.1:
+                self.trust.update_rho()
+                if self.trust.rho > 0.1:
                     self.act_target.load_state_dict(self.act.state_dict())
 
         loss_a_avg = loss_a_sum / update_times
@@ -1545,8 +1541,7 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
         self.explore_rate = 0.25  # explore rate when update_buffer()
         self.explore_noise = True  # standard deviation of explore noise
         self.update_freq = 2 ** 7  # delay update frequency, for hard target update
-        '''extension'''
-        self.trust_rho = TrustRho()
+
 
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
         update_freq = self.update_freq  # delay update frequency, for soft target update
@@ -1674,12 +1669,15 @@ class TrustRho:
     def append_loss_c(self, loss_c):  # loss_c is a float instead of tensor
         self.loss_c_list.append(loss_c)
 
-    def get_trust_rho(self, ):
+    def update_rho(self, ):
         loss_c_avg = np.average(self.loss_c_list)
         self.loss_c_list = list()
 
         rho = np.exp(-loss_c_avg ** 2)
         self.rho = (self.rho + rho) * 0.5  # soft update
+        return self.rho
+
+    def __call__(self, ):
         return self.rho
 
 

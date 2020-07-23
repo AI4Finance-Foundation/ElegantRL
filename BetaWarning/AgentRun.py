@@ -30,6 +30,40 @@ https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 """
 
 
+class ArgumentsBeta:  # default working setting and hyper-parameter
+    def __init__(self, class_agent, gpu_id=None, cwd='RL_Result', env_name='Pendulum-v0'):
+        self.class_agent = class_agent
+        self.gpu_id = sys.argv[-1][-4] if gpu_id is None else gpu_id
+        self.cwd = f'{cwd}/{env_name}_{self.gpu_id}'
+        self.env_name = env_name
+
+        self.net_dim = 2 ** 7  # the network width
+        self.max_step = 2 ** 10  # max steps in one epoch
+        self.max_memo = 2 ** 17  # memories capacity (memories: replay buffer)
+        self.max_epoch = 2 ** 10  # max times of train_epoch
+        self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
+        self.repeat_times = 1  # Two-time Update Rule (TTUR)
+        self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
+        self.gamma = 0.99  # discount factor of future rewards
+
+        self.is_remove = True  # remove the cwd folder? (True, False, None:ask me)
+        self.show_gap = 2 ** 7  # show the Reward and Loss of actor and critic per show_gap seconds
+        self.eva_size = 2 ** 6  # for evaluated reward average
+
+    def init_for_training(self, cpu_threads=4, random_seed=1943):
+        assert self.class_agent is not None
+        print('| GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
+        whether_remove_history(self.cwd, self.is_remove)
+
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(self.gpu_id)
+
+        torch.set_num_threads(cpu_threads)
+        torch.set_default_dtype(torch.float32)
+        torch.manual_seed(random_seed)
+        np.random.seed(random_seed)
+        # env.seed(random_seed)  # env has random seed too.
+
+
 class Arguments:  # default working setting and hyper-parameter
     def __init__(self):
         self.class_agent = None
@@ -1101,7 +1135,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
     act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
 
-    print(f"{'GPU':3}  {'Step':>8}  {'MaxR':>8} |"
+    print(f"{'GPU':>3}  {'Step':>8}  {'MaxR':>8} |"
           f"{'avgR':>8}  {'stdR':>8} |"
           f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
 
@@ -1134,9 +1168,12 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             is_solved = True
             if used_time is None:
                 used_time = int(time.time() - start_time)
-                print(f'#### GPU:{gpu_id} solve  '
-                      f'Time {used_time}  Step {total_step:8.2e}  '
-                      f'avgR {eva_r_avg:8.2f}  stdR {eva_r_std:8.2f} ')
+                print(f"{'GPU':>3}  {'Step':>8}  {'MaxR':>8} |"
+                      f"{'avgR':>8}  {'stdR':>8} |"
+                      f"{'ExpR':>8}  {'UsedTime':>8}  ########")
+                print(f"{gpu_id:<3}  {total_step:8.2e}  {eva_r_max:8.2f} |"
+                      f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
+                      f"{exp_r_avg:8.2f}  {used_time:>8}  ########")
 
         q_o_eva.put(is_solved)  # q_o_eva n.
 
