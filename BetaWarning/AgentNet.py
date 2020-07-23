@@ -87,7 +87,7 @@ class InterDPG(nn.Module):  # class AgentIntelAC
 
 
 class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
-    def __init__(self, state_dim, action_dim, mid_dim):  # plan todo use_dn
+    def __init__(self, state_dim, action_dim, mid_dim):
         super(InterSPG, self).__init__()
         self.log_std_min = -20
         self.log_std_max = 2
@@ -118,11 +118,13 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         )  # action_std_log (d means standard dev.)
         self.dec_q1 = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
+            nn.Linear(mid_dim, 1),
+            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
         )  # q_value1 SharedTwinCritic
         self.dec_q2 = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.utils.spectral_norm(nn.Linear(mid_dim, 1)),
+            nn.Linear(mid_dim, 1),
+            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
         )  # q_value2 SharedTwinCritic
 
     def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean

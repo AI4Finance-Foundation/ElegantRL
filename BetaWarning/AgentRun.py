@@ -1201,16 +1201,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     # print('; quit: evaluate')
 
 
-def run__mp(gpu_id=None, cwd='MP__beta'):
-    import AgentZoo as Zoo
-    args = Arguments()
-    args.class_agent = Zoo.AgentDeepSAC
-    args.gpu_id = gpu_id if gpu_id is not None else sys.argv[-1][-4]
-    assert args.class_agent in {
-        Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
-        Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
-    }
-
+def run__mp(gpu_id=None, cwd='MP__InterSAC'):
     import multiprocessing as mp
     q_i_buf = mp.Queue(maxsize=8)  # buffer I
     q_o_buf = mp.Queue(maxsize=8)  # buffer O
@@ -1223,30 +1214,45 @@ def run__mp(gpu_id=None, cwd='MP__beta'):
                    mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
         [p.start() for p in process]
         [p.join() for p in process]
-        [p.close() for p in process]
+        # [p.close() for p in process]
+        [p.terminate() for p in process]  # use p.terminate() instead of p.close()
 
-    args.env_name = "LunarLanderContinuous-v2"
-    args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDeepSAC
+
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="LunarLanderContinuous-v2")
     build_for_mp()
 
-    args.env_name = "BipedalWalker-v3"
-    args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
     build_for_mp()
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "AntBulletEnv-v0"
-    args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="AntBulletEnv-v0")
     args.max_epoch = 2 ** 13
     args.max_memo = 2 ** 20
     args.max_step = 2 ** 10
     args.net_dim = 2 ** 8
     args.batch_size = 2 ** 9
     args.reward_scale = 2 ** -2
-    args.is_remove = True
     args.eva_size = 2 ** 5  # for Recorder
     args.show_gap = 2 ** 8  # for Recorder
     build_for_mp()
+    #
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "MinitaurBulletEnv-v0"
+    # args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 20
+    # args.net_dim = 2 ** 8
+    # args.max_step = 2 ** 10
+    # args.batch_size = 2 ** 9
+    # args.reward_scale = 2 ** 3
+    # args.is_remove = True
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # build_for_mp()
 
 
 if __name__ == '__main__':
