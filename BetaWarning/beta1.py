@@ -6,7 +6,7 @@ from AgentNet import *
 beta2 ArgumentsBeta
 beta1 cancel SN, soft update
 beta0 # todo # self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * rho
-beta1 buffer.random_sample(batch_size_ + 1
+beta1
 """
 
 
@@ -197,7 +197,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         for i in range(update_times * repeat_times):
             with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + 1, self.device)
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
