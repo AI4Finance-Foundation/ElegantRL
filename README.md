@@ -11,9 +11,9 @@ It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
 Maybe you can find Multi-agent in folder 'BetaWarning'.
 
-I am still learning English. Pardon. 我英文差，还望包涵。More details see ↓ (write in Chinese)
+I am still learning English. Pardon. More details see ↓ (write in Chinese). 我英文差，还望包涵。更多细节，详见下方。↓
 
-更多详细的内容见知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
+知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
 
 # Show results
 
