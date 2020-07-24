@@ -896,7 +896,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             """target update"""
-            soft_target_update(self.act_target, self.act)  # soft target update
+            soft_target_update(self.act_target, self.act, tau=5e-3 * (0.5 + rho))  # todo  # soft target update
 
             self.update_counter += 1
             if self.update_counter >= update_freq:
@@ -1498,7 +1498,7 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        actor_dim = net_dim
+        actor_dim = net_dim  # todo should be elegant as DuelingDQN
         act = QNetTwin(state_dim, action_dim, actor_dim).to(self.device)
         act.train()
         self.act = act
@@ -1523,7 +1523,6 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
         self.explore_rate = 0.25  # explore rate when update_buffer()
         self.explore_noise = True  # standard deviation of explore noise
         self.update_freq = 2 ** 7  # delay update frequency, for hard target update
-
 
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
         update_freq = self.update_freq  # delay update frequency, for soft target update
@@ -1580,6 +1579,84 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
             a_prob = self.softmax(actions).cpu().data.numpy()
             a_ints = [rd.choice(self.action_dim, p=prob)
                       for prob in a_prob]
+        return a_ints
+
+
+class AgentDuelingDQN(AgentBasicAC):  # 2020-07-07
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        self.learning_rate = 2e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        self.act = QNetDuel(state_dim, action_dim, net_dim).to(self.device)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.act.train()
+
+        self.act_target = QNetDuel(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
+        self.act_target.eval()
+
+        self.criterion = nn.SmoothL1Loss()
+        self.softmax = nn.Softmax(dim=1)
+        self.action_dim = action_dim
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0
+
+        '''extension: rho and loss_c'''
+        self.explore_rate = 0.25  # explore rate when update_buffer()
+        self.explore_noise = True  # standard deviation of explore noise
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        self.act.train()
+
+        # loss_a_sum = 0.0
+        loss_c_sum = 0.0
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for _ in range(update_times):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size_, self.device)
+
+                q_target_next = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_target = rewards + masks * q_target_next
+
+            self.act.train()
+            a_ints = actions.type(torch.long)
+            q_eval = self.act(states).gather(1, a_ints)
+            critic_loss = self.criterion(q_eval, q_target)
+            loss_c_tmp = critic_loss.item()
+            loss_c_sum += loss_c_tmp
+
+            self.act_optimizer.zero_grad()
+            critic_loss.backward()
+            self.act_optimizer.step()
+
+            soft_target_update(self.act_target, self.act)
+
+        loss_a_avg = 0.0
+        loss_c_avg = loss_c_sum / update_times
+        return loss_a_avg, loss_c_avg
+
+    def select_actions(self, states, explore_noise=0.0):  # 2020-07-07
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)  # state.size == (1, state_dim)
+        actions = self.act(states, 0)
+
+        # discrete action space
+        if explore_noise == 0.0:
+            a_ints = actions.argmax(dim=1).cpu().data.numpy()
+        else:
+            a_prob = self.softmax(actions).cpu().data.numpy()
+            a_ints = [rd.choice(self.action_dim, p=prob)
+                      for prob in a_prob]
+            # a_ints = rd.randint(self.action_dim, size=)
         return a_ints
 
 

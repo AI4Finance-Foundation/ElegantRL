@@ -549,6 +549,31 @@ class QNetTwin(nn.Module):  # class AgentQLearning
         return q1, q2
 
 
+class QNetDuel(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+
+        self.net__head = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+        )
+        self.net_val = nn.Sequential(  # value
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
+        self.net_adv = nn.Sequential(  # advantage value
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
+
+    def forward(self, state, noise_std=0.0):
+        x = self.net__head(state)
+        val = self.net_val(x)
+        adv = self.net_adv(x)
+        q = val + adv - adv.mean(dim=1, keepdim=True)
+        return q
+
+
 """utils"""
 
 

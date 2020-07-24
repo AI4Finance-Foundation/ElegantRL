@@ -49,8 +49,9 @@ class ArgumentsBeta:  # default working setting and hyper-parameter
         self.is_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.show_gap = 2 ** 7  # show the Reward and Loss of actor and critic per show_gap seconds
         self.eva_size = 2 ** 6  # for evaluated reward average
+        self.random_seed = 19430
 
-    def init_for_training(self, cpu_threads=4, random_seed=1943):
+    def init_for_training(self, cpu_threads=4):
         assert self.class_agent is not None
         print('| GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
         whether_remove_history(self.cwd, self.is_remove)
@@ -59,8 +60,8 @@ class ArgumentsBeta:  # default working setting and hyper-parameter
 
         torch.set_num_threads(cpu_threads)
         torch.set_default_dtype(torch.float32)
-        torch.manual_seed(random_seed)
-        np.random.seed(random_seed)
+        torch.manual_seed(self.random_seed)
+        np.random.seed(self.random_seed)
         # env.seed(random_seed)  # env has random seed too.
 
 
@@ -209,12 +210,12 @@ def train_agent_discrete(
         for epoch in range(max_epoch):
             # update replay buffer by interact with environment
             with torch.no_grad():  # for saving the GPU buffer
-                rewards, steps = agent.update_replay_buffer(
+                rewards, steps = agent.update_buffer(
                     env, buffer, max_step, max_action, reward_scale, gamma)
 
             # update network parameters by random sampling buffer for gradient descent
             buffer.init_before_sample()
-            loss_a, loss_c = agent.update_network_param(buffer, max_step, batch_size, repeat_times)
+            loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
 
             # show/check the reward, save the max reward actor
             with torch.no_grad():  # for saving the GPU buffer
@@ -457,12 +458,12 @@ class Recorder:
 
         self.epoch = 0
         self.train_time = 0  # train_time
-        self.train_time = time.time()  # train_time
+        self.train_timer = time.time()  # train_time
         self.start_time = self.show_time = time.time()
         print("epoch|   reward   r_max    r_ave    r_std |  loss_A loss_C |step")
 
     def show_reward(self, epoch_rewards, iter_numbers, loss_a, loss_c):
-        self.train_time += time.time() - self.train_time  # train_time
+        self.train_time += time.time() - self.train_timer  # train_time
         self.epoch += len(epoch_rewards)
 
         if isinstance(epoch_rewards, float):
@@ -522,10 +523,10 @@ class Recorder:
                 '', self.reward_max, self.reward_avg, self.reward_std,
                 loss_a, loss_c, self.total_step, ))
 
-        self.train_time = time.time()  # train_time
+        self.train_timer = time.time()  # train_time
         return is_solved
 
-    def print_and_save_npy(self, env_name, cwd):  # 2020-04-30
+    def print_and_save_npy(self, env_name, cwd):  # 2020-07-07
         iter_used = self.total_step  # int(sum(np.array(self.record_epoch)[:, -1]))
         time_used = int(time.time() - self.start_time)
         print('Used Time:', time_used)
@@ -806,21 +807,15 @@ def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     train_agent__on_policy(**vars(args))
 
 
-def run__dqn(gpu_id, cwd='RL_DQN'):
+def run__dqn(gpu_id=0, cwd='RL__DQN'):  # 2020-07-07
     import AgentZoo as Zoo
-    args = Arguments()
-    args.class_agent = Zoo.AgentDoubleDQN
-    assert args.class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN}
-    args.gpu_id = gpu_id
-    args.show_gap = 2 ** 5
-
-    args.env_name = "CartPole-v0"
-    args.cwd = '{}/{}'.format(cwd, args.env_name)
+    class_agent = Zoo.AgentDuelingDQN  # todo I haven't test DQN, DDQN after 2020-07-07
+    assert class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="CartPole-v0")
     args.init_for_training()
     train_agent_discrete(**vars(args))
 
-    args.env_name = "LunarLander-v2"
-    args.cwd = '{}/{}'.format(cwd, args.env_name)
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="LunarLander-v2")
     args.init_for_training()
     train_agent_discrete(**vars(args))
 
@@ -1168,10 +1163,10 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             is_solved = True
             if used_time is None:
                 used_time = int(time.time() - start_time)
-                print(f"{'GPU':>3}  {'Step':>8}  {'MaxR':>8} |"
+                print(f"{'GPU':>3}  {'Step':>8}  {'TargetR':>8} |"
                       f"{'avgR':>8}  {'stdR':>8} |"
                       f"{'ExpR':>8}  {'UsedTime':>8}  ########")
-                print(f"{gpu_id:<3}  {total_step:8.2e}  {eva_r_max:8.2f} |"
+                print(f"{gpu_id:<3}  {total_step:8.2e}  {target_reward:8.2f} |"
                       f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
                       f"{exp_r_avg:8.2f}  {used_time:>8}  ########")
 
