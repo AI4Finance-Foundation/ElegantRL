@@ -5,13 +5,13 @@ import numpy.random as rd
 import torch
 import torch.nn as nn
 
-from AgentNet import QNet, QNetTwin  # Q-learning based
+from AgentNet import QNet, QNetTwin, QNetDuel  # Q-learning based
 from AgentNet import Actor, Critic, CriticTwin  # DDPG, TD3
 from AgentNet import ActorDN, CriticSN  # SN_AC
 from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
-from AgentNet import InterDPG, InterSPG  # InterXXX means Sharing parameters between Actor and Critic
+from AgentNet import InterDPG, InterSPG  # sharing parameters between Actor and Critic
 
 """
 2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo/RL
@@ -33,13 +33,14 @@ from AgentNet import InterDPG, InterSPG  # InterXXX means Sharing parameters bet
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 
-Refer: (TD3) https://github.com/sfujim/TD3 good++
-Refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good+
-Refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py good++
-Refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py bad
-Refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2 normal-
-Refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac normal -
-Refer: (SQL) https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py bad-
+refer: (TD3) https://github.com/sfujim/TD3 good++
+refer: (TD3) https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
+refer: (PPO) https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py good+
+refer: (PPO) https://github.com/Jiankai-Sun/Proximal-Policy-Optimization-in-Pytorch/blob/master/ppo.py bad
+refer: (PPO) https://github.com/openai/baselines/tree/master/baselines/ppo2 normal-
+refer: (SAC) https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac normal -
+refer: (SQL) https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py bad-
+refer: (DUEL) https://github.com/gouxiangchen/dueling-DQN-pytorch good
 """
 
 
