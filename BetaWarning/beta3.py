@@ -4,135 +4,10 @@ from AgentNet import *
 
 """
 beta2 ArgumentsBeta
-beta1 cancel SN, soft update
-beta0 # todo # self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * rho
-beta1 buffer.random_sample(batch_size_ + i
-beta3         [p.terminate() for p in process] # todo
-
+beta3 tau=rho * 5e-3
+beta1 random seed
+beta0 tau=5e-3*(0.5+rho)
 """
-
-
-class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
-    def __init__(self, state_dim, action_dim, mid_dim):
-        super(InterSPG, self).__init__()
-        self.log_std_min = -20
-        self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # encoder
-        self.enc_s = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )  # state
-        self.enc_a = nn.Sequential(
-            nn.Linear(action_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )  # action (without nn.Tanh())
-
-        self.net = DenseNet(mid_dim)
-        net_out_dim = mid_dim * 4
-
-        # decoder
-        self.dec_a = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_mean
-        self.dec_d = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_std_log (d means standard dev.)
-        self.dec_q1 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, 1),
-            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
-        )  # q_value1 SharedTwinCritic
-        self.dec_q2 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, 1),
-            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
-        )  # q_value2 SharedTwinCritic
-
-    def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
-        s_ = self.enc_s(s)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-
-        if noise_std != 0.0:
-            a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
-
-        return a_mean.tanh()
-
-    def get__a__log_prob(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
-
-        a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
-
-    def get__a__std(self, state):
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        return a_mean.tanh(), a_std
-
-    def get__a__avg_std_noise_prob(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
-
-        a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_mean.tanh(), a_std, a_noise_tanh, log_prob.sum(1, keepdim=True)
-
-    def get__q1_q2(self, s, a):  # critic
-        s_ = self.enc_s(s)
-        a_ = self.enc_a(a)
-        q_ = self.net(s_ + a_)
-        q1 = self.dec_q1(q_)
-        q2 = self.dec_q2(q_)
-        return q1, q2
 
 
 class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
@@ -199,8 +74,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         for i in range(update_times * repeat_times):
             with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + i, self.device)
-                # todo
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + 1, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
@@ -247,7 +121,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             """target update"""
-            soft_target_update(self.act_target, self.act)  # soft target update
+            soft_target_update(self.act_target, self.act, tau=5e-3 * (0.5 + rho))  # todo  # soft target update
 
             self.update_counter += 1
             if self.update_counter >= update_freq:
@@ -273,42 +147,44 @@ def run__mp(gpu_id=None, cwd='MP__InterSAC'):
                    mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
         [p.start() for p in process]
         [p.join() for p in process]
-        [p.close() for p in process]
-        [p.terminate() for p in process] # todo
+        # [p.close() for p in process]
+        [p.terminate() for p in process]  # use p.terminate() instead of p.close()
+        time.sleep(8)
 
-    args = ArgumentsBeta(AgentInterSAC, gpu_id, cwd, env_name="LunarLanderContinuous-v2")
-    build_for_mp()
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDeepSAC
 
-    args = ArgumentsBeta(AgentInterSAC, gpu_id, cwd, env_name="BipedalWalker-v3")
-    build_for_mp()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args = ArgumentsBeta(AgentInterSAC, gpu_id, cwd, env_name="AntBulletEnv-v0")
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 20
-    args.max_step = 2 ** 10
-    args.net_dim = 2 ** 8
-    args.batch_size = 2 ** 9
-    args.reward_scale = 2 ** -2
-    args.eva_size = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    build_for_mp()
+    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="LunarLanderContinuous-v2")
+    # build_for_mp()
     #
+    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
+    # build_for_mp()
+
     # import pybullet_envs  # for python-bullet-gym
     # dir(pybullet_envs)
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="AntBulletEnv-v0")
     # args.max_epoch = 2 ** 13
     # args.max_memo = 2 ** 20
-    # args.net_dim = 2 ** 8
     # args.max_step = 2 ** 10
+    # args.net_dim = 2 ** 8
     # args.batch_size = 2 ** 9
-    # args.reward_scale = 2 ** 3
-    # args.is_remove = True
+    # args.reward_scale = 2 ** -2
     # args.eva_size = 2 ** 5  # for Recorder
     # args.show_gap = 2 ** 8  # for Recorder
     # build_for_mp()
+    #
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="MinitaurBulletEnv-v0")
+    args.max_epoch = 2 ** 13
+    args.max_memo = 2 ** 20
+    args.max_step = 2 ** 10
+    args.reward_scale = 2 ** 4
+    args.is_remove = True
+    args.eva_size = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    build_for_mp()
 
 
 if __name__ == '__main__':

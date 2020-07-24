@@ -1,312 +1,166 @@
-from AgentRun import *
-from AgentZoo import *
-from AgentNet import *
+import gym
+import torch
+import torch.nn as nn
+import numpy as np
+from collections import deque
+import random
+from itertools import count
+import torch.nn.functional as F
+from tensorboardX import SummaryWriter
+
+from AgentRun import get_env_info
 
 """
-beta2 ArgumentsBeta
-beta1 cancel SN, soft update
-beta0 # todo # self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * rho
-
+refer: (DUEL) https://github.com/gouxiangchen/dueling-DQN-pytorch good
 """
 
 
-class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
-    def __init__(self, state_dim, action_dim, mid_dim):  # plan todo use_dn
-        super(InterSPG, self).__init__()
-        self.log_std_min = -20
-        self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class QNetwork(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
 
-        # encoder
-        self.enc_s = nn.Sequential(
+        self.net__head = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )  # state
-        self.enc_a = nn.Sequential(
-            nn.Linear(action_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )  # action (without nn.Tanh())
-
-        self.net = DenseNet(mid_dim)
-        net_out_dim = mid_dim * 4
-
-        # decoder
-        self.dec_a = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_mean
-        self.dec_d = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_std_log (d means standard dev.)
-        self.dec_q1 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+        )
+        self.net_value = nn.Sequential(
+            # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
-            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
-        )  # q_value1 SharedTwinCritic
-        self.dec_q2 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, 1),
-            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
-        )  # q_value2 SharedTwinCritic
+        )
+        self.net_advtg = nn.Sequential(
+            # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
-    def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
-        s_ = self.enc_s(s)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
+    def forward(self, state):
+        x = self.net__head(state)
+        value = self.net_value(x)
+        advtg = self.net_advtg(x)
+        q = value + advtg - advtg.mean(dim=1, keepdim=True)
+        return q
 
-        if noise_std != 0.0:
-            a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
-
-        return a_mean.tanh()
-
-    def get__a__log_prob(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
-
-        a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
-
-    def get__a__std(self, state):
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        return a_mean.tanh(), a_std
-
-    def get__a__avg_std_noise_prob(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
-
-        a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_mean.tanh(), a_std, a_noise_tanh, log_prob.sum(1, keepdim=True)
-
-    def get__q1_q2(self, s, a):  # critic
-        s_ = self.enc_s(s)
-        a_ = self.enc_a(a)
-        q_ = self.net(s_ + a_)
-        q1 = self.dec_q1(q_)
-        q2 = self.dec_q2(q_)
-        return q1, q2
+    def select_action(self, state):
+        Q = self.forward(state)
+        a_int = torch.argmax(Q, dim=1)
+        return a_int.item()
 
 
-class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
-    def __init__(self, state_dim, action_dim, net_dim):
-        super(AgentBasicAC, self).__init__()
-        self.learning_rate = 2e-4
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+class Memory(object):
+    def __init__(self, memory_size: int) -> None:
+        self.memory_size = memory_size
+        self.buffer = deque(maxlen=self.memory_size)
 
-        '''network'''
-        actor_dim = net_dim
-        self.act = InterSPG(state_dim, action_dim, actor_dim).to(self.device)
-        self.act.train()
+    def add(self, experience) -> None:
+        self.buffer.append(experience)
 
-        # critic_dim = int(net_dim * 1.25)
-        # self.cri = ActorCriticSPG(state_dim, action_dim, critic_dim, use_dn).to(self.device)
-        # self.cri.train()
-        self.cri = self.act
+    def size(self):
+        return len(self.buffer)
 
-        # self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-        # self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
-        para_list = list(self.act.parameters())  # + list(self.cri.parameters())
-        self.act_optimizer = torch.optim.Adam(para_list, lr=self.learning_rate)
+    def sample(self, batch_size: int, continuous: bool = True):
+        if batch_size > len(self.buffer):
+            batch_size = len(self.buffer)
+        if continuous:
+            rand = random.randint(0, len(self.buffer) - batch_size)
+            return [self.buffer[i] for i in range(rand, rand + batch_size)]
+        else:
+            indexes = np.random.choice(np.arange(len(self.buffer)), size=batch_size, replace=False)
+            return [self.buffer[i] for i in indexes]
 
-        self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target.eval()
-        self.act_target.load_state_dict(self.act.state_dict())
+    def clear(self):
+        self.buffer.clear()
 
-        # self.cri_target = ActorCriticSPG(state_dim, action_dim, critic_dim, use_dn).to(self.device)
-        # self.cri_target.eval()
-        # self.cri_target.load_state_dict(self.cri.state_dict())
 
-        self.criterion = nn.SmoothL1Loss()
+def run():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        '''training record'''
-        self.state = None  # env.reset()
-        self.reward_sum = 0.0
-        self.step = 0
-        self.update_counter = 0
+    net_dim = 2 ** 7
+    # env = gym.make('CartPole-v0')
+    env = gym.make('LunarLander-v2')
+    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
 
-        '''extension: auto-alpha for maximum entropy'''
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha = self.log_alpha.exp()
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
-        self.target_entropy = np.log(1.0 / action_dim) * 0.98
-        '''extension: auto learning rate of actor'''
-        self.trust_rho = TrustRho()
+    onlineQNetwork = QNetwork(state_dim, action_dim, net_dim).to(device)
+    targetQNetwork = QNetwork(state_dim, action_dim, net_dim).to(device)
+    targetQNetwork.load_state_dict(onlineQNetwork.state_dict())
 
-        '''constant'''
-        self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
-        self.explore_noise = True  # stochastic policy choose noise_std by itself.
-        self.update_freq = 2 ** 7 # todo # delay update frequency, for hard target update
+    optimizer = torch.optim.Adam(onlineQNetwork.parameters(), lr=1e-4)
 
-    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
-        update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
-        self.act.train()
+    GAMMA = 0.99
+    EXPLORE = 20000
+    INITIAL_EPSILON = 0.1
+    FINAL_EPSILON = 0.0001
+    REPLAY_MEMORY = 50000
+    BATCH = 2 ** 7
 
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-        rho = self.trust_rho()
+    UPDATE_STEPS = 4
 
-        k = 1.0 + buffer.now_len / buffer.max_len
-        batch_size_ = int(batch_size * k)
-        update_times = int(max_step * k)
+    memory_replay = Memory(REPLAY_MEMORY)
 
-        for i in range(update_times * repeat_times):
-            with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
+    epsilon = INITIAL_EPSILON
+    learn_steps = 0
+    writer = SummaryWriter('logs/ddqn')
+    begin_learn = False
 
-                next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
-                next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
-                next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
-                q_target = reward + mask * next_q_target
-            '''critic_loss'''
-            q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
-            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
-            loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
-            loss_c_sum += loss_c_tmp
-            self.trust_rho.append_loss_c(loss_c_tmp)
+    episode_reward = 0
 
-            '''actor correction term'''
-            a_mean2, a_std2 = self.act_target.get__a__std(state)
+    # onlineQNetwork.load_state_dict(torch.load('ddqn-policy.para'))
+    for epoch in count():
 
-            '''actor_loss'''
-            if i % repeat_times == 0 and rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
-                '''stochastic policy'''
-                a_mean1, a_std1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
-
-                '''auto alpha'''
-                alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
-                self.alpha_optimizer.zero_grad()
-                alpha_loss.backward()
-                self.alpha_optimizer.step()
-
-                '''policy gradient'''
-                self.alpha = self.log_alpha.exp()
-                q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))
-
-                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
-                loss_a_sum += actor_loss.item()
-
-                actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
-                united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * (rho * 0.5)
+        state = env.reset()
+        episode_reward = 0
+        for time_steps in range(200):
+            p = random.random()
+            if p < epsilon:
+                action = random.randint(0, 1)
             else:
-                a_mean1, a_std1 = self.act.get__a__std(state)
+                tensor_state = torch.FloatTensor(state).unsqueeze(0).to(device)
+                action = onlineQNetwork.select_action(tensor_state)
+            next_state, reward, done, _ = env.step(action)
+            episode_reward += reward
+            memory_replay.add((state, next_state, action, reward, done))
+            if memory_replay.size() > 128:
+                if begin_learn is False:
+                    print('learn begin!')
+                    begin_learn = True
+                learn_steps += 1
+                if learn_steps % UPDATE_STEPS == 0:
+                    targetQNetwork.load_state_dict(onlineQNetwork.state_dict())
+                batch = memory_replay.sample(BATCH, False)
+                batch_state, batch_next_state, batch_action, batch_reward, batch_done = zip(*batch)
 
-                actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
-                united_loss = critic_loss + actor_term * (1 - rho)
+                batch_state = torch.FloatTensor(batch_state).to(device)
+                batch_next_state = torch.FloatTensor(batch_next_state).to(device)
+                batch_action = torch.FloatTensor(batch_action).unsqueeze(1).to(device)
+                batch_reward = torch.FloatTensor(batch_reward).unsqueeze(1).to(device)
+                batch_done = torch.FloatTensor(batch_done).unsqueeze(1).to(device)
 
-            self.act_optimizer.zero_grad()
-            united_loss.backward()
-            self.act_optimizer.step()
+                with torch.no_grad():
+                    onlineQ_next = onlineQNetwork(batch_next_state)
+                    targetQ_next = targetQNetwork(batch_next_state)
+                    online_max_action = torch.argmax(onlineQ_next, dim=1, keepdim=True)
+                    y = batch_reward + (1 - batch_done) * GAMMA * targetQ_next.gather(1, online_max_action.long())
 
-            """target update"""
-            soft_target_update(self.act_target, self.act)  # soft target update
+                loss = F.mse_loss(onlineQNetwork(batch_state).gather(1, batch_action.long()), y)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                writer.add_scalar('loss', loss.item(), global_step=learn_steps)
 
-            self.update_counter += 1
-            if self.update_counter >= update_freq:
-                self.update_counter = 0
-                # self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+                if epsilon > FINAL_EPSILON:
+                    epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
 
-                rho = self.trust_rho.update_rho()
+            if done:
+                break
+            state = next_state
 
-        loss_a_avg = loss_a_sum / update_times
-        loss_c_avg = loss_c_sum / (update_times * repeat_times)
-        return loss_a_avg, loss_c_avg
-
-
-def run__mp(gpu_id=None, cwd='MP__InterSAC'):
-    import multiprocessing as mp
-    q_i_buf = mp.Queue(maxsize=8)  # buffer I
-    q_o_buf = mp.Queue(maxsize=8)  # buffer O
-    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
-
-    def build_for_mp():
-        process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
-                   mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
-                   mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
-        [p.start() for p in process]
-        [p.join() for p in process]
-        [p.close() for p in process]
-
-    # args = ArgumentsBeta(AgentInterSAC, gpu_id, cwd, env_name="LunarLanderContinuous-v2")
-    # build_for_mp()
-
-    args = ArgumentsBeta(AgentInterSAC, gpu_id, cwd, env_name="BipedalWalker-v3")
-    build_for_mp()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args = ArgumentsBeta(AgentInterSAC, gpu_id, cwd, env_name="AntBulletEnv-v0")
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 20
-    args.max_step = 2 ** 10
-    args.net_dim = 2 ** 8
-    args.batch_size = 2 ** 9
-    args.reward_scale = 2 ** -2
-    args.eva_size = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    build_for_mp()
-    #
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 20
-    # args.net_dim = 2 ** 8
-    # args.max_step = 2 ** 10
-    # args.batch_size = 2 ** 9
-    # args.reward_scale = 2 ** 3
-    # args.is_remove = True
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # build_for_mp()
+        writer.add_scalar('episode reward', episode_reward, global_step=epoch)
+        if episode_reward > target_reward:
+            print('Ep {}\tMoving average score: {:.2f}\t'.format(epoch, episode_reward))
+            print('####### solve #######')
+            break
+        if epoch % 64 == 0:
+            torch.save(onlineQNetwork.state_dict(), 'ddqn-policy.para')
+            print('Ep {}\tMoving average score: {:.2f}\t'.format(epoch, episode_reward))
 
 
 if __name__ == '__main__':
-    run__mp()
+    run()
