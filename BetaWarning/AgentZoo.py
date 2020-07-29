@@ -897,7 +897,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             """target update"""
-            soft_target_update(self.act_target, self.act, tau=5e-3 * (0.5 + rho))  # todo  # soft target update
+            soft_target_update(self.act_target, self.act, tau=2 ** -8)  # todo  # soft target update
 
             self.update_counter += 1
             if self.update_counter >= update_freq:

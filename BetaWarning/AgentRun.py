@@ -1211,39 +1211,39 @@ def run__mp(gpu_id=None, cwd='MP__InterSAC'):
         [p.join() for p in process]
         # [p.close() for p in process]
         [p.terminate() for p in process]  # use p.terminate() instead of p.close()
+        time.sleep(8)
 
     import AgentZoo as Zoo
     class_agent = Zoo.AgentDeepSAC
 
     args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="LunarLanderContinuous-v2")
     build_for_mp()
-
-    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
-    build_for_mp()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="AntBulletEnv-v0")
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 20
-    args.max_step = 2 ** 10
-    args.net_dim = 2 ** 8
-    args.batch_size = 2 ** 9
-    args.reward_scale = 2 ** -2
-    args.eva_size = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    build_for_mp()
     #
+    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
+    # build_for_mp()
+
     # import pybullet_envs  # for python-bullet-gym
     # dir(pybullet_envs)
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = f'./{cwd}/{args.env_name}_{gpu_id}'
+    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="AntBulletEnv-v0")
     # args.max_epoch = 2 ** 13
     # args.max_memo = 2 ** 20
-    # args.net_dim = 2 ** 8
     # args.max_step = 2 ** 10
+    # args.net_dim = 2 ** 8
     # args.batch_size = 2 ** 9
-    # args.reward_scale = 2 ** 3
+    # args.reward_scale = 2 ** -2
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # build_for_mp()
+    #
+
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="MinitaurBulletEnv-v0")
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 21
+    # args.net_dim = 2 ** 8
+    # args.max_step = 2 ** 12
+    # args.reward_scale = 2 ** 5
     # args.is_remove = True
     # args.eva_size = 2 ** 5  # for Recorder
     # args.show_gap = 2 ** 8  # for Recorder
