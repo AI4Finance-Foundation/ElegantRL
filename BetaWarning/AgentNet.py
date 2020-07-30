@@ -455,6 +455,31 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
         return q_value1, q_value2
 
 
+class CriticTwinSharedBeta(nn.Module):  # 2020-06-18
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):  # todo
+        super().__init__()
+
+        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                 DenseNet(mid_dim), )
+        # self.net1 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1))
+        # self.net2 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1))
+        self.net1 = nn.Linear(mid_dim * 4, 1)  # todo not SN
+        self.net2 = nn.Linear(mid_dim * 4, 1)
+
+    def forward(self, state, action):
+        x = torch.cat((state, action), dim=1)
+        x = self.net(x)
+        q_value = self.net1(x)
+        return q_value
+
+    def get__q1_q2(self, state, action):
+        x = torch.cat((state, action), dim=1)
+        x = self.net(x)
+        q_value1 = self.net1(x)
+        q_value2 = self.net2(x)
+        return q_value1, q_value2
+
+
 class CriticSN(nn.Module):  # SN: Spectral Normalization # 2020-05-05 fix bug
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super(CriticSN, self).__init__()

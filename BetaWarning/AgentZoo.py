@@ -8,7 +8,7 @@ import torch.nn as nn
 from AgentNet import QNet, QNetTwin, QNetDuel  # Q-learning based
 from AgentNet import Actor, Critic, CriticTwin  # DDPG, TD3
 from AgentNet import ActorDN, CriticSN  # SN_AC
-from AgentNet import ActorSAC, CriticTwinShared  # SAC
+from AgentNet import ActorSAC, CriticTwinShared, CriticTwinSharedBeta  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
 from AgentNet import InterDPG, InterSPG  # sharing parameters between Actor and Critic
@@ -780,6 +780,127 @@ class AgentDeepSAC(AgentBasicAC):
                 self.rho = (self.rho + rho) * 0.5
                 self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * self.rho
                 self.loss_c_sum = 0.0
+
+        loss_a_avg = loss_a_sum / update_times
+        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        return loss_a_avg, loss_c_avg
+
+
+class AgentDeepSACBeta(AgentBasicAC):
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        use_dn = True  # and use hard target update
+        self.learning_rate = 2e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        actor_dim = net_dim
+        self.act = ActorSAC(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+
+        self.act_target = ActorSAC(state_dim, action_dim, net_dim, use_dn).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        critic_dim = int(net_dim * 1.25)
+        self.cri = CriticTwinSharedBeta(state_dim, action_dim, critic_dim, use_dn).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.cri_target = CriticTwinSharedBeta(state_dim, action_dim, critic_dim, use_dn).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0
+
+        '''extension: auto-alpha for maximum entropy'''
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.log_alpha.exp()
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.target_entropy = -np.log(1.0 / action_dim) * 0.98
+        '''extension: auto learning rate of actor'''
+        self.trust_rho = TrustRho()
+        # self.loss_c_sum = 0.0
+        # self.rho = 0.5
+
+        '''constant'''
+        self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
+        self.explore_noise = True  # stochastic policy choose noise_std by itself.
+        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
+
+    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
+        self.act.train()
+
+        loss_a_sum = 0.0
+        loss_c_sum = 0.0
+        rho = self.trust_rho()
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+
+        for i in range(update_times * repeat_times):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
+
+                next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
+                next_q_target = torch.min(*self.cri_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
+                q_target = reward + mask * next_q_target
+            '''critic_loss'''
+            q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
+            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+            loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
+            loss_c_sum += loss_c_tmp
+            self.trust_rho.append_loss_c(loss_c_tmp)
+
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_loss'''
+            if i % repeat_times == 0 and rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+                # stochastic policy
+                actions_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
+                # auto alpha
+                alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+                self.alpha_optimizer.zero_grad()
+                alpha_loss.backward()
+                self.alpha_optimizer.step()
+
+                # policy gradient
+                self.alpha = self.log_alpha.exp()
+                # q_eval_pg = self.cri(state, actions_noise)  # policy gradient
+                q_eval_pg = torch.min(*self.cri.get__q1_q2(state, actions_noise))  # policy gradient, stable but slower
+
+                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
+                loss_a_sum += actor_loss.item()
+
+                self.act_optimizer.zero_grad()
+                actor_loss.backward()
+                self.act_optimizer.step()
+
+            """target update"""
+            soft_target_update(self.act_target, self.act)  # soft target update
+            soft_target_update(self.cri_target, self.cri)  # soft target update
+
+            self.update_counter += 1
+            if self.update_counter >= update_freq:
+                self.update_counter = 0
+                # self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+                # self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
+                # todo not hard update
+
+                rho = self.trust_rho.update_rho()
+                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * rho
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
