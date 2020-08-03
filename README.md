@@ -46,7 +46,7 @@ In the above two figure.
 + Green curve: 'loss' value of actor (mean of Q value estimate)
 + Green area: loss value of critic
 
-InterSAC train 10,000s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
+InterSAC train 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
 ![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
 
