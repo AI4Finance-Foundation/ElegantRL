@@ -988,7 +988,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             a_mean2, a_std2 = self.act_target.get__a__std(state)
 
             '''actor_loss'''
-            if i % repeat_times == 0 and rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+            if i % repeat_times == 0 and rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 '''stochastic policy'''
                 a_mean1, a_std1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
@@ -1006,7 +1006,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 loss_a_sum += actor_loss.item()
 
                 actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
-                united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * (rho * 0.5)
+                united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * rho  # (rho * 0.5)
             else:
                 a_mean1, a_std1 = self.act.get__a__std(state)
 
@@ -1018,7 +1018,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             """target update"""
-            soft_target_update(self.act_target, self.act, tau=2 ** -8)  # todo  # soft target update
+            # soft_target_update(self.act_target, self.act, tau=2 ** -8)  # todo  # soft target update
+            soft_target_update(self.act_target, self.act, tau=5e-3)  # todo  # soft target update
 
             self.update_counter += 1
             if self.update_counter >= update_freq:
