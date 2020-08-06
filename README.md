@@ -2,7 +2,7 @@
 Many people suggested that I could call it "3-Python-file-RL (PyTorch)"
 
 Model-free Deep Reinforcement Learning (DRL) Algorithm: 
-+ **DDPG, TD3(GAE), PPO, SAC, InterAC, InterSAC** (I don't add A2C and TRPO because they are no good enough.)
++ **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (I don't add A2C and TRPO because they are no good enough.)
 + **DQN, DoubleDQN, GAE for discrete action**
 + More DQN (wait for adding Rainbow, Ape-X, SAC for discrete)
 + Multi-agent (wait for adding MADDPG, COMA, QMIX, QTRAN etc.)
