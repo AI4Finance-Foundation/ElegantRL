@@ -10,29 +10,19 @@ import numpy.random as rd
 from AgentZoo import initial_exploration
 from AgentZoo import BufferArray, BufferArrayGPU
 
-"""
-2019-07-01 Zen4Jia1Hao2, GitHub: YonV1943 DL_RL_Zoo RL
-2019-11-11 Issay-0.0 [Essay Consciousness]
-2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
-2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
-2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
-2020-04-22 Issay-0.2 [Essay, LongDear's Cerebellum (Little Brain)]
-2020-06-06 Issay-0.3 check PPO, SAC. Plan to add discrete SAC, EBM(soft-q-learning)
-
+"""Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
-Actually, they "learn game feel" or "get a soft touch". In Chinese "shou3 gan3". 
+Actually, they "learn game feel" or "get a soft touch". In Chinese "shou3 gan3 手感". 
 Learn more about policy gradient algorithms in:
 https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
-
-2020-04-28 Add Discrete Env CartPole, Pendulum
 """
 
 
 class ArgumentsBeta:  # default working setting and hyper-parameter
-    def __init__(self, class_agent, gpu_id=None, cwd='RL_Result', env_name='Pendulum-v0'):
-        self.class_agent = class_agent
+    def __init__(self, rl_agent, env_name, gpu_id=None, cwd='RL_Result'):
+        self.class_agent = rl_agent
         self.gpu_id = sys.argv[-1][-4] if gpu_id is None else gpu_id
         self.cwd = f'{cwd}/{env_name}_{self.gpu_id}'
         self.env_name = env_name
@@ -65,7 +55,7 @@ class ArgumentsBeta:  # default working setting and hyper-parameter
         # env.seed(random_seed)  # env has random seed too.
 
 
-class Arguments:  # default working setting and hyper-parameter
+class ArgumentsOld:  # default working setting and hyper-parameter
     def __init__(self):
         self.class_agent = None
         self.net_dim = 2 ** 7  # the network width
@@ -807,15 +797,15 @@ def run__gae_discrete(gpu_id, cwd='RL_DiscreteGAE'):
     train_agent__on_policy(**vars(args))
 
 
-def run__dqn(gpu_id=0, cwd='RL__DQN'):  # 2020-07-07
+def run__dqn(gpu_id=None, cwd='RL__DQN'):  # 2020-07-07
     import AgentZoo as Zoo
-    class_agent = Zoo.AgentDuelingDQN  # todo I haven't test DQN, DDQN after 2020-07-07
-    assert class_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
-    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="CartPole-v0")
+    rl_agent = Zoo.AgentDuelingDQN  # todo I haven't test DQN, DDQN after 2020-07-07
+    assert rl_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
+    args = ArgumentsBeta(rl_agent=rl_agent, env_name="CartPole-v0", gpu_id=gpu_id, cwd=cwd)
     args.init_for_training()
     train_agent_discrete(**vars(args))
 
-    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="LunarLander-v2")
+    args = ArgumentsBeta(rl_agent=rl_agent, env_name="LunarLander-v2", gpu_id=gpu_id, cwd=cwd)
     args.init_for_training()
     train_agent_discrete(**vars(args))
 
@@ -1251,15 +1241,15 @@ def run__mp(gpu_id=None, cwd='MP__InterSAC'):
 
 
 if __name__ == '__main__':
-    run__zoo(gpu_id=0, cwd='AC_SAC')
+    # run__zoo(gpu_id=0, cwd='AC_SAC')
     # run__ppo(gpu_id=1, cwd='AC_PPO')
 
     # run__multi_process(run__zoo, gpu_tuple=(0, 1, 2, 3), cwd='AC_ZooMP')
     # run__multi_process(run__ppo, gpu_tuple=(2, 3), cwd='AC_PPO')
     # run__multi_workers(gpu_tuple=(2, 3), root_cwd='AC_SAC_MP')
 
-    # '''Discrete action space'''
-    # run__dqn(gpu_id=sys.argv[-1][-4], cwd='RL_DQN')
+    '''Discrete action space'''
+    run__dqn(gpu_id=sys.argv[-1][-4], cwd='RL_DQN')
 
     # '''multi worker'''
     # run__multi_workers(gpu_tuple=(2, 3), root_cwd='AC_SAC_MP')

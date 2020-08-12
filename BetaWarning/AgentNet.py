@@ -2,24 +2,8 @@ import torch
 import torch.nn as nn  # import torch.nn.functional as F
 import numpy as np  # import numpy.random as rd
 
-"""
-2019-07-01 ZenJiaHao, GitHub: YonV1943 DL_RL_Zoo RL
-2019-11-11 Issay-0.0 [Essay Consciousness]
-2020-02-02 Issay-0.1 Deep Learning Techniques (spectral norm, DenseNet, etc.) 
-2020-04-04 Issay-0.1 [An Essay of Consciousness by YonV1943], IntelAC
-2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
-2020-05-20 Issay-0.3 [Essay, LongDear's Cerebellum (Little Brain)]
-2020-06-06 check, DPG, SDG, InterAC, InterSAC
-2020-07-07 AgentAdv
-2020-07-14 build network (simplify)
-
-I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
-They feel more like a Cerebellum (Little Brain) for Machines.
-
-[future] plan to add:
-Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
-Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
-some variants of DQN: Rainbow DQN, Ape-X
+"""Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+Issay, Easy Essay, EAsy esSAY 谐音: 意识
 """
 
 
@@ -42,7 +26,8 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         self.dec_q = nn.Sequential(nn.Linear(net_out_dim, mid_dim), HardSwish(),
                                    nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), )
 
-    def add_noise(self, a, noise_std):  # 2020-03-03
+    @staticmethod
+    def add_noise(a, noise_std):  # 2020-03-03
         # noise_normal = torch.randn_like(a) * noise_std
         # a_temp = a + noise_normal
         a_temp = torch.normal(a, noise_std)
@@ -102,7 +87,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.enc_a = nn.Sequential(
             nn.Linear(action_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
-        )  # action (without nn.Tanh())
+        )  # action without nn.Tanh()
 
         self.net = DenseNet(mid_dim)
         net_out_dim = mid_dim * 4
@@ -119,24 +104,30 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.dec_q1 = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), HardSwish(),
             nn.Linear(mid_dim, 1),
-            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
         )  # q_value1 SharedTwinCritic
         self.dec_q2 = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), HardSwish(),
             nn.Linear(mid_dim, 1),
-            # nn.utils.spectral_norm(nn.Linear(mid_dim, 1)), # todo
         )  # q_value2 SharedTwinCritic
+
+        '''Not need to use both SpectralNorm and TwinCritic
+        I choose TwinCritc instead of SpectralNorm, 
+        because SpectralNorm is conflict with soft target update,
+        
+        if is_spectral_norm:
+            self.dec_q1[1] = nn.utils.spectral_norm(self.dec_q1[1])
+            self.dec_q2[1] = nn.utils.spectral_norm(self.dec_q2[1])
+        '''
 
     def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
         s_ = self.enc_s(s)
         a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
+        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without tensor.tanh()
 
         if noise_std != 0.0:
             a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
             a_std = a_std_log.exp()
             a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
-
         return a_mean.tanh()
 
     def get__a__log_prob(self, state):  # actor
@@ -233,7 +224,20 @@ class ActorDN(nn.Module):  # dn: DenseNet
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super(ActorDN, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.net = build_actor_net_for_dpg(state_dim, action_dim, mid_dim, use_dn)
+        if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+            self.net = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+                nn.Linear(mid_dim * 4, action_dim),
+            )
+        else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+            self.net = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, action_dim),
+            )
+
+        layer_norm(self.net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
 
     def forward(self, s, noise_std=0.0):
         a = self.net(s)
@@ -250,21 +254,32 @@ class ActorDN(nn.Module):  # dn: DenseNet
         return a_noise
 
 
-class ActorSAC(nn.Module):  # todo plan to mega ActorSAC and ActorPPO into ActorSPG
+class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
-        super(ActorSAC, self).__init__()
+        super().__init__()
+
+        if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
+            self.net__mid = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                DenseNet(mid_dim),
+            )
+            lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
+        else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
+            self.net__mid = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim),
+            )
+            lay_dim = mid_dim
+
+        self.net__mean = nn.Linear(lay_dim, action_dim)
+        self.net__std_log = nn.Linear(lay_dim, action_dim)
+
+        layer_norm(self.net__mean, std=0.01)  # net[-1] is output layer for action, it is no necessary.
+
         self.log_std_min = -20
         self.log_std_max = 2
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        '''network'''
-        # self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-        #                          nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        # self.net__mean = nn.Linear(mid_dim, action_dim)
-        # self.net__std_log = nn.Linear(mid_dim, action_dim)
-        self.net, self.net__mean, self.net__std_log = build_actor_net_for_spg(
-            state_dim, action_dim, mid_dim, use_dn)
 
     def forward(self, state, noise_std=0.0):  # in fact, noise_std is a boolean
         x = self.net(state)
@@ -283,28 +298,29 @@ class ActorSAC(nn.Module):  # todo plan to mega ActorSAC and ActorPPO into Actor
         a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
         a_std = a_std_log.exp()
 
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True) # Cannot use it. Should use the below
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-        # the above is not same as below, because it needs gradient, so it cannot write in this way
+        """add noise to action in stochastic policy"""
+        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        # Can only use above code instead of below, because the tensor need gradients here.
         # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
 
         '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # from torch.distributions.normal import Normal
-        # log_prob_noise = Normal(a_mean, a_std).log_prob(a_noise)
-        # same as:
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        # self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+        # self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
 
+        # same as below:
+        # from torch.distributions.normal import Normal
+        # log_prob_noise = Normal(a_mean, a_std).log_prob(a_noise)
+        # same as below:
+        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
+        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
+
         a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
         log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
+
+        # same as below:
+        # epsilon = 1e-6
+        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
         return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
 
@@ -379,14 +395,11 @@ class ActorGAE(nn.Module):
         a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
         a_std = torch.exp(a_log_std)
 
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
+        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
 
         a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
-        log_prob = log_prob.sum(1)
-        return a_noise, log_prob
+        return a_noise, log_prob.sum(1)
 
     def compute__log_prob(self, state, a_noise):
         x = self.net(state)
@@ -433,50 +446,44 @@ class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q
 
 
 class CriticTwinShared(nn.Module):  # 2020-06-18
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn):  # todo
-        super(CriticTwinShared, self).__init__()
-
-        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                 DenseNet(mid_dim), )
-        self.net1 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1))
-        self.net2 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1))
-
-    def forward(self, state, action):
-        x = torch.cat((state, action), dim=1)
-        x = self.net(x)
-        q_value = self.net1(x)
-        return q_value
-
-    def get__q1_q2(self, state, action):
-        x = torch.cat((state, action), dim=1)
-        x = self.net(x)
-        q_value1 = self.net1(x)
-        q_value2 = self.net2(x)
-        return q_value1, q_value2
-
-
-class CriticTwinSharedBeta(nn.Module):  # 2020-06-18
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn):  # todo
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super().__init__()
 
-        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                 DenseNet(mid_dim), )
-        # self.net1 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1))
-        # self.net2 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1))
-        self.net1 = nn.Linear(mid_dim * 4, 1)  # todo not SN
-        self.net2 = nn.Linear(mid_dim * 4, 1)
+        if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
+            self.net__mid = nn.Sequential(
+                nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                DenseNet(mid_dim),
+            )
+            lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
+        else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
+            self.net__mid = nn.Sequential(
+                nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim),
+            )
+            lay_dim = mid_dim
+
+        self.net__q1 = nn.Linear(lay_dim, 1)
+        self.net__q2 = nn.Linear(lay_dim, 1)
+        '''Not need to use both SpectralNorm and TwinCritic
+        I choose TwinCritc instead of SpectralNorm, 
+        because SpectralNorm is conflict with soft target update,
+
+        if is_spectral_norm:
+            self.net1[1] = nn.utils.spectral_norm(self.dec_q1[1])
+            self.net2[1] = nn.utils.spectral_norm(self.dec_q2[1])
+        '''
 
     def forward(self, state, action):
         x = torch.cat((state, action), dim=1)
-        x = self.net(x)
-        q_value = self.net1(x)
+        x = self.net_mid(x)
+        q_value = self.net__q1(x)
         return q_value
 
     def get__q1_q2(self, state, action):
         x = torch.cat((state, action), dim=1)
-        x = self.net(x)
-        q_value1 = self.net1(x)
-        q_value2 = self.net2(x)
+        x = self.net_mid(x)
+        q_value1 = self.net__q1(x)
+        q_value2 = self.net__q2(x)
         return q_value1, q_value2
 
 
@@ -639,70 +646,6 @@ class HardSwish(nn.Module):
 def layer_norm(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
-
-
-def build_actor_net_for_dpg(state_dim, action_dim, mid_dim, use_dn):
-    # for DPG (Deterministic Policy Gradient)
-
-    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
-        net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
-            nn.Linear(mid_dim * 4, action_dim),
-        )
-    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
-        net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )
-
-    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
-    return net
-
-
-def build_actor_net_for_spg(state_dim, action_dim, mid_dim, use_dn):
-    # for SPG (Stochastic Policy Gradient)
-
-    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
-        net__mid = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
-        )
-        layer_dim = mid_dim * 4
-    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
-        net__mid = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-        )
-        layer_dim = mid_dim * 1
-
-    net__mean = nn.Linear(layer_dim, action_dim)
-    layer_norm(net__mean, std=0.01)  # net[-1] is output layer for action, it is no necessary.
-
-    net__std_log = nn.Linear(layer_dim, action_dim)
-
-    return net__mid, net__mean, net__std_log
-
-
-def build_critic_net_for_dpg(state_dim, action_dim, mid_dim, use_dn):
-    # for DPG (Deterministic Policy Gradient)
-
-    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
-        net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
-            nn.Linear(mid_dim * 4, action_dim),
-        )
-    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
-        net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )
-
-    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for actor, it is no necessary.
-    return net
 
 
 def build_critic_network(state_dim, action_dim, mid_dim, use_dn):
