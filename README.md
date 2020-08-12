@@ -11,7 +11,9 @@ It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
 Maybe you can find Multi-agent in folder 'BetaWarning'.
 
-I am still learning English. Pardon. More details see ↓ (write in Chinese). 我英文差，还望包涵。更多细节，详见下方。↓
+I am still learning English. Pardon. More details see ↓ (write in Chinese). 
+
+我英文差，还望包涵。更多细节，详见下方。↓
 
 知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
 
@@ -24,6 +26,7 @@ LunarLanderContinuous-v2:
 BipedalWalkerHardcore-v2: 
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
+BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward.
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (A Mainland China Website)
 
 For example, the training log is the following two figure.
@@ -46,7 +49,8 @@ In the above two figure.
 + Green curve: 'loss' value of actor (mean of Q value estimate)
 + Green area: loss value of critic
 
-InterSAC train 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
+BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward. 
+I am happy that InterSAC train 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
 ![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
 
