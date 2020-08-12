@@ -168,28 +168,56 @@ If you can understand Chinese, more details of DelayDDPG are described in Chines
 
 # 更新日志 Update Log for ElegantRL 
 
-#### ElegantRL 2019.??.?? (Yonder YonV)
-I should spend time organising my historical update log.
-Wait for adding...
+#### ElegantRL 2019.04.03 (Yonder YonV)
++ Tutorial.py. DQN (discrete action space) and DDPG (continuous action space)
++ BufferList: Experiment Replay Buffer
++ DQN for UAV in crossroad
+
+#### ElegantRL 2019.07.07 (Yonder YonV)
++ DelayDDPG: a simplify TwinDelayDDPG (TD3). 
+[强化学习DelayDDPG，月球着陆器，双足机器人，只需训练半个小时的轻量、稳定代码](https://zhuanlan.zhihu.com/p/72586697)
++ Build my pipeline based TD3's code, which is a wonderful RL framework. 
+[TD3's author implementation](https://github.com/sfujim/TD3)
++ Build in YonV1943 Github, named 'DL_RL_Zoo'
++ 2019.11.11 Try some deep learning techniques in DeepRL (especially GAN): spectral norm, DenseNet, etc.
++ parameter-sharing between actor and critic
++ 2020-02-02 Issay-0.1 Easy Essay, EAsy esSAY 谐音: 意识
+
+#### ElegantRL 2020.04.04 (NewYork Necip)
++ 2020-04-04 Issay-0.1 An Essay of Consciousness by YonV1943, IntelAC
++ 2020-04-20 Issay-0.2 SN_AC, IntelAC_UnitedLoss
++ 2020-04-28 Add Discrete Env CartPole, Pendulum
++ 2020-05-20 Issay-0.3 Essay, LongDear's Cerebellum (Little Brain)
++ 2020-05-27 Issay-0.3 Pipeline Update for SAC
++ 2020-06-06 Issay-0.3 check PPO, SAC. Plan to add discrete SAC.
++ 2020-07-07 InterSAC, GAE, GAE for discrete, DuelingDQN
+[Yonv1943/ElegantRL in github.com](https://github.com/Yonv1943/ElegantRL)
+[「何须天授？彼可取而代也」用于入门的强化学习库](https://zhuanlan.zhihu.com/p/127792558)
 
 
+ElegantRL 2020.08.08 (NewYork Necip, beta version), where (NewYork Necip) is a codename.
+It is similar to Ubuntu 18.04 (Bionic Beaver).
+Maybe the next codename is (Casual ChuMeng, formal version).
++ 2020-08-08 build this update log
++ remove build_critic_net_for_dpg build_actor_net_for_dpg
++ remove build_critic_net_for_spg build_actor_net_for_spg
 
-#### ElegantRL 2020.08.08 (NewYork Necip)
-build this update log
-change the Github repository name from 'DL_RL_Zoo' into 'ElegantRL'.
-It is still a beta version.
-ElegantRL 2020.08.12 (NewYork Necip), where (NewYork Necip) is a codename for version ElegantRL 2020.08.12.
-It is similar to Ubuntu 18.04 (Bionic Beaver)
-Maybe the code name is (Casual ChuMeng), which is the next formal version.
 
 #### ElegantRL 2020.08.12 (NewYork Necip)
 Plan:
-Check Dueling DQN
+! Check Dueling DQN
+! Update ArgumentsBeta to Arguments doing!
 Add the training stop signal: reach the target reward, reach the total step.
 Check InterISAC
+Move init_before_sample() to random_sample(). Should I? Not
+Change 'super(xxx, self).__init__()' into 'super().__init__()'
+Mega CriticAdv to Critic
+Mega CriticAdvTwin to CriticTwin
+Use deepcopy for target network
 
-
-
+Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
+Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
+some variants of DQN: Rainbow DQN, Ape-X
 
 ####  ElegantRL 2020.??.?? (Casual ChuMeng)
 ElegantRL 2020.08 (NewYork Necip), where Necip is a codename for version ElegantRL 2020.08
