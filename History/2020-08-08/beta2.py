@@ -1,11 +1,11 @@
 from AgentRun import *
-
 from AgentZoo import *
 from AgentNet import *
 
 """
-beta3     args.net_dim = 2 ** 9
-beta2    united_loss = critic_loss
+beta2 ArgumentsBeta
+beta2     tau=5e-3 * (0.5 + rho)
+beta2     args.max_memo = 2 ** 19  # todo    args.batch_size = 2 ** 8  # todo
 """
 
 
@@ -86,11 +86,11 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             loss_c_sum += loss_c_tmp
             self.trust_rho.append_loss_c(loss_c_tmp)
 
-            # '''actor correction term'''
-            # a_mean2, a_std2 = self.act_target.get__a__std(state)
+            '''actor correction term'''
+            a_mean2, a_std2 = self.act_target.get__a__std(state)
 
             '''actor_loss'''
-            if i % repeat_times == 0 and rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+            if i % repeat_times == 0 and rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 '''stochastic policy'''
                 a_mean1, a_std1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
@@ -107,22 +107,20 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
 
-                # actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
-                # united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * rho  # (rho * 0.5)
-                united_loss = critic_loss + actor_loss * rho  # (rho * 0.5)  # todo
+                actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
+                united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * (rho * 0.5)
             else:
-                # a_mean1, a_std1 = self.act.get__a__std(state)
-                # actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
-                # united_loss = critic_loss + actor_term * ((1 - rho) * 0.25)  # todo
-                united_loss = critic_loss  # todo
+                a_mean1, a_std1 = self.act.get__a__std(state)
+
+                actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
+                united_loss = critic_loss + actor_term * (1 - rho)
 
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
 
             """target update"""
-            # soft_target_update(self.act_target, self.act, tau=2 ** -8)  # todo  # soft target update
-            soft_target_update(self.act_target, self.act, tau=5e-3)  # todo  # soft target update
+            soft_target_update(self.act_target, self.act, tau=5e-3 * (0.5 + rho))  # todo  # soft target update
 
             self.update_counter += 1
             if self.update_counter >= update_freq:
@@ -152,13 +150,12 @@ def run__mp(gpu_id=None, cwd='MP__InterSAC'):
         [p.terminate() for p in process]  # use p.terminate() instead of p.close()
         time.sleep(8)
 
-    # import AgentZoo as Zoo
-    # class_agent = Zoo.AgentInterSAC
-    class_agent = AgentInterSAC
+    import AgentZoo as Zoo
+    class_agent = Zoo.AgentDeepSAC
 
     # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="LunarLanderContinuous-v2")
     # build_for_mp()
-
+    #
     # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
     # build_for_mp()
 
@@ -174,130 +171,20 @@ def run__mp(gpu_id=None, cwd='MP__InterSAC'):
     # args.eva_size = 2 ** 5  # for Recorder
     # args.show_gap = 2 ** 8  # for Recorder
     # build_for_mp()
-
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="MinitaurBulletEnv-v0")
-    # args.max_epoch = 2 ** 13
-    # args.batch_size = 2 ** 7  # todo
-    # args.max_memo = 2 ** 21
-    # args.net_dim = 2 ** 9  # todo
-    # args.max_step = 2 ** 12
-    # args.reward_scale = 2 ** 5
-    # args.is_remove = True
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # build_for_mp()
+    #
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalkerHardcore-v3")
+    args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="MinitaurBulletEnv-v0")
     args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 21
-    args.net_dim = 2 ** 8
-    args.max_step = 2 ** 12
+    args.max_memo = 2 ** 19  # todo
+    args.batch_size = 2 ** 8  # todo
+    args.max_step = 2 ** 10
+    args.reward_scale = 2 ** 4
     args.is_remove = True
     args.eva_size = 2 ** 5  # for Recorder
     args.show_gap = 2 ** 8  # for Recorder
     build_for_mp()
-
-
-def run__zoo(gpu_id, cwd='RL_Zoo'):
-    import AgentZoo as Zoo
-    args = Arguments()
-    args.class_agent = Zoo.AgentInterSAC
-    args.gpu_id = gpu_id
-    ''' Compare with other algorithm, DDPG, A2C TRPO is unstable and low effective.
-
-    I need DDPG as a tutorial so there are a DDPG implementation.
-    DDPG will train for a long time in the following env.
-
-    A2C introduce the advantage function and you can find this structure in PPO and SAC.
-    TRPO's author use a surrogate object to simplify the KL penalty and get PPO.
-    So I didn't provide A2C or TRPO implementation in my code.
-    If many people want me to provide A2C or TRPO. I will.
-    '''
-
-    """args.env_name = "Pendulum-v0"
-    It is a easy task. But it has not default target reward. 
-    I had manually set as -200.0 in get_env_info(). Easy to reach -200 (-100 is harder)
-    Its reward is in (-inf to 0.0].
-    Its continuous action spaces is (-2, +2). Its action_dim == 1.
-    """
-    # args.env_name = "Pendulum-v0"
-    # args.cwd = './{}/Pendulum_{}'.format(cwd, gpu_id)
-    # args.init_for_training()
-    # train_agent__off_policy(**vars(args))
-    #
-    # args.env_name = "LunarLanderContinuous-v2"
-    # args.cwd = './{}/LunarLander_{}'.format(cwd, gpu_id)
-    # args.init_for_training()
-    # train_agent__off_policy(**vars(args))
-    #
-    # args.env_name = "BipedalWalker-v3"
-    # args.cwd = './{}/BipedalWalker_{}'.format(cwd, gpu_id)
-    # args.init_for_training()
-    # train_agent__off_policy(**vars(args))
-
-    # args.env_name = "BipedalWalkerHardcore-v3"
-    # args.cwd = './{}/BWHC_{}'.format(cwd, gpu_id)
-    # args.net_dim = int(2 ** 8.5)
-    # args.max_memo = int(2 ** 20)
-    # args.batch_size = int(2 ** 9)
-    # args.max_epoch = 2 ** 14
-    # args.reward_scale = int(2 ** 6.5)
-    # args.is_remove = None
-    # args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args = ArgumentsBeta(Zoo.AgentInterSAC, gpu_id, cwd, env_name="BipedalWalkerHardcore-v3")
-    args.gpu_id = 3 # todo
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 21
-    args.net_dim = 2 ** 8
-    args.max_step = 2 ** 12
-    args.is_remove = True
-    args.eva_size = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    from AgentRun import train_agent__on_policy
-    train_agent__on_policy(**vars(args))
-
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.cwd = './{}/Minitaur_{}'.format(cwd, args.gpu_id)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 20
-    # args.net_dim = 2 ** 9
-    # args.max_step = 2 ** 12
-    # args.batch_size = 2 ** 8
-    # args.reward_scale = 2 ** 3
-    # args.is_remove = True
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
-
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "AntBulletEnv-v0"
-    # args.cwd = './{}/Ant_{}'.format(cwd, args.gpu_id)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 20
-    # args.max_step = 2 ** 10
-    # args.net_dim = 2 ** 8
-    # args.batch_size = 2 ** 8
-    # args.reward_scale = 2 ** -3
-    # args.is_remove = True
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # args.init_for_training()
-    # while not train_agent(**vars(args)):
-    #     args.random_seed += 42
 
 
 if __name__ == '__main__':
