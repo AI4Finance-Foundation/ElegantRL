@@ -201,16 +201,20 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + 2020-08-08 build this update log
 + remove build_critic_net_for_dpg build_actor_net_for_dpg
 + remove build_critic_net_for_spg build_actor_net_for_spg
++ Check DuelingDQN, DoubleDQN
++ Change 'super(xxx, self).__init__()' into 'super().__init__()'
 
 
 #### ElegantRL 2020.08.12 (NewYork Necip)
-Plan:
-! Check Dueling DQN
-! Update ArgumentsBeta to Arguments doing!
+Plan todo:
++ Update ArgumentsBeta to Arguments, change 'max_epoch' to 'max_total_step'
++ Change Recorder in single process
++ Bug: Weather remove (will remove all cwd)
+
+mega TTUR into (rho > 2 ** -8) 
 Add the training stop signal: reach the target reward, reach the total step.
 Check InterISAC
 Move init_before_sample() to random_sample(). Should I? Not
-Change 'super(xxx, self).__init__()' into 'super().__init__()'
 Mega CriticAdv to Critic
 Mega CriticAdvTwin to CriticTwin
 Use deepcopy for target network
