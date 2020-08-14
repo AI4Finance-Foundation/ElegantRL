@@ -730,7 +730,7 @@ class AgentDeepSAC(AgentBasicAC):
             self.cri_optimizer.step()
 
             '''actor_loss'''
-            if i % repeat_times == 0 and rho > 0.001:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+            if i % repeat_times == 0 and rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 # stochastic policy
                 actions_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
                 # auto alpha
