@@ -69,6 +69,108 @@ class Critic(nn.Module):  # 2020-05-05 fix bug
         return q
 
 
+class BufferList:
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = len(self.memories)
+
+    def add_memo(self, memory_tuple):
+        self.memories.append(memory_tuple)
+
+    def init_before_sample(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert list into array'''
+        arrays = [list()
+                  for _ in range(5)]  # len(self.memories[0]) == 5
+        for index in indices:
+            items = self.memories[index]
+            for item, array in zip(items, arrays):
+                array.append(item)
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+
+
+class BufferArray:  # 2020-05-20
+    def __init__(self, memo_max_len, state_dim, action_dim, ):
+        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+        self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
+
+        self.next_idx = 0
+        self.is_full = False
+        self.max_len = memo_max_len
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + action_dim
+
+    def add_memo(self, memo_tuple):
+        # memo_array == (reward, mask, state, action, next_state)
+        self.memories[self.next_idx] = np.hstack(memo_tuple)
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
+            self.is_full = True
+            self.next_idx = 0
+
+    def extend_memo(self, memo_array):  # 2020-07-07
+        # assert isinstance(memo_array, np.ndarray)
+        size = memo_array.shape[0]
+        next_idx = self.next_idx + size
+        if next_idx < self.max_len:
+            self.memories[self.next_idx:next_idx] = memo_array
+        if next_idx >= self.max_len:
+            if next_idx > self.max_len:
+                self.memories[self.next_idx:self.max_len] = memo_array[:self.max_len - self.next_idx]
+            self.is_full = True
+            next_idx = next_idx - self.max_len
+            self.memories[0:next_idx] = memo_array[-next_idx:]
+        else:
+            self.memories[self.next_idx:next_idx] = memo_array
+        self.next_idx = next_idx
+
+    def init_before_sample(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+        memory = self.memories[indices]
+        if device:
+            memory = torch.tensor(memory, device=device)
+
+        '''convert array into torch.tensor'''
+        tensors = (
+            memory[:, 0:1],  # rewards
+            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            memory[:, 2:self.state_idx],  # states
+            memory[:, self.state_idx:self.action_idx],  # actions
+            memory[:, self.action_idx:],  # next_states
+        )
+        return tensors
+
+
 def soft_target_update(target, online, tau=5e-3):
     for target_param, param in zip(target.parameters(), online.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
@@ -120,7 +222,8 @@ def run__tutorial_discrete_action():
     act_target.eval()
 
     # from AgentRun import BufferList # simpler but slower
-    from AgentZoo import BufferArray  # faster but a bit complicated
+    # buffer = BufferList(max_buffer, state_dim, action_dim=1)  # experiment replay buffer, discrete action is an int
+    # from AgentZoo import BufferArray  # faster but a bit complicated
     buffer = BufferArray(max_buffer, state_dim, action_dim=1)  # experiment replay buffer, discrete action is an int
 
     '''training loop'''
