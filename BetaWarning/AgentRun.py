@@ -1071,19 +1071,19 @@ def run__mp(gpu_id=None):
     args.is_remove = False
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.max_total_step = int(1e5 * 4)
+    args.max_total_step = int(1e4 * 8)
     args.init_for_training()
     build_for_mp()
 
     args.env_name = "BipedalWalker-v3"
-    args.max_total_step = int(2e5 * 4)
+    args.max_total_step = int(2e4 * 8)
     args.init_for_training()
     build_for_mp()
 
     # import pybullet_envs  # for python-bullet-gym
     # dir(pybullet_envs)
     # args.env_name = "AntBulletEnv-v0"
-    # args.max_total_step = int(4e6 * 4)
+    # args.max_total_step = int(4e5 * 8)
     # args.max_epoch = 2 ** 13
     # args.max_memo = 2 ** 20
     # args.max_step = 2 ** 10
@@ -1098,7 +1098,7 @@ def run__mp(gpu_id=None):
     # import pybullet_envs  # for python-bullet-gym
     # dir(pybullet_envs)
     # args.env_name = "MinitaurBulletEnv-v0"
-    # args.max_total_step = int(8e6 * 4)
+    # args.max_total_step = int(8e5 * 8)
     # args.max_epoch = 2 ** 13
     # args.max_memo = 2 ** 21
     # args.max_step = 2 ** 10
