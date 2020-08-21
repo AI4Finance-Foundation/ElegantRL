@@ -289,7 +289,38 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG wi
 
 class AgentTD3(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
-        AgentBasicAC.__init__(self, state_dim, action_dim, net_dim)
+        super(AgentBasicAC, self).__init__()
+
+        use_dn = False  # soft target update is conflict with use_densenet
+        self.learning_rate = 2e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        actor_dim = net_dim
+        self.act = ActorDN(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+
+        self.act_target = ActorDN(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        critic_dim = int(net_dim * 1.25)
+        self.cri = CriticTwin(state_dim, action_dim, critic_dim, use_dn).to(self.device)
+        self.cri.train()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.cri_target = CriticTwin(state_dim, action_dim, critic_dim, use_dn).to(self.device)
+        self.cri_target.eval()
+        self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0  # delay update counter
 
         '''constant'''
         self.explore_rate = 0.5  # explore rate when update_buffer()
@@ -834,7 +865,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + 1, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
-                next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                # next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
+                next_q_target1, next_q_target2 = self.act_target.get__q1_q2(next_s, next_a_noise)  # todo CriticTwin
+                next_q_target = (next_q_target1+next_q_target2)*0.5
                 next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
                 q_target = reward + mask * next_q_target
             '''critic_loss'''

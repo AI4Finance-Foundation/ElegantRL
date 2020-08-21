@@ -20,7 +20,7 @@ https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 """
 
 
-class ArgumentsBeta:  # default working setting and hyper-parameter
+class Arguments:  # default working setting and hyper-parameter
     def __init__(self, rl_agent=None, env_name=None, gpu_id=None):
         self.rl_agent = rl_agent
         self.gpu_id = sys.argv[-1][-4] if gpu_id is None else gpu_id
@@ -198,8 +198,11 @@ def get_env_info(env, is_print=True):  # 2020-06-06
     env_name = env.unwrapped.spec.id
 
     state_shape = env.observation_space.shape
-    assert len(state_shape) == 1
-    state_dim = state_shape[0]
+    # assert len(state_shape) == 1 # todo pixel-level
+    if len(state_shape) == 1:
+        state_dim = state_shape[0]
+    else:
+        state_dim = state_shape
 
     try:
         is_discrete = isinstance(env.action_space, gym.spaces.Discrete)
@@ -606,16 +609,16 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
 
 def run__demo():
     import AgentZoo as Zoo
-    args = ArgumentsBeta(rl_agent=Zoo.AgentDeepSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
+    args = Arguments(rl_agent=Zoo.AgentDeepSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
     train_offline_policy(**vars(args))
 
 
 def run__offline_policy(gpu_id=None):
     import AgentZoo as Zoo
-    args = ArgumentsBeta(rl_agent=Zoo.AgentDeepSAC, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentDeepSAC, gpu_id=gpu_id)
     assert args.rl_agent in {
-        Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.ActorSAC, Zoo.AgentDeepSAC,
+        Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.AgentSAC, Zoo.AgentDeepSAC,
         Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
     }  # you can't run PPO here. goto run__ppo(). PPO need special hyper-parameters
 
@@ -686,7 +689,7 @@ def run__online_policy(gpu_id=None):
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """
     import AgentZoo as Zoo
-    args = ArgumentsBeta(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
     assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
 
     args.max_memo = 2 ** 12
@@ -696,16 +699,19 @@ def run__online_policy(gpu_id=None):
     args.gamma = 0.99
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.max_total_step = int(1e5 * 4)
     args.init_for_training()
     train__online_policy(**vars(args))
 
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
+    args.max_total_step = int(4e5 * 4)
     args.init_for_training()
     train__online_policy(**vars(args))
 
     args.env_name = "BipedalWalker-v3"
+    args.max_total_step = int(3e6 * 4)
     args.init_for_training()
     train__online_policy(**vars(args))
 
@@ -722,7 +728,7 @@ def run__gae_discrete(gpu_id):
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """
     import AgentZoo as Zoo
-    args = ArgumentsBeta(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
     assert args.rl_agent in {Zoo.AgentDiscreteGAE, }
 
     args.max_memo = 2 ** 10
@@ -731,6 +737,7 @@ def run__gae_discrete(gpu_id):
     args.net_dim = 2 ** 7
 
     args.env_name = "CartPole-v0"
+    args.max_total_step = int(1e5 * 4)
     args.init_for_training()
     train__online_policy(**vars(args))
 
@@ -741,13 +748,14 @@ def run__gae_discrete(gpu_id):
     args.net_dim = 2 ** 8
 
     args.env_name = "LunarLander-v2"
+    args.max_total_step = int(2e6 * 4)
     args.init_for_training()
     train__online_policy(**vars(args))
 
 
 def run__dqn(gpu_id=None):  # 2020-07-07
     import AgentZoo as Zoo
-    args = ArgumentsBeta(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
     assert args.rl_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
 
     args.env_name = "CartPole-v0"
@@ -766,11 +774,10 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     class_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
-    max_epoch = args.max_epoch
     max_step = args.max_step
+    max_total_step = args.max_total_step
     batch_size = args.batch_size
     repeat_times = args.repeat_times
-    args.init_for_training()
     del args
 
     state_dim, action_dim = q_o_buf.get()  # q_o_buf 1.
@@ -794,10 +801,13 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
 
     q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva 1.
 
-    for epoch in range(max_epoch):  # epoch is episode
+    total_step = step_sum
+    is_training = True
+    while is_training:
         buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf n.
         reward_avg = np.average(reward_list)
         step_sum = sum(step_list)
+        total_step += step_sum
         buffer.extend_memo(buffer_array)
 
         buffer.init_before_sample()
@@ -810,7 +820,10 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
         if q_o_eva.qsize() > 0:
             is_solved = q_o_eva.get()  # q_o_eva n.
             if is_solved:
-                break
+                is_training = False
+        if total_step > max_total_step:
+            is_training = False
+
     # print('; quit: params')
 
 
@@ -878,9 +891,10 @@ def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by intera
 
         try:
             q_i_buf_get = q_i_buf.get()  # q_i_buf n.
+            act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
         except FileNotFoundError:
             is_training = False
-        act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
+
     # print('; quit: buffer')
 
 
@@ -904,11 +918,13 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     recorder_exp = list()  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
     recorder_eva = list()  # total_step, eva_r_avg, eva_r_std
 
+    assert env_name is not None
     env = gym.make(env_name)
     state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
 
     '''build evaluated only actor'''
     q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
+    # is_training = os.path.exists(f'{cwd}/is_training')
     act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
 
     print(f"{'GPU':>3}  {'Step':>8}  {'MaxR':>8} |"
@@ -963,7 +979,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
         while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
             time.sleep(1)
         while q_i_eva.qsize():  # get the latest actor
-            try:
+            try:  # todo
                 q_i_eva_get = q_i_eva.get()  # q_i_eva n.
             except FileNotFoundError:
                 is_training = False
@@ -971,13 +987,14 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
             total_step += exp_s_sum
             recorder_exp.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
+
     np.save('%s/record_explore.npy' % cwd, recorder_exp)
     np.save('%s/record_evaluate.npy' % cwd, recorder_eva)
     draw_plot_with_2npy(cwd, train_time=time.time() - start_time)
     # print('; quit: evaluate')
 
 
-def run__mp(gpu_id=None):
+def run__mp_old(gpu_id=None):
     import multiprocessing as mp
     q_i_buf = mp.Queue(maxsize=8)  # buffer I
     q_o_buf = mp.Queue(maxsize=8)  # buffer O
@@ -988,14 +1005,16 @@ def run__mp(gpu_id=None):
         process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
                    mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
                    mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+
         [p.start() for p in process]
         [p.join() for p in process]
         # [p.close() for p in process]
-        [p.terminate() for p in process]  # use p.terminate() instead of p.close()
-        time.sleep(8)
+        # [p.terminate() for p in process]  # use p.terminate() instead of p.close()
+        time.sleep(2)
+        print('\n\n')
 
     import AgentZoo as Zoo
-    args = ArgumentsBeta(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
     build_for_mp()
     #
     # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
@@ -1026,6 +1045,69 @@ def run__mp(gpu_id=None):
     # args.is_remove = True
     # args.eva_size = 2 ** 5  # for Recorder
     # args.show_gap = 2 ** 8  # for Recorder
+    # build_for_mp()
+
+
+def run__mp(gpu_id=None):
+    import multiprocessing as mp
+    q_i_buf = mp.Queue(maxsize=8)  # buffer I
+    q_o_buf = mp.Queue(maxsize=8)  # buffer O
+    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
+
+    def build_for_mp():
+        process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
+                   mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
+                   mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+        [p.start() for p in process]
+        [p.join() for p in process]
+        # [p.close() for p in process]
+        # [p.terminate() for p in process]  # use p.terminate() instead of p.close()
+        print('\n\n')
+        time.sleep(1)
+
+    import AgentZoo as Zoo
+    args = Arguments(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
+    args.is_remove = False
+
+    args.env_name = "LunarLanderContinuous-v2"
+    args.max_total_step = int(1e5 * 4)
+    args.init_for_training()
+    build_for_mp()
+
+    args.env_name = "BipedalWalker-v3"
+    args.max_total_step = int(2e5 * 4)
+    args.init_for_training()
+    build_for_mp()
+
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "AntBulletEnv-v0"
+    # args.max_total_step = int(4e6 * 4)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 20
+    # args.max_step = 2 ** 10
+    # args.net_dim = 2 ** 8
+    # args.batch_size = 2 ** 9
+    # args.reward_scale = 2 ** -2
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # args.init_for_training()
+    # build_for_mp()
+
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "MinitaurBulletEnv-v0"
+    # args.max_total_step = int(8e6 * 4)
+    # args.max_epoch = 2 ** 13
+    # args.max_memo = 2 ** 21
+    # args.max_step = 2 ** 10
+    # args.net_dim = 2 ** 8
+    # args.batch_size = 2 ** 9
+    # args.reward_scale = 2 ** 4
+    # args.eva_size = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # args.init_for_training()
     # build_for_mp()
 
 
