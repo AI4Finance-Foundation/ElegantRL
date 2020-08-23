@@ -203,11 +203,19 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + remove build_critic_net_for_spg build_actor_net_for_spg
 + Check DuelingDQN, DoubleDQN
 + Change 'super(xxx, self).__init__()' into 'super().__init__()'
++ Update ArgumentsBeta to Arguments, change 'max_epoch' to 'max_total_step'
++ Update InterSAC actor_term from std to log_std. 
++ fix multiprocessing queue bug (remove except FileNotFound error)
+
+
+
+
 
 
 #### ElegantRL 2020.08.12 (NewYork Necip)
 Plan todo:
-+ Update ArgumentsBeta to Arguments, change 'max_epoch' to 'max_total_step'
++ high-dim (pixel-level)
++ DenseNet Level 2 -> 3
 + Change Recorder in single process
 + Bug: Weather remove (will remove all cwd)
 
