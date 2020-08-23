@@ -824,7 +824,12 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
         if total_step > max_total_step:
             is_training = False
 
-    # print('; quit: params')
+    q_i_buf.put('stop')
+    q_i_eva.put('stop')
+    while q_i_buf.qsize() > 0 or q_i_eva.qsize() > 0:
+        time.sleep(1)
+    time.sleep(4)
+    print('; quit: params')
 
 
 def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by interacting with env
@@ -889,13 +894,17 @@ def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by intera
         buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
         q_o_buf.put((buffer_array, reward_list, step_list))  # q_o_buf n.
 
-        try:
-            q_i_buf_get = q_i_buf.get()  # q_i_buf n.
-            act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
-        except FileNotFoundError:
+        q_i_buf_get = q_i_buf.get()  # q_i_buf n.
+        if q_i_buf_get == 'stop':
             is_training = False
+        else:
+            act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
 
-    # print('; quit: buffer')
+    while q_o_buf.qsize() > 0:
+        q_o_buf.get()
+    while q_i_buf.qsize() > 0:
+        q_i_buf.get()
+    print('; quit: buffer')
 
 
 def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
@@ -979,73 +988,24 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
         while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
             time.sleep(1)
         while q_i_eva.qsize():  # get the latest actor
-            try:  # todo
-                q_i_eva_get = q_i_eva.get()  # q_i_eva n.
-            except FileNotFoundError:
+            q_i_eva_get = q_i_eva.get()  # q_i_eva n.
+            if q_i_eva_get == 'stop':
                 is_training = False
                 break
-            act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
-            total_step += exp_s_sum
-            recorder_exp.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
+            else:
+                act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
+                total_step += exp_s_sum
+                recorder_exp.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
 
     np.save('%s/record_explore.npy' % cwd, recorder_exp)
     np.save('%s/record_evaluate.npy' % cwd, recorder_eva)
     draw_plot_with_2npy(cwd, train_time=time.time() - start_time)
-    # print('; quit: evaluate')
 
-
-def run__mp_old(gpu_id=None):
-    import multiprocessing as mp
-    q_i_buf = mp.Queue(maxsize=8)  # buffer I
-    q_o_buf = mp.Queue(maxsize=8)  # buffer O
-    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
-
-    def build_for_mp():
-        process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
-                   mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
-                   mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
-
-        [p.start() for p in process]
-        [p.join() for p in process]
-        # [p.close() for p in process]
-        # [p.terminate() for p in process]  # use p.terminate() instead of p.close()
-        time.sleep(2)
-        print('\n\n')
-
-    import AgentZoo as Zoo
-    args = Arguments(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
-    build_for_mp()
-    #
-    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="BipedalWalker-v3")
-    # build_for_mp()
-
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="AntBulletEnv-v0")
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 20
-    # args.max_step = 2 ** 10
-    # args.net_dim = 2 ** 8
-    # args.batch_size = 2 ** 9
-    # args.reward_scale = 2 ** -2
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # build_for_mp()
-    #
-
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args = ArgumentsBeta(class_agent, gpu_id, cwd, env_name="MinitaurBulletEnv-v0")
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 21
-    # args.net_dim = 2 ** 8
-    # args.max_step = 2 ** 12
-    # args.reward_scale = 2 ** 5
-    # args.is_remove = True
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # build_for_mp()
+    while q_o_eva.qsize() > 0:
+        q_o_eva.get()
+    while q_i_eva.qsize() > 0:
+        q_i_eva.get()
+    print('; quit: evaluate')
 
 
 def run__mp(gpu_id=None):
@@ -1061,10 +1021,7 @@ def run__mp(gpu_id=None):
                    mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
         [p.start() for p in process]
         [p.join() for p in process]
-        # [p.close() for p in process]
-        # [p.terminate() for p in process]  # use p.terminate() instead of p.close()
-        print('\n\n')
-        time.sleep(1)
+        print('\n')
 
     import AgentZoo as Zoo
     args = Arguments(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
@@ -1076,7 +1033,7 @@ def run__mp(gpu_id=None):
     build_for_mp()
 
     args.env_name = "BipedalWalker-v3"
-    args.max_total_step = int(2e4 * 8)
+    args.max_total_step = int(3e5 * 8)
     args.init_for_training()
     build_for_mp()
 

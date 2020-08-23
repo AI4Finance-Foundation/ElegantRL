@@ -840,6 +840,11 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.alpha = self.log_alpha.exp()
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
         self.target_entropy = np.log(1.0 / action_dim)
+
+        self.auto_k = torch.ones(1, requires_grad=True, device=self.device)
+        self.auto_k_optimizer = torch.optim.Adam((self.auto_k,), lr=0.05)
+        self.target_rho = 0.9
+
         '''extension: auto learning rate of actor'''
         self.trust_rho = TrustRho()
 
@@ -849,25 +854,27 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_freq = 2 ** 7  # delay update frequency, for hard target update
 
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
-        update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
+        update_freq = self.update_freq
         self.act.train()
 
         loss_a_sum = 0.0
         loss_c_sum = 0.0
         rho = self.trust_rho()
 
-        k = 1.0 + buffer.now_len / buffer.max_len
-        batch_size_ = int(batch_size * k)
-        update_times = int(max_step * k)
+        k_loss = self.auto_k * (rho - self.target_rho) + torch.div(1, self.auto_k) + self.auto_k  # todo
+        self.auto_k_optimizer.zero_grad()
+        k_loss.backward()
+        self.auto_k_optimizer.step()
+        batch_size_ = int(batch_size * (1.0 + buffer.now_len / buffer.max_len))
+        update_times = int(max_step * self.auto_k.item())
 
-        for i in range(update_times * repeat_times):
+        for i in range(update_times):
             with torch.no_grad():
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + 1, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
-                # next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # CriticTwin
-                next_q_target1, next_q_target2 = self.act_target.get__q1_q2(next_s, next_a_noise)  # todo CriticTwin
-                next_q_target = (next_q_target1+next_q_target2)*0.5
+                next_q_target1, next_q_target2 = self.act_target.get__q1_q2(next_s, next_a_noise)
+                next_q_target = (next_q_target1 + next_q_target2) * 0.5
                 next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
                 q_target = reward + mask * next_q_target
             '''critic_loss'''
@@ -878,7 +885,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.trust_rho.append_loss_c(loss_c_tmp)
 
             '''stochastic policy'''
-            a_mean1, a_std1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
+            a_mean1, a_std_log_1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
             '''auto alpha'''
             alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
@@ -887,12 +894,11 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.alpha_optimizer.step()
 
             '''action correction term'''
-            # a_mean1, a_std1 = self.act.get__a__std(state)
-            a_mean2, a_std2 = self.act_target.get__a__std(state)
-            actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std1, a_std2)
+            a_mean2, a_std_log_2 = self.act_target.get__a__std(state)
+            actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std_log_1, a_std_log_2)
 
             '''actor_loss'''
-            if i % repeat_times == 0 and rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+            if rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 self.alpha = self.log_alpha.exp()
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
 
@@ -917,7 +923,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 rho = self.trust_rho.update_rho()
 
         loss_a_avg = loss_a_sum / update_times
-        loss_c_avg = loss_c_sum / (update_times * repeat_times)
+        loss_c_avg = loss_c_sum / update_times
         return loss_a_avg, loss_c_avg
 
 

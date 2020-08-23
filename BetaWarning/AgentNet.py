@@ -110,6 +110,8 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, 1),
         )  # q_value2 SharedTwinCritic
 
+        layer_norm(self.dec_a[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+
         '''Not need to use both SpectralNorm and TwinCritic
         I choose TwinCritc instead of SpectralNorm, 
         because SpectralNorm is conflict with soft target update,
@@ -140,8 +142,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         """add noise to action, stochastic policy"""
         # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
         # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
+        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
 
         '''compute log_prob according to mean and std of action (stochastic policy)'''
         # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
@@ -161,9 +162,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         a_ = self.net(s_)
         a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
         a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        return a_mean.tanh(), a_std
+        return a_mean.tanh(), a_std_log
 
     def get__a__avg_std_noise_prob(self, state):  # actor
         s_ = self.enc_s(state)
@@ -189,7 +188,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
         log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_mean.tanh(), a_std, a_noise_tanh, log_prob.sum(1, keepdim=True)
+        return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
 
     def get__q1_q2(self, s, a):  # critic
         s_ = self.enc_s(s)
