@@ -608,6 +608,15 @@ class QNetDuel(nn.Module):
 """utils"""
 
 
+class NnnReshape(nn.Module):
+    def __init__(self, *args):
+        super().__init__()
+        self.args = args
+
+    def forward(self, x):
+        return x.view((x.size(0),) + self.args)
+
+
 class DenseNet(nn.Module):
     def __init__(self, mid_dim):
         super().__init__()
@@ -687,3 +696,30 @@ def build_critic_network(state_dim, action_dim, mid_dim, use_dn):
 
     layer_norm(net[-1], std=0.01)  # net[-1] is output layer for critic, it is no necessary.
     return net
+
+
+"""utils test"""
+# def test_conv2d():
+#     state_dim = (2, 96, 96)
+#
+#     def idx_dim(i):
+#         return int(16 * 1.6487 ** i)
+#
+#     mid_dim = 128
+#     net = nn.Sequential(
+#         NnnReshape(*state_dim),  # -> [?, 2, 96, 96]
+#         nn.Conv2d(state_dim[0], idx_dim(0), 3, 2, bias=True),  # todo CarRacing-v0
+#         nn.Conv2d(idx_dim(0), idx_dim(1), 4, 2, bias=False), nn.ReLU(),
+#         nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+#         nn.Conv2d(idx_dim(2), idx_dim(1), 3, 1, bias=True), nn.ReLU(),
+#         NnnReshape(-1),  # [?, 26, 8, 8] -> [?, 1664]
+#         nn.Linear(1664, mid_dim), nn.ReLU(),
+#         DenseNet(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+#     )
+#
+#     inp = torch.ones((3, 2, 96, 96), dtype=torch.float32)
+#     inp = inp.view(3, -1)
+#     print(inp.shape)
+#     out = net(inp)
+#     print(out.shape)
+#     exit()

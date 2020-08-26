@@ -77,7 +77,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         self.step = step  # update_parameters() need self.step
         return (reward_sum,), (step,)
 
-    def update_parameters(self, memo, _max_step, batch_size, _update_gap):
+    def update_parameters(self, buffer, _max_step, batch_size, _update_gap):
         loss_a_sum = 0.0
         loss_c_sum = 0.0
 
@@ -85,7 +85,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         update_times = self.step
         for _ in range(update_times):
             with torch.no_grad():
-                rewards, masks, states, actions, next_states = memo.random_sample(batch_size, self.device)
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size, self.device)
 
                 next_action = self.act_target(next_states)
                 next_q_target = self.cri_target(next_states, next_action)
@@ -1833,6 +1833,8 @@ class BufferList:
 
 class BufferArray:  # 2020-05-20
     def __init__(self, memo_max_len, state_dim, action_dim, ):
+        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
+
         memo_dim = 1 + 1 + state_dim + action_dim + state_dim
         self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
 
@@ -2002,7 +2004,8 @@ class BufferTuple:
 
 
 class BufferTupleOnline:
-    def __init__(self, ):
+    def __init__(self, max_memo):
+        self.max_memo = max_memo
         self.storage_list = list()
         from collections import namedtuple
         self.transition = namedtuple(
@@ -2022,3 +2025,6 @@ class BufferTupleOnline:
 
     def __len__(self):
         return len(self.storage_list)
+
+    def init_before_sample(self):
+        pass  # compatibility

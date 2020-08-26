@@ -62,6 +62,60 @@ class Arguments:  # default working setting and hyper-parameter
             setattr(self, key, value)
 
 
+def train_agent(
+        rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
+        env_name, max_step, max_memo, max_total_step,
+        eva_size, gpu_id, show_gap, **_kwargs):  # 2020-06-01
+    env = gym.make(env_name)
+    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
+    if env_name == 'CarRacing-v0':
+        env = fix_car_racing_v0(env)
+        state_dim = (2, state_dim[0], state_dim[1])
+    is_online_policy = bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentDiscreteGAE'})
+
+    '''init: agent, buffer, recorder'''
+    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    agent.state = env.reset()
+    if is_online_policy:
+        buffer = BufferTupleOnline(max_memo)
+    else:
+        buffer = BufferArray(max_memo, state_dim, 1 if is_discrete else action_dim)
+    recorder = Recorder0825()
+
+    '''loop'''
+    if not is_online_policy:
+        with torch.no_grad():  # update replay buffer
+            rewards, steps = initial_exploration(env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
+        recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
+
+    is_training = True
+    while is_training:
+        '''update replay buffer by interact with environment'''
+        with torch.no_grad():  # for saving the GPU buffer
+            rewards, steps = agent.update_buffer(
+                env, buffer, max_step, max_action, reward_scale, gamma)
+
+        '''update network parameters by random sampling buffer for gradient descent'''
+        buffer.init_before_sample()
+        loss_a, loss_c = agent.update_parameters(
+            buffer, max_step, batch_size, repeat_times)
+
+        '''saves the agent with max reward'''
+        with torch.no_grad():  # for saving the GPU buffer
+            recorder.update__record_explore(steps, rewards, loss_a, loss_c)
+
+            is_saved = recorder.update__record_evaluate(
+                env, agent.act, max_step, max_action, eva_size, agent.device)
+            recorder.save_act(cwd, agent.act, gpu_id) if is_saved else None
+
+            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
+        '''break loop rules'''
+        if is_solved or recorder.total_step > max_total_step or os.path.exists(f'{cwd}/stop.mark'):
+            is_training = False
+
+    recorder.save_npy__plot_png(cwd)
+
+
 def train_offline_policy(
         rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
         env_name, max_step, max_memo, max_total_step,
@@ -541,6 +595,50 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
     return buffer_array, reward_list, step_list
 
 
+def fix_car_racing_v0(env):  # todo CarRacing-v0
+    env.old_step = env.step
+    """
+    comment 'car_racing.py' line 233-234: print('Track generation ...
+    comment 'car_racing.py' line 308-309: print("retry to generate track ...
+    """
+
+    def decorator_step(env_step):
+        def new_env_step(action):
+            state3, reward, done, info = env_step(action)
+            state = state3[:, :, 1]  # show green
+            state[86:, :24] = 0  # shield id
+            state[86:, 24:36] = state3[86:, 24:36, 2]  # show red
+            state[86:, 72:] = state3[86:, 72:, 0]  # show blue
+            state = state.astype(np.float32) / 128.0 - 0.5
+            if state.mean() > 0.95:  # fix CarRacing-v0 bug
+                reward -= 10.0
+                done = True
+
+            # state2 = np.stack((env.prev_state, state))
+            state2 = np.stack((env.prev_state, state)).flatten()  # todo pixel flatten
+            env.prev_state = state
+            return state2, reward, done, info
+
+        return new_env_step
+
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            env_reset()
+            action = np.zeros(3)
+            for _ in range(16):
+                env.old_step(action)
+            env.prev_state = env.old_step(action)[0][:, :, 1]
+            env.prev_state = env.prev_state.astype(np.float32) / 128.0 - 0.5
+            return env.step(action)[0]  # state
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
+    return env
+
+
 """multi processing"""
 
 
@@ -759,6 +857,38 @@ def run__demo():
     args = Arguments(rl_agent=Zoo.AgentDeepSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
     train_offline_policy(**vars(args))
+
+
+def run0826(gpu_id=None):
+    import AgentZoo as Zoo
+
+    """run offline policy"""
+    # args = Arguments(rl_agent=Zoo.AgentPixelInterSAC, gpu_id=gpu_id)
+    # args.env_name = "CarRacing-v0"  # todo CarRacing-v0
+    # args.max_total_step = int(1e6 * 4)
+    # args.batch_size = 2 ** 8
+    # args.max_memo = 2 ** 19
+    # args.eva_size = 4  # todo CarRacing-v0
+    # args.reward_scale = 2 ** -1
+    # args.init_for_training()
+    # train_offline_policy__pixel(**vars(args))
+
+    """run online policy"""
+    args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
+    args.env_name = "CarRacing-v0"
+
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 8
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 7
+    args.gamma = 0.99
+    args.random_seed = 1944
+    args.max_total_step = int(1e6 * 4)
+    args.max_step = int(2000)
+    args.eva_size = 4  # todo CarRacing-v0
+    args.reward_scale = 2 ** -1
+    args.init_for_training()
+    train_agent(**vars(args))
 
 
 def run__offline_policy(gpu_id=None):
