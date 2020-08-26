@@ -89,8 +89,8 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, mid_dim),
         )  # action without nn.Tanh()
 
-        self.net = DenseNet(mid_dim)
-        net_out_dim = mid_dim * 4
+        self.net = DenseNet2(mid_dim)  # todo
+        net_out_dim = self.net.out_dim
 
         # decoder
         self.dec_a = nn.Sequential(
@@ -115,7 +115,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         '''Not need to use both SpectralNorm and TwinCritic
         I choose TwinCritc instead of SpectralNorm, 
         because SpectralNorm is conflict with soft target update,
-        
+
         if is_spectral_norm:
             self.dec_q1[1] = nn.utils.spectral_norm(self.dec_q1[1])
             self.dec_q2[1] = nn.utils.spectral_norm(self.dec_q2[1])
@@ -613,7 +613,7 @@ class DenseNet(nn.Module):
         super().__init__()
         self.dense1 = nn.Sequential(
             nn.Linear(mid_dim * 1, mid_dim * 1),
-            HardSwish(),
+            nn.ReLU(),  # HardSwish(),  # todo
         )
         self.dense2 = nn.Sequential(
             nn.Linear(mid_dim * 2, mid_dim * 2),
@@ -631,6 +631,29 @@ class DenseNet(nn.Module):
         # self.dropout.p = rd.uniform(0.0, 0.1)
         # return self.dropout(x3)
         return x3
+
+
+class DenseNet2(nn.Module):  # todo hyper-param: layer_number
+    def __init__(self, mid_dim):
+        super().__init__()
+        assert (mid_dim / (2 ** 3)) % 1 == 0
+
+        def id2dim(i):
+            return int((3 / 2) ** i * mid_dim)
+
+        self.dense1 = nn.Sequential(nn.Linear(id2dim(0), id2dim(0) // 2), nn.ReLU(), )
+        self.dense2 = nn.Sequential(nn.Linear(id2dim(1), id2dim(1) // 2), nn.ReLU(), )
+        self.dense3 = nn.Sequential(nn.Linear(id2dim(2), id2dim(2) // 2), nn.ReLU(), )
+        self.out_dim = id2dim(3)
+
+        layer_norm(self.dense1[0], std=1.0)
+        layer_norm(self.dense2[0], std=1.0)
+
+    def forward(self, x1):
+        x2 = torch.cat((x1, self.dense1(x1)), dim=1)
+        x3 = torch.cat((x2, self.dense2(x2)), dim=1)
+        x4 = torch.cat((x3, self.dense3(x3)), dim=1)
+        return x4
 
 
 class HardSwish(nn.Module):

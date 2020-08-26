@@ -841,9 +841,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
         self.target_entropy = np.log(1.0 / action_dim)
 
-        self.auto_k = torch.ones(1, requires_grad=True, device=self.device)
-        self.auto_k_optimizer = torch.optim.Adam((self.auto_k,), lr=0.05)
-        self.target_rho = 0.9
+        # self.auto_k = torch.ones(1, requires_grad=True, device=self.device)
+        # self.auto_k_optimizer = torch.optim.Adam((self.auto_k,), lr=0.05)
+        # self.target_rho = 0.9
 
         '''extension: auto learning rate of actor'''
         self.trust_rho = TrustRho()
@@ -861,12 +861,15 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         loss_c_sum = 0.0
         rho = self.trust_rho()
 
-        k_loss = self.auto_k * (rho - self.target_rho) + torch.div(1, self.auto_k) + self.auto_k  # todo
-        self.auto_k_optimizer.zero_grad()
-        k_loss.backward()
-        self.auto_k_optimizer.step()
-        batch_size_ = int(batch_size * (1.0 + buffer.now_len / buffer.max_len))
-        update_times = int(max_step * self.auto_k.item())
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        update_times = int(max_step * k)
+        # k_loss = self.auto_k * (rho - self.target_rho) + torch.div(1, self.auto_k) + 0.5 * self.auto_k
+        # self.auto_k_optimizer.zero_grad()
+        # k_loss.backward()
+        # self.auto_k_optimizer.step()
+        # batch_size_ = int(batch_size * (1.0 + buffer.now_len / buffer.max_len))
+        # update_times = int(max_step * self.auto_k.item())
 
         for i in range(update_times):
             with torch.no_grad():
@@ -1151,7 +1154,14 @@ class AgentGAE(AgentPPO):
         ]
         # with torch.no_grad():
         # all__new_v = self.cri(all_state).detach_()  # all new value
-        all__new_v = torch.min(*self.cri(all_state)).detach_()  # TwinCritic
+        # all__new_v = torch.min(*self.cri(all_state)).detach_()  # TwinCritic
+        # all__new_v = torch.add(*self.cri(all_state)).detach_() * 0.5  # TwinCritic # todo
+        with torch.no_grad():  # todo avoid OOM
+            b_size = 128
+            b__len = all_state.size()[0]
+            all__new_v = [torch.add(*self.cri(all_state[i:i + b_size])) * 0.5
+                          for i in range(0, b__len - 1, b_size)]
+            all__new_v = torch.cat(all__new_v, dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: Generalization Advantage Estimate. ICLR 2016. 
