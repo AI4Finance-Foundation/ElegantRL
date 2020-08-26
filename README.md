@@ -206,18 +206,17 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + Update ArgumentsBeta to Arguments, change 'max_epoch' to 'max_total_step'
 + Update InterSAC actor_term from std to log_std. 
 + fix multiprocessing queue bug (remove except FileNotFound error)
-
-
-
++ DenseNet Level 2 -> 3, (3/2)**i
++ Update to Recorder0825, 'stop.mark'
++ pipeline update for AgentRun.py
++ write a @Decorator for CarRacing-v0
++ fix a bug in class Recorder0825
 
 
 
 #### ElegantRL 2020.08.12 (NewYork Necip)
 Plan todo:
-+ high-dim (pixel-level)
-+ DenseNet Level 2 -> 3
-+ Change Recorder in single process
-+ Bug: Weather remove (will remove all cwd)
++ high-dim (pixel-level), GAE, ISAC
 
 mega TTUR into (rho > 2 ** -8) 
 Add the training stop signal: reach the target reward, reach the total step.
