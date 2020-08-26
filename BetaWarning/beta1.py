@@ -5,7 +5,7 @@ from AgentNet import *
 """
 search 'todo CarRacing-v0' to see the change
 CarRacing-v0 GAE 
-1482 |           691.11   691.11   119.00 |   -0.11   0.17 |6.29e+05
+3    4.99e+05    870.19 |  827.74     20.49 |  245.43     -0.08      0.12
 
 offline conv
 try merge train__online_policy and train__offline_policy 
@@ -557,6 +557,7 @@ def run0826(gpu_id=None):
     args.reward_scale = 2 ** -1
     args.init_for_training()
     train_agent(**vars(args))
+    # build_for_mp(args)  # todo bug here
 
     """run online policy"""
     # args = Arguments(rl_agent=AgentGAE, gpu_id=gpu_id)
