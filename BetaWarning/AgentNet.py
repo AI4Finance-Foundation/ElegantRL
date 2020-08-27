@@ -652,11 +652,12 @@ class DenseNet2(nn.Module):  # todo hyper-param: layer_number
 
         self.dense1 = nn.Sequential(nn.Linear(id2dim(0), id2dim(0) // 2), nn.ReLU(), )
         self.dense2 = nn.Sequential(nn.Linear(id2dim(1), id2dim(1) // 2), nn.ReLU(), )
-        self.dense3 = nn.Sequential(nn.Linear(id2dim(2), id2dim(2) // 2), nn.ReLU(), )
+        self.dense3 = nn.Sequential(nn.Linear(id2dim(2), id2dim(2) // 2), HardSwish(), )
         self.out_dim = id2dim(3)
 
         layer_norm(self.dense1[0], std=1.0)
         layer_norm(self.dense2[0], std=1.0)
+        layer_norm(self.dense3[0], std=1.0)
 
     def forward(self, x1):
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)

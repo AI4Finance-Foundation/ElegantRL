@@ -8,7 +8,7 @@ import numpy as np
 import numpy.random as rd
 
 from AgentZoo import initial_exploration
-from AgentZoo import BufferArray, BufferArrayGPU
+from AgentZoo import BufferArray, BufferArrayGPU, BufferTupleOnline
 
 """Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
@@ -105,7 +105,7 @@ def train_agent(
             recorder.update__record_explore(steps, rewards, loss_a, loss_c)
 
             is_saved = recorder.update__record_evaluate(
-                env, agent.act, max_step, max_action, eva_size, agent.device)
+                env, agent.act, max_step, max_action, eva_size, agent.device, is_discrete)
             recorder.save_act(cwd, agent.act, gpu_id) if is_saved else None
 
             is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
@@ -157,7 +157,7 @@ def train_offline_policy(
             recorder.update__record_explore(steps, rewards, loss_a, loss_c)
 
             is_saved = recorder.update__record_evaluate(
-                env, act, max_step, max_action, eva_size, agent.device)
+                env, act, max_step, max_action, eva_size, agent.device, is_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
@@ -202,7 +202,7 @@ def train__online_policy(
             recorder.update__record_explore(steps, rewards, loss_a, loss_c)
 
             is_saved = recorder.update__record_evaluate(
-                env, act, max_step, max_action, eva_size, agent.device)
+                env, act, max_step, max_action, eva_size, agent.device, is_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
@@ -427,14 +427,14 @@ class Recorder0825:
               f"{'avgR':>8}  {'stdR':>8} |"
               f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
 
-    def update__record_evaluate(self, env, act, max_step, max_action, eva_size, device):
+    def update__record_evaluate(self, env, act, max_step, max_action, eva_size, device, is_discrete):
         is_saved = False
-        reward_list = [get_episode_reward(env, act, max_step, max_action, device)
+        reward_list = [get_episode_reward(env, act, max_step, max_action, device, is_discrete)
                        for _ in range(self.eva_size1)]
 
         eva_r_avg = np.average(reward_list)
         if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([get_episode_reward(env, act, max_step, max_action, device)
+            reward_list.extend([get_episode_reward(env, act, max_step, max_action, device, is_discrete)
                                 for _ in range(eva_size - self.eva_size1)])
             eva_r_avg = np.average(reward_list)
             if eva_r_avg > self.eva_r_max:  # check final
@@ -497,9 +497,7 @@ def get_eva_reward(agent, env_list, max_step, max_action) -> list:  # class Reco
     this function is a bit complicated. I don't recommend you or me to change it.
     max_action is None, when env is discrete action space
     """
-
-    act = agent.act
-    act.eval()
+    agent.act.eval()
 
     env_list_copy = env_list.copy()
     eva_size = len(env_list_copy)
@@ -531,12 +529,12 @@ def get_eva_reward(agent, env_list, max_step, max_action) -> list:  # class Reco
             break
     else:
         reward_sums.extend(sum_rewards)
-    act.train()
+    agent.act.train()
 
     return reward_sums
 
 
-def get_episode_reward(env, act, max_step, max_action, device) -> float:
+def get_episode_reward(env, act, max_step, max_action, device, is_discrete) -> float:
     # better to 'with torch.no_grad()'
     reward_item = 0.0
 
@@ -544,7 +542,7 @@ def get_episode_reward(env, act, max_step, max_action, device) -> float:
     for _ in range(max_step):
         s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
 
-        a_tensor = act(s_tensor)
+        a_tensor = act(s_tensor).argmax(dim=1) if is_discrete else act(s_tensor)
         action = a_tensor.cpu().data.numpy()[0]
 
         next_state, reward, done, _ = env.step(action * max_action)
@@ -595,7 +593,7 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
     return buffer_array, reward_list, step_list
 
 
-def fix_car_racing_v0(env):  # todo CarRacing-v0
+def fix_car_racing_v0(env):  # plan todo CarRacing-v0
     env.old_step = env.step
     """
     comment 'car_racing.py' line 233-234: print('Track generation ...
@@ -611,11 +609,10 @@ def fix_car_racing_v0(env):  # todo CarRacing-v0
             state[86:, 72:] = state3[86:, 72:, 0]  # show blue
             state = state.astype(np.float32) / 128.0 - 0.5
             if state.mean() > 0.95:  # fix CarRacing-v0 bug
-                reward -= 10.0
+                reward -= 100.0
                 done = True
 
-            # state2 = np.stack((env.prev_state, state))
-            state2 = np.stack((env.prev_state, state)).flatten()  # todo pixel flatten
+            state2 = np.stack((env.prev_state, state)).flatten()
             env.prev_state = state
             return state2, reward, done, info
 
@@ -804,12 +801,12 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     torch.set_num_threads(4)
     recorder = Recorder0825()
     device = torch.device('cpu')
-    recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device)
+    recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
 
     is_training = True
     with torch.no_grad():  # for saving the GPU buffer
         while is_training:
-            is_saved = recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device)
+            is_saved = recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
@@ -858,37 +855,6 @@ def run__demo():
     args.init_for_training()
     train_offline_policy(**vars(args))
 
-
-def run0826(gpu_id=None):
-    import AgentZoo as Zoo
-
-    """run offline policy"""
-    # args = Arguments(rl_agent=Zoo.AgentPixelInterSAC, gpu_id=gpu_id)
-    # args.env_name = "CarRacing-v0"  # todo CarRacing-v0
-    # args.max_total_step = int(1e6 * 4)
-    # args.batch_size = 2 ** 8
-    # args.max_memo = 2 ** 19
-    # args.eva_size = 4  # todo CarRacing-v0
-    # args.reward_scale = 2 ** -1
-    # args.init_for_training()
-    # train_offline_policy__pixel(**vars(args))
-
-    """run online policy"""
-    args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
-    args.env_name = "CarRacing-v0"
-
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 8
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 7
-    args.gamma = 0.99
-    args.random_seed = 1944
-    args.max_total_step = int(1e6 * 4)
-    args.max_step = int(2000)
-    args.eva_size = 4  # todo CarRacing-v0
-    args.reward_scale = 2 ** -1
-    args.init_for_training()
-    train_agent(**vars(args))
 
 
 def run__offline_policy(gpu_id=None):
