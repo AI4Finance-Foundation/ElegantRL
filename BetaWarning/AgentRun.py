@@ -66,28 +66,23 @@ def train_agent(
         rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
         env_name, max_step, max_memo, max_total_step,
         eva_size, gpu_id, show_gap, **_kwargs):  # 2020-06-01
-    env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
-    if env_name == 'CarRacing-v0':
-        env = fix_car_racing_v0(env)
-        state_dim = (2, state_dim[0], state_dim[1])
-    is_online_policy = bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentDiscreteGAE'})
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=False)
 
     '''init: agent, buffer, recorder'''
+    recorder = Recorder0825()
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
+
+    is_online_policy = bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentDiscreteGAE'})
     if is_online_policy:
         buffer = BufferTupleOnline(max_memo)
     else:
         buffer = BufferArray(max_memo, state_dim, 1 if is_discrete else action_dim)
-    recorder = Recorder0825()
-
-    '''loop'''
-    if not is_online_policy:
         with torch.no_grad():  # update replay buffer
             rewards, steps = initial_exploration(env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
         recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
 
+    '''loop'''
     is_training = True
     while is_training:
         '''update replay buffer by interact with environment'''
@@ -120,8 +115,7 @@ def train_offline_policy(
         rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
         env_name, max_step, max_memo, max_total_step,
         eva_size, gpu_id, show_gap, **_kwargs):  # 2020-06-01
-    env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=False)
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=False)
     is_pixel = isinstance(state_dim, tuple)
     if is_pixel:
         state_dim = (2, state_dim[0], state_dim[1])
@@ -172,9 +166,7 @@ def train__online_policy(
         rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
         env_name, max_step, max_memo, max_total_step,
         eva_size, gpu_id, show_gap, **_kwargs):
-    env = gym.make(env_name)
-
-    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
     is_pixel = isinstance(state_dim, tuple)
     if is_pixel:
         state_dim = (2, state_dim[0], state_dim[1])
@@ -233,6 +225,15 @@ def get_env_info(env, is_print=True):  # 2020-06-06
         elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
             action_dim = env.action_space.shape[0]
             action_max = float(env.action_space.high[0])
+
+            action_high = np.array(env.action_space.high)
+            action_high[:] = action_max
+            action_low = np.array(env.action_space.low)
+            action_low[:] = -action_max
+            if any(action_high == env.action_space.high) and any(action_low == env.action_space.low):
+                print(f'|Warning: '
+                      f'act_high {env.action_space.high}  '
+                      f'act_low  {env.action_space.low}')
         else:
             raise AttributeError
     except AttributeError:
@@ -241,13 +242,7 @@ def get_env_info(env, is_print=True):  # 2020-06-06
         raise AttributeError
 
     target_reward = env.spec.reward_threshold
-    '''some extra rulues'''
-    if env_name == 'Pendulum-v0':
-        target_reward = -200.0
-
     if target_reward is None:
-        print("| Could you assign these value manually? \n"
-              "| I need: target_reward. ")
         assert target_reward is not None
 
     if is_print:
@@ -255,6 +250,36 @@ def get_env_info(env, is_print=True):  # 2020-06-06
         print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
             state_dim, action_dim, action_max, target_reward))
     return state_dim, action_dim, action_max, target_reward, is_discrete
+
+
+def build_gym_env(env_name, is_print=True):
+    assert env_name is not None
+
+    if env_name == 'Pendulum-v0':
+        env = gym.make(env_name)
+        env.spec.reward_threshold = -200.0  # target_reward
+        state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
+    elif env_name == 'CarRacing-v0':
+        env = gym.make(env_name)
+        env = fix_car_racing_v0(env)
+        state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
+        assert len(state_dim)
+        state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
+    elif env_name == 'MultiWalker':
+        from multiwalker_base import GymMultiWalkerEnv, modify_multi_walker_env
+        env = GymMultiWalkerEnv()
+        env = modify_multi_walker_env(env)
+
+        state_dim = sum([i.shape[0] for i in env.observation_space_dict.values()])
+        action_dim = sum([i.shape[0] for i in env.action_space_dict.values()])
+        action_max = 1.0
+        target_reward = 300
+        is_discrete = False
+    else:
+        env = gym.make(env_name)
+        state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
+
+    return env, state_dim, action_dim, action_max, target_reward, is_discrete
 
 
 def draw_plot_with_2npy(cwd, train_time):  # 2020-07-07
@@ -602,18 +627,28 @@ def fix_car_racing_v0(env):  # plan todo CarRacing-v0
 
     def decorator_step(env_step):
         def new_env_step(action):
-            state3, reward, done, info = env_step(action)
-            state = state3[:, :, 1]  # show green
-            state[86:, :24] = 0  # shield id
-            state[86:, 24:36] = state3[86:, 24:36, 2]  # show red
-            state[86:, 72:] = state3[86:, 72:, 0]  # show blue
-            state = state.astype(np.float32) / 128.0 - 0.5
-            if state.mean() > 0.95:  # fix CarRacing-v0 bug
-                reward -= 100.0
-                done = True
+            try:
+                action = action.copy()
+                action[1:] = (action[1:] + 1) / 2  # fix action_space.low
+                state3, reward, done, info = env_step(action)
+                state = state3[:, :, 1]  # show green
+                # state[86:, :24] = 0  # shield speed
+                state[86:, 24:36] = state3[86:, 24:36, 2]  # show red
+                state[86:, 72:] = state3[86:, 72:, 0]  # show blue
+                state = state.astype(np.float32) / 128.0 - 1
+                if state[60:80, 38:58].mean() > 0.5:  # fix CarRacing-v0 bug
+                    reward -= 10.0
+                    done = True
 
-            state2 = np.stack((env.prev_state, state)).flatten()
-            env.prev_state = state
+                state2 = np.stack((env.prev_state, state)).flatten()
+                env.prev_state = state
+            except Exception as error:
+                print(f"| CarRacing-v0 Error b'stack underflow'?: {error}")
+                state2 = np.stack((env.prev_state, env.prev_state)).flatten()
+                reward = 0
+                done = True
+                info = None
+            # env.render()
             return state2, reward, done, info
 
         return new_env_step
@@ -623,11 +658,13 @@ def fix_car_racing_v0(env):  # plan todo CarRacing-v0
     def decorator_reset(env_reset):
         def new_env_reset():
             env_reset()
-            action = np.zeros(3)
-            for _ in range(16):
-                env.old_step(action)
-            env.prev_state = env.old_step(action)[0][:, :, 1]
-            env.prev_state = env.prev_state.astype(np.float32) / 128.0 - 0.5
+            old_action = np.array((0, 1.0, 0.0), dtype=np.float32)
+            for _ in range(24):
+                env.old_step(old_action)
+                # env.render()
+            env.prev_state = env.old_step(old_action)[0][:, :, 1]
+            env.prev_state = env.prev_state.astype(np.float32) / 128.0 - 1
+            action = np.array((0, 1.0, -1.0), dtype=np.float32)
             return env.step(action)[0]  # state
 
         return new_env_reset
@@ -711,8 +748,11 @@ def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by intera
 
     torch.set_num_threads(4)
 
-    env = gym.make(env_name)
-    state_dim, action_dim, max_action, _, is_discrete = get_env_info(env, is_print=False)
+    env, state_dim, action_dim, max_action, _, is_discrete = build_gym_env(env_name, is_print=False)
+    if env_name == 'CarRacing-v0':
+        env = fix_car_racing_v0(env)
+        state_dim = (2, state_dim[0], state_dim[1])
+
     q_o_buf.put((state_dim, action_dim))  # q_o_buf 1.
 
     '''build evaluated only actor'''
@@ -786,13 +826,10 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     gpu_id = args.gpu_id
     del args
 
-    assert env_name is not None
-    env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print=True)
-    is_pixel = isinstance(state_dim, tuple)
-    # if is_pixel:
-    #     state_dim = (2, state_dim[0], state_dim[1])
-    #     # state1d_dim = np.prod(state_dim)
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
+    if env_name == 'CarRacing-v0':
+        env = fix_car_racing_v0(env)
+        state_dim = (2, state_dim[0], state_dim[1])
 
     '''build evaluated only actor'''
     q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
@@ -856,23 +893,56 @@ def run__demo():
     train_offline_policy(**vars(args))
 
 
-
-def run__offline_policy(gpu_id=None):
+def run__discrete_action(gpu_id=None):
     import AgentZoo as Zoo
-    """discrete action space"""  # plan to update and check
-    # args = Arguments(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
-    # assert args.rl_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
+
+    """offline policy"""  # plan to check args.max_total_step
+    args = Arguments(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
+    assert args.rl_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
+
+    args.env_name = "CartPole-v0"
+    args.max_total_step = int(1e4 * 8)
+    args.net_dim = 2 ** 6
+    args.init_for_training()
+    train_offline_policy(**vars(args))
+    exit()
+
+    args.env_name = "LunarLander-v2"
+    args.max_total_step = int(1e5 * 8)
+    args.init_for_training()
+    train_offline_policy(**vars(args))
+    exit()
+
+    """online policy"""  # plan to check args.max_total_step
+    # args = Arguments(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
+    # assert args.rl_agent in {Zoo.AgentDiscreteGAE, }
+    #
+    # args.max_memo = 2 ** 10
+    # args.batch_size = 2 ** 8
+    # args.repeat_times = 2 ** 4
+    # args.net_dim = 2 ** 7
     #
     # args.env_name = "CartPole-v0"
+    # args.max_total_step = int(1e5 * 4)
     # args.init_for_training()
-    # train_offline_policy(**vars(args))
+    # train__online_policy(**vars(args))
+    #
+    # args.gpu_id = gpu_id
+    # args.max_memo = 2 ** 12
+    # args.batch_size = 2 ** 9
+    # args.repeat_times = 2 ** 4
+    # args.net_dim = 2 ** 8
     #
     # args.env_name = "LunarLander-v2"
+    # args.max_total_step = int(2e6 * 4)
     # args.init_for_training()
-    # train_offline_policy(**vars(args))
+    # train__online_policy(**vars(args))
 
-    """continuous action space"""
-    args = Arguments(rl_agent=Zoo.AgentDeepSAC, gpu_id=gpu_id)
+
+def run_continuous_action(gpu_id=None):
+    import AgentZoo as Zoo
+    """offline policy"""  # plan to check args.max_total_step
+    args = Arguments(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
     assert args.rl_agent in {
         Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.AgentSAC, Zoo.AgentDeepSAC,
         Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
@@ -939,8 +1009,7 @@ def run__offline_policy(gpu_id=None):
     args.init_for_training()
     train_offline_policy(**vars(args))  # build_for_mp()
 
-
-def run__online_policy(gpu_id=None):
+    """online policy"""  # plan to check args.max_total_step
     """PPO and GAE is online policy.
     The memory in replay buffer will only be saved for one episode.
 
@@ -975,43 +1044,6 @@ def run__online_policy(gpu_id=None):
 
     args.env_name = "BipedalWalker-v3"
     args.max_total_step = int(3e6 * 4)
-    args.init_for_training()
-    train__online_policy(**vars(args))
-
-
-def run__gae_discrete(gpu_id=None):  # todo merge
-    """PPO and GAE is online policy.
-    The memory in replay buffer will only be saved for one episode.
-
-    TRPO's author use a surrogate object to simplify the KL penalty and get PPO.
-    So I provide PPO instead of TRPO here.
-
-    GAE is Generalization Advantage Estimate.
-    RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
-    AgentGAE is a PPO using GAE and output log_std of action by an actor network.
-    """
-    import AgentZoo as Zoo
-    args = Arguments(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
-    assert args.rl_agent in {Zoo.AgentDiscreteGAE, }
-
-    args.max_memo = 2 ** 10
-    args.batch_size = 2 ** 8
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 7
-
-    args.env_name = "CartPole-v0"
-    args.max_total_step = int(1e5 * 4)
-    args.init_for_training()
-    train__online_policy(**vars(args))
-
-    args.gpu_id = gpu_id
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 8
-
-    args.env_name = "LunarLander-v2"
-    args.max_total_step = int(2e6 * 4)
     args.init_for_training()
     train__online_policy(**vars(args))
 

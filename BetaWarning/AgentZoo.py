@@ -1897,6 +1897,8 @@ class BufferArray:  # 2020-05-20
 
 class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
     def __init__(self, memo_max_len, state_dim, action_dim, ):
+        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
+
         memo_dim = 1 + 1 + state_dim + action_dim + state_dim
         assert torch.cuda.is_available()
         self.device = torch.device("cuda")
