@@ -821,6 +821,68 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 """run"""
 
 
+def fix_car_racing_v0(env):  # plan todo CarRacing-v0
+    env.old_step = env.step
+    """
+    comment 'car_racing.py' line 233-234: print('Track generation ...
+    comment 'car_racing.py' line 308-309: print("retry to generate track ...
+    """
+
+    def decorator_step(env_step):
+        def new_env_step(action):
+            try:
+                action = action.copy()
+                action[1:] = (action[1:] + 1) / 2  # fix action_space.low
+                state3, reward, done, info = env_step(action)
+                state = state3[:, :, 1]  # show green
+                state[86:, :24] = 0  # shield speed
+                state[86:, 24:36] = state3[86:, 24:36, 2]  # show red
+                state[86:, 72:] = state3[86:, 72:, 0]  # show blue
+
+                prev_road = state[56:64, 32:64].sum().astype(np.int)  # fix CarRacing-v0 bug: env.prev_road
+                reward += (prev_road - env.prev_road) / 2048.0
+                env.prev_road = prev_road
+
+                if state[60:80, 38:58].mean() > 192:  # fix CarRacing-v0 bug: outside
+                    reward -= 10.0
+                    done = True
+                state = state.astype(np.float32) / 128.0 - 1
+
+                state2 = np.stack((env.prev_state, state)).flatten()
+                env.prev_state = state
+            except Exception as error:
+                print(f"| CarRacing-v0 Error b'stack underflow'?: {error}")
+                state2 = np.stack((env.prev_state, env.prev_state)).flatten()
+                reward = 0
+                done = True
+                info = None
+            # env.render()
+            return state2, reward, done, info
+
+        return new_env_step
+
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            env_reset()
+            old_action = np.array((0, 1.0, 0.0), dtype=np.float32)
+            for _ in range(16):
+                env.old_step(old_action)
+                # env.render()
+            env.prev_state = env.old_step(old_action)[0][:, :, 1]
+            env.prev_road = env.prev_state[56:64, 32:64].sum().astype(np.int)  # fix CarRacing-v0 bug: env.prev_road
+
+            new_action = np.array((0, 1.0, -1.0), dtype=np.float32)
+            state2 = env.step(new_action)[0]
+            return state2
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
+    return env
+
+
 def test_car_racing():
     env_name = 'CarRacing-v0'
     env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)

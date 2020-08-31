@@ -260,6 +260,7 @@ def build_gym_env(env_name, is_print=True):
         env.spec.reward_threshold = -200.0  # target_reward
         state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
     elif env_name == 'CarRacing-v0':
+        from AgentPixel import fix_car_racing_v0
         env = gym.make(env_name)
         env = fix_car_racing_v0(env)
         state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
@@ -616,68 +617,6 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
 
     buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
     return buffer_array, reward_list, step_list
-
-
-def fix_car_racing_v0(env):  # plan todo CarRacing-v0
-    env.old_step = env.step
-    """
-    comment 'car_racing.py' line 233-234: print('Track generation ...
-    comment 'car_racing.py' line 308-309: print("retry to generate track ...
-    """
-
-    def decorator_step(env_step):
-        def new_env_step(action):
-            try:
-                action = action.copy()
-                action[1:] = (action[1:] + 1) / 2  # fix action_space.low
-                state3, reward, done, info = env_step(action)
-                state = state3[:, :, 1]  # show green
-                # state[86:, :24] = 0  # shield speed
-                state[86:, 24:36] = state3[86:, 24:36, 2]  # show red
-                state[86:, 72:] = state3[86:, 72:, 0]  # show blue
-                state = state.astype(np.float32) / 128.0 - 1
-                if state[60:80, 38:58].mean() > 0.5:  # fix CarRacing-v0 bug
-                    reward -= 100.0
-                    done = True
-
-                state2 = np.stack((env.prev_state, state)).flatten()
-                env.prev_state = state
-            except Exception as error:
-                print(f"| CarRacing-v0 Error b'stack underflow'?: {error}")
-                state2 = np.stack((env.prev_state, env.prev_state)).flatten()
-                reward = 0
-                done = True
-                info = None
-            # env.render()
-            return state2, reward, done, info
-
-        return new_env_step
-
-    env.step = decorator_step(env.step)
-
-    def decorator_reset(env_reset):
-        def new_env_reset():
-            first_state = env_reset()
-            env.prev_state = first_state[:, :, 1]
-            old_action = np.array((0, 1.0, 0.0), dtype=np.float32)
-
-            for _ in range(24):
-                env.old_step(old_action)
-                # env.render()
-            prev_state = env.old_step(old_action)[0][:, :, 1]
-            prev_state = prev_state.astype(np.float32) / 128.0 - 1
-
-            env.prev_state = env.old_step(old_action)[0][:, :, 1]
-            env.prev_state = env.prev_state.astype(np.float32) / 128.0 - 1
-            # action = np.array((0, 1.0, -1.0), dtype=np.float32)
-            # return env.step(action)[0]  # state
-            state2 = np.stack((prev_state, env.prev_state)).flatten()
-            return state2
-
-        return new_env_reset
-
-    env.reset = decorator_reset(env.reset)
-    return env
 
 
 """multi processing"""
