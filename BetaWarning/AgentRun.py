@@ -266,9 +266,9 @@ def build_gym_env(env_name, is_print=True):
         assert len(state_dim)
         state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
     elif env_name == 'MultiWalker':
-        from multiwalker_base import GymMultiWalkerEnv, modify_multi_walker_env
+        from multiwalker_base import GymMultiWalkerEnv, modify_multi_to_single_walker_env
         env = GymMultiWalkerEnv()
-        env = modify_multi_walker_env(env)
+        env = modify_multi_to_single_walker_env(env)
 
         state_dim = sum([i.shape[0] for i in env.observation_space_dict.values()])
         action_dim = sum([i.shape[0] for i in env.action_space_dict.values()])
@@ -637,7 +637,7 @@ def fix_car_racing_v0(env):  # plan todo CarRacing-v0
                 state[86:, 72:] = state3[86:, 72:, 0]  # show blue
                 state = state.astype(np.float32) / 128.0 - 1
                 if state[60:80, 38:58].mean() > 0.5:  # fix CarRacing-v0 bug
-                    reward -= 10.0
+                    reward -= 100.0
                     done = True
 
                 state2 = np.stack((env.prev_state, state)).flatten()
@@ -657,15 +657,22 @@ def fix_car_racing_v0(env):  # plan todo CarRacing-v0
 
     def decorator_reset(env_reset):
         def new_env_reset():
-            env_reset()
+            first_state = env_reset()
+            env.prev_state = first_state[:, :, 1]
             old_action = np.array((0, 1.0, 0.0), dtype=np.float32)
+
             for _ in range(24):
                 env.old_step(old_action)
                 # env.render()
+            prev_state = env.old_step(old_action)[0][:, :, 1]
+            prev_state = prev_state.astype(np.float32) / 128.0 - 1
+
             env.prev_state = env.old_step(old_action)[0][:, :, 1]
             env.prev_state = env.prev_state.astype(np.float32) / 128.0 - 1
-            action = np.array((0, 1.0, -1.0), dtype=np.float32)
-            return env.step(action)[0]  # state
+            # action = np.array((0, 1.0, -1.0), dtype=np.float32)
+            # return env.step(action)[0]  # state
+            state2 = np.stack((prev_state, env.prev_state)).flatten()
+            return state2
 
         return new_env_reset
 
@@ -749,9 +756,6 @@ def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by intera
     torch.set_num_threads(4)
 
     env, state_dim, action_dim, max_action, _, is_discrete = build_gym_env(env_name, is_print=False)
-    if env_name == 'CarRacing-v0':
-        env = fix_car_racing_v0(env)
-        state_dim = (2, state_dim[0], state_dim[1])
 
     q_o_buf.put((state_dim, action_dim))  # q_o_buf 1.
 
@@ -827,9 +831,6 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     del args
 
     env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
-    if env_name == 'CarRacing-v0':
-        env = fix_car_racing_v0(env)
-        state_dim = (2, state_dim[0], state_dim[1])
 
     '''build evaluated only actor'''
     q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
@@ -838,6 +839,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     torch.set_num_threads(4)
     recorder = Recorder0825()
     device = torch.device('cpu')
+
     recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
 
     is_training = True

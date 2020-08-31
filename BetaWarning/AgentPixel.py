@@ -823,11 +823,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
 def test_car_racing():
     env_name = 'CarRacing-v0'
-    env = gym.make(env_name)
-    state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env, is_print=True)
-    if env_name == 'CarRacing-v0':
-        env = fix_car_racing_v0(env)
-        state_dim = (2, state_dim[0], state_dim[1])
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
 
     state = env.reset()
     import cv2
