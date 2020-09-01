@@ -11,7 +11,7 @@ from AgentNet import ActorDN, CriticSN  # SN_AC
 from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
-from AgentNet import InterDPG, InterSPG  # sharing parameters between Actor and Critic
+from AgentNet import InterDPG, InterSPG, InterGAE  # share params between Actor and Critic
 
 """Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 reference
@@ -946,17 +946,19 @@ class AgentPPO:
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_buffer_online(self, env, max_step, max_memo, max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
         # collect tuple (reward, mask, state, action, log_prob, )
-        # PPO is an online policy RL algorithm.
-        buffer = BufferTupleOnline()
+        buffer.storage_list = list()  # PPO is an online policy RL algorithm.
+        # If I comment the above code, it becomes a offline policy PPO.
+        # Using Offline in PPO (or GAE) won't speed up training but slower
 
         rewards = list()
         steps = list()
 
         step_counter = 0
-        while step_counter < max_memo:
+        while step_counter < buffer.max_memo:
             state = env.reset()
+
             reward_sum = 0
             step_sum = 0
 
@@ -968,7 +970,6 @@ class AgentPPO:
                 next_state, reward, done, _ = env.step(action * max_action)
                 reward_sum += reward
 
-                # next_state = running_state(next_state)  # if state_norm:
                 mask = 0.0 if done else gamma
 
                 reward_ = reward * reward_scale
@@ -983,9 +984,9 @@ class AgentPPO:
             steps.append(step_sum)
 
             step_counter += step_sum
-        return rewards, steps, buffer
+        return rewards, steps
 
-    def update_parameters_online(self, buffer, batch_size, repeat_times):
+    def update_parameters(self, buffer, _max_step, batch_size, repeat_times):
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -1129,7 +1130,7 @@ class AgentGAE(AgentPPO):
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_parameters_online(self, buffer, batch_size, repeat_times):
+    def update_parameters(self, buffer, _max_step, batch_size, repeat_times):
         """Differences between AgentGAE and AgentPPO are:
         1. In AgentGAE, critic use TwinCritic. In AgentPPO, critic use a single critic.
         2. In AgentGAE, log_std is output by actor. In AgentPPO, log_std is just a trainable tensor.
@@ -1155,13 +1156,10 @@ class AgentGAE(AgentPPO):
         # with torch.no_grad():
         # all__new_v = self.cri(all_state).detach_()  # all new value
         # all__new_v = torch.min(*self.cri(all_state)).detach_()  # TwinCritic
-        # all__new_v = torch.add(*self.cri(all_state)).detach_() * 0.5  # TwinCritic # todo
-        with torch.no_grad():  # todo avoid OOM
+        with torch.no_grad():
             b_size = 128
-            b__len = all_state.size()[0]
-            all__new_v = [torch.add(*self.cri(all_state[i:i + b_size])) * 0.5
-                          for i in range(0, b__len - 1, b_size)]
-            all__new_v = torch.cat(all__new_v, dim=0)
+            all__new_v = torch.cat([torch.min(*self.cri(all_state[i:i + b_size]))
+                                    for i in range(0, all_state.size()[0], b_size)], dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: Generalization Advantage Estimate. ICLR 2016. 
@@ -1236,6 +1234,122 @@ class AgentGAE(AgentPPO):
         return loss_a_avg, loss_c_avg
 
 
+class AgentInterGAE(AgentPPO):
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentPPO, self).__init__()
+        self.learning_rate = 2e-4  # learning rate of actor
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        self.act = InterGAE(state_dim, action_dim, net_dim).to(self.device)
+        self.act.train()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
+
+        self.cri = self.act.get__q1_q2
+
+        self.criterion = nn.SmoothL1Loss()
+
+    def update_parameters(self, buffer, _max_step, batch_size, repeat_times):
+        self.act.train()
+        # self.cri.train()
+        clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        lambda_adv = 0.98  # why 0.98? cannot seem to use 0.99
+        lambda_entropy = 0.01  # could be 0.02
+        # repeat_times = 8 could be 2**2 ~ 2**4
+
+        loss_a_sum = 0.0  # just for print
+        loss_c_sum = 0.0  # just for print
+
+        '''the batch for training'''
+        max_memo = len(buffer)
+        all_batch = buffer.sample()
+        all_reward, all_mask, all_state, all_action, all_log_prob = [
+            torch.tensor(ary, dtype=torch.float32, device=self.device)
+            for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
+        ]
+        # with torch.no_grad():
+        # all__new_v = self.cri(all_state).detach_()  # all new value
+        # all__new_v = torch.min(*self.cri(all_state)).detach_()  # TwinCritic
+        with torch.no_grad():
+            b_size = 128
+            all__new_v = torch.cat([torch.min(*self.cri(all_state[i:i + b_size]))
+                                    for i in range(0, all_state.size()[0], b_size)], dim=0)
+
+        '''compute old_v (old policy value), adv_v (advantage value) 
+        refer: Generalization Advantage Estimate. ICLR 2016. 
+        https://arxiv.org/pdf/1506.02438.pdf
+        '''
+        all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # delta of q value
+        all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+        all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+
+        prev_old_v = 0  # old q value
+        prev_new_v = 0  # new q value
+        prev_adv_v = 0  # advantage q value
+        for i in range(max_memo - 1, -1, -1):
+            all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
+            all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
+            all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * lambda_adv
+
+            prev_old_v = all__old_v[i]
+            prev_new_v = all__new_v[i]
+            prev_adv_v = all__adv_v[i]
+
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+
+        '''mini batch sample'''
+        sample_times = int(repeat_times * max_memo / batch_size)
+        for _ in range(sample_times):
+            '''random sample'''
+            # indices = rd.choice(max_memo, batch_size, replace=True)  # False)
+            indices = rd.randint(max_memo, size=batch_size)
+
+            state = all_state[indices]
+            action = all_action[indices]
+            advantage = all__adv_v[indices]
+            old_value = all__old_v[indices].unsqueeze(1)
+            old_log_prob = all_log_prob[indices]
+
+            """Adaptive KL Penalty Coefficient
+            loss_KLPEN = surrogate_obj + value_obj * lambda_value + entropy_obj * lambda_entropy
+            loss_KLPEN = (value_obj * lambda_value) + (surrogate_obj + entropy_obj * lambda_entropy)
+            loss_KLPEN = (critic_loss) + (actor_loss)
+            """
+
+            '''critic_loss'''
+            new_log_prob = self.act.compute__log_prob(state, action)
+            new_value1, new_value2 = self.cri(state)  # TwinCritic
+            # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
+
+            critic_loss = (self.criterion(new_value1, old_value) +
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+            loss_c_sum += critic_loss.item()  # just for print
+            # self.cri_optimizer.zero_grad()
+            # critic_loss.backward()
+            # self.cri_optimizer.step()
+
+            '''actor_loss'''
+            # surrogate objective of TRPO
+            ratio = (new_log_prob - old_log_prob).exp()
+            surrogate_obj0 = advantage * ratio
+            surrogate_obj1 = advantage * ratio.clamp(1 - clip, 1 + clip)
+            surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
+            # policy entropy
+            loss_entropy = (new_log_prob.exp() * new_log_prob).mean()
+
+            actor_loss = surrogate_obj + loss_entropy * lambda_entropy
+            loss_a_sum += actor_loss.item()  # just for print
+
+            united_loss = actor_loss + critic_loss
+            self.act_optimizer.zero_grad()
+            united_loss.backward()
+            self.act_optimizer.step()
+
+        loss_a_avg = loss_a_sum / sample_times
+        loss_c_avg = loss_c_sum / sample_times
+        return loss_a_avg, loss_c_avg
+
+
 class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
     def __init__(self, state_dim, action_dim, net_dim):
         AgentGAE.__init__(self, state_dim, action_dim, net_dim)
@@ -1255,7 +1369,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
         """
         # collect tuple (reward, mask, state, action, log_prob, )
         # PPO is an on policy RL algorithm.
-        buffer = BufferTupleOnline()
+        buffer = BufferTupleOnline()  # todo wait to update
 
         rewards = list()
         steps = list()

@@ -199,6 +199,104 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         return q1, q2
 
 
+class InterGAE(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.log_std_min = -20
+        self.log_std_max = 2
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # encoder
+        self.enc_s = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+        )  # state
+
+        '''use densenet'''
+        self.net = DenseNet(mid_dim)
+        net_out_dim = self.net.out_dim
+        # '''not use densenet'''
+        # self.net = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+        # net_out_dim = mid_dim
+
+        '''todo two layer'''
+        self.dec_a = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, action_dim),
+        )  # action_mean
+        self.dec_d = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, action_dim),
+        )  # action_std_log (d means standard dev.)
+
+        self.dec_q1 = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, 1),
+        )  # q_value1 SharedTwinCritic
+        self.dec_q2 = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, 1),
+        )  # q_value2 SharedTwinCritic
+        '''todo one layer'''
+        # self.dec_a = nn.Sequential(
+        #     nn.Linear(net_out_dim, action_dim),
+        # )  # action_mean
+        # self.dec_d = nn.Sequential(
+        #     nn.Linear(net_out_dim, action_dim),
+        # )  # action_std_log (d means standard dev.)
+        #
+        # self.dec_q1 = nn.Sequential(
+        #     nn.Linear(net_out_dim, 1),
+        # )  # q_value1 SharedTwinCritic
+        # self.dec_q2 = nn.Sequential(
+        #     nn.Linear(net_out_dim, 1),
+        # )  # q_value2 SharedTwinCritic
+
+        # layer_norm(self.net[0], std=1.0)
+        layer_norm(self.dec_a[-1], std=0.01)  # output layer for action
+        layer_norm(self.dec_d[-1], std=0.01)  # output layer for std_log
+        layer_norm(self.dec_q1[-1], std=0.1)  # output layer for q value
+        layer_norm(self.dec_q1[-1], std=0.1)  # output layer for q value
+
+    def forward(self, s):
+        x = self.enc_s(s)
+        x = self.net(x)
+        a_mean = self.dec_a(x)
+        return a_mean
+
+    def get__a__log_prob(self, state):
+        x = self.enc_s(state)
+        x = self.net(x)
+        a_mean = self.dec_a(x)
+        a_log_std = self.dec_d(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = torch.exp(a_log_std)
+
+        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
+
+        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
+        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
+        return a_noise, log_prob.sum(1)
+
+    def compute__log_prob(self, state, a_noise):
+        x = self.enc_s(state)
+        x = self.net(x)
+        a_mean = self.dec_a(x)
+        a_log_std = self.dec_d(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = torch.exp(a_log_std)
+
+        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
+        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
+        log_prob = log_prob.sum(1)
+        return log_prob
+
+    def get__q1_q2(self, s):
+        x = self.enc_s(s)
+        x = self.net(x)
+        q1 = self.dec_q1(x)
+        q2 = self.dec_q2(x)
+        return q1, q2
+
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
@@ -620,14 +718,9 @@ class NnnReshape(nn.Module):
 class DenseNet(nn.Module):
     def __init__(self, mid_dim):
         super().__init__()
-        self.dense1 = nn.Sequential(
-            nn.Linear(mid_dim * 1, mid_dim * 1),
-            nn.ReLU(),  # HardSwish(),  # todo
-        )
-        self.dense2 = nn.Sequential(
-            nn.Linear(mid_dim * 2, mid_dim * 2),
-            HardSwish(),
-        )
+        self.dense1 = nn.Sequential(nn.Linear(mid_dim * 1, mid_dim * 1), nn.ReLU(), )
+        self.dense2 = nn.Sequential(nn.Linear(mid_dim * 2, mid_dim * 2), HardSwish(), )
+        self.out_dim = mid_dim * 4
 
         layer_norm(self.dense1[0], std=1.0)
         layer_norm(self.dense2[0], std=1.0)

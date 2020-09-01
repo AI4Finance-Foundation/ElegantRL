@@ -38,7 +38,7 @@ class Arguments:  # default working setting and hyper-parameter
 
         self.is_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.show_gap = 2 ** 7  # show the Reward and Loss of actor and critic per show_gap seconds
-        self.eva_size = 2 ** 6  # for evaluated reward average
+        self.eva_size = 2 ** 3  # for evaluated reward average
         self.random_seed = 19430
 
     def init_for_training(self, cpu_threads=4):
@@ -73,7 +73,7 @@ def train_agent(
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
 
-    is_online_policy = bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentDiscreteGAE'})
+    is_online_policy = bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentInterGAE', 'AgentDiscreteGAE'})
     if is_online_policy:
         buffer = BufferTupleOnline(max_memo)
     else:
@@ -111,100 +111,6 @@ def train_agent(
     recorder.save_npy__plot_png(cwd)
 
 
-def train_offline_policy(
-        rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
-        env_name, max_step, max_memo, max_total_step,
-        eva_size, gpu_id, show_gap, **_kwargs):  # 2020-06-01
-    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=False)
-    is_pixel = isinstance(state_dim, tuple)
-    if is_pixel:
-        state_dim = (2, state_dim[0], state_dim[1])
-        # state1d_dim = np.prod(state_dim)
-
-    '''init: agent, buffer, recorder'''
-    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
-    agent.state = env.reset()
-    buffer = BufferArray(max_memo, state_dim, 1 if is_discrete else action_dim)  # experiment replay buffer
-
-    recorder = Recorder0825()
-    act = agent.act
-
-    '''loop'''
-    with torch.no_grad():  # update replay buffer
-        rewards, steps = initial_exploration(env, buffer, max_step, max_action, reward_scale, gamma, action_dim)
-    recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
-
-    is_training = True
-    while is_training:
-        '''update replay buffer by interact with environment'''
-        with torch.no_grad():  # for saving the GPU buffer
-            rewards, steps = agent.update_buffer(
-                env, buffer, max_step, max_action, reward_scale, gamma)
-
-        '''update network parameters by random sampling buffer for gradient descent'''
-        buffer.init_before_sample()
-        loss_a, loss_c = agent.update_parameters(
-            buffer, max_step, batch_size, repeat_times)
-
-        '''saves the agent with max reward'''
-        with torch.no_grad():  # for saving the GPU buffer
-            recorder.update__record_explore(steps, rewards, loss_a, loss_c)
-
-            is_saved = recorder.update__record_evaluate(
-                env, act, max_step, max_action, eva_size, agent.device, is_discrete)
-            recorder.save_act(cwd, act, gpu_id) if is_saved else None
-
-            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
-        '''break loop rules'''
-        if is_solved or recorder.total_step > max_total_step or os.path.exists(f'{cwd}/stop.mark'):
-            is_training = False
-
-    recorder.save_npy__plot_png(cwd)
-
-
-def train__online_policy(
-        rl_agent, net_dim, batch_size, repeat_times, gamma, reward_scale, cwd,
-        env_name, max_step, max_memo, max_total_step,
-        eva_size, gpu_id, show_gap, **_kwargs):
-    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
-    is_pixel = isinstance(state_dim, tuple)
-    if is_pixel:
-        state_dim = (2, state_dim[0], state_dim[1])
-
-    agent = rl_agent(state_dim, action_dim, net_dim)
-    agent.save_or_load_model(cwd, is_save=False)
-
-    recorder = Recorder0825()
-    recorder.eva_size1 = 2  # todo
-    act = agent.act
-
-    is_training = True
-    while is_training:
-        '''update replay buffer by interact with environment'''
-        with torch.no_grad():  # just the GPU memory
-            rewards, steps, buffer = agent.update_buffer_online(
-                env, max_step, max_memo, max_action, reward_scale, gamma)
-
-        '''update network parameters by random sampling buffer for gradient descent'''
-        loss_a, loss_c = agent.update_parameters_online(
-            buffer, batch_size, repeat_times)
-
-        '''saves the agent with max reward'''
-        with torch.no_grad():  # for saving the GPU buffer
-            recorder.update__record_explore(steps, rewards, loss_a, loss_c)
-
-            is_saved = recorder.update__record_evaluate(
-                env, act, max_step, max_action, eva_size, agent.device, is_discrete)
-            recorder.save_act(cwd, act, gpu_id) if is_saved else None
-
-            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
-        '''break loop rules'''
-        if is_solved or recorder.total_step > max_total_step or os.path.exists(f'{cwd}/stop.mark'):
-            is_training = False
-
-    recorder.save_npy__plot_png(cwd)
-
-
 """utils"""
 
 
@@ -231,7 +137,7 @@ def get_env_info(env, is_print=True):  # 2020-06-06
             action_low = np.array(env.action_space.low)
             action_low[:] = -action_max
             if any(action_high == env.action_space.high) and any(action_low == env.action_space.low):
-                print(f'|Warning: '
+                print(f'| Warning: '
                       f'act_high {env.action_space.high}  '
                       f'act_low  {env.action_space.low}')
         else:
@@ -265,7 +171,8 @@ def build_gym_env(env_name, is_print=True):
         env = fix_car_racing_v0(env)
         state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
         assert len(state_dim)
-        state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
+        # state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
+        state_dim = (1, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
     elif env_name == 'MultiWalker':
         from multiwalker_base import GymMultiWalkerEnv, modify_multi_to_single_walker_env
         env = GymMultiWalkerEnv()
@@ -831,7 +738,7 @@ def run__demo():
     import AgentZoo as Zoo
     args = Arguments(rl_agent=Zoo.AgentDeepSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
-    train_offline_policy(**vars(args))
+    train_agent(**vars(args))
 
 
 def run__discrete_action(gpu_id=None):
@@ -845,13 +752,13 @@ def run__discrete_action(gpu_id=None):
     args.max_total_step = int(1e4 * 8)
     args.net_dim = 2 ** 6
     args.init_for_training()
-    train_offline_policy(**vars(args))
+    train_agent(**vars(args))
     exit()
 
     args.env_name = "LunarLander-v2"
     args.max_total_step = int(1e5 * 8)
     args.init_for_training()
-    train_offline_policy(**vars(args))
+    train_agent(**vars(args))
     exit()
 
     """online policy"""  # plan to check args.max_total_step
@@ -909,16 +816,16 @@ def run_continuous_action(gpu_id=None):
     build_for_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
-    # args.env_name = "BipedalWalkerHardcore-v3" # 2020-08-24 plan todo
-    # args.max_total_step = int(4e6 * 8)
-    # args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
-    # args.max_memo = int(2 ** 21)
-    # args.batch_size = int(2 ** 8)
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # args.init_for_training()
-    # build_for_mp(args)  # train_offline_policy(**vars(args))
-    # exit()
+    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan todo
+    args.max_total_step = int(4e6 * 8)
+    args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
+    args.max_memo = int(2 ** 21)
+    args.batch_size = int(2 ** 8)
+    args.eva_size = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_for_training()
+    build_for_mp(args)  # train_offline_policy(**vars(args))
+    exit()
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
@@ -935,22 +842,28 @@ def run_continuous_action(gpu_id=None):
     build_for_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.max_total_step = int(8e5 * 8)
-    # args.max_epoch = 2 ** 13
-    # args.max_memo = 2 ** 21
-    # args.max_step = 2 ** 10
-    # args.net_dim = 2 ** 8
-    # args.batch_size = 2 ** 9
-    # args.reward_scale = 2 ** 4
-    # args.eva_size = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "MinitaurBulletEnv-v0"
+    args.max_total_step = int(8e5 * 8)
+    args.max_epoch = 2 ** 13
+    args.max_memo = 2 ** 21
+    args.max_step = 2 ** 10
+    args.net_dim = 2 ** 8
+    args.batch_size = 2 ** 9
+    args.reward_scale = 2 ** 4
+    args.eva_size = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
     args.init_for_training()
-    train_offline_policy(**vars(args))  # build_for_mp()
+    train_agent(**vars(args))  # build_for_mp()
 
     """online policy"""  # plan to check args.max_total_step
+    args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE, Zoo.AgentInterGAE, Zoo.AgentInterGAE}
     """PPO and GAE is online policy.
     The memory in replay buffer will only be saved for one episode.
 
@@ -961,32 +874,28 @@ def run_continuous_action(gpu_id=None):
     RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """
-    import AgentZoo as Zoo
-    args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
-    assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE}
 
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 8
-    args.gamma = 0.99
-
-    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    args.max_total_step = int(1e5 * 4)
-    args.init_for_training()
-    train__online_policy(**vars(args))
-
-    exit()
 
     args.env_name = "LunarLanderContinuous-v2"
     args.max_total_step = int(4e5 * 4)
     args.init_for_training()
-    train__online_policy(**vars(args))
+    train_agent(**vars(args))
 
     args.env_name = "BipedalWalker-v3"
     args.max_total_step = int(3e6 * 4)
     args.init_for_training()
-    train__online_policy(**vars(args))
+    train_agent(**vars(args))
+
+    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.max_total_step = int(1e5 * 4)
+    args.max_memo = 2 ** 10
+    args.repeat_times = 2 ** 2
+    args.batch_size = 2 ** 7
+    args.net_dim = 2 ** 6
+    args.reward_scale = 2 ** -2
+    args.init_for_training()
+    train_agent(**vars(args))
+    exit()
 
 
 if __name__ == '__main__':
