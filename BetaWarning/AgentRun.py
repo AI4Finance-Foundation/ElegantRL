@@ -69,7 +69,7 @@ def train_agent(
     env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=False)
 
     '''init: agent, buffer, recorder'''
-    recorder = Recorder0825()
+    recorder = Recorder()
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
 
@@ -340,7 +340,7 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
     del shutil
 
 
-class Recorder0825:
+class Recorder:
     def __init__(self):
         self.eva_r_max = -np.inf
         self.total_step = 0
@@ -683,7 +683,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
 
     torch.set_num_threads(4)
-    recorder = Recorder0825()
+    recorder = Recorder()
     device = torch.device('cpu')
 
     recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
@@ -857,7 +857,7 @@ def run_continuous_action(gpu_id=None):
     args.init_for_training()
     train_agent(**vars(args))  # build_for_mp()
 
-    """online policy"""  # plan to check args.max_total_step
+    """online policy"""  # todo build_for_mp(args)
     args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 12
@@ -875,24 +875,21 @@ def run_continuous_action(gpu_id=None):
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """
 
+    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.max_total_step = int(1e5 * 4)
+    args.reward_scale = 2 ** -2
+    args.init_for_training()
+    train_agent(**vars(args))
+    exit()
 
     args.env_name = "LunarLanderContinuous-v2"
     args.max_total_step = int(4e5 * 4)
     args.init_for_training()
     train_agent(**vars(args))
+    exit()
 
     args.env_name = "BipedalWalker-v3"
     args.max_total_step = int(3e6 * 4)
-    args.init_for_training()
-    train_agent(**vars(args))
-
-    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    args.max_total_step = int(1e5 * 4)
-    args.max_memo = 2 ** 10
-    args.repeat_times = 2 ** 2
-    args.batch_size = 2 ** 7
-    args.net_dim = 2 ** 6
-    args.reward_scale = 2 ** -2
     args.init_for_training()
     train_agent(**vars(args))
     exit()

@@ -876,9 +876,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + 1, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
-                next_q_target1, next_q_target2 = self.act_target.get__q1_q2(next_s, next_a_noise)
-                next_q_target = (next_q_target1 + next_q_target2) * 0.5
-                next_q_target = next_q_target - next_log_prob * self.alpha  # SAC, alpha
+                next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
+                next_q_target = next_q_target - next_log_prob * self.alpha  # policy entropy
                 q_target = reward + mask * next_q_target
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin

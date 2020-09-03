@@ -303,6 +303,7 @@ class Actor(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 # nn.BatchNorm1d(mid_dim),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), nn.Tanh(), )
 

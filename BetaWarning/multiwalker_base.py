@@ -749,6 +749,9 @@ def modify_multi_to_single_walker_env(env):
     return env
 
 
+"""run"""
+
+
 def run_demo__multi_walker():
     # from sisl_games.multiwalker.multiwalker import env as custom_env
 
@@ -808,5 +811,27 @@ def run_demo__multi_walker():
     env.close()
 
 
+def run_continuous_action(gpu_id=None):  # fail
+    # import AgentZoo as Zoo
+    from AgentRun import *
+    import beta1 as Zoo  # params-share
+
+    """online policy"""  # plan to check args.max_total_step
+    args = Arguments(rl_agent=Zoo.AgentInterGAE, gpu_id=gpu_id)
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 13  # 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 5  # 4
+
+    args.env_name = 'MultiWalker'
+    args.max_total_step = int(4e6 * 4)
+    args.init_for_training()
+    train_agent(**vars(args))
+    exit()
+
+
 if __name__ == '__main__':
     run_demo__multi_walker()
+    # run_continuous_action()
+    # from multiwalker_base import run_demo__multi_walker
+    # run_demo__multi_walker()
