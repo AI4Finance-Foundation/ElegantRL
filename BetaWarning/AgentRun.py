@@ -136,7 +136,7 @@ def get_env_info(env, is_print=True):  # 2020-06-06
             action_high[:] = action_max
             action_low = np.array(env.action_space.low)
             action_low[:] = -action_max
-            if any(action_high == env.action_space.high) and any(action_low == env.action_space.low):
+            if any(action_high != env.action_space.high) and any(action_low != env.action_space.low):
                 print(f'| Warning: '
                       f'act_high {env.action_space.high}  '
                       f'act_low  {env.action_space.low}')

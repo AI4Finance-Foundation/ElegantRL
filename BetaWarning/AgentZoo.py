@@ -60,7 +60,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         for step in range(max_step):
             '''inactive with environment'''
             action = self.select_actions((state,))[0] + self.ou_noise()
-            action = action.clip(-1, 1)
+            action = action.clip(-1, 1)  # todo
             next_state, reward, done, _ = env.step(action * max_action)
 
             reward_sum += reward
@@ -890,7 +890,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             a_mean1, a_std_log_1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
             '''auto alpha'''
-            alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            alpha_loss = (self.log_alpha * (self.target_entropy - log_prob).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
@@ -910,7 +911,6 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 actor_loss = 0
 
             united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * rho
-
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
@@ -966,7 +966,7 @@ class AgentPPO:
                 action = actions[0]
                 log_prob = log_probs[0]
 
-                next_state, reward, done, _ = env.step(action * max_action)
+                next_state, reward, done, _ = env.step(np.tanh(action) * max_action)  # todo PPO tanh()
                 reward_sum += reward
 
                 mask = 0.0 if done else gamma
@@ -1083,12 +1083,12 @@ class AgentPPO:
         if explore_noise == 0.0:
             a_mean = self.act(states)
             a_mean = a_mean.cpu().data.numpy()
-            return a_mean
+            return np.tanh(a_mean)  # todo PPO tanh
         else:
             a_noise, log_prob = self.act.get__a__log_prob(states)
             a_noise = a_noise.cpu().data.numpy()
             log_prob = log_prob.cpu().data.numpy()
-            return a_noise, log_prob
+            return a_noise, log_prob  # todo PPO tanh, do tanh in def update_buffer() env.step(
 
     def save_or_load_model(self, cwd, is_save):  # 2020-05-20
         act_save_path = '{}/actor.pth'.format(cwd)
