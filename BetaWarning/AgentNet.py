@@ -262,7 +262,7 @@ class InterGAE(nn.Module):
         x = self.enc_s(s)
         x = self.net(x)
         a_mean = self.dec_a(x)
-        return a_mean
+        return a_mean.tanh()  # todo PPO tanh()
 
     def get__a__log_prob(self, state):
         x = self.enc_s(state)
@@ -347,7 +347,7 @@ class ActorDN(nn.Module):  # dn: DenseNet
         a_temp = torch.normal(a, noise_std)
         mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.float32)  # 2019-12-30
 
-        noise_uniform = torch.rand_like(a, device=self.device)
+        noise_uniform = torch.rand_like(a)  # , device=self.device)
         a_noise = noise_uniform * mask + a_temp * (-mask + 1)
         return a_noise
 
@@ -438,7 +438,7 @@ class ActorPPO(nn.Module):
 
     def forward(self, s):
         a_mean = self.net__mean(s)
-        return a_mean  # todo PPO tanh()
+        return a_mean.tanh()  # todo PPO tanh()
 
     def get__a__log_prob(self, state):
         a_mean = self.net__mean(state)
@@ -485,7 +485,7 @@ class ActorGAE(nn.Module):
     def forward(self, s):
         x = self.net(s)
         a_mean = self.net__mean(x)
-        return a_mean
+        return a_mean.tanh()  # todo PPO tanh
 
     def get__a__log_prob(self, state):
         x = self.net(state)

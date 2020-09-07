@@ -845,20 +845,22 @@ def run_continuous_action(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
-    args.max_total_step = int(8e5 * 8)
+    args.max_total_step = int(2e6 * 8)
     args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 21
+    args.max_memo = 2 ** 20
     args.max_step = 2 ** 10
-    args.net_dim = 2 ** 8
-    args.batch_size = 2 ** 9
+    args.net_dim = 2 ** 7
+    args.batch_size = 2 ** 8
     args.reward_scale = 2 ** 4
-    args.eva_size = 2 ** 5  # for Recorder
+    args.eva_size = 2 ** 3  # for Recorder
     args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
-    train_agent(**vars(args))  # build_for_mp()
+    args.init_for_training(cpu_threads=2)
+    # train_agent(**vars(args))
+    build_for_mp(args)
 
     """online policy"""  # todo build_for_mp(args)
     args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
+    assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE, Zoo.AgentInterGAE}
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 12
     args.batch_size = 2 ** 9
@@ -883,7 +885,7 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.max_total_step = int(4e5 * 4)
+    args.max_total_step = int(1e5 * 4)
     args.init_for_training()
     train_agent(**vars(args))
     exit()

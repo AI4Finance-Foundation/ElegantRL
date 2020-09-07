@@ -720,7 +720,7 @@ class AgentDeepSAC(AgentBasicAC):
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp()
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
-        self.target_entropy = -np.log(1.0 / action_dim) * 0.98
+        self.target_entropy = -np.log(1.0 / action_dim)
         '''extension: auto learning rate of actor'''
         self.trust_rho = TrustRho()
 
@@ -966,7 +966,7 @@ class AgentPPO:
                 action = actions[0]
                 log_prob = log_probs[0]
 
-                next_state, reward, done, _ = env.step(np.tanh(action) * max_action)  # todo PPO tanh()
+                next_state, reward, done, _ = env.step(np.tanh(action) * max_action)  # todo PPO tanh
                 reward_sum += reward
 
                 mask = 0.0 if done else gamma
@@ -1083,12 +1083,12 @@ class AgentPPO:
         if explore_noise == 0.0:
             a_mean = self.act(states)
             a_mean = a_mean.cpu().data.numpy()
-            return np.tanh(a_mean)  # todo PPO tanh
+            return a_mean
         else:
             a_noise, log_prob = self.act.get__a__log_prob(states)
             a_noise = a_noise.cpu().data.numpy()
             log_prob = log_prob.cpu().data.numpy()
-            return a_noise, log_prob  # todo PPO tanh, do tanh in def update_buffer() env.step(
+            return a_noise, log_prob
 
     def save_or_load_model(self, cwd, is_save):  # 2020-05-20
         act_save_path = '{}/actor.pth'.format(cwd)
