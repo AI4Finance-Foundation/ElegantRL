@@ -3,7 +3,7 @@ from AgentRun import *
 from AgentZoo import *
 
 """
-New version InterSAC 2020-09-09
+Run in Terminal 2020-09-09
 """
 
 
@@ -46,8 +46,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         '''extension: auto-alpha for maximum entropy'''
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.log_alpha.exp()
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
-        self.target_entropy = -np.log(action_dim) * 0.5  # todo
+        self.target_entropy = np.log(1.0 / action_dim) * 0.5  # todo
 
         # self.auto_k = torch.ones(1, requires_grad=True, device=self.device)
         # self.auto_k_optimizer = torch.optim.Adam((self.auto_k,), lr=0.05)
@@ -59,13 +60,15 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         '''constant'''
         self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
+        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
 
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+        update_freq = self.update_freq
         self.act.train()
 
         loss_a_sum = 0.0
         loss_c_sum = 0.0
-        alpha = self.log_alpha.exp()
+        rho = self.trust_rho()
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
@@ -83,20 +86,21 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
-                next_q_target = next_q_target - next_log_prob * alpha  # policy entropy
+                next_q_target = next_q_target - next_log_prob * self.alpha  # policy entropy
                 q_target = reward + mask * next_q_target
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
             critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
             loss_c_sum += loss_c_tmp
-            rho = self.trust_rho.append_loss_c__update_rho(loss_c_tmp)
+            self.trust_rho.append_loss_c(loss_c_tmp)
 
             '''stochastic policy'''
             a_mean1, a_std_log_1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
             '''auto alpha'''
-            alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            alpha_loss = (self.log_alpha * (self.target_entropy - log_prob).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
@@ -107,20 +111,27 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             '''actor_loss'''
             if rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+                self.alpha = self.log_alpha.exp()
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
-                actor_loss = (-q_eval_pg + log_prob * alpha).mean()  # policy gradient
+
+                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
             else:
                 actor_loss = 0
 
             united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * rho
-
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
 
             """target update"""
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
+
+            self.update_counter += 1
+            if self.update_counter >= update_freq:
+                self.update_counter = 0
+                # self.act_target.load_state_dict(self.act.state_dict())  # hard target update
+                rho = self.trust_rho.update_rho()
 
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / update_times
@@ -222,7 +233,7 @@ def run_continuous_action(gpu_id=None):
     args.max_total_step = int(1e5 * 4)
     args.init_for_training()
     build_for_mp(args)  # train_offline_policy(**vars(args))
-    exit()
+    # exit()
 
     args.env_name = "BipedalWalker-v3"
     args.random_seed = 1945
