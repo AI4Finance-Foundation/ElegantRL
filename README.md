@@ -211,14 +211,16 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + pipeline update for AgentRun.py
 + write a @Decorator for CarRacing-v0
 + fix a bug in class Recorder0825
-
++ update 'draw_plot_with_npy' to 'draw_plot_with_2npy'
++ 2020-09-09 InterSAC (solve log_alpha trouble) beta3.py
 
 
 #### ElegantRL 2020.08.12 (NewYork Necip)
 Plan todo:
++ should check pixel-level (beta1.py) and run0826()
 + high-dim (pixel-level), GAE, ISAC
 
-mega TTUR into (rho > 2 ** -8) 
+
 Add the training stop signal: reach the target reward, reach the total step.
 Check InterISAC
 Move init_before_sample() to random_sample(). Should I? Not
