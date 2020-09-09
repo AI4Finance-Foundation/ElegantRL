@@ -798,7 +798,7 @@ class AgentDeepSAC(AgentBasicAC):
         return loss_a_avg, loss_c_avg
 
 
-class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
+class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods 2020-09-09
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         self.learning_rate = 2e-4
@@ -809,23 +809,13 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.act = InterSPG(state_dim, action_dim, actor_dim).to(self.device)
         self.act.train()
 
-        # critic_dim = int(net_dim * 1.25)
-        # self.cri = ActorCriticSPG(state_dim, action_dim, critic_dim, use_dn).to(self.device)
-        # self.cri.train()
         self.cri = self.act
 
-        # self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-        # self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
-        para_list = list(self.act.parameters())  # + list(self.cri.parameters())
-        self.act_optimizer = torch.optim.Adam(para_list, lr=self.learning_rate)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
         self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
-
-        # self.cri_target = ActorCriticSPG(state_dim, action_dim, critic_dim, use_dn).to(self.device)
-        # self.cri_target.eval()
-        # self.cri_target.load_state_dict(self.cri.state_dict())
 
         self.criterion = nn.SmoothL1Loss()
 
@@ -836,30 +826,22 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha = self.log_alpha.exp()
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
-        self.target_entropy = np.log(1.0 / action_dim)
-
-        # self.auto_k = torch.ones(1, requires_grad=True, device=self.device)
-        # self.auto_k_optimizer = torch.optim.Adam((self.auto_k,), lr=0.05)
-        # self.target_rho = 0.9
+        self.alpha = torch.tensor((1.0,), requires_grad=True, device=self.device)
+        self.alpha_optimizer = torch.optim.Adam((self.alpha,), lr=self.learning_rate)
+        self.target_entropy = np.log(action_dim)  # todo * 0.5  # todo
 
         '''extension: auto learning rate of actor'''
-        self.trust_rho = TrustRho()
+        self.trust_rho = TrustRho0909()
 
         '''constant'''
         self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
-        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
 
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
-        update_freq = self.update_freq
         self.act.train()
 
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-        rho = self.trust_rho()
+        loss_a_list = list()
+        loss_c_list = list()
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
@@ -873,40 +855,37 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         for i in range(update_times):
             with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size_ + 1, self.device)
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
-                next_q_target = next_q_target - next_log_prob * self.alpha  # policy entropy
-                q_target = reward + mask * next_q_target
+                q_target = reward + mask * (next_q_target + next_log_prob * self.alpha)  # policy entropy
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
             critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
-            loss_c_sum += loss_c_tmp
-            self.trust_rho.append_loss_c(loss_c_tmp)
+            loss_c_list.append(loss_c_tmp)
+            rho = self.trust_rho.update_rho(loss_c_tmp)
 
             '''stochastic policy'''
-            a_mean1, a_std_log_1, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
+            a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
             '''auto alpha'''
             # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
-            alpha_loss = (self.log_alpha * (self.target_entropy - log_prob).detach()).mean()
+            alpha_loss = (self.alpha.log() * (log_prob - self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
 
             '''action correction term'''
-            a_mean2, a_std_log_2 = self.act_target.get__a__std(state)
-            actor_term = self.criterion(a_mean1, a_mean2) + self.criterion(a_std_log_1, a_std_log_2)
+            a2_mean, a2_log_std = self.act_target.get__a__std(state)
+            actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
 
             '''actor_loss'''
             if rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
-                self.alpha = self.log_alpha.exp()
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
-
-                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
-                loss_a_sum += actor_loss.item()
+                actor_loss = -(q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
+                loss_a_list.append(actor_loss.item())
             else:
                 actor_loss = 0
 
@@ -915,17 +894,10 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             united_loss.backward()
             self.act_optimizer.step()
 
-            """target update"""
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
 
-            self.update_counter += 1
-            if self.update_counter >= update_freq:
-                self.update_counter = 0
-                # self.act_target.load_state_dict(self.act.state_dict())  # hard target update
-                rho = self.trust_rho.update_rho()
-
-        loss_a_avg = loss_a_sum / update_times
-        loss_c_avg = loss_c_sum / update_times
+        loss_a_avg = (sum(loss_a_list) / len(loss_a_list)) if len(loss_a_list) > 0 else 0.0
+        loss_c_avg = sum(loss_c_list) / len(loss_c_list)
         return loss_a_avg, loss_c_avg
 
 
@@ -1864,8 +1836,11 @@ class TrustRho:
     def __init__(self):
         self.loss_c_list = list()
         self.rho = 0.5  # could be range (0.0, np.e)
+        self.update_counter = 0
+        self.update_freq = 2 ** 7
 
-    def append_loss_c(self, loss_c):  # loss_c is a float instead of tensor
+    def append_loss_c(self, loss_c):
+        # assert isinstance(loss_c, float)
         self.loss_c_list.append(loss_c)
 
     def update_rho(self, ):
@@ -1877,6 +1852,28 @@ class TrustRho:
         return self.rho
 
     def __call__(self, ):
+        return self.rho
+
+
+class TrustRho0909:
+    def __init__(self):
+        self.loss_c_list = list()
+        self.rho = 0.5  # could be range (0.0, np.e)
+        self.update_counter = 0
+        self.update_freq = 2 ** 7
+
+    def update_rho(self, loss_c):
+        # assert isinstance(loss_c, float)
+        self.loss_c_list.append(loss_c)
+
+        self.update_counter += 1
+        if self.update_counter >= self.update_freq:
+            self.update_counter = 0
+            loss_c_avg = np.average(self.loss_c_list)
+            self.loss_c_list = list()
+
+            rho = np.exp(-loss_c_avg ** 2)
+            self.rho = (self.rho + rho) * 0.5  # soft update
         return self.rho
 
 

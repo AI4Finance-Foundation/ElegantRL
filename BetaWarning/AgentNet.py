@@ -71,7 +71,7 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
+class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient) 2020-09-09
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.log_std_min = -20
@@ -94,23 +94,25 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
 
         # decoder
         self.dec_a = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
         )  # action_mean
         self.dec_d = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
         )  # action_std_log (d means standard dev.)
         self.dec_q1 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
         )  # q_value1 SharedTwinCritic
         self.dec_q2 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
         )  # q_value2 SharedTwinCritic
 
         layer_norm(self.dec_a[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+        layer_norm(self.dec_q1[-1], std=0.1)
+        layer_norm(self.dec_q2[-1], std=0.1)
 
         '''Not need to use both SpectralNorm and TwinCritic
         I choose TwinCritc instead of SpectralNorm, 
@@ -149,13 +151,13 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
         # same as:
         a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
+        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
 
         a_noise_tanh = a_noise.tanh()
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
-        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
+        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)  # todo neg_log_prob
 
     def get__a__std(self, state):
         s_ = self.enc_s(state)
@@ -182,12 +184,12 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
         # same as:
         a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = -(a_delta + a_std_log + self.constant_log_sqrt_2pi)
+        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
 
         a_noise_tanh = a_noise.tanh()
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
-        log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
+        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()  # todo neg_log_prob
         return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
 
     def get__q1_q2(self, s, a):  # critic
