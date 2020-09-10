@@ -785,6 +785,7 @@ def run__discrete_action(gpu_id=None):
     args.init_for_training()
     train_agent(**vars(args))
 
+
 def run_continuous_action(gpu_id=None):
     import AgentZoo as Zoo
     """offline policy"""  # plan to check args.max_total_step
