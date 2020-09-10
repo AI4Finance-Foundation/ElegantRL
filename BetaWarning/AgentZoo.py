@@ -60,7 +60,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         for step in range(max_step):
             '''inactive with environment'''
             action = self.select_actions((state,))[0] + self.ou_noise()
-            action = action.clip(-1, 1)  # todo
+            # action = action.clip(-1, 1)
             next_state, reward, done, _ = env.step(action * max_action)
 
             reward_sum += reward
@@ -826,9 +826,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.alpha = torch.tensor((0.5,), requires_grad=True, device=self.device)  # todo
+        self.alpha = torch.tensor((1.0,), requires_grad=True, device=self.device)  # I don't know why np.e ** 0.5
         self.alpha_optimizer = torch.optim.Adam((self.alpha,), lr=self.learning_rate)
-        self.target_entropy = np.log(action_dim) * 0.5  # todo
+        self.target_entropy = np.log(action_dim) * 0.5
 
         '''extension: auto learning rate of actor'''
         self.trust_rho = TrustRho0909()
@@ -843,6 +843,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         loss_a_list = list()
         loss_c_list = list()
 
+        alpha = self.alpha.detach()
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
         update_times = int(max_step * k)
@@ -859,7 +860,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
-                q_target = reward + mask * (next_q_target + next_log_prob * self.alpha)  # policy entropy
+                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # policy entropy
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
             critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
@@ -877,14 +878,15 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             if rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 '''auto alpha'''
                 # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
-                alpha_loss = (self.alpha.log() * (log_prob - self.target_entropy).detach()).mean()
+                alpha_loss = (self.alpha * (log_prob - self.target_entropy).detach()).mean()
                 self.alpha_optimizer.zero_grad()
                 alpha_loss.backward()
                 self.alpha_optimizer.step()
+                alpha = self.alpha.detach()
 
                 '''actor_loss'''
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
-                actor_loss = -(q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
+                actor_loss = -(q_eval_pg + log_prob * alpha).mean()  # policy gradient
                 loss_a_list.append(actor_loss.item())
             else:
                 actor_loss = 0
@@ -938,7 +940,7 @@ class AgentPPO:
                 action = actions[0]
                 log_prob = log_probs[0]
 
-                next_state, reward, done, _ = env.step(np.tanh(action) * max_action)  # todo PPO tanh
+                next_state, reward, done, _ = env.step(np.tanh(action) * max_action)
                 reward_sum += reward
 
                 mask = 0.0 if done else gamma
@@ -1333,22 +1335,23 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
         self.softmax = nn.Softmax(dim=1)
         self.action_dim = action_dim
 
-    def update_buffer_online(self, env, max_step, max_memo, _max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, _max_action, reward_scale, gamma):
         """Difference between AgentDiscreteGAE and AgentPPO. In AgentDiscreteGAE, we have:
         1. Actor output a vector as the probability of discrete action.
         2. We save action vector into replay buffer instead of action int.
         """
         # collect tuple (reward, mask, state, action, log_prob, )
-        # PPO is an on policy RL algorithm.
-        buffer = BufferTupleOnline()  # todo wait to update
+        buffer.storage_list = list()  # PPO is an online policy RL algorithm.
+        # If I comment the above code, it becomes a offline policy PPO.
+        # Using Offline in PPO (or GAE) won't speed up training but slower
 
         rewards = list()
         steps = list()
 
         step_counter = 0
-        while step_counter < max_memo:
+        while step_counter < buffer.max_memo:
             state = env.reset()
-            # state = running_state(state)  # if state_norm:
+
             reward_sum = 0
             step_sum = 0
 
@@ -1358,11 +1361,9 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
                 action = actions[0]
                 log_prob = log_probs[0]
 
-                # next_state, reward, done, _ = env.step(action * max_action)
                 next_state, reward, done, _ = env.step(a_int)  # discrete action
                 reward_sum += reward
 
-                # next_state = running_state(next_state)  # if state_norm:
                 mask = 0.0 if done else gamma
 
                 reward_ = reward * reward_scale
@@ -1377,7 +1378,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
             steps.append(step_sum)
 
             step_counter += step_sum
-        return rewards, steps, buffer
+        return rewards, steps
 
     def update_parameters_online(self, buffer, batch_size, repeat_times):
         """Differences between AgentDiscreteGAE and AgentGAE are:
@@ -2129,7 +2130,7 @@ class BufferTupleOnline:
     def push(self, *args):
         self.storage_list.append(self.transition(*args))
 
-    def extend(self, storage_list):
+    def extend_memo(self, storage_list):
         self.storage_list.extend(storage_list)
 
     def sample(self):

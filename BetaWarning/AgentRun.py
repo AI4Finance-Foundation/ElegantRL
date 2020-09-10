@@ -111,6 +111,209 @@ def train_agent(
     recorder.save_npy__plot_png(cwd)
 
 
+"""multi processing"""
+
+
+def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update network parameters using replay buffer
+    class_agent = args.rl_agent
+    max_memo = args.max_memo
+    net_dim = args.net_dim
+    max_step = args.max_step
+    max_total_step = args.max_total_step
+    batch_size = args.batch_size
+    repeat_times = args.repeat_times
+    cwd = args.cwd
+    del args
+
+    state_dim, action_dim = q_o_buf.get()  # q_o_buf 1.
+    agent = class_agent(state_dim, action_dim, net_dim)
+
+    from copy import deepcopy
+    act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
+    act_cpu.eval()
+    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
+    q_i_buf.put(act_cpu)  # q_i_buf 1.
+    q_i_eva.put(act_cpu)  # q_i_eva 1.
+
+    buffer = BufferArrayGPU(max_memo, state_dim, action_dim)  # experiment replay buffer
+
+    '''initial_exploration'''
+    buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf 2.
+    reward_avg = np.average(reward_list)
+    step_sum = sum(step_list)
+    buffer.extend_memo(buffer_array)
+    q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva 1.
+
+    total_step = step_sum
+    is_training = True
+    is_solved = False
+    while is_training:
+        buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf n.
+        reward_avg = np.average(reward_list)
+        step_sum = sum(step_list)
+        total_step += step_sum
+        buffer.extend_memo(buffer_array)
+
+        buffer.init_before_sample()
+        loss_a_avg, loss_c_avg = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+
+        act_cpu.load_state_dict(agent.act.state_dict())
+        q_i_buf.put(act_cpu)  # q_i_buf n.
+        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
+
+        if q_o_eva.qsize() > 0:
+            is_solved = q_o_eva.get()  # q_o_eva n.
+        '''break loop rules'''
+        if is_solved or total_step > max_total_step or os.path.exists(f'{cwd}/stop.mark'):
+            is_training = False
+
+    q_i_buf.put('stop')
+    q_i_eva.put('stop')
+    while q_i_buf.qsize() > 0 or q_i_eva.qsize() > 0:
+        time.sleep(1)
+    time.sleep(4)
+    # print('; quit: params')
+
+
+def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by interacting with env
+    env_name = args.env_name
+    max_step = args.max_step
+    reward_scale = args.reward_scale
+    gamma = args.gamma
+    del args
+
+    torch.set_num_threads(4)
+
+    env, state_dim, action_dim, max_action, _, is_discrete = build_gym_env(env_name, is_print=False)
+
+    q_o_buf.put((state_dim, action_dim))  # q_o_buf 1.
+
+    '''build evaluated only actor'''
+    q_i_buf_get = q_i_buf.get()  # q_i_buf 1.
+    act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
+
+    buffer_part, reward_list, step_list = get__buffer_reward_step(
+        env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete)
+
+    q_o_buf.put((buffer_part, reward_list, step_list))  # q_o_buf 2.
+
+    explore_noise = True
+    state = env.reset()
+    is_training = True
+    while is_training:
+        buffer_list = list()
+        reward_list = list()
+        reward_item = 0.0
+        step_list = list()
+        step_item = 0
+
+        global_step = 0
+        while global_step < max_step:
+            '''select action'''
+            s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
+            a_tensor = act(s_tensor, explore_noise)
+            action = a_tensor.detach_().numpy()[0]
+
+            next_state, reward, done, _ = env.step(action * max_action)
+            reward_item += reward
+            step_item += 1
+
+            adjust_reward = reward * reward_scale
+            mask = 0.0 if done else gamma
+            buffer_list.append((adjust_reward, mask, state, action, next_state))
+
+            if done:
+                global_step += step_item
+
+                reward_list.append(reward_item)
+                reward_item = 0.0
+                step_list.append(step_item)
+                step_item = 0
+
+                state = env.reset()
+            else:
+                state = next_state
+
+        buffer_part = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
+        q_o_buf.put((buffer_part, reward_list, step_list))  # q_o_buf n.
+
+        q_i_buf_get = q_i_buf.get()  # q_i_buf n.
+        if q_i_buf_get == 'stop':
+            is_training = False
+        else:
+            act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
+
+    while q_o_buf.qsize() > 0:
+        q_o_buf.get()
+    while q_i_buf.qsize() > 0:
+        q_i_buf.get()
+    # print('; quit: buffer')
+
+
+def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
+    max_step = args.max_step
+    cwd = args.cwd
+    eva_size = args.eva_size
+    show_gap = args.show_gap
+    env_name = args.env_name
+    gpu_id = args.gpu_id
+    del args
+
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
+
+    '''build evaluated only actor'''
+    q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
+    act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
+
+    torch.set_num_threads(4)
+    recorder = Recorder()
+    device = torch.device('cpu')
+
+    recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
+
+    is_training = True
+    with torch.no_grad():  # for saving the GPU buffer
+        while is_training:
+            is_saved = recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
+            recorder.save_act(cwd, act, gpu_id) if is_saved else None
+
+            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
+            q_o_eva.put(is_solved)  # q_o_eva n.
+
+            '''update actor'''
+            while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
+                time.sleep(1)
+            while q_i_eva.qsize():  # get the latest actor
+                q_i_eva_get = q_i_eva.get()  # q_i_eva n.
+                if q_i_eva_get == 'stop':
+                    is_training = False
+                    break
+                act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
+                recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
+
+    recorder.save_npy__plot_png(cwd)
+
+    while q_o_eva.qsize() > 0:
+        q_o_eva.get()
+    while q_i_eva.qsize() > 0:
+        q_i_eva.get()
+    # print('; quit: evaluate')
+
+
+def build_for_mp(args):
+    import multiprocessing as mp
+    q_i_buf = mp.Queue(maxsize=8)  # buffer I
+    q_o_buf = mp.Queue(maxsize=8)  # buffer O
+    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
+    process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
+               mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
+               mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+    [p.start() for p in process]
+    [p.join() for p in process]
+    print('\n')
+
+
 """utils"""
 
 
@@ -164,12 +367,12 @@ def build_gym_env(env_name, is_print=True):
     if env_name == 'Pendulum-v0':
         env = gym.make(env_name)
         env.spec.reward_threshold = -200.0  # target_reward
-        state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
+        state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print)
     elif env_name == 'CarRacing-v0':
         from AgentPixel import fix_car_racing_v0
         env = gym.make(env_name)
         env = fix_car_racing_v0(env)
-        state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
+        state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print)
         assert len(state_dim)
         # state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
         state_dim = (1, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
@@ -180,14 +383,14 @@ def build_gym_env(env_name, is_print=True):
 
         state_dim = sum([i.shape[0] for i in env.observation_space_dict.values()])
         action_dim = sum([i.shape[0] for i in env.action_space_dict.values()])
-        action_max = 1.0
+        max_action = 1.0
         target_reward = 300
         is_discrete = False
     else:
         env = gym.make(env_name)
-        state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, is_print)
+        state_dim, action_dim, max_action, target_reward, is_discrete = get_env_info(env, is_print)
 
-    return env, state_dim, action_dim, action_max, target_reward, is_discrete
+    return env, state_dim, action_dim, max_action, target_reward, is_discrete
 
 
 def draw_plot_with_2npy(cwd, train_time):  # 2020-07-07
@@ -526,217 +729,13 @@ def get__buffer_reward_step(env, max_step, max_action, reward_scale, gamma, acti
     return buffer_array, reward_list, step_list
 
 
-"""multi processing"""
-
-
-def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update network parameters using replay buffer
-    class_agent = args.rl_agent
-    max_memo = args.max_memo
-    net_dim = args.net_dim
-    max_step = args.max_step
-    max_total_step = args.max_total_step
-    batch_size = args.batch_size
-    repeat_times = args.repeat_times
-    cwd = args.cwd
-    del args
-
-    state_dim, action_dim = q_o_buf.get()  # q_o_buf 1.
-    agent = class_agent(state_dim, action_dim, net_dim)
-
-    from copy import deepcopy
-    act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
-    act_cpu.eval()
-    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
-    q_i_buf.put(act_cpu)  # q_i_buf 1.
-    # q_i_buf.put(act_cpu)  # q_i_buf 2. # warning
-    q_i_eva.put(act_cpu)  # q_i_eva 1.
-
-    buffer = BufferArrayGPU(max_memo, state_dim, action_dim)  # experiment replay buffer
-
-    '''initial_exploration'''
-    buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf 2.
-    reward_avg = np.average(reward_list)
-    step_sum = sum(step_list)
-    buffer.extend_memo(buffer_array)
-
-    q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva 1.
-
-    total_step = step_sum
-    is_training = True
-    is_solved = False
-    while is_training:
-        buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf n.
-        reward_avg = np.average(reward_list)
-        step_sum = sum(step_list)
-        total_step += step_sum
-        buffer.extend_memo(buffer_array)
-
-        buffer.init_before_sample()
-        loss_a_avg, loss_c_avg = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
-
-        act_cpu.load_state_dict(agent.act.state_dict())
-        q_i_buf.put(act_cpu)  # q_i_buf n.
-        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
-
-        if q_o_eva.qsize() > 0:
-            is_solved = q_o_eva.get()  # q_o_eva n.
-        '''break loop rules'''
-        if is_solved or total_step > max_total_step or os.path.exists(f'{cwd}/stop.mark'):  # todo
-            is_training = False
-
-    q_i_buf.put('stop')
-    q_i_eva.put('stop')
-    while q_i_buf.qsize() > 0 or q_i_eva.qsize() > 0:
-        time.sleep(1)
-    time.sleep(4)
-    # print('; quit: params')
-
-
-def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by interacting with env
-    env_name = args.env_name
-    max_step = args.max_step
-    reward_scale = args.reward_scale
-    gamma = args.gamma
-    del args
-
-    torch.set_num_threads(4)
-
-    env, state_dim, action_dim, max_action, _, is_discrete = build_gym_env(env_name, is_print=False)
-
-    q_o_buf.put((state_dim, action_dim))  # q_o_buf 1.
-
-    '''build evaluated only actor'''
-    q_i_buf_get = q_i_buf.get()  # q_i_buf 1.
-    act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
-
-    buffer_array, reward_list, step_list = get__buffer_reward_step(
-        env, max_step, max_action, reward_scale, gamma, action_dim, is_discrete)
-
-    q_o_buf.put((buffer_array, reward_list, step_list))  # q_o_buf 2.
-
-    explore_noise = True
-    state = env.reset()
-    is_training = True
-    while is_training:
-        buffer_list = list()
-        reward_list = list()
-        reward_item = 0.0
-        step_list = list()
-        step_item = 0
-
-        global_step = 0
-        while global_step < max_step:
-            '''select action'''
-            s_tensor = torch.tensor((state,), dtype=torch.float32, requires_grad=False)
-            a_tensor = act(s_tensor, explore_noise)
-            action = a_tensor.detach_().numpy()[0]
-
-            next_state, reward, done, _ = env.step(action * max_action)
-            reward_item += reward
-            step_item += 1
-
-            adjust_reward = reward * reward_scale
-            mask = 0.0 if done else gamma
-            buffer_list.append((adjust_reward, mask, state, action, next_state))
-
-            if done:
-                global_step += step_item
-
-                reward_list.append(reward_item)
-                reward_item = 0.0
-                step_list.append(step_item)
-                step_item = 0
-
-                state = env.reset()
-            else:
-                state = next_state
-
-        buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
-        q_o_buf.put((buffer_array, reward_list, step_list))  # q_o_buf n.
-
-        q_i_buf_get = q_i_buf.get()  # q_i_buf n.
-        if q_i_buf_get == 'stop':
-            is_training = False
-        else:
-            act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
-
-    while q_o_buf.qsize() > 0:
-        q_o_buf.get()
-    while q_i_buf.qsize() > 0:
-        q_i_buf.get()
-    # print('; quit: buffer')
-
-
-def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
-    max_step = args.max_step
-    cwd = args.cwd
-    eva_size = args.eva_size
-    show_gap = args.show_gap
-    env_name = args.env_name
-    gpu_id = args.gpu_id
-    del args
-
-    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
-
-    '''build evaluated only actor'''
-    q_i_eva_get = q_i_eva.get()  # q_i_eva 1.
-    act = q_i_eva_get  # q_i_eva_get == act.to(device_cpu), requires_grad=False
-
-    torch.set_num_threads(4)
-    recorder = Recorder()
-    device = torch.device('cpu')
-
-    recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
-
-    is_training = True
-    with torch.no_grad():  # for saving the GPU buffer
-        while is_training:
-            is_saved = recorder.update__record_evaluate(env, act, max_step, max_action, eva_size, device, is_discrete)
-            recorder.save_act(cwd, act, gpu_id) if is_saved else None
-
-            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
-            q_o_eva.put(is_solved)  # q_o_eva n.
-
-            '''update actor'''
-            while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
-                time.sleep(1)
-            while q_i_eva.qsize():  # get the latest actor
-                q_i_eva_get = q_i_eva.get()  # q_i_eva n.
-                if q_i_eva_get == 'stop':
-                    is_training = False
-                    break
-                act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
-                recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
-
-    recorder.save_npy__plot_png(cwd)
-
-    while q_o_eva.qsize() > 0:
-        q_o_eva.get()
-    while q_i_eva.qsize() > 0:
-        q_i_eva.get()
-    # print('; quit: evaluate')
-
-
-def build_for_mp(args):
-    import multiprocessing as mp
-    q_i_buf = mp.Queue(maxsize=8)  # buffer I
-    q_o_buf = mp.Queue(maxsize=8)  # buffer O
-    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
-    process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
-               mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
-               mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
-    [p.start() for p in process]
-    [p.join() for p in process]
-    print('\n')
-
-
 """demo"""
 
 
 def run__demo():
     import AgentZoo as Zoo
     args = Arguments(rl_agent=Zoo.AgentDeepSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
+    # args = Arguments(rl_agent=Zoo.AgentInterSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
     train_agent(**vars(args))
 
@@ -762,29 +761,29 @@ def run__discrete_action(gpu_id=None):
     exit()
 
     """online policy"""  # plan to check args.max_total_step
-    # args = Arguments(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
-    # assert args.rl_agent in {Zoo.AgentDiscreteGAE, }
-    #
-    # args.max_memo = 2 ** 10
-    # args.batch_size = 2 ** 8
-    # args.repeat_times = 2 ** 4
-    # args.net_dim = 2 ** 7
-    #
-    # args.env_name = "CartPole-v0"
-    # args.max_total_step = int(1e5 * 4)
-    # args.init_for_training()
-    # train__online_policy(**vars(args))
-    #
-    # args.gpu_id = gpu_id
-    # args.max_memo = 2 ** 12
-    # args.batch_size = 2 ** 9
-    # args.repeat_times = 2 ** 4
-    # args.net_dim = 2 ** 8
-    #
-    # args.env_name = "LunarLander-v2"
-    # args.max_total_step = int(2e6 * 4)
-    # args.init_for_training()
-    # train__online_policy(**vars(args))
+    args = Arguments(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
+    assert args.rl_agent in {Zoo.AgentDiscreteGAE, }
+
+    args.max_memo = 2 ** 10
+    args.batch_size = 2 ** 8
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 7
+
+    args.env_name = "CartPole-v0"
+    args.max_total_step = int(4e3 * 8)
+    args.init_for_training()
+    train_agent(**vars(args))
+
+    args.gpu_id = gpu_id
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 8
+
+    args.env_name = "LunarLander-v2"
+    args.max_total_step = int(2e5 * 8)
+    args.init_for_training()
+    train_agent(**vars(args))
 
 
 def run_continuous_action(gpu_id=None):
@@ -806,17 +805,19 @@ def run_continuous_action(gpu_id=None):
 
     args.env_name = "LunarLanderContinuous-v2"
     args.max_total_step = int(1e5 * 8)
+    args.reward_scale = 2 ** 0
     args.init_for_training()
     build_for_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
     args.env_name = "BipedalWalker-v3"
     args.max_total_step = int(2e5 * 8)
+    args.reward_scale = 2 ** 0
     args.init_for_training()
     build_for_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
-    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan todo
+    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
     args.max_total_step = int(4e6 * 8)
     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
     args.max_memo = int(2 ** 21)
@@ -858,7 +859,7 @@ def run_continuous_action(gpu_id=None):
     # train_agent(**vars(args))
     build_for_mp(args)
 
-    """online policy"""  # todo build_for_mp(args)
+    """online policy"""
     args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
     assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE, Zoo.AgentInterGAE}
     args.net_dim = 2 ** 8
@@ -869,10 +870,10 @@ def run_continuous_action(gpu_id=None):
     """PPO and GAE is online policy.
     The memory in replay buffer will only be saved for one episode.
 
-    TRPO's author use a surrogate object to simplify the KL penalty and get PPO.
+    TRPO's author use a surrogate object to simplify the KL penalty, and get PPO.
     So I provide PPO instead of TRPO here.
 
-    GAE is Generalization Advantage Estimate.
+    GAE is Generalization Advantage Estimate. (in high dimension)
     RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """

@@ -89,7 +89,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, mid_dim),
         )  # action without nn.Tanh()
 
-        self.net = DenseNet2(mid_dim)  # todo
+        self.net = DenseNet2(mid_dim)
         net_out_dim = self.net.out_dim
 
         # decoder
@@ -157,7 +157,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
         log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)  # todo neg_log_prob
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
     def get__a__std(self, state):
         s_ = self.enc_s(state)
@@ -189,7 +189,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         a_noise_tanh = a_noise.tanh()
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
-        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()  # todo neg_log_prob
+        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
         return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
 
     def get__q1_q2(self, s, a):  # critic
@@ -264,7 +264,7 @@ class InterGAE(nn.Module):
         x = self.enc_s(s)
         x = self.net(x)
         a_mean = self.dec_a(x)
-        return a_mean.tanh()  # todo PPO tanh()
+        return a_mean.tanh()
 
     def get__a__log_prob(self, state):
         x = self.enc_s(state)
@@ -343,7 +343,8 @@ class ActorDN(nn.Module):  # dn: DenseNet
         a = self.net(s)
         return a if noise_std == 0.0 else self.add_noise(a, noise_std)
 
-    def add_noise(self, a, noise_std):  # 2020-03-03
+    @staticmethod
+    def add_noise(a, noise_std):  # 2020-03-03
         # noise_normal = torch.randn_like(a, device=self.device) * noise_std
         # a_temp = a + noise_normal
         a_temp = torch.normal(a, noise_std)
@@ -440,7 +441,7 @@ class ActorPPO(nn.Module):
 
     def forward(self, s):
         a_mean = self.net__mean(s)
-        return a_mean.tanh()  # todo PPO tanh()
+        return a_mean.tanh()
 
     def get__a__log_prob(self, state):
         a_mean = self.net__mean(state)
@@ -487,7 +488,7 @@ class ActorGAE(nn.Module):
     def forward(self, s):
         x = self.net(s)
         a_mean = self.net__mean(x)
-        return a_mean.tanh()  # todo PPO tanh
+        return a_mean.tanh()
 
     def get__a__log_prob(self, state):
         x = self.net(state)
@@ -530,8 +531,28 @@ class Critic(nn.Module):  # 2020-05-05 fix bug
 class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q-learning
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super().__init__()
-        self.net1 = build_critic_network(state_dim, action_dim, mid_dim, use_dn)
-        self.net2 = build_critic_network(state_dim, action_dim, mid_dim, use_dn)
+
+        def build_critic_network():
+            # state_dim, action_dim, mid_dim, use_dn
+            if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+                net = nn.Sequential(
+                    nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                    DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+                    nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1)),
+                    # Notice that spectral normalization is conflict with soft target update.
+                )
+            else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+                net = nn.Sequential(
+                    nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                    nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                    nn.Linear(mid_dim, 1),
+                )
+
+            layer_norm(net[-1], std=0.01)  # net[-1] is output layer for critic, it is no necessary.
+            return net
+
+        self.net1 = build_critic_network()
+        self.net2 = build_critic_network()
 
     def forward(self, state, action):
         x = torch.cat((state, action), dim=1)
@@ -587,10 +608,30 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
         return q_value1, q_value2
 
 
-class CriticSN(nn.Module):  # SN: Spectral Normalization # 2020-05-05 fix bug
+class CriticSN(nn.Module):  # SN: Spectral Normalization # 2020-05-05 fix bug # plan to mega with twin critic
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super().__init__()
-        self.net = build_critic_network(state_dim, action_dim, mid_dim, use_dn)
+
+        def build_critic_network():
+            # state_dim, action_dim, mid_dim, use_dn
+            if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+                net = nn.Sequential(
+                    nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                    DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
+                    nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1)),
+                    # Notice that spectral normalization is conflict with soft target update.
+                )
+            else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
+                net = nn.Sequential(
+                    nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                    nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                    nn.Linear(mid_dim, 1),
+                )
+
+            layer_norm(net[-1], std=0.01)  # net[-1] is output layer for critic, it is no necessary.
+            return net
+
+        self.net = build_critic_network()
 
     def forward(self, s, a):
         x = torch.cat((s, a), dim=1)
@@ -738,7 +779,7 @@ class DenseNet(nn.Module):
         return x3
 
 
-class DenseNet2(nn.Module):  # todo hyper-param: layer_number
+class DenseNet2(nn.Module):  # plan to hyper-param: layer_number
     def __init__(self, mid_dim):
         super().__init__()
         assert (mid_dim / (2 ** 3)) % 1 == 0
@@ -774,22 +815,3 @@ class HardSwish(nn.Module):
 def layer_norm(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
-
-
-def build_critic_network(state_dim, action_dim, mid_dim, use_dn):
-    if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
-        net = nn.Sequential(
-            nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
-            nn.utils.spectral_norm(nn.Linear(mid_dim * 4, 1)),
-            # Notice that spectral normalization is conflict with soft target update.
-        )
-    else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
-        net = nn.Sequential(
-            nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, 1),
-        )
-
-    layer_norm(net[-1], std=0.01)  # net[-1] is output layer for critic, it is no necessary.
-    return net
