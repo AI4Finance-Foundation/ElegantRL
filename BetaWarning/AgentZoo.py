@@ -798,7 +798,7 @@ class AgentDeepSAC(AgentBasicAC):
         return loss_a_avg, loss_c_avg
 
 
-class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods 2020-09-09
+class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         self.learning_rate = 2e-4
@@ -826,9 +826,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods 2020-
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.alpha = torch.tensor((1.0,), requires_grad=True, device=self.device)
+        self.alpha = torch.tensor((0.5,), requires_grad=True, device=self.device)  # todo
         self.alpha_optimizer = torch.optim.Adam((self.alpha,), lr=self.learning_rate)
-        self.target_entropy = np.log(action_dim)  # todo * 0.5  # todo
+        self.target_entropy = np.log(action_dim) * 0.5  # todo
 
         '''extension: auto learning rate of actor'''
         self.trust_rho = TrustRho0909()
@@ -870,19 +870,19 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods 2020-
             '''stochastic policy'''
             a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
-            '''auto alpha'''
-            # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
-            alpha_loss = (self.alpha.log() * (log_prob - self.target_entropy).detach()).mean()
-            self.alpha_optimizer.zero_grad()
-            alpha_loss.backward()
-            self.alpha_optimizer.step()
-
             '''action correction term'''
             a2_mean, a2_log_std = self.act_target.get__a__std(state)
             actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
 
-            '''actor_loss'''
             if rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
+                '''auto alpha'''
+                # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+                alpha_loss = (self.alpha.log() * (log_prob - self.target_entropy).detach()).mean()
+                self.alpha_optimizer.zero_grad()
+                alpha_loss.backward()
+                self.alpha_optimizer.step()
+
+                '''actor_loss'''
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
                 actor_loss = -(q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
                 loss_a_list.append(actor_loss.item())

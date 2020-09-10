@@ -71,7 +71,7 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient) 2020-09-09
+class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.log_std_min = -20
