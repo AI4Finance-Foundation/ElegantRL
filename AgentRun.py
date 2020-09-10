@@ -781,10 +781,9 @@ def run__discrete_action(gpu_id=None):
     args.net_dim = 2 ** 8
 
     args.env_name = "LunarLander-v2"
-    args.max_total_step = int(2e6 * 4)
+    args.max_total_step = int(2e5 * 8)
     args.init_for_training()
-    train__online_policy(**vars(args))
-
+    train_agent(**vars(args))
 
 def run_continuous_action(gpu_id=None):
     import AgentZoo as Zoo
