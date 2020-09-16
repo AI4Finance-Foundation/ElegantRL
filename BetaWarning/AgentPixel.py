@@ -1179,7 +1179,7 @@ def run__car_racing(gpu_id=None):
     args.random_seed = 1942
     args.max_total_step = int(1e6 * 4)
     args.max_step = int(1000)
-    args.eva_size = 3
+    args.eval_times2 = 3
     args.reward_scale = 2 ** -1
     args.show_gap = 2 ** 8  # for Recorder
     args.init_for_training()

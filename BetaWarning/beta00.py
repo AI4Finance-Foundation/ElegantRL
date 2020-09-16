@@ -151,7 +151,8 @@ def run_continuous_action(gpu_id=None):
     args.eval_times2 = 2 ** 5  # for Recorder
     args.show_gap = 2 ** 8  # for Recorder
     args.init_for_training()
-    build_for_mp(args)  # train_agent(**vars(args))
+    # build_for_mp(args)
+    train_agent(**vars(args))
     exit()
 
 

@@ -143,7 +143,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
 class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG without OU-Process)
     def __init__(self, state_dim, action_dim, net_dim):
         use_dn = False  # soft target update is conflict with use_densenet
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -292,7 +292,7 @@ class AgentTD3(AgentBasicAC):
         super(AgentBasicAC, self).__init__()
 
         use_dn = False  # soft target update is conflict with use_densenet
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -387,7 +387,7 @@ class AgentSAC(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         use_dn = False
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -484,116 +484,11 @@ class AgentSAC(AgentBasicAC):
         return loss_a_avg, loss_c_avg
 
 
-class AgentSNAC(AgentBasicAC):
-    def __init__(self, state_dim, action_dim, net_dim):
-        super(AgentBasicAC, self).__init__()
-        use_dn = True  # use_DenseNet SNAC
-        self.learning_rate = 2e-4
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        '''network'''
-        actor_dim = net_dim
-        self.act = ActorDN(state_dim, action_dim, actor_dim, use_dn).to(self.device)
-        self.act.train()
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-
-        self.act_target = ActorDN(state_dim, action_dim, actor_dim, use_dn).to(self.device)
-        self.act_target.eval()
-        self.act_target.load_state_dict(self.act.state_dict())
-
-        critic_dim = int(net_dim * 1.25)
-        self.cri = CriticSN(state_dim, action_dim, critic_dim, use_dn).to(self.device)
-        self.cri.train()
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
-
-        self.cri_target = CriticSN(state_dim, action_dim, critic_dim, use_dn).to(self.device)
-        self.cri_target.eval()
-        self.cri_target.load_state_dict(self.cri.state_dict())
-
-        self.criterion = nn.SmoothL1Loss()
-
-        '''training record'''
-        self.state = None  # env.reset()
-        self.reward_sum = 0.0
-        self.step = 0
-        self.update_counter = 0
-
-        '''extension'''
-        self.trust_rho = TrustRho()
-
-        '''constant'''
-        self.explore_rate = 0.5  # explore rate when update_buffer()
-        self.explore_noise = 0.2  # standard deviation of explore noise
-        self.policy_noise = 0.4  # standard deviation of policy noise
-        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
-
-    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
-        policy_noise = self.policy_noise  # standard deviation of policy noise
-        update_freq = self.update_freq  # delay update frequency, for soft target update
-        self.act.train()
-
-        loss_a_sum = 0.0
-        loss_c_sum = 0.0
-
-        k = 1.0 + buffer.now_len / buffer.max_len
-        batch_size_ = int(batch_size * k)
-        update_times = int(max_step * k)
-
-        for i in range(update_times * repeat_times):
-            with torch.no_grad():
-                reward, mask, state, action, next_state = buffer.random_sample(batch_size_, self.device)
-
-                next_a = self.act_target(next_state)
-                next_a_noisy = self.act_target.add_noise(next_a, policy_noise)
-                next_q = self.cri_target(next_state, next_a)
-                next_q_noisy = self.cri_target(next_state, next_a_noisy)
-                next_q_target = (next_q + next_q_noisy) * 0.5  # SNAC, more smooth and more stable q value
-                next_q_target = reward + mask * next_q_target
-
-            '''critic_loss'''
-            q_eval = self.cri(state, action)
-            critic_loss = self.criterion(q_eval, next_q_target)
-            loss_c_tmp = critic_loss.item()
-            loss_c_sum += loss_c_tmp
-            self.trust_rho.append_loss_c(loss_c_tmp)  # extension
-
-            self.cri_optimizer.zero_grad()
-            critic_loss.backward()
-            self.cri_optimizer.step()
-
-            '''actor_loss'''
-            if i % repeat_times == 0 and self.trust_rho.rho > 0.001:  # (trust_rho>0.001) ~= (critic_loss<2.6)
-                actions_pg = self.act(state)  # policy gradient
-                actor_loss = -self.cri(state, actions_pg).mean()  # policy gradient
-                loss_a_sum += actor_loss.item()
-
-                self.act_optimizer.zero_grad()
-                actor_loss.backward()
-                # https://stackoverflow.com/questions/54716377/
-                # how-to-do-gradient-clipping-in-pytorch/54716953#54716953
-                # torch.nn.utils.clip_grad_norm_(self.act.parameters(), max_norm=4)
-                self.act_optimizer.step()
-
-            '''target update'''
-            self.update_counter += 1
-            if self.update_counter == update_freq:
-                self.update_counter = 0
-                self.act_target.load_state_dict(self.act.state_dict())  # hard target update
-                self.cri_target.load_state_dict(self.cri.state_dict())  # hard target update
-
-                trust_rho = self.trust_rho.update_rho()
-                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * trust_rho
-
-        loss_a_avg = loss_a_sum / update_times
-        loss_c_avg = loss_c_sum / (update_times * repeat_times)
-        return loss_a_avg, loss_c_avg
-
-
 class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         # use_dn = True  # SNAC, use_dn (DenseNet) and (Spectral Normalization)
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -614,7 +509,7 @@ class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
         self.update_counter = 0
 
         '''extension: auto learning rate of actor'''
-        self.trust = TrustRho()
+        self.trust_rho = TrustRho()
 
         '''constant'''
         self.explore_rate = 0.5  # explore rate when update_buffer()
@@ -647,7 +542,7 @@ class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
             critic_loss = self.criterion(q_eval, q_target)
             loss_c_tmp = critic_loss.item()
             loss_c_sum += loss_c_tmp
-            self.trust.append_loss_c(loss_c_tmp)
+            rho = self.trust_rho.update_rho(loss_c_tmp)
 
             '''actor correction term'''
             actor_term = self.criterion(self.act(next_state), next_action)
@@ -660,9 +555,9 @@ class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
                 # Or you can use act.critic.deepcopy(). Whatever you cannot use act.critic directly.
                 loss_a_sum += actor_loss.item()
 
-                united_loss = critic_loss + actor_term * (1 - self.trust.rho) + actor_loss * (self.trust.rho * 0.5)
+                united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * (rho * 0.5)
             else:
-                united_loss = critic_loss + actor_term * (1 - self.trust.rho)
+                united_loss = critic_loss + actor_term * (1 - rho)
 
             """united loss"""
             self.act_optimizer.zero_grad()
@@ -672,9 +567,7 @@ class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
             self.update_counter += 1
             if self.update_counter == update_freq:
                 self.update_counter = 0
-
-                self.trust.update_rho()
-                if self.trust.rho > 0.1:
+                if rho > 0.1:
                     self.act_target.load_state_dict(self.act.state_dict())
 
         loss_a_avg = loss_a_sum / update_times
@@ -686,7 +579,7 @@ class AgentDeepSAC(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         use_dn = True  # and use hard target update
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -727,15 +620,12 @@ class AgentDeepSAC(AgentBasicAC):
         '''constant'''
         self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
-        self.update_freq = 2 ** 7  # delay update frequency, for hard target update
 
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
-        update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
         self.act.train()
 
         loss_a_sum = 0.0
         loss_c_sum = 0.0
-        rho = self.trust_rho()
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
@@ -754,7 +644,7 @@ class AgentDeepSAC(AgentBasicAC):
             critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
             loss_c_sum += loss_c_tmp
-            self.trust_rho.append_loss_c(loss_c_tmp)
+            rho = self.trust_rho.update_rho(loss_c_tmp)
 
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
@@ -764,6 +654,8 @@ class AgentDeepSAC(AgentBasicAC):
             if i % repeat_times == 0 and rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
                 # stochastic policy
                 actions_noise, log_prob = self.act.get__a__log_prob(state)  # policy gradient
+                # todo plan to change log_prob into negative log_prob
+
                 # auto alpha
                 alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
                 self.alpha_optimizer.zero_grad()
@@ -775,7 +667,7 @@ class AgentDeepSAC(AgentBasicAC):
                 # q_eval_pg = self.cri(state, actions_noise)  # policy gradient
                 q_eval_pg = torch.min(*self.cri.get__q1_q2(state, actions_noise))  # policy gradient, stable but slower
 
-                actor_loss = (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
+                actor_loss = rho * (-q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
                 loss_a_sum += actor_loss.item()
 
                 self.act_optimizer.zero_grad()
@@ -786,13 +678,6 @@ class AgentDeepSAC(AgentBasicAC):
             soft_target_update(self.act_target, self.act)  # soft target update
             soft_target_update(self.cri_target, self.cri)  # soft target update
 
-            self.update_counter += 1
-            if self.update_counter >= update_freq:
-                self.update_counter = 0
-
-                rho = self.trust_rho.update_rho()
-                self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * rho
-
         loss_a_avg = loss_a_sum / update_times
         loss_c_avg = loss_c_sum / (update_times * repeat_times)
         return loss_a_avg, loss_c_avg
@@ -801,7 +686,7 @@ class AgentDeepSAC(AgentBasicAC):
 class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -811,7 +696,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         self.cri = self.act
 
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))
 
         self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
@@ -826,12 +711,13 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.alpha = torch.tensor((1.0,), requires_grad=True, device=self.device)  # I don't know why np.e ** 0.5
-        self.alpha_optimizer = torch.optim.Adam((self.alpha,), lr=self.learning_rate)
-        self.target_entropy = np.log(action_dim) * 0.5
+        self.target_entropy = np.log(action_dim + 1) * 0.5  # todo
+        self.log_alpha = torch.tensor((-self.target_entropy * np.e,), requires_grad=True, device=self.device)
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate, betas=(0.5, 0.999))
+        print('log_alpha:', self.log_alpha.item())  # todo init log_alpha
 
         '''extension: auto learning rate of actor'''
-        self.trust_rho = TrustRho0909()
+        self.trust_rho = TrustRho()
 
         '''constant'''
         self.explore_rate = 1.0  # explore rate when update_buffer(), 1.0 is better than 0.5
@@ -843,16 +729,12 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         loss_a_list = list()
         loss_c_list = list()
 
-        alpha = self.alpha.detach()
+        alpha = self.log_alpha.exp().detach()
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
         update_times = int(max_step * k)
-        # k_loss = self.auto_k * (rho - self.target_rho) + torch.div(1, self.auto_k) + 0.5 * self.auto_k
-        # self.auto_k_optimizer.zero_grad()
-        # k_loss.backward()
-        # self.auto_k_optimizer.step()
-        # batch_size_ = int(batch_size * (1.0 + buffer.now_len / buffer.max_len))
-        # update_times = int(max_step * self.auto_k.item())
+
+        log_prob = None  # todo print
 
         for i in range(update_times):
             with torch.no_grad():
@@ -875,16 +757,17 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             a2_mean, a2_log_std = self.act_target.get__a__std(state)
             actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
 
-            if rho > 2 ** -8:  # (self.rho>0.001) ~= (self.critic_loss<2.6)
-                '''auto alpha'''
-                # alpha_loss = -(self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
-                alpha_loss = (self.alpha * (log_prob - self.target_entropy).detach()).mean()
-                self.alpha_optimizer.zero_grad()
-                alpha_loss.backward()
-                self.alpha_optimizer.step()
-                alpha = self.alpha.detach()
+            '''auto alpha'''
+            alpha_loss = (self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            self.alpha_optimizer.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optimizer.step()
+            with torch.no_grad():
+                self.log_alpha[:] = self.log_alpha.clamp(-20, 2)  # todo fix bug
+            alpha = self.log_alpha.exp().detach()
 
-                '''actor_loss'''
+            '''actor_loss'''
+            if rho > 2 ** -8:  # (self.rho>2**-8) ~= (self.critic_loss<2.355)
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
                 actor_loss = -(q_eval_pg + log_prob * alpha).mean()  # policy gradient
                 loss_a_list.append(actor_loss.item())
@@ -898,6 +781,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
 
+        print(np.array(
+            (alpha.item(), self.log_alpha.item(), log_prob.mean().item(), self.target_entropy)).round(
+            3))  # todo show alpha
         loss_a_avg = (sum(loss_a_list) / len(loss_a_list)) if len(loss_a_list) > 0 else 0.0
         loss_c_avg = sum(loss_c_list) / len(loss_c_list)
         return loss_a_avg, loss_c_avg
@@ -905,7 +791,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
 class AgentPPO:
     def __init__(self, state_dim, action_dim, net_dim):
-        self.learning_rate = 2e-4  # learning rate of actor
+        self.learning_rate = 1e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -1057,12 +943,12 @@ class AgentPPO:
         if explore_noise == 0.0:
             a_mean = self.act(states)
             a_mean = a_mean.cpu().data.numpy()
-            return a_mean
+            return a_mean.tanh()  # todo with tanh() fix bug
         else:
             a_noise, log_prob = self.act.get__a__log_prob(states)
             a_noise = a_noise.cpu().data.numpy()
             log_prob = log_prob.cpu().data.numpy()
-            return a_noise, log_prob
+            return a_noise, log_prob  # not tanh()
 
     def save_or_load_model(self, cwd, is_save):  # 2020-05-20
         act_save_path = '{}/actor.pth'.format(cwd)
@@ -1087,7 +973,7 @@ class AgentPPO:
 class AgentGAE(AgentPPO):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentPPO, self).__init__()
-        self.learning_rate = 2e-4  # learning rate of actor
+        self.learning_rate = 1e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -1210,15 +1096,19 @@ class AgentGAE(AgentPPO):
 class AgentInterGAE(AgentPPO):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentPPO, self).__init__()
-        self.learning_rate = 2e-4  # learning rate of actor
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
         self.act = InterGAE(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
+        self.cri = self.act.get__q1_q2
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
 
-        self.cri = self.act.get__q1_q2
+        self.act_target = InterGAE(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+        self.cri_target = self.act_target.get__q1_q2
 
         self.criterion = nn.SmoothL1Loss()
 
@@ -1245,7 +1135,7 @@ class AgentInterGAE(AgentPPO):
         # all__new_v = torch.min(*self.cri(all_state)).detach_()  # TwinCritic
         with torch.no_grad():
             b_size = 128
-            all__new_v = torch.cat([torch.min(*self.cri(all_state[i:i + b_size]))
+            all__new_v = torch.cat([torch.min(*self.cri_target(all_state[i:i + b_size]))
                                     for i in range(0, all_state.size()[0], b_size)], dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
@@ -1317,6 +1207,8 @@ class AgentInterGAE(AgentPPO):
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
+
+            soft_target_update(self.act_target, self.act, tau=2 ** -8)
 
         loss_a_avg = loss_a_sum / sample_times
         loss_c_avg = loss_c_sum / sample_times
@@ -1511,7 +1403,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
 
 class AgentDQN:  # 2020-06-06
     def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -1608,7 +1500,7 @@ class AgentDQN:  # 2020-06-06
 class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
     def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
         super(AgentBasicAC, self).__init__()
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -1698,7 +1590,7 @@ class AgentDoubleDQN(AgentBasicAC):  # 2020-06-06 # I'm not sure.
 class AgentDuelingDQN(AgentBasicAC):  # 2020-07-07
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
-        self.learning_rate = 2e-4
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -1834,29 +1726,6 @@ def soft_target_update(target, online, tau=5e-3):
 
 
 class TrustRho:
-    def __init__(self):
-        self.loss_c_list = list()
-        self.rho = 0.5  # could be range (0.0, np.e)
-        self.update_counter = 0
-        self.update_freq = 2 ** 7
-
-    def append_loss_c(self, loss_c):
-        # assert isinstance(loss_c, float)
-        self.loss_c_list.append(loss_c)
-
-    def update_rho(self, ):
-        loss_c_avg = np.average(self.loss_c_list)
-        self.loss_c_list = list()
-
-        rho = np.exp(-loss_c_avg ** 2)
-        self.rho = (self.rho + rho) * 0.5  # soft update
-        return self.rho
-
-    def __call__(self, ):
-        return self.rho
-
-
-class TrustRho0909:
     def __init__(self):
         self.loss_c_list = list()
         self.rho = 0.5  # could be range (0.0, np.e)
