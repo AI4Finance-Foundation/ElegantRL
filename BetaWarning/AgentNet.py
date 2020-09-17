@@ -355,7 +355,7 @@ class ActorDN(nn.Module):  # dn: DenseNet
         return a_noise
 
 
-class ActorSAC(nn.Module):
+class ActorSAC0(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super().__init__()
 
@@ -418,6 +418,76 @@ class ActorSAC(nn.Module):
 
         a_noise_tanh = a_noise.tanh()
         log_prob = log_prob_noise - (-a_noise_tanh.pow(2) + 1.000001).log()
+
+        # same as below:
+        # epsilon = 1e-6
+        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)
+
+
+class ActorSAC(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
+        super().__init__()
+
+        if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
+            self.net__mid = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                DenseNet(mid_dim),
+            )
+            lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
+        else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
+            self.net__mid = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim),
+            )
+            lay_dim = mid_dim
+
+        self.net__mean = nn.Linear(lay_dim, action_dim)
+        self.net__std_log = nn.Linear(lay_dim, action_dim)
+
+        layer_norm(self.net__mean, std=0.01)  # net[-1] is output layer for action, it is no necessary.
+
+        self.log_std_min = -20
+        self.log_std_max = 2
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def forward(self, state, noise_std=0.0):  # in fact, noise_std is a boolean
+        x = self.net__mid(state)
+        a_mean = self.net__mean(x)  # NOTICE! it is a_mean without .tanh()
+
+        if noise_std != 0.0:
+            a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
+            a_std = a_std_log.exp()
+            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it needs .tanh()
+
+        return a_mean.tanh()
+
+    def get__a__log_prob(self, state):
+        x = self.net__mid(state)
+        a_mean = self.net__mean(x)  # NOTICE! it needs a_mean.tanh()
+        a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+
+        """add noise to action in stochastic policy"""
+        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        # Can only use above code instead of below, because the tensor need gradients here.
+        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
+
+        '''compute log_prob according to mean and std of action (stochastic policy)'''
+        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+        # self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
+
+        # same as below:
+        # from torch.distributions.normal import Normal
+        # log_prob_noise = Normal(a_mean, a_std).log_prob(a_noise)
+        # same as below:
+        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
+        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
+
+        a_noise_tanh = a_noise.tanh()
+        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
 
         # same as below:
         # epsilon = 1e-6

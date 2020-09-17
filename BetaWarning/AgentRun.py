@@ -103,16 +103,17 @@ def train_agent(
         with torch.no_grad():  # for saving the GPU buffer
             recorder.update__record_explore(steps, rewards, loss_a, loss_c)
 
-            if_save = recorder.update__record_evaluate(
-                env, agent.act, max_step, max_action, agent.device, is_discrete)
+            if_save = recorder.update__record_evaluate(env, agent.act, max_step, max_action, agent.device, is_discrete)
             recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
             recorder.save_npy__plot_png(cwd)
 
             if_solve = recorder.check_is_solved(target_reward, gpu_id, show_gap)
+
         '''break loop rules'''
         if_train = not ((if_stop and if_solve)
                         or recorder.total_step > max_total_step
                         or os.path.exists(f'{cwd}/stop.mark'))
+    recorder.save_npy__plot_png(cwd)
 
 
 """multi processing"""
@@ -282,6 +283,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
         while is_training:
             is_saved = recorder.update__record_evaluate(env, act, max_step, max_action, device, is_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
+            recorder.save_npy__plot_png(cwd)
 
             is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
             q_o_eva.put(is_solved)  # q_o_eva n.
@@ -463,79 +465,7 @@ def draw_plot_with_2npy(cwd, train_time):  # 2020-07-07
     plt.savefig(save_path)
     # plt.pause(4)
     # plt.show()
-
-
-def draw_plot_with_npy(cwd, train_time):  # 2020-04-40
-    record_epoch = np.load('%s/record_epoch.npy' % cwd)  # , allow_pickle=True)
-    # record_epoch.append((epoch_reward, actor_loss, critic_loss, iter_num))
-    record_eval = np.load('%s/record_eval.npy' % cwd)  # , allow_pickle=True)
-    # record_eval.append((epoch, eval_reward, eval_std))
-
-    # print(';record_epoch:', record_epoch.shape)
-    # print(';record_eval:', record_eval.shape)
-    # print(record_epoch)
-    # # print(record_eval)
-    # exit()
-
-    if len(record_eval.shape) == 1:
-        record_eval = np.array([[0., 0., 0.]])
-
-    train_time = int(train_time)
-    iter_num = int(sum(record_epoch[:, -1]))
-    epoch_num = int(record_eval[-1, 0])
-    save_title = "plot_{:04}E_{}T_{}s".format(epoch_num, iter_num, train_time)
-    save_path = "{}/{}.png".format(cwd, save_title)
-
-    """plot"""
-    import matplotlib as mpl  # draw figure in Terminal
-    mpl.use('Agg')
-    import matplotlib.pyplot as plt
-    # plt.style.use('ggplot')
-
-    fig, axs = plt.subplots(2)
-    plt.title(save_title, y=2.3)
-
-    ax13 = axs[0].twinx()
-    ax13.fill_between(np.arange(record_epoch.shape[0]), record_epoch[:, 3],
-                      facecolor='grey', alpha=0.1, )
-
-    ax11 = axs[0]
-    ax11_color = 'royalblue'
-    ax11_label = 'Epo R'
-    ax11.set_ylabel(ylabel=ax11_label, color=ax11_color)
-    ax11.tick_params(axis='y', labelcolor=ax11_color)
-    ax11.plot(record_epoch[:, 0], label=ax11_label, color=ax11_color)
-
-    ax12 = axs[0]
-    ax12_color = 'lightcoral'
-    ax12_label = 'Epoch R'
-    ax12.set_ylabel(ylabel=ax12_label, color=ax12_color)
-    ax12.tick_params(axis='y', labelcolor=ax12_color)
-
-    xs = record_eval[:, 0]
-    r_avg = record_eval[:, 1]
-    r_std = record_eval[:, 2]
-    ax12.plot(xs, r_avg, label=ax12_label, color=ax12_color)
-    ax12.fill_between(xs, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
-
-    ax21 = axs[1]
-    ax21_color = 'darkcyan'
-    ax21_label = '- loss A'
-    ax21.set_ylabel(ax21_label, color=ax21_color)
-    ax21.plot(-record_epoch[:, 1], label=ax21_label, color=ax21_color)  # negative loss A
-    ax21.tick_params(axis='y', labelcolor=ax21_color)
-
-    ax22 = axs[1].twinx()
-    ax22_color = 'darkcyan'
-    ax22_label = 'loss C'
-    ax22.set_ylabel(ax22_label, color=ax22_color)
-    ax22.fill_between(np.arange(record_epoch.shape[0]), record_epoch[:, 2], facecolor=ax22_color, alpha=0.2, )
-    ax22.tick_params(axis='y', labelcolor=ax22_color)
-
-    plt.savefig(save_path)
-    # plt.show()
-    # plt.ion()
-    # plt.pause(4)
+    plt.close()
 
 
 def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
