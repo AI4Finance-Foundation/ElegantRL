@@ -7,7 +7,6 @@ import torch.nn as nn
 
 from AgentNet import QNet, QNetTwin, QNetDuel  # Q-learning based
 from AgentNet import Actor, Critic, CriticTwin  # DDPG, TD3
-from AgentNet import ActorDN, CriticSN  # SN_AC
 from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
@@ -148,20 +147,20 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG wi
 
         '''network'''
         actor_dim = net_dim
-        self.act = ActorDN(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act = Actor(state_dim, action_dim, actor_dim).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-        self.act_target = ActorDN(state_dim, action_dim, actor_dim, use_dn).to(self.device)
+        self.act_target = Actor(state_dim, action_dim, actor_dim).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
         critic_dim = int(net_dim * 1.25)
-        self.cri = CriticSN(state_dim, action_dim, critic_dim, use_dn).to(self.device)
+        self.cri = Critic(state_dim, action_dim, critic_dim).to(self.device)
         self.cri.train()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-        self.cri_target = CriticSN(state_dim, action_dim, critic_dim, use_dn).to(self.device)
+        self.cri_target = Critic(state_dim, action_dim, critic_dim).to(self.device)
         self.cri_target.eval()
         self.cri_target.load_state_dict(self.cri.state_dict())
 
