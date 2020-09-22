@@ -27,7 +27,7 @@ class Arguments:  # default working setting and hyper-parameter
         self.env_name = env_name
         self.cwd = None
 
-        self.net_dim = 2 ** 7  # the network width
+        self.net_dim = 2 ** 8  # the network width
         self.max_memo = 2 ** 17  # memories capacity (memories: replay buffer)
         self.max_step = 2 ** 10  # max steps in one epoch
         self.max_total_step = 2 ** 17  # max times of train_epoch
@@ -96,8 +96,8 @@ def train_agent(
         buffer.init_before_sample()
         loss_a, loss_c = agent.update_parameters(
             buffer, max_step, batch_size, repeat_times)
-        if loss_c > 4:  # todo loaded ISAC
-            agent.save_or_load_model(cwd, if_save=False)
+        # if loss_c > 4:  # todo backtracking
+        #     agent.save_or_load_model(cwd, if_save=False)
 
         '''saves the agent with max reward'''
         with torch.no_grad():  # for saving the GPU buffer
@@ -735,29 +735,55 @@ def run_continuous_action(gpu_id=None):
     args = Arguments(rl_agent=Zoo.AgentInterSAC, gpu_id=gpu_id)
     assert args.rl_agent in {
         Zoo.AgentDDPG, Zoo.AgentTD3, Zoo.AgentSAC, Zoo.AgentDeepSAC,
-        Zoo.AgentBasicAC, Zoo.AgentSNAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
+        Zoo.AgentBasicAC, Zoo.AgentInterAC, Zoo.AgentInterSAC,
     }  # you can't run PPO here. goto run__ppo(). PPO need special hyper-parameters
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.max_total_step = int(1e4 * 8)
     args.reward_scale = 2 ** -2
     args.init_for_training()
-    # train_offline_policy(**vars(args))
-    build_for_mp(args)
+    build_for_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
     args.max_total_step = int(1e5 * 8)
     args.reward_scale = 2 ** 0
     args.init_for_training()
-    build_for_mp(args)  # train_offline_policy(**vars(args))
+    build_for_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "BipedalWalker-v3"
     args.max_total_step = int(2e5 * 8)
     args.reward_scale = 2 ** 0
     args.init_for_training()
+    build_for_mp(args)  # train_agent(**vars(args))
+    exit()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "AntBulletEnv-v0"
+    args.max_total_step = int(5e6 * 4)
+    args.reward_scale = 2 ** -2
+    args.batch_size = 2 ** 8
+    args.max_memo = 2 ** 20
+    args.eva_size = 2 ** 3  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_for_training()
     build_for_mp(args)  # train_offline_policy(**vars(args))
+    exit()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "MinitaurBulletEnv-v0"
+    args.max_total_step = int(1e6 * 4)
+    args.reward_scale = 2 ** 3
+    args.batch_size = 2 ** 8
+    args.max_memo = 2 ** 20
+    args.net_dim = 2 ** 8
+    args.eval_times2 = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 9  # for Recorder
+    args.init_for_training(cpu_threads=4)
+    build_for_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
@@ -771,44 +797,9 @@ def run_continuous_action(gpu_id=None):
     build_for_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env_name = "AntBulletEnv-v0"
-    args.max_total_step = int(5e5 * 8)
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 20
-    args.max_step = 2 ** 10
-    args.batch_size = 2 ** 9
-    args.reward_scale = 2 ** -2
-    args.eval_times2 = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
-    build_for_mp(args)  # train_offline_policy(**vars(args))
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env_name = "MinitaurBulletEnv-v0"
-    args.max_total_step = int(2e6 * 8)
-    args.max_epoch = 2 ** 13
-    args.max_memo = 2 ** 20
-    args.max_step = 2 ** 10
-    args.net_dim = 2 ** 7
-    args.batch_size = 2 ** 8
-    args.reward_scale = 2 ** 4
-    args.eval_times2 = 2 ** 3  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training(cpu_threads=2)
-    # train_agent(**vars(args))
-    build_for_mp(args)
-
     """online policy"""
     args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
     assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE, Zoo.AgentInterGAE}
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
     """PPO and GAE is online policy.
     The memory in replay buffer will only be saved for one episode.
 
@@ -819,6 +810,10 @@ def run_continuous_action(gpu_id=None):
     RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.max_total_step = int(1e5 * 4)
@@ -828,13 +823,38 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.max_total_step = int(1e5 * 4)
+    args.max_total_step = int(1e5 * 16)
     args.init_for_training()
     train_agent(**vars(args))
     exit()
 
     args.env_name = "BipedalWalker-v3"
     args.max_total_step = int(3e6 * 4)
+    args.init_for_training()
+    train_agent(**vars(args))
+    exit()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "AntBulletEnv-v0"
+    args.max_total_step = int(1e6 * 8)
+    args.net_dim = 2 ** 9
+    exit()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "MinitaurBulletEnv-v0"
+    args.max_total_step = int(2e7 * 8)
+    args.net_dim = 2 ** 9
+    args.reward_scale = 2 ** 4
+    args.init_for_training()
+    train_agent(**vars(args))
+    exit()
+
+    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+    args.max_total_step = int(2e7 * 8)
+    args.reward_scale = 2 ** 0
+    args.net_dim = 2 ** 8
     args.init_for_training()
     train_agent(**vars(args))
     exit()
