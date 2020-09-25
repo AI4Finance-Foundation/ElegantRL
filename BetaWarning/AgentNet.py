@@ -190,8 +190,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
         log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        # return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
-        return a_mean.tanh(), a_noise_tanh, log_prob.sum(1, keepdim=True)  # todo
+        return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
 
     def get__q1_q2(self, s, a):  # critic
         s_ = self.enc_s(s)
