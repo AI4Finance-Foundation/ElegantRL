@@ -683,7 +683,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         self.cri = self.act
 
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
         self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
@@ -698,13 +698,12 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.target_entropy = np.log(action_dim + 1) * 0.5  # todo
+        self.target_entropy = np.log(action_dim + 1) * 0.5
         self.log_alpha = torch.tensor((-self.target_entropy * np.e,), requires_grad=True, device=self.device)
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate, betas=(0.5, 0.999))
-        print('log_alpha:', self.log_alpha.item())  # todo init log_alpha
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
 
         '''extension: auto learning rate of actor'''
-        self.trust_rho = TrustRho()
+        self.avg_loss_c = (-np.log(0.5)) ** 0.5
 
         '''constant'''
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
@@ -715,62 +714,66 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         loss_a_list = list()
         loss_c_list = list()
 
-        alpha = self.log_alpha.exp().detach()
-        k = 1.0 + buffer.now_len / buffer.max_len
-        batch_size_ = int(batch_size * k)
-        update_times = int(max_step * k)
+        alpha = self.log_alpha.exp().detach()  # auto temperature parameter
 
-        log_prob = None  # todo print
+        k = 1.0 + buffer.now_len / buffer.max_len  # increase batch_size
+        batch_size_ = int(batch_size * k)  # increase batch_size
+        update_times = int(max_step * k)  # increase batch_size
 
-        for i in range(update_times):
+        n_a = 0  # auto TTUR
+
+        for n_c in range(1, update_times):
             with torch.no_grad():
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
-                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # policy entropy
+                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # # auto temperature parameter
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
             critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
             loss_c_list.append(loss_c_tmp)
-            rho = self.trust_rho.update_rho(loss_c_tmp)
+
+            '''auto reliable lambda'''
+            # self.avg_loss_c = 0.9995 * self.avg_loss_c + 0.0005 * loss_c_tmp
+            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * loss_c_tmp
+            lamb = np.exp(-self.avg_loss_c ** 2)  # auto reliable lambda
 
             '''stochastic policy'''
             a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
-            '''action correction term'''
-            a2_mean, a2_log_std = self.act_target.get__a__std(state)
-            actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
-
-            '''auto alpha'''
-            alpha_loss = (rho * self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            '''auto temperature parameter'''
+            alpha_loss = (lamb * self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)  # todo fix bug
+                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
             alpha = self.log_alpha.exp().detach()
 
-            '''actor_loss'''
-            if rho > 2 ** -8:  # (self.rho>2**-8) ~= (self.critic_loss<2.355)
+            '''action correction term'''
+            a2_mean, a2_log_std = self.act_target.get__a__std(state)
+            actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)  # todo
+
+            if n_a / n_c > 0.5 + lamb:  # auto TTUR
+                united_loss = critic_loss + actor_term * (1 - lamb)
+            else:
+                n_a += 1  # auto TTUR
+                '''actor_loss'''
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
                 actor_loss = -(q_eval_pg + log_prob * alpha).mean()  # policy gradient
                 loss_a_list.append(actor_loss.item())
-            else:
-                actor_loss = 0
 
-            united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * rho
+                united_loss = critic_loss + actor_term * (1 - lamb) + actor_loss * lamb
+
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
 
-        print(np.array(
-            (alpha.item(), self.log_alpha.item(), log_prob.mean().item(), self.target_entropy)
-        ).round(3))  # todo show alpha
-        loss_a_avg = (sum(loss_a_list) / len(loss_a_list)) if len(loss_a_list) > 0 else 0.0
+        loss_a_avg = sum(loss_a_list) / len(loss_a_list)
         loss_c_avg = sum(loss_c_list) / len(loss_c_list)
         return loss_a_avg, loss_c_avg
 

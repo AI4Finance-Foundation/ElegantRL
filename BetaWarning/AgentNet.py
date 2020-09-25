@@ -89,7 +89,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, mid_dim),
         )  # action without nn.Tanh()
 
-        self.net = DenseNet2(mid_dim)
+        self.net = DenseNet1(mid_dim)
         net_out_dim = self.net.out_dim
 
         # decoder
@@ -190,7 +190,8 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
         # same as:
         log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
+        # return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
+        return a_mean.tanh(), a_noise_tanh, log_prob.sum(1, keepdim=True)  # todo
 
     def get__q1_q2(self, s, a):  # critic
         s_ = self.enc_s(s)
@@ -714,7 +715,7 @@ class NnnReshape(nn.Module):
         return x.view((x.size(0),) + self.args)
 
 
-class DenseNet(nn.Module):
+class DenseNet(nn.Module):  # todo plan to update into DenseNet1
     def __init__(self, mid_dim):
         super().__init__()
         self.dense1 = nn.Sequential(nn.Linear(mid_dim * 1, mid_dim * 1), nn.ReLU(), )
@@ -731,6 +732,29 @@ class DenseNet(nn.Module):
         x3 = torch.cat((x2, self.dense2(x2)), dim=1)
         # self.dropout.p = rd.uniform(0.0, 0.1)
         # return self.dropout(x3)
+        return x3
+
+
+class DenseNet1(nn.Module):  # plan to hyper-param: layer_number # todo
+    def __init__(self, mid_dim):
+        super().__init__()
+        assert (mid_dim / (2 ** 3)) % 1 == 0
+
+        def id2dim(i):
+            return int((3 / 2) ** i * mid_dim)
+
+        self.dense1 = nn.Sequential(nn.Linear(id2dim(0), id2dim(0) // 2), nn.ReLU(), )
+        self.dense2 = nn.Sequential(nn.Linear(id2dim(1), id2dim(1) // 2), HardSwish(), )
+        self.out_dim = id2dim(2)
+
+        layer_norm(self.dense1[0], std=1.0)
+        layer_norm(self.dense2[0], std=1.0)
+        # layer_norm(self.dense3[0], std=1.0)
+
+    def forward(self, x1):
+        x2 = torch.cat((x1, self.dense1(x1)), dim=1)
+        x3 = torch.cat((x2, self.dense2(x2)), dim=1)
+        # x4 = torch.cat((x3, self.dense3(x3)), dim=1)
         return x3
 
 
