@@ -211,16 +211,15 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + pipeline update for AgentRun.py
 + write a @Decorator for CarRacing-v0
 + fix a bug in class Recorder0825
-+ update 'draw_plot_with_npy' to 'draw_plot_with_2npy'
++ update 'draw_plot_with_ npy' to 'draw_plot_with_ 2npy'
 + 2020-09-09 InterSAC (solve log_alpha trouble) beta3.py
 + IMPORTANT UPDATE! self.alpha = torch.tensor((0.5,), requires_grad=True, device=self.device) 
-+ IMPORTANT UPDATE! move auto-alpha into 'if rho > 2 ** -8'
 
 
-#### ElegantRL 2020.08.12 (NewYork Necip)
-Plan todo:
-+ should check pixel-level (beta1.py) and run0826()
-+ high-dim (pixel-level), GAE, ISAC
+#### ElegantRL 2020.09.18 (NewYork Necip)
++ In offline policy, update 'self.repeat_times' to auto-TTUR with 'reliable_lambda'
++ ! important update: move max_action and state_norm to env.step (as decorate)
++ add information to Argument()
 
 
 Add the training stop signal: reach the target reward, reach the total step.
