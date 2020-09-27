@@ -20,7 +20,8 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         )
 
         self.net = DenseNet(mid_dim)
-        net_out_dim = mid_dim * 4
+        net_out_dim = self.net.out_dim
+
         self.dec_a = nn.Sequential(nn.Linear(net_out_dim, mid_dim), HardSwish(),
                                    nn.Linear(mid_dim, action_dim), nn.Tanh(), )
         self.dec_q = nn.Sequential(nn.Linear(net_out_dim, mid_dim), HardSwish(),
@@ -89,7 +90,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, mid_dim),
         )  # action without nn.Tanh()
 
-        self.net = DenseNet1(mid_dim)
+        self.net = DenseNet(mid_dim)
         net_out_dim = self.net.out_dim
 
         # decoder
@@ -323,10 +324,11 @@ class ActorDN(nn.Module):  # dn: DenseNet
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
+            nn_dense_net = DenseNet(mid_dim)
             self.net = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                DenseNet(mid_dim),  # the output_dim of DenseNet is mid_dim * 4
-                nn.Linear(mid_dim * 4, action_dim),
+                nn_dense_net,
+                nn.Linear(nn_dense_net.out_dim, action_dim),
             )
         else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
             self.net = nn.Sequential(
@@ -358,11 +360,12 @@ class ActorSAC(nn.Module):
         super().__init__()
 
         if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
+            nn_dense_net = DenseNet(mid_dim)
             self.net__mid = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                DenseNet(mid_dim),
+                nn_dense_net,
             )
-            lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
+            lay_dim = nn_dense_net.out_dim
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
             self.net__mid = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -466,12 +469,13 @@ class ActorGAE(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
 
+        nn_dense = DenseNet(mid_dim)
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 DenseNet(mid_dim),
-                                 )
-        self.net__mean = nn.Linear(mid_dim * 4, action_dim)
-        self.net__std_log = nn.Linear(mid_dim * 4, action_dim)
+                                 nn_dense, )
+
+        layer_dim = nn_dense.out_dim
+        self.net__mean = nn.Linear(layer_dim, action_dim)
+        self.net__std_log = nn.Linear(layer_dim, action_dim)
 
         self.log_std_min = -20
         self.log_std_max = 2
@@ -556,12 +560,13 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
     def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super().__init__()
 
+        nn_dense = DenseNet(mid_dim)
         if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
             self.net__mid = nn.Sequential(
                 nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                DenseNet(mid_dim),
+                nn_dense,
             )
-            lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
+            lay_dim = nn_dense.out_dim
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
             self.net__mid = nn.Sequential(
                 nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
@@ -615,13 +620,15 @@ class CriticAdvTwin(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, mid_dim):
         super().__init__()
 
+        nn_dense = DenseNet(mid_dim)
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),
+            nn_dense,
         )
-        self.net_q1 = nn.Linear(mid_dim * 4, 1)
-        self.net_q2 = nn.Linear(mid_dim * 4, 1)
+        layer_dim = nn_dense.out_dim
+
+        self.net_q1 = nn.Linear(layer_dim, 1)
+        self.net_q2 = nn.Linear(layer_dim, 1)
 
         layer_norm(self.net[0], std=1.0)
         # layer_norm(self.net[2], std=1.0)
@@ -653,12 +660,14 @@ class QNet(nn.Module):  # class AgentQLearning
 class QNetTwin(nn.Module):  # class AgentQLearning
     def __init__(self, state_dim, action_dim, mid_dim, ):
         super().__init__()
+        nn_dense = DenseNet(mid_dim)
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),
+            nn_dense,
         )
-        self.net_q1 = nn.Linear(mid_dim * 4, action_dim)
-        self.net_q2 = nn.Linear(mid_dim * 4, action_dim)
+        layer_dim = nn_dense.out_dim
+        self.net_q1 = nn.Linear(layer_dim, action_dim)
+        self.net_q2 = nn.Linear(layer_dim, action_dim)
         # self.net_q1 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
         # self.net_q2 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
 
@@ -714,27 +723,7 @@ class NnnReshape(nn.Module):
         return x.view((x.size(0),) + self.args)
 
 
-class DenseNet(nn.Module):  # todo plan to update into DenseNet1
-    def __init__(self, mid_dim):
-        super().__init__()
-        self.dense1 = nn.Sequential(nn.Linear(mid_dim * 1, mid_dim * 1), nn.ReLU(), )
-        self.dense2 = nn.Sequential(nn.Linear(mid_dim * 2, mid_dim * 2), HardSwish(), )
-        self.out_dim = mid_dim * 4
-
-        layer_norm(self.dense1[0], std=1.0)
-        layer_norm(self.dense2[0], std=1.0)
-
-        # self.dropout = nn.Dropout(p=0.1)
-
-    def forward(self, x1):
-        x2 = torch.cat((x1, self.dense1(x1)), dim=1)
-        x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        # self.dropout.p = rd.uniform(0.0, 0.1)
-        # return self.dropout(x3)
-        return x3
-
-
-class DenseNet1(nn.Module):  # plan to hyper-param: layer_number # todo
+class DenseNet(nn.Module):  # plan to hyper-param: layer_number # todo
     def __init__(self, mid_dim):
         super().__init__()
         assert (mid_dim / (2 ** 3)) % 1 == 0
@@ -755,30 +744,6 @@ class DenseNet1(nn.Module):  # plan to hyper-param: layer_number # todo
         x3 = torch.cat((x2, self.dense2(x2)), dim=1)
         # x4 = torch.cat((x3, self.dense3(x3)), dim=1)
         return x3
-
-
-class DenseNet2(nn.Module):  # plan to hyper-param: layer_number
-    def __init__(self, mid_dim):
-        super().__init__()
-        assert (mid_dim / (2 ** 3)) % 1 == 0
-
-        def id2dim(i):
-            return int((3 / 2) ** i * mid_dim)
-
-        self.dense1 = nn.Sequential(nn.Linear(id2dim(0), id2dim(0) // 2), nn.ReLU(), )
-        self.dense2 = nn.Sequential(nn.Linear(id2dim(1), id2dim(1) // 2), nn.ReLU(), )
-        self.dense3 = nn.Sequential(nn.Linear(id2dim(2), id2dim(2) // 2), HardSwish(), )
-        self.out_dim = id2dim(3)
-
-        layer_norm(self.dense1[0], std=1.0)
-        layer_norm(self.dense2[0], std=1.0)
-        layer_norm(self.dense3[0], std=1.0)
-
-    def forward(self, x1):
-        x2 = torch.cat((x1, self.dense1(x1)), dim=1)
-        x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        x4 = torch.cat((x3, self.dense3(x3)), dim=1)
-        return x4
 
 
 class HardSwish(nn.Module):
