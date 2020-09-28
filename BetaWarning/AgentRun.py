@@ -52,8 +52,7 @@ class Arguments:  # default working setting and hyper-parameter
             self.gpu_id = sys.argv[-1][-4]
         if not self.gpu_id.isnumeric():
             self.gpu_id = '0'
-        if self.cwd is None:
-            self.cwd = f'./{self.rl_agent.__name__}/{self.env_name}_{self.gpu_id}'
+        self.cwd = f'./{self.rl_agent.__name__}/{self.env_name}_{self.gpu_id}'
 
         print('\n| GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
         whether_remove_history(self.cwd, self.if_remove_history)
@@ -375,6 +374,7 @@ def get_env_info(env, is_print=True):  # 2020-06-06
 
 
 def decorator__normalization(env, action_max=1, state_mean=None, state_std=None):
+    neg_state_mean = -state_mean if state_mean is not None else 0
     div_state_std = 1 if state_std is None else (1 / (state_std + 1e-6))
 
     '''decorator_step'''
@@ -382,7 +382,7 @@ def decorator__normalization(env, action_max=1, state_mean=None, state_std=None)
         def decorator_step(env_step):
             def new_env_step(action):
                 state, reward, done, info = env_step(action * action_max)
-                return (state - state_mean) * div_state_std, reward, done, info
+                return (state + neg_state_mean) * div_state_std, reward, done, info
 
             return new_env_step
 
@@ -403,7 +403,7 @@ def decorator__normalization(env, action_max=1, state_mean=None, state_std=None)
         def decorator_reset(env_reset):
             def new_env_reset():
                 state = env_reset()
-                return (state - state_mean) * div_state_std
+                return (state + neg_state_mean) * div_state_std
 
             return new_env_reset
 
@@ -448,6 +448,17 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
     state_mean = None
     state_std = None
     if if_norm:
+        '''norm transfer
+        x: old state dist
+        y: new state dist
+        a: mean
+        s: std
+        
+        xs += 1e-6
+        state_mean = xs * ys
+        state_std = xa * xs + ya
+        '''
+
         '''norm no need'''
         # if env_name == 'Pendulum-v0':
         #     state_mean = np.array([-0.00968592 -0.00118888 -0.00304381])
@@ -474,6 +485,21 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.5867769, 0.56915027, 0.6196849, 0.49863166, 0.07042835,
                 0.07128556, 0.073920645, 0.078663535, 0.08622651, 0.09801551,
                 0.116571024, 0.14705327, 0.14093699, 0.019490194])
+        elif env_name == 'AntBulletEnv-v0':
+            state_mean = np.array([
+                -7.6297e+00, 1.0052e+00, 6.4580e+00, 6.0970e-01, 9.8219e+00,
+                -3.4490e-01, 1.5932e+00, -4.7880e+00, 8.3550e-01, 1.8000e-03,
+                -6.2960e-01, 4.1100e-02, -9.9500e-01, -5.8900e-02, 1.0738e+00,
+                2.9800e-02, 4.0260e-01, 2.1700e-02, 1.1408e+00, 1.1060e-01,
+                -1.7784e+00, -7.1000e-02, -6.2430e-01, 1.3330e-01, 8.6530e-01,
+                1.6756e+00, 2.4438e+00, 1.0568e+00])
+            state_std = np.array([
+                0.09151968, 0.32733451, 0.13330247, 0.20931716, 0.07020301,
+                0.06370534, 0.13456288, 0.22360387, 0.66145919, 0.22935681,
+                0.65910022, 0.14579382, 0.70687579, 0.32103487, 0.64914957,
+                0.146694, 0.67275305, 0.31208258, 0.67126464, 0.16254708,
+                0.69992563, 0.26538976, 0.68881221, 0.20249298, 0.46072791,
+                0.39183172, 0.33065979, 0.46129188])
 
         '''norm necessary'''
 
@@ -849,7 +875,7 @@ def run_continuous_action(gpu_id=None):
     dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
     args.break_step = int(5e6 * 4)
-    args.reward_scale = 2 ** -2
+    args.reward_scale = 2 ** -3  # todo
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 20
     args.eva_size = 2 ** 3  # for Recorder
