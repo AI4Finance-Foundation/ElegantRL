@@ -51,7 +51,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         self.ou_noise = OrnsteinUhlenbeckProcess(size=action_dim, sigma=0.3)
         # I hate OU-Process in RL because of its too much hyper-parameters.
 
-    def update_buffer(self, env, memo, max_step, max_action, reward_scale, gamma):
+    def update_buffer(self, env, memo, max_step, reward_scale, gamma):
         reward_sum = 0.0
         step = 0
 
@@ -60,7 +60,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             '''inactive with environment'''
             action = self.select_actions((state,))[0] + self.ou_noise()
             # action = action.clip(-1, 1)
-            next_state, reward, done, _ = env.step(action * max_action)
+            next_state, reward, done, _ = env.step(action)
 
             reward_sum += reward
 
@@ -177,7 +177,7 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG wi
         self.policy_noise = 0.1  # standard deviation of policy noise
         self.update_freq = 1  # set as 1 or 2 for soft target update
 
-    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         explore_noise = self.explore_noise  # standard deviation of explore noise
         self.act.eval()
 
@@ -186,7 +186,7 @@ class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG wi
         for _ in range(max_step):
             '''inactive with environment'''
             action = self.select_actions((self.state,), explore_noise)[0]
-            next_state, reward, done, _ = env.step(action * max_action)
+            next_state, reward, done, _ = env.step(action)
 
             self.reward_sum += reward
             self.step += 1
@@ -560,7 +560,7 @@ class AgentInterAC(AgentBasicAC):  # warning: sth. wrong
         return loss_a_avg, loss_c_avg
 
 
-class AgentDeepSAC(AgentBasicAC):
+class AgentModSAC(AgentBasicAC):
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
         use_dn = True  # and use hard target update
@@ -598,7 +598,6 @@ class AgentDeepSAC(AgentBasicAC):
         self.target_entropy = np.log(action_dim + 1) * 0.5
         self.log_alpha = torch.tensor((-self.target_entropy * np.e,), requires_grad=True, device=self.device)
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
-        '''extension: auto learning rate of actor'''
         self.trust_rho = TrustRho()
 
         '''constant'''
@@ -677,17 +676,15 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        actor_dim = net_dim
-        self.act = InterSPG(state_dim, action_dim, actor_dim).to(self.device)
+        self.act = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
-
-        self.cri = self.act
-
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, betas=(0.5, 0.999))
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
         self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
+
+        self.cri = self.act
 
         self.criterion = nn.SmoothL1Loss()
 
@@ -698,13 +695,12 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.target_entropy = np.log(action_dim + 1) * 0.5  # todo
+        self.target_entropy = np.log(action_dim + 1) * 0.5
         self.log_alpha = torch.tensor((-self.target_entropy * np.e,), requires_grad=True, device=self.device)
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate, betas=(0.5, 0.999))
-        print('log_alpha:', self.log_alpha.item())  # todo init log_alpha
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
 
-        '''extension: auto learning rate of actor'''
-        self.trust_rho = TrustRho()
+        '''extension: reliable lambda for auto-learning-rate'''
+        self.avg_loss_c = (-np.log(0.5)) ** 0.5
 
         '''constant'''
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
@@ -715,62 +711,64 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         loss_a_list = list()
         loss_c_list = list()
 
-        alpha = self.log_alpha.exp().detach()
+        alpha = self.log_alpha.exp().detach()  # auto temperature parameter
+
         k = 1.0 + buffer.now_len / buffer.max_len
-        batch_size_ = int(batch_size * k)
-        update_times = int(max_step * k)
-
-        log_prob = None  # todo print
-
-        for i in range(update_times):
+        batch_size = int(batch_size * k)  # increase batch_size
+        train_step = int(max_step * k)  # increase training_step
+        update_a = 0
+        for update_c in range(1, train_step):
             with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size_, self.device)
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size, self.device)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
-                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # policy entropy
+                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # # auto temperature parameter
+
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
-            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+            critic_loss = (self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)).mean()  # todo
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
             loss_c_list.append(loss_c_tmp)
-            rho = self.trust_rho.update_rho(loss_c_tmp)
+
+            '''auto reliable lambda'''
+            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * loss_c_tmp  # soft update
+            lamb = np.exp(-self.avg_loss_c ** 2)
 
             '''stochastic policy'''
             a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
 
-            '''action correction term'''
-            a2_mean, a2_log_std = self.act_target.get__a__std(state)
-            actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
-
-            '''auto alpha'''
-            alpha_loss = (rho * self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            '''auto temperature parameter: alpha'''
+            alpha_loss = (lamb * self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)  # todo fix bug
+                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
             alpha = self.log_alpha.exp().detach()
 
-            '''actor_loss'''
-            if rho > 2 ** -8:  # (self.rho>2**-8) ~= (self.critic_loss<2.355)
-                q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # policy gradient
+            '''action correction term'''
+            a2_mean, a2_log_std = self.act_target.get__a__std(state)
+            actor_term = (self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)).mean()
+
+            if update_a / update_c > 0.5 + lamb:  # auto TTUR
+                united_loss = critic_loss + actor_term * (1 - lamb)
+            else:
+                update_a += 1  # auto TTUR
+                '''actor_loss'''
+                q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # twin critics
                 actor_loss = -(q_eval_pg + log_prob * alpha).mean()  # policy gradient
                 loss_a_list.append(actor_loss.item())
-            else:
-                actor_loss = 0
 
-            united_loss = critic_loss + actor_term * (1 - rho) + actor_loss * rho
+                united_loss = critic_loss + actor_term * (1 - lamb) + actor_loss * lamb
+
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
 
-        print(np.array(
-            (alpha.item(), self.log_alpha.item(), log_prob.mean().item(), self.target_entropy)
-        ).round(3))  # todo show alpha
-        loss_a_avg = (sum(loss_a_list) / len(loss_a_list)) if len(loss_a_list) > 0 else 0.0
+        loss_a_avg = sum(loss_a_list) / len(loss_a_list)
         loss_c_avg = sum(loss_c_list) / len(loss_c_list)
         return loss_a_avg, loss_c_avg
 
@@ -791,11 +789,11 @@ class AgentPPO:
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         # collect tuple (reward, mask, state, action, log_prob, )
         buffer.storage_list = list()  # PPO is an online policy RL algorithm.
-        # If I comment the above code, it becomes a offline policy PPO.
-        # Using Offline in PPO (or GAE) won't speed up training but slower
+        # PPO (or GAE) should be an online policy.
+        # Don't use Offline for PPO (or GAE). It won't speed up training but slower
 
         rewards = list()
         steps = list()
@@ -812,7 +810,7 @@ class AgentPPO:
                 action = actions[0]
                 log_prob = log_probs[0]
 
-                next_state, reward, done, _ = env.step(np.tanh(action) * max_action)
+                next_state, reward, done, _ = env.step(np.tanh(action))
                 reward_sum += reward
 
                 mask = 0.0 if done else gamma
@@ -835,12 +833,11 @@ class AgentPPO:
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        lambda_adv = 0.98  # why 0.98? cannot seem to use 0.99
+        lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
         # repeat_times = 8 could be 2**3 ~ 2**5
 
-        loss_a_sum = 0.0  # just for print
-        loss_c_sum = 0.0  # just for print
+        actor_loss = critic_loss = None  # just for print
 
         '''the batch for training'''
         max_memo = len(buffer)
@@ -849,8 +846,12 @@ class AgentPPO:
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
         ]
-        # with torch.no_grad():
-        all__new_v = self.cri(all_state).detach_()  # all new value
+
+        # all__new_v = self.cri(all_state).detach_()  # all new value
+        with torch.no_grad():
+            b_size = 512
+            all__new_v = torch.cat([self.cri(all_state[i:i + b_size])
+                                    for i in range(0, all_state.size()[0], b_size)], dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
@@ -871,7 +872,7 @@ class AgentPPO:
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -896,8 +897,7 @@ class AgentPPO:
             new_log_prob = self.act.compute__log_prob(state, action)
             new_value = self.cri(state)
 
-            critic_loss = self.criterion(new_value, old_value) / (old_value.std() + 1e-6)
-            loss_c_sum += critic_loss.item()  # just for print
+            critic_loss = (self.criterion(new_value, old_value)).mean() / (old_value.std() + 1e-5)
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
             self.cri_optimizer.step()
@@ -911,17 +911,14 @@ class AgentPPO:
             # policy entropy
             loss_entropy = torch.mean(torch.exp(new_log_prob) * new_log_prob)
 
-            actor_loss = surrogate_obj + loss_entropy * lambda_entropy
-            loss_a_sum += actor_loss.item()  # just for print
+            actor_loss = (surrogate_obj + loss_entropy * lambda_entropy).mean()
             self.act_optimizer.zero_grad()
             actor_loss.backward()
             self.act_optimizer.step()
 
         self.act.eval()
         self.cri.eval()
-        loss_a_avg = loss_a_sum / sample_times
-        loss_c_avg = loss_c_sum / sample_times
-        return loss_a_avg, loss_c_avg
+        return actor_loss.item(), critic_loss.item()
 
     def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
@@ -929,7 +926,7 @@ class AgentPPO:
         if explore_noise == 0.0:
             a_mean = self.act(states)
             a_mean = a_mean.cpu().data.numpy()
-            return a_mean.tanh()  # todo with tanh() fix bug
+            return a_mean.tanh()
         else:
             a_noise, log_prob = self.act.get__a__log_prob(states)
             a_noise = a_noise.cpu().data.numpy()
@@ -1026,7 +1023,7 @@ class AgentGAE(AgentPPO):
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1053,7 +1050,7 @@ class AgentGAE(AgentPPO):
             # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
-                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-5)
             loss_c_sum += critic_loss.item() * 0.5  # just for print
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
@@ -1144,7 +1141,7 @@ class AgentInterGAE(AgentPPO):
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1171,7 +1168,7 @@ class AgentInterGAE(AgentPPO):
             # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
-                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-5)
             loss_c_sum += critic_loss.item()  # just for print
             # self.cri_optimizer.zero_grad()
             # critic_loss.backward()
@@ -1213,7 +1210,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
         self.softmax = nn.Softmax(dim=1)
         self.action_dim = action_dim
 
-    def update_buffer(self, env, buffer, max_step, _max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         """Difference between AgentDiscreteGAE and AgentPPO. In AgentDiscreteGAE, we have:
         1. Actor output a vector as the probability of discrete action.
         2. We save action vector into replay buffer instead of action int.
@@ -1304,7 +1301,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1331,7 +1328,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
             # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
-                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-5)
             loss_c_sum += critic_loss.item() * 0.5  # just for print
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
@@ -1406,7 +1403,7 @@ class AgentDQN:  # 2020-06-06
         self.steps = 0
         self.action_dim = action_dim  # for update_buffer() epsilon-greedy
 
-    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         explore_rate = 0.1  # explore rate when update_buffer()
         self.act.eval()
 
@@ -1418,7 +1415,7 @@ class AgentDQN:  # 2020-06-06
                 action = rd.randint(self.action_dim)
             else:
                 action = self.select_actions((self.state,), )[0]
-            next_state, reward, done, _ = env.step(action * max_action)
+            next_state, reward, done, _ = env.step(action)
 
             self.r_sum += reward
             self.steps += 1
@@ -1601,7 +1598,7 @@ class AgentDuelingDQN(AgentBasicAC):  # 2020-07-07
         '''extension: rho and loss_c'''
         self.explore_noise = True  # standard deviation of explore noise
 
-    def update_buffer(self, env, buffer, max_step, max_action, reward_scale, gamma):
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         explore_rate = 0.25  # todo hyper-parameters
         explore_noise = self.explore_noise  # standard deviation of explore noise
         self.act.eval()
@@ -1612,7 +1609,7 @@ class AgentDuelingDQN(AgentBasicAC):  # 2020-07-07
             '''inactive with environment'''
             explore_noise_ = explore_noise if rd.rand() < explore_rate else 0
             action = self.select_actions((self.state,), explore_noise_)[0]
-            next_state, reward, done, _ = env.step(action * max_action)
+            next_state, reward, done, _ = env.step(action)
 
             self.reward_sum += reward
             self.step += 1
@@ -1691,7 +1688,7 @@ class AgentEBM(AgentBasicAC):  # Energy Based Model (Soft Q-learning) I'm not su
 """utils"""
 
 
-def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, action_dim):
+def initial_exploration(env, memo, max_step, if_discrete, reward_scale, gamma, action_dim):
     state = env.reset()
 
     rewards = list()
@@ -1699,23 +1696,22 @@ def initial_exploration(env, memo, max_step, action_max, reward_scale, gamma, ac
     steps = list()
     step = 0
 
-    if isinstance(action_max, int) and action_max == int(1):
-        def random_uniform_policy_for_discrete_action():
+    if if_discrete:
+        def random_action__discrete():
             return rd.randint(action_dim)
 
-        get_random_action = random_uniform_policy_for_discrete_action
-        action_max = int(1)
+        get_random_action = random_action__discrete
     else:
-        def random_uniform_policy_for_continuous_action():
+        def random_action__continuous():
             return rd.uniform(-1, 1, size=action_dim)
 
-        get_random_action = random_uniform_policy_for_continuous_action
+        get_random_action = random_action__continuous
 
     global_step = 0
     while global_step < max_step:
         # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
         action = get_random_action()
-        next_state, reward, done, _ = env.step(action * action_max)
+        next_state, reward, done, _ = env.step(action * if_discrete)
         reward_sum += reward
         step += 1
 
@@ -1891,6 +1887,19 @@ class BufferArray:  # 2020-05-20
         )
         return tensors
 
+    def print_state_norm(self):
+        max_sample_size = 2 ** 14
+        if self.now_len > max_sample_size:
+            indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
+            memory_state = self.memories[indices, 2:self.state_idx]
+        else:
+            memory_state = self.memories[:, 2:self.state_idx]
+
+        state_mean = memory_state.mean(axis=0)
+        state_std = memory_state.std(axis=0)
+        print(f"| state_mean: \n| {repr(state_mean)}")
+        print(f"| state_std:  \n| {repr(state_std)}")
+
 
 class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
     def __init__(self, memo_max_len, state_dim, action_dim, ):
@@ -1961,6 +1970,19 @@ class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
         )
         return tensors
 
+    def print_state_norm(self):
+        max_sample_size = 2 ** 14
+        if self.now_len > max_sample_size:
+            indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
+            memory_state = self.memories[indices, 2:self.state_idx]
+        else:
+            memory_state = self.memories[:, 2:self.state_idx]
+
+        state_mean = memory_state.mean(dim=0).cpu().data.numpy()
+        state_std = memory_state.std(dim=0).cpu().data.numpy()
+        print(f"| state_mean: \n| {repr(state_mean)}")
+        print(f"| state_std:  \n| {repr(state_std)}")
+
 
 class BufferTuple:
     def __init__(self, memo_max_len):
@@ -2027,3 +2049,12 @@ class BufferTupleOnline:
 
     def init_before_sample(self):
         pass  # compatibility
+
+    def print_state_norm(self):  # todo plan to test
+        memory_state = np.array([item.state for item in self.storage_list])
+
+        state_mean = memory_state.mean(axis=0).cpu().data.numpy()
+        state_std = memory_state.std(axis=0).cpu().data.numpy()
+        print(f"| Online Replay Buffer: ")
+        print(f"| state_mean: \n| {repr(state_mean)}")
+        print(f"| state_std:  \n| {repr(state_std)}")
