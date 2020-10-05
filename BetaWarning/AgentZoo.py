@@ -684,6 +684,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
+        self.cri = self.act
+
         self.criterion = nn.SmoothL1Loss()
 
         '''training record'''
@@ -725,7 +727,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
-            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+            critic_loss = (self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)).mean()  # todo
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
             loss_c_list.append(loss_c_tmp)
 
@@ -747,7 +749,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             '''action correction term'''
             a2_mean, a2_log_std = self.act_target.get__a__std(state)
-            actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)  # todo
+            actor_term = (self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)).mean()
 
             if update_a / update_c > 0.5 + lamb:  # auto TTUR
                 united_loss = critic_loss + actor_term * (1 - lamb)
@@ -790,8 +792,8 @@ class AgentPPO:
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         # collect tuple (reward, mask, state, action, log_prob, )
         buffer.storage_list = list()  # PPO is an online policy RL algorithm.
-        # If I comment the above code, it becomes a offline policy PPO.
-        # Using Offline in PPO (or GAE) won't speed up training but slower
+        # PPO (or GAE) should be an online policy.
+        # Don't use Offline for PPO (or GAE). It won't speed up training but slower
 
         rewards = list()
         steps = list()
@@ -831,12 +833,11 @@ class AgentPPO:
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        lambda_adv = 0.98  # why 0.98? cannot seem to use 0.99
+        lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
         # repeat_times = 8 could be 2**3 ~ 2**5
 
-        loss_a_sum = 0.0  # just for print
-        loss_c_sum = 0.0  # just for print
+        actor_loss = critic_loss = None  # just for print
 
         '''the batch for training'''
         max_memo = len(buffer)
@@ -845,8 +846,12 @@ class AgentPPO:
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
         ]
-        # with torch.no_grad():
-        all__new_v = self.cri(all_state).detach_()  # all new value
+
+        # all__new_v = self.cri(all_state).detach_()  # all new value
+        with torch.no_grad():
+            b_size = 512
+            all__new_v = torch.cat([self.cri(all_state[i:i + b_size])
+                                    for i in range(0, all_state.size()[0], b_size)], dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
@@ -867,7 +872,7 @@ class AgentPPO:
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -892,8 +897,7 @@ class AgentPPO:
             new_log_prob = self.act.compute__log_prob(state, action)
             new_value = self.cri(state)
 
-            critic_loss = self.criterion(new_value, old_value) / (old_value.std() + 1e-6)
-            loss_c_sum += critic_loss.item()  # just for print
+            critic_loss = (self.criterion(new_value, old_value)).mean() / (old_value.std() + 1e-5)
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
             self.cri_optimizer.step()
@@ -907,17 +911,14 @@ class AgentPPO:
             # policy entropy
             loss_entropy = torch.mean(torch.exp(new_log_prob) * new_log_prob)
 
-            actor_loss = surrogate_obj + loss_entropy * lambda_entropy
-            loss_a_sum += actor_loss.item()  # just for print
+            actor_loss = (surrogate_obj + loss_entropy * lambda_entropy).mean()
             self.act_optimizer.zero_grad()
             actor_loss.backward()
             self.act_optimizer.step()
 
         self.act.eval()
         self.cri.eval()
-        loss_a_avg = loss_a_sum / sample_times
-        loss_c_avg = loss_c_sum / sample_times
-        return loss_a_avg, loss_c_avg
+        return actor_loss.item(), critic_loss.item()
 
     def select_actions(self, states, explore_noise=0.0):  # CPU array to GPU tensor to CPU array
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
@@ -925,7 +926,7 @@ class AgentPPO:
         if explore_noise == 0.0:
             a_mean = self.act(states)
             a_mean = a_mean.cpu().data.numpy()
-            return a_mean.tanh()  # todo with tanh() fix bug
+            return a_mean.tanh()
         else:
             a_noise, log_prob = self.act.get__a__log_prob(states)
             a_noise = a_noise.cpu().data.numpy()
@@ -1022,7 +1023,7 @@ class AgentGAE(AgentPPO):
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1049,7 +1050,7 @@ class AgentGAE(AgentPPO):
             # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
-                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-5)
             loss_c_sum += critic_loss.item() * 0.5  # just for print
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
@@ -1140,7 +1141,7 @@ class AgentInterGAE(AgentPPO):
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1167,7 +1168,7 @@ class AgentInterGAE(AgentPPO):
             # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
-                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-5)
             loss_c_sum += critic_loss.item()  # just for print
             # self.cri_optimizer.zero_grad()
             # critic_loss.backward()
@@ -1300,7 +1301,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
 
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-6)  # advantage_norm:
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1327,7 +1328,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
             # new_log_prob, new_value1, new_value2 = self.act_target.compute__log_prob(state, action)
 
             critic_loss = (self.criterion(new_value1, old_value) +
-                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-6)
+                           self.criterion(new_value2, old_value)) / (old_value.std() * 2 + 1e-5)
             loss_c_sum += critic_loss.item() * 0.5  # just for print
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
@@ -1896,8 +1897,8 @@ class BufferArray:  # 2020-05-20
 
         state_mean = memory_state.mean(axis=0)
         state_std = memory_state.std(axis=0)
-        print(f"state_mean: {str(state_mean).replace(' ', ',')}")
-        print(f"state_std: {str(state_std).replace(' ', ',')}")
+        print(f"| state_mean: \n| {repr(state_mean)}")
+        print(f"| state_std:  \n| {repr(state_std)}")
 
 
 class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
@@ -1979,8 +1980,8 @@ class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
 
         state_mean = memory_state.mean(dim=0).cpu().data.numpy()
         state_std = memory_state.std(dim=0).cpu().data.numpy()
-        print(f"| state_mean: {list(state_mean)}")
-        print(f"| state_std:  {list(state_std)}")
+        print(f"| state_mean: \n| {repr(state_mean)}")
+        print(f"| state_std:  \n| {repr(state_std)}")
 
 
 class BufferTuple:
@@ -2048,3 +2049,12 @@ class BufferTupleOnline:
 
     def init_before_sample(self):
         pass  # compatibility
+
+    def print_state_norm(self):  # todo plan to test
+        memory_state = np.array([item.state for item in self.storage_list])
+
+        state_mean = memory_state.mean(axis=0).cpu().data.numpy()
+        state_std = memory_state.std(axis=0).cpu().data.numpy()
+        print(f"| Online Replay Buffer: ")
+        print(f"| state_mean: \n| {repr(state_mean)}")
+        print(f"| state_std:  \n| {repr(state_std)}")

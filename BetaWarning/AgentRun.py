@@ -43,7 +43,7 @@ class Arguments:  # default working setting and hyper-parameter
         self.show_gap = 2 ** 8  # show the Reward and Loss of actor and critic per show_gap seconds
         self.eval_times1 = 2 ** 3  # evaluation times if 'eval_reward > old_max_reward'
         self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > target_reward'
-        self.random_seed = 1943  # Github: YonV 1943, ZenJiaHao
+        self.random_seed = 1943 + 1  # Github: YonV 1943, ZenJiaHao
 
     def init_for_training(self, cpu_threads=4):
         assert self.rl_agent is not None
@@ -375,7 +375,7 @@ def get_env_info(env, is_print=True):  # 2020-06-06
 
 def decorator__normalization(env, action_max=1, state_mean=None, state_std=None):
     neg_state_mean = -state_mean if state_mean is not None else 0
-    div_state_std = 1 if state_std is None else (1 / (state_std + 1e-6))
+    div_state_std = 1 if state_std is None else (1 / (state_std + 1e-5))
 
     '''decorator_step'''
     if state_mean is not None:
@@ -445,8 +445,8 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
         state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, if_print)
 
     '''env normalization'''  # adjust action into [-1, +1] using action_max is necessary.
-    state_mean = None
-    state_std = None
+    avg = None
+    std = None
     if if_norm:
         '''norm transfer
         x: old state dist
@@ -454,60 +454,77 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
         a: mean
         s: std
         
-        xs += 1e-6
-        state_mean = xs * ys
-        state_std = xa * xs + ya
+        xs += 1e-5
+        state_mean = xa * xs + ya
+        std = xs * ys
         '''
 
         '''norm no need'''
         # if env_name == 'Pendulum-v0':
         #     state_mean = np.array([-0.00968592 -0.00118888 -0.00304381])
-        #     state_std = np.array([0.53825575 0.54198545 0.8671749 ])
+        #     std = np.array([0.53825575 0.54198545 0.8671749 ])
 
         '''norm could be'''
         if env_name == 'LunarLanderContinuous-v2':
-            state_mean = np.array([
+            avg = np.array([
                 -0.02058458, 0.24824196, -0.00663194, -0.08466694, 0.01788491,
                 0.00145454, 0.4105835, 0.41815186])
-            state_std = np.array([
+            std = np.array([
                 0.2651723, 0.42812532, 0.18754327, 0.18728738, 0.14481373,
                 0.09316564, 0.49195474, 0.49327046])
         elif env_name == "BipedalWalker-v3":
-            state_mean = np.array([
+            avg = np.array([
                 0.15421079, -0.0019480261, 0.20461461, -0.010021029, -0.054185472,
                 -0.0066469274, 0.043834914, -0.0623244, 0.47021484, 0.55891204,
                 -0.0014871443, -0.18538311, -0.032906517, 0.4628296, 0.34264696,
                 0.3465399, 0.3586852, 0.3805626, 0.41525024, 0.46849185,
                 0.55162823, 0.68896055, 0.88635695, 0.997974])
-            state_std = np.array([
+            std = np.array([
                 0.33242697, 0.04527563, 0.19229797, 0.0729273, 0.7084785,
                 0.6366427, 0.54090905, 0.6944477, 0.49912727, 0.6371604,
                 0.5867769, 0.56915027, 0.6196849, 0.49863166, 0.07042835,
                 0.07128556, 0.073920645, 0.078663535, 0.08622651, 0.09801551,
                 0.116571024, 0.14705327, 0.14093699, 0.019490194])
         elif env_name == 'AntBulletEnv-v0':
-            state_mean = np.array([
-                -7.6297e+00, 1.0052e+00, 6.4580e+00, 6.0970e-01, 9.8219e+00,
-                -3.4490e-01, 1.5932e+00, -4.7880e+00, 8.3550e-01, 1.8000e-03,
-                -6.2960e-01, 4.1100e-02, -9.9500e-01, -5.8900e-02, 1.0738e+00,
-                2.9800e-02, 4.0260e-01, 2.1700e-02, 1.1408e+00, 1.1060e-01,
-                -1.7784e+00, -7.1000e-02, -6.2430e-01, 1.3330e-01, 8.6530e-01,
-                1.6756e+00, 2.4438e+00, 1.0568e+00])
-            state_std = np.array([
-                0.09151968, 0.32733451, 0.13330247, 0.20931716, 0.07020301,
-                0.06370534, 0.13456288, 0.22360387, 0.66145919, 0.22935681,
-                0.65910022, 0.14579382, 0.70687579, 0.32103487, 0.64914957,
-                0.146694, 0.67275305, 0.31208258, 0.67126464, 0.16254708,
-                0.69992563, 0.26538976, 0.68881221, 0.20249298, 0.46072791,
-                0.39183172, 0.33065979, 0.46129188])
+            avg = np.array([
+                -0.21634328, 0.08877027, 0.92127347, 0.19477099, 0.01834413,
+                -0.00399973, 0.05166896, -0.06077103, 0.30839303, 0.00338527,
+                0.0065377, 0.00814168, -0.08944025, -0.00331316, 0.29353178,
+                -0.00634391, 0.1048052, -0.00327279, 0.52993906, -0.00569263,
+                -0.14778288, -0.00101847, -0.2781167, 0.00479939, 0.64501953,
+                0.8638916, 0.8486328, 0.7150879])
+            std = np.array([
+                0.07903007, 0.35201055, 0.13954371, 0.21050458, 0.06752874,
+                0.06185101, 0.15283841, 0.16655168, 0.6452229, 0.26257575,
+                0.6666661, 0.14235465, 0.69359726, 0.32817268, 0.6647092,
+                0.16925392, 0.6878494, 0.3009345, 0.6294114, 0.15175952,
+                0.6949041, 0.27704775, 0.6775213, 0.18721068, 0.478522,
+                0.3429141, 0.35841736, 0.45138636])
+        elif env_name == 'MinitaurBulletEnv-v0':  # todo error with norm
+            avg = np.array([
+                1.25116920e+00, 2.35373068e+00, 1.77717030e+00, 2.72379971e+00,
+                2.27262020e+00, 1.12126017e+00, 2.80015516e+00, 1.72379172e+00,
+                -4.53610346e-02, 2.10091516e-01, -1.20424433e-03, 2.07291126e-01,
+                1.69130951e-01, -1.16945259e-01, 1.06861845e-01, -5.53673357e-02,
+                2.81922913e+00, 5.51327229e-01, 9.92989361e-01, -8.03717971e-01,
+                7.90598467e-02, 2.99980807e+00, -1.27279997e+00, 1.76894355e+00,
+                3.58282216e-02, 8.28480721e-02, 8.04320276e-02, 9.86465216e-01])
+            std = np.array([
+                2.0109391e-01, 3.5780826e-01, 2.2601920e-01, 5.0385582e-01,
+                3.8282552e-01, 1.9690999e-01, 3.9662227e-01, 2.3809761e-01,
+                8.9289074e+00, 1.4150095e+01, 1.0200104e+01, 1.1171419e+01,
+                1.3293057e+01, 7.7480621e+00, 1.0750853e+01, 9.1990738e+00,
+                2.7995987e+00, 2.9199743e+00, 2.3916528e+00, 2.6439502e+00,
+                3.1360087e+00, 2.7837939e+00, 2.7758663e+00, 2.5578094e+00,
+                4.1734818e-02, 3.2294787e-02, 7.8678936e-02, 1.0366816e-02])
 
         '''norm necessary'''
 
-    env = decorator__normalization(env, action_max, state_mean, state_std)
+    env = decorator__normalization(env, action_max, avg, std)
     return env, state_dim, action_dim, target_reward, is_discrete
 
 
-def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-07-07
+def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
     record_explore = np.load('%s/record_explore.npy' % cwd)  # , allow_pickle=True)
     # record_explore.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
     record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # , allow_pickle=True)
@@ -515,12 +532,12 @@ def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-07-07
 
     if len(record_evaluate.shape) == 1:
         record_evaluate = np.array([[0., 0., 0.]])
-    if len(record_explore.shape) == 1:  # todo fix bug
+    if len(record_explore.shape) == 1:
         record_explore = np.array([[0., 0., 0., 0.]])
 
     train_time = int(train_time)
     total_step = int(record_evaluate[-1][0])
-    save_title = f"plot_Step_Time_maxR_{total_step:8.3e}_{train_time:8.3e}_{max_reward:8.3e}"
+    save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
     save_path = "{}/{}.png".format(cwd, save_title)
 
     """plot"""
@@ -549,11 +566,11 @@ def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-07-07
     ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
 
     ax21 = axs[1]
-    ax21_color = 'darkcyan'
-    ax21_label = '-lossA'
-    exp_loss_a = -record_explore[:, 2]
+    ax21_color = 'lightcoral'  # todo same color as ax11 (expR)
+    ax21_label = 'lossA'
+    exp_loss_a = record_explore[:, 2]
     ax21.set_ylabel(ax21_label, color=ax21_color)
-    ax21.plot(exp_step, -exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
+    ax21.plot(exp_step, exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
     ax21.tick_params(axis='y', labelcolor=ax21_color)
 
     ax22 = axs[1].twinx()
@@ -564,7 +581,7 @@ def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-07-07
     ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
     ax22.tick_params(axis='y', labelcolor=ax22_color)
 
-    # todo remove prev figure
+    # remove prev figure
     prev_save_names = [name for name in os.listdir(cwd) if name[:9] == save_title[:9]]
     os.remove(f'{cwd}/{prev_save_names[0]}') if len(prev_save_names) > 0 else None
 
@@ -595,8 +612,8 @@ class Recorder:
     def __init__(self, eval_size1=3, eval_size2=9):
         self.eva_r_max = -np.inf
         self.total_step = 0
-        self.record_exp = list()  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
-        self.record_eva = list()  # total_step, eva_r_avg, eva_r_std
+        self.record_exp = [(0, 0, 0, 0), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
+        self.record_eva = [(0, 0, 0), ]  # total_step, eva_r_avg, eva_r_std
         self.is_solved = False
 
         '''constant'''
@@ -888,7 +905,7 @@ def run_continuous_action(gpu_id=None):
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
     args.break_step = int(1e6 * 4)
-    args.reward_scale = 2 ** 3
+    args.reward_scale = 2 ** 4
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 20
     args.net_dim = 2 ** 8
@@ -960,7 +977,7 @@ def run_continuous_action(gpu_id=None):
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "MinitaurBulletEnv-v0"
+    args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
     args.break_step = int(2e7 * 8)
     args.reward_scale = 2 ** 4
     args.net_dim = 2 ** 9

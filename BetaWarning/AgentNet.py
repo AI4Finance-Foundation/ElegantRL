@@ -576,6 +576,9 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
         self.net__q1 = nn.Linear(lay_dim, 1)
         self.net__q2 = nn.Linear(lay_dim, 1)
+        layer_norm(self.net__q1, std=0.1)
+        layer_norm(self.net__q2, std=0.1)
+
         '''Not need to use both SpectralNorm and TwinCritic
         I choose TwinCritc instead of SpectralNorm, 
         because SpectralNorm is conflict with soft target update,
@@ -621,17 +624,14 @@ class CriticAdvTwin(nn.Module):  # 2020-05-05 fix bug
         super().__init__()
 
         nn_dense = DenseNet(mid_dim)
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn_dense,
-        )
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn_dense, )
         layer_dim = nn_dense.out_dim
 
         self.net_q1 = nn.Linear(layer_dim, 1)
         self.net_q2 = nn.Linear(layer_dim, 1)
 
         layer_norm(self.net[0], std=1.0)
-        # layer_norm(self.net[2], std=1.0)
         layer_norm(self.net_q1, std=0.1)  # output layer for q value
         layer_norm(self.net_q2, std=0.1)  # output layer for q value
 
