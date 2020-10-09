@@ -24,7 +24,7 @@ def test_conv2d():
         nn.Conv2d(idx_dim(2), idx_dim(1), 3, 1, bias=True), nn.ReLU(),
         NnnReshape(-1),  # [?, 26, 8, 8] -> [?, 1664]
         nn.Linear(1664, mid_dim), nn.ReLU(),
-        DenseNet(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+        DenseNetOld(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
     )
 
     inp = torch.ones((3, 2, 96, 96), dtype=torch.float32)
@@ -50,7 +50,7 @@ class ActorGAE(nn.Module):
             nn.Conv2d(idx_dim(2), idx_dim(1), 3, 1, bias=True), nn.ReLU(),
             NnnReshape(-1),  # [?, 26, 8, 8] -> [?, 1664]
             nn.Linear(1664, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            DenseNetOld(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
         )
 
         self.net__mean = nn.Linear(mid_dim * 4, action_dim)
@@ -109,7 +109,7 @@ class CriticAdvTwin(nn.Module):
             nn.Conv2d(idx_dim(2), idx_dim(1), 3, 1, bias=True), nn.ReLU(),
             NnnReshape(-1),  # [?, 26, 8, 8] -> [?, 1664]
             nn.Linear(1664, mid_dim), nn.ReLU(),
-            DenseNet(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            DenseNetOld(mid_dim),  # nn.Linear(mid_dim, mid_dim), nn.ReLU(),
         )
 
         self.net_q1 = nn.Linear(mid_dim * 4, 1)
@@ -142,7 +142,7 @@ class ActorSAC(nn.Module):
                 nn.Conv2d(idx_dim(2), idx_dim(1), 3, 1, bias=True), nn.ReLU(),
                 NnnReshape(-1),  # [?, 26, 8, 8] -> [?, 1664]
                 nn.Linear(1664, mid_dim), nn.ReLU(),
-                DenseNet(mid_dim),
+                DenseNetOld(mid_dim),
             )
             lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
@@ -225,7 +225,7 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
         if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
             self.net__mid = nn.Sequential(
                 nn.Linear(mid_dim + action_dim, mid_dim), nn.ReLU(),
-                DenseNet(mid_dim),
+                DenseNetOld(mid_dim),
             )
             lay_dim = mid_dim * 4  # the output layer dim of DenseNet is 'mid_dim * 4'
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
@@ -287,7 +287,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, mid_dim),
         )  # action without nn.Tanh()
 
-        self.net = DenseNet2(mid_dim)  # todo
+        self.net = DenseNet(mid_dim)  # todo
         net_out_dim = self.net.out_dim
 
         # decoder
@@ -423,7 +423,7 @@ class InterGAE(nn.Module):
             NnnReshape(-1),  # [?, 26, 8, 8] -> [?, 1664]
             nn.Linear(1664, mid_dim), nn.ReLU(),
         )
-        self.net = DenseNet(mid_dim)
+        self.net = DenseNetOld(mid_dim)
         net_out_dim = self.net.out_dim
 
         '''todo two layer'''
@@ -544,7 +544,7 @@ class AgentGAE(AgentPPO):
 
         '''the batch for training'''
         max_memo = len(buffer)  # assert max_memo == _max_step
-        all_batch = buffer.sample()
+        all_batch = buffer.sample_all()
         all_reward, all_mask, all_state, all_action, all_log_prob = [
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
@@ -668,7 +668,7 @@ class AgentInterGAE(AgentPPO):
 
         '''the batch for training'''
         max_memo = len(buffer)
-        all_batch = buffer.sample()
+        all_batch = buffer.sample_all()
         all_reward, all_mask, all_state, all_action, all_log_prob = [
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
@@ -1145,7 +1145,7 @@ def fix_car_racing_v0_old(env):  # plan todo CarRacing-v0
 
 def test_car_racing():
     env_name = 'CarRacing-v0'
-    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, is_print=True)
+    env, state_dim, action_dim, max_action, target_reward, is_discrete = build_gym_env(env_name, if_print=True)
 
     state = env.reset()
     import cv2
@@ -1170,14 +1170,14 @@ def run__car_racing(gpu_id=None):
     args = Arguments(rl_agent=AgentGAE, gpu_id=gpu_id)
     args.env_name = "CarRacing-v0"
     args.random_seed = 1943
-    args.max_total_step = int(2e6 * 1)
+    args.break_step = int(2e6 * 1)
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9  # todo beta2 and (1, 96, 96)
     args.repeat_times = 2 ** 4
     args.net_dim = 2 ** 7
     args.gamma = 0.99
     args.random_seed = 1942
-    args.max_total_step = int(1e6 * 4)
+    args.break_step = int(1e6 * 4)
     args.max_step = int(1000)
     args.eval_times2 = 3
     args.reward_scale = 2 ** -1

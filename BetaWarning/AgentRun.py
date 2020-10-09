@@ -89,6 +89,11 @@ def train_agent(
             rewards, steps = initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
         recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
 
+        # todo pre training and hard update before loop
+        buffer.init_before_sample()
+        agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+        agent.act_target.load_state_dict(agent.act.state_dict())
+
     '''loop'''
     if_train = True
     while if_train:
@@ -115,7 +120,7 @@ def train_agent(
                         or recorder.total_step > break_step
                         or os.path.exists(f'{cwd}/stop.mark'))
     recorder.save_npy__plot_png(cwd)
-    buffer.print_state_norm()
+    buffer.print_state_norm() # todo norm para
 
 
 """multi processing"""
@@ -150,6 +155,12 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     reward_avg = np.average(reward_list)
     step_sum = sum(step_list)
     buffer.extend_memo(buffer_array)
+
+    # todo pre training and hard update before loop
+    buffer.init_before_sample()
+    agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+    agent.act_target.load_state_dict(agent.act.state_dict())
+
     q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva 1.
 
     total_step = step_sum
@@ -448,17 +459,6 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
     avg = None
     std = None
     if if_norm:
-        '''norm transfer
-        x: old state dist
-        y: new state dist
-        a: mean
-        s: std
-        
-        xs += 1e-5
-        state_mean = xa * xs + ya
-        std = xs * ys
-        '''
-
         '''norm no need'''
         # if env_name == 'Pendulum-v0':
         #     state_mean = np.array([-0.00968592 -0.00118888 -0.00304381])
@@ -500,7 +500,7 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.16925392, 0.6878494, 0.3009345, 0.6294114, 0.15175952,
                 0.6949041, 0.27704775, 0.6775213, 0.18721068, 0.478522,
                 0.3429141, 0.35841736, 0.45138636])
-        elif env_name == 'MinitaurBulletEnv-v0':  # todo error with norm
+        elif env_name == 'MinitaurBulletEnv-v0':
             avg = np.array([
                 1.25116920e+00, 2.35373068e+00, 1.77717030e+00, 2.72379971e+00,
                 2.27262020e+00, 1.12126017e+00, 2.80015516e+00, 1.72379172e+00,
@@ -905,13 +905,14 @@ def run_continuous_action(gpu_id=None):
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
     args.break_step = int(1e6 * 4)
-    args.reward_scale = 2 ** 4
+    args.reward_scale = 2 ** 6  # todo
     args.batch_size = 2 ** 8
+    args.repeat_times = 2 ** 0
     args.max_memo = 2 ** 20
     args.net_dim = 2 ** 8
     args.eval_times2 = 2 ** 5  # for Recorder
     args.show_gap = 2 ** 9  # for Recorder
-    args.init_for_training(cpu_threads=4)
+    args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
