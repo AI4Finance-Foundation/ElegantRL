@@ -120,7 +120,7 @@ def train_agent(
                         or recorder.total_step > break_step
                         or os.path.exists(f'{cwd}/stop.mark'))
     recorder.save_npy__plot_png(cwd)
-    buffer.print_state_norm() # todo norm para
+    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)  # todo norm para
 
 
 """multi processing"""
@@ -135,6 +135,7 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     batch_size = args.batch_size
     repeat_times = args.repeat_times
     cwd = args.cwd
+    env_name = args.env_name
     if_stop = args.if_break_early
     del args
 
@@ -187,7 +188,8 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
                         or total_step > max_total_step
                         or os.path.exists(f'{cwd}/stop.mark'))
 
-    buffer.print_state_norm()
+    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)  # todo norm para
 
     q_i_buf.put('stop')
     q_i_eva.put('stop')
@@ -384,16 +386,26 @@ def get_env_info(env, is_print=True):  # 2020-06-06
     return state_dim, action_dim, action_max, target_reward, is_discrete
 
 
-def decorator__normalization(env, action_max=1, state_mean=None, state_std=None):
-    neg_state_mean = -state_mean if state_mean is not None else 0
-    div_state_std = 1 if state_std is None else (1 / (state_std + 1e-5))
+def decorator__normalization(env, action_max=1, state_avg=None, state_std=None):
+    if state_avg is None:
+        neg_state_avg = 0
+        div_state_std = 1
+
+        env.neg_state_avg = neg_state_avg
+        env.div_state_std = div_state_std
+    else:
+        neg_state_avg = -state_avg
+        div_state_std = 1 / (state_std + 1e-5)
+
+        env.neg_state_avg = neg_state_avg
+        env.div_state_std = div_state_std
 
     '''decorator_step'''
-    if state_mean is not None:
+    if state_avg is not None:
         def decorator_step(env_step):
             def new_env_step(action):
                 state, reward, done, info = env_step(action * action_max)
-                return (state + neg_state_mean) * div_state_std, reward, done, info
+                return (state + neg_state_avg) * div_state_std, reward, done, info
 
             return new_env_step
 
@@ -410,11 +422,11 @@ def decorator__normalization(env, action_max=1, state_mean=None, state_std=None)
         env.step = decorator_step(env.step)
 
     '''decorator_reset'''
-    if state_mean is not None:
+    if state_avg is not None:
         def decorator_reset(env_reset):
             def new_env_reset():
                 state = env_reset()
-                return (state + neg_state_mean) * div_state_std
+                return (state + neg_state_avg) * div_state_std
 
             return new_env_reset
 
@@ -897,7 +909,7 @@ def run_continuous_action(gpu_id=None):
     args.max_memo = 2 ** 20
     args.eva_size = 2 ** 3  # for Recorder
     args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
+    args.init_for_training(8)
     train_agent_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
@@ -905,7 +917,7 @@ def run_continuous_action(gpu_id=None):
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
     args.break_step = int(1e6 * 4)
-    args.reward_scale = 2 ** 6  # todo
+    args.reward_scale = 2 ** 6
     args.batch_size = 2 ** 8
     args.repeat_times = 2 ** 0
     args.max_memo = 2 ** 20
