@@ -478,12 +478,8 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
 
         '''norm could be'''
         if env_name == 'LunarLanderContinuous-v2':
-            avg = np.array([
-                -0.02058458, 0.24824196, -0.00663194, -0.08466694, 0.01788491,
-                0.00145454, 0.4105835, 0.41815186])
-            std = np.array([
-                0.2651723, 0.42812532, 0.18754327, 0.18728738, 0.14481373,
-                0.09316564, 0.49195474, 0.49327046])
+            avg = np.array([0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 1.00, 1.00])
+            std = np.array([0.10, 0.36, 0.15, 0.30, 0.08, 0.08, 0.40, 0.40])
         elif env_name == "BipedalWalker-v3":
             avg = np.array([
                 0.15421079, -0.0019480261, 0.20461461, -0.010021029, -0.054185472,
@@ -904,7 +900,7 @@ def run_continuous_action(gpu_id=None):
     dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
     args.break_step = int(5e6 * 4)
-    args.reward_scale = 2 ** -3  # todo
+    args.reward_scale = 2 ** -3
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 20
     args.eva_size = 2 ** 3  # for Recorder

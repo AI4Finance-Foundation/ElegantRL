@@ -712,6 +712,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
         self.act.train()
 
+        lamb = None
         actor_loss = critic_loss = None
 
         alpha = self.log_alpha.exp().detach()  # auto temperature parameter
@@ -753,7 +754,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             a2_mean, a2_log_std = self.act_anchor.get__a__std(state)
             actor_term = (self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)).mean()
 
-            if update_a / update_c > 1 / (2 - lamb):  # auto TTUR
+            if update_a / update_c > 1 / (2 - lamb):  # todo auto TTUR
                 united_loss = critic_loss + actor_term * (1 - lamb)
             else:
                 update_a += 1  # auto TTUR
@@ -768,8 +769,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
-
-        self.act_anchor.load_state_dict(self.act.state_dict())
+        if lamb > 0.1:  # todo loss_c == 1.6
+            self.act_anchor.load_state_dict(self.act.state_dict())
         return actor_loss.item(), critic_loss.item() / 2
 
 
@@ -1914,9 +1915,9 @@ class BufferArray:  # 2020-05-20
             state_mean = new_mean - neg_avg / div_std
             state_std = new_std / div_std
 
-        print(f"| Online Replay Buffer: ")
-        print(f"| state_mean: \n| {repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
-        print(f"| state_std:  \n| {repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
+        print(f"| Replay Buffer mean and std:")
+        print(f"a = np.{repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
+        print(f"s = np.{repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
 
 
 class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
@@ -2015,9 +2016,9 @@ class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
             state_mean = new_mean - neg_avg / div_std
             state_std = new_std / div_std
 
-        print(f"| Online Replay Buffer: ")
-        print(f"| state_mean: \n| {repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
-        print(f"| state_std:  \n| {repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
+        print(f"| Replay Buffer mean and std:")
+        print(f"a = np.{repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
+        print(f"s = np.{repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
 
 
 class BufferTuple:
@@ -2109,6 +2110,6 @@ class BufferTupleOnline:
             state_mean = new_mean - neg_avg / div_std
             state_std = new_std / div_std
 
-        print(f"| Online Replay Buffer: ")
-        print(f"| state_mean: \n| {repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
-        print(f"| state_std:  \n| {repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
+        print(f"| Replay Buffer mean and std:")
+        print(f"a = np.{repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
+        print(f"s = np.{repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
