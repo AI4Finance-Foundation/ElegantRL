@@ -220,7 +220,13 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + In offline policy, update 'self.repeat_times' to auto-TTUR with 'reliable_lambda'
 + ! important update: move max_action and state_norm to env.step (as decorate)
 + add information to Argument()
-
++ self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
++ update loss_a_avg, loss_c_avg
++ Integrated Anchor load target network
++ pre training and hard update before loop
++ print_state_norm(self, old_mean=None, old_std=None)
++ ! tips for critic_loss explosion
++ anchor lamb
 
 Add the training stop signal: reach the target reward, reach the total step.
 Check InterISAC
