@@ -141,7 +141,6 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
 
 class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG without OU-Process)
     def __init__(self, state_dim, action_dim, net_dim):
-        use_dn = False  # soft target update is conflict with use_densenet
         self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -732,10 +731,9 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
             critic_loss = (self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)).mean()
-            loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
 
             '''auto reliable lambda'''
-            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * loss_c_tmp  # soft update
+            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * critic_loss.item() / 2  # soft update
             lamb = np.exp(-self.avg_loss_c ** 2)
 
             '''stochastic policy'''
@@ -754,7 +752,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             a2_mean, a2_log_std = self.act_anchor.get__a__std(state)
             actor_term = (self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)).mean()
 
-            if update_a / update_c > 1 / (2 - lamb):  # todo auto TTUR
+            if update_a / update_c > 1 / (2 - lamb):
                 united_loss = critic_loss + actor_term * (1 - lamb)
             else:
                 update_a += 1  # auto TTUR
@@ -769,8 +767,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
-        if lamb > 0.1:  # todo loss_c == 1.6
-            self.act_anchor.load_state_dict(self.act.state_dict())
+        soft_target_update(self.act_anchor, self.act, tau=lamb if lamb > 0.1 else 0.0)
         return actor_loss.item(), critic_loss.item() / 2
 
 
@@ -1785,6 +1782,32 @@ class OrnsteinUhlenbeckProcess:  # I hate OU Process because there are too much 
 '''experiment replay buffer'''
 
 
+def print_norm(batch_state, neg_avg=None, div_std=None):
+    if isinstance(batch_state, torch.Tensor):
+        batch_state = batch_state.cpu().data.numpy()
+    assert isinstance(batch_state, np.ndarray)
+
+    ary_std = batch_state.std(axis=0)
+    ary_avg = batch_state.mean(axis=0)
+    ary_max = np.max(batch_state, axis=0)
+    ary_min = np.min(batch_state, axis=0)
+
+    if neg_avg is not None:  # norm transfer
+        new_avg = ary_avg.copy()
+        new_std = ary_std.copy()
+
+        ary_std = new_std / div_std
+        ary_avg = new_avg - neg_avg / div_std
+        ary_max = ary_max - neg_avg / div_std
+        ary_min = ary_min - neg_avg / div_std
+
+    print(f"| Replay Buffer: std, avg, max, min")
+    print(f"np.{repr(ary_std).replace('dtype=float32', 'dtype=np.float32')}")
+    print(f"np.{repr(ary_avg).replace('dtype=float32', 'dtype=np.float32')}")
+    print(f"np.{repr(ary_max).replace('dtype=float32', 'dtype=np.float32')}")
+    print(f"np.{repr(ary_min).replace('dtype=float32', 'dtype=np.float32')}")
+
+
 class BufferList:
     def __init__(self, memo_max_len):
         self.memories = list()
@@ -1895,29 +1918,7 @@ class BufferArray:  # 2020-05-20
             memory_state = self.memories[indices, 2:self.state_idx]
         else:
             memory_state = self.memories[:, 2:self.state_idx]
-
-        state_mean = memory_state.mean(axis=0)
-        state_std = memory_state.std(axis=0)
-        if neg_avg is not None:  # norm transfer
-            '''norm transfer
-            x: old state dist
-            y: new state dist
-            a: mean
-            s: std
-
-            xs += 1e-5
-            state_mean = xa * xs + ya
-            std = xs * ys
-            '''
-            new_mean = state_mean.copy()
-            new_std = state_std.copy()
-
-            state_mean = new_mean - neg_avg / div_std
-            state_std = new_std / div_std
-
-        print(f"| Replay Buffer mean and std:")
-        print(f"a = np.{repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
-        print(f"s = np.{repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
+        print_norm(memory_state, neg_avg, div_std)
 
 
 class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
@@ -1996,29 +1997,7 @@ class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
             memory_state = self.memories[indices, 2:self.state_idx]
         else:
             memory_state = self.memories[:, 2:self.state_idx]
-
-        state_mean = memory_state.mean(dim=0).cpu().data.numpy()
-        state_std = memory_state.std(dim=0).cpu().data.numpy()
-        if neg_avg is not None:  # norm transfer
-            '''norm transfer
-            x: old state dist
-            y: new state dist
-            a: mean
-            s: std
-
-            xs += 1e-5
-            state_mean = xa * xs + ya
-            std = xs * ys
-            '''
-            new_mean = state_mean.copy()
-            new_std = state_std.copy()
-
-            state_mean = new_mean - neg_avg / div_std
-            state_std = new_std / div_std
-
-        print(f"| Replay Buffer mean and std:")
-        print(f"a = np.{repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
-        print(f"s = np.{repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
+        print_norm(memory_state, neg_avg, div_std)
 
 
 class BufferTuple:
@@ -2089,27 +2068,4 @@ class BufferTupleOnline:
 
     def print_state_norm(self, neg_avg, div_std):
         memory_state = np.array([item.state for item in self.storage_list])
-
-        state_mean = memory_state.mean(axis=0).cpu().data.numpy()
-        state_std = memory_state.std(axis=0).cpu().data.numpy()
-
-        if neg_avg is not None:  # norm transfer
-            '''norm transfer
-            x: old state dist
-            y: new state dist
-            a: mean
-            s: std
-
-            xs += 1e-5
-            state_mean = xa * xs + ya
-            std = xs * ys
-            '''
-            new_mean = state_mean.copy()
-            new_std = state_std.copy()
-
-            state_mean = new_mean - neg_avg / div_std
-            state_std = new_std / div_std
-
-        print(f"| Replay Buffer mean and std:")
-        print(f"a = np.{repr(state_mean).replace('dtype=float32', 'dtype=np.float32')}")
-        print(f"s = np.{repr(state_std).replace('dtype=float32', 'dtype=np.float32')}")
+        print_norm(memory_state, neg_avg, div_std)

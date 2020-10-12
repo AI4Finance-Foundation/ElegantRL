@@ -2,20 +2,12 @@ from AgentRun import *
 from AgentNet import *
 from AgentZoo import *
 
-"""     Minitaur
-beta14  ModSAC (best, 1.17e+06     15.00 |   15.33      1.44 |   10.81     21371  ########)
-InterSAC (0    1.25e+06     13.05 |   12.69      2.41 |    9.54    -66.44      0.06
-ModSAC   (2    3.98e+06     11.07 |    2.74      3.53 |    2.99    -16.21      0.02
+"""     BW HardCore
+beta0   grad_clip 4.0 
+beta1   grad_clip 4.0 lamb > 0.1, self.learning_rate = 2e-4
 
-beta0   clip_grad_norm_(self.act.parameters(), 1.0)
-beta1   beta0  ant
-beta3   beta0  LL BW
-beta10  clip_grad_norm_(self.act.parameters(), 0.5)
-beta11  beta10 ant
-beta14  beta10 LL BW
-beta2   clip_grad_norm_(self.act.parameters(), 4.0)
-beta12  beta2 ant
-beta13  beta2 LL BW
+beta11  lamb anchor smoothL1
+beta12  lamb anchor MSE
 """
 
 
@@ -116,11 +108,11 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             self.act_optimizer.zero_grad()
             united_loss.backward()
-            nn.utils.clip_grad_norm_(self.act.parameters(), 1.0)  # todo
+            nn.utils.clip_grad_norm_(self.act.parameters(), 4.0)  # todo
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
-        if lamb > 0.05:
+        if lamb > 0.1:  # todo
             self.act_anchor.load_state_dict(self.act.state_dict())
         return actor_loss.item(), critic_loss.item() / 2
 
@@ -131,32 +123,30 @@ def run_continuous_action(gpu_id=None):
     args.if_break_early = False
     args.if_remove_history = True
 
-    # args.env_name = "LunarLanderContinuous-v2"
-    # args.break_step = int(5e4 * 16)
-    # args.reward_scale = 2 ** 0
-    # args.init_for_training(8)
-    # train_agent_mp(args)  # train_agent(**vars(args))
-    #
-    # args.env_name = "BipedalWalker-v3"
-    # args.break_step = int(2e5 * 8)
-    # args.reward_scale = 2 ** 0
-    # args.init_for_training(8)
-    # train_agent_mp(args)  # train_agent(**vars(args))
-    # exit()
+    args.random_seed += 4
 
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env_name = "MinitaurBulletEnv-v0"
-    args.break_step = int(1e6 * 4)
-    args.reward_scale = 2 ** 6
-    args.batch_size = 2 ** 8
-    args.repeat_times = 2 ** 0
-    args.max_memo = 2 ** 20
-    args.net_dim = 2 ** 8
-    args.eval_times2 = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 9  # for Recorder
-    args.init_for_training()
+    args.env_name = "LunarLanderContinuous-v2"
+    args.break_step = int(5e4 * 16)
+    args.reward_scale = 2 ** 0
+    args.init_for_training(8)
     train_agent_mp(args)  # train_agent(**vars(args))
+
+    args.env_name = "BipedalWalker-v3"
+    args.break_step = int(2e5 * 8)
+    args.reward_scale = 2 ** 0
+    args.init_for_training(8)
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
+    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+    args.break_step = int(4e6 * 8)
+    args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
+    args.max_memo = int(2 ** 21)
+    args.batch_size = int(2 ** 8)
+    args.eval_times2 = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_for_training(8)
+    train_agent_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
 
