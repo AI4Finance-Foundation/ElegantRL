@@ -1,16 +1,15 @@
 import os
 import sys
-import time  # for reward recorder
+import time
 
 import gym
 import torch
 import numpy as np
-import numpy.random as rd
 
 from AgentZoo import initial_exploration
 from AgentZoo import BufferArray, BufferArrayGPU, BufferTupleOnline
 
-"""Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
@@ -48,6 +47,7 @@ class Arguments:  # default working setting and hyper-parameter
     def init_for_training(self, cpu_threads=4):
         assert self.rl_agent is not None
         assert self.env_name is not None
+
         if self.gpu_id is None:
             self.gpu_id = sys.argv[-1][-4]
         if not self.gpu_id.isnumeric():
@@ -64,9 +64,12 @@ class Arguments:  # default working setting and hyper-parameter
         np.random.seed(self.random_seed)
         # env.seed(random_seed)  # sometimes env has random seed.
 
-    def update_args(self, new_dict):  # useless
-        for key, value in new_dict.items():
-            setattr(self, key, value)
+    # def update_args(self, new_dict):  # useless
+    #     for key, value in new_dict.items():
+    #         setattr(self, key, value)
+
+
+"""train in single processing"""
 
 
 def train_agent(
@@ -76,7 +79,7 @@ def train_agent(
     env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
 
     '''init: agent, buffer, recorder'''
-    recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)  # todo eva_size1
+    recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
 
@@ -89,7 +92,7 @@ def train_agent(
             rewards, steps = initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
         recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
 
-        # todo pre training and hard update before loop
+        '''pre training and hard update before training loop'''
         buffer.init_before_sample()
         agent.update_parameters(buffer, max_step, batch_size, repeat_times)
         agent.act_target.load_state_dict(agent.act.state_dict())
@@ -120,10 +123,10 @@ def train_agent(
                         or recorder.total_step > break_step
                         or os.path.exists(f'{cwd}/stop'))
     recorder.save_npy__plot_png(cwd)
-    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)  # todo norm para
+    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
 
-"""multi processing"""
+"""train in multi processing"""
 
 
 def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update network parameters using replay buffer
@@ -157,7 +160,7 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     step_sum = sum(step_list)
     buffer.extend_memo(buffer_array)
 
-    # todo pre training and hard update before loop
+    '''pre training and hard update before training loop'''
     buffer.init_before_sample()
     agent.update_parameters(buffer, max_step, batch_size, repeat_times)
     agent.act_target.load_state_dict(agent.act.state_dict())
@@ -189,7 +192,7 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
                         or os.path.exists(f'{cwd}/stop'))
 
     env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
-    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)  # todo norm para
+    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
     q_i_buf.put('stop')
     q_i_eva.put('stop')
@@ -342,7 +345,7 @@ def train_agent_mp(args):
 """utils"""
 
 
-def get_env_info(env, is_print=True):  # 2020-06-06
+def get_env_info(env, is_print=True):  # 2020-10-10
     env_name = env.unwrapped.spec.id
 
     state_shape = env.observation_space.shape
@@ -390,15 +393,12 @@ def decorator__normalization(env, action_max=1, state_avg=None, state_std=None):
     if state_avg is None:
         neg_state_avg = 0
         div_state_std = 1
-
-        env.neg_state_avg = neg_state_avg
-        env.div_state_std = div_state_std
     else:
         neg_state_avg = -state_avg
         div_state_std = 1 / (state_std + 1e-3)
 
-        env.neg_state_avg = neg_state_avg
-        env.div_state_std = div_state_std
+    env.neg_state_avg = neg_state_avg  # for def print_norm()
+    env.div_state_std = div_state_std  # for def print_norm()
 
     '''decorator_step'''
     if state_avg is not None:
@@ -437,6 +437,12 @@ def decorator__normalization(env, action_max=1, state_avg=None, state_std=None):
 
 def build_gym_env(env_name, if_print=True, if_norm=True):
     assert env_name is not None
+
+    '''UserWarning: WARN: Box bound precision lowered by casting to float32
+    https://stackoverflow.com/questions/60149105/
+    userwarning-warn-box-bound-precision-lowered-by-casting-to-float32
+    '''
+    gym.logger.set_level(40)  # non-essential
 
     # env = gym.make(env_name)
     # state_dim, action_dim, action_max, target_reward, is_discrete = get_env_info(env, if_print)
@@ -482,7 +488,7 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.0000, -0.116, -0.057, -0.242, 0.0000, 0.0000, 0.9490, 0.9340])
             std = np.array([
                 0.2651, 0.4281, 0.1875, 0.1872, 0.1448, 0.0931, 0.4919, 0.4932])
-        elif env_name == "BipedalWalker-v3":  # todo or env_name == "BipedalWalkerHardcore-v3":
+        elif env_name == "BipedalWalker-v3" or env_name == "BipedalWalkerHardcore-v3":
             avg = np.array([
                 -0.695, 0.0155, 2.3846, 0.1053, 0.7689, 0.0000, -0.672, 0.0000,
                 0.1490, 0.6277, 0.0000, -0.465, -0.111, 0.0000, 0.7132, 0.7129,
@@ -503,16 +509,31 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
                 0.4858, 0.4227, 0.4428, 0.4831])
         elif env_name == 'MinitaurBulletEnv-v0':
+            # avg = np.array([
+            #     0.7147, 0.5474, -0.3564, 0.5502, 0.6279, 1.527, -0.02,
+            #     0.5963, -0.3853, 2.9723, -0.0095, 2.303, 2.2352, -0.8862,
+            #     1.1223, -0.5047, 7.7751, 1.6106, 2.4627, -2.0051, 0.277,
+            #     8.1503, -3.2618, 4.3095, -0.9608, -0.757, -1.0414, -0.3454])
+            # std = np.array([
+            #     0.3291, 0.4835, 0.418, 0.5924, 0.5943, 0.3554, 0.6501,
+            #     0.4363, 8.4146, 13.8735, 10.3055, 11.7078, 13.3214, 8.0504,
+            #     11.7682, 9.9461, 2.7296, 2.9023, 2.4311, 2.7923, 3.0757,
+            #     2.7678, 2.8346, 2.528, 0.061, 0.0544, 0.1049, 0.0171])
             avg = np.array([
-                0.7147, 0.5474, -0.3564, 0.5502, 0.6279, 1.527, -0.02,
-                0.5963, -0.3853, 2.9723, -0.0095, 2.303, 2.2352, -0.8862,
-                1.1223, -0.5047, 7.7751, 1.6106, 2.4627, -2.0051, 0.277,
-                8.1503, -3.2618, 4.3095, -0.9608, -0.757, -1.0414, -0.3454])
+                1.47001359, 0.30830934, -0.77972377, 0.17442283, 0.37340564,
+                1.06691741, 0.60456939, 0.95682976, -0.39346971, 2.96403055,
+                -0.01850164, 2.30442994, 2.23973869, -0.88910996, 1.12977025,
+                -0.51102429, 7.5676575, 1.6353235, 2.1733776, -1.82636141,
+                0.29630162, 8.24371965, -3.42478495, 4.51330641, 0.64870541,
+                -0.79007218, -0.54545934, -1.05071308])
             std = np.array([
-                0.3291, 0.4835, 0.418, 0.5924, 0.5943, 0.3554, 0.6501,
-                0.4363, 8.4146, 13.8735, 10.3055, 11.7078, 13.3214, 8.0504,
-                11.7682, 9.9461, 2.7296, 2.9023, 2.4311, 2.7923, 3.0757,
-                2.7678, 2.8346, 2.528, 0.061, 0.0544, 0.1049, 0.0171])
+                0.23399817, 0.62358118, 0.52221307, 0.51214068, 0.58800798,
+                0.52835137, 0.64166488, 0.73870745, 8.54430725, 14.22404018,
+                11.0978438, 12.17012605, 12.29702763, 6.80255162, 10.03443105,
+                8.00069937, 2.65448714, 2.77295941, 2.12780892, 2.3609657,
+                3.0234977, 2.75095736, 3.06211432, 2.68766232, 0.08670024,
+                0.04757667, 0.1714999, 0.02645171])
+
         '''norm necessary'''
 
     env = decorator__normalization(env, action_max, avg, std)
@@ -520,10 +541,8 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
 
 
 def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
-    record_explore = np.load('%s/record_explore.npy' % cwd)  # , allow_pickle=True)
-    # record_explore.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
-    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # , allow_pickle=True)
-    # record_evaluate.append((total_step, eva_r_avg, eva_r_std))
+    record_explore = np.load('%s/record_explore.npy' % cwd)  # item: (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
+    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # item:(total_step, eva_r_avg, eva_r_std)
 
     if len(record_evaluate.shape) == 1:
         record_evaluate = np.array([[0., 0., 0.]])
@@ -533,7 +552,7 @@ def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
     train_time = int(train_time)
     total_step = int(record_evaluate[-1][0])
     save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
-    save_path = "{}/{}.png".format(cwd, save_title)
+    save_path = f"{cwd}/{save_title}.png"
 
     """plot"""
     import matplotlib as mpl  # draw figure in Terminal
@@ -561,7 +580,7 @@ def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
     ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
 
     ax21 = axs[1]
-    ax21_color = 'lightcoral'  # todo same color as ax11 (expR)
+    ax21_color = 'lightcoral'  # same color as ax11 (expR)
     ax21_label = 'lossA'
     exp_loss_a = record_explore[:, 2]
     ax21.set_ylabel(ax21_label, color=ax21_color)
@@ -607,8 +626,8 @@ class Recorder:  # 2020-10-10
     def __init__(self, eval_size1=3, eval_size2=9):
         self.eva_r_max = -np.inf
         self.total_step = 0
-        self.record_exp = [(0, 0, 0, 0), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
-        self.record_eva = [(0, 0, 0), ]  # total_step, eva_r_avg, eva_r_std
+        self.record_exp = [(0., 0., 0., 0.), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
+        self.record_eva = [(0., 0., 0.), ]  # total_step, eva_r_avg, eva_r_std
         self.is_solved = False
 
         '''constant'''
@@ -624,7 +643,7 @@ class Recorder:  # 2020-10-10
               f"{'avgR':>8}  {'stdR':>8} |"
               f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
 
-    def update__record_evaluate(self, env, act, max_step, device, is_discrete):  # todo self.eva_size2
+    def update__record_evaluate(self, env, act, max_step, device, is_discrete):
         is_saved = False
         reward_list = [get_episode_reward(env, act, max_step, device, is_discrete)
                        for _ in range(self.eva_size1)]
@@ -638,7 +657,7 @@ class Recorder:  # 2020-10-10
                 self.eva_r_max = eva_r_avg
                 is_saved = True
 
-        eva_r_std = np.std(reward_list)
+        eva_r_std = float(np.std(reward_list))
         self.record_eva.append((self.total_step, eva_r_avg, eva_r_std))
         return is_saved
 
@@ -764,8 +783,9 @@ def get__buffer_reward_step(env, max_step, reward_scale, gamma, action_dim, is_d
     state = env.reset()
 
     global_step = 0
+
     while global_step < max_step:
-        action = rd.randint(action_dim) if is_discrete else rd.uniform(-1, 1, size=action_dim)
+        action = np.random.randint(action_dim) if is_discrete else np.random.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action)
         reward_item += reward
         step_item += 1
@@ -806,17 +826,22 @@ def run__discrete_action(gpu_id=None):
 
     """offline policy"""  # plan to check args.max_total_step
     args = Arguments(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
-    assert args.rl_agent in {Zoo.AgentDQN, Zoo.AgentDoubleDQN, Zoo.AgentDuelingDQN}
+    assert args.rl_agent in {
+        Zoo.AgentDQN,  # 2014.
+        Zoo.AgentDoubleDQN,  # 2016. stable
+        Zoo.AgentDuelingDQN,  # 2016. fast
+    }
 
     args.env_name = "CartPole-v0"
     args.break_step = int(1e4 * 8)
+    args.reward_scale = 2 ** 0  # 0 ~ 200
     args.net_dim = 2 ** 6
     args.init_for_training()
     train_agent(**vars(args))
     exit()
 
     args.env_name = "LunarLander-v2"
-    args.break_step = int(1e5 * 8)
+    args.break_step = int(1e5 * 8)  # (-1000) -150 ~ 200 (250)
     args.init_for_training()
     train_agent(**vars(args))
     exit()
@@ -864,24 +889,23 @@ def run_continuous_action(gpu_id=None):
     args.if_remove_history = True
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    # max_reward I get:
     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
-    args.reward_scale = 2 ** -2
+    args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
     args.init_for_training()
     train_agent(**vars(args))  # Train agent using single process. Recommend run on PC.
     # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(5e4 * 16)
-    args.reward_scale = 2 ** -1  # todo important
+    args.break_step = int(5e4 * 16)  # (2e4) 5e4
+    args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "BipedalWalker-v3"
-    args.break_step = int(2e5 * 8)
-    args.reward_scale = 2 ** 0
+    args.break_step = int(2e5 * 8)  # (1e5) 2e5
+    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (342)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -889,21 +913,21 @@ def run_continuous_action(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
-    args.break_step = int(5e6 * 4)
-    args.reward_scale = 2 ** -3
+    args.break_step = int(1e6 * 8)  # (8e5) 10e6
+    args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 20
     args.eva_size = 2 ** 3  # for Recorder
     args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training(8)
-    train_agent_mp(args)  # train_offline_policy(**vars(args))
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
-    args.break_step = int(1e6 * 4)
-    args.reward_scale = 2 ** 6
+    args.break_step = int(2e6 * 4)  # (1e6) 2e6
+    args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
     args.batch_size = 2 ** 8
     args.repeat_times = 2 ** 0
     args.max_memo = 2 ** 20
@@ -915,6 +939,7 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (330)
     args.break_step = int(4e6 * 8)
     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
     args.max_memo = int(2 ** 21)
@@ -927,7 +952,11 @@ def run_continuous_action(gpu_id=None):
 
     """online policy"""
     args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
-    assert args.rl_agent in {Zoo.AgentPPO, Zoo.AgentGAE, Zoo.AgentInterGAE}
+    assert args.rl_agent in {
+        Zoo.AgentPPO,  # 2018. quite stable, but slow
+        Zoo.AgentGAE,  # 2015. PPO+GAE. quite stable in high-dim
+        Zoo.AgentInterGAE  # 2020. PPO+GAE+IntegratedNet
+    }
     """PPO and GAE is online policy.
     The memory in replay buffer will only be saved for one episode.
 
@@ -977,8 +1006,8 @@ def run_continuous_action(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
-    args.break_step = int(2e7 * 8)
-    args.reward_scale = 2 ** 4
+    args.break_step = int(2e7 * 8)  # (PPO 5e5) 1e6
+    args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
     args.net_dim = 2 ** 9
     args.init_for_training()
     train_agent(**vars(args))

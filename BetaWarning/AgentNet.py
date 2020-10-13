@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn  # import torch.nn.functional as F
 import numpy as np  # import numpy.random as rd
 
-"""Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 Issay, Easy Essay, EAsy esSAY 谐音: 意识
 """
 
@@ -483,7 +483,6 @@ class ActorGAE(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         layer_norm(self.net[0], std=1.0)
-        # layer_norm(self.net[2], std=1.0)
         layer_norm(self.net__mean, std=0.01)  # output layer for action
         layer_norm(self.net__std_log, std=0.01)  # output layer for std_log
 
@@ -668,8 +667,6 @@ class QNetTwin(nn.Module):  # class AgentQLearning
         layer_dim = nn_dense.out_dim
         self.net_q1 = nn.Linear(layer_dim, action_dim)
         self.net_q2 = nn.Linear(layer_dim, action_dim)
-        # self.net_q1 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
-        # self.net_q2 = nn.utils.spectral_norm(nn.Linear(mid_dim * 4, action_dim))
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -723,7 +720,7 @@ class NnnReshape(nn.Module):
         return x.view((x.size(0),) + self.args)
 
 
-class DenseNet(nn.Module):  # plan to hyper-param: layer_number # todo
+class DenseNet(nn.Module):  # plan to hyper-param: layer_number
     def __init__(self, mid_dim):
         super().__init__()
         assert (mid_dim / (2 ** 3)) % 1 == 0
@@ -737,12 +734,10 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number # todo
 
         layer_norm(self.dense1[0], std=1.0)
         layer_norm(self.dense2[0], std=1.0)
-        # layer_norm(self.dense3[0], std=1.0)
 
     def forward(self, x1):
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
         x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        # x4 = torch.cat((x3, self.dense3(x3)), dim=1)
         return x3
 
 

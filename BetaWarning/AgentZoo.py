@@ -12,7 +12,7 @@ from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
 from AgentNet import InterDPG, InterSPG, InterGAE  # share params between Actor and Critic
 
-"""Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 reference
 TD3 https://github.com/sfujim/TD3 good++
 TD3 https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
@@ -139,7 +139,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG without OU-Process)
+class AgentBasicAC:  # DEMO (basic Actor-Critic Methods, it is a DDPG without OU-Process)
     def __init__(self, state_dim, action_dim, net_dim):
         self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -641,7 +641,7 @@ class AgentModSAC(AgentBasicAC):
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)  # todo fix bug
+                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
             alpha = self.log_alpha.exp().detach()
 
             '''actor_loss'''
@@ -731,9 +731,10 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
             critic_loss = (self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)).mean()
+            loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
 
             '''auto reliable lambda'''
-            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * critic_loss.item() / 2  # soft update
+            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * loss_c_tmp  # soft update
             lamb = np.exp(-self.avg_loss_c ** 2)
 
             '''stochastic policy'''
@@ -1597,7 +1598,7 @@ class AgentDuelingDQN(AgentBasicAC):  # 2020-07-07
         self.explore_noise = True  # standard deviation of explore noise
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        explore_rate = 0.25  # todo hyper-parameters
+        explore_rate = 0.5  # hyper-parameters
         explore_noise = self.explore_noise  # standard deviation of explore noise
         self.act.eval()
 
@@ -1802,10 +1803,9 @@ def print_norm(batch_state, neg_avg=None, div_std=None):
         ary_min = ary_min - neg_avg / div_std
 
     print(f"| Replay Buffer: std, avg, max, min")
-    print(f"np.{repr(ary_std).replace('dtype=float32', 'dtype=np.float32')}")
-    print(f"np.{repr(ary_avg).replace('dtype=float32', 'dtype=np.float32')}")
-    print(f"np.{repr(ary_max).replace('dtype=float32', 'dtype=np.float32')}")
-    print(f"np.{repr(ary_min).replace('dtype=float32', 'dtype=np.float32')}")
+    for ary in (ary_std, ary_avg, ary_max, ary_min):
+        ary = ary.round(4)
+        print(f"np.{repr(ary).replace('dtype=float32', 'dtype=np.float32')}")
 
 
 class BufferList:
@@ -1911,7 +1911,7 @@ class BufferArray:  # 2020-05-20
         )
         return tensors
 
-    def print_state_norm(self, neg_avg, div_std):
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         max_sample_size = 2 ** 14
         if self.now_len > max_sample_size:
             indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
@@ -1990,7 +1990,7 @@ class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
         )
         return tensors
 
-    def print_state_norm(self, neg_avg, div_std):
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         max_sample_size = 2 ** 14
         if self.now_len > max_sample_size:
             indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
@@ -2066,6 +2066,6 @@ class BufferTupleOnline:
     def init_before_sample(self):
         pass  # compatibility
 
-    def print_state_norm(self, neg_avg, div_std):
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         memory_state = np.array([item.state for item in self.storage_list])
         print_norm(memory_state, neg_avg, div_std)
