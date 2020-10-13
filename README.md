@@ -22,9 +22,9 @@ I am still learning English. Pardon. More details see ↓ (write in Chinese).
 You can see these gif/png ↓ in file "Result".
 
 LunarLanderContinuous-v2:
-![LunarLanderTwinDelay3](https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/LunarLanderTwinDelay3.gif)
+![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/Result/LunarLanderTwinDelay3.gif)
 BipedalWalkerHardcore-v2: 
-![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
+![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward.
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (A Mainland China Website)
@@ -38,8 +38,8 @@ For example, the training log is the following two figure.
 Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and DeepSAC. There are more stable than other algorithm.
 
 <p float="left">
-  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
-  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
+  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
+  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
 </p>
 
 In the above two figure. 
@@ -54,8 +54,8 @@ BipedalWalkerHardcore is a hard RL task in continuous action space. There is les
 - InterSAC (2020-10-10) train 9e4s (25 hours) in 1.9e6 steps, and get 313 reward.
 
 <p float="left">
-    <img src="https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png" width = "300"  alt="InterSAC_BipedalWalkerHardcore_310"/>
-    <img src="https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_313/plot_step_time_maxR_3102410_90060_313.828.png" width = "300"  alt="InterSAC_BipedalWalkerHardcore_313"/>
+    <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png" width = "300"  alt="InterSAC_BipedalWalkerHardcore_310"/>
+    <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_313/plot_step_time_maxR_3102410_90060_313.828.png" width = "300"  alt="InterSAC_BipedalWalkerHardcore_313"/>
 </p>
 
 
@@ -105,7 +105,7 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 
 ### Model-free DRL Algorithms
 
-![model-free_DRL_2020](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/model-free_DRL_2020.png)
+![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
 You can find above figure in `./Result/model-free_DRL_2020.png` or `*.pdf`.
 More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 + [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
