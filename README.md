@@ -54,7 +54,6 @@ BipedalWalkerHardcore is a hard RL task in continuous action space. There is les
 - InterSAC (2020-10-10) train 9e4s (25 hours) in 1.9e6 steps, and get 313 reward.
 
 <img src="https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png" width = "300"  alt="InterSAC_BipedalWalkerHardcore_310" align=center />
-
 <img src="https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_313/plot_step_time_maxR_3102410_90060_313.828.png" width = "300"  alt="InterSAC_BipedalWalkerHardcore_313" align=center />
 
 
