@@ -12,7 +12,7 @@ from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
 from AgentNet import InterDPG, InterSPG, InterGAE  # share params between Actor and Critic
 
-"""Zen4Jia1Hao2, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 reference
 TD3 https://github.com/sfujim/TD3 good++
 TD3 https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
@@ -139,9 +139,8 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             print("FileNotFound when load_model: {}".format(mod_dir))
 
 
-class AgentBasicAC:  # DEMO (formal, basic Actor-Critic Methods, it is a DDPG without OU-Process)
+class AgentBasicAC:  # DEMO (basic Actor-Critic Methods, it is a DDPG without OU-Process)
     def __init__(self, state_dim, action_dim, net_dim):
-        use_dn = False  # soft target update is conflict with use_densenet
         self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -642,7 +641,7 @@ class AgentModSAC(AgentBasicAC):
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)  # todo fix bug
+                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
             alpha = self.log_alpha.exp().detach()
 
             '''actor_loss'''
@@ -686,6 +685,10 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
         self.cri = self.act
 
+        self.act_anchor = InterSPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_anchor.eval()
+        self.act_anchor.load_state_dict(self.act.state_dict())
+
         self.criterion = nn.SmoothL1Loss()
 
         '''training record'''
@@ -708,8 +711,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def update_parameters(self, buffer, max_step, batch_size, repeat_times):
         self.act.train()
 
-        loss_a_list = list()
-        loss_c_list = list()
+        lamb = None
+        actor_loss = critic_loss = None
 
         alpha = self.log_alpha.exp().detach()  # auto temperature parameter
 
@@ -727,9 +730,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             '''critic_loss'''
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
-            critic_loss = (self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)).mean()  # todo
+            critic_loss = (self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)).mean()
             loss_c_tmp = critic_loss.item() * 0.5  # CriticTwin
-            loss_c_list.append(loss_c_tmp)
 
             '''auto reliable lambda'''
             self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * loss_c_tmp  # soft update
@@ -748,17 +750,16 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             alpha = self.log_alpha.exp().detach()
 
             '''action correction term'''
-            a2_mean, a2_log_std = self.act_target.get__a__std(state)
+            a2_mean, a2_log_std = self.act_anchor.get__a__std(state)
             actor_term = (self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)).mean()
 
-            if update_a / update_c > 0.5 + lamb:  # auto TTUR
+            if update_a / update_c > 1 / (2 - lamb):
                 united_loss = critic_loss + actor_term * (1 - lamb)
             else:
                 update_a += 1  # auto TTUR
                 '''actor_loss'''
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise))  # twin critics
                 actor_loss = -(q_eval_pg + log_prob * alpha).mean()  # policy gradient
-                loss_a_list.append(actor_loss.item())
 
                 united_loss = critic_loss + actor_term * (1 - lamb) + actor_loss * lamb
 
@@ -767,10 +768,8 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
-
-        loss_a_avg = sum(loss_a_list) / len(loss_a_list)
-        loss_c_avg = sum(loss_c_list) / len(loss_c_list)
-        return loss_a_avg, loss_c_avg
+        soft_target_update(self.act_anchor, self.act, tau=lamb if lamb > 0.1 else 0.0)
+        return actor_loss.item(), critic_loss.item() / 2
 
 
 class AgentPPO:
@@ -841,7 +840,7 @@ class AgentPPO:
 
         '''the batch for training'''
         max_memo = len(buffer)
-        all_batch = buffer.sample()
+        all_batch = buffer.sample_all()
         all_reward, all_mask, all_state, all_action, all_log_prob = [
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
@@ -990,7 +989,7 @@ class AgentGAE(AgentPPO):
 
         '''the batch for training'''
         max_memo = len(buffer)
-        all_batch = buffer.sample()
+        all_batch = buffer.sample_all()
         all_reward, all_mask, all_state, all_action, all_log_prob = [
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
@@ -1108,7 +1107,7 @@ class AgentInterGAE(AgentPPO):
 
         '''the batch for training'''
         max_memo = len(buffer)
-        all_batch = buffer.sample()
+        all_batch = buffer.sample_all()
         all_reward, all_mask, all_state, all_action, all_log_prob = [
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
@@ -1272,7 +1271,7 @@ class AgentDiscreteGAE(AgentGAE):  # wait to be elegant
 
         '''the batch for training'''
         max_memo = len(buffer)
-        all_batch = buffer.sample()
+        all_batch = buffer.sample_all()
         all_reward, all_mask, all_state, all_action, all_log_prob = [
             torch.tensor(ary, dtype=torch.float32, device=self.device)
             for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
@@ -1599,7 +1598,7 @@ class AgentDuelingDQN(AgentBasicAC):  # 2020-07-07
         self.explore_noise = True  # standard deviation of explore noise
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        explore_rate = 0.25  # todo hyper-parameters
+        explore_rate = 0.5  # hyper-parameters
         explore_noise = self.explore_noise  # standard deviation of explore noise
         self.act.eval()
 
@@ -1784,6 +1783,27 @@ class OrnsteinUhlenbeckProcess:  # I hate OU Process because there are too much 
 '''experiment replay buffer'''
 
 
+def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-10-10
+    if isinstance(batch_state, torch.Tensor):
+        batch_state = batch_state.cpu().data.numpy()
+    assert isinstance(batch_state, np.ndarray)
+
+    ary_std = batch_state.std(axis=0)
+    ary_avg = batch_state.mean(axis=0)
+
+    if neg_avg is not None:  # norm transfer
+        new_avg = ary_avg.copy()
+        new_std = ary_std.copy()
+
+        ary_std = new_std / div_std
+        ary_avg = new_avg - neg_avg / div_std
+
+    print(f"| Replay Buffer: avg, std,")
+    for ary in (ary_std, ary_avg):
+        ary = ary.round(4)
+        print(f"np.{repr(ary).replace('dtype=float32', 'dtype=np.float32')}")
+
+
 class BufferList:
     def __init__(self, memo_max_len):
         self.memories = list()
@@ -1887,18 +1907,14 @@ class BufferArray:  # 2020-05-20
         )
         return tensors
 
-    def print_state_norm(self):
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         max_sample_size = 2 ** 14
         if self.now_len > max_sample_size:
             indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
             memory_state = self.memories[indices, 2:self.state_idx]
         else:
             memory_state = self.memories[:, 2:self.state_idx]
-
-        state_mean = memory_state.mean(axis=0)
-        state_std = memory_state.std(axis=0)
-        print(f"| state_mean: \n| {repr(state_mean)}")
-        print(f"| state_std:  \n| {repr(state_std)}")
+        print_norm(memory_state, neg_avg, div_std)
 
 
 class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
@@ -1970,18 +1986,14 @@ class BufferArrayGPU:  # 2020-07-07, for mp__update_params()
         )
         return tensors
 
-    def print_state_norm(self):
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         max_sample_size = 2 ** 14
         if self.now_len > max_sample_size:
             indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
             memory_state = self.memories[indices, 2:self.state_idx]
         else:
             memory_state = self.memories[:, 2:self.state_idx]
-
-        state_mean = memory_state.mean(dim=0).cpu().data.numpy()
-        state_std = memory_state.std(dim=0).cpu().data.numpy()
-        print(f"| state_mean: \n| {repr(state_mean)}")
-        print(f"| state_std:  \n| {repr(state_std)}")
+        print_norm(memory_state, neg_avg, div_std)
 
 
 class BufferTuple:
@@ -2041,7 +2053,7 @@ class BufferTupleOnline:
     def extend_memo(self, storage_list):
         self.storage_list.extend(storage_list)
 
-    def sample(self):
+    def sample_all(self):
         return self.transition(*zip(*self.storage_list))
 
     def __len__(self):
@@ -2050,11 +2062,6 @@ class BufferTupleOnline:
     def init_before_sample(self):
         pass  # compatibility
 
-    def print_state_norm(self):  # todo plan to test
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         memory_state = np.array([item.state for item in self.storage_list])
-
-        state_mean = memory_state.mean(axis=0).cpu().data.numpy()
-        state_std = memory_state.std(axis=0).cpu().data.numpy()
-        print(f"| Online Replay Buffer: ")
-        print(f"| state_mean: \n| {repr(state_mean)}")
-        print(f"| state_std:  \n| {repr(state_std)}")
+        print_norm(memory_state, neg_avg, div_std)
