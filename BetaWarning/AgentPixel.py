@@ -526,7 +526,7 @@ class AgentGAE(AgentPPO):
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_parameters(self, buffer, _max_step, batch_size, repeat_times):
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times):
         """Differences between AgentGAE and AgentPPO are:
         1. In AgentGAE, critic use TwinCritic. In AgentPPO, critic use a single critic.
         2. In AgentGAE, log_std is output by actor. In AgentPPO, log_std is just a trainable tensor.
@@ -655,7 +655,7 @@ class AgentInterGAE(AgentPPO):
 
         self.criterion = nn.SmoothL1Loss()
 
-    def update_parameters(self, buffer, _max_step, batch_size, repeat_times):
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times):
         self.act.train()
         # self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -809,7 +809,7 @@ class AgentDeepSAC(AgentBasicAC):
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
         self.update_freq = 2 ** 7  # delay update frequency, for hard target update
 
-    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
         update_freq = self.update_freq * repeat_times  # delay update frequency, for soft target update
         self.act.train()
 
@@ -933,7 +933,7 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
         self.update_freq = 2 ** 7  # delay update frequency, for hard target update
 
-    def update_parameters(self, buffer, max_step, batch_size, repeat_times):
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
         update_freq = self.update_freq
         self.act.train()
 

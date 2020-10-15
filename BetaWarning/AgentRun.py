@@ -94,7 +94,7 @@ def train_agent(
 
         '''pre training and hard update before training loop'''
         buffer.init_before_sample()
-        agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+        agent.update_policy(buffer, max_step, batch_size, repeat_times)
         agent.act_target.load_state_dict(agent.act.state_dict())
 
     '''loop'''
@@ -106,7 +106,7 @@ def train_agent(
 
         '''update network parameters by random sampling buffer for gradient descent'''
         buffer.init_before_sample()
-        loss_a, loss_c = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+        loss_a, loss_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
         with torch.no_grad():  # for saving the GPU buffer
@@ -155,14 +155,14 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     buffer = BufferArrayGPU(max_memo, state_dim, action_dim)  # experiment replay buffer
 
     '''initial_exploration'''
-    buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf 2.
+    buffer_ary, reward_list, step_list = q_o_buf.get()  # q_o_buf 2.
     reward_avg = np.average(reward_list)
     step_sum = sum(step_list)
-    buffer.extend_memo(buffer_array)
+    buffer.extend_memo(buffer_ary)
 
     '''pre training and hard update before training loop'''
     buffer.init_before_sample()
-    agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+    agent.update_policy(buffer, max_step, batch_size, repeat_times)
     agent.act_target.load_state_dict(agent.act.state_dict())
 
     q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva 1.
@@ -171,14 +171,14 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     if_train = True
     if_solve = False
     while if_train:
-        buffer_array, reward_list, step_list = q_o_buf.get()  # q_o_buf n.
+        buffer_ary, reward_list, step_list = q_o_buf.get()  # q_o_buf n.
         reward_avg = np.average(reward_list)
         step_sum = sum(step_list)
         total_step += step_sum
-        buffer.extend_memo(buffer_array)
+        buffer.extend_memo(buffer_ary)
 
         buffer.init_before_sample()
-        loss_a_avg, loss_c_avg = agent.update_parameters(buffer, max_step, batch_size, repeat_times)
+        loss_a_avg, loss_c_avg = agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
         act_cpu.load_state_dict(agent.act.state_dict())
         q_i_buf.put(act_cpu)  # q_i_buf n.
@@ -281,7 +281,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     env_name = args.env_name
     cwd = args.cwd
     gpu_id = args.gpu_id
-    max_step = args.max_step
+    max_step = args.max_memo
     show_gap = args.show_gap
     eval_size1 = args.eval_times1
     eval_size2 = args.eval_times2
@@ -395,7 +395,7 @@ def decorator__normalization(env, action_max=1, state_avg=None, state_std=None):
         div_state_std = 1
     else:
         neg_state_avg = -state_avg
-        div_state_std = 1 / (state_std + 1e-3)
+        div_state_std = 1 / (state_std + 1e-5)  # todo norm std + 1e-5
 
     env.neg_state_avg = neg_state_avg  # for def print_norm()
     env.div_state_std = div_state_std  # for def print_norm()
@@ -488,7 +488,7 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.0000, -0.116, -0.057, -0.242, 0.0000, 0.0000, 0.9490, 0.9340])
             std = np.array([
                 0.2651, 0.4281, 0.1875, 0.1872, 0.1448, 0.0931, 0.4919, 0.4932])
-        elif env_name == "BipedalWalker-v3" or env_name == "BipedalWalkerHardcore-v3":
+        elif env_name == "BipedalWalker-v3":
             avg = np.array([
                 -0.695, 0.0155, 2.3846, 0.1053, 0.7689, 0.0000, -0.672, 0.0000,
                 0.1490, 0.6277, 0.0000, -0.465, -0.111, 0.0000, 0.7132, 0.7129,
@@ -509,31 +509,20 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
                 0.4858, 0.4227, 0.4428, 0.4831])
         elif env_name == 'MinitaurBulletEnv-v0':
-            # avg = np.array([
-            #     0.7147, 0.5474, -0.3564, 0.5502, 0.6279, 1.527, -0.02,
-            #     0.5963, -0.3853, 2.9723, -0.0095, 2.303, 2.2352, -0.8862,
-            #     1.1223, -0.5047, 7.7751, 1.6106, 2.4627, -2.0051, 0.277,
-            #     8.1503, -3.2618, 4.3095, -0.9608, -0.757, -1.0414, -0.3454])
-            # std = np.array([
-            #     0.3291, 0.4835, 0.418, 0.5924, 0.5943, 0.3554, 0.6501,
-            #     0.4363, 8.4146, 13.8735, 10.3055, 11.7078, 13.3214, 8.0504,
-            #     11.7682, 9.9461, 2.7296, 2.9023, 2.4311, 2.7923, 3.0757,
-            #     2.7678, 2.8346, 2.528, 0.061, 0.0544, 0.1049, 0.0171])
             avg = np.array([
-                1.47001359, 0.30830934, -0.77972377, 0.17442283, 0.37340564,
-                1.06691741, 0.60456939, 0.95682976, -0.39346971, 2.96403055,
-                -0.01850164, 2.30442994, 2.23973869, -0.88910996, 1.12977025,
-                -0.51102429, 7.5676575, 1.6353235, 2.1733776, -1.82636141,
-                0.29630162, 8.24371965, -3.42478495, 4.51330641, 0.64870541,
-                -0.79007218, -0.54545934, -1.05071308])
+                2.05600e-01, 4.50800e-01, 2.50000e-01, 4.70300e-01, 4.79900e-01,
+                2.34300e-01, 6.88300e-01, 2.85100e-01, 7.61380e+00, 1.45432e+01,
+                8.73960e+00, 1.07944e+01, 1.46323e+01, 1.01205e+01, 1.32922e+01,
+                1.17750e+01, 2.78030e+00, 3.12870e+00, 2.61230e+00, 2.99330e+00,
+                3.12270e+00, 2.88790e+00, 2.84310e+00, 2.47970e+00, 3.56000e-02,
+                3.55000e-02, 4.56000e-02, 8.50000e-03])
             std = np.array([
-                0.23399817, 0.62358118, 0.52221307, 0.51214068, 0.58800798,
-                0.52835137, 0.64166488, 0.73870745, 8.54430725, 14.22404018,
-                11.0978438, 12.17012605, 12.29702763, 6.80255162, 10.03443105,
-                8.00069937, 2.65448714, 2.77295941, 2.12780892, 2.3609657,
-                3.0234977, 2.75095736, 3.06211432, 2.68766232, 0.08670024,
-                0.04757667, 0.1714999, 0.02645171])
-
+                -0.8859, 3.269, 4.0869, 5.4315, 3.5354, 1.1756, 2.9034,
+                1.8138, -3.3335, 41.9715, -0.2011, 27.8806, 27.3546, -5.9289,
+                11.2396, -4.0288, 18.4165, 4.1793, 4.6188, -4.2912, 1.0208,
+                20.4591, -9.4547, 10.7167, -8.1029, 17.3196, 2.4853, 74.2696])
+        # elif env_name == "BipedalWalkerHardcore-v3":
+        #     pass
         '''norm necessary'''
 
     env = decorator__normalization(env, action_max, avg, std)
@@ -622,7 +611,7 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
     del shutil
 
 
-class Recorder:  # 2020-10-10
+class Recorder:  # 2020-10-12
     def __init__(self, eval_size1=3, eval_size2=9):
         self.eva_r_max = -np.inf
         self.total_step = 0
@@ -639,7 +628,7 @@ class Recorder:  # 2020-10-10
         self.start_time = time.time()
         self.print_time = time.time()
 
-        print(f"{'GPU':>3}  {'Step':>8}  {'MaxR':>8} |"
+        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
               f"{'avgR':>8}  {'stdR':>8} |"
               f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
 
@@ -661,34 +650,34 @@ class Recorder:  # 2020-10-10
         self.record_eva.append((self.total_step, eva_r_avg, eva_r_std))
         return is_saved
 
-    def update__record_explore(self, exp_s_sum, exp_r_avg, loss_a, loss_c):
+    def update__record_explore(self, exp_s_sum, exp_r_avg, loss_a, loss_c):  # 2020-10-10
         if isinstance(exp_s_sum, int):
             exp_s_sum = (exp_s_sum,)
             exp_r_avg = (exp_r_avg,)
         if loss_c > 32:
-            print(f"| Zen: Critic loss {loss_c} is too large.\n"
-                  f"| Zen: Select a smaller reward_scale. Try reward_scale /= 4\n")
+            print(f"| YoY: Critic loss {loss_c:.1f} is too large. (Loss explosion)\n"
+                  f"| YoY: Select a smaller reward_scale. Try reward_scale /= 4\n")
         for s, r in zip(exp_s_sum, exp_r_avg):
             self.total_step += s
             self.record_exp.append((self.total_step, r, loss_a, loss_c))
 
-    def save_act(self, cwd, act, gpu_id):
+    def save_act(self, cwd, act, agent_id):
         act_save_path = f'{cwd}/actor.pth'
         torch.save(act.state_dict(), act_save_path)
-        print(f"{gpu_id:<3}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
+        print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
 
-    def check_is_solved(self, target_reward, gpu_id, show_gap):
+    def check_is_solved(self, target_reward, agent_id, show_gap):
         if self.eva_r_max > target_reward:
             self.is_solved = True
             if self.used_time is None:
                 self.used_time = int(time.time() - self.start_time)
-                print(f"{'GPU':>3}  {'Step':>8}  {'TargetR':>8} |"
+                print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
                       f"{'avgR':>8}  {'stdR':>8} |"
                       f"{'ExpR':>8}  {'UsedTime':>8}  ########")
 
                 total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
                 total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-                print(f"{gpu_id:<3}  {total_step:8.2e}  {target_reward:8.2f} |"
+                print(f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
                       f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
                       f"{exp_r_avg:8.2f}  {self.used_time:>8}  ########")
 
@@ -697,14 +686,14 @@ class Recorder:  # 2020-10-10
 
             total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
             total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-            print(f"{gpu_id:<3}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
+            print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
                   f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
                   f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
         return self.is_solved
 
-    def save_npy__plot_png(self, cwd):
-        np.save('%s/record_explore.npy' % cwd, self.record_exp)
-        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)
+    def save_npy__plot_png(self, cwd):  # 2020-10-10
+        np.save('%s/record_explore.npy' % cwd, self.record_exp)  # todo plan to change to 'step_expR_lossA_lossC.npy'
+        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)  # todo plan to change to 'step_evaR_stdR.npy'
         draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
 
     def demo(self):
@@ -899,6 +888,7 @@ def run_continuous_action(gpu_id=None):
     args.env_name = "LunarLanderContinuous-v2"
     args.break_step = int(5e4 * 16)  # (2e4) 5e4
     args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
+    args.max_step = 2 ** 11  # todo
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -906,6 +896,7 @@ def run_continuous_action(gpu_id=None):
     args.env_name = "BipedalWalker-v3"
     args.break_step = int(2e5 * 8)  # (1e5) 2e5
     args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (342)
+    args.max_step = 2 ** 10  # todo
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -913,7 +904,7 @@ def run_continuous_action(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
-    args.break_step = int(1e6 * 8)  # (8e5) 10e6
+    args.break_step = int(1e6 * 8)  # (8e5) 10e5
     args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 20
@@ -926,7 +917,7 @@ def run_continuous_action(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
-    args.break_step = int(2e6 * 4)  # (1e6) 2e6
+    args.break_step = int(4e6 * 4)  # (2e6) 4e6
     args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
     args.batch_size = 2 ** 8
     args.repeat_times = 2 ** 0
@@ -939,8 +930,8 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
-    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (330)
-    args.break_step = int(4e6 * 8)
+    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (335)
+    args.break_step = int(4e6 * 8)  # (2e6) 4e6
     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
     args.max_memo = int(2 ** 21)
     args.batch_size = int(2 ** 8)
@@ -968,9 +959,9 @@ def run_continuous_action(gpu_id=None):
     AgentGAE is a PPO using GAE and output log_std of action by an actor network.
     """
     args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 12
+    args.max_memo = 2 ** 11  # 12
     args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
+    args.repeat_times = 2 ** 3  # 4
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.break_step = int(1e5 * 4)
@@ -980,8 +971,8 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(1e5 * 16)
-    args.reward_scale = 2 ** 0
+    args.break_step = int(2e5 * 8)
+    args.reward_scale = 2 ** -1
     args.init_for_training()
     train_agent(**vars(args))
     exit()
@@ -1006,20 +997,23 @@ def run_continuous_action(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
-    args.break_step = int(2e7 * 8)  # (PPO 5e5) 1e6
+    args.break_step = int(5e5 * 8)  # (PPO 3e5) 5e5
     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
-    args.net_dim = 2 ** 9
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 11  # todo
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
     args.init_for_training()
     train_agent(**vars(args))
     exit()
 
-    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
-    args.break_step = int(2e7 * 8)
-    args.reward_scale = 2 ** 0
-    args.net_dim = 2 ** 8
-    args.init_for_training()
-    train_agent(**vars(args))
-    exit()
+    # args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+    # args.break_step = int(2e7 * 8)
+    # args.reward_scale = 2 ** 0
+    # args.net_dim = 2 ** 8
+    # args.init_for_training()
+    # train_agent(**vars(args))
+    # exit()
 
 
 if __name__ == '__main__':
