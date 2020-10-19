@@ -2288,17 +2288,16 @@ def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-10-10
         batch_state = batch_state.cpu().data.numpy()
     assert isinstance(batch_state, np.ndarray)
 
-    ary_std = batch_state.std(axis=0)
     ary_avg = batch_state.mean(axis=0)
+    ary_std = batch_state.std(axis=0)
+    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
+               + ary_std) / 2
 
     if neg_avg is not None:  # norm transfer
-        new_avg = ary_avg.copy()
-        new_std = ary_std.copy()
+        ary_avg = ary_avg - neg_avg / div_std
+        ary_std = fix_std / div_std
 
-        ary_std = new_std / div_std
-        ary_avg = new_avg - neg_avg / div_std
-
-    print(f"| Replay Buffer: avg, std,")
+    print(f"| Replay Buffer: avg, fixed std")
     print(f"np.{repr(ary_avg).replace('dtype=float32', 'dtype=np.float32')}")
     print(f"np.{repr(ary_std).replace('dtype=float32', 'dtype=np.float32')}")
 
@@ -2492,6 +2491,7 @@ class BufferArrayGPU:  # 2020-07-07
             memory_state = self.memories[indices, 2:self.state_idx]
         else:
             memory_state = self.memories[:, 2:self.state_idx]
+
         print_norm(memory_state, neg_avg, div_std)
 
 

@@ -389,13 +389,13 @@ def get_env_info(env, is_print=True):  # 2020-10-10
     return state_dim, action_dim, action_max, target_reward, is_discrete
 
 
-def decorator__normalization(env, action_max=1, state_avg=None, state_std=None):
+def decorator__normalization(env, action_max=1, state_avg=None, state_std=None, std_epi=1e-2):
     if state_avg is None:
         neg_state_avg = 0
         div_state_std = 1
     else:
         neg_state_avg = -state_avg
-        div_state_std = 1 / (state_std + 1e-5)  # todo norm std + 1e-5
+        div_state_std = 1 / (state_std + std_epi)
 
     env.neg_state_avg = neg_state_avg  # for def print_norm()
     env.div_state_std = div_state_std  # for def print_norm()
@@ -484,19 +484,22 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
 
         '''norm could be'''
         if env_name == 'LunarLanderContinuous-v2':
-            avg = np.array([
-                0.0000, -0.116, -0.057, -0.242, 0.0000, 0.0000, 0.9490, 0.9340])
-            std = np.array([
-                0.2651, 0.4281, 0.1875, 0.1872, 0.1448, 0.0931, 0.4919, 0.4932])
+            avg = np.array([1.65470898e-02, -1.29684399e-01, 4.26883133e-03, -3.42124557e-02,
+                            -7.39076972e-03, -7.67103031e-04, 1.12640885e+00, 1.12409466e+00])
+            std = np.array([0.15094465, 0.29366297, 0.23490797, 0.25931464, 0.21603736,
+                            0.25886878, 0.277233, 0.27771219])
         elif env_name == "BipedalWalker-v3":
-            avg = np.array([
-                -0.695, 0.0155, 2.3846, 0.1053, 0.7689, 0.0000, -0.672, 0.0000,
-                0.1490, 0.6277, 0.0000, -0.465, -0.111, 0.0000, 0.7132, 0.7129,
-                0.7131, 0.7146, 0.7177, 0.7234, 0.7358, 0.7693, 0.8446, 0.1197])
-            std = np.array([
-                0.1297, 0.0249, 0.1365, 0.0459, 0.3608, 0.8593, 0.2468, 0.7051,
-                0.4938, 0.2846, 0.7836, 0.2022, 0.6874, 0.4859, 0.0180, 0.0185,
-                0.0198, 0.0221, 0.0258, 0.0318, 0.0417, 0.0590, 0.0313, 0.0037])
+            avg = np.array([1.42211734e-01, -2.74547996e-03, 1.65104509e-01, -1.33418152e-02,
+                            -2.43243194e-01, -1.73886203e-02, 4.24114229e-02, -6.57800099e-02,
+                            4.53460692e-01, 6.08022244e-01, -8.64884810e-04, -2.08789053e-01,
+                            -2.92092949e-02, 5.04791247e-01, 3.33571745e-01, 3.37325723e-01,
+                            3.49106580e-01, 3.70363115e-01, 4.04074671e-01, 4.55838055e-01,
+                            5.36685407e-01, 6.70771701e-01, 8.80356865e-01, 9.97987386e-01])
+            std = np.array([0.84419678, 0.06317835, 0.16532085, 0.09356959, 0.486594,
+                            0.55477525, 0.44076614, 0.85030824, 0.29159821, 0.48093035,
+                            0.50323634, 0.48110776, 0.69684234, 0.29161077, 0.06962932,
+                            0.0705558, 0.07322677, 0.07793258, 0.08624322, 0.09846895,
+                            0.11752805, 0.14116005, 0.13839757, 0.07760469])
         elif env_name == 'AntBulletEnv-v0':
             avg = np.array([
                 0.4838, -0.047, 0.3500, 1.3028, -0.249, 0.0000, -0.281, 0.0573,
@@ -508,19 +511,19 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
                 0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
                 0.4858, 0.4227, 0.4428, 0.4831])
-        elif env_name == 'MinitaurBulletEnv-v0':
-            avg = np.array([
-                2.05600e-01, 4.50800e-01, 2.50000e-01, 4.70300e-01, 4.79900e-01,
-                2.34300e-01, 6.88300e-01, 2.85100e-01, 7.61380e+00, 1.45432e+01,
-                8.73960e+00, 1.07944e+01, 1.46323e+01, 1.01205e+01, 1.32922e+01,
-                1.17750e+01, 2.78030e+00, 3.12870e+00, 2.61230e+00, 2.99330e+00,
-                3.12270e+00, 2.88790e+00, 2.84310e+00, 2.47970e+00, 3.56000e-02,
-                3.55000e-02, 4.56000e-02, 8.50000e-03])
-            std = np.array([
-                -0.8859, 3.269, 4.0869, 5.4315, 3.5354, 1.1756, 2.9034,
-                1.8138, -3.3335, 41.9715, -0.2011, 27.8806, 27.3546, -5.9289,
-                11.2396, -4.0288, 18.4165, 4.1793, 4.6188, -4.2912, 1.0208,
-                20.4591, -9.4547, 10.7167, -8.1029, 17.3196, 2.4853, 74.2696])
+        # elif env_name == 'MinitaurBulletEnv-v0':
+        #     avg = np.array([
+        #         2.05600e-01, 4.50800e-01, 2.50000e-01, 4.70300e-01, 4.79900e-01,
+        #         2.34300e-01, 6.88300e-01, 2.85100e-01, 7.61380e+00, 1.45432e+01,
+        #         8.73960e+00, 1.07944e+01, 1.46323e+01, 1.01205e+01, 1.32922e+01,
+        #         1.17750e+01, 2.78030e+00, 3.12870e+00, 2.61230e+00, 2.99330e+00,
+        #         3.12270e+00, 2.88790e+00, 2.84310e+00, 2.47970e+00, 3.56000e-02,
+        #         3.55000e-02, 4.56000e-02, 8.50000e-03])
+        #     std = np.array([
+        #         -0.8859, 3.269, 4.0869, 5.4315, 3.5354, 1.1756, 2.9034,
+        #         1.8138, -3.3335, 41.9715, -0.2011, 27.8806, 27.3546, -5.9289,
+        #         11.2396, -4.0288, 18.4165, 4.1793, 4.6188, -4.2912, 1.0208,
+        #         20.4591, -9.4547, 10.7167, -8.1029, 17.3196, 2.4853, 74.2696])
         # elif env_name == "BipedalWalkerHardcore-v3":
         #     pass
         '''norm necessary'''
@@ -759,6 +762,7 @@ def get_episode_reward(env, act, max_step, device, is_discrete) -> float:
     return reward_item
 
 
+# todo repeat with initial_exploration() in AgentZoo.py
 def get__buffer_reward_step(env, max_step, reward_scale, gamma, action_dim, is_discrete,
                             **_kwargs) -> (np.ndarray, list, list):
     buffer_list = list()
@@ -773,7 +777,7 @@ def get__buffer_reward_step(env, max_step, reward_scale, gamma, action_dim, is_d
 
     global_step = 0
 
-    while global_step < max_step:
+    while global_step < max_step or len(reward_list) == 0:
         action = np.random.randint(action_dim) if is_discrete else np.random.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action)
         reward_item += reward
@@ -895,7 +899,7 @@ def run_continuous_action(gpu_id=None):
 
     args.env_name = "BipedalWalker-v3"
     args.break_step = int(2e5 * 8)  # (1e5) 2e5
-    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (342)
+    args.reward_scale = 2 ** 0  # (-200) -140 ~ 300 (341)
     args.max_step = 2 ** 10  # todo
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
@@ -930,7 +934,7 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
-    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (335)
+    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (334)
     args.break_step = int(4e6 * 8)  # (2e6) 4e6
     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
     args.max_memo = int(2 ** 21)

@@ -5,11 +5,12 @@ from AgentZoo import *
 """     
 beta11  MixSAC, Ant,  args.max_step = 2 ** 10 norm std + 1e-5
 
+beta0   mix, Minitaur,
+beta1   mix, Ant BWLL,
+beta3   mix, LLBW Ant,   
 
-beta0   mix 
-beta2   mix
-beta12  mix print BW LL
-beta13  mix print Ant
+beta14  mix, BWLL Ant,
+beta10  mix, BWHC
 """
 
 
@@ -363,7 +364,7 @@ class AgentMixPPO:
         self.cri.eval()
         return critic_loss.item()
 
-    def update_policy_imitate_act(self, buffer, act_target, batch_size, repeat_time=4):
+    def update_policy_imitate_act(self, buffer, act_target, batch_size, repeat_time=16):
         train_step = int(buffer.now_len / batch_size * repeat_time)
         buffer_state = torch.tensor(
             buffer.memories[:, 2:buffer.state_idx], device=self.device)
@@ -421,105 +422,6 @@ class AgentMixPPO:
             print("FileNotFound when load_model: {}".format(cwd))
 
 
-def train_agent_mix0(
-        rl_agent, env_name, gpu_id, cwd,
-        net_dim, max_memo, max_step, batch_size, repeat_times, reward_scale, gamma,
-        break_step, if_break_early, show_gap, eval_times1, eval_times2, **_kwargs):  # 2020-09-18
-    env_off, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
-
-    '''init: agent, buffer, recorder'''
-    id_off = gpu_id  # todo id
-    recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
-    agent_off = AgentMixSAC(state_dim, action_dim, net_dim)  # training agent
-    agent_off.state = env_off.reset()
-
-    buffer_off = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim)
-    with torch.no_grad():  # update replay buffer
-        rewards, steps = initial_exploration(
-            env_off, buffer_off, max_step, if_discrete, reward_scale, gamma, action_dim)
-    recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
-
-    '''pre training and hard update before training loop'''
-    buffer_off.init_before_sample()
-    agent_off.update_policy(buffer_off, max_step, batch_size, repeat_times)
-    agent_off.act_target.load_state_dict(agent_off.act.state_dict())
-
-    # todo online
-    id_onn = -1  # todo id
-    max_memo2 = max_step * 2
-    net_dim2 = 2 ** 8
-    env_onn, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
-    recorder2 = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
-    agent_onn = AgentMixPPO(state_dim, action_dim, net_dim2)  # training agent
-    agent_onn.state = env_onn.reset()
-    buffer_onn = BufferTupleOnline(max_memo2)
-
-    batch_size2 = 2 ** 9
-    repeat_times2 = 2 ** 3
-
-    # todo best explored reward record
-    exp_r_sac = exp_r_ppo = sum(rewards) / len(rewards)
-    exp_is_ppo = True
-
-    '''loop'''
-    if_train = True
-    while if_train:
-        # todo online
-        if exp_r_ppo >= exp_r_sac:  # todo enable PPO
-            with torch.no_grad():  # speed up running
-                rewards2, steps2 = agent_onn.update_buffer(env_onn, buffer_onn, max_memo2, reward_scale, gamma)
-                exp_r_ppo = 0.9 * exp_r_ppo + 0.1 * sum(rewards2) / len(rewards2)
-
-            buffer_onn.init_before_sample()
-
-            if not exp_is_ppo:
-                l_a = agent_onn.update_policy_imitate_act(buffer_off, agent_off.act, batch_size * 4)
-                l_c = agent_onn.update_policy_imitate_cri(buffer_onn, batch_size2, repeat_times2)
-                print(f"{l_a:.3f}    {l_c:.3f}")
-                exp_is_ppo = True
-            loss_a2, loss_c2 = agent_onn.update_policy(
-                buffer_onn, max_step, batch_size2, repeat_times2)
-
-            with torch.no_grad():
-                recorder2.update__record_explore(steps2, rewards2, loss_a2, loss_c2)
-
-                if_save2 = recorder2.update__record_evaluate(
-                    env_onn, agent_onn.act, max_step, agent_off.device, if_discrete)
-                # recorder2.save_act(cwd, agent_onn.act, id_onn) if if_save else None
-                # recorder2.save_npy__plot_png(cwd)
-                if_solve2 = recorder2.check_is_solved(target_reward, id_onn, show_gap)
-
-            # todo onn to off
-            buffer_ary = buffer_onn.convert_to_rmsas()
-            buffer_off.extend_memo(buffer_ary)
-        else:
-            exp_is_ppo = False
-
-        # todo offline
-        with torch.no_grad():  # speed up running
-            rewards, steps = agent_off.update_buffer(env_off, buffer_off, max_step, reward_scale, gamma)
-            exp_r_sac = 0.9 * exp_r_sac + 0.1 * sum(rewards) / len(rewards)
-
-        buffer_off.init_before_sample()
-        loss_a, loss_c = agent_off.update_policy(buffer_off, max_step, batch_size, repeat_times)
-
-        with torch.no_grad():  # for saving the GPU buffer
-            recorder.update__record_explore(steps, rewards, loss_a, loss_c)
-
-            if_save = recorder.update__record_evaluate(env_off, agent_off.act, max_step, agent_off.device, if_discrete)
-            recorder.save_act(cwd, agent_off.act, id_off) if if_save else None
-            recorder.save_npy__plot_png(cwd)
-
-            if_solve = recorder.check_is_solved(target_reward, id_off, show_gap)
-
-        '''break loop rules'''
-        if_train = not ((if_break_early and if_solve)
-                        or recorder.total_step > break_step
-                        or os.path.exists(f'{cwd}/stop'))
-    recorder.save_npy__plot_png(cwd)
-    buffer_off.print_state_norm(env_off.neg_state_avg, env_off.div_state_std)
-
-
 def train_agent_mix(
         rl_agent, env_name, gpu_id, cwd,
         net_dim, max_memo, max_step, batch_size, repeat_times, reward_scale, gamma,
@@ -561,6 +463,7 @@ def train_agent_mix(
     tmp_act = deepcopy(agent_off.act)
     exp_r_sac = exp_r_tmp = sum(rewards) / len(rewards)
     ppo_need_update = False
+    ppo_need_enable = 0
 
     '''loop'''
     if_train = True
@@ -572,7 +475,13 @@ def train_agent_mix(
 
         # todo online
         if exp_r_sac < exp_r_tmp:  # todo enable PPO
+            ppo_need_enable += 1
+        else:
+            ppo_need_enable = 0
+
+        if ppo_need_enable > 3:
             if ppo_need_update:
+                buffer_off.init_before_sample()
                 l_a = agent_onn.update_policy_imitate_act(buffer_off, tmp_act, batch_size * 4)
 
                 with torch.no_grad():  # speed up running
@@ -583,7 +492,7 @@ def train_agent_mix(
                 l_c = agent_onn.update_policy_imitate_cri(buffer_onn, batch_size2, repeat_times2)
 
                 ppo_need_update = False
-                print(f"{l_a:.3f}\t{l_c:.3f}\t{exp_r_sac:.3f}\t{exp_r_tmp:.3f}")
+                print(f"\t\t{l_a:.3f}\t{l_c:.3f}\t{exp_r_sac:.3f}\t{exp_r_tmp:.3f}")
             else:
                 with torch.no_grad():  # speed up running
                     rewards2, steps2 = agent_onn.update_buffer(env_onn, buffer_onn, max_memo2, reward_scale, gamma)
@@ -606,6 +515,7 @@ def train_agent_mix(
                 # todo onn to off
                 buffer_ary = buffer_onn.convert_to_rmsas()
                 buffer_off.extend_memo(buffer_ary)
+            buffer_off.init_before_sample()
             loss_a, loss_c = agent_off.update_policy(
                 buffer_off, max_memo2, batch_size, repeat_times)  # todo max_memo2
         else:
@@ -640,25 +550,53 @@ def train_agent_mix(
 def run_continuous_action(gpu_id=None):
     rl_agent = AgentMixSAC
     args = Arguments(rl_agent, gpu_id)
-    args.if_break_early = True  # todo
+    args.if_break_early = False
     args.if_remove_history = True
 
     args.random_seed += 4
     args.max_step = 2 ** 10  # 12
 
-    args.env_name = "BipedalWalker-v3"
-    args.break_step = int(2e5 * 8)  # (1e5) 2e5
-    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (342)
-    args.init_for_training(4)
-    train_agent_mix(**vars(args))
+    # args.env_name = "BipedalWalker-v3"
+    # args.break_step = int(2e5 * 8)  # (1e5) 2e5
+    # args.reward_scale = 2 ** -1  # todo  # (-200) -150 ~ 300 (342)
+    # args.init_for_training(4)
+    # train_agent_mix(**vars(args))
+    # # exit()
+    # args.env_name = "LunarLanderContinuous-v2"
+    # args.break_step = int(5e4 * 8)  # (2e4) 5e4
+    # args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
+    # args.init_for_training(4)
+    # train_agent_mix(**vars(args))
+    # # exit()
+    #
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "AntBulletEnv-v0"
+    # args.break_step = int(1e6 * 8)  # (8e5) 10e5
+    # args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
+    # args.max_step = 2 ** 10
+    # args.batch_size = 2 ** 8
+    # args.max_memo = 2 ** 20
+    # args.eva_size = 2 ** 3  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # args.init_for_training(8)
+    # train_agent_mp(args)  # train_agent(**vars(args))
     # exit()
 
-    args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(5e4 * 16)  # (2e4) 5e4
-    args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
-    args.init_for_training(4)
-    train_agent_mix(**vars(args))
-    # exit()
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "MinitaurBulletEnv-v0"
+    args.break_step = int(4e6 * 4)  # (2e6) 4e6
+    args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
+    args.batch_size = 2 ** 8
+    args.repeat_times = 2 ** 0
+    args.max_memo = 2 ** 20
+    args.net_dim = 2 ** 8
+    args.eval_times2 = 2 ** 5  # for Recorder
+    args.show_gap = 2 ** 9  # for Recorder
+    args.init_for_training(8)
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
 
 
 run_continuous_action()
