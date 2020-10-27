@@ -201,8 +201,15 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         q2 = self.dec_q2(q_)
         return q1, q2
 
+    def get__q1(self, s, a):  # critic
+        s_ = self.enc_s(s)
+        a_ = self.enc_a(a)
+        q_ = self.net(s_ + a_)
+        q1 = self.dec_q1(q_)
+        return q1
 
-class InterGAE(nn.Module):
+
+class InterGAE(nn.Module):  # 2020-10-10
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.log_std_min = -20
@@ -224,20 +231,20 @@ class InterGAE(nn.Module):
 
         '''todo two layer'''
         self.dec_a = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
         )  # action_mean
         self.dec_d = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
         )  # action_std_log (d means standard dev.)
 
         self.dec_q1 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
         )  # q_value1 SharedTwinCritic
         self.dec_q2 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
         )  # q_value2 SharedTwinCritic
         '''todo one layer'''
@@ -446,11 +453,11 @@ class ActorPPO(nn.Module):
 
     def get__a__log_prob(self, state):
         a_mean = self.net__mean(state)
-        a_log_std = self.net__std_log.expand_as(a_mean)
+        a_log_std = self.net__std_log.expand_as(a_mean)  # todo log_std could be constant
         a_std = torch.exp(a_log_std)
         a_noise = torch.normal(a_mean, a_std)
 
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
+        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))  # todo pow(2) shouldn't repeat
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
         log_prob = log_prob.sum(1)
         return a_noise, log_prob
@@ -458,7 +465,7 @@ class ActorPPO(nn.Module):
     def compute__log_prob(self, state, a_noise):
         a_mean = self.net__mean(state)
         a_log_std = self.net__std_log.expand_as(a_mean)
-        a_std = torch.exp(a_log_std)
+        a_std = a_log_std.exp()
 
         a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)

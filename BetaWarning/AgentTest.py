@@ -104,8 +104,30 @@ def test__evaluate_agent():
     print(total_step, reward_item)
 
 
+def test__network():
+    net_dim = 2 ** 4
+    env_name = "LunarLanderContinuous-v2"
+    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+
+    act = InterSPG(state_dim, action_dim, net_dim)
+    act_optimizer = torch.optim.Adam([
+        {'params': act.enc_s.parameters(), 'lr': 2e-4},
+        # {'params': act.enc_a.parameters(), 'lr': 4e-4},
+        {'params': act.net.parameters(), 'lr': 1e-4},
+        {'params': act.dec_a.parameters(), },
+        # {'params': act.dec_d.parameters(), 'lr': 4e-4},
+        # {'params': act.dec_q1.parameters(), 'lr': 2e-4},
+        # {'params': act.dec_q2.parameters(), 'lr': 2e-4},
+    ], lr=4e-4)
+
+    # print(act_optimizer)
+    for param_grounp in act_optimizer.param_groups:
+        print(param_grounp['lr'])
+
+
 if __name__ == '__main__':
+    test__network()
     # test__env_quickly()
     # test__replay_buffer()
-    test__evaluate_agent()
+    # test__evaluate_agent()
     print('; AgentTest Terminal.')

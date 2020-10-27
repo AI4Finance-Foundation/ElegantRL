@@ -6,9 +6,7 @@ from AgentZoo import *
 beta0 OffPPO, reset memo, cancel con_pi
 
 ceta0 OffPPO, reset memo, cancel con_pi, Minitaur
-ceta1 ceta0, SmallOffBuffer, 
-
-ceta2 ceta0, cancel std
+ceta1 OffPPO, reset memo, cancel con_pi, Minitaur, SmallOffBuffer, 
 """
 
 
@@ -283,7 +281,7 @@ def train_agent(
         '''update network parameters by random sampling buffer for gradient descent'''
         buffer.init_before_sample()
         loss_a, loss_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
-        buffer.reset_memories()
+        # buffer.reset_memories() # todo SmallOfflineBuffer
 
         '''saves the agent with max reward'''
         with torch.no_grad():  # for saving the GPU buffer
@@ -384,7 +382,7 @@ class AgentOffPPO:
         b_size = 2 ** 10
         with torch.no_grad():
             a_log_std = self.act.net__std_log
-            # a_std = self.act.net__std_log.exp()
+            a_std = self.act.net__std_log.exp()
 
             all__new_v = list()
             all_log_prob = list()
@@ -392,8 +390,7 @@ class AgentOffPPO:
             for i in range(0, all_state.size()[0], b_size):
                 all__new_v.append(self.cri(all_state[i:i + b_size]))
 
-                # a_delta = (all_noise[i:i + b_size] / (1.41421 * a_std)).pow(2)
-                a_delta = (all_noise[i:i + b_size]).pow(2)  # todo cancel std
+                a_delta = (all_noise[i:i + b_size] / (1.41421 * a_std)).pow(2)
                 log_prob = -(a_delta + a_log_std).sum(1)
                 all_log_prob.append(log_prob)
 
@@ -437,9 +434,8 @@ class AgentOffPPO:
             # new_log_prob = self.act.compute__log_prob(state, action)
             a_mean = self.act(state)
             a_log_std = self.act.net__std_log.expand_as(a_mean)
-            # a_std = a_log_std.exp()
-            # a_delta = ((a_mean - action) / (1.41421 * a_std)).pow(2)
-            a_delta = (a_mean - action).pow(2)  # todo cancel std
+            a_std = a_log_std.exp()
+            a_delta = ((a_mean - action) / (1.41421 * a_std)).pow(2)
             new_log_prob = -(a_delta + a_log_std).sum(1)
 
             new_value = self.cri(state)
@@ -467,6 +463,110 @@ class AgentOffPPO:
         self.cri.eval()
         # return actor_loss.item(), critic_loss.item()# todo
         return self.act.net__std_log.mean().item(), critic_loss.item()  # todo
+
+    def update_policy_imitate(self, buffer, act_target, batch_size, repeat_times):
+        self.act.train()
+        self.cri.train()
+        # clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        # lambda_adv = 0.98  # why 0.98? cannot use 0.99
+        # lambda_entropy = 0.01  # could be 0.02
+        # # repeat_times = 8 could be 2**3 ~ 2**5
+
+        actor_term = critic_loss = None  # just for print
+
+        '''the batch for training'''
+        max_memo = len(buffer)
+        all_batch = buffer.sample_all()
+        all_reward, all_mask, all_state, all_action, all_log_prob = [
+            torch.tensor(ary, dtype=torch.float32, device=self.device)
+            for ary in (all_batch.reward, all_batch.mask, all_batch.state, all_batch.action, all_batch.log_prob,)
+        ]
+
+        # # all__new_v = self.cri(all_state).detach_()  # all new value
+        # with torch.no_grad():
+        #     b_size = 512
+        #     all__new_v = torch.cat(
+        #         [self.cri(all_state[i:i + b_size])
+        #          for i in range(0, all_state.size()[0], b_size)], dim=0)
+
+        '''compute old_v (old policy value), adv_v (advantage value) 
+        refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
+        https://arxiv.org/pdf/1506.02438.pdf'''
+        # all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
+        all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+        # all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+
+        prev_old_v = 0  # old q value
+        # prev_new_v = 0  # new q value
+        # prev_adv_v = 0  # advantage q value
+        for i in range(max_memo - 1, -1, -1):
+            # all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
+            all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
+            # all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * lambda_adv
+
+            prev_old_v = all__old_v[i]
+            # prev_new_v = all__new_v[i]
+            # prev_adv_v = all__adv_v[i]
+
+        # all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
+
+        '''mini batch sample'''
+        sample_times = int(repeat_times * max_memo / batch_size)
+        for _ in range(sample_times):
+            '''random sample'''
+            # indices = rd.choice(max_memo, batch_size, replace=True)  # False)
+            indices = rd.randint(max_memo, size=batch_size)
+
+            state = all_state[indices]
+            # action = all_action[indices]
+            # advantage = all__adv_v[indices]
+            old_value = all__old_v[indices].unsqueeze(1)
+            # old_log_prob = all_log_prob[indices]
+
+            """Adaptive KL Penalty Coefficient
+            loss_KLPEN = surrogate_obj + value_obj * lambda_value + entropy_obj * lambda_entropy
+            loss_KLPEN = (value_obj * lambda_value) + (surrogate_obj + entropy_obj * lambda_entropy)
+            loss_KLPEN = (critic_loss) + (actor_loss)
+            """
+
+            '''critic_loss'''
+            # new_log_prob = self.act.compute__log_prob(state, action)
+            new_value = self.cri(state)
+
+            # critic_loss = (self.criterion(new_value, old_value)).mean() / (old_value.std() + 1e-5)
+            critic_loss = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+            self.cri_optimizer.zero_grad()
+            critic_loss.backward()
+            self.cri_optimizer.step()
+
+            '''actor_term'''
+            a_train = self.act(state)
+            with torch.no_grad():
+                a_target = act_target(state)
+            actor_term = self.criterion(a_train, a_target)
+            self.act_optimizer.zero_grad()
+            actor_term.backward()
+            self.act_optimizer.step()
+
+            # '''actor_loss'''
+            # # surrogate objective of TRPO
+            # ratio = torch.exp(new_log_prob - old_log_prob)
+            # surrogate_obj0 = advantage * ratio
+            # surrogate_obj1 = advantage * ratio.clamp(1 - clip, 1 + clip)
+            # # surrogate_obj = -torch.mean(torch.min(surrogate_obj0, surrogate_obj1)) # todo wait check
+            # surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
+            # # policy entropy
+            # loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # todo wait check
+            #
+            # # actor_loss = (surrogate_obj + loss_entropy * lambda_entropy).mean()
+            # actor_loss = surrogate_obj + loss_entropy * lambda_entropy  # todo wait check
+            # self.act_optimizer.zero_grad()
+            # actor_loss.backward()
+            # self.act_optimizer.step()
+
+        self.act.eval()
+        self.cri.eval()
+        return actor_term.item(), critic_loss.item()
 
     def select_action(self, state):  # CPU array to GPU tensor to CPU array
         states = torch.tensor((state,), dtype=torch.float32, device=self.device)
@@ -566,13 +666,6 @@ def run_continuous_action_off_ppo(gpu_id=None):
     # args.init_for_training()
     # train_agent(**vars(args))
     # exit()
-
-    args.env_name = "BipedalWalker-v3"
-    args.break_step = int(3e6 * 4)
-    args.reward_scale = 2 ** 0
-    args.init_for_training()
-    train_agent(**vars(args))
-    exit()
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)

@@ -207,9 +207,10 @@ def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by intera
     max_step = args.max_step
     reward_scale = args.reward_scale
     gamma = args.gamma
+
     del args
 
-    torch.set_num_threads(4)
+    torch.set_num_threads(8)  # todo
 
     env, state_dim, action_dim, _, is_discrete = build_gym_env(env_name, if_print=False)  # _ is target_reward
 
@@ -397,8 +398,8 @@ def decorator__normalization(env, action_max=1, state_avg=None, state_std=None, 
         neg_state_avg = -state_avg
         div_state_std = 1 / (state_std + std_epi)
 
-    env.neg_state_avg = neg_state_avg  # for def print_norm()
-    env.div_state_std = div_state_std  # for def print_norm()
+    env.neg_state_avg = neg_state_avg  # for def print_norm() AgentZoo.py
+    env.div_state_std = div_state_std  # for def print_norm() AgentZoo.py
 
     '''decorator_step'''
     if state_avg is not None:
@@ -511,19 +512,19 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
                 0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
                 0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
                 0.4858, 0.4227, 0.4428, 0.4831])
-        # elif env_name == 'MinitaurBulletEnv-v0':
-        #     avg = np.array([
-        #         2.05600e-01, 4.50800e-01, 2.50000e-01, 4.70300e-01, 4.79900e-01,
-        #         2.34300e-01, 6.88300e-01, 2.85100e-01, 7.61380e+00, 1.45432e+01,
-        #         8.73960e+00, 1.07944e+01, 1.46323e+01, 1.01205e+01, 1.32922e+01,
-        #         1.17750e+01, 2.78030e+00, 3.12870e+00, 2.61230e+00, 2.99330e+00,
-        #         3.12270e+00, 2.88790e+00, 2.84310e+00, 2.47970e+00, 3.56000e-02,
-        #         3.55000e-02, 4.56000e-02, 8.50000e-03])
-        #     std = np.array([
-        #         -0.8859, 3.269, 4.0869, 5.4315, 3.5354, 1.1756, 2.9034,
-        #         1.8138, -3.3335, 41.9715, -0.2011, 27.8806, 27.3546, -5.9289,
-        #         11.2396, -4.0288, 18.4165, 4.1793, 4.6188, -4.2912, 1.0208,
-        #         20.4591, -9.4547, 10.7167, -8.1029, 17.3196, 2.4853, 74.2696])
+        elif env_name == 'MinitaurBulletEnv-v0':
+            avg = np.array([0.90172989, 1.54730119, 1.24560906, 1.97365306, 1.9413892,
+                            1.03866835, 1.69646277, 1.18655352, -0.45842347, 0.17845232,
+                            0.38784456, 0.58572877, 0.91414561, -0.45410697, 0.7591031,
+                            -0.07008998, 3.43842258, 0.61032482, 0.86689961, -0.33910894,
+                            0.47030415, 4.5623528, -2.39108079, 3.03559422, -0.36328256,
+                            -0.20753499, -0.47758384, 0.86756409])
+            std = np.array([0.34192648, 0.51169916, 0.39370621, 0.55568461, 0.46910769,
+                            0.28387504, 0.51807949, 0.37723445, 13.16686185, 17.51240024,
+                            14.80264211, 16.60461412, 15.72930229, 11.38926597, 15.40598346,
+                            13.03124941, 2.47718145, 2.55088804, 2.35964651, 2.51025567,
+                            2.66379017, 2.37224904, 2.55892521, 2.41716885, 0.07529733,
+                            0.05903034, 0.1314812, 0.0221248])
         # elif env_name == "BipedalWalkerHardcore-v3":
         #     pass
         '''norm necessary'''
@@ -658,8 +659,7 @@ class Recorder:  # 2020-10-12
             exp_s_sum = (exp_s_sum,)
             exp_r_avg = (exp_r_avg,)
         if loss_c > 32:
-            print(f"| YoY: Critic loss {loss_c:.1f} is too large. (Loss explosion)\n"
-                  f"| YoY: Select a smaller reward_scale. Try reward_scale /= 4\n")
+            print(f"| ToT: Critic Loss explosion {loss_c:.1f}. Select a smaller reward_scale.")
         for s, r in zip(exp_s_sum, exp_r_avg):
             self.total_step += s
             self.record_exp.append((self.total_step, r, loss_a, loss_c))
@@ -742,7 +742,7 @@ def get_eva_reward(agent, env_list, max_step) -> list:  # class Recorder 2020-01
     return reward_sums
 
 
-def get_episode_reward(env, act, max_step, device, is_discrete) -> float:
+def get_episode_reward(env, act, max_step, device, if_discrete) -> float:
     # better to 'with torch.no_grad()'
     reward_item = 0.0
 
@@ -750,7 +750,7 @@ def get_episode_reward(env, act, max_step, device, is_discrete) -> float:
     for _ in range(max_step):
         s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
 
-        a_tensor = act(s_tensor).argmax(dim=1) if is_discrete else act(s_tensor)
+        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
         action = a_tensor.cpu().data.numpy()[0]
 
         next_state, reward, done, _ = env.step(action)
@@ -892,7 +892,6 @@ def run_continuous_action(gpu_id=None):
     args.env_name = "LunarLanderContinuous-v2"
     args.break_step = int(5e4 * 16)  # (2e4) 5e4
     args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
-    args.max_step = 2 ** 11  # todo
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -900,7 +899,6 @@ def run_continuous_action(gpu_id=None):
     args.env_name = "BipedalWalker-v3"
     args.break_step = int(2e5 * 8)  # (1e5) 2e5
     args.reward_scale = 2 ** 0  # (-200) -140 ~ 300 (341)
-    args.max_step = 2 ** 10  # todo
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -975,7 +973,7 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(2e5 * 8)
+    args.break_step = int(1e5 * 8)
     args.reward_scale = 2 ** -1
     args.init_for_training()
     train_agent(**vars(args))

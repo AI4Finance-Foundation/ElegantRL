@@ -567,13 +567,6 @@ def run_continuous_action_off_ppo(gpu_id=None):
     # train_agent(**vars(args))
     # exit()
 
-    args.env_name = "BipedalWalker-v3"
-    args.break_step = int(3e6 * 4)
-    args.reward_scale = 2 ** 0
-    args.init_for_training()
-    train_agent(**vars(args))
-    exit()
-
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
