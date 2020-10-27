@@ -19,6 +19,7 @@ I am still learning English. Pardon. More details see ↓ (write in Chinese).
 我在2020-10-26建了QQ群**1163106809** “深度强化学习ElegantRL”，群头像如下。
 这个群可以讨论「深度强化学习」，甚至可以用来汇报Github代码的bug。
 预计人会很少，正因如此，我可以尽可能地回答群成员的问题。
+
 ![ElegantRL群头像](https://github.com/Yonv1943/ElegantRL/blob/master/Result/ElegantRL.jpg)
 
 # Show results
