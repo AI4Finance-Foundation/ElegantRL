@@ -16,6 +16,10 @@ I am still learning English. Pardon. More details see ↓ (write in Chinese).
 我英文差，还望包涵。更多细节，详见下方。↓
 
 知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
+我在2020-10-26建了QQ群**1163106809** “深度强化学习ElegantRL”，群头像如下。
+这个群可以讨论「深度强化学习」，甚至可以用来汇报Github代码的bug。
+预计人会很少，正因如此，我可以尽可能地回答群成员的问题。
+[ElegantRL群头像](https://github.com/Yonv1943/ElegantRL/blob/master/Result/ElegantRL.jpg)
 
 # Show results
 
