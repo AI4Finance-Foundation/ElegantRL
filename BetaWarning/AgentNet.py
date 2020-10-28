@@ -440,7 +440,7 @@ class ActorPPO(nn.Module):
         self.net__mean = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, action_dim), )
-        self.net__std_log = nn.Parameter(torch.zeros(1, action_dim), requires_grad=True)
+        self.net__std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
         layer_norm(self.net__mean[0], std=1.0)
@@ -451,21 +451,21 @@ class ActorPPO(nn.Module):
         a_mean = self.net__mean(s)
         return a_mean.tanh()
 
-    def get__a__log_prob(self, state):
+    def get__a__log_prob(self, state):  # todo plan to cancel
         a_mean = self.net__mean(state)
-        a_log_std = self.net__std_log.expand_as(a_mean)  # todo log_std could be constant
+        a_log_std = self.net__std_log.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
         a_noise = torch.normal(a_mean, a_std)
 
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))  # todo pow(2) shouldn't repeat
+        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
         log_prob = log_prob.sum(1)
         return a_noise, log_prob
 
-    def compute__log_prob(self, state, a_noise):
+    def compute__log_prob(self, state, a_noise):  # todo may plan to cancel
         a_mean = self.net__mean(state)
         a_log_std = self.net__std_log.expand_as(a_mean)
-        a_std = a_log_std.exp()
+        a_std = torch.exp(a_log_std)
 
         a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)

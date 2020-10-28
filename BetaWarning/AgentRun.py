@@ -7,7 +7,7 @@ import torch
 import numpy as np
 
 from AgentZoo import initial_exploration
-from AgentZoo import BufferArray, BufferArrayGPU, BufferTupleOnline
+from AgentZoo import BufferArray, BufferArray2, BufferArrayGPU, BufferTupleOnline
 
 """ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
@@ -122,6 +122,63 @@ def train_agent(
         if_train = not ((if_break_early and if_solve)
                         or recorder.total_step > break_step
                         or os.path.exists(f'{cwd}/stop'))
+    recorder.save_npy__plot_png(cwd)
+    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+
+
+def train_agent_1020(  # 2020-10-20
+        rl_agent, env_name, gpu_id, cwd,
+        net_dim, max_memo, max_step, batch_size, repeat_times, reward_scale, gamma,
+        break_step, if_break_early, show_gap, eval_times1, eval_times2, **_kwargs):  # 2020-09-18
+    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+
+    '''init: agent, buffer, recorder'''
+    recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
+    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    agent.state = env.reset()
+
+    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentInterGAE', 'AgentDiscreteGAE'}):
+        buffer = BufferTupleOnline(max_memo)
+    elif bool(rl_agent.__name__ in {'AgentOffPPO', }):
+        buffer = BufferArray2(max_memo + max_step, state_dim, action_dim)
+    else:
+        buffer = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim)
+        with torch.no_grad():  # update replay buffer
+            rewards, steps = initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+        recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
+
+        '''pre training and hard update before training loop'''
+        buffer.init_before_sample()
+        agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        agent.act_target.load_state_dict(agent.act.state_dict())
+
+    '''loop'''
+    if_train = True
+    while if_train:
+        '''update replay buffer by interact with environment'''
+        buffer.reset_memories()  # todo warning: move to update buffer
+        with torch.no_grad():  # speed up running
+            rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+
+        '''update network parameters by random sampling buffer for gradient descent'''
+        buffer.init_before_sample()  # todo warning: move to update buffer
+        loss_a, loss_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+
+        '''saves the agent with max reward'''
+        with torch.no_grad():  # for saving the GPU buffer
+            recorder.update__record_explore(steps, rewards, loss_a, loss_c)
+
+            if_save = recorder.update__record_evaluate(env, agent.act, max_step, agent.device, if_discrete)
+            recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
+            recorder.save_npy__plot_png(cwd)
+
+            if_solve = recorder.check_is_solved(target_reward, gpu_id, show_gap)
+
+        '''break loop rules'''
+        if_train = not ((if_break_early and if_solve)
+                        or recorder.total_step > break_step
+                        or os.path.exists(f'{cwd}/stop'))
+
     recorder.save_npy__plot_png(cwd)
     buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
