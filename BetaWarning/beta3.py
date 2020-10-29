@@ -133,8 +133,9 @@ class AgentOffPPO:
             '''critic_loss'''
             new_value = self.cri(state)
 
-            # critic_loss = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)  # value_norm
-            critic_loss = self.criterion(new_value, old_value)  # todo cancel value_norm
+            critic_loss = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+            # Q_value_norm is necessary. Because actor_loss = surrogate_obj + loss_entropy * lambda_entropy.
+            # critic_loss = self.criterion(new_value, old_value)  # todo cancel value_norm
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
             self.cri_optimizer.step()

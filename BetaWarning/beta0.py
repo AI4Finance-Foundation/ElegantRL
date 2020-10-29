@@ -3,12 +3,7 @@ from AgentNet import *
 from AgentZoo import *
 
 """OffPPO
-beta0 FixOffPPO LL
-beta1 FixOffPPO BW
-beta2 FixOffPPO BW
-beta3 OffPPO Ministaur
-
-ceta4 FixOffPPO Minitaur
+beta3 OffPPO norm_std (check entropy)
 """
 
 
