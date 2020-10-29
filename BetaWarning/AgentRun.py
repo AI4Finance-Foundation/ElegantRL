@@ -948,14 +948,14 @@ def run_continuous_action(gpu_id=None):
 
     args.env_name = "LunarLanderContinuous-v2"
     args.break_step = int(5e4 * 16)  # (2e4) 5e4
-    args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
+    args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "BipedalWalker-v3"
     args.break_step = int(2e5 * 8)  # (1e5) 2e5
-    args.reward_scale = 2 ** 0  # (-200) -140 ~ 300 (341)
+    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
