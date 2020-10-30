@@ -3,8 +3,27 @@ from AgentNet import *
 from AgentZoo import *
 
 
+def modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise):
+    # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+    # log_prob_noise = a_delta + a_std_log  # + 0.919  # self.constant_log_sqrt_2pi
+    #
+    # a_noise_tanh = a_noise.tanh()
+    # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+    # log_prob = log_prob_noise + fix_term
+
+    a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+    log_prob_noise = a_delta + a_std_log.clamp_max(0)  # + 0.919  # self.constant_log_sqrt_2pi
+
+    a_noise_tanh = a_noise.tanh()
+    fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+    log_prob = log_prob_noise + fix_term
+    return a_noise_tanh, log_prob.sum(1, keepdim=True)
+
+
 class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
     def __init__(self, state_dim, action_dim, mid_dim):
+        self.c = 0
+
         super().__init__()
         self.log_std_min = -20
         self.log_std_max = 2
@@ -76,24 +95,17 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         """add noise to action, stochastic policy"""
         # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
         # the above is not same as below, because it needs gradient
-        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        a_noise = a_mean + a_std * noise
 
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # # same as:
+        # '''compute log_prob according to mean and std of action (stochastic policy)'''
         # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
         # log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
         #
         # a_noise_tanh = a_noise.tanh()
-        # # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # # same as:
-        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()  # todo not tanh.log
-
-        a_noise_tanh = a_noise.tanh()
-        a_delta = ((a_noise_tanh - a_mean.tanh()) / a_std).pow(2) * 0.5
-        log_prob = a_delta + a_std_log + self.constant_log_sqrt_2pi + (a_noise_tanh - a_mean.tanh()).abs().log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
+        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()
+        # return a_noise_tanh, log_prob.sum(1, keepdim=True)
+        return modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise)
 
     def get__a__std(self, state):
         s_ = self.enc_s(state)
@@ -115,23 +127,15 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
         a_noise = a_mean + a_std * noise
 
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # # same as:
+        # '''compute log_prob according to mean and std of action (stochastic policy)'''
         # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
         # log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
         #
         # a_noise_tanh = a_noise.tanh()
-        # # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # # same as:
-        # # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()  # todo not tanh.log
-        # log_prob = log_prob_noise
-
-        a_noise_tanh = a_noise.tanh()
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob = a_delta + a_std_log + self.constant_log_sqrt_2pi + (a_noise_tanh - a_mean.tanh()).abs().log()
-        return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
+        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()
+        # return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
+        res1, res2 = modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise)
+        return a_mean.tanh(), a_std_log, res1, res2
 
     def get__q1_q2(self, s, a):  # critic
         s_ = self.enc_s(s)
@@ -177,7 +181,7 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.target_entropy = np.log(action_dim)
+        self.target_entropy = np.log(action_dim) - action_dim * 0.919
         self.log_alpha = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
         self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
 
@@ -219,6 +223,7 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             '''stochastic policy'''
             a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
+
             log_prob = log_prob.mean()
 
             '''auto temperature parameter: alpha'''
@@ -257,21 +262,21 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 def run_continuous_action(gpu_id=None):
     rl_agent = AgentFixInterSAC
     args = Arguments(rl_agent, gpu_id)
-    args.if_break_early = True
+    args.if_break_early = False
     args.if_remove_history = True
 
     args.env_name = "LunarLanderContinuous-v2"
     args.break_step = int(5e4 * 16)  # (2e4) 5e4
-    args.reward_scale = 2 ** -1  # (-800) -200 ~ 200 (302)
+    args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
-    # exit()
+    exit()
 
-    args.env_name = "BipedalWalker-v3"
-    args.break_step = int(2e5 * 8)  # (1e5) 2e5
-    args.reward_scale = 2 ** 0  # (-200) -140 ~ 300 (341)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
+    # args.env_name = "BipedalWalker-v3"
+    # args.break_step = int(2e5 * 8)  # (1e5) 2e5
+    # args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+    # args.init_for_training()
+    # train_agent_mp(args)  # train_agent(**vars(args))
     # exit()
 
     # import pybullet_envs  # for python-bullet-gym
