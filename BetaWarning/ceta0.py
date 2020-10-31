@@ -43,7 +43,7 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
 
         def decorator_step(env_step):
             def new_env_step(action):
-                state, reward, done, info = env_step((action * 1.001).clip(-1, 1))
+                state, reward, done, info = env_step((action * 1.1).clip(-1, 1))
                 return state, reward, done, info
 
             return new_env_step

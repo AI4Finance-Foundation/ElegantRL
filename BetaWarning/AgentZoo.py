@@ -1059,17 +1059,19 @@ class AgentPPO:
 
 class AgentOffPPO:
     def __init__(self, state_dim, action_dim, net_dim):
-        self.learning_rate = 2e-4  # learning rate of actor
+        self.learning_rate = 1e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
         self.act = ActorPPO(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
+        # self.act_optimizer = torch.optim.SGD(self.act.parameters(), momentum=0.9, lr=self.learning_rate, )
 
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
         self.cri.train()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate, )  # betas=(0.5, 0.99))
+        # self.cri_optimizer = torch.optim.SGD(self.cri.parameters(), momentum=0.9, lr=self.learning_rate, )
 
         self.criterion = nn.SmoothL1Loss()
 
@@ -1089,7 +1091,7 @@ class AgentOffPPO:
             state = env.reset()
             for step_sum in range(max_step):
                 states = torch.tensor((state,), dtype=torch.float32, device=self.device)
-                a_mean = self.act(states).cpu().data.numpy()[0]
+                a_mean = self.act.net__mean(states).cpu().data.numpy()[0]  # todo fix bug
                 noise = rd.normal(scale=noise_std)
                 action = a_mean + noise
 
@@ -1162,7 +1164,8 @@ class AgentOffPPO:
             prev_old_v = all__old_v[i]
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # value_norm
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # todo cancel value_norm
+        # Q_value_norm is necessary. Because actor_loss = surrogate_obj + loss_entropy * lambda_entropy.
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
@@ -1179,13 +1182,15 @@ class AgentOffPPO:
             '''critic_loss'''
             new_value = self.cri(state)
 
-            critic_loss = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)  # value_norm
+            critic_loss = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+            # todo not-necessary
+
             self.cri_optimizer.zero_grad()
             critic_loss.backward()
             self.cri_optimizer.step()
 
             '''actor_loss'''
-            a_mean = self.act(state)
+            a_mean = self.act.net__mean(state)  # todo fix bug
             a_log_std = self.act.net__std_log.expand_as(a_mean)
             new_log_prob = -((a_mean - action).pow(2) + a_log_std).sum(1)
 

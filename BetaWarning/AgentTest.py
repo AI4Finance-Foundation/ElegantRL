@@ -125,8 +125,55 @@ def test__network():
         print(param_grounp['lr'])
 
 
+def test__log_prob():
+    def show_tensor(t):
+        print(t.cpu().data.numpy())
+
+    env_name = "LunarLanderContinuous-v2"
+    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    batch_size = 1
+    a_mean = torch.tensor(np.array((-0.9, 0.1, 0.8, 0.8)), dtype=torch.float32, device=device)
+    a_std_log = torch.tensor(np.array((0.1, 0.1, 0.1, 0.2)), dtype=torch.float32, device=device)
+    a_std = a_std_log.exp()
+
+    noise = torch.randn_like(a_mean, requires_grad=True, device=device)
+    a_noise = a_mean + a_std * noise
+
+    '''verifier log_prob.sum(1, keepdim=True) + 0.919 * action_dim'''
+    # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+    # log_prob_noise = a_delta + a_std_log + 0.919  # self.constant_log_sqrt_2pi
+    #
+    # a_noise_tanh = a_noise.tanh()
+    # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+    # log_prob = log_prob_noise + fix_term
+    #
+    # show_tensor(a_noise_tanh)
+    # show_tensor(log_prob.sum(1, keepdim=True))
+
+    # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+    # log_prob_noise = a_delta + a_std_log #+ 0.919  # self.constant_log_sqrt_2pi
+    #
+    # a_noise_tanh = a_noise.tanh()
+    # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+    # log_prob = log_prob_noise + fix_term
+    #
+    # show_tensor(a_noise_tanh)
+    # show_tensor(log_prob.sum(1, keepdim=True) + 0.919 * action_dim)
+
+    '''verifier '''
+    a_noise_tanh = a_noise.tanh()
+
+    fix_term = (-a_noise_tanh.pow(2) + 1.00001)  # .log()
+    show_tensor(fix_term)
+    fix_term = (((a_noise + 0.001).tanh() - a_noise_tanh) / 0.001 + 0.00001)  # .log()
+    show_tensor(fix_term)
+
+
 if __name__ == '__main__':
-    test__network()
+    # test__network()
+    test__log_prob()
     # test__env_quickly()
     # test__replay_buffer()
     # test__evaluate_agent()
