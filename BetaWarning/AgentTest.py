@@ -3,10 +3,22 @@ from AgentNet import *
 from AgentZoo import *
 
 
+def test__show_available_env():
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+
+    env_names = list(gym.envs.registry.env_specs.keys())
+    env_names.sort()
+    for env_name in env_names:
+        if env_name.find('Bullet') == -1:
+            continue
+        print(env_name)
+
+
 def test__env_quickly():
     env_names = [
         # Classical Control
-        "Pendulum-v0", "CartPole-v0",
+        "Pendulum-v0", "CartPole-v0","Acrobot-v1",
 
         # Box2D
         "LunarLander-v2", "LunarLanderContinuous-v2",
@@ -15,7 +27,12 @@ def test__env_quickly():
         'MultiWalker',  # Box2D MultiAgent
 
         # py-bullet (MuJoCo is not free)
-        "AntBulletEnv-v0", "MinitaurBulletEnv-v0",
+        "AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
+        "HumanoidBulletEnv-v0", "HumanoidFlagrunBulletEnv-v0", "HumanoidFlagrunHarderBulletEnv-v0",
+
+        "ReacherBulletEnv-v0", "PusherBulletEnv-v0", "StrikerBulletEnv-v0", "ThrowerBulletEnv-v0",
+
+        "MinitaurBulletEnv-v0",
     ]
 
     import pybullet_envs  # for python-bullet-gym
@@ -173,8 +190,9 @@ def test__log_prob():
 
 if __name__ == '__main__':
     # test__network()
-    test__log_prob()
+    # test__log_prob()
     # test__env_quickly()
+    test__show_available_env()
     # test__replay_buffer()
     # test__evaluate_agent()
     print('; AgentTest Terminal.')

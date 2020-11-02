@@ -11,6 +11,13 @@ ceta0 -a_std_log.abs(), net 2 ** 7, fix_term / 4, Minitaur
 
 beta2 -a_std_log.abs(), net 2 ** 7, fix_term / 2, Minitaur
 beta3 -a_std_log.abs(), net 2 ** 7, fix_term / 1, Minitaur
+
+ceta2 -a_std_log.abs(), net 2 ** 7, fix_term / 2, Ant
+ceta3 -a_std_log.abs(), net 2 ** 7, fix_term / 4, Ant
+
+
+beta1 -a_std_log.abs(), ReacherBulletEnv, reward_scale = 2 ** -2
+ceta1 -a_std_log.abs(), ReacherBulletEnv, reward_scale = 2 ** 0
 """
 
 
