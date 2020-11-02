@@ -2,8 +2,18 @@ from AgentRun import *
 from AgentNet import *
 from AgentZoo import *
 
+"""FixISAC
+beta3 a_std_log.clamp_max(0), BWHC (original)
 
-def modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise):
+Minitaur
+beta0 -a_std_log.abs(), net 2 ** 7, fix_term / 8, Minitaur
+
+beta2 fix_a_std_log
+beta3 fix_a_std_log, fix_term / 4
+"""
+
+
+def modify_log_prob(self, a_mean, a_std, a_std_log):
     # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
     # log_prob_noise = a_delta + a_std_log  # + 0.919  # self.constant_log_sqrt_2pi
     #
@@ -11,12 +21,15 @@ def modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise):
     # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
     # log_prob = log_prob_noise + fix_term
 
-    a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-    log_prob_noise = a_delta + -a_std_log.abs()  # + 0.919  # self.constant_log_sqrt_2pi
+    """pass Minitaur"""
+    noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
+    a_noise = a_mean + a_std * noise
+
+    a_delta = noise.pow(2) * 0.5
 
     a_noise_tanh = a_noise.tanh()
     fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-    log_prob = log_prob_noise + fix_term
+    log_prob = a_delta - a_std_log.abs() + fix_term  # todo
     return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
 
@@ -95,8 +108,8 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         """add noise to action, stochastic policy"""
         # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
         # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
+        # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        # a_noise = a_mean + a_std * noise
 
         # '''compute log_prob according to mean and std of action (stochastic policy)'''
         # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
@@ -105,7 +118,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # a_noise_tanh = a_noise.tanh()
         # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()
         # return a_noise_tanh, log_prob.sum(1, keepdim=True)
-        return modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise)
+        return modify_log_prob(self, a_mean, a_std, a_std_log)
 
     def get__a__std(self, state):
         s_ = self.enc_s(state)
@@ -124,8 +137,8 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         """add noise to action, stochastic policy"""
         # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
         # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
+        # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        # a_noise = a_mean + a_std * noise
 
         # '''compute log_prob according to mean and std of action (stochastic policy)'''
         # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
@@ -134,7 +147,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         # a_noise_tanh = a_noise.tanh()
         # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()
         # return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
-        res1, res2 = modify_log_prob(a_noise, a_mean, a_std, a_std_log, noise)
+        res1, res2 = modify_log_prob(self, a_mean, a_std, a_std_log)
         return a_mean.tanh(), a_std_log, res1, res2
 
     def get__q1_q2(self, s, a):  # critic
@@ -292,31 +305,17 @@ def run_continuous_action(gpu_id=None):
     # train_agent_mp(args)  # train_agent(**vars(args))
     # exit()
 
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "MinitaurBulletEnv-v0"
-    # args.break_step = int(4e6 * 4)  # (2e6) 4e6
-    # args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
-    # args.batch_size = 2 ** 8
-    # args.repeat_times = 2 ** 0
-    # args.max_memo = 2 ** 20
-    # args.net_dim = 2 ** 8
-    # args.eval_times2 = 2 ** 5  # for Recorder
-    # args.show_gap = 2 ** 9  # for Recorder
-    # args.init_for_training()
-    # train_agent_mp(args)  # train_agent(**vars(args))
-    # exit()
-
-    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
-    args.reward_scale = 2 ** -1  # (-200) -150 ~ 300 (334) # todo
-    args.break_step = int(4e6 * 8)  # (2e6) 4e6
-    args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
-    args.max_memo = int(2 ** 21)
-    args.batch_size = int(2 ** 8)
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "MinitaurBulletEnv-v0"
+    args.break_step = int(4e6 * 4)  # (2e6) 4e6
+    args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
+    args.batch_size = 2 ** 8
+    args.max_memo = 2 ** 20
     args.eval_times2 = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
+    args.show_gap = 2 ** 9  # for Recorder
     args.init_for_training()
-    train_agent_mp(args)  # train_offline_policy(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
 
