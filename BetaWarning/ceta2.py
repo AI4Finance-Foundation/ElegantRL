@@ -206,9 +206,9 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.act_anchor = InterSPG(state_dim, action_dim, net_dim).to(self.device)
-        self.act_anchor.eval()
-        self.act_anchor.load_state_dict(self.act.state_dict())
+        # self.act_anchor = InterSPG(state_dim, action_dim, net_dim).to(self.device)
+        # self.act_anchor.eval()
+        # self.act_anchor.load_state_dict(self.act.state_dict())
 
         self.criterion = nn.SmoothL1Loss()
 
@@ -232,9 +232,9 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         self.act.train()
 
-        lamb = 0
+        # lamb = 0
         actor_loss = critic_loss = None
-        a1_log_std = None
+        # a1_log_std = None
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size = int(batch_size * k)  # increase batch_size
@@ -295,7 +295,7 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
-        soft_target_update(self.act_anchor, self.act, tau=lamb if lamb > 0.1 else 0.0)
+        # soft_target_update(self.act_anchor, self.act, tau=lamb if lamb > 0.1 else 0.0)
         return alpha.item(), critic_loss.item() / 2
 
 

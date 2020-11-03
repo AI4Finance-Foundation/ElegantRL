@@ -15,11 +15,13 @@ beta2 BW
 beta3 LL
 
 FixISAC, cancel actor_term, layer_lr
-beta1 layer_lr=4e4, LLBW,
-ceta1 layer_lr=4e4, Ant,
-ceta2 layer_lr=4e4, Minitaur
+beta1 layer_lr=4e4, LLBW, ------------------------
+ceta4 layer_lr=4e4, Ant,
+ceta2 layer_lr=4e4, Minitaur,
 
-ceta4 Ant, layer_lr=2e4
+ceta3 layer_lr=4e4, 2e4 Ant,
+
+ceta1 layer_lr=1e4, Ant,
 """
 
 
