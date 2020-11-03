@@ -2,22 +2,24 @@ from AgentRun import *
 from AgentNet import *
 from AgentZoo import *
 
-"""FixISAC
-beta3 a_std_log.clamp_max(0), BWHC (original)
+"""
+PPO
+ceta2 ReacherBulletEnv, args.net_dim = 2 ** 7
+ceta3 ReacherBulletEnv, args.net_dim = 2 ** 8
 
-Minitaur
-beta0 -a_std_log.abs(), net 2 ** 7, fix_term / 8, Minitaur
-ceta0 -a_std_log.abs(), net 2 ** 7, fix_term / 4, Minitaur
+FixISAC, cancel actor_term
+ceta0 Minitaur  # - a_std_log.abs()
 
-beta2 -a_std_log.abs(), net 2 ** 7, fix_term / 2, Minitaur
-beta3 -a_std_log.abs(), net 2 ** 7, fix_term / 1, Minitaur
+beta0 Ant
+beta2 BW
+beta3 LL
 
-ceta2 -a_std_log.abs(), net 2 ** 7, fix_term / 2, Ant
-ceta3 -a_std_log.abs(), net 2 ** 7, fix_term / 4, Ant
+FixISAC, cancel actor_term, layer_lr
+beta1 layer_lr=4e4, LLBW,
+ceta1 layer_lr=4e4, Ant,
+ceta2 layer_lr=4e4, Minitaur
 
-
-beta1 -a_std_log.abs(), ReacherBulletEnv, reward_scale = 2 ** -2
-ceta1 -a_std_log.abs(), ReacherBulletEnv, reward_scale = 2 ** 0
+ceta4 Ant, layer_lr=2e4
 """
 
 
@@ -37,7 +39,8 @@ def modify_log_prob(self, a_mean, a_std, a_std_log):
 
     a_noise_tanh = a_noise.tanh()
     fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-    log_prob = a_delta - a_std_log.abs() + fix_term / 4  # todo
+    # log_prob = a_delta - a_std_log.abs() + fix_term / 4  # todo
+    log_prob = a_delta + a_std_log + fix_term
 
     # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
     # a_noise = a_mean + a_std * noise
@@ -255,7 +258,8 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             lamb = np.exp(-self.avg_loss_c ** 2)
 
             '''stochastic policy'''
-            a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
+            # a1_mean, a1_log_std, a_noise, log_prob = self.act.get__a__avg_std_noise_prob(state)  # policy gradient
+            a_noise, log_prob = self.act.get__a__log_prob(state)
 
             log_prob = log_prob.mean()
 
@@ -268,20 +272,21 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
                 alpha = self.log_alpha.exp()  # .detach()
 
-            '''action correction term'''
-            with torch.no_grad():
-                a2_mean, a2_log_std = self.act_anchor.get__a__std(state)
-            actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
+            # '''action correction term'''
+            # with torch.no_grad():
+            #     a2_mean, a2_log_std = self.act_anchor.get__a__std(state)
+            # actor_term = self.criterion(a1_mean, a2_mean) + self.criterion(a1_log_std, a2_log_std)
 
             if update_a / update_c > 1 / (2 - lamb):
-                united_loss = critic_loss + actor_term * (1 - lamb)
+                united_loss = critic_loss  # + actor_term * (1 - lamb)
             else:
                 update_a += 1  # auto TTUR
                 '''actor_loss'''
                 q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise)).mean()  # twin critics
                 actor_loss = -(q_eval_pg + log_prob * alpha)  # policy gradient
 
-                united_loss = critic_loss + actor_term * (1 - lamb) + actor_loss * lamb
+                # united_loss = critic_loss + actor_term * (1 - lamb) + actor_loss * lamb
+                united_loss = critic_loss + actor_loss * lamb
 
             self.act_optimizer.zero_grad()
             united_loss.backward()
@@ -289,7 +294,7 @@ class AgentFixInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
         soft_target_update(self.act_anchor, self.act, tau=lamb if lamb > 0.1 else 0.0)
-        return a1_log_std.mean().item(), critic_loss.item() / 2
+        return alpha.item(), critic_loss.item() / 2
 
 
 def run_continuous_action(gpu_id=None):
@@ -312,18 +317,18 @@ def run_continuous_action(gpu_id=None):
     # train_agent_mp(args)  # train_agent(**vars(args))
     # exit()
 
-    # import pybullet_envs  # for python-bullet-gym
-    # dir(pybullet_envs)
-    # args.env_name = "AntBulletEnv-v0"
-    # args.break_step = int(1e6 * 8)  # (8e5) 10e5
-    # args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
-    # args.batch_size = 2 ** 8
-    # args.max_memo = 2 ** 20
-    # args.eva_size = 2 ** 3  # for Recorder
-    # args.show_gap = 2 ** 8  # for Recorder
-    # args.init_for_training()
-    # train_agent_mp(args)  # train_agent(**vars(args))
-    # exit()
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "AntBulletEnv-v0"
+    args.break_step = int(1e6 * 8)  # (8e5) 10e5
+    args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
+    args.batch_size = 2 ** 8
+    args.max_memo = 2 ** 20
+    args.eva_size = 2 ** 3  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)

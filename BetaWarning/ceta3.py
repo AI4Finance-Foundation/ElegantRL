@@ -7,9 +7,15 @@ beta3 a_std_log.clamp_max(0), BWHC (original)
 
 Minitaur
 beta0 -a_std_log.abs(), net 2 ** 7, fix_term / 8, Minitaur
+ceta0 -a_std_log.abs(), net 2 ** 7, fix_term / 4, Minitaur
 
-beta2 fix_a_std_log
-beta3 fix_a_std_log, fix_term / 4
+beta2 -a_std_log.abs(), net 2 ** 7, fix_term / 2, reward_scale = 2 ** 0, Minitaur
+beta3 -a_std_log.abs(), net 2 ** 7, fix_term / 1, reward_scale = 2 ** 0, Minitaur
+
+beta1 -a_std_log.abs(), ReacherBulletEnv, reward_scale = 2 ** -2
+ceta1 -a_std_log.abs(), ReacherBulletEnv, reward_scale = 2 ** 0
+ceta4                   ReacherBulletEnv, reward_scale = 2 ** 0
+beta0 PPO,              ReacherBulletEnv, reward_scale = 2 ** 0
 """
 
 
@@ -304,18 +310,18 @@ def run_continuous_action(gpu_id=None):
     # train_agent_mp(args)  # train_agent(**vars(args))
     # exit()
 
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env_name = "AntBulletEnv-v0"
-    args.break_step = int(1e6 * 8)  # (8e5) 10e5
-    args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
-    args.batch_size = 2 ** 8
-    args.max_memo = 2 ** 20
-    args.eva_size = 2 ** 3  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
-    exit()
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env_name = "AntBulletEnv-v0"
+    # args.break_step = int(1e6 * 8)  # (8e5) 10e5
+    # args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
+    # args.batch_size = 2 ** 8
+    # args.max_memo = 2 ** 20
+    # args.eva_size = 2 ** 3  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # args.init_for_training()
+    # train_agent_mp(args)  # train_agent(**vars(args))
+    # exit()
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
@@ -331,4 +337,25 @@ def run_continuous_action(gpu_id=None):
     exit()
 
 
-run_continuous_action()
+def run_continuous_action_on(gpu_id=None):
+    rl_agent = AgentPPO
+    args = Arguments(rl_agent, gpu_id)
+    args.if_break_early = False
+    args.if_remove_history = True
+
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "ReacherBulletEnv-v0"
+    args.break_step = int(1e6 * 8)  # (2e4) 5e4
+    args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (302)
+    args.init_for_training()
+    train_agent(**vars(args))
+    exit()
+
+
+run_continuous_action_on()

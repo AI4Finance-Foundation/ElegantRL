@@ -29,7 +29,7 @@ def modify_log_prob(self, a_mean, a_std, a_std_log):
 
     a_noise_tanh = a_noise.tanh()
     fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-    log_prob = a_delta - a_std_log.abs() + fix_term / 4  # todo
+    log_prob = a_delta - a_std_log.abs() + fix_term  # todo
 
     # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
     # a_noise = a_mean + a_std * noise
