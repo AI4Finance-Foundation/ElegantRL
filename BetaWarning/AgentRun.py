@@ -962,6 +962,14 @@ def run_continuous_action(gpu_id=None):
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
+
+    args.env_name = "ReacherBulletEnv-v0"
+    args.break_step = int(5e4 * 8)  # (4e4) 5e4
+    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29) # todo wait update
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
     args.env_name = "AntBulletEnv-v0"
     args.break_step = int(1e6 * 8)  # (8e5) 10e5
     args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
@@ -981,7 +989,7 @@ def run_continuous_action(gpu_id=None):
     args.batch_size = 2 ** 8
     args.repeat_times = 2 ** 0
     args.max_memo = 2 ** 20
-    args.net_dim = 2 ** 8
+    args.net_dim = 2 ** 7  # !!
     args.eval_times2 = 2 ** 5  # for Recorder
     args.show_gap = 2 ** 9  # for Recorder
     args.init_for_training()

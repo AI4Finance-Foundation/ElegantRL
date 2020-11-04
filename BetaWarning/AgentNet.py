@@ -209,6 +209,100 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         return q1
 
 
+class InterSPG1101(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
+    def __init__(self, state_dim, action_dim, mid_dim):
+        self.c = 0
+
+        super().__init__()
+        self.log_std_min = -20
+        self.log_std_max = 2
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # encoder
+        self.enc_s = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+        )  # state
+        self.enc_a = nn.Sequential(
+            nn.Linear(action_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+        )  # action without nn.Tanh()
+
+        self.net = DenseNet(mid_dim)
+        net_out_dim = self.net.out_dim
+
+        # decoder
+        self.dec_a = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )  # action_mean
+        self.dec_d = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )  # action_std_log (d means standard dev.)
+        self.dec_q1 = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )  # q_value1 SharedTwinCritic
+        self.dec_q2 = nn.Sequential(
+            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )  # q_value2 SharedTwinCritic
+
+        layer_norm(self.dec_a[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+        layer_norm(self.dec_q1[-1], std=0.1)
+        layer_norm(self.dec_q2[-1], std=0.1)
+
+    def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
+        s_ = self.enc_s(s)
+        a_ = self.net(s_)
+        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without tensor.tanh()
+
+        if noise_std != 0.0:
+            a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+            a_std = a_std_log.exp()
+            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
+        return a_mean.tanh()
+
+    def get__a__log_prob_1101(self, state):  # actor
+        s_ = self.enc_s(state)
+        a_ = self.net(s_)
+        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
+        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+
+        """add noise to action, stochastic policy"""
+        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
+        # the above is not same as below, because it needs gradient
+        # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
+        # a_noise = a_mean + a_std * noise
+
+        # '''compute log_prob according to mean and std of action (stochastic policy)'''
+        # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+        # log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
+        #
+        # a_noise_tanh = a_noise.tanh()
+        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()
+
+        noise = torch.randn_like(a_mean, requires_grad=True)
+        a_noise = a_mean + a_std * noise
+
+        a_noise_tanh = a_noise.tanh()
+        fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+        # log_prob = a_delta - a_std_log.abs() + fix_term # todo Minitaur 18 # / 8,  Minitaur 24
+        log_prob = noise.pow(2) * 0.5 + a_std_log + fix_term
+        return a_noise_tanh, log_prob.sum(1, keepdim=True)
+
+    def get__q1_q2(self, s, a):  # critic
+        s_ = self.enc_s(s)
+        a_ = self.enc_a(a)
+        q_ = self.net(s_ + a_)
+        q1 = self.dec_q1(q_)
+        q2 = self.dec_q2(q_)
+        return q1, q2
+
+
 class InterGAE(nn.Module):  # 2020-10-10
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()

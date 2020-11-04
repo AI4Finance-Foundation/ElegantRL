@@ -10,7 +10,7 @@ from AgentNet import Actor, Critic, CriticTwin  # DDPG, TD3
 from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
-from AgentNet import InterDPG, InterSPG, InterGAE  # share params between Actor and Critic
+from AgentNet import InterDPG, InterSPG, InterGAE, InterSPG1101  # share params between Actor and Critic
 
 """ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 reference
@@ -770,6 +770,108 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
         soft_target_update(self.act_anchor, self.act, tau=lamb if lamb > 0.1 else 0.0)
         return actor_loss.item(), critic_loss.item() / 2
+
+
+class AgentInterSAC1101(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
+    def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentBasicAC, self).__init__()
+        self.learning_rate = 4e-4
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        '''network'''
+        self.act = InterSPG1101(state_dim, action_dim, net_dim).to(self.device)
+        self.act.train()
+        # self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.act_optimizer = torch.optim.Adam(
+            [{'params': self.act.enc_s.parameters(), 'lr': self.learning_rate / 2},  # more stable
+             {'params': self.act.enc_a.parameters(), },
+             {'params': self.act.net.parameters(), 'lr': self.learning_rate / 2},
+             {'params': self.act.dec_a.parameters(), },
+             {'params': self.act.dec_d.parameters(), },
+             {'params': self.act.dec_q1.parameters(), },
+             {'params': self.act.dec_q2.parameters(), }, ]
+            , lr=self.learning_rate)
+
+        self.act_target = InterSPG1101(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.eval()
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+
+        '''training record'''
+        self.state = None  # env.reset()
+        self.reward_sum = 0.0
+        self.step = 0
+        self.update_counter = 0
+
+        '''extension: auto-alpha for maximum entropy'''
+        self.target_entropy = np.log(action_dim) - action_dim * np.log(np.sqrt(2 * np.pi))  # todo
+        self.log_alpha = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
+        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+
+        '''extension: reliable lambda for auto-learning-rate'''
+        self.avg_loss_c = (-np.log(0.5)) ** 0.5
+
+        '''constant'''
+        self.explore_noise = True  # stochastic policy choose noise_std by itself.
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        self.act.train()
+
+        log_prob = critic_loss = None  # just for print
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size = int(batch_size * k)  # increase batch_size
+        train_step = int(max_step * k)  # increase training_step
+
+        alpha = self.log_alpha.exp().detach()  # auto temperature parameter
+
+        update_a = 0
+        for update_c in range(1, train_step):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size, self.device)
+
+                next_a_noise, next_log_prob = self.act_target.get__a__log_prob_1101(next_s)
+                next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
+                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # # auto temperature parameter
+
+            '''critic_loss'''
+            q1_value, q2_value = self.act.get__q1_q2(state, action)  # CriticTwin
+            critic_loss = self.criterion(q1_value, q_target) + self.criterion(q2_value, q_target)
+
+            '''auto reliable lambda'''
+            self.avg_loss_c = 0.995 * self.avg_loss_c + 0.005 * critic_loss.item() / 2  # soft update, twin critics
+            lamb = np.exp(-self.avg_loss_c ** 2)
+
+            '''stochastic policy'''
+            a_noise, log_prob = self.act.get__a__log_prob_1101(state)
+            log_prob = log_prob.mean()
+
+            '''auto temperature parameter: alpha'''
+            alpha_loss = lamb * self.log_alpha * (log_prob - self.target_entropy).detach()  # stable
+            self.alpha_optimizer.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optimizer.step()
+            with torch.no_grad():
+                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
+                alpha = self.log_alpha.exp()  # .detach()
+
+            if update_a / update_c > 1 / (2 - lamb):
+                united_loss = critic_loss
+            else:
+                update_a += 1  # auto TTUR
+                '''actor_loss'''
+                q_eval_pg = torch.min(*self.act_target.get__q1_q2(state, a_noise)).mean()  # twin critics
+                actor_loss = -(q_eval_pg + log_prob * alpha)  # policy gradient
+
+                united_loss = critic_loss + actor_loss * lamb
+
+            self.act_optimizer.zero_grad()
+            united_loss.backward()
+            self.act_optimizer.step()
+
+            soft_target_update(self.act_target, self.act, tau=2 ** -8)
+        return log_prob.item(), critic_loss.item() / 2
 
 
 class AgentPPO:

@@ -18,7 +18,7 @@ def test__show_available_env():
 def test__env_quickly():
     env_names = [
         # Classical Control
-        "Pendulum-v0", "CartPole-v0","Acrobot-v1",
+        "Pendulum-v0", "CartPole-v0", "Acrobot-v1",
 
         # Box2D
         "LunarLander-v2", "LunarLanderContinuous-v2",
