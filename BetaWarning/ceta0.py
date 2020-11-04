@@ -30,18 +30,6 @@ def modify_log_prob(self, a_mean, a_std, a_std_log):
     a_noise_tanh = a_noise.tanh()
     fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
     log_prob = a_delta - a_std_log.abs() + fix_term  # todo
-
-    # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-    # a_noise = a_mean + a_std * noise
-    #
-    # a_delta = noise.pow(2) * 0.5
-    #
-    # point = ((6 - a_mean) / noise).log()
-    # fix_a_std_log = point - (a_std_log - point).abs()
-    #
-    # a_noise_tanh = a_noise.tanh()
-    # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-    # log_prob = a_delta + fix_a_std_log + fix_term
     return a_noise_tanh, log_prob.sum(1, keepdim=True)
 
 

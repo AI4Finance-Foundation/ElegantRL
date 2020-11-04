@@ -12,6 +12,12 @@ ceta0 Minitaur  # - a_std_log.abs(),              , reward_scale = 2 ** 5
 beta0 Minitaur  # - a_std_log.abs(), # + fix_term , reward_scale = 2 ** 5
 beta2 Minitaur  # - a_std_log.abs(), # + fix_term , reward_scale = 2 ** 2
 beta3 Minitaur  # - a_std_log.abs(), # + fix_term , reward_scale = 2 ** 0
+
+ceta4 Minitaur  # fix, reward_scale = 2 ** 5
+ceta2 Minitaur  # fix, reward_scale = 2 ** 2
+ceta3 Minitaur  # fix, reward_scale = 2 ** 0
+
+beta1 # fix, LLBW
 """
 
 
