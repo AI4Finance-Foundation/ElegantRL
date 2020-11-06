@@ -116,7 +116,7 @@ class InterSPG1101(nn.Module):  # class AgentIntelAC for SAC (SPG means stochast
 class AgentInterSAC1101(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def __init__(self, state_dim, action_dim, net_dim):
         super(AgentBasicAC, self).__init__()
-        self.learning_rate = 4e-4
+        self.learning_rate = 2e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
@@ -124,14 +124,14 @@ class AgentInterSAC1101(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         self.act.train()
         # self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.act_optimizer = torch.optim.Adam(
-            [{'params': self.act.enc_s.parameters(), 'lr': self.learning_rate / 2},  # more stable
+            [{'params': self.act.enc_s.parameters(), 'lr': self.learning_rate},  # more stable
              {'params': self.act.enc_a.parameters(), },
-             {'params': self.act.net.parameters(), 'lr': self.learning_rate / 2},
+             {'params': self.act.net.parameters(), 'lr': self.learning_rate},
              {'params': self.act.dec_a.parameters(), },
              {'params': self.act.dec_d.parameters(), },
              {'params': self.act.dec_q1.parameters(), },
              {'params': self.act.dec_q2.parameters(), }, ]
-            , lr=self.learning_rate)
+            , lr=self.learning_rate * 2)
 
         self.act_target = InterSPG1101(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
@@ -252,9 +252,9 @@ def run_continuous_action(gpu_id=None):
     dir(pybullet_envs)
     args.env_name = "MinitaurBulletEnv-v0"
     args.break_step = int(4e6 * 4)  # (2e6) 4e6
-    args.reward_scale = 2 ** 0  # (-2) 0 ~ 16 (20)
+    args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
     args.batch_size = 2 ** 8
-    args.max_memo = 2 ** 20
+    args.max_memo = 2 ** 16  # 20
     args.eval_times2 = 2 ** 5  # for Recorder
     args.show_gap = 2 ** 9  # for Recorder
     args.init_for_training()
