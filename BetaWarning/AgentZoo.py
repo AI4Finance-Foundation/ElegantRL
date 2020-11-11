@@ -191,9 +191,11 @@ class AgentBasicAC:  # DEMO (basic Actor-Critic Methods, it is a DDPG without OU
             self.step += 1
 
             '''update replay buffer'''
-            reward_ = reward * reward_scale
-            mask = 0.0 if done else gamma
-            buffer.append_memo((reward_, mask, self.state, action, next_state))
+            # reward_ = reward * reward_scale
+            # mask = 0.0 if done else gamma
+            # buffer.append_memo((reward_, mask, self.state, action, next_state))
+            reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
+            buffer.append_memo((reward_mask, self.state, action, next_state))
 
             self.state = next_state
             if done:
@@ -815,7 +817,8 @@ class AgentInterSAC1101(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         '''constant'''
         self.explore_noise = True  # stochastic policy choose noise_std by itself.
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):  # 1111
+        buffer.update_pointer_before_sample()
         self.act.train()
 
         log_prob = critic_loss = None  # just for print
@@ -829,7 +832,7 @@ class AgentInterSAC1101(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
         update_a = 0
         for update_c in range(1, train_step):
             with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size, self.device)
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size)
 
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob_1101(next_s)
                 next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
@@ -1217,6 +1220,8 @@ class AgentOffPPO:
         return rewards, steps
 
     def update_policy(self, buffer, _max_step, batch_size, repeat_times):
+        buffer.update_pointer_before_sample()
+
         self.act.train()
         self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -1228,27 +1233,17 @@ class AgentOffPPO:
 
         '''the batch for training'''
         max_memo = buffer.now_len
-        all_reward, all_mask, all_state, all_action, all_noise = [
-            torch.tensor(ary, device=self.device)
-            for ary in (buffer.memories[:, 0:1],
-                        buffer.memories[:, 1:2],
-                        buffer.memories[:, 2:buffer.state_idx],
-                        buffer.memories[:, buffer.state_idx:buffer.action_idx],
-                        buffer.memories[:, buffer.action_idx:],)
-        ]
+
+        all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample(self.device)
 
         b_size = 2 ** 10
         with torch.no_grad():
             a_log_std = self.act.net__std_log
 
-            all__new_v = torch.cat([
-                self.cri(all_state[i:i + b_size])
-                for i in range(0, all_state.size()[0], b_size)
-            ], dim=0)
-            all_log_prob = torch.cat([
-                -(all_noise[i:i + b_size].pow(2) + a_log_std).sum(1)
-                for i in range(0, all_state.size()[0], b_size)
-            ], dim=0)
+            all__new_v = torch.cat([self.cri(all_state[i:i + b_size])
+                                    for i in range(0, all_state.size()[0], b_size)], dim=0)
+            all_log_prob = torch.cat([-(all_noise[i:i + b_size].pow(2) + a_log_std).sum(1)
+                                      for i in range(0, all_state.size()[0], b_size)], dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
@@ -1271,6 +1266,7 @@ class AgentOffPPO:
 
         '''mini batch sample'''
         sample_times = int(repeat_times * max_memo / batch_size)
+
         for _ in range(sample_times):
             '''random sample'''
             indices = rd.randint(max_memo, size=batch_size)
@@ -1311,7 +1307,8 @@ class AgentOffPPO:
 
         self.act.eval()
         self.cri.eval()
-        # return actor_loss.item(), critic_loss.item()# todo
+        buffer.empty_memories_before_explore()
+        # return actor_loss.item(), critic_loss.item()
         return self.act.net__std_log.mean().item(), critic_loss.item()  # todo
 
     def save_or_load_model(self, cwd, if_save):  # 2020-05-20
@@ -1968,7 +1965,7 @@ class AgentEBM(AgentBasicAC):  # Energy Based Model (Soft Q-learning) I'm not su
 """utils"""
 
 
-def initial_exploration(env, memo, max_step, if_discrete, reward_scale, gamma, action_dim):
+def initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
     state = env.reset()
 
     rewards = list()
@@ -1997,7 +1994,7 @@ def initial_exploration(env, memo, max_step, if_discrete, reward_scale, gamma, a
 
         adjust_reward = reward * reward_scale
         mask = 0.0 if done else gamma
-        memo.append_memo((adjust_reward, mask, state, action, next_state))
+        buffer.append_memo((adjust_reward, mask, state, action, next_state))
 
         state = next_state
         if done:
@@ -2009,7 +2006,7 @@ def initial_exploration(env, memo, max_step, if_discrete, reward_scale, gamma, a
             reward_sum = 0.0
             step = 1
 
-    memo.init_before_sample()
+    buffer.update_pointer_before_sample()
     return rewards, steps
 
 
@@ -2061,7 +2058,7 @@ class OrnsteinUhlenbeckProcess:  # I hate OU Process because there are too much 
         return x
 
 
-'''experiment replay buffer'''
+'''experiment replay buffer'''  # todo: plan to remove BufferXX from AgentZoo.py
 
 
 def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-10-10
@@ -2123,16 +2120,20 @@ class BufferList:
         return tensors
 
 
-class BufferArray:  # 2020-05-20
-    def __init__(self, memo_max_len, state_dim, action_dim, ):
+class BufferArray:  # 2020-11-11
+    def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
         state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
 
-        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
-        self.memories = np.empty((memo_max_len, memo_dim), dtype=np.float32)
+        if if_ppo:  # for Offline PPO
+            memo_dim = 1 + 1 + state_dim + action_dim + action_dim
+        else:
+            memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+
+        self.memories = np.empty((max_len, memo_dim), dtype=np.float32)
 
         self.next_idx = 0
         self.is_full = False
-        self.max_len = memo_max_len
+        self.max_len = max_len
         self.now_len = self.max_len if self.is_full else self.next_idx
 
         self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
@@ -2162,9 +2163,6 @@ class BufferArray:  # 2020-05-20
             self.memories[self.next_idx:next_idx] = memo_array
         self.next_idx = next_idx
 
-    def init_before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
     def random_sample(self, batch_size, device):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -2186,94 +2184,40 @@ class BufferArray:  # 2020-05-20
         )
         return tensors
 
-    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        max_sample_size = 2 ** 14
-        if self.now_len > max_sample_size:
-            indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
-            memory_state = self.memories[indices, 2:self.state_idx]
-        else:
-            memory_state = self.memories[:, 2:self.state_idx]
-        print_norm(memory_state, neg_avg, div_std)
-
-
-class BufferArray2:  # 2020-10-20
-    def __init__(self, max_len, state_dim, action_dim, ):
-        memo_dim = 1 + 1 + state_dim + action_dim + action_dim
-        '''reward, mask, state, action, action_noise'''
-
-        self.max_len = max_len
-        self.memories = np.empty((max_len, memo_dim), dtype=np.float32)
-
-        self.next_idx = 0
-        self.is_full = False
-        self.now_len = 0
-
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
-        self.action_idx = self.state_idx + action_dim
-
-    def append_memo(self, memo_tuple):
-        # memo_tuple == (reward, mask, state, action, action_noise)
-        self.memories[self.next_idx] = np.hstack(memo_tuple)
-        self.next_idx = self.next_idx + 1
-        if self.next_idx >= self.max_len:
-            self.is_full = True
-            self.next_idx = 0
-
-    def extend_memo(self, memo_array):  # 2020-07-07
-        # assert isinstance(memo_array, np.ndarray)
-        size = memo_array.shape[0]
-        next_idx = self.next_idx + size
-        if next_idx < self.max_len:
-            self.memories[self.next_idx:next_idx] = memo_array
-        if next_idx >= self.max_len:
-            if next_idx > self.max_len:
-                self.memories[self.next_idx:self.max_len] = memo_array[:self.max_len - self.next_idx]
-            self.is_full = True
-            next_idx = next_idx - self.max_len
-            self.memories[0:next_idx] = memo_array[-next_idx:]
-        else:
-            self.memories[self.next_idx:next_idx] = memo_array
-        self.next_idx = next_idx
-
-    def init_before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-    def reset_memories(self):
-        self.next_idx = 0
-        self.is_full = False
-        self.now_len = 0
-
-    def random_sample(self, batch_size, device):
-        indices = rd.randint(self.now_len, size=batch_size)
-        memory = self.memories[indices]
-        if device:
-            memory = torch.tensor(memory, device=device)
-
-        '''convert array into torch.tensor'''
+    def all_sample(self, device):
         tensors = (
-            memory[:, 0:1],  # rewards
-            memory[:, 1:2],  # masks, mask == (1-float(done)) * gamma
-            memory[:, 2:self.state_idx],  # states
-            memory[:, self.state_idx:self.action_idx],  # actions
-            memory[:, self.action_idx:],  # action_noise
+            self.memories[:, 0:1],  # rewards
+            self.memories[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            self.memories[:, 2:self.state_idx],  # states
+            self.memories[:, self.state_idx:self.action_idx],  # actions
+            self.memories[:, self.action_idx:],  # next_states
         )
+        if device:
+            tensors = [torch.tensor(ary, device=device) for ary in tensors]
         return tensors
 
+    def update_pointer_before_sample(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+    def empty_memories_before_explore(self):
+        self.next_idx = 0
+        self.is_full = False
+        self.now_len = 0
+
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        max_sample_size = 2 ** 14
-        if self.now_len > max_sample_size:
-            indices = rd.randint(self.now_len, size=min(self.now_len, max_sample_size))
-            memory_state = self.memories[indices, 2:self.state_idx]
-        else:
-            memory_state = self.memories[:, 2:self.state_idx]
+        memory_state = self.memories[:, 2:self.state_idx]
         print_norm(memory_state, neg_avg, div_std)
 
 
 class BufferArrayGPU:  # 2020-07-07
-    def __init__(self, memo_max_len, state_dim, action_dim, ):
+    def __init__(self, memo_max_len, state_dim, action_dim, if_ppo=False):
         state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
 
-        memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+        if if_ppo:  # for Offline PPO
+            memo_dim = 1 + 1 + state_dim + action_dim + action_dim
+        else:
+            memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+
         assert torch.cuda.is_available()
         self.device = torch.device("cuda")
         self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
@@ -2314,27 +2258,35 @@ class BufferArrayGPU:  # 2020-07-07
             self.memories[self.next_idx:next_idx] = memo_tensor
         self.next_idx = next_idx
 
-    def init_before_sample(self):
+    def update_pointer_before_sample(self):
         self.now_len = self.max_len if self.is_full else self.next_idx
 
-    def random_sample(self, batch_size, _device):  # _device should remove
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def empty_memories_before_explore(self):
+        self.next_idx = 0
+        self.is_full = False
+        self.now_len = 0
 
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
+    def random_sample(self, batch_size):  # _device should remove
         indices = rd.randint(self.now_len, size=batch_size)
         memory = self.memories[indices]
-        # if device:
-        #     memory = torch.tensor(memory, device=device)
 
         '''convert array into torch.tensor'''
         tensors = (
             memory[:, 0:1],  # rewards
             memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
-            memory[:, 2:self.state_idx],  # states
+            memory[:, 2:self.state_idx],  # state
             memory[:, self.state_idx:self.action_idx],  # actions
-            memory[:, self.action_idx:],  # next_states
+            memory[:, self.action_idx:],  # next_states or actions_noise
+        )
+        return tensors
+
+    def all_sample(self, _device):  # _device should remove
+        tensors = (
+            self.memories[:, 0:1],  # rewards
+            self.memories[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            self.memories[:, 2:self.state_idx],  # state
+            self.memories[:, self.state_idx:self.action_idx],  # actions
+            self.memories[:, self.action_idx:],  # next_states or actions_noise
         )
         return tensors
 
@@ -2412,7 +2364,7 @@ class BufferTupleOnline:
     def __len__(self):
         return len(self.storage_list)
 
-    def init_before_sample(self):
+    def update_pointer_before_sample(self):
         pass  # compatibility
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential

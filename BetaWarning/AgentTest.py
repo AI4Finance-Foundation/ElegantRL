@@ -69,7 +69,7 @@ def test__replay_buffer():
 
     buffer_ary = buffer_online.convert_to_rmsas()
     buffer_offline.extend_memo(buffer_ary)
-    buffer_offline.init_before_sample()
+    buffer_offline.update_pointer_before_sample()
     print('Memory length of buffer_offline:', buffer_offline.now_len)
 
 
@@ -188,6 +188,18 @@ def test__log_prob():
     show_tensor(fix_term)
 
 
+def test__run_train_agent():
+    args = Arguments(AgentInterSAC1101, gpu_id=1)
+
+    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
+    args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
+    args.init_for_training()
+    train_agent(**vars(args))  # Train agent using single process. Recommend run on PC.
+    # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
+    exit()
+
+
 if __name__ == '__main__':
     # test__network()
     # test__log_prob()
@@ -195,4 +207,5 @@ if __name__ == '__main__':
     test__show_available_env()
     # test__replay_buffer()
     # test__evaluate_agent()
+    # test__run_train_agent()
     print('; AgentTest Terminal.')
