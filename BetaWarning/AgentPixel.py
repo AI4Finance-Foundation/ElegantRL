@@ -1013,7 +1013,69 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
 """run"""
 
 
-def fix_car_racing_v0(env):  # plan todo CarRacing-v0
+def fix_car_racing_v0_1111(env):  # plan todo CarRacing-v0
+    env.old_step = env.step
+    """
+    comment 'car_racing.py' line 233-234: print('Track generation ...
+    comment 'car_racing.py' line 308-309: print("retry to generate track ...
+    """
+
+    def decorator_step(env_step):
+        def new_env_step(action):
+            try:
+                action = action.copy()
+                action[1:] = (action[1:] + 1) / 2  # fix action_space.low
+                state3, reward, done, info = env_step(action)
+                state = state3[:, :, 1]  # show green
+                # state[86:, :24] = 0  # shield speed
+                state[86:, 24:36] = state3[86:, 24:36, 2]  # show red
+                state[86:, 72:] = state3[86:, 72:, 0]  # show blue
+
+                if state[60:80, 38:58].mean() > 192:  # fix CarRacing-v0 bug: outside
+                    reward -= 4.0
+                    done = True
+                state = state.astype(np.float32) / 128.0 - 1
+
+                state2 = np.stack((env.prev_state, state)).flatten()
+                env.prev_state = state
+            except Exception as error:
+                print(f"| CarRacing-v0 Error b'stack underflow'?: {error}")
+                state2 = np.stack((env.prev_state, env.prev_state)).flatten()
+                # state = np.zeros(96 * 96, dtype=np.float32)
+                reward = 0
+                done = True
+                info = None
+            # env.render()
+            return state2, reward, done, info
+            # return state.flatten(), reward, done, info
+
+        return new_env_step
+
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            env_reset()
+            old_action = np.array((0, 1.0, 0.0), dtype=np.float32)
+            for _ in range(8):
+                env.old_step(old_action)
+                # env.render()
+            env.prev_state = env.old_step(old_action)[0][:, :, 1]
+            new_action = np.array((0, 1.0, -1.0), dtype=np.float32)
+            state2 = env.step(new_action)[0]
+            return state2
+            # state = env.old_step(old_action)[0][:, :, 0]
+            # env.prev_road = state[56:64, 32:64].sum().astype(np.int)  # fix CarRacing-v0 bug: env.prev_road
+            # state = state.astype(np.float32) / 128.0 - 1
+            # return state.flatten()
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
+    return env
+
+
+def fix_car_racing_v0_1010(env):  # plan todo CarRacing-v0
     env.old_step = env.step
     """
     comment 'car_racing.py' line 233-234: print('Track generation ...
@@ -1167,7 +1229,7 @@ def run__car_racing(gpu_id=None):
     print('pixel-level state')
 
     """run online policy"""
-    args = Arguments(rl_agent=AgentGAE, gpu_id=gpu_id)
+    args = Arguments(rl_agent=AgentOffPPO, gpu_id=gpu_id)
     args.env_name = "CarRacing-v0"
     args.random_seed = 1943
     args.break_step = int(2e6 * 1)
@@ -1183,8 +1245,8 @@ def run__car_racing(gpu_id=None):
     args.reward_scale = 2 ** -1
     args.show_gap = 2 ** 8  # for Recorder
     args.init_for_training()
-    train_agent(**vars(args))
-    # build_for_mp(args)
+    # train_agent(**vars(args))
+    train_agent_mp(args)
 
     # """run online policy""" # fail
     # args = Arguments(rl_agent=AgentGAE, gpu_id=gpu_id)

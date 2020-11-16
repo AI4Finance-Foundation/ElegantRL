@@ -20,7 +20,7 @@ https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 
 
 class Arguments:  # default working setting and hyper-parameters
-    def __init__(self, rl_agent, env_name, gpu_id=None):
+    def __init__(self, rl_agent=None, env_name=None, gpu_id=None):
         self.rl_agent = rl_agent
         self.env_name = env_name
         self.gpu_id = gpu_id
@@ -81,7 +81,7 @@ def train_agent(  # 2020-10-20
 
     if bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentInterGAE', 'AgentDiscreteGAE'}):
         buffer = BufferTupleOnline(max_memo)
-    elif bool(rl_agent.__name__ in {'AgentOffPPO', }):
+    elif bool(rl_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'}):
         buffer = BufferArray(max_memo + max_step, state_dim, action_dim, if_ppo=True)
     else:
         buffer = BufferArray(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
@@ -152,7 +152,7 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
 
     '''build replay buffer'''
     total_step = 0
-    if_ppo = bool(class_agent.__name__ in {'AgentOffPPO', })
+    if_ppo = bool(class_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'})
     if if_ppo:
         buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo)  # experiment replay buffer
     else:
@@ -231,7 +231,7 @@ def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by intera
     agent.device = torch.device("cpu")
     agent.state = env.reset()
 
-    if bool(rl_agent.__name__ in {'AgentOffPPO', }):
+    if bool(rl_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'}):
         buffer = BufferArray(max_memo + max_step, state_dim, action_dim, if_ppo=True)
     else:
         buffer = BufferArray(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
@@ -451,13 +451,13 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
         env.spec.reward_threshold = -200.0  # target_reward
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
     elif env_name == 'CarRacing-v0':
-        from AgentPixel import fix_car_racing_v0
+        from AgentPixel import fix_car_racing_v0_1111
         env = gym.make(env_name)
-        env = fix_car_racing_v0(env)
+        env = fix_car_racing_v0_1111(env)
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
         assert len(state_dim)
         # state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
-        state_dim = (1, state_dim[0], state_dim[1])  # one frame (96, 96)
+        state_dim = (2, state_dim[0], state_dim[1])  # one frame (96, 96)
     elif env_name == 'MultiWalker':
         from multiwalker_base import MultiWalkerEnv, multi_to_single_walker_decorator
         env = MultiWalkerEnv()
@@ -1080,11 +1080,12 @@ def run_continuous_action(gpu_id=None):
     args.env_name = "MinitaurBulletEnv-v0"
     args.break_step = int(4e6 * 4)  # (2e6) 4e6
     args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
-    args.batch_size = 2 ** 8
-    args.repeat_times = 2 ** 0
+    args.batch_size = (2 ** 8)
+    args.net_dim = int(2 ** 8)
+    args.max_step = 2 ** 11  # todo
     args.max_memo = 2 ** 20
-    args.net_dim = 2 ** 7  # !!
-    args.eval_times2 = 2 ** 5  # for Recorder
+    args.eval_times2 = 3  # for Recorder
+    args.eval_times2 = 9  # for Recorder
     args.show_gap = 2 ** 9  # for Recorder
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
