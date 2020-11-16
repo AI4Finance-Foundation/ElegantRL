@@ -3,11 +3,18 @@ from AgentNet import *
 from AgentZoo import *
 
 """
-ISAC1101 Minitaur
-beta0 args.batch_size = (2 ** 8), args.net_dim = int(2 ** 8)
-ceta0 args.batch_size = (2 ** 9), args.net_dim = int(2 ** 8)
-ceta2 args.batch_size = (2 ** 9), args.net_dim = int(2 ** 7 * 1.5)
-ceta4 args.batch_size = (2 ** 8), args.net_dim = int(2 ** 7 * 1.5)
+beta3 OtherPPO CarRacing
+
+
+InterOffPPO BiWalker
+ceta4 all_old_value_std = 1.0
+beta1 ceta4 Inter
+beta2 beta1 InterLamb
+ceta1 beta2 InterLamb a__log_std
+
+OffPPO
+ceta3 Minitaur
+ceta2 BiWalker
 """
 
 
@@ -74,4 +81,26 @@ def run_continuous_action(gpu_id=None):
     # exit()
 
 
-run_continuous_action()
+def run_continuous_action_off_ppo(gpu_id=None):
+    args = Arguments()
+    args.rl_agent = AgentOffPPO
+    args.if_break_early = False
+    args.if_remove_history = True
+
+    args.random_seed += 123
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
+    args.break_step = int(5e5 * 8)  # (PPO 3e5) 5e5
+    args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 11  # todo
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
+
+run_continuous_action_off_ppo()

@@ -291,7 +291,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             is_saved = recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
-            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap)
+            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap, cwd)
             q_o_eva.put(is_solved)  # q_o_eva n.
 
             '''update actor'''
@@ -679,7 +679,7 @@ class Recorder:  # 2020-10-12
         torch.save(act.state_dict(), act_save_path)
         print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
 
-    def check_is_solved(self, target_reward, agent_id, show_gap):
+    def check_is_solved(self, target_reward, agent_id, show_gap, cwd):  # todo cwd for update jpg
         if self.eva_r_max > target_reward:
             self.is_solved = True
             if self.used_time is None:
@@ -702,6 +702,7 @@ class Recorder:  # 2020-10-12
             print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
                   f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
                   f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
+            self.save_npy__draw_plot(cwd)  # todo cwd for update jpg
         return self.is_solved
 
     def check__if_solved(self, target_reward, agent_id, show_gap):
@@ -1137,7 +1138,7 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(1e5 * 8)
+    args.break_step = int(8e4 * 8)
     args.reward_scale = 2 ** -1
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11  # 12
