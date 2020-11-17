@@ -1017,7 +1017,7 @@ def run__discrete_action(gpu_id=None):
     train_agent(**vars(args))
 
 
-def run_continuous_action(gpu_id=None):
+def run_continuous_action__offline_policy(gpu_id=None):
     import AgentZoo as Zoo
     """offline policy"""
     rl_agent = Zoo.AgentModSAC
@@ -1104,6 +1104,9 @@ def run_continuous_action(gpu_id=None):
     train_agent_mp(args)  # train_offline_policy(**vars(args))
     exit()
 
+
+def run_continuous_action__online_policy(gpu_id=None):
+    import AgentZoo as Zoo
     """online policy"""
     args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
     assert args.rl_agent in {
@@ -1138,10 +1141,10 @@ def run_continuous_action(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(8e4 * 8)
-    args.reward_scale = 2 ** -1
+    args.break_step = int(3e5 * 8)
+    args.reward_scale = 2 ** -3
     args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11  # 12
+    args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9
     args.repeat_times = 2 ** 3  # 4
     args.init_for_training()
@@ -1150,7 +1153,7 @@ def run_continuous_action(gpu_id=None):
 
     args.env_name = "BipedalWalker-v3"
     args.break_step = int(3e6 * 4)
-    args.reward_scale = 2 ** 0
+    args.reward_scale = 2 ** -1
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11  # 12
     args.batch_size = 2 ** 9
