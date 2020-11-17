@@ -16,20 +16,15 @@ I am still learning English. Pardon. More details see ↓ (write in Chinese).
 我英文差，还望包涵。更多细节，详见下方。↓
 
 知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
-我在2020-10-26建了QQ群**1163106809** “深度强化学习ElegantRL”，群头像如下。
-这个群可以讨论「深度强化学习」，甚至可以用来汇报Github代码的bug。
-预计人会很少，正因如此，我可以尽可能地回答群成员的问题。
-
-![ElegantRL群头像](https://github.com/Yonv1943/ElegantRL/blob/master/Result/ElegantRL.jpg)
 
 # Show results
 
 You can see these gif/png ↓ in file "Result".
 
 LunarLanderContinuous-v2:
-![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/Result/LunarLanderTwinDelay3.gif)
+![LunarLanderTwinDelay3](https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/LunarLanderTwinDelay3.gif)
 BipedalWalkerHardcore-v2: 
-![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
+![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward.
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (A Mainland China Website)
@@ -43,8 +38,8 @@ For example, the training log is the following two figure.
 Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and DeepSAC. There are more stable than other algorithm.
 
 <p float="left">
-  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
-  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
+  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
+  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
 </p>
 
 In the above two figure. 
@@ -54,15 +49,12 @@ In the above two figure.
 + Green curve: 'loss' value of actor (mean of Q value estimate)
 + Green area: loss value of critic
 
-BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward. I am happy that InterSAC train quite fast and good. You can see more training log in file "Result".
-- InterSAC (2020-08-08) train 1e5s (28 hours) in 2.6e6 steps, and get 310 reward. 
-- InterSAC (2020-10-10) train 9e4s (25 hours) in 1.9e6 steps, and get 313 reward.
+BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward. 
+I am happy that InterSAC train 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
+![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
-<p float="left">
-    <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png" width = "400"  alt="InterSAC_BipedalWalkerHardcore_310"/>
-    <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_313/plot_step_time_maxR_3102410_90060_313.828.png" width = "400"  alt="InterSAC_BipedalWalkerHardcore_313"/>
-</p>
 
+You can see more training log in file "Result". 
 
 The following Readme in English is written for Necip and other people who can't read Chinese.
 
@@ -110,7 +102,7 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 
 ### Model-free DRL Algorithms
 
-![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
+![model-free_DRL_2020](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/model-free_DRL_2020.png)
 You can find above figure in `./Result/model-free_DRL_2020.png` or `*.pdf`.
 More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 + [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
@@ -233,8 +225,32 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + Integrated Anchor load target network
 + pre training and hard update before loop
 + print_state_norm(self, old_mean=None, old_std=None)
-+ ! tips for critic_loss explosion
++ ! tips for critic_loss explosion, SmoothL1 --> MSE, meanwhile reward_scale / 8
 + anchor lamb
+
+####  ElegantRL 2020.10.10 (Casual ChuMeng)
+ElegantRL 2020.08 (NewYork Necip), where Necip is a codename for version ElegantRL 2020.08
+It is similar to Ubuntu 18.04 (Bionic Beaver)
+Maybe the next codename is (Casual ChuMeng), which is a formal version with multi-agent RL.
+The multi-agent RL task of rllib is so complex, and I need long time to reconstruct. 
+
+- env previous state save into env. (not sure)
+- MixISAC (Entropy+ Entropy-)
+
+2020.11.11
+- ! update PPO(BufferTuple, (s,a,r,log_prob)) to OffPPO(BufferArray, (s,a,r,noise))
+- InterPPO
+- fix bug on BufferArray.extend_memo()
+
+### plan to
+- update BufferArray to BufferTrajectory
+- gpu_id to agent_id
+- save norm npy
+- cancel explore_noise
+- anchor SAC instead of KL Divergence
+
+beta0 OffPPO
+beta3 OffPPO Minitaur, cancel value_norm
 
 Add the training stop signal: reach the target reward, reach the total step.
 Check InterISAC
@@ -246,9 +262,3 @@ Use deepcopy for target network
 Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
 Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
 some variants of DQN: Rainbow DQN, Ape-X
-
-####  ElegantRL 2020.??.?? (Casual ChuMeng)
-ElegantRL 2020.08 (NewYork Necip), where Necip is a codename for version ElegantRL 2020.08
-It is similar to Ubuntu 18.04 (Bionic Beaver)
-Maybe the next codename is (Casual ChuMeng), which is a formal version with multi-agent RL.
-The multi-agent RL task of rllib is so complex, and I need long time to reconstruct. 
