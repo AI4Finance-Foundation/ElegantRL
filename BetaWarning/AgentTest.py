@@ -24,13 +24,14 @@ def test__env_quickly():
         "LunarLander-v2", "LunarLanderContinuous-v2",
         "BipedalWalker-v3", "BipedalWalkerHardcore-v3",
         'CarRacing-v0',  # Box2D pixel-level
-        'MultiWalker',  # Box2D MultiAgent
+        # 'MultiWalker',  # Box2D MultiAgent
 
         # py-bullet (MuJoCo is not free)
         "AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
-        "HumanoidBulletEnv-v0", "HumanoidFlagrunBulletEnv-v0", "HumanoidFlagrunHarderBulletEnv-v0",
+        # "HumanoidBulletEnv-v0", "HumanoidFlagrunBulletEnv-v0", "HumanoidFlagrunHarderBulletEnv-v0",
 
-        "ReacherBulletEnv-v0", "PusherBulletEnv-v0", "StrikerBulletEnv-v0", "ThrowerBulletEnv-v0",
+        "ReacherBulletEnv-v0", "PusherBulletEnv-v0", "ThrowerBulletEnv-v0",
+        # "StrikerBulletEnv-v0",
 
         "MinitaurBulletEnv-v0",
     ]
@@ -39,6 +40,7 @@ def test__env_quickly():
     dir(pybullet_envs)
 
     for env_name in env_names:
+        print(f'| {env_name}')
         build_gym_env(env_name, if_print=True, if_norm=False)
         print()
 
@@ -189,7 +191,7 @@ def test__log_prob():
 
 
 def test__run_train_agent():
-    args = Arguments(AgentInterSAC1101, gpu_id=1)
+    args = Arguments(AgentInterSAC, gpu_id=1)
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
@@ -203,8 +205,8 @@ def test__run_train_agent():
 if __name__ == '__main__':
     # test__network()
     # test__log_prob()
-    # test__env_quickly()
-    test__show_available_env()
+    test__env_quickly()
+    # test__show_available_env()
     # test__replay_buffer()
     # test__evaluate_agent()
     # test__run_train_agent()

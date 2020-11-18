@@ -175,6 +175,7 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     '''training loop'''
     if_train = True
     if_solve = False
+    send_bool = True
     while if_train:
         buffer_ary, reward_list, step_list = q_o_buf.get()  # q_o_buf n
         reward_avg = np.average(reward_list)
@@ -187,7 +188,9 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
 
         act_cpu.load_state_dict(agent.act.state_dict())
         q_i_buf.put(act_cpu)  # q_i_buf n.
-        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
+        if send_bool:
+            q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
+        send_bool = not send_bool
 
         if q_o_eva.qsize() > 0:
             if_solve = q_o_eva.get()  # q_o_eva n.
@@ -451,13 +454,18 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
         env.spec.reward_threshold = -200.0  # target_reward
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
     elif env_name == 'CarRacing-v0':
+        # | state_dim: (96, 96, 3), action_dim: 3, action_max: 1.0, target_reward: 900
+        frame_num = 3
         from AgentPixel import fix_car_racing_v0_1111
         env = gym.make(env_name)
-        env = fix_car_racing_v0_1111(env)
+        env = fix_car_racing_v0_1111(env, frame_num=frame_num, action_num=frame_num)
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
         assert len(state_dim)
-        # state_dim = (2, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
-        state_dim = (2, state_dim[0], state_dim[1])  # one frame (96, 96)
+        state_dim = (frame_num, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
+        # from AgentPixel import CarRacingEnv
+        # env = CarRacingEnv(img_stack=4, action_repeat=4)
+        # state_dim, action_dim, action_max = (4, 96, 96), 3, 1.0
+        # target_reward, if_discrete = 900, False
     elif env_name == 'MultiWalker':
         from multiwalker_base import MultiWalkerEnv, multi_to_single_walker_decorator
         env = MultiWalkerEnv()
