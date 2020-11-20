@@ -276,6 +276,68 @@ class InterGAE(nn.Module):  # 2020-10-10
         return q1, q2
 
 
+class InterPPO(nn.Module):  # 2020-11-11
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+
+        self.enc_s = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+        )
+
+        self.dec_a = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
+        self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
+
+        self.dec_q1 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
+        self.dec_q2 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
+
+        layer_norm(self.enc_s[0], std=1.0)
+        layer_norm(self.enc_s[2], std=1.0)
+        layer_norm(self.dec_a[-1], std=0.01)
+        layer_norm(self.dec_q1[-1], std=0.01)
+        layer_norm(self.dec_q2[-1], std=0.01)
+
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+
+    def forward(self, s):
+        s_ = self.enc_s(s)
+        a_avg = self.dec_a(s_)
+        return a_avg.tanh()
+
+    def get__a_avg(self, s):
+        s_ = self.enc_s(s)
+        a_avg = self.dec_a(s_)
+        return a_avg
+
+    def get__q__log_prob(self, state, noise):
+        s_ = self.enc_s(state)
+        q = torch.min(self.dec_q1(s_), self.dec_q2(s_))
+
+        log_prob = -(noise.pow(2) / 2 + self.a_std_log).sum(1)
+        return q, log_prob
+
+    def get__q1_q2__log_prob(self, state, action):
+        s_ = self.enc_s(state)
+
+        q1 = self.dec_q1(s_)
+        q2 = self.dec_q2(s_)
+
+        a_avg = self.dec_a(s_)  # todo fix bug
+        a_log_std = self.a_std_log.expand_as(a_avg)
+        a_std = a_log_std.exp()
+        log_prob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log).sum(1)
+        return q1, q2, log_prob
+
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
