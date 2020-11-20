@@ -125,8 +125,8 @@ def train_agent(  # 2020-10-20
 """train in multi processing"""
 
 
-def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update network parameters using replay buffer
-    class_agent = args.rl_agent
+def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network parameters using replay buffer
+    rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
     max_step = args.max_step
@@ -135,34 +135,37 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     repeat_times = args.repeat_times
     cwd = args.cwd
     env_name = args.env_name
+    reward_scale = args.reward_scale
     if_stop = args.if_break_early
+    gamma = args.gamma
     del args
 
-    '''build agent'''
-    state_dim, action_dim = q_o_buf.get()  # q_o_buf 1.
-    agent = class_agent(state_dim, action_dim, net_dim)
+    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
 
-    '''send agent to q_i_buf, q_i_eva'''
+    '''build agent'''
+    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    agent.state = env.reset()
+
+    '''send agent to q_i_eva'''
     from copy import deepcopy
     act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
     act_cpu.eval()
     [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
-    q_i_buf.put(act_cpu)  # q_i_buf 1.
     q_i_eva.put(act_cpu)  # q_i_eva 1.
 
-    '''build replay buffer'''
+    '''build replay buffer, init: total_step, reward_avg'''
     total_step = 0
-    if_ppo = bool(class_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'})
-    if if_ppo:
-        buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo)  # experiment replay buffer
+    if bool(rl_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'}):
+        buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)  # experiment replay buffer
+        with torch.no_grad():
+            reward_avg = get_episode_reward(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
     else:
-        buffer = BufferArrayGPU(max_memo, state_dim, action_dim, if_ppo)  # experiment replay buffer
-
+        buffer = BufferArrayGPU(max_memo, state_dim, action_dim, if_ppo=False)  # experiment replay buffer
         '''initial exploration'''
-        buffer_ary, reward_list, step_list = q_o_buf.get()  # q_o_buf 2.
-        reward_avg = np.average(reward_list)
-        step_sum = sum(step_list)
-        buffer.extend_memo(buffer_ary)
+        with torch.no_grad():  # update replay buffer
+            rewards, steps = initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+        reward_avg = np.average(rewards)
+        step_sum = sum(steps)
 
         '''pre training and hard update before training loop'''
         buffer.update_pointer_before_sample()
@@ -175,22 +178,21 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     '''training loop'''
     if_train = True
     if_solve = False
-    send_bool = True
     while if_train:
-        buffer_ary, reward_list, step_list = q_o_buf.get()  # q_o_buf n
-        reward_avg = np.average(reward_list)
-        step_sum = sum(step_list)
+        '''update replay buffer by interact with environment'''
+        with torch.no_grad():  # speed up running
+            rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+        reward_avg = np.average(rewards) if len(rewards) else reward_avg
+        step_sum = sum(steps)
         total_step += step_sum
-        buffer.extend_memo(buffer_ary)
 
+        '''update network parameters by random sampling buffer for gradient descent'''
         buffer.update_pointer_before_sample()
         loss_a_avg, loss_c_avg = agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
+        '''saves the agent with max reward'''
         act_cpu.load_state_dict(agent.act.state_dict())
-        q_i_buf.put(act_cpu)  # q_i_buf n.
-        if send_bool:
-            q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
-        send_bool = not send_bool
+        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
 
         if q_o_eva.qsize() > 0:
             if_solve = q_o_eva.get()  # q_o_eva n.
@@ -203,69 +205,11 @@ def mp__update_params(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva):  # update netwo
     env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
     buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
-    q_i_buf.put('stop')
     q_i_eva.put('stop')
-    while q_i_buf.qsize() > 0 or q_i_eva.qsize() > 0:
+    while q_i_eva.qsize() > 0:
         time.sleep(1)
     time.sleep(4)
     # print('; quit: params')
-
-
-def mp__update_buffer(args, q_i_buf, q_o_buf):  # update replay buffer by interacting with env
-    env_name = args.env_name
-    max_step = args.max_step
-    reward_scale = args.reward_scale
-    gamma = args.gamma
-    max_memo = args.max_memo
-    rl_agent = args.rl_agent
-    net_dim = args.net_dim
-
-    del args
-
-    torch.set_num_threads(8)  # todo
-
-    env, state_dim, action_dim, _, if_discrete = build_gym_env(env_name, if_print=False)  # _ is target_reward
-
-    q_o_buf.put((state_dim, action_dim))  # q_o_buf 1.
-
-    '''build actor for evaluated only '''
-    agent = rl_agent(state_dim, action_dim, net_dim)
-    agent.act = q_i_buf.get()  # q_i_buf 1, act == act.to(device_cpu), requires_grad=False
-    agent.device = torch.device("cpu")
-    agent.state = env.reset()
-
-    if bool(rl_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'}):
-        buffer = BufferArray(max_memo + max_step, state_dim, action_dim, if_ppo=True)
-    else:
-        buffer = BufferArray(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-        with torch.no_grad():  # update replay buffer
-            rewards, steps = initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
-        buffer.update_pointer_before_sample()
-        buffer_ary = buffer.memories[:buffer.now_len]
-        q_o_buf.put((buffer_ary, rewards, steps))  # q_o_buf 2.
-        buffer.empty_memories_before_explore()
-
-    with torch.no_grad():  # update replay buffer
-        is_training = True
-        while is_training:
-            rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
-
-            buffer.update_pointer_before_sample()
-            buffer_ary = buffer.memories[:buffer.now_len]
-            q_o_buf.put((buffer_ary, rewards, steps))  # q_o_buf n.
-            buffer.empty_memories_before_explore()
-
-            q_i_buf_get = q_i_buf.get()  # q_i_buf n.
-            if q_i_buf_get == 'stop':
-                is_training = False
-            else:
-                agent.act = q_i_buf_get  # act == act.to(device_cpu), requires_grad=False
-
-    while q_o_buf.qsize() > 0:
-        q_o_buf.get()
-    while q_i_buf.qsize() > 0:
-        q_i_buf.get()
-    # print('; quit: buffer')
 
 
 def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
@@ -317,14 +261,11 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     # print('; quit: evaluate')
 
 
-def train_agent_mp(args):
+def train_agent_mp(args):  # 2020-1111
     import multiprocessing as mp
-    q_i_buf = mp.Queue(maxsize=8)  # buffer I
-    q_o_buf = mp.Queue(maxsize=8)  # buffer O
     q_i_eva = mp.Queue(maxsize=8)  # evaluate I
     q_o_eva = mp.Queue(maxsize=8)  # evaluate O
-    process = [mp.Process(target=mp__update_params, args=(args, q_i_buf, q_o_buf, q_i_eva, q_o_eva)),
-               mp.Process(target=mp__update_buffer, args=(args, q_i_buf, q_o_buf,)),
+    process = [mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva)),
                mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
     [p.start() for p in process]
     [p.join() for p in process]
@@ -1050,14 +991,14 @@ def run_continuous_action__offline_policy(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(5e4 * 16)  # (2e4) 5e4
+    args.break_step = int(5e4 * 16)  # (2e4) 5e4, used time 1500s
     args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "BipedalWalker-v3"
-    args.break_step = int(2e5 * 8)  # (1e5) 2e5
+    args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
     args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
@@ -1116,7 +1057,7 @@ def run_continuous_action__offline_policy(gpu_id=None):
 def run_continuous_action__online_policy(gpu_id=None):
     import AgentZoo as Zoo
     """online policy"""
-    args = Arguments(rl_agent=Zoo.AgentGAE, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentOffPPO, gpu_id=gpu_id)
     assert args.rl_agent in {
         Zoo.AgentPPO,  # 2018. quite stable, but slow
         Zoo.AgentGAE,  # 2015. PPO+GAE. quite stable in high-dim
@@ -1149,7 +1090,7 @@ def run_continuous_action__online_policy(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(3e5 * 8)
+    args.break_step = int(3e5 * 8)  # (2e5) 3e5, used time: 600s
     args.reward_scale = 2 ** -3
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11
@@ -1160,12 +1101,12 @@ def run_continuous_action__online_policy(gpu_id=None):
     exit()
 
     args.env_name = "BipedalWalker-v3"
-    args.break_step = int(3e6 * 4)
+    args.break_step = int(8e5 * 8)
     args.reward_scale = 2 ** -1
     args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11  # 12
+    args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3  # 4
+    args.repeat_times = 2 ** 3
     args.init_for_training()
     train_agent(**vars(args))
     exit()

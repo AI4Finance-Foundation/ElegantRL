@@ -10,7 +10,7 @@ from AgentNet import Actor, Critic, CriticTwin  # DDPG, TD3
 from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import ActorGAE, CriticAdvTwin  # AdvGAE
-from AgentNet import InterDPG, InterSPG, InterGAE, InterSPG1101  # share params between Actor and Critic
+from AgentNet import InterDPG, InterSPG, InterGAE, InterSPG  # share params between Actor and Critic
 
 """ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 reference
@@ -670,69 +670,98 @@ class AgentModSAC(AgentBasicAC):
         return loss_a_avg, loss_c_avg
 
 
-class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
+class AgentInterSAC:  # (AgentBasicAC):  # Integrated Soft Actor-Critic Methods
     def __init__(self, state_dim, action_dim, net_dim):
-        super(AgentBasicAC, self).__init__()
-        self.learning_rate = 2e-4
+        # super(AgentBasicAC, self).__init__()
+        self.learning_rate = 1e-4
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         '''network'''
-        self.act = InterSPG1101(state_dim, action_dim, net_dim).to(self.device)
+        self.act = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
         # self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-        self.act_optimizer = torch.optim.Adam(
-            [{'params': self.act.enc_s.parameters(), 'lr': self.learning_rate},  # more stable
-             {'params': self.act.enc_a.parameters(), },
-             {'params': self.act.net.parameters(), 'lr': self.learning_rate},
-             {'params': self.act.dec_a.parameters(), },
-             {'params': self.act.dec_d.parameters(), },
-             {'params': self.act.dec_q1.parameters(), },
-             {'params': self.act.dec_q2.parameters(), }, ]
-            , lr=self.learning_rate * 2)
+        self.act_optimizer = torch.optim.Adam([
+            {'params': self.act.enc_s.parameters(), 'lr': self.learning_rate},  # more stable
+            {'params': self.act.enc_a.parameters(), },
+            {'params': self.act.net.parameters(), 'lr': self.learning_rate},
+            {'params': self.act.dec_a.parameters(), },
+            {'params': self.act.dec_d.parameters(), },
+            {'params': self.act.dec_q1.parameters(), },
+            {'params': self.act.dec_q2.parameters(), },
+        ], lr=self.learning_rate * 1.5)
 
-        self.act_target = InterSPG1101(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.criterion = nn.SmoothL1Loss()
 
         '''training record'''
-        self.state = None  # env.reset()
+        self.state = np.zeros(state_dim)  # env.reset()
         self.reward_sum = 0.0
         self.step = 0
         self.update_counter = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.target_entropy = np.log(action_dim) - action_dim * np.log(np.sqrt(2 * np.pi))  # todo
-        self.log_alpha = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.target_entropy = np.log(action_dim) - action_dim * np.log(np.sqrt(2 * np.pi))
+        self.alpha_log = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
 
         '''extension: reliable lambda for auto-learning-rate'''
         self.avg_loss_c = (-np.log(0.5)) ** 0.5
 
-        '''constant'''
-        self.explore_noise = True  # stochastic policy choose noise_std by itself.
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
+        self.act.eval()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):  # 1111
+        rewards = list()
+        steps = list()
+        for _ in range(max_step):
+            '''inactive with environment'''
+            states = torch.tensor((self.state,), dtype=torch.float32, device=self.device)
+            action = self.act.get_explored_action(states).cpu().data.numpy()[0]
+
+            next_state, reward, done, _ = env.step(action)
+
+            self.reward_sum += reward
+            self.step += 1
+
+            '''update replay buffer'''
+            # reward_ = reward * reward_scale
+            # mask = 0.0 if done else gamma
+            # buffer.append_memo((reward_, mask, self.state, action, next_state))
+            reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
+            buffer.append_memo((reward_mask, self.state, action, next_state))
+
+            self.state = next_state
+            if done:
+                rewards.append(self.reward_sum)
+                self.reward_sum = 0.0
+
+                steps.append(self.step)
+                self.step = 0
+
+                self.state = env.reset()
+        return rewards, steps
+
+    def update_policy(self, buffer, max_step, batch_size, _repeat_times):  # 1111
         buffer.update_pointer_before_sample()
         self.act.train()
 
-        log_prob = critic_loss = None  # just for print
+        log_prob = None  # just for print
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size = int(batch_size * k)  # increase batch_size
         train_step = int(max_step * k)  # increase training_step
 
-        alpha = self.log_alpha.exp().detach()  # auto temperature parameter
+        alpha = self.alpha_log.exp().detach()  # auto temperature parameter
 
         update_a = 0
         for update_c in range(1, train_step):
             with torch.no_grad():
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size)
 
-                next_a_noise, next_log_prob = self.act_target.get__a__log_prob_1101(next_s)
-                next_q_target = torch.min(*self.act_target.get__q1_q2(next_s, next_a_noise))  # twin critic
-                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # # auto temperature parameter
+                next_q_target, next_log_prob = self.act_target.get__q__log_prob(next_s)
+                q_target = reward + mask * (next_q_target + next_log_prob * alpha)  # auto temperature parameter
 
             '''critic_loss'''
             q1_value, q2_value = self.act.get__q1_q2(state, action)  # CriticTwin
@@ -743,17 +772,17 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
             lamb = np.exp(-self.avg_loss_c ** 2)
 
             '''stochastic policy'''
-            a_noise, log_prob = self.act.get__a__log_prob_1101(state)
+            a_noise, log_prob = self.act.get__a__log_prob(state)
             log_prob = log_prob.mean()
 
             '''auto temperature parameter: alpha'''
-            alpha_loss = lamb * self.log_alpha * (log_prob - self.target_entropy).detach()  # stable
+            alpha_loss = lamb * self.alpha_log * (log_prob - self.target_entropy).detach()  # stable
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
-                alpha = self.log_alpha.exp()  # .detach()
+                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+                alpha = self.alpha_log.exp()  # .detach()
 
             if update_a / update_c > 1 / (2 - lamb):
                 united_loss = critic_loss
@@ -764,13 +793,33 @@ class AgentInterSAC(AgentBasicAC):  # Integrated Soft Actor-Critic Methods
                 actor_loss = -(q_eval_pg + log_prob * alpha)  # policy gradient
 
                 united_loss = critic_loss + actor_loss * lamb
-
             self.act_optimizer.zero_grad()
             united_loss.backward()
             self.act_optimizer.step()
 
             soft_target_update(self.act_target, self.act, tau=2 ** -8)
-        return log_prob.item(), critic_loss.item() / 2
+        return log_prob.item(), self.avg_loss_c
+
+    def save_or_load_model(self, cwd, if_save):  # 2020-07-07
+        act_save_path = '{}/actor.pth'.format(cwd)
+        # cri_save_path = '{}/critic.pth'.format(cwd)
+        has_act = 'act' in dir(self)
+
+        # has_cri = 'cri' in dir(self)
+
+        def load_torch_file(network, save_path):
+            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
+            network.load_state_dict(network_dict)
+
+        if if_save:
+            torch.save(self.act.state_dict(), act_save_path) if has_act else None
+            # torch.save(self.cri.state_dict(), cri_save_path) if has_cri else None
+            # print("Saved act and cri:", mod_dir)
+        elif os.path.exists(act_save_path):
+            load_torch_file(self.act, act_save_path) if has_act else None
+            # load_torch_file(self.cri, cri_save_path) if has_cri else None
+        else:
+            print("FileNotFound when load_model: {}".format(cwd))
 
 
 class AgentPPO:
@@ -1349,7 +1398,7 @@ class AgentGAE(AgentPPO):
 
         loss_a_avg = loss_a_sum / sample_times
         loss_c_avg = loss_c_sum / sample_times
-        return loss_a_avg, loss_c_avg
+        return all_log_prob.mean().item(), loss_c_avg  # todo
 
 
 class AgentInterGAE(AgentPPO):
@@ -2028,6 +2077,7 @@ class BufferArray:  # 2020-11-11
             memo_dim = 1 + 1 + state_dim + action_dim + state_dim
 
         self.memories = np.empty((max_len, memo_dim), dtype=np.float32)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.next_idx = 0
         self.is_full = False
@@ -2036,6 +2086,7 @@ class BufferArray:  # 2020-11-11
 
         self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
         self.action_idx = self.state_idx + action_dim
+
 
     def append_memo(self, memo_tuple):
         # memo_array == (reward, mask, state, action, next_state)
@@ -2059,16 +2110,14 @@ class BufferArray:  # 2020-11-11
             self.memories[self.next_idx:next_idx] = memo_array
         self.next_idx = next_idx
 
-    def random_sample(self, batch_size, device):
+    def random_sample(self, batch_size):
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
         # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
         # same as:
         indices = rd.randint(self.now_len, size=batch_size)
-        memory = self.memories[indices]
-        if device:
-            memory = torch.tensor(memory, device=device)
+        memory = torch.tensor(self.memories[indices], device=self.device)
 
         '''convert array into torch.tensor'''
         tensors = (

@@ -205,8 +205,8 @@ def test__run_train_agent():
 if __name__ == '__main__':
     # test__network()
     # test__log_prob()
-    test__env_quickly()
-    # test__show_available_env()
+    # test__env_quickly()
+    test__show_available_env()
     # test__replay_buffer()
     # test__evaluate_agent()
     # test__run_train_agent()

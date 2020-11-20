@@ -72,7 +72,7 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
+class InterSPG(nn.Module):  # 2020-1111 class AgentIntelAC for SAC (SPG means stochastic policy gradient)
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.log_std_min = -20
@@ -80,7 +80,6 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # encoder
         self.enc_s = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
@@ -93,7 +92,6 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.net = DenseNet(mid_dim)
         net_out_dim = self.net.out_dim
 
-        # decoder
         self.dec_a = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
@@ -101,7 +99,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.dec_d = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
-        )  # action_std_log (d means standard dev.)
+        )  # action_std_log (d means standard deviation)
         self.dec_q1 = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
@@ -111,188 +109,65 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, 1),
         )  # q_value2 SharedTwinCritic
 
-        layer_norm(self.dec_a[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+        layer_norm(self.dec_a[-1], std=0.1)  # net[-1] is output layer for action, it is no necessary.
         layer_norm(self.dec_q1[-1], std=0.1)
         layer_norm(self.dec_q2[-1], std=0.1)
 
-        '''Not need to use both SpectralNorm and TwinCritic
-        I choose TwinCritc instead of SpectralNorm, 
-        because SpectralNorm is conflict with soft target update,
+    def forward(self, s):
+        x = self.enc_s(s)
+        x = self.net(x)
+        a_avg = self.dec_a(x)
+        return a_avg.tanh()
 
-        if is_spectral_norm:
-            self.dec_q1[1] = nn.utils.spectral_norm(self.dec_q1[1])
-            self.dec_q2[1] = nn.utils.spectral_norm(self.dec_q2[1])
-        '''
-
-    def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
+    def get_explored_action(self, s):
         s_ = self.enc_s(s)
         a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without tensor.tanh()
+        a_avg = self.dec_a(a_)  # NOTICE! it is a_avg without tensor.tanh()
 
-        if noise_std != 0.0:
-            a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
-        return a_mean.tanh()
+        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+
+        action = torch.normal(a_avg, a_std)  # NOTICE! it is action without .tanh()
+        return action.tanh()
 
     def get__a__log_prob(self, state):  # actor
         s_ = self.enc_s(state)
         a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
+
+        """add noise to action, stochastic policy"""
+        a_avg = self.dec_a(a_)  # NOTICE! it is action without .tanh()
         a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
         a_std = a_std_log.exp()
 
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
-
-        a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
-
-    def get__a__std(self, state):
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        return a_mean.tanh(), a_std_log
-
-    def get__a__avg_std_noise_prob(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
-
-        a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
-
-    def get__q1_q2(self, s, a):  # critic
-        s_ = self.enc_s(s)
-        a_ = self.enc_a(a)
-        q_ = self.net(s_ + a_)
-        q1 = self.dec_q1(q_)
-        q2 = self.dec_q2(q_)
-        return q1, q2
-
-    def get__q1(self, s, a):  # critic
-        s_ = self.enc_s(s)
-        a_ = self.enc_a(a)
-        q_ = self.net(s_ + a_)
-        q1 = self.dec_q1(q_)
-        return q1
-
-
-class InterSPG1101(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
-    def __init__(self, state_dim, action_dim, mid_dim):
-        self.c = 0
-
-        super().__init__()
-        self.log_std_min = -20
-        self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # encoder
-        self.enc_s = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )  # state
-        self.enc_a = nn.Sequential(
-            nn.Linear(action_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )  # action without nn.Tanh()
-
-        self.net = DenseNet(mid_dim)
-        net_out_dim = self.net.out_dim
-
-        # decoder
-        self.dec_a = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_mean
-        self.dec_d = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_std_log (d means standard dev.)
-        self.dec_q1 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, 1),
-        )  # q_value1 SharedTwinCritic
-        self.dec_q2 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, 1),
-        )  # q_value2 SharedTwinCritic
-
-        layer_norm(self.dec_a[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
-        layer_norm(self.dec_q1[-1], std=0.1)
-        layer_norm(self.dec_q2[-1], std=0.1)
-
-    def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
-        s_ = self.enc_s(s)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without tensor.tanh()
-
-        if noise_std != 0.0:
-            a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
-        return a_mean.tanh()
-
-    def get__a__log_prob_1101(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        a_std = a_std_log.exp()
-
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        # noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        # a_noise = a_mean + a_std * noise
-
-        # '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        # log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
-        #
-        # a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.00001).log()
-
-        noise = torch.randn_like(a_mean, requires_grad=True)
-        a_noise = a_mean + a_std * noise
+        noise = torch.randn_like(a_avg, requires_grad=True)
+        a_noise = a_avg + a_std * noise
 
         a_noise_tanh = a_noise.tanh()
         fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-        # log_prob = a_delta - a_std_log.abs() + fix_term # todo Minitaur 18 # / 8,  Minitaur 24
-        log_prob = noise.pow(2) * 0.5 + a_std_log + fix_term
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
+        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True)
+        return a_noise_tanh, log_prob
+
+    def get__q__log_prob(self, state):
+        s_ = self.enc_s(state)
+        a_ = self.net(s_)
+
+        """add noise to action, stochastic policy"""
+        a_avg = self.dec_a(a_)  # NOTICE! it is action without .tanh()
+        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+
+        noise = torch.randn_like(a_avg, requires_grad=True)
+        a_noise = a_avg + a_std * noise
+
+        a_noise_tanh = a_noise.tanh()
+        fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True)
+
+        '''get q'''
+        a_ = self.enc_a(a_noise_tanh)
+        q_ = self.net(s_ + a_)
+        q = torch.min(self.dec_q1(q_), self.dec_q2(q_))
+        return q, log_prob
 
     def get__q1_q2(self, s, a):  # critic
         s_ = self.enc_s(s)
