@@ -202,11 +202,31 @@ def test__run_train_agent():
     exit()
 
 
+def test__buffer__data_type():
+    for number1, number2, data_type in (
+            (1e-3, 1e-7, np.float16),
+            (1e-7, 1e-45, np.float32),
+            (1e-8, 1e-323, np.float64),
+    ):
+        buffer = np.array((1+number1, number2,), dtype=data_type)
+        print(repr(buffer))
+
+
+def test__train_agent():
+    from ceta4 import AgentBaseAC
+    rl_agent = AgentBaseAC
+    args = Arguments(rl_agent=rl_agent, env_name="LunarLanderContinuous-v2", gpu_id=None)
+    args.init_for_training()
+    train_agent(**vars(args))
+
+
 if __name__ == '__main__':
+    test__train_agent()
+    # test__buffer__data_type()
     # test__network()
     # test__log_prob()
     # test__env_quickly()
-    test__show_available_env()
+    # test__show_available_env()
     # test__replay_buffer()
     # test__evaluate_agent()
     # test__run_train_agent()

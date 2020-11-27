@@ -119,7 +119,7 @@ class InterSPG(nn.Module):  # 2020-1111 class AgentIntelAC for SAC (SPG means st
         a_avg = self.dec_a(x)
         return a_avg.tanh()
 
-    def get_explored_action(self, s):
+    def get__noise_action(self, s):
         s_ = self.enc_s(s)
         a_ = self.net(s_)
         a_avg = self.dec_a(a_)  # NOTICE! it is a_avg without tensor.tanh()
@@ -331,7 +331,7 @@ class InterPPO(nn.Module):  # 2020-11-11
         q1 = self.dec_q1(s_)
         q2 = self.dec_q2(s_)
 
-        a_avg = self.dec_a(s_)  # todo fix bug
+        a_avg = self.dec_a(s_)
         a_log_std = self.a_std_log.expand_as(a_avg)
         a_std = a_log_std.exp()
         log_prob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log).sum(1)
@@ -341,20 +341,21 @@ class InterPPO(nn.Module):  # 2020-11-11
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 # nn.BatchNorm1d(mid_dim),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), nn.Tanh(), )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),  # nn.BatchNorm1d(mid_dim),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
-    def forward(self, s, noise_std=0.0):
-        a = self.net(s)
-        return a if noise_std == 0 else self.add_noise(a, noise_std)
+    def forward(self, s):
+        a = self.net(s).tanh()
+        return a
 
-    @staticmethod
-    def add_noise(action, noise_std):
-        normal_noise = (torch.randn_like(action) * noise_std).clamp(-0.5, 0.5)
-        a_noise = (action + normal_noise).clamp(-1.0, 1.0)
-        return a_noise
+    def get__noise_action(self, s, a_std):
+        a = self.net(s).tanh()
+        noise = (torch.randn_like(a) * a_std).clamp(-0.5, 0.5)
+        a = (a + noise).clamp(-1.0, 1.0)
+        return a
 
 
 class ActorDN(nn.Module):  # dn: DenseNet
@@ -421,15 +422,18 @@ class ActorSAC(nn.Module):
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def forward(self, state, noise_std=0.0):  # in fact, noise_std is a boolean
+    def forward(self, state):  # in fact, noise_std is a boolean
         x = self.net__mid(state)
         a_mean = self.net__mean(x)  # NOTICE! it is a_mean without .tanh()
+        return a_mean.tanh()
 
-        if noise_std != 0.0:
-            a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it needs .tanh()
+    def get__noise_action(self, s):
+        x = self.net__mid(s)
+        a_mean = self.net__mean(x)  # NOTICE! it is a_mean without .tanh()
 
+        a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+        a_mean = torch.normal(a_mean, a_std)  # NOTICE! it needs .tanh()
         return a_mean.tanh()
 
     def get__a__log_prob(self, state):
@@ -583,8 +587,8 @@ class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q
 
     def forward(self, state, action):
         x = torch.cat((state, action), dim=1)
-        q_value = self.net1(x)
-        return q_value
+        q = torch.min(self.net1(x), self.net2(x))
+        return q
 
     def get__q1_q2(self, state, action):
         x = torch.cat((state, action), dim=1)

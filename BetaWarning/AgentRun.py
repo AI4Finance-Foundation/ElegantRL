@@ -92,7 +92,8 @@ def train_agent(  # 2020-10-20
         '''pre training and hard update before training loop'''
         buffer.update_pointer_before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
-        agent.act_target.load_state_dict(agent.act.state_dict())
+        if 'act_target' in dir(agent):
+            agent.act_target.load_state_dict(agent.act.state_dict())
 
     '''loop'''
     if_train = True
@@ -170,7 +171,8 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
         '''pre training and hard update before training loop'''
         buffer.update_pointer_before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
-        agent.act_target.load_state_dict(agent.act.state_dict())
+        if 'act_target' in dir(agent):
+            agent.act_target.load_state_dict(agent.act.state_dict())
 
         q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
         total_step += step_sum
@@ -397,9 +399,9 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
     elif env_name == 'CarRacing-v0':
         # | state_dim: (96, 96, 3), action_dim: 3, action_max: 1.0, target_reward: 900
         frame_num = 3
-        from AgentPixel import fix_car_racing_v0_1111
+        from AgentPixel import fix_car_racing_env
         env = gym.make(env_name)
-        env = fix_car_racing_v0_1111(env, frame_num=frame_num, action_num=frame_num)
+        env = fix_car_racing_env(env, frame_num=frame_num, action_num=frame_num)
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
         assert len(state_dim)
         state_dim = (frame_num, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
@@ -909,8 +911,8 @@ def get__buffer_reward_step(env, max_step, reward_scale, gamma, action_dim, if_d
 
 def run__demo():
     import AgentZoo as Zoo
-    args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
-    # args = Arguments(rl_agent=Zoo.AgentInterSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
+    # args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
+    args = Arguments(rl_agent=Zoo.AgentInterSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
     train_agent(**vars(args))
 
@@ -966,19 +968,21 @@ def run__discrete_action(gpu_id=None):
     train_agent(**vars(args))
 
 
-def run_continuous_action__offline_policy(gpu_id=None):
+def run_continuous_action__off_policy(gpu_id=None):
     import AgentZoo as Zoo
-    """offline policy"""
-    rl_agent = Zoo.AgentModSAC
-    assert rl_agent in {Zoo.AgentDDPG,  # 2014. simple, old, slow, unstable
-                        Zoo.AgentBasicAC,  # 2014+ stable DDPG
-                        Zoo.AgentTD3,  # 2018. twin critics, delay target update
-                        Zoo.AgentSAC,  # 2018. twin critics, policy entropy, auto alpha
-                        Zoo.AgentModSAC,  # 2018+ stable SAC
-                        Zoo.AgentInterAC,  # 2019. Integrated AC(DPG)
-                        Zoo.AgentInterSAC,  # 2020. Integrated SAC(SPG)
-                        }  # PPO, GAE is online policy. See below.
-    args = Arguments(rl_agent, gpu_id)
+
+    args = Arguments(gpu_id=gpu_id)
+    args.rl_agent = Zoo.AgentModSAC
+    assert args.rl_agent in {
+        Zoo.AgentDDPG,  # 2014. simple, simple, slow, unstable
+        Zoo.AgentBaseAC,  # 2014+ modify DDPG, faster, more stable
+        Zoo.AgentTD3,  # 2018. twin critics, delay target update
+        Zoo.AgentSAC,  # 2018. twin critics, maximum entropy, auto alpha, fix log_prob
+        Zoo.AgentModSAC,  # 2018+ modify SAC, faster, more stable
+        Zoo.AgentInterAC,  # 2019. Integrated AC(DPG)
+        Zoo.AgentInterSAC,  # 2020. Integrated SAC(SPG)
+    }  # PPO, GAE is online policy. See below.
+
     args.if_break_early = True
     args.if_remove_history = True
 
@@ -991,7 +995,7 @@ def run_continuous_action__offline_policy(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(5e4 * 16)  # (2e4) 5e4, used time 1500s
+    args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
     args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
@@ -1054,7 +1058,7 @@ def run_continuous_action__offline_policy(gpu_id=None):
     exit()
 
 
-def run_continuous_action__online_policy(gpu_id=None):
+def run_continuous_action__on_policy(gpu_id=None):
     import AgentZoo as Zoo
     """online policy"""
     args = Arguments(rl_agent=Zoo.AgentOffPPO, gpu_id=gpu_id)
@@ -1090,8 +1094,8 @@ def run_continuous_action__online_policy(gpu_id=None):
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
-    args.break_step = int(3e5 * 8)  # (2e5) 3e5, used time: 600s
-    args.reward_scale = 2 ** -3
+    args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
+    args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (301)
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9
