@@ -72,7 +72,7 @@ class InterDPG(nn.Module):  # class AgentIntelAC
         return q_target, a
 
 
-class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic policy gradient)
+class InterSPG(nn.Module):  # 2020-1111 class AgentIntelAC for SAC (SPG means stochastic policy gradient)
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.log_std_min = -20
@@ -80,7 +80,6 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # encoder
         self.enc_s = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, mid_dim),
@@ -93,7 +92,6 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.net = DenseNet(mid_dim)
         net_out_dim = self.net.out_dim
 
-        # decoder
         self.dec_a = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
@@ -101,7 +99,7 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         self.dec_d = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
-        )  # action_std_log (d means standard dev.)
+        )  # action_std_log (d means standard deviation)
         self.dec_q1 = nn.Sequential(
             nn.Linear(net_out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
@@ -111,87 +109,65 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
             nn.Linear(mid_dim, 1),
         )  # q_value2 SharedTwinCritic
 
-        layer_norm(self.dec_a[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
+        layer_norm(self.dec_a[-1], std=0.1)  # net[-1] is output layer for action, it is no necessary.
         layer_norm(self.dec_q1[-1], std=0.1)
         layer_norm(self.dec_q2[-1], std=0.1)
 
-        '''Not need to use both SpectralNorm and TwinCritic
-        I choose TwinCritc instead of SpectralNorm, 
-        because SpectralNorm is conflict with soft target update,
+    def forward(self, s):
+        x = self.enc_s(s)
+        x = self.net(x)
+        a_avg = self.dec_a(x)
+        return a_avg.tanh()
 
-        if is_spectral_norm:
-            self.dec_q1[1] = nn.utils.spectral_norm(self.dec_q1[1])
-            self.dec_q2[1] = nn.utils.spectral_norm(self.dec_q2[1])
-        '''
-
-    def forward(self, s, noise_std=0.0):  # actor, in fact, noise_std is a boolean
+    def get__noise_action(self, s):
         s_ = self.enc_s(s)
         a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without tensor.tanh()
+        a_avg = self.dec_a(a_)  # NOTICE! it is a_avg without tensor.tanh()
 
-        if noise_std != 0.0:
-            a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it is a_mean without .tanh()
-        return a_mean.tanh()
+        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+
+        action = torch.normal(a_avg, a_std)  # NOTICE! it is action without .tanh()
+        return action.tanh()
 
     def get__a__log_prob(self, state):  # actor
         s_ = self.enc_s(state)
         a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
+
+        """add noise to action, stochastic policy"""
+        a_avg = self.dec_a(a_)  # NOTICE! it is action without .tanh()
         a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
         a_std = a_std_log.exp()
 
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
+        noise = torch.randn_like(a_avg, requires_grad=True)
+        a_noise = a_avg + a_std * noise
 
         a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_noise_tanh, log_prob.sum(1, keepdim=True)
+        fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True)
+        return a_noise_tanh, log_prob
 
-    def get__a__std(self, state):
+    def get__q__log_prob(self, state):
         s_ = self.enc_s(state)
         a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
-        return a_mean.tanh(), a_std_log
 
-    def get__a__avg_std_noise_prob(self, state):  # actor
-        s_ = self.enc_s(state)
-        a_ = self.net(s_)
-        a_mean = self.dec_a(a_)  # NOTICE! it is a_mean without .tanh()
+        """add noise to action, stochastic policy"""
+        a_avg = self.dec_a(a_)  # NOTICE! it is action without .tanh()
         a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
         a_std = a_std_log.exp()
 
-        """add noise to action, stochastic policy"""
-        # a_noise = torch.normal(a_mean, a_std, requires_grad=True)
-        # the above is not same as below, because it needs gradient
-        noise = torch.randn_like(a_mean, requires_grad=True, device=self.device)
-        a_noise = a_mean + a_std * noise
-
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
-        # a_delta = a_noise - a_mean).pow(2) /(2* a_std.pow(2)
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # same as:
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-        log_prob_noise = a_delta + a_std_log + self.constant_log_sqrt_2pi
+        noise = torch.randn_like(a_avg, requires_grad=True)
+        a_noise = a_avg + a_std * noise
 
         a_noise_tanh = a_noise.tanh()
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log() # epsilon = 1e-6
-        # same as:
-        log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        return a_mean.tanh(), a_std_log, a_noise_tanh, log_prob.sum(1, keepdim=True)
+        fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True)
+
+        '''get q'''
+        a_ = self.enc_a(a_noise_tanh)
+        q_ = self.net(s_ + a_)
+        q = torch.min(self.dec_q1(q_), self.dec_q2(q_))
+        return q, log_prob
 
     def get__q1_q2(self, s, a):  # critic
         s_ = self.enc_s(s)
@@ -202,121 +178,100 @@ class InterSPG(nn.Module):  # class AgentIntelAC for SAC (SPG means stochastic p
         return q1, q2
 
 
-class InterGAE(nn.Module):
+class InterPPO(nn.Module):  # Pixel-level state version
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.log_std_min = -20
-        self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # encoder
-        self.enc_s = nn.Sequential(
+        def idx_dim(i):
+            return int(8 * 1.5 ** i)
+
+        nn_dense = DenseNet(mid_dim)
+        out_dim = nn_dense.out_dim
+        self.enc_s = nn.Sequential(  # the only difference.
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
-        )  # state
+            nn_dense,
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+            nn_dense,
+        )
 
-        '''use densenet'''
-        self.net = DenseNet(mid_dim)
-        net_out_dim = self.net.out_dim
-        # '''not use densenet'''
-        # self.net = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        # net_out_dim = mid_dim
-
-        '''todo two layer'''
         self.dec_a = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
-        )  # action_mean
-        self.dec_d = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
-            nn.Linear(mid_dim, action_dim),
-        )  # action_std_log (d means standard dev.)
+        )
+        self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
 
         self.dec_q1 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
-        )  # q_value1 SharedTwinCritic
+        )
         self.dec_q2 = nn.Sequential(
-            nn.Linear(net_out_dim, mid_dim), HardSwish(),
+            nn.Linear(out_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, 1),
-        )  # q_value2 SharedTwinCritic
-        '''todo one layer'''
-        # self.dec_a = nn.Sequential(
-        #     nn.Linear(net_out_dim, action_dim),
-        # )  # action_mean
-        # self.dec_d = nn.Sequential(
-        #     nn.Linear(net_out_dim, action_dim),
-        # )  # action_std_log (d means standard dev.)
-        #
-        # self.dec_q1 = nn.Sequential(
-        #     nn.Linear(net_out_dim, 1),
-        # )  # q_value1 SharedTwinCritic
-        # self.dec_q2 = nn.Sequential(
-        #     nn.Linear(net_out_dim, 1),
-        # )  # q_value2 SharedTwinCritic
+        )
 
-        # layer_norm(self.net[0], std=1.0)
-        layer_norm(self.dec_a[-1], std=0.01)  # output layer for action
-        layer_norm(self.dec_d[-1], std=0.01)  # output layer for std_log
-        layer_norm(self.dec_q1[-1], std=0.1)  # output layer for q value
-        layer_norm(self.dec_q1[-1], std=0.1)  # output layer for q value
+        layer_norm(self.dec_a[-1], std=0.01)
+        layer_norm(self.dec_q1[-1], std=0.01)
+        layer_norm(self.dec_q2[-1], std=0.01)
+
+        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, s):
-        x = self.enc_s(s)
-        x = self.net(x)
-        a_mean = self.dec_a(x)
-        return a_mean.tanh()
+        s_ = self.enc_s(s)
+        a_avg = self.dec_a(s_)
+        return a_avg.tanh()
 
-    def get__a__log_prob(self, state):
-        x = self.enc_s(state)
-        x = self.net(x)
-        a_mean = self.dec_a(x)
-        a_log_std = self.dec_d(x).clamp(self.log_std_min, self.log_std_max)
-        a_std = torch.exp(a_log_std)
+    def get__a_avg(self, s):
+        s_ = self.enc_s(s)
+        a_avg = self.dec_a(s_)
+        return a_avg
 
-        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
+    def get__q__log_prob(self, state, noise):
+        s_ = self.enc_s(state)
 
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
-        return a_noise, log_prob.sum(1)
+        q = torch.min(self.dec_q1(s_), self.dec_q2(s_))
+        log_prob = -(noise.pow(2) / 2 + self.a_std_log + self.constant_log_sqrt_2pi).sum(1)
+        return q, log_prob
 
-    def compute__log_prob(self, state, a_noise):
-        x = self.enc_s(state)
-        x = self.net(x)
-        a_mean = self.dec_a(x)
-        a_log_std = self.dec_d(x).clamp(self.log_std_min, self.log_std_max)
-        a_std = torch.exp(a_log_std)
+    def get__q1_q2__log_prob(self, state, action):
+        s_ = self.enc_s(state)
 
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
-        log_prob = log_prob.sum(1)
-        return log_prob
+        q1 = self.dec_q1(s_)
+        q2 = self.dec_q2(s_)
 
-    def get__q1_q2(self, s):
-        x = self.enc_s(s)
-        x = self.net(x)
-        q1 = self.dec_q1(x)
-        q2 = self.dec_q2(x)
-        return q1, q2
+        a_avg = self.dec_a(s_)
+        a_log_std = self.a_std_log.expand_as(a_avg)
+        a_std = a_log_std.exp()
+        log_prob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.constant_log_sqrt_2pi).sum(1)
+        return q1, q2, log_prob
 
 
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 # nn.BatchNorm1d(mid_dim),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), nn.Tanh(), )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),  # nn.BatchNorm1d(mid_dim),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
-    def forward(self, s, noise_std=0.0):
-        a = self.net(s)
-        return a if noise_std == 0 else self.add_noise(a, noise_std)
+    def forward(self, s):
+        a = self.net(s).tanh()
+        return a
 
-    @staticmethod
-    def add_noise(action, noise_std):
-        normal_noise = (torch.randn_like(action) * noise_std).clamp(-0.5, 0.5)
-        a_noise = (action + normal_noise).clamp(-1.0, 1.0)
-        return a_noise
+    def get__noise_action(self, s, a_std):
+        a = self.net(s).tanh()
+        noise = (torch.randn_like(a) * a_std).clamp(-0.5, 0.5)
+        a = (a + noise).clamp(-1.0, 1.0)
+        return a
 
 
 class ActorDN(nn.Module):  # dn: DenseNet
@@ -383,15 +338,18 @@ class ActorSAC(nn.Module):
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    def forward(self, state, noise_std=0.0):  # in fact, noise_std is a boolean
+    def forward(self, state):  # in fact, noise_std is a boolean
         x = self.net__mid(state)
         a_mean = self.net__mean(x)  # NOTICE! it is a_mean without .tanh()
+        return a_mean.tanh()
 
-        if noise_std != 0.0:
-            a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
-            a_std = a_std_log.exp()
-            a_mean = torch.normal(a_mean, a_std)  # NOTICE! it needs .tanh()
+    def get__noise_action(self, s):
+        x = self.net__mid(s)
+        a_mean = self.net__mean(x)  # NOTICE! it is a_mean without .tanh()
 
+        a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
+        a_std = a_std_log.exp()
+        a_mean = torch.normal(a_mean, a_std)  # NOTICE! it needs .tanh()
         return a_mean.tanh()
 
     def get__a__log_prob(self, state):
@@ -430,15 +388,31 @@ class ActorPPO(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
 
-        self.net__mean = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim), )
-        self.net__std_log = nn.Parameter(torch.zeros(1, action_dim), requires_grad=True)
+        def idx_dim(i):
+            return int(8 * 1.5 ** i)
+
+        self.net__mean = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
+        self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
-        layer_norm(self.net__mean[0], std=1.0)
-        layer_norm(self.net__mean[2], std=1.0)
-        layer_norm(self.net__mean[4], std=0.01)  # output layer for action
+        # layer_norm(self.net__mean[0], std=1.0)
+        # layer_norm(self.net__mean[2], std=1.0)
+        layer_norm(self.net__mean[-1], std=0.01)  # output layer for action
 
     def forward(self, s):
         a_mean = self.net__mean(s)
@@ -446,7 +420,7 @@ class ActorPPO(nn.Module):
 
     def get__a__log_prob(self, state):
         a_mean = self.net__mean(state)
-        a_log_std = self.net__std_log.expand_as(a_mean)
+        a_log_std = self.a_std_log.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
         a_noise = torch.normal(a_mean, a_std)
 
@@ -457,62 +431,12 @@ class ActorPPO(nn.Module):
 
     def compute__log_prob(self, state, a_noise):
         a_mean = self.net__mean(state)
-        a_log_std = self.net__std_log.expand_as(a_mean)
+        a_log_std = self.a_std_log.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
 
         a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
         return log_prob.sum(1)
-
-
-class ActorGAE(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
-        super().__init__()
-
-        nn_dense = DenseNet(mid_dim)
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn_dense, )
-
-        layer_dim = nn_dense.out_dim
-        self.net__mean = nn.Linear(layer_dim, action_dim)
-        self.net__std_log = nn.Linear(layer_dim, action_dim)
-
-        self.log_std_min = -20
-        self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        layer_norm(self.net[0], std=1.0)
-        layer_norm(self.net__mean, std=0.01)  # output layer for action
-        layer_norm(self.net__std_log, std=0.01)  # output layer for std_log
-
-    def forward(self, s):
-        x = self.net(s)
-        a_mean = self.net__mean(x)
-        return a_mean.tanh()
-
-    def get__a__log_prob(self, state):
-        x = self.net(state)
-        a_mean = self.net__mean(x)
-        a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
-        a_std = torch.exp(a_log_std)
-
-        a_noise = a_mean + a_std * torch.randn_like(a_mean, requires_grad=True, device=self.device)
-
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
-        return a_noise, log_prob.sum(1)
-
-    def compute__log_prob(self, state, a_noise):
-        x = self.net(state)
-        a_mean = self.net__mean(x)
-        a_log_std = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
-        a_std = torch.exp(a_log_std)
-
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
-        log_prob = log_prob.sum(1)
-        return log_prob
 
 
 class Critic(nn.Module):  # 2020-05-05 fix bug
@@ -545,8 +469,8 @@ class CriticTwin(nn.Module):  # TwinSAC <- TD3(TwinDDD) <- DoubleDQN <- Double Q
 
     def forward(self, state, action):
         x = torch.cat((state, action), dim=1)
-        q_value = self.net1(x)
-        return q_value
+        q = torch.min(self.net1(x), self.net2(x))
+        return q
 
     def get__q1_q2(self, state, action):
         x = torch.cat((state, action), dim=1)
@@ -605,13 +529,29 @@ class CriticAdv(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, mid_dim):
         super().__init__()
 
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1), )
+        def idx_dim(i):
+            return int(8 * 1.5 ** i)
 
-        layer_norm(self.net[0], std=1.0)
-        layer_norm(self.net[2], std=1.0)
-        layer_norm(self.net[4], std=1.0)  # output layer for action
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
+
+        # layer_norm(self.net[0], std=1.0)
+        # layer_norm(self.net[2], std=1.0)
+        layer_norm(self.net[-1], std=1.0)  # output layer for action
 
     def forward(self, s):
         q = self.net(s)
@@ -700,7 +640,7 @@ class QNetDuel(nn.Module):
             nn.Linear(mid_dim, action_dim),
         )
 
-    def forward(self, state, noise_std=0.0):
+    def forward(self, state):
         x = self.net__head(state)
         val = self.net_val(x)
         adv = self.net_adv(x)
@@ -753,3 +693,33 @@ class HardSwish(nn.Module):
 def layer_norm(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
+
+
+def test_conv2d():
+    state_dim = (4, 96, 96)
+    batch_size = 3
+
+    def idx_dim(i):
+        return int(8 * 1.5 ** i)
+
+    mid_dim = 128
+    net = nn.Sequential(
+        NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+        nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+        nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+        nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+        nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+        nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+        nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+        NnnReshape(-1),
+        nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+    )
+
+    inp_shape = list(state_dim)
+    inp_shape.insert(0, batch_size)
+    inp = torch.ones(inp_shape, dtype=torch.float32)
+    inp = inp.view(3, -1)
+    print(inp.shape)
+    out = net(inp)
+    print(out.shape)
+    exit()
