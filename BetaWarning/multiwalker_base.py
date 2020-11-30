@@ -9,8 +9,8 @@ from gym import spaces
 from gym.utils import seeding
 # from six.moves import xrange
 import Box2D
-from Box2D.b2 import (circleShape, contactListener, edgeShape, fixtureDef, polygonShape,
-                      revoluteJointDef)
+from Box2D.b2 import (circleShape, contactListener, edgeShape, fixtureDef,
+                      polygonShape, revoluteJointDef)  # not bug here
 
 MAX_AGENTS = 40
 
@@ -208,7 +208,6 @@ class BipedalWalker(Agent):
         self.lidar = [LidarCallback() for _ in range(10)]
 
     def apply_action(self, action):
-
         self.joints[0].motorSpeed = float(SPEED_HIP * np.sign(action[0]))
         self.joints[0].maxMotorTorque = float(MOTORS_TORQUE * np.clip(np.abs(action[0]), 0, 1))
         self.joints[1].motorSpeed = float(SPEED_KNEE * np.sign(action[1]))
@@ -269,15 +268,12 @@ class MultiWalkerEnv:
 
     hardcore = False
 
-    def __init__(self, n_walkers=3, position_noise=1e-3, angle_noise=1e-3, reward_mech='local',
+    def __init__(self, n_walkers=3, position_noise=1e-3, angle_noise=1e-3,
                  forward_reward=1.0, fall_reward=-100.0, drop_reward=-100.0, terminate_on_fall=True,
                  one_hot=False):
-        # reward_mech is 'global' for cooperative game (same reward for every agent)
-
         self.n_walkers = n_walkers
         self.position_noise = position_noise
         self.angle_noise = angle_noise
-        self._reward_mech = reward_mech
         self.forward_reward = forward_reward
         self.fall_reward = fall_reward
         self.drop_reward = drop_reward
@@ -323,10 +319,6 @@ class MultiWalkerEnv:
     @property
     def agents(self):
         return self.walkers
-
-    @property
-    def reward_mech(self):
-        return self._reward_mech
 
     def seed(self, seed=None):
         self.np_random, seed_ = seeding.np_random(seed)
@@ -444,9 +436,7 @@ class MultiWalkerEnv:
         if self.terminate_on_fall and np.sum(self.fallen_walkers) > 0:
             done = True
 
-        if self.reward_mech == 'local':
-            return obs, rewards, [done] * self.n_walkers, {}
-        return obs, [rewards.mean()] * self.n_walkers, [done] * self.n_walkers, {}
+        return obs, rewards, [done] * self.n_walkers, {}
 
     def render(self, mode='human', close=False):
         if close:
@@ -662,75 +652,15 @@ class MultiWalkerEnv:
             self.cloud_poly.append((poly, x1, x2))
 
 
-class GymMultiWalkerEnv:
-    metadata = {'render.modes': ['human']}
-
-    def __init__(self, *args, **kwargs):
-        super(GymMultiWalkerEnv, self).__init__()
-        self.env = MultiWalkerEnv(*args, **kwargs)
-
-        self.num_agents = self.env.num_agents
-        self.agent_ids = list(range(self.num_agents))
-        # spaces
-        self.action_space_dict = dict(zip(self.agent_ids, self.env.action_space))
-        self.observation_space_dict = dict(zip(self.agent_ids, self.env.observation_space))
-        self.steps = 0
-        self.reset()
-
-    def convert_to_dict(self, list_of_list):
-        return dict(zip(self.agent_ids, list_of_list))
-
-    def reset(self):
-        observation = self.env.reset()
-        self.steps = 0
-        return self.convert_to_dict(observation)
-
-    def close(self):
-        self.env.close()
-
-    def render(self):
-        self.env.render()
-
-    def step(self, action_dict):
-        # unpack actions
-        actions = [0.0 for _ in range(len(action_dict))]
-
-        for agent_id in self.agent_ids:
-            if any(np.isnan(action_dict[agent_id])):
-                action_dict[agent_id] = [0 for _ in action_dict[agent_id]]
-            elif not self.action_space_dict[agent_id].contains(action_dict[agent_id]):
-                raise Exception('Action for agent {} must be in {}. \
-                                It is currently {}'.format(agent_id, self.action_space_dict[agent_id],
-                                                           action_dict[agent_id]))
-            actions[agent_id] = action_dict[agent_id]
-
-        observation, reward, done, info = self.env.step(actions)
-
-        if self.steps >= 500:
-            done = [True] * self.num_agents
-
-        observation_dict = self.convert_to_dict(observation)
-        reward_dict = self.convert_to_dict(reward)
-        info_dict = self.convert_to_dict(info)
-        done_dict = self.convert_to_dict(done)
-        done_dict["__all__"] = done[0]
-
-        self.steps += 1
-
-        return observation_dict, reward_dict, done_dict, info_dict
-
-
-def modify_multi_to_single_walker_env(env):
+def multi_to_single_walker_decorator(env):
     def decorator_step(env_step):
         def new_env_step(action):
             action = action.clip(-1, 1)  # fix bug in class GymMultiWalkerEnv
-            action_dict = {0: action[0:4],
-                           1: action[4:8],
-                           2: action[8:12]}
-            state_dict, reward_dict, done_dict, info = env_step(action_dict)
-            state = np.hstack(tuple(state_dict.values()))
-            reward = sum(reward_dict.values())
-            done = any(done_dict.values())
+            action_l = (action[0:4], action[4:8], action[8:12])
+            state_l, reward_l, done_l, info = env_step(action_l)
+            state = np.hstack(state_l)
+            done = any(done_l)
+            reward = sum(reward_l)
             return state, reward, done, info
 
         return new_env_step
@@ -739,8 +669,8 @@ def modify_multi_to_single_walker_env(env):
 
     def decorator_reset(env_reset):
         def new_env_reset():
-            state_dict = env_reset()
-            state = np.hstack(tuple(state_dict.values()))
+            state_l = env_reset()
+            state = np.hstack(state_l)
             return state
 
         return new_env_reset
@@ -753,81 +683,54 @@ def modify_multi_to_single_walker_env(env):
 
 
 def run_demo__multi_walker():
-    # from sisl_games.multiwalker.multiwalker import env as custom_env
-
+    rd = np.random
     """sisl's multi-walker"""
-    env = GymMultiWalkerEnv()
-    state_l = [i.shape[0] for i in env.observation_space_dict.values()]
-    action_l = [i.shape[0] for i in env.action_space_dict.values()]
-    print(state_l)
-    print(action_l)
-
-    state = env.reset()
-
-    max_step = 1000
-    total_reward = 0
-    for i in range(max_step):
-        action_dict = dict([(i, np.random.uniform(-1.0, +1.0, n)) for i, n in enumerate(action_l)])
-        observations, rewards, dones, info = env.step(action_dict)
-        env.render()
-        total_reward += sum(rewards.values())
-        done = any(list(dones.values()))
-        # if sum(rewards.values()) > 0:
-        #     print("rewards", rewards)
-        rs = list(rewards.values())
-        print("R:", sum(rs), np.array(rs).round(2))
-        if done:
-            break
-
-    print("done", total_reward)
-    # env.close()
+    # env = MultiWalkerEnv()
+    # state_dim_l = [box.shape[0] for box in env.observation_space]
+    # action_dim_l = [box.shape[0] for box in env.action_space]
+    # print('state_dim_l', state_dim_l)
+    # print('action_dim_l', action_dim_l)
+    #
+    # state = env.reset()
+    #
+    # max_step = 1000
+    # total_reward = 0
+    # for i in range(max_step):
+    #     action_l = [rd.uniform(-1.0, +1.0, n) for n in action_dim_l]
+    #     state_l, reward_l, done_l, info = env.step(action_l)
+    #     env.render()
+    #     done = any(done_l)
+    #     print("R:", sum(reward_l), np.round(reward_l, 2))
+    #     if done:
+    #         break
+    #
+    # print("done", total_reward)
+    # # exit()
 
     """multi-walker modify by YonV1943"""  # wait to check
-    # env = GymMultiWalkerEnv()
-    env = modify_multi_to_single_walker_env(env)
+    env = MultiWalkerEnv()
+    env = multi_to_single_walker_decorator(env)
 
-    state_l = [i.shape[0] for i in env.observation_space_dict.values()]
-    action_l = [i.shape[0] for i in env.action_space_dict.values()]
-    print(state_l)
-    print(action_l)
+    state_dim = sum([box.shape[0] for box in env.observation_space])
+    action_dim = sum([box.shape[0] for box in env.action_space])
+    print('state_dim', state_dim)
+    print('action_dim', action_dim)
 
     state = env.reset()
 
     max_step = 1000
     total_reward = 0
-    import time
-    t0 = time.time()
     for i in range(max_step):
-        action = np.random.uniform(-1, 1, size=4 * 3)
+        action = rd.uniform(-1.0, +1.0, action_dim)
         state, reward, done, info = env.step(action)
-        # env.render()
+        env.render()
+        print("R:", np.round(reward, 2))
         total_reward += reward
-        print(f"R {reward:.3f}")
         if done:
             break
 
-    print(time.time() - t0)
-    print("done", total_reward)
-    env.close()
-
-
-def run_continuous_action(gpu_id=None):  # fail
-    # import AgentZoo as Zoo
-    from AgentRun import *
-    import beta1 as Zoo  # params-share
-
-    """online policy"""  # plan to check args.max_total_step
-    args = Arguments(rl_agent=Zoo.AgentInterGAE, gpu_id=gpu_id)
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 13  # 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 5  # 4
-
-    args.env_name = 'MultiWalker'
-    args.max_total_step = int(4e6 * 4)
-    args.init_for_training()
-    train_agent(**vars(args))
-    exit()
+    print("done", np.round(total_reward, 2))
+    # exit()
 
 
 if __name__ == '__main__':

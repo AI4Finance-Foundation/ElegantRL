@@ -1,5 +1,5 @@
 from AgentRun import *
-from AgentNet import *
+# from AgentNet import *
 from AgentZoo import *
 
 
@@ -41,7 +41,7 @@ def test__env_quickly():
 
     for env_name in env_names:
         print(f'| {env_name}')
-        build_gym_env(env_name, if_print=True, if_norm=False)
+        build_env(env_name, if_print=True, if_norm=False)
         print()
 
 
@@ -53,8 +53,8 @@ def test__replay_buffer():
     net_dim = 2 ** 7
 
     env_name = 'LunarLanderContinuous-v2'
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
-    state = env.reset()
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    # state = env.reset()
 
     '''offline'''
     buffer_offline = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim)
@@ -68,11 +68,6 @@ def test__replay_buffer():
 
     _rewards, _steps = agent.update_buffer(env, buffer_online, max_step, reward_scale, gamma)
     print('Memory length of buffer_online: ', len(buffer_online.storage_list))
-
-    buffer_ary = buffer_online.convert_to_rmsas()
-    buffer_offline.extend_memo(buffer_ary)
-    buffer_offline.update_pointer_before_sample()
-    print('Memory length of buffer_offline:', buffer_offline.now_len)
 
 
 def test__evaluate_agent():
@@ -88,7 +83,7 @@ def test__evaluate_agent():
     rl_agent = AgentInterSAC
     net_dim = 2 ** 8
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
 
     agent = rl_agent(state_dim, action_dim, net_dim)
     del agent.cri
@@ -126,7 +121,7 @@ def test__evaluate_agent():
 def test__network():
     net_dim = 2 ** 4
     env_name = "LunarLanderContinuous-v2"
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
 
     act = InterSPG(state_dim, action_dim, net_dim)
     act_optimizer = torch.optim.Adam([
@@ -149,10 +144,10 @@ def test__log_prob():
         print(t.cpu().data.numpy())
 
     env_name = "LunarLanderContinuous-v2"
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    batch_size = 1
+    # batch_size = 1
     a_mean = torch.tensor(np.array((-0.9, 0.1, 0.8, 0.8)), dtype=torch.float32, device=device)
     a_std_log = torch.tensor(np.array((0.1, 0.1, 0.1, 0.2)), dtype=torch.float32, device=device)
     a_std = a_std_log.exp()
@@ -161,25 +156,25 @@ def test__log_prob():
     a_noise = a_mean + a_std * noise
 
     '''verifier log_prob.sum(1, keepdim=True) + 0.919 * action_dim'''
-    # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-    # log_prob_noise = a_delta + a_std_log + 0.919  # self.constant_log_sqrt_2pi
-    #
-    # a_noise_tanh = a_noise.tanh()
-    # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-    # log_prob = log_prob_noise + fix_term
-    #
-    # show_tensor(a_noise_tanh)
-    # show_tensor(log_prob.sum(1, keepdim=True))
+    a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+    log_prob_noise = a_delta + a_std_log + 0.919  # self.constant_log_sqrt_2pi
 
-    # a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
-    # log_prob_noise = a_delta + a_std_log #+ 0.919  # self.constant_log_sqrt_2pi
-    #
-    # a_noise_tanh = a_noise.tanh()
-    # fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-    # log_prob = log_prob_noise + fix_term
-    #
-    # show_tensor(a_noise_tanh)
-    # show_tensor(log_prob.sum(1, keepdim=True) + 0.919 * action_dim)
+    a_noise_tanh = a_noise.tanh()
+    fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+    log_prob = log_prob_noise + fix_term
+
+    show_tensor(a_noise_tanh)
+    show_tensor(log_prob.sum(1, keepdim=True))
+
+    a_delta = ((a_noise - a_mean) / a_std).pow(2) * 0.5
+    log_prob_noise = a_delta + a_std_log  # + 0.919  # self.constant_log_sqrt_2pi
+
+    a_noise_tanh = a_noise.tanh()
+    fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
+    log_prob = log_prob_noise + fix_term
+
+    show_tensor(a_noise_tanh)
+    show_tensor(log_prob.sum(1, keepdim=True) + 0.919 * action_dim)
 
     '''verifier '''
     a_noise_tanh = a_noise.tanh()
@@ -208,7 +203,7 @@ def test__buffer__data_type():
             (1e-7, 1e-45, np.float32),
             (1e-8, 1e-323, np.float64),
     ):
-        buffer = np.array((1+number1, number2,), dtype=data_type)
+        buffer = np.array((1 + number1, number2,), dtype=data_type)
         print(repr(buffer))
 
 

@@ -3,16 +3,10 @@ from AgentNet import *
 from AgentZoo import *
 
 """
-BW
-beta1 SAC
-ceta4 SAC BW
-ceta1 SAC Reach
+beta2 check ModPPO CarRacing
+beta3 check InterPPO CarRacing
 
-beta0 beta3 ModSAC a_lr cancel
-beta2 beta2 ModSAC
-
-
-ceta0 ModSAC 
+ceta1 check PPO Minitaur
 """
 
 

@@ -9,7 +9,7 @@ import numpy as np
 from AgentZoo import initial_exploration
 from AgentZoo import BufferArray, BufferArrayGPU, BufferTupleOnline
 
-"""ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenYiYan ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
@@ -68,20 +68,20 @@ class Arguments:  # default working setting and hyper-parameters
 """train in single processing"""
 
 
-def train_agent(  # 2020-10-20
+def train_agent(  # 2020-11-11
         rl_agent, env_name, gpu_id, cwd,
         net_dim, max_memo, max_step, batch_size, repeat_times, reward_scale, gamma,
         break_step, if_break_early, show_gap, eval_times1, eval_times2, **_kwargs):  # 2020-09-18
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
 
     '''init: agent, buffer, recorder'''
-    recorder = Recorder1110(eval_size1=eval_times1, eval_size2=eval_times2)
+    recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
 
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentGAE', 'AgentInterGAE', 'AgentDiscreteGAE'}):
+    if bool(rl_agent.__name__ in {'AgentPPO', }):
         buffer = BufferTupleOnline(max_memo)
-    elif bool(rl_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'}):
+    elif bool(rl_agent.__name__ in {'AgentModPPO', 'AgentInterPPO'}):
         buffer = BufferArray(max_memo + max_step, state_dim, action_dim, if_ppo=True)
     else:
         buffer = BufferArray(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
@@ -141,7 +141,7 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
     gamma = args.gamma
     del args
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
 
     '''build agent'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
@@ -156,12 +156,12 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
 
     '''build replay buffer, init: total_step, reward_avg'''
     total_step = 0
-    if bool(rl_agent.__name__ in {'AgentOffPPO', 'AgentInterOffPPO'}):
+    if bool(rl_agent.__name__ in {'AgentModPPO', 'AgentInterPPO'}):
         buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)  # experiment replay buffer
         with torch.no_grad():
             reward_avg = get_episode_reward(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
     else:
-        buffer = BufferArrayGPU(max_memo, state_dim, action_dim, if_ppo=False)  # experiment replay buffer
+        buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
         '''initial exploration'''
         with torch.no_grad():  # update replay buffer
             rewards, steps = initial_exploration(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
@@ -204,7 +204,7 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
                         or total_step > max_total_step
                         or os.path.exists(f'{cwd}/stop'))
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
     buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
     q_i_eva.put('stop')
@@ -224,7 +224,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     eval_size2 = args.eval_times2
     del args
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_gym_env(env_name, if_print=True)
+    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=True)
 
     '''build evaluated only actor'''
     act = q_i_eva.get()  # q_i_eva 1, act == act.to(device_cpu), requires_grad=False
@@ -277,7 +277,7 @@ def train_agent_mp(args):  # 2020-1111
 """utils"""
 
 
-def get_env_info(env, is_print=True):  # 2020-10-10
+def get_env_info(env, is_print=True) -> tuple:  # 2020-10-10
     env_name = env.unwrapped.spec.id
 
     state_shape = env.observation_space.shape
@@ -321,8 +321,7 @@ def get_env_info(env, is_print=True):  # 2020-10-10
     return state_dim, action_dim, action_max, target_reward, if_discrete
 
 
-def decorator__normalization(  # 2020-11-10
-        env, action_max=1, state_avg=None, state_std=None, data_type=np.float32):
+def decorate_env(env, action_max=1, state_avg=None, state_std=None, data_type=np.float32):
     if state_avg is None:
         neg_state_avg = 0
         div_state_std = 1
@@ -380,7 +379,7 @@ def decorator__normalization(  # 2020-11-10
     return env
 
 
-def build_gym_env(env_name, if_print=True, if_norm=True):
+def build_env(env_name, if_print=True, if_norm=True):
     assert env_name is not None
 
     '''UserWarning: WARN: Box bound precision lowered by casting to float32
@@ -489,7 +488,7 @@ def build_gym_env(env_name, if_print=True, if_norm=True):
         #                     0.09843876, 0.10035378, 0.11045089, 0.11910835, 0.13400233,
         #                     0.15718603, 0.17106676, 0.14363566, 0.10100251])
 
-    env = decorator__normalization(env, action_max, avg, std, data_type=np.float32)
+    env = decorate_env(env, action_max, avg, std, data_type=np.float32)
     return env, state_dim, action_dim, target_reward, if_discrete
 
 
@@ -630,121 +629,6 @@ class Recorder:  # 2020-10-12
         torch.save(act.state_dict(), act_save_path)
         print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
 
-    def check_is_solved(self, target_reward, agent_id, show_gap, cwd):  # todo cwd for update jpg
-        if self.eva_r_max > target_reward:
-            self.is_solved = True
-            if self.used_time is None:
-                self.used_time = int(time.time() - self.start_time)
-                print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
-                      f"{'avgR':>8}  {'stdR':>8} |"
-                      f"{'ExpR':>8}  {'UsedTime':>8}  ########")
-
-                total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-                total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-                print(f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
-                      f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                      f"{exp_r_avg:8.2f}  {self.used_time:>8}  ########")
-
-        if time.time() - self.print_time > show_gap:
-            self.print_time = time.time()
-
-            total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-            total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-            print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
-                  f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                  f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
-            self.save_npy__draw_plot(cwd)  # todo cwd for update jpg
-        return self.is_solved
-
-    def check__if_solved(self, target_reward, agent_id, show_gap):
-        if self.eva_r_max > target_reward:
-            self.is_solved = True
-            if self.used_time is None:
-                self.used_time = int(time.time() - self.start_time)
-                print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
-                      f"{'avgR':>8}  {'stdR':>8} |"
-                      f"{'ExpR':>8}  {'UsedTime':>8}  ########")
-
-                total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-                total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-                print(f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
-                      f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                      f"{exp_r_avg:8.2f}  {self.used_time:>8}  ########")
-
-        if time.time() - self.print_time > show_gap:
-            self.print_time = time.time()
-
-            total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-            total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-            print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
-                  f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                  f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
-        return self.is_solved
-
-    def save_npy__draw_plot(self, cwd):  # 2020-10-10
-        np.save('%s/record_explore.npy' % cwd, self.record_exp)  # todo plan to change to 'step_expR_lossA_lossC.npy'
-        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)  # todo plan to change to 'step_evaR_stdR.npy'
-        draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
-
-    def demo(self):
-        pass
-
-
-class Recorder1110:  # 2020-10-12
-    def __init__(self, eval_size1=3, eval_size2=9):
-        self.eva_r_max = -np.inf
-        self.total_step = 0
-        self.record_exp = [(0., 0., 0., 0.), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
-        self.record_eva = [(0., 0., 0.), ]  # total_step, eva_r_avg, eva_r_std
-        self.is_solved = False
-
-        '''constant'''
-        self.eva_size1 = eval_size1
-        self.eva_size2 = eval_size2
-
-        '''print_reward'''
-        self.used_time = None
-        self.start_time = time.time()
-        self.print_time = time.time()
-
-        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
-              f"{'avgR':>8}  {'stdR':>8} |"
-              f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
-
-    def update__record_evaluate(self, env, act, max_step, device, if_discrete):
-        is_saved = False
-        reward_list = [get_episode_reward(env, act, max_step, device, if_discrete)
-                       for _ in range(self.eva_size1)]
-
-        eva_r_avg = np.average(reward_list)
-        if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([get_episode_reward(env, act, max_step, device, if_discrete)
-                                for _ in range(self.eva_size2 - self.eva_size1)])
-            eva_r_avg = np.average(reward_list)
-            if eva_r_avg > self.eva_r_max:  # check final
-                self.eva_r_max = eva_r_avg
-                is_saved = True
-
-        eva_r_std = float(np.std(reward_list))
-        self.record_eva.append((self.total_step, eva_r_avg, eva_r_std))
-
-        return is_saved
-
-    def update__record_explore(self, exp_s_sum, exp_r_avg, loss_a, loss_c):  # 2020-10-10
-        if isinstance(exp_s_sum, int):
-            exp_s_sum = (exp_s_sum,)
-            exp_r_avg = (exp_r_avg,)
-        if loss_c > 32:
-            print(f"| ToT: Critic Loss explosion {loss_c:.1f}. Select a smaller reward_scale.")
-        for s, r in zip(exp_s_sum, exp_r_avg):
-            self.total_step += s
-            self.record_exp.append((self.total_step, r, loss_a, loss_c))
-
-    def save_act(self, cwd, act, agent_id):
-        act_save_path = f'{cwd}/actor.pth'
-        torch.save(act.state_dict(), act_save_path)
-        print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
-
     def check_is_solved(self, target_reward, agent_id, show_gap, cwd):
         if self.eva_r_max > target_reward:
             self.is_solved = True
@@ -798,8 +682,8 @@ class Recorder1110:  # 2020-10-12
         return self.is_solved
 
     def save_npy__draw_plot(self, cwd):  # 2020-10-10
-        np.save('%s/record_explore.npy' % cwd, self.record_exp)  # todo plan to change to 'step_expR_lossA_lossC.npy'
-        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)  # todo plan to change to 'step_evaR_stdR.npy'
+        np.save('%s/record_explore.npy' % cwd, self.record_exp)
+        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)
         draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
 
     def demo(self):
@@ -865,45 +749,109 @@ def get_episode_reward(env, act, max_step, device, if_discrete) -> float:
     return reward_item
 
 
-# todo repeat with initial_exploration() in AgentZoo.py
-def get__buffer_reward_step(env, max_step, reward_scale, gamma, action_dim, if_discrete,
-                            **_kwargs) -> (np.ndarray, list, list):
-    buffer_list = list()
+""" Utils Fix Env CarRacing-v0 - Box2D
+ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
+3   1.93e+05    900.00 |  939.68    113.69 |  227.59      9112  ########
+0   4.49e+05    900.00 |  910.85     97.42 |  634.27     22515  ########
+3   8.84e+05    927.97 |  811.58    197.24 |  796.59     -1.05      1.11
+2   5.14e+05    900.00 |  953.76    104.13 |  752.05     24101  ########
+2   1.82e+06   1001.72 | 1001.72     31.75 |  852.32     -1.17      1.03
+0   5.66e+05    900.00 |  904.81    111.35 |  554.26     31235  ########
+3   6.57e+05    900.00 |  951.91     97.26 |  744.53     38699  ########
+"""
 
-    reward_list = list()
-    reward_item = 0.0
 
-    step_list = list()
-    step_item = 0
+def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-11-11
+    env.old_step = env.step
+    """
+    comment 'car_racing.py' line 233-234: print('Track generation ...
+    comment 'car_racing.py' line 308-309: print("retry to generate track ...
+    """
 
-    state = env.reset()
+    def rgb2gray(rgb):
+        # # rgb image -> gray [0, 1]
+        # gray = np.dot(rgb[..., :], [0.299, 0.587, 0.114]).astype(np.float32)
+        # if norm:
+        #     # normalize
+        #     gray = gray / 128. - 1.
+        # return gray
+        state = rgb[:, :, 1]  # show green
+        state[86:, 24:36] = rgb[86:, 24:36, 2]  # show red
+        state[86:, 72:] = rgb[86:, 72:, 0]  # show blue
+        state = (state - 128) / 128.
+        return state
 
-    global_step = 0
+    env.state_stack = None
+    env.avg_reward = 0
+    env.state = None
 
-    while global_step < max_step or len(reward_list) == 0:
-        action = np.random.randint(action_dim) if if_discrete else np.random.uniform(-1, 1, size=action_dim)
-        next_state, reward, done, _ = env.step(action)
-        reward_item += reward
-        step_item += 1
+    def decorator_step(env_step):
+        def new_env_step(action):
+            action = action.copy()
+            action[1:] = (action[1:] + 1) / 2  # fix action_space.low
 
-        adjust_reward = reward * reward_scale
-        mask = 0.0 if done else gamma
-        buffer_list.append((adjust_reward, mask, state, action, next_state))
+            reward_sum = 0
+            done = info = None
+            try:
+                for _ in range(action_num):
+                    env.state, reward, done, info = env_step(action)
 
+                    if done:  # don't penalize "die state"
+                        reward += 100
+                    if env.state.mean() > 192:  # 185.0:  # penalize when outside of road
+                        reward -= 0.05
+
+                    env.avg_reward = env.avg_reward * 0.95 + reward * 0.05
+                    if env.avg_reward <= -0.1:
+                        done = True
+
+                    reward_sum += reward
+
+                    if done:
+                        break
+            except Exception as error:
+                print(f"| CarRacing-v0 Error 'stack underflow'? {error}")
+                reward_sum = 0
+                done = True
+            env.state_stack.pop(0)
+            env.state_stack.append(rgb2gray(env.state))
+
+            return np.array(env.state_stack).flatten(), reward_sum, done, info
+
+        return new_env_step
+
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            state = rgb2gray(env_reset())
+            env.state_stack = [state, ] * frame_num
+            return np.array(env.state_stack).flatten()
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
+    return env
+
+
+def test_car_racing():
+    env_name = 'CarRacing-v0'
+    env, state_dim, action_dim, target_reward, is_discrete = build_env(env_name, if_print=True)
+
+    _state = env.reset()
+    import cv2
+    action = np.array((0, 1.0, -1.0))
+    for i in range(321):
+        # action = env.action_space.sample()
+        state, reward, done, _ = env.step(action)
+        # env.render
+        show = state.reshape(state_dim)
+        show = ((show[0] + 1.0) * 128).astype(np.uint8)
+        cv2.imshow('', show)
+        cv2.waitKey(1)
         if done:
-            global_step += step_item
-
-            reward_list.append(reward_item)
-            reward_item = 0.0
-            step_list.append(step_item)
-            step_item = 0
-
-            state = env.reset()
-        else:
-            state = next_state
-
-    buffer_array = np.stack([np.hstack(buf_tuple) for buf_tuple in buffer_list])
-    return buffer_array, reward_list, step_list
+            break
+        # env.render()
 
 
 """demo"""
@@ -911,64 +859,51 @@ def get__buffer_reward_step(env, max_step, reward_scale, gamma, action_dim, if_d
 
 def run__demo():
     import AgentZoo as Zoo
-    # args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
-    args = Arguments(rl_agent=Zoo.AgentInterSAC, env_name="LunarLanderContinuous-v2", gpu_id=None)
+
+    # args = Arguments(rl_agent=Zoo.AgentDoubleDQN, env_name="LunarLander-v2", gpu_id=0)
+    args = Arguments(rl_agent=Zoo.AgentDuelingDQN, env_name="LunarLander-v2", gpu_id=0)
+    args.break_step = int(1e5 * 8)  # used time 600s
+    args.net_dim = 2 ** 7
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
+    # exit()
+
+    # args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
+    args = Arguments(rl_agent=Zoo.AgentInterSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
+    args.break_step = int(5e5 * 8)  # used time 1500s
+    args.net_dim = 2 ** 8
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
 
 
 def run__discrete_action(gpu_id=None):
     import AgentZoo as Zoo
 
-    """offline policy"""  # plan to check args.max_total_step
     args = Arguments(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
     assert args.rl_agent in {
         Zoo.AgentDQN,  # 2014.
         Zoo.AgentDoubleDQN,  # 2016. stable
-        Zoo.AgentDuelingDQN,  # 2016. fast
+        Zoo.AgentDuelingDQN,  # 2016. stable and fast
     }
 
     args.env_name = "CartPole-v0"
-    args.break_step = int(1e4 * 8)
+    args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
     args.reward_scale = 2 ** 0  # 0 ~ 200
     args.net_dim = 2 ** 6
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "LunarLander-v2"
-    args.break_step = int(1e5 * 8)  # (-1000) -150 ~ 200 (250)
+    args.break_step = int(1e5 * 8)  # 1e5 (2e5), used time 800s
+    args.reward_scale = 2 ** 0  # (-1000) -150 ~ 200 (285)
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
-    """online policy"""  # plan to check args.max_total_step
-    args = Arguments(rl_agent=Zoo.AgentDiscreteGAE, gpu_id=gpu_id)
-    assert args.rl_agent in {Zoo.AgentDiscreteGAE, }
 
-    args.max_memo = 2 ** 10
-    args.batch_size = 2 ** 8
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 7
-
-    args.env_name = "CartPole-v0"
-    args.break_step = int(4e3 * 8)
-    args.init_for_training()
-    train_agent(**vars(args))
-
-    args.gpu_id = gpu_id
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 8
-
-    args.env_name = "LunarLander-v2"
-    args.break_step = int(2e5 * 8)
-    args.init_for_training()
-    train_agent(**vars(args))
-
-
-def run_continuous_action__off_policy(gpu_id=None):
+def run__off_policy(gpu_id=None):
     import AgentZoo as Zoo
 
     args = Arguments(gpu_id=gpu_id)
@@ -1013,7 +948,7 @@ def run_continuous_action__off_policy(gpu_id=None):
 
     args.env_name = "ReacherBulletEnv-v0"
     args.break_step = int(5e4 * 8)  # (4e4) 5e4
-    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29) # todo wait update
+    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -1036,7 +971,7 @@ def run_continuous_action__off_policy(gpu_id=None):
     args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
     args.batch_size = (2 ** 8)
     args.net_dim = int(2 ** 8)
-    args.max_step = 2 ** 11  # todo
+    args.max_step = 2 ** 11
     args.max_memo = 2 ** 20
     args.eval_times2 = 3  # for Recorder
     args.eval_times2 = 9  # for Recorder
@@ -1058,14 +993,13 @@ def run_continuous_action__off_policy(gpu_id=None):
     exit()
 
 
-def run_continuous_action__on_policy(gpu_id=None):
+def run__on_policy(gpu_id=None):
     import AgentZoo as Zoo
     """online policy"""
-    args = Arguments(rl_agent=Zoo.AgentOffPPO, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentModPPO, gpu_id=gpu_id)
     assert args.rl_agent in {
-        Zoo.AgentPPO,  # 2018. quite stable, but slow
-        Zoo.AgentGAE,  # 2015. PPO+GAE. quite stable in high-dim
-        Zoo.AgentInterGAE  # 2020. PPO+GAE+IntegratedNet
+        Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
+        Zoo.AgentModPPO  # 2019. update_buffer.detach()
     }
     """PPO and GAE is online policy.
     The memory in replay buffer will only be saved for one episode.
@@ -1075,7 +1009,7 @@ def run_continuous_action__on_policy(gpu_id=None):
 
     GAE is Generalization Advantage Estimate. (in high dimension)
     RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
-    AgentGAE is a PPO using GAE and output log_std of action by an actor network.
+    AgentStdPPO is a PPO using GAE and output log_std of action by an actor network.
     """
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11  # 12
@@ -1117,6 +1051,19 @@ def run_continuous_action__on_policy(gpu_id=None):
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
+    args.env_name = "ReacherBulletEnv-v0"
+    args.break_step = int(8e5 * 8)  # (4e5) 8e5
+    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 3
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
     args.break_step = int(1e6 * 8)
     args.reward_scale = 2 ** -3
@@ -1131,7 +1078,7 @@ def run_continuous_action__on_policy(gpu_id=None):
     args.break_step = int(5e5 * 8)  # (PPO 3e5) 5e5
     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
     args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11  # todo
+    args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9
     args.repeat_times = 2 ** 4
     args.init_for_training()
