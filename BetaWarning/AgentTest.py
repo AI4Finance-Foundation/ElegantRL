@@ -71,14 +71,14 @@ def test__replay_buffer():
 
 
 def test__evaluate_agent():
-    # save_path = '/mnt/sdb1/yonv/code/ElegantRL_cwd/2020-10-10/PPO/MinitaurBulletEnv-v0_33.72'
+    # save_path = './PPO/MinitaurBulletEnv-v0_33.72'
     # env_name = "MinitaurBulletEnv-v0"
     # rl_agent = AgentPPO
     # net_dim = 2 ** 9
     # import pybullet_envs  # for python-bullet-gym
     # dir(pybullet_envs)
 
-    save_path = '/mnt/sdb1/yonv/code/ElegantRL_cwd/2020-10-10/InterSAC/BipedalWalkerHardcore-v3_313.8'
+    save_path = './InterSAC/BipedalWalkerHardcore-v3_313.8'
     env_name = "BipedalWalkerHardcore-v3"
     rl_agent = AgentInterSAC
     net_dim = 2 ** 8
@@ -208,7 +208,6 @@ def test__buffer__data_type():
 
 
 def test__train_agent():
-    from ceta4 import AgentBaseAC
     rl_agent = AgentBaseAC
     args = Arguments(rl_agent=rl_agent, env_name="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
