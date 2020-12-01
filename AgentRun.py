@@ -42,7 +42,7 @@ class Arguments:  # default working setting and hyper-parameters
         self.show_gap = 2 ** 8  # show the Reward and Loss of actor and critic per show_gap seconds
         self.eval_times1 = 2 ** 3  # evaluation times if 'eval_reward > old_max_reward'
         self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > target_reward'
-        self.random_seed = 1943  # Github: YonV 1943, ZenJiaHao
+        self.random_seed = 1943  # Github: YonV 1943
 
     def init_for_training(self, cpu_threads=4):
         assert self.rl_agent is not None
@@ -398,7 +398,6 @@ def build_env(env_name, if_print=True, if_norm=True):
     elif env_name == 'CarRacing-v0':
         # | state_dim: (96, 96, 3), action_dim: 3, action_max: 1.0, target_reward: 900
         frame_num = 3
-        from AgentPixel import fix_car_racing_env
         env = gym.make(env_name)
         env = fix_car_racing_env(env, frame_num=frame_num, action_num=frame_num)
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
@@ -860,18 +859,18 @@ def test_car_racing():
 def run__demo():
     import AgentZoo as Zoo
 
-    # args = Arguments(rl_agent=Zoo.AgentDoubleDQN, env_name="LunarLander-v2", gpu_id=0)
-    args = Arguments(rl_agent=Zoo.AgentDuelingDQN, env_name="LunarLander-v2", gpu_id=0)
-    args.break_step = int(1e5 * 8)  # used time 600s
-    args.net_dim = 2 ** 7
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
-    # exit()
+    # # args = Arguments(rl_agent=Zoo.AgentDoubleDQN, env_name="LunarLander-v2", gpu_id=0)
+    # args = Arguments(rl_agent=Zoo.AgentDuelingDQN, env_name="LunarLander-v2", gpu_id=0)
+    # args.break_step = int(1e5 * 8)  # used time 600s
+    # args.net_dim = 2 ** 7
+    # args.init_for_training()
+    # train_agent_mp(args)  # train_agent(**vars(args))
+    # # exit()
 
     # args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
-    args = Arguments(rl_agent=Zoo.AgentInterSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
+    args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
     args.break_step = int(5e5 * 8)  # used time 1500s
-    args.net_dim = 2 ** 8
+    args.net_dim = 2 ** 7
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()

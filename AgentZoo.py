@@ -660,14 +660,14 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
         self.act = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act.train()
         self.act_optimizer = torch.optim.Adam([
-            {'params': self.act.enc_s.parameters(), 'lr': self.learning_rate},  # more stable
+            {'params': self.act.enc_s.parameters(), 'lr': self.learning_rate * 0.8},  # more stable
             {'params': self.act.enc_a.parameters(), },
-            {'params': self.act.net.parameters(), 'lr': self.learning_rate},
+            {'params': self.act.net.parameters(), 'lr': self.learning_rate * 0.8},
             {'params': self.act.dec_a.parameters(), },
             {'params': self.act.dec_d.parameters(), },
             {'params': self.act.dec_q1.parameters(), },
             {'params': self.act.dec_q2.parameters(), },
-        ], lr=self.learning_rate * 1.5)
+        ], lr=self.learning_rate)
 
         self.act_target = InterSPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.eval()
@@ -998,8 +998,6 @@ class AgentModPPO:
     def update_policy(self, buffer, _max_step, batch_size, repeat_times):
         buffer.update_pointer_before_sample()
 
-        self.act.train()
-        self.cri.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
@@ -1038,10 +1036,9 @@ class AgentModPPO:
             prev_new_v = all__new_v[i]
             prev_adv_v = all__adv_v[i]
         all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)
-        # Q_value_norm is necessary. Because actor_loss = surrogate_obj + loss_entropy * lambda_entropy.
+        # Q_value_norm is necessary.
 
         '''mini batch sample'''
-        all_old_value_std = all__old_v.std() + 1e-5
         all__old_v = all__old_v.unsqueeze(1)
         sample_times = int(repeat_times * max_memo / batch_size)
 
@@ -1057,10 +1054,10 @@ class AgentModPPO:
 
             '''critic_loss'''
             new_value = self.cri(state)
-            critic_loss = self.criterion(new_value, old_value)
+            critic_loss = self.criterion(new_value, old_value) / (old_value.std() + 1e-5)  # 2020-12-01
 
             self.cri_optimizer.zero_grad()
-            (critic_loss / all_old_value_std).backward()
+            critic_loss.backward()
             self.cri_optimizer.step()
 
             '''actor_loss'''
@@ -1082,10 +1079,7 @@ class AgentModPPO:
             actor_loss.backward()
             self.act_optimizer.step()
 
-        self.act.eval()
-        self.cri.eval()
         buffer.empty_memories_before_explore()
-        # return actor_loss.item(), critic_loss.item()
         return self.act.a_std_log.mean().item(), critic_loss.item()
 
     def save_or_load_model(self, cwd, if_save):  # 2020-05-20
@@ -1108,8 +1102,9 @@ class AgentModPPO:
             print("FileNotFound when load_model: {}".format(cwd))
 
 
-class AgentInterPPO:
+class AgentInterPPO(AgentModPPO):
     def __init__(self, state_dim, action_dim, net_dim):
+        super(AgentModPPO, self).__init__()
         self.learning_rate = 1e-4  # learning rate of actor
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -1131,48 +1126,14 @@ class AgentInterPPO:
         '''extension: reliable lambda for auto-learning-rate'''
         self.avg_loss_c = (-np.log(0.5)) ** 0.5
 
-    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        rewards = list()
-        steps = list()
-
-        a_std = np.exp(self.act.a_std_log.cpu().data.numpy()[0])
-
-        step_counter = 0
-        max_memo = buffer.max_len - max_step
-        while step_counter < max_memo:
-            reward_sum = 0
-            step_sum = 0
-
-            state = env.reset()
-            for step_sum in range(max_step):
-                states = torch.tensor((state,), dtype=torch.float32, device=self.device)
-                a_avg = self.act.get__a_avg(states).cpu().data.numpy()[0]
-                noise = rd.randn(self.action_dim)
-                action = a_avg + noise * a_std
-
-                next_state, reward, done, _ = env.step(np.tanh(action))
-                reward_sum += reward
-
-                mask = 0.0 if done else gamma
-
-                reward_ = reward * reward_scale
-                buffer.append_memo((reward_, mask, state, action, noise))
-
-                if done:
-                    break
-
-                state = next_state
-
-            rewards.append(reward_sum)
-            steps.append(step_sum)
-
-            step_counter += step_sum
-        return rewards, steps
+    def select_action(self, state):
+        states = torch.tensor((state,), dtype=torch.float32, device=self.device)
+        actions = self.act.get__a_avg(states)
+        return actions.cpu().data.numpy()[0]
 
     def update_policy(self, buffer, _max_step, batch_size, repeat_times):
         buffer.update_pointer_before_sample()
 
-        self.act.train()
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
@@ -1257,29 +1218,8 @@ class AgentInterPPO:
             united_loss.backward()
             self.act_optimizer.step()
 
-        self.act.eval()
         buffer.empty_memories_before_explore()
         return self.act.a_std_log.mean().item(), critic_loss.item()
-
-    def save_or_load_model(self, cwd, if_save):  # 2020-05-20
-        act_save_path = '{}/actor.pth'.format(cwd)
-
-        # cri_save_path = '{}/critic.pth'.format(cwd)
-        # has_cri = 'cri' in dir(self)
-
-        def load_torch_file(network, save_path):
-            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
-            network.load_state_dict(network_dict)
-
-        if if_save:
-            torch.save(self.act.state_dict(), act_save_path)
-            # torch.save(self.cri.state_dict(), cri_save_path) if has_cri else None
-            # print("Saved act and cri:", mod_dir)
-        elif os.path.exists(act_save_path):
-            load_torch_file(self.act, act_save_path)
-            # load_torch_file(self.cri, cri_save_path) if has_cri else None
-        else:
-            print("FileNotFound when load_model: {}".format(cwd))
 
 
 class AgentDQN:  # 2020-06-06
