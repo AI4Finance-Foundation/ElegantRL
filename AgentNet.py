@@ -185,11 +185,13 @@ class InterPPO(nn.Module):  # Pixel-level state version
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        nn_dense = DenseNet(mid_dim)
-        out_dim = nn_dense.out_dim
+        # nn_dense = DenseNet(mid_dim)
+        # out_dim = nn_dense.out_dim
+        out_dim = mid_dim
         self.enc_s = nn.Sequential(  # the only difference.
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn_dense,
+            nn.Linear(mid_dim, mid_dim),
+            # nn_dense,
         ) if isinstance(state_dim, int) else nn.Sequential(
             NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
             nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
@@ -200,7 +202,8 @@ class InterPPO(nn.Module):  # Pixel-level state version
             nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
             NnnReshape(-1),
             nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-            nn_dense,
+            # nn_dense,
+            nn.Linear(mid_dim, mid_dim),
         )
 
         self.dec_a = nn.Sequential(

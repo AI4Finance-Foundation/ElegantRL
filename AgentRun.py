@@ -44,7 +44,7 @@ class Arguments:  # default working setting and hyper-parameters
         self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > target_reward'
         self.random_seed = 1943  # Github: YonV 1943
 
-    def init_for_training(self, cpu_threads=4):
+    def init_for_training(self, cpu_threads=6):
         assert self.rl_agent is not None
         assert self.env_name is not None
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
@@ -265,8 +265,8 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
 
 def train_agent_mp(args):  # 2020-1111
     import multiprocessing as mp
-    q_i_eva = mp.Queue(maxsize=8)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=8)  # evaluate O
+    q_i_eva = mp.Queue(maxsize=16)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=16)  # evaluate O
     process = [mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva)),
                mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
     [p.start() for p in process]
@@ -748,16 +748,7 @@ def get_episode_reward(env, act, max_step, device, if_discrete) -> float:
     return reward_item
 
 
-""" Utils Fix Env CarRacing-v0 - Box2D
-ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
-3   1.93e+05    900.00 |  939.68    113.69 |  227.59      9112  ########
-0   4.49e+05    900.00 |  910.85     97.42 |  634.27     22515  ########
-3   8.84e+05    927.97 |  811.58    197.24 |  796.59     -1.05      1.11
-2   5.14e+05    900.00 |  953.76    104.13 |  752.05     24101  ########
-2   1.82e+06   1001.72 | 1001.72     31.75 |  852.32     -1.17      1.03
-0   5.66e+05    900.00 |  904.81    111.35 |  554.26     31235  ########
-3   6.57e+05    900.00 |  951.91     97.26 |  744.53     38699  ########
-"""
+"""utils: Fix Env CarRacing-v0 - Box2D"""
 
 
 def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-11-11
@@ -853,6 +844,44 @@ def test_car_racing():
         # env.render()
 
 
+def train__car_racing(gpu_id=None, random_seed=0):
+    print('pixel-level state')
+    import AgentZoo as Zoo
+    rl_agent = (
+        Zoo.AgentModPPO,
+        Zoo.AgentInterPPO
+    )[1]  # choose DRl algorithm.
+
+    args = Arguments(rl_agent=rl_agent, gpu_id=gpu_id)
+    args.if_break_early = True
+    args.eval_times2 = 2
+    args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
+
+    args.env_name = "CarRacing-v0"
+    """
+    ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
+    3   1.93e+05    900.00 |  939.68    113.69 |  227.59      9112  ########
+    3   2.37e+05    900.00 |  957.16     36.60 |  365.65     12832  ########
+    0   4.49e+05    900.00 |  910.85     97.42 |  634.27     22515  ########
+    2   5.14e+05    900.00 |  953.76    104.13 |  752.05     24101  ########
+    
+    ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
+    2   1.82e+06   1001.72 | 1001.72     31.75 |  852.32     -1.17      1.03
+    """
+
+    args.random_seed = 1943 + random_seed
+    args.break_step = int(5e5 * 4)  # (2e5) 5e5, used time 25000s
+    args.reward_scale = 2 ** -2  # (-1) 80 ~ 900 (1001)
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 7
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 7
+    args.max_step = 2 ** 10
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+
+
 """demo"""
 
 
@@ -906,8 +935,7 @@ def run__off_policy(gpu_id=None):
     import AgentZoo as Zoo
 
     args = Arguments(gpu_id=gpu_id)
-    args.rl_agent = Zoo.AgentModSAC
-    assert args.rl_agent in {
+    args.rl_agent = [
         Zoo.AgentDDPG,  # 2014. simple, simple, slow, unstable
         Zoo.AgentBaseAC,  # 2014+ modify DDPG, faster, more stable
         Zoo.AgentTD3,  # 2018. twin critics, delay target update
@@ -915,7 +943,8 @@ def run__off_policy(gpu_id=None):
         Zoo.AgentModSAC,  # 2018+ modify SAC, faster, more stable
         Zoo.AgentInterAC,  # 2019. Integrated AC(DPG)
         Zoo.AgentInterSAC,  # 2020. Integrated SAC(SPG)
-    }  # PPO, GAE is online policy. See below.
+    ][4]  # I suggest to use ModSAC (Modify SAC)
+    # On-policy PPO is not here 'run__off_policy()'. See PPO in 'run__on_policy()'.
 
     args.if_break_early = True
     args.if_remove_history = True
@@ -996,20 +1025,11 @@ def run__on_policy(gpu_id=None):
     import AgentZoo as Zoo
     """online policy"""
     args = Arguments(rl_agent=Zoo.AgentModPPO, gpu_id=gpu_id)
-    assert args.rl_agent in {
+    args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
         Zoo.AgentModPPO  # 2019. update_buffer.detach()
-    }
-    """PPO and GAE is online policy.
-    The memory in replay buffer will only be saved for one episode.
+    ][1]  # I suggest to use ModPPO (Modify PPO)
 
-    TRPO's author use a surrogate object to simplify the KL penalty, and get PPO.
-    So I provide PPO instead of TRPO here.
-
-    GAE is Generalization Advantage Estimate. (in high dimension)
-    RL algorithm that use advantage function (such as A2C, PPO, SAC) can use this technique.
-    AgentStdPPO is a PPO using GAE and output log_std of action by an actor network.
-    """
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11  # 12
     args.batch_size = 2 ** 9
@@ -1083,14 +1103,6 @@ def run__on_policy(gpu_id=None):
     args.init_for_training()
     train_agent(**vars(args))
     exit()
-
-    # args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
-    # args.break_step = int(2e7 * 8)
-    # args.reward_scale = 2 ** 0
-    # args.net_dim = 2 ** 8
-    # args.init_for_training()
-    # train_agent(**vars(args))
-    # exit()
 
 
 if __name__ == '__main__':
