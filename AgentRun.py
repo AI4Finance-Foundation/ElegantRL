@@ -112,7 +112,7 @@ def train_agent(  # 2020-11-11
         recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
 
         with torch.no_grad():  # for saving the GPU buffer
-            if_solve = recorder.check_is_solved(target_reward, gpu_id, show_gap, cwd)
+            if_solve = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
 
         '''break loop rules'''
         if_train = not ((if_break_early and if_solve)
@@ -120,6 +120,8 @@ def train_agent(  # 2020-11-11
                         or os.path.exists(f'{cwd}/stop'))
 
     recorder.save_npy__draw_plot(cwd)
+    print(f'UsedTime: {recorder.used_time}')
+
     buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
 
@@ -156,10 +158,14 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
 
     '''build replay buffer, init: total_step, reward_avg'''
     total_step = 0
-    if bool(rl_agent.__name__ in {'AgentModPPO', 'AgentInterPPO'}):
+    if bool(rl_agent.__name__ in {'AgentPPO', }):
+        buffer = BufferTupleOnline(max_memo)
+        with torch.no_grad():
+            reward_avg = get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
+    elif bool(rl_agent.__name__ in {'AgentModPPO', 'AgentInterPPO'}):
         buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)  # experiment replay buffer
         with torch.no_grad():
-            reward_avg = get_episode_reward(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
+            reward_avg = get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
     else:
         buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
         '''initial exploration'''
@@ -240,7 +246,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
             is_saved = recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
-            is_solved = recorder.check_is_solved(target_reward, gpu_id, show_gap, cwd)
+            is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
             q_o_eva.put(is_solved)  # q_o_eva n.
 
             '''update actor'''
@@ -255,6 +261,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
                 recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
 
     recorder.save_npy__draw_plot(cwd)
+    print(f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
     while q_o_eva.qsize() > 0:
         q_o_eva.get()
@@ -275,6 +282,241 @@ def train_agent_mp(args):  # 2020-1111
 
 
 """utils"""
+
+
+class Recorder:  # 2020-10-12
+    def __init__(self, eval_size1=3, eval_size2=9):
+        self.eva_r_max = -np.inf
+        self.total_step = 0
+        self.record_exp = [(0., 0., 0., 0.), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
+        self.record_eva = [(0., 0., 0.), ]  # total_step, eva_r_avg, eva_r_std
+        self.is_solved = False
+
+        '''constant'''
+        self.eva_size1 = eval_size1
+        self.eva_size2 = eval_size2
+
+        '''print_reward'''
+        self.used_time = None
+        self.start_time = time.time()
+        self.print_time = time.time()
+
+        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
+              f"{'avgR':>8}  {'stdR':>8} |"
+              f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
+
+    def update__record_evaluate(self, env, act, max_step, device, if_discrete):
+        is_saved = False
+        reward_list = [get_total_return(env, act, max_step, device, if_discrete)
+                       for _ in range(self.eva_size1)]
+
+        eva_r_avg = np.average(reward_list)
+        if eva_r_avg > self.eva_r_max:  # check 1
+            reward_list.extend([get_total_return(env, act, max_step, device, if_discrete)
+                                for _ in range(self.eva_size2 - self.eva_size1)])
+            eva_r_avg = np.average(reward_list)
+            if eva_r_avg > self.eva_r_max:  # check final
+                self.eva_r_max = eva_r_avg
+                is_saved = True
+
+        eva_r_std = float(np.std(reward_list))
+        self.record_eva.append((self.total_step, eva_r_avg, eva_r_std))
+
+        return is_saved
+
+    def update__record_explore(self, exp_s_sum, exp_r_avg, loss_a, loss_c):  # 2020-10-10
+        if isinstance(exp_s_sum, int):
+            exp_s_sum = (exp_s_sum,)
+            exp_r_avg = (exp_r_avg,)
+        if loss_c > 64:
+            print(f"| ToT: Critic Loss explosion {loss_c:.1f}. Select a smaller reward_scale.")
+        for s, r in zip(exp_s_sum, exp_r_avg):
+            self.total_step += s
+            self.record_exp.append((self.total_step, r, loss_a, loss_c))
+
+    def save_act(self, cwd, act, agent_id):
+        act_save_path = f'{cwd}/actor.pth'
+        torch.save(act.state_dict(), act_save_path)
+        print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
+
+    def check__if_solved(self, target_reward, agent_id, show_gap, cwd):
+        if self.eva_r_max > target_reward:
+            self.is_solved = True
+            if self.used_time is None:
+                self.used_time = int(time.time() - self.start_time)
+                print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
+                      f"{'avgR':>8}  {'stdR':>8} |"
+                      f"{'ExpR':>8}  {'UsedTime':>8}  ########")
+
+                total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
+                total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
+                print(f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
+                      f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
+                      f"{exp_r_avg:8.2f}  {self.used_time:>8}  ########")
+
+        if time.time() - self.print_time > show_gap:
+            self.print_time = time.time()
+
+            total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
+            total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
+            print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
+                  f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
+                  f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
+            self.save_npy__draw_plot(cwd)
+
+        return self.is_solved
+
+    def save_npy__draw_plot(self, cwd):  # 2020-10-10
+        np.save('%s/record_explore.npy' % cwd, self.record_exp)
+        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)
+        draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
+
+    def demo(self):
+        pass
+
+
+def get_total_return(env, act, max_step, device, if_discrete) -> float:
+    # better to 'with torch.no_grad()'
+    reward_item = 0.0
+
+    state = env.reset()
+    for _ in range(max_step):
+        s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
+
+        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
+        action = a_tensor.cpu().data.numpy()[0]
+
+        next_state, reward, done, _ = env.step(action)
+        reward_item += reward
+
+        if done:
+            break
+        state = next_state
+    return reward_item
+
+
+def get_total_returns(agent, env_list, max_step) -> list:  # class Recorder 2020-01-11
+    """ Notice:
+    this function is a bit complicated. I don't recommend you or me to change it.
+    """
+    agent.act.eval()
+
+    env_list_copy = env_list.copy()
+    eva_size = len(env_list_copy)
+
+    sum_rewards = [0.0, ] * eva_size
+    states = [env.reset() for env in env_list_copy]
+
+    reward_sums = list()
+    for iter_num in range(max_step):
+        actions = agent.select_actions(states)
+
+        next_states = list()
+        done_list = list()
+        for i in range(len(env_list_copy) - 1, -1, -1):
+            next_state, reward, done, _ = env_list_copy[i].step(actions[i])
+
+            next_states.insert(0, next_state)
+            sum_rewards[i] += reward
+            done_list.insert(0, done)
+            if done:
+                reward_sums.append(sum_rewards[i])
+                del sum_rewards[i]
+                del env_list_copy[i]
+        states = next_states
+
+        if len(env_list_copy) == 0:
+            break
+    else:
+        reward_sums.extend(sum_rewards)
+    agent.act.train()
+
+    return reward_sums
+
+
+def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
+    record_explore = np.load('%s/record_explore.npy' % cwd)  # item: (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
+    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # item:(total_step, eva_r_avg, eva_r_std)
+
+    if len(record_evaluate.shape) == 1:
+        record_evaluate = np.array([[0., 0., 0.]])
+    if len(record_explore.shape) == 1:
+        record_explore = np.array([[0., 0., 0., 0.]])
+
+    train_time = int(train_time)
+    total_step = int(record_evaluate[-1][0])
+    save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
+    save_path = f"{cwd}/{save_title}.jpg"
+
+    """plot"""
+    import matplotlib as mpl  # draw figure in Terminal
+    mpl.use('Agg')
+    import matplotlib.pyplot as plt
+    # plt.style.use('ggplot')
+
+    fig, axs = plt.subplots(2)
+    plt.title(save_title, y=2.3)
+
+    ax11 = axs[0]
+    ax11_color = 'royalblue'
+    ax11_label = 'explore R'
+    exp_step = record_explore[:, 0]
+    exp_reward = record_explore[:, 1]
+    ax11.plot(exp_step, exp_reward, label=ax11_label, color=ax11_color)
+
+    ax12 = axs[0]
+    ax12_color = 'lightcoral'
+    ax12_label = 'Epoch R'
+    eva_step = record_evaluate[:, 0]
+    r_avg = record_evaluate[:, 1]
+    r_std = record_evaluate[:, 2]
+    ax12.plot(eva_step, r_avg, label=ax12_label, color=ax12_color)
+    ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
+
+    ax21 = axs[1]
+    ax21_color = 'lightcoral'  # same color as ax11 (expR)
+    ax21_label = 'lossA'
+    exp_loss_a = record_explore[:, 2]
+    ax21.set_ylabel(ax21_label, color=ax21_color)
+    ax21.plot(exp_step, exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
+    ax21.tick_params(axis='y', labelcolor=ax21_color)
+
+    ax22 = axs[1].twinx()
+    ax22_color = 'darkcyan'
+    ax22_label = 'lossC'
+    exp_loss_c = record_explore[:, 3]
+    ax22.set_ylabel(ax22_label, color=ax22_color)
+    ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
+    ax22.tick_params(axis='y', labelcolor=ax22_color)
+
+    # remove prev figure
+    prev_save_names = [name for name in os.listdir(cwd) if name[:9] == save_title[:9]]
+    os.remove(f'{cwd}/{prev_save_names[0]}') if len(prev_save_names) > 0 else None
+
+    plt.savefig(save_path)
+    # plt.pause(4)
+    # plt.show()
+    plt.close()
+
+
+def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
+    import shutil
+
+    if is_remove is None:
+        is_remove = bool(input("PRESS 'y' to REMOVE: {}? ".format(cwd)) == 'y')
+    if is_remove:
+        shutil.rmtree(cwd, ignore_errors=True)
+        print("| Remove")
+
+    os.makedirs(cwd, exist_ok=True)
+
+    # shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy('AgentNet.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
+    del shutil
+
+
+"""utils: Env"""
 
 
 def get_env_info(env, is_print=True) -> tuple:  # 2020-10-10
@@ -491,263 +733,6 @@ def build_env(env_name, if_print=True, if_norm=True):
     return env, state_dim, action_dim, target_reward, if_discrete
 
 
-def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
-    record_explore = np.load('%s/record_explore.npy' % cwd)  # item: (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
-    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # item:(total_step, eva_r_avg, eva_r_std)
-
-    if len(record_evaluate.shape) == 1:
-        record_evaluate = np.array([[0., 0., 0.]])
-    if len(record_explore.shape) == 1:
-        record_explore = np.array([[0., 0., 0., 0.]])
-
-    train_time = int(train_time)
-    total_step = int(record_evaluate[-1][0])
-    save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
-    save_path = f"{cwd}/{save_title}.jpg"
-
-    """plot"""
-    import matplotlib as mpl  # draw figure in Terminal
-    mpl.use('Agg')
-    import matplotlib.pyplot as plt
-    # plt.style.use('ggplot')
-
-    fig, axs = plt.subplots(2)
-    plt.title(save_title, y=2.3)
-
-    ax11 = axs[0]
-    ax11_color = 'royalblue'
-    ax11_label = 'explore R'
-    exp_step = record_explore[:, 0]
-    exp_reward = record_explore[:, 1]
-    ax11.plot(exp_step, exp_reward, label=ax11_label, color=ax11_color)
-
-    ax12 = axs[0]
-    ax12_color = 'lightcoral'
-    ax12_label = 'Epoch R'
-    eva_step = record_evaluate[:, 0]
-    r_avg = record_evaluate[:, 1]
-    r_std = record_evaluate[:, 2]
-    ax12.plot(eva_step, r_avg, label=ax12_label, color=ax12_color)
-    ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
-
-    ax21 = axs[1]
-    ax21_color = 'lightcoral'  # same color as ax11 (expR)
-    ax21_label = 'lossA'
-    exp_loss_a = record_explore[:, 2]
-    ax21.set_ylabel(ax21_label, color=ax21_color)
-    ax21.plot(exp_step, exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
-    ax21.tick_params(axis='y', labelcolor=ax21_color)
-
-    ax22 = axs[1].twinx()
-    ax22_color = 'darkcyan'
-    ax22_label = 'lossC'
-    exp_loss_c = record_explore[:, 3]
-    ax22.set_ylabel(ax22_label, color=ax22_color)
-    ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
-    ax22.tick_params(axis='y', labelcolor=ax22_color)
-
-    # remove prev figure
-    prev_save_names = [name for name in os.listdir(cwd) if name[:9] == save_title[:9]]
-    os.remove(f'{cwd}/{prev_save_names[0]}') if len(prev_save_names) > 0 else None
-
-    plt.savefig(save_path)
-    # plt.pause(4)
-    # plt.show()
-    plt.close()
-
-
-def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
-    import shutil
-
-    if is_remove is None:
-        is_remove = bool(input("PRESS 'y' to REMOVE: {}? ".format(cwd)) == 'y')
-    if is_remove:
-        shutil.rmtree(cwd, ignore_errors=True)
-        print("| Remove")
-
-    os.makedirs(cwd, exist_ok=True)
-
-    # shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
-    # shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
-    # shutil.copy('AgentNet.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
-    del shutil
-
-
-class Recorder:  # 2020-10-12
-    def __init__(self, eval_size1=3, eval_size2=9):
-        self.eva_r_max = -np.inf
-        self.total_step = 0
-        self.record_exp = [(0., 0., 0., 0.), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
-        self.record_eva = [(0., 0., 0.), ]  # total_step, eva_r_avg, eva_r_std
-        self.is_solved = False
-
-        '''constant'''
-        self.eva_size1 = eval_size1
-        self.eva_size2 = eval_size2
-
-        '''print_reward'''
-        self.used_time = None
-        self.start_time = time.time()
-        self.print_time = time.time()
-
-        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
-              f"{'avgR':>8}  {'stdR':>8} |"
-              f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
-
-    def update__record_evaluate(self, env, act, max_step, device, if_discrete):
-        is_saved = False
-        reward_list = [get_episode_reward(env, act, max_step, device, if_discrete)
-                       for _ in range(self.eva_size1)]
-
-        eva_r_avg = np.average(reward_list)
-        if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([get_episode_reward(env, act, max_step, device, if_discrete)
-                                for _ in range(self.eva_size2 - self.eva_size1)])
-            eva_r_avg = np.average(reward_list)
-            if eva_r_avg > self.eva_r_max:  # check final
-                self.eva_r_max = eva_r_avg
-                is_saved = True
-
-        eva_r_std = float(np.std(reward_list))
-        self.record_eva.append((self.total_step, eva_r_avg, eva_r_std))
-
-        return is_saved
-
-    def update__record_explore(self, exp_s_sum, exp_r_avg, loss_a, loss_c):  # 2020-10-10
-        if isinstance(exp_s_sum, int):
-            exp_s_sum = (exp_s_sum,)
-            exp_r_avg = (exp_r_avg,)
-        if loss_c > 32:
-            print(f"| ToT: Critic Loss explosion {loss_c:.1f}. Select a smaller reward_scale.")
-        for s, r in zip(exp_s_sum, exp_r_avg):
-            self.total_step += s
-            self.record_exp.append((self.total_step, r, loss_a, loss_c))
-
-    def save_act(self, cwd, act, agent_id):
-        act_save_path = f'{cwd}/actor.pth'
-        torch.save(act.state_dict(), act_save_path)
-        print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.eva_r_max:8.2f} |")
-
-    def check_is_solved(self, target_reward, agent_id, show_gap, cwd):
-        if self.eva_r_max > target_reward:
-            self.is_solved = True
-            if self.used_time is None:
-                self.used_time = int(time.time() - self.start_time)
-                print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
-                      f"{'avgR':>8}  {'stdR':>8} |"
-                      f"{'ExpR':>8}  {'UsedTime':>8}  ########")
-
-                total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-                total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-                print(f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
-                      f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                      f"{exp_r_avg:8.2f}  {self.used_time:>8}  ########")
-
-        if time.time() - self.print_time > show_gap:
-            self.print_time = time.time()
-
-            total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-            total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-            print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
-                  f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                  f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
-            self.save_npy__draw_plot(cwd)
-
-        return self.is_solved
-
-    def check__if_solved(self, target_reward, agent_id, show_gap):
-        if self.eva_r_max > target_reward:
-            self.is_solved = True
-            if self.used_time is None:
-                self.used_time = int(time.time() - self.start_time)
-                print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
-                      f"{'avgR':>8}  {'stdR':>8} |"
-                      f"{'ExpR':>8}  {'UsedTime':>8}  ########")
-
-                total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-                total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-                print(f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
-                      f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                      f"{exp_r_avg:8.2f}  {self.used_time:>8}  ########")
-
-        if time.time() - self.print_time > show_gap:
-            self.print_time = time.time()
-
-            total_step, eva_r_avg, eva_r_std = self.record_eva[-1]
-            total_step, exp_r_avg, loss_a_avg, loss_c_avg = self.record_exp[-1]
-            print(f"{agent_id:<2}  {total_step:8.2e}  {self.eva_r_max:8.2f} |"
-                  f"{eva_r_avg:8.2f}  {eva_r_std:8.2f} |"
-                  f"{exp_r_avg:8.2f}  {loss_a_avg:8.2f}  {loss_c_avg:8.2f}")
-        return self.is_solved
-
-    def save_npy__draw_plot(self, cwd):  # 2020-10-10
-        np.save('%s/record_explore.npy' % cwd, self.record_exp)
-        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)
-        draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
-
-    def demo(self):
-        pass
-
-
-def get_eva_reward(agent, env_list, max_step) -> list:  # class Recorder 2020-01-11
-    """ Notice:
-    this function is a bit complicated. I don't recommend you or me to change it.
-    """
-    agent.act.eval()
-
-    env_list_copy = env_list.copy()
-    eva_size = len(env_list_copy)
-
-    sum_rewards = [0.0, ] * eva_size
-    states = [env.reset() for env in env_list_copy]
-
-    reward_sums = list()
-    for iter_num in range(max_step):
-        actions = agent.select_actions(states)
-
-        next_states = list()
-        done_list = list()
-        for i in range(len(env_list_copy) - 1, -1, -1):
-            next_state, reward, done, _ = env_list_copy[i].step(actions[i])
-
-            next_states.insert(0, next_state)
-            sum_rewards[i] += reward
-            done_list.insert(0, done)
-            if done:
-                reward_sums.append(sum_rewards[i])
-                del sum_rewards[i]
-                del env_list_copy[i]
-        states = next_states
-
-        if len(env_list_copy) == 0:
-            break
-    else:
-        reward_sums.extend(sum_rewards)
-    agent.act.train()
-
-    return reward_sums
-
-
-def get_episode_reward(env, act, max_step, device, if_discrete) -> float:
-    # better to 'with torch.no_grad()'
-    reward_item = 0.0
-
-    state = env.reset()
-    for _ in range(max_step):
-        s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
-
-        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.cpu().data.numpy()[0]
-
-        next_state, reward, done, _ = env.step(action)
-        reward_item += reward
-
-        if done:
-            break
-        state = next_state
-    return reward_item
-
-
 """utils: Fix Env CarRacing-v0 - Box2D"""
 
 
@@ -844,7 +829,7 @@ def test_car_racing():
         # env.render()
 
 
-def train__car_racing(gpu_id=None, random_seed=0):
+def run__car_racing(gpu_id=None, random_seed=0):
     print('pixel-level state')
     import AgentZoo as Zoo
     rl_agent = (
@@ -888,13 +873,13 @@ def train__car_racing(gpu_id=None, random_seed=0):
 def run__demo():
     import AgentZoo as Zoo
 
-    # # args = Arguments(rl_agent=Zoo.AgentDoubleDQN, env_name="LunarLander-v2", gpu_id=0)
-    # args = Arguments(rl_agent=Zoo.AgentDuelingDQN, env_name="LunarLander-v2", gpu_id=0)
-    # args.break_step = int(1e5 * 8)  # used time 600s
-    # args.net_dim = 2 ** 7
-    # args.init_for_training()
-    # train_agent_mp(args)  # train_agent(**vars(args))
-    # # exit()
+    # args = Arguments(rl_agent=Zoo.AgentDoubleDQN, env_name="LunarLander-v2", gpu_id=0)
+    args = Arguments(rl_agent=Zoo.AgentD3QN, env_name="LunarLander-v2", gpu_id=0)
+    args.break_step = int(1e5 * 8)  # used time 600s
+    args.net_dim = 2 ** 7
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    # exit()
 
     # args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
     args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
@@ -905,36 +890,9 @@ def run__demo():
     exit()
 
 
-def run__discrete_action(gpu_id=None):
+def run__off_policy():
     import AgentZoo as Zoo
-
-    args = Arguments(rl_agent=Zoo.AgentDuelingDQN, gpu_id=gpu_id)
-    assert args.rl_agent in {
-        Zoo.AgentDQN,  # 2014.
-        Zoo.AgentDoubleDQN,  # 2016. stable
-        Zoo.AgentDuelingDQN,  # 2016. stable and fast
-    }
-
-    args.env_name = "CartPole-v0"
-    args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
-    args.reward_scale = 2 ** 0  # 0 ~ 200
-    args.net_dim = 2 ** 6
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
-    exit()
-
-    args.env_name = "LunarLander-v2"
-    args.break_step = int(1e5 * 8)  # 1e5 (2e5), used time 800s
-    args.reward_scale = 2 ** 0  # (-1000) -150 ~ 200 (285)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
-    exit()
-
-
-def run__off_policy(gpu_id=None):
-    import AgentZoo as Zoo
-
-    args = Arguments(gpu_id=gpu_id)
+    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentDDPG,  # 2014. simple, simple, slow, unstable
         Zoo.AgentBaseAC,  # 2014+ modify DDPG, faster, more stable
@@ -946,8 +904,8 @@ def run__off_policy(gpu_id=None):
     ][4]  # I suggest to use ModSAC (Modify SAC)
     # On-policy PPO is not here 'run__off_policy()'. See PPO in 'run__on_policy()'.
 
-    args.if_break_early = True
-    args.if_remove_history = True
+    args.if_break_early = True  # break training if reach the target reward (total return of an episode)
+    args.if_remove_history = True  # delete the historical directory
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
@@ -1021,51 +979,52 @@ def run__off_policy(gpu_id=None):
     exit()
 
 
-def run__on_policy(gpu_id=None):
+def run__on_policy():
     import AgentZoo as Zoo
-    """online policy"""
-    args = Arguments(rl_agent=Zoo.AgentModPPO, gpu_id=gpu_id)
+    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
-        Zoo.AgentModPPO  # 2019. update_buffer.detach()
+        Zoo.AgentModPPO,  # 2019. update_buffer.detach()
+        Zoo.AgentInterPPO,  # 2020. Integrated Network, useful in pixel-level task (state2D)
     ][1]  # I suggest to use ModPPO (Modify PPO)
 
     args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11  # 12
+    args.max_memo = 2 ** 12
     args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3  # 4
+    args.repeat_times = 2 ** 4
+    args.gamma = 0.995
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    args.break_step = int(5e5 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
+    args.break_step = int(5e5 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
     args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
     args.max_memo = 2 ** 10
     args.batch_size = 2 ** 8
     args.net_dim = 2 ** 7
     args.repeat_times = 2 ** 3  # 4
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
     args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
     args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (301)
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3  # 4
-    args.init_for_training()
-    train_agent(**vars(args))
-    exit()
-
-    args.env_name = "BipedalWalker-v3"
-    args.break_step = int(8e5 * 8)
-    args.reward_scale = 2 ** -1
-    args.net_dim = 2 ** 8
+    args.net_dim = 2 ** 7
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9
     args.repeat_times = 2 ** 3
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
+    args.env_name = "BipedalWalker-v3"
+    args.break_step = int(1e6 * 8)  # (5e5) 1e6 (4e6), UsedTime: 1000s (4000s)
+    args.reward_scale = 2 ** 0  # (-90) 270 290 (300)
+    args.net_dim = 2 ** 7
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 5
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     import pybullet_envs  # for python-bullet-gym
@@ -1084,11 +1043,11 @@ def run__on_policy(gpu_id=None):
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
-    args.break_step = int(1e6 * 8)
-    args.reward_scale = 2 ** -3
+    args.break_step = int(5e6 * 8)  # (1e6) 5e6, UsedTime: 25000s
+    args.reward_scale = 2 ** -3  # 
     args.net_dim = 2 ** 9
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     import pybullet_envs  # for python-bullet-gym
@@ -1101,7 +1060,33 @@ def run__on_policy(gpu_id=None):
     args.batch_size = 2 ** 9
     args.repeat_times = 2 ** 4
     args.init_for_training()
-    train_agent(**vars(args))
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
+
+def run__discrete_action():
+    import AgentZoo as Zoo
+    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+    args.rl_agent = [
+        Zoo.AgentDQN,  # 2014.
+        Zoo.AgentDoubleDQN,  # 2016. stable
+        Zoo.AgentDuelingDQN,  # 2016. stable and fast
+        Zoo.AgentD3QN,  # 2016+ Dueling + Double DQN (Not a creative work)
+    ][3]  # I suggest to use D3QN
+
+    args.env_name = "CartPole-v0"
+    args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
+    args.reward_scale = 2 ** 0  # 0 ~ 200
+    args.net_dim = 2 ** 6
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
+    exit()
+
+    args.env_name = "LunarLander-v2"
+    args.break_step = int(1e5 * 8)  # (5e4) 1e5 (3e5), used time (355s) 600s (2000s)
+    args.reward_scale = 2 ** 0  # (-1000) -150 ~ 200 (285)
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
 

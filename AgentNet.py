@@ -388,41 +388,60 @@ class ActorSAC(nn.Module):
 
 
 class ActorPPO(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
         super().__init__()
 
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        self.net__mean = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        ) if isinstance(state_dim, int) else nn.Sequential(
-            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
-            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
-            NnnReshape(-1),
-            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )
+        if use_dn:
+            self.net = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, action_dim),
+            ) if isinstance(state_dim, int) else nn.Sequential(
+                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), HardSwish(),
+                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), HardSwish(),
+                NnnReshape(-1),
+                nn.Linear(idx_dim(5), mid_dim), HardSwish(),
+                nn.Linear(mid_dim, action_dim),
+            )
+        else:
+            self.net = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, action_dim),
+            ) if isinstance(state_dim, int) else nn.Sequential(
+                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+                NnnReshape(-1),
+                nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, action_dim),
+            )
         self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
         # layer_norm(self.net__mean[0], std=1.0)
         # layer_norm(self.net__mean[2], std=1.0)
-        layer_norm(self.net__mean[-1], std=0.01)  # output layer for action
+        layer_norm(self.net[-1], std=0.01)  # output layer for action
 
     def forward(self, s):
-        a_mean = self.net__mean(s)
+        a_mean = self.net(s)
         return a_mean.tanh()
 
     def get__a__log_prob(self, state):
-        a_mean = self.net__mean(state)
+        a_mean = self.net(state)
         a_log_std = self.a_std_log.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
         a_noise = torch.normal(a_mean, a_std)
@@ -433,7 +452,7 @@ class ActorPPO(nn.Module):
         return a_noise, log_prob
 
     def compute__log_prob(self, state, a_noise):
-        a_mean = self.net__mean(state)
+        a_mean = self.net(state)
         a_log_std = self.a_std_log.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
 
@@ -529,28 +548,47 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
 
 class CriticAdv(nn.Module):  # 2020-05-05 fix bug
-    def __init__(self, state_dim, mid_dim):
+    def __init__(self, state_dim, mid_dim, use_dn):
         super().__init__()
 
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, 1),
-        ) if isinstance(state_dim, int) else nn.Sequential(
-            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
-            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
-            NnnReshape(-1),
-            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-            nn.Linear(mid_dim, 1),
-        )
+        if use_dn:
+            self.net = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, mid_dim), HardSwish(),
+                nn.Linear(mid_dim, 1),
+            ) if isinstance(state_dim, int) else nn.Sequential(
+                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), HardSwish(),
+                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), HardSwish(),
+                NnnReshape(-1),
+                nn.Linear(idx_dim(5), mid_dim), HardSwish(),
+                nn.Linear(mid_dim, 1),
+            )
+        else:
+            self.net = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, 1),
+            ) if isinstance(state_dim, int) else nn.Sequential(
+                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+                NnnReshape(-1),
+                nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, 1),
+            )
 
         # layer_norm(self.net[0], std=1.0)
         # layer_norm(self.net[2], std=1.0)
@@ -559,29 +597,6 @@ class CriticAdv(nn.Module):  # 2020-05-05 fix bug
     def forward(self, s):
         q = self.net(s)
         return q
-
-
-class CriticAdvTwin(nn.Module):  # 2020-05-05 fix bug
-    def __init__(self, state_dim, mid_dim):
-        super().__init__()
-
-        nn_dense = DenseNet(mid_dim)
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn_dense, )
-        layer_dim = nn_dense.out_dim
-
-        self.net_q1 = nn.Linear(layer_dim, 1)
-        self.net_q2 = nn.Linear(layer_dim, 1)
-
-        layer_norm(self.net[0], std=1.0)
-        layer_norm(self.net_q1, std=0.1)  # output layer for q value
-        layer_norm(self.net_q2, std=0.1)  # output layer for q value
-
-    def forward(self, s):
-        x = self.net(s)
-        q1 = self.net_q1(x)
-        q2 = self.net_q2(x)
-        return q1, q2
 
 
 class QNet(nn.Module):  # class AgentQLearning
@@ -649,6 +664,54 @@ class QNetDuel(nn.Module):
         adv = self.net_adv(x)
         q = val + adv - adv.mean(dim=1, keepdim=True)
         return q
+
+
+class QNetDuelTwin(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+        )
+        self.net_val = nn.Sequential(  # value
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, 1),
+        )
+        self.net_val2 = nn.Sequential(  # value
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, 1),
+        )
+        self.net_adv = nn.Sequential(  # advantage value
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, action_dim),
+        )
+        self.net_adv2 = nn.Sequential(  # advantage value
+            nn.Linear(mid_dim, mid_dim), HardSwish(),
+            nn.Linear(mid_dim, action_dim),
+        )
+
+    def forward(self, state):
+        x = self.net(state)
+        val = self.net_val(x)
+        adv = self.net_adv(x)
+        q1 = val + adv - adv.mean(dim=1, keepdim=True)
+
+        val2 = self.net_val2(x)
+        adv2 = self.net_adv2(x)
+        q2 = val2 + adv2 - adv2.mean(dim=1, keepdim=True)
+        return torch.min(q1, q2)
+
+    def get__q1_q2(self, state):
+        x = self.net(state)
+        val = self.net_val(x)
+        adv = self.net_adv(x)
+        q1 = val + adv - adv.mean(dim=1, keepdim=True)
+
+        val2 = self.net_val2(x)
+        adv2 = self.net_adv2(x)
+        q2 = val2 + adv2 - adv2.mean(dim=1, keepdim=True)
+        return q1, q2
 
 
 """utils"""
