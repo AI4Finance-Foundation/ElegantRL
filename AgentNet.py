@@ -77,7 +77,7 @@ class InterSPG(nn.Module):  # 2020-1111 class AgentIntelAC for SAC (SPG means st
         super().__init__()
         self.log_std_min = -20
         self.log_std_max = 2
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.constant_log_sqrt_2pi_mad = np.log(np.sqrt(2 * np.pi)) * action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.enc_s = nn.Sequential(
@@ -144,7 +144,7 @@ class InterSPG(nn.Module):  # 2020-1111 class AgentIntelAC for SAC (SPG means st
 
         a_noise_tanh = a_noise.tanh()
         fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True)
+        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True) + self.constant_log_sqrt_2pi_mad
         return a_noise_tanh, log_prob
 
     def get__q__log_prob(self, state):
@@ -161,7 +161,7 @@ class InterSPG(nn.Module):  # 2020-1111 class AgentIntelAC for SAC (SPG means st
 
         a_noise_tanh = a_noise.tanh()
         fix_term = (-a_noise_tanh.pow(2) + 1.00001).log()
-        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True)
+        log_prob = (noise.pow(2) / 2 + a_std_log + fix_term).sum(1, keepdim=True) + self.constant_log_sqrt_2pi_mad
 
         '''get q'''
         a_ = self.enc_a(a_noise_tanh)
@@ -388,47 +388,29 @@ class ActorSAC(nn.Module):
 
 
 class ActorPPO(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
+    def __init__(self, state_dim, action_dim, mid_dim, use_dn=False):
         super().__init__()
 
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        if use_dn:
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), HardSwish(),
-                nn.Linear(mid_dim, mid_dim), HardSwish(),
-                nn.Linear(mid_dim, mid_dim), HardSwish(),
-                nn.Linear(mid_dim, action_dim),
-            ) if isinstance(state_dim, int) else nn.Sequential(
-                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), HardSwish(),
-                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), HardSwish(),
-                NnnReshape(-1),
-                nn.Linear(idx_dim(5), mid_dim), HardSwish(),
-                nn.Linear(mid_dim, action_dim),
-            )
-        else:
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, action_dim),
-            ) if isinstance(state_dim, int) else nn.Sequential(
-                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
-                NnnReshape(-1),
-                nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, action_dim),
-            )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), HardSwish() if use_dn else nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), HardSwish() if use_dn else nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
+
         self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
         self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
@@ -456,7 +438,7 @@ class ActorPPO(nn.Module):
         a_log_std = self.a_std_log.expand_as(a_mean)
         a_std = torch.exp(a_log_std)
 
-        a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
+        a_delta = ((a_noise - a_mean) / a_std).pow(2) / 2  # todo
         log_prob = -(a_delta + a_log_std + self.constant_log_sqrt_2pi)
         return log_prob.sum(1)
 
@@ -548,47 +530,28 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
 
 class CriticAdv(nn.Module):  # 2020-05-05 fix bug
-    def __init__(self, state_dim, mid_dim, use_dn):
+    def __init__(self, state_dim, mid_dim, use_dn=False):
         super().__init__()
 
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        if use_dn:
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), HardSwish(),
-                nn.Linear(mid_dim, mid_dim), HardSwish(),
-                nn.Linear(mid_dim, mid_dim), HardSwish(),
-                nn.Linear(mid_dim, 1),
-            ) if isinstance(state_dim, int) else nn.Sequential(
-                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), HardSwish(),
-                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), HardSwish(),
-                NnnReshape(-1),
-                nn.Linear(idx_dim(5), mid_dim), HardSwish(),
-                nn.Linear(mid_dim, 1),
-            )
-        else:
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, 1),
-            ) if isinstance(state_dim, int) else nn.Sequential(
-                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
-                NnnReshape(-1),
-                nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, 1),
-            )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), HardSwish() if use_dn else nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), HardSwish() if use_dn else nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
 
         # layer_norm(self.net[0], std=1.0)
         # layer_norm(self.net[2], std=1.0)

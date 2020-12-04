@@ -591,7 +591,7 @@ class AgentModSAC(AgentBaseAC):
             if update_a / update_c < 1 / (2 - lamb):  # auto TTUR
                 update_a += 1
 
-                q_value_pg = self.cri.get__q1_q2(state, a_noise_pg)
+                q_value_pg = self.cri(state, a_noise_pg)
                 actor_loss = -(q_value_pg + log_prob * alpha).mean()  # policy gradient
 
                 # self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * lamb
@@ -636,7 +636,7 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
         self.step = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.target_entropy = np.log(action_dim) - action_dim * np.log(np.sqrt(2 * np.pi))
+        self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         '''extension: reliable lambda for auto-learning-rate'''
@@ -684,8 +684,8 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
             action_pg, log_prob = self.act.get__a__log_prob(state)
 
             '''auto temperature parameter: alpha'''
-            alpha_loss = self.alpha_log * (log_prob - self.target_entropy).detach()  # stable
-            self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * lamb
+            alpha_loss = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()  # stable
+            # self.alpha_optimizer.param_groups[0]['lr'] = self.learning_rate * lamb
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
@@ -698,7 +698,7 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
                 update_a += 1
                 '''actor_loss'''
                 q_value_pg = torch.min(*self.act_target.get__q1_q2(state, action_pg)).mean()  # twin critics
-                actor_loss = -(q_value_pg + log_prob * alpha)  # policy gradient
+                actor_loss = -(q_value_pg + log_prob * alpha).mean()  # policy gradient
 
                 united_loss = critic_loss + actor_loss * lamb
             else:
@@ -970,7 +970,9 @@ class AgentModPPO:
         with torch.no_grad():
             all__new_v = torch.cat([self.cri(all_state[i:i + b_size])
                                     for i in range(0, all_state.size()[0], b_size)], dim=0)
-            all_log_prob = torch.cat([-(all_noise[i:i + b_size].pow(2) / 2 + self.act.a_std_log).sum(1)
+            all_log_prob = torch.cat([-(all_noise[i:i + b_size].pow(2) / 2
+                                        + self.act.a_std_log
+                                        + self.act.constant_log_sqrt_2pi).sum(1)
                                       for i in range(0, all_state.size()[0], b_size)], dim=0)
 
         '''compute old_v (old policy value), adv_v (advantage value) 
@@ -1018,10 +1020,7 @@ class AgentModPPO:
             self.cri_optimizer.step()
 
             '''actor_loss'''
-            a_mean = self.act.net(state)
-            a_log_std = self.act.a_std_log.expand_as(a_mean)
-            a_std = a_log_std.exp()
-            new_log_prob = -(((a_mean - action) / a_std).pow(2) / 2 + a_log_std).sum(1)
+            new_log_prob = self.act.compute__log_prob(state, action)
 
             # surrogate objective of TRPO
             ratio = torch.exp(new_log_prob - old_log_prob)
@@ -1033,7 +1032,7 @@ class AgentModPPO:
 
             actor_loss = surrogate_obj + loss_entropy * lambda_entropy
 
-            self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * lamb
+            # self.act_optimizer.param_groups[0]['lr'] = self.learning_rate * lamb
             self.act_optimizer.zero_grad()
             actor_loss.backward()
             self.act_optimizer.step()

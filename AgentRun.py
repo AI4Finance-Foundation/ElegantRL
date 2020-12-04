@@ -120,7 +120,8 @@ def train_agent(  # 2020-11-11
                         or os.path.exists(f'{cwd}/stop'))
 
     recorder.save_npy__draw_plot(cwd)
-    print(f'UsedTime: {recorder.used_time}')
+    print(f'SavedDir: {cwd}\n'
+          f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
     buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
@@ -261,7 +262,8 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
                 recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
 
     recorder.save_npy__draw_plot(cwd)
-    print(f'UsedTime: {time.time() - recorder.start_time:.0f}')
+    print(f'SavedDir: {cwd}\n'
+          f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
     while q_o_eva.qsize() > 0:
         q_o_eva.get()
@@ -931,7 +933,6 @@ def run__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-
     args.env_name = "ReacherBulletEnv-v0"
     args.break_step = int(5e4 * 8)  # (4e4) 5e4
     args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
@@ -939,8 +940,10 @@ def run__off_policy():
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
-    args.break_step = int(1e6 * 8)  # (8e5) 10e5
+    args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 20
@@ -984,45 +987,37 @@ def run__on_policy():
     args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
-        Zoo.AgentModPPO,  # 2019. update_buffer.detach()
+        Zoo.AgentModPPO,  # 2019. Reliable Lambda
         Zoo.AgentInterPPO,  # 2020. Integrated Network, useful in pixel-level task (state2D)
-    ][1]  # I suggest to use ModPPO (Modify PPO)
+    ][1]
 
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 12
     args.batch_size = 2 ** 9
     args.repeat_times = 2 ** 4
-    args.gamma = 0.995
+    args.reward_scale = 2 ** 0  # unimportant hyper-parameter in PPO which do normalization on Q value
+    args.gamma = 0.99  # important hyper-parameter, related to episode steps
 
     args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    args.break_step = int(5e5 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
-    args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
-    args.max_memo = 2 ** 10
-    args.batch_size = 2 ** 8
-    args.net_dim = 2 ** 7
-    args.repeat_times = 2 ** 3  # 4
+    args.break_step = int(8e4 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
+    args.reward_scale = 2 ** 0  # (-1800) -1000 ~ -200 (-50), UsedTime:  (100s) 200s
+    args.gamma = 0.9  # important hyper-parameter, related to episode steps
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
 
     args.env_name = "LunarLanderContinuous-v2"
     args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
-    args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (301)
-    args.net_dim = 2 ** 7
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3
+    args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (301)
+    args.gamma = 0.99  # important hyper-parameter, related to episode steps
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
-    exit()
+    # exit()
 
     args.env_name = "BipedalWalker-v3"
-    args.break_step = int(1e6 * 8)  # (5e5) 1e6 (4e6), UsedTime: 1000s (4000s)
-    args.reward_scale = 2 ** 0  # (-90) 270 290 (300)
-    args.net_dim = 2 ** 7
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 5
+    args.break_step = int(8e5 * 8)  # (6e5) 8e5 (6e6), UsedTimes: (800s) 1500s (8000s)
+    args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (324)
+    args.gamma = 0.95  # important hyper-parameter, related to episode steps
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -1030,12 +1025,9 @@ def run__on_policy():
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "ReacherBulletEnv-v0"
-    args.break_step = int(8e5 * 8)  # (4e5) 8e5
-    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3
+    args.break_step = int(2e6 * 8)  # (1e6) 2e6 (4e6), UsedTimes: 2000s (6000s)
+    args.reward_scale = 2 ** 0  # (-15) 0 ~ 18 (25)
+    args.gamma = 0.95  # important hyper-parameter, related to episode steps
     args.init_for_training()
     train_agent_mp(args)  # train_agent(**vars(args))
     exit()
@@ -1043,11 +1035,12 @@ def run__on_policy():
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     args.env_name = "AntBulletEnv-v0"
-    args.break_step = int(5e6 * 8)  # (1e6) 5e6, UsedTime: 25000s
-    args.reward_scale = 2 ** -3  # 
+    args.break_step = int(5e6 * 8)  # (1e6) 5e6 UsedTime: 25697s
+    args.reward_scale = 2 ** -3  #
+    args.gamma = 0.99  # important hyper-parameter, related to episode steps
     args.net_dim = 2 ** 9
     args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
+    train_agent(**vars(args))
     exit()
 
     import pybullet_envs  # for python-bullet-gym
@@ -1055,12 +1048,13 @@ def run__on_policy():
     args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
     args.break_step = int(5e5 * 8)  # (PPO 3e5) 5e5
     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
+    args.gamma = 0.99  # important hyper-parameter, related to episode steps
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 9
     args.repeat_times = 2 ** 4
     args.init_for_training()
-    train_agent_mp(args)  # train_agent(**vars(args))
+    train_agent(**vars(args))
     exit()
 
 
