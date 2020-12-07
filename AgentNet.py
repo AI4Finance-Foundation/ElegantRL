@@ -25,41 +25,14 @@ class Actor(nn.Module):
         a = (a + noise).clamp(-1.0, 1.0)
         return a
 
-
-class ActorDN(nn.Module):  # dn: DenseNet
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn):
-        super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if use_dn:  # use DenseNet (there are both shallow and deep network in DenseNet)
-            nn_dense_net = DenseNet(mid_dim)
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                nn_dense_net,
-                nn.Linear(nn_dense_net.out_dim, action_dim),
-            )
-        else:  # use a simple network for actor. In RL, deeper network does not mean better performance.
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, action_dim),
-            )
-
-        layer_norm(self.net[-1], std=0.01)  # net[-1] is output layer for action, it is no necessary.
-
-    def forward(self, s, noise_std=0.0):
-        a = self.net(s)
-        return a if noise_std == 0.0 else self.add_noise(a, noise_std)
-
-    @staticmethod
-    def add_noise(a, noise_std):  # 2020-03-03
-        # noise_normal = torch.randn_like(a, device=self.device) * noise_std
-        # a_temp = a + noise_normal
-        a_temp = torch.normal(a, noise_std)
-        mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.float32)  # 2019-12-30
+    def get__noise_action_fix(self, s, a_std):
+        a = self.net(s).tanh()
+        a_temp = torch.normal(a, a_std)
+        mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.int8)  # 2019-12-30
 
         noise_uniform = torch.rand_like(a)  # , device=self.device)
-        a_noise = noise_uniform * mask + a_temp * (-mask + 1)
-        return a_noise
+        a = noise_uniform * mask + a_temp * (-mask + 1)
+        return a
 
 
 class ActorSAC(nn.Module):
@@ -265,7 +238,7 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
     def forward(self, state, action):
         x = torch.cat((state, action), dim=1)
-        x = self.net_mid(x)
+        x = self.net__mid(x)
         q_value = self.net__q1(x)
         return q_value
 

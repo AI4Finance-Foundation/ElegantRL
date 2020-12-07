@@ -1362,6 +1362,7 @@ def run__on_policy():
     args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
         Zoo.AgentModPPO,  # 2019. Reliable Lambda
+        Zoo.AgentModPPO2,  # 2019. Reliable Lambda
         Zoo.AgentInterPPO,  # 2020. Integrated Network, useful in pixel-level task (state2D)
     ][1]
 
@@ -1389,7 +1390,7 @@ def run__on_policy():
     # exit()
 
     args.env_name = "BipedalWalker-v3"
-    args.break_step = int(8e5 * 8)  # (6e5) 8e5 (6e6), UsedTimes: (800s) 1500s (8000s)
+    args.break_step = int(8e5 * 8)  # (4e5) 8e5 (6e6), UsedTimes: (600s) 1500s (8000s)
     args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (324)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
     args.init_for_training()
