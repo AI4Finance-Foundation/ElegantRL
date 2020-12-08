@@ -134,7 +134,7 @@ class ActorPPO(nn.Module):
         )
 
         self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
         # layer_norm(self.net__mean[0], std=1.0)
         # layer_norm(self.net__mean[2], std=1.0)
@@ -144,23 +144,21 @@ class ActorPPO(nn.Module):
         a_mean = self.net(s)
         return a_mean.tanh()
 
-    def get__a__log_prob(self, state):
+    def get__a_noise__noise(self, state):
         a_mean = self.net(state)
         a_std = self.a_std_log.exp()
-        a_noise = torch.normal(a_mean, a_std)
 
-        # a_delta = (a_noise - a_mean).pow(2) / (2 * a_std.pow(2))
-        a_delta = ((a_noise - a_mean) / a_std).pow(2) / 2
-        log_prob = -(a_delta + (self.a_std_log + self.constant_log_sqrt_2pi))
-        log_prob = log_prob.sum(1)
-        return a_noise, log_prob
+        # a_noise = torch.normal(a_mean, a_std) # same as below
+        noise = torch.randn_like(a_mean)
+        a_noise = a_mean + noise * a_std
+        return a_noise, noise
 
     def compute__log_prob(self, state, a_noise):
         a_mean = self.net(state)
         a_std = self.a_std_log.exp()
 
         a_delta = ((a_noise - a_mean) / a_std).pow(2) / 2
-        log_prob = -(a_delta + (self.a_std_log + self.constant_log_sqrt_2pi))
+        log_prob = -(a_delta + (self.a_std_log + self.sqrt_2pi_log))
         return log_prob.sum(1)
 
 
@@ -501,7 +499,7 @@ class InterPPO(nn.Module):  # Pixel-level state version
         layer_norm(self.dec_q1[-1], std=0.01)
         layer_norm(self.dec_q2[-1], std=0.01)
 
-        self.constant_log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, s):
         s_ = self.enc_s(s)
@@ -517,7 +515,7 @@ class InterPPO(nn.Module):  # Pixel-level state version
         s_ = self.enc_s(state)
 
         q = torch.min(self.dec_q1(s_), self.dec_q2(s_))
-        log_prob = -(noise.pow(2) / 2 + self.a_std_log + self.constant_log_sqrt_2pi).sum(1)
+        log_prob = -(noise.pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
         return q, log_prob
 
     def get__q1_q2__log_prob(self, state, action):
@@ -528,7 +526,7 @@ class InterPPO(nn.Module):  # Pixel-level state version
 
         a_avg = self.dec_a(s_)
         a_std = self.a_std_log.exp()
-        log_prob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.constant_log_sqrt_2pi).sum(1)
+        log_prob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
         return q1, q2, log_prob
 
 
