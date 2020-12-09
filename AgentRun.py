@@ -1359,7 +1359,6 @@ def run__on_policy():
     args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
-        Zoo.AgentModPPO,  # 2018+ Reliable Lambda
         Zoo.AgentInterPPO,  # 2019. Integrated Network, useful in pixel-level task (state2D)
     ][0]
 
