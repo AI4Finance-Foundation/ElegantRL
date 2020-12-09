@@ -1445,8 +1445,9 @@ def run__discrete_action():
     exit()
 
     args.env_name = "LunarLander-v2"
-    args.break_step = int(1e5 * 8)  # (5e4) 1e5 (3e5), used time (355s) 600s (2000s)
-    args.reward_scale = 2 ** 0  # (-1000) -150 ~ 200 (285)
+    args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
+    args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
+    args.net_dim = 2 ** 7
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()

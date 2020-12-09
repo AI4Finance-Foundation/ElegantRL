@@ -568,6 +568,8 @@ class AgentInterAC(AgentBaseAC):  # warning: sth. wrong
 
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
         """
+        buffer.update_pointer_before_sample()
+
         actor_obj = None  # just for print return
 
         k = 1.0 + buffer.now_len / buffer.max_len
@@ -780,6 +782,13 @@ class AgentPPO:
         return rewards, steps
 
     def update_policy(self, buffer, _max_step, batch_size, repeat_times):
+        """Contribution of PPO (Proximal Policy Optimization
+        1. the surrogate objective of TRPO, PPO simplified calculation of TRPO
+        2. use the advantage function of A3C (Asynchronous Advantage Actor-Critic)
+        3. add GAE. ICLR 2016. Generalization Advantage Estimate and use trajectory to calculate Q value
+        """
+        buffer.update_pointer_before_sample()
+
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
@@ -1106,6 +1115,8 @@ class AgentDoubleDQN(AgentBaseAC):  # 2020-06-06 # I'm not sure.
         """Contribution of DDQN (Double DQN)
         1. Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
         """
+        buffer.update_pointer_before_sample()
+
         q_label = critic_obj = None
 
         k = 1.0 + buffer.now_len / buffer.max_len
@@ -1165,6 +1176,8 @@ class AgentDuelingDQN(AgentDoubleDQN):  # 2020-11-11
         """Contribution of Dueling DQN
         1. Advantage function (of A2C) --> Dueling Q value = val_q + adv_q - adv_q.mean()
         """
+        buffer.update_pointer_before_sample()
+
         q_label = critic_obj = None
 
         k = 1.0 + buffer.now_len / buffer.max_len
