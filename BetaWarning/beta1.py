@@ -14,7 +14,7 @@ ceta1 Mini 128
 
 def run__on_policy():
     args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
-    args.rl_agent = AgentModPPO
+    args.rl_agent = AgentPPO
     args.random_seed += 12
     args.if_break_early = False
 

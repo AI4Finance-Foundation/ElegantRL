@@ -41,13 +41,13 @@ class ActorSAC(nn.Module):
 
         if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
             nn_dense_net = DenseNet(mid_dim)
-            self.net__mid = nn.Sequential(
+            self.net__s = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
                 nn_dense_net,
             )
             lay_dim = nn_dense_net.out_dim
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
-            self.net__mid = nn.Sequential(
+            self.net__s = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
                 nn.Linear(mid_dim, mid_dim),
             )
@@ -64,12 +64,12 @@ class ActorSAC(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, state):  # in fact, noise_std is a boolean
-        x = self.net__mid(state)
-        a_avg = self.net__a(x)  # NOTICE! it is a_avg without .tanh()
-        return a_avg.tanh()
+        x = self.net__s(state)
+        a = self.net__a(x)  # NOTICE! it is a without .tanh()
+        return a.tanh()
 
     def get__noise_action(self, s):
-        x = self.net__mid(s)
+        x = self.net__s(s)
         a_avg = self.net__a(x)  # NOTICE! it is a_avg without .tanh()
 
         a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
@@ -78,7 +78,7 @@ class ActorSAC(nn.Module):
         return a_avg.tanh()
 
     def get__a__log_prob(self, state):
-        x = self.net__mid(state)
+        x = self.net__s(state)
         a_avg = self.net__a(x)  # NOTICE! it needs a_avg.tanh()
         a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
         a_std = a_std_log.exp()
@@ -110,38 +110,28 @@ class ActorSAC(nn.Module):
 
 
 class ActorPPO(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim, use_dn=False):
+    def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
 
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        if isinstance(state_dim, int):
-            if use_dn:
-                nn_dense_net = DenseNet(mid_dim)
-                lay_dim = nn_dense_net.out_dim
-            else:
-                nn_dense_net = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU())
-                lay_dim = mid_dim
-
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                nn_dense_net,
-                nn.Linear(lay_dim, action_dim),
-            )
-        else:
-            self.net = nn.Sequential(
-                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
-                NnnReshape(-1),
-                nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, action_dim),
-            )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
         self.a_std_log = nn.Parameter(torch.zeros(1, action_dim) - 0.5, requires_grad=True)
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
@@ -259,38 +249,28 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
 
 class CriticAdv(nn.Module):  # 2020-05-05 fix bug
-    def __init__(self, state_dim, mid_dim, use_dn=False):
+    def __init__(self, state_dim, mid_dim):
         super().__init__()
 
         def idx_dim(i):
             return int(8 * 1.5 ** i)
 
-        if isinstance(state_dim, int):
-            if use_dn:
-                nn_dense_net = DenseNet(mid_dim)
-                lay_dim = nn_dense_net.out_dim
-            else:
-                nn_dense_net = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU())
-                lay_dim = mid_dim
-
-            self.net = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                nn_dense_net,
-                nn.Linear(lay_dim, 1),
-            )
-        else:
-            self.net = nn.Sequential(
-                NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
-                nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
-                nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
-                nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
-                nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
-                NnnReshape(-1),
-                nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
-                nn.Linear(mid_dim, 1),
-            )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        ) if isinstance(state_dim, int) else nn.Sequential(
+            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
+            nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
+            nn.Conv2d(idx_dim(2), idx_dim(3), 3, 2, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(3), idx_dim(4), 3, 1, bias=True), nn.ReLU(),
+            nn.Conv2d(idx_dim(4), idx_dim(5), 3, 1, bias=True), nn.ReLU(),
+            NnnReshape(-1),
+            nn.Linear(idx_dim(5), mid_dim), nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
         # layer_norm(self.net[0], std=1.0)
         # layer_norm(self.net[2], std=1.0)
         layer_norm(self.net[-1], std=1.0)  # output layer for action
@@ -525,10 +505,15 @@ class InterPPO(nn.Module):  # Pixel-level state version
         a_avg = self.dec_a(s_)
         return a_avg.tanh()
 
-    def get__a_avg(self, s):
-        s_ = self.enc_s(s)
+    def get__a_noise__noise(self, state):
+        s_ = self.enc_s(state)
         a_avg = self.dec_a(s_)
-        return a_avg
+        a_std = self.a_std_log.exp()
+
+        # a_noise = torch.normal(a_avg, a_std) # same as below
+        noise = torch.randn_like(a_avg)
+        a_noise = a_avg + noise * a_std
+        return a_noise, noise
 
     def get__q__log_prob(self, state, noise):
         s_ = self.enc_s(state)
