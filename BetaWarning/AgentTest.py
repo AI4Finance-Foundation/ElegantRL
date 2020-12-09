@@ -1,6 +1,8 @@
 from AgentRun import *
-# from AgentNet import *
 from AgentZoo import *
+
+
+# from AgentNet import *
 
 
 def test__show_available_env():
@@ -50,24 +52,19 @@ def test__replay_buffer():
     max_step = 2 ** 4
     reward_scale = 1
     gamma = 0.99
-    net_dim = 2 ** 7
 
     env_name = 'LunarLanderContinuous-v2'
     env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
     # state = env.reset()
 
     '''offline'''
-    buffer_offline = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim)
-    _rewards, _steps = initial_exploration(env, buffer_offline, max_step, if_discrete, reward_scale, gamma, action_dim)
+    buffer_offline = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim, if_ppo=False)
+    _rewards, _steps = explore_before_train(env, buffer_offline, max_step, if_discrete, reward_scale, gamma, action_dim)
     print('Memory length of buffer_offline:', buffer_offline.now_len)
 
     '''online'''
-    buffer_online = BufferTupleOnline(max_memo=max_step)
-    agent = AgentPPO(state_dim, action_dim, net_dim)
-    agent.state = env.reset()
-
-    _rewards, _steps = agent.update_buffer(env, buffer_online, max_step, reward_scale, gamma)
-    print('Memory length of buffer_online: ', len(buffer_online.storage_list))
+    buffer_online = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim, if_ppo=True)
+    print('Memory length of buffer_online: ', buffer_online.now_len, buffer_online.max_len)
 
 
 def test__evaluate_agent():
@@ -215,7 +212,7 @@ def test__train_agent():
 
 
 if __name__ == '__main__':
-    test__train_agent()
+    # test__train_agent()
     # test__buffer__data_type()
     # test__network()
     # test__log_prob()
