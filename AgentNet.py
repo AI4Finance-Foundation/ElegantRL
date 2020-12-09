@@ -41,13 +41,13 @@ class ActorSAC(nn.Module):
 
         if use_dn:  # use DenseNet (DenseNet has both shallow and deep linear layer)
             nn_dense_net = DenseNet(mid_dim)
-            self.net__mid = nn.Sequential(
+            self.net__s = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
                 nn_dense_net,
             )
             lay_dim = nn_dense_net.out_dim
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
-            self.net__mid = nn.Sequential(
+            self.net__s = nn.Sequential(
                 nn.Linear(state_dim, mid_dim), nn.ReLU(),
                 nn.Linear(mid_dim, mid_dim),
             )
@@ -64,12 +64,12 @@ class ActorSAC(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, state):  # in fact, noise_std is a boolean
-        x = self.net__mid(state)
-        a_avg = self.net__a(x)  # NOTICE! it is a_avg without .tanh()
-        return a_avg.tanh()
+        x = self.net__s(state)
+        a = self.net__a(x)  # NOTICE! it is a without .tanh()
+        return a.tanh()
 
     def get__noise_action(self, s):
-        x = self.net__mid(s)
+        x = self.net__s(s)
         a_avg = self.net__a(x)  # NOTICE! it is a_avg without .tanh()
 
         a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
@@ -78,7 +78,7 @@ class ActorSAC(nn.Module):
         return a_avg.tanh()
 
     def get__a__log_prob(self, state):
-        x = self.net__mid(state)
+        x = self.net__s(state)
         a_avg = self.net__a(x)  # NOTICE! it needs a_avg.tanh()
         a_std_log = self.net__std_log(x).clamp(self.log_std_min, self.log_std_max)
         a_std = a_std_log.exp()
@@ -249,7 +249,7 @@ class CriticTwinShared(nn.Module):  # 2020-06-18
 
 
 class CriticAdv(nn.Module):  # 2020-05-05 fix bug
-    def __init__(self, state_dim, mid_dim, use_dn=False):
+    def __init__(self, state_dim, mid_dim):
         super().__init__()
 
         def idx_dim(i):

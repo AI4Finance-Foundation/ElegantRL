@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import numpy.random as rd
 
-"""ZenYiYan ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenYiYan GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
@@ -63,7 +63,7 @@ class Arguments:  # default working setting and hyper-parameters
     #         setattr(self, key, value)
 
 
-"""train in single processing"""
+"""train agent in single or multi processing"""
 
 
 def train_agent(args):  # 2020-12-02
@@ -143,7 +143,15 @@ def train_agent(args):  # 2020-12-02
     buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
 
 
-"""train in multi processing"""
+def train_agent_mp(args):  # 2020-1111
+    import multiprocessing as mp
+    q_i_eva = mp.Queue(maxsize=16)  # evaluate I
+    q_o_eva = mp.Queue(maxsize=16)  # evaluate O
+    process = [mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva)),
+               mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+    [p.start() for p in process]
+    [p.join() for p in process]
+    print('\n')
 
 
 def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network parameters using replay buffer
@@ -288,17 +296,6 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     # print('; quit: evaluate')
 
 
-def train_agent_mp(args):  # 2020-1111
-    import multiprocessing as mp
-    q_i_eva = mp.Queue(maxsize=16)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=16)  # evaluate O
-    process = [mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva)),
-               mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
-    [p.start() for p in process]
-    [p.join() for p in process]
-    print('\n')
-
-
 """utils"""
 
 
@@ -393,65 +390,6 @@ class Recorder:  # 2020-10-12
         pass
 
 
-def get_total_return(env, act, max_step, device, if_discrete) -> float:
-    # better to 'with torch.no_grad()'
-    reward_item = 0.0
-
-    state = env.reset()
-    for _ in range(max_step):
-        s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
-
-        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.cpu().data.numpy()[0]
-
-        next_state, reward, done, _ = env.step(action)
-        reward_item += reward
-
-        if done:
-            break
-        state = next_state
-    return reward_item
-
-
-def get_total_returns(agent, env_list, max_step) -> list:  # class Recorder 2020-01-11
-    """ Notice:
-    this function is a bit complicated. I don't recommend you or me to change it.
-    """
-    agent.act.eval()
-
-    env_list_copy = env_list.copy()
-    eva_size = len(env_list_copy)
-
-    sum_rewards = [0.0, ] * eva_size
-    states = [env.reset() for env in env_list_copy]
-
-    reward_sums = list()
-    for iter_num in range(max_step):
-        actions = agent.select_actions(states)
-
-        next_states = list()
-        done_list = list()
-        for i in range(len(env_list_copy) - 1, -1, -1):
-            next_state, reward, done, _ = env_list_copy[i].step(actions[i])
-
-            next_states.insert(0, next_state)
-            sum_rewards[i] += reward
-            done_list.insert(0, done)
-            if done:
-                reward_sums.append(sum_rewards[i])
-                del sum_rewards[i]
-                del env_list_copy[i]
-        states = next_states
-
-        if len(env_list_copy) == 0:
-            break
-    else:
-        reward_sums.extend(sum_rewards)
-    agent.act.train()
-
-    return reward_sums
-
-
 def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
     record_explore = np.load('%s/record_explore.npy' % cwd)  # item: (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
     record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # item:(total_step, eva_r_avg, eva_r_std)
@@ -534,7 +472,66 @@ def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
     del shutil
 
 
-"""utils: Env"""
+def get_total_return(env, act, max_step, device, if_discrete) -> float:
+    # better to 'with torch.no_grad()'
+    reward_item = 0.0
+
+    state = env.reset()
+    for _ in range(max_step):
+        s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
+
+        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
+        action = a_tensor.cpu().data.numpy()[0]
+
+        next_state, reward, done, _ = env.step(action)
+        reward_item += reward
+
+        if done:
+            break
+        state = next_state
+    return reward_item
+
+
+''' backup of get_total_returns
+def get_total_returns(agent, env_list, max_step) -> list:  # class Recorder 2020-01-11
+    # this function is a bit complicated. I don't recommend you or me to change it.
+
+    agent.act.eval()
+
+    env_list_copy = env_list.copy()
+    eva_size = len(env_list_copy)
+
+    sum_rewards = [0.0, ] * eva_size
+    states = [env.reset() for env in env_list_copy]
+
+    reward_sums = list()
+    for iter_num in range(max_step):
+        actions = agent.select_actions(states)
+
+        next_states = list()
+        done_list = list()
+        for i in range(len(env_list_copy) - 1, -1, -1):
+            next_state, reward, done, _ = env_list_copy[i].step(actions[i])
+
+            next_states.insert(0, next_state)
+            sum_rewards[i] += reward
+            done_list.insert(0, done)
+            if done:
+                reward_sums.append(sum_rewards[i])
+                del sum_rewards[i]
+                del env_list_copy[i]
+        states = next_states
+
+        if len(env_list_copy) == 0:
+            break
+    else:
+        reward_sums.extend(sum_rewards)
+    agent.act.train()
+
+    return reward_sums
+'''
+
+"""utils: Environment for training agent"""
 
 
 def get_env_info(env, is_print=True) -> tuple:  # 2020-10-10
@@ -685,7 +682,7 @@ def build_env(env_name, if_print=True, if_norm=True):
     '''Not necessary: env normalization'''  # adjust action into [-1, +1] using action_max is necessary.
     avg = None
     std = None
-    if if_norm:
+    if if_norm:  # I use def print_norm() to get the following (avg, std)
         '''norm no need'''
         # if env_name == 'Pendulum-v0':
         #     state_mean = np.array([-0.00968592 -0.00118888 -0.00304381])
@@ -797,139 +794,6 @@ def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma
 
 
 '''Utils: Experiment Replay Buffer'''
-
-
-def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-10-10
-    if isinstance(batch_state, torch.Tensor):
-        batch_state = batch_state.cpu().data.numpy()
-    assert isinstance(batch_state, np.ndarray)
-
-    ary_avg = batch_state.mean(axis=0)
-    ary_std = batch_state.std(axis=0)
-    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
-               + ary_std) / 2
-
-    if neg_avg is not None:  # norm transfer
-        ary_avg = ary_avg - neg_avg / div_std
-        ary_std = fix_std / div_std
-
-    print(f"| Replay Buffer: avg, fixed std")
-    print(f"avg=np.{repr(ary_avg).replace('dtype=float32', 'dtype=np.float32')}")
-    print(f"std=np.{repr(ary_std).replace('dtype=float32', 'dtype=np.float32')}")
-
-
-""" Backup
-class BufferList:
-    def __init__(self, memo_max_len):
-        self.memories = list()
-
-        self.max_len = memo_max_len
-        self.now_len = len(self.memories)
-
-    def append_memo(self, memory_tuple):
-        self.memories.append(memory_tuple)
-
-    def init_before_sample(self):
-        del_len = len(self.memories) - self.max_len
-        if del_len > 0:
-            del self.memories[:del_len]
-            # print('Length of Deleted Memories:', del_len)
-
-        self.now_len = len(self.memories)
-
-    def random_sample(self, batch_size, device):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
-        indices = rd.randint(self.now_len, size=batch_size)
-
-        '''convert list into array'''
-        arrays = [list()
-                  for _ in range(5)]  # len(self.memories[0]) == 5
-        for index in indices:
-            items = self.memories[index]
-            for item, array in zip(items, arrays):
-                array.append(item)
-
-        '''convert array into torch.tensor'''
-        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
-                   for ary in arrays]
-        return tensors
-
-
-class BufferTuple:
-    def __init__(self, memo_max_len):
-        self.memories = list()
-
-        self.max_len = memo_max_len
-        self.now_len = None  # init in init_after_append_memo()
-
-        from collections import namedtuple
-        self.transition = namedtuple(
-            'Transition', ('reward', 'mask', 'state', 'action', 'next_state',)
-        )
-
-    def append_memo(self, args):
-        self.memories.append(self.transition(*args))
-
-    def init_before_sample(self):
-        del_len = len(self.memories) - self.max_len
-        if del_len > 0:
-            del self.memories[:del_len]
-            # print('Length of Deleted Memories:', del_len)
-
-        self.now_len = len(self.memories)
-
-    def random_sample(self, batch_size, device):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
-        # same as:
-        indices = rd.randint(self.now_len, size=batch_size)
-
-        '''convert tuple into array'''
-        arrays = self.transition(*zip(*[self.memories[i] for i in indices]))
-
-        '''convert array into torch.tensor'''
-        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
-                   for ary in arrays]
-        return tensors
-        
-        
-class BufferTupleOnline:
-    def __init__(self, max_memo):
-        self.max_memo = max_memo
-        self.storage_list = list()
-        from collections import namedtuple
-        self.transition = namedtuple(
-            'Transition',
-            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
-            ('reward', 'mask', 'state', 'action', 'log_prob')
-        )
-
-    def push(self, *args):
-        self.storage_list.append(self.transition(*args))
-
-    def extend_memo(self, storage_list):
-        self.storage_list.extend(storage_list)
-
-    def sample_all(self):
-        return self.transition(*zip(*self.storage_list))
-
-    def __len__(self):
-        return len(self.storage_list)
-
-    def update_pointer_before_sample(self):
-        pass  # compatibility
-
-    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        memory_state = np.array([item.state for item in self.storage_list])
-        print_norm(memory_state, neg_avg, div_std)
-
-"""
 
 
 class BufferArray:  # 2020-11-11
@@ -1107,6 +971,139 @@ class BufferArrayGPU:  # 2020-07-07
         print_norm(memory_state, neg_avg, div_std)
 
 
+""" Backup
+class BufferList:
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = len(self.memories)
+
+    def append_memo(self, memory_tuple):
+        self.memories.append(memory_tuple)
+
+    def init_before_sample(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert list into array'''
+        arrays = [list()
+                  for _ in range(5)]  # len(self.memories[0]) == 5
+        for index in indices:
+            items = self.memories[index]
+            for item, array in zip(items, arrays):
+                array.append(item)
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+
+
+class BufferTuple:
+    def __init__(self, memo_max_len):
+        self.memories = list()
+
+        self.max_len = memo_max_len
+        self.now_len = None  # init in init_after_append_memo()
+
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition', ('reward', 'mask', 'state', 'action', 'next_state',)
+        )
+
+    def append_memo(self, args):
+        self.memories.append(self.transition(*args))
+
+    def init_before_sample(self):
+        del_len = len(self.memories) - self.max_len
+        if del_len > 0:
+            del self.memories[:del_len]
+            # print('Length of Deleted Memories:', del_len)
+
+        self.now_len = len(self.memories)
+
+    def random_sample(self, batch_size, device):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+
+        '''convert tuple into array'''
+        arrays = self.transition(*zip(*[self.memories[i] for i in indices]))
+
+        '''convert array into torch.tensor'''
+        tensors = [torch.tensor(np.array(ary), dtype=torch.float32, device=device)
+                   for ary in arrays]
+        return tensors
+        
+        
+class BufferTupleOnline:
+    def __init__(self, max_memo):
+        self.max_memo = max_memo
+        self.storage_list = list()
+        from collections import namedtuple
+        self.transition = namedtuple(
+            'Transition',
+            # ('state', 'value', 'action', 'log_prob', 'mask', 'next_state', 'reward')
+            ('reward', 'mask', 'state', 'action', 'log_prob')
+        )
+
+    def push(self, *args):
+        self.storage_list.append(self.transition(*args))
+
+    def extend_memo(self, storage_list):
+        self.storage_list.extend(storage_list)
+
+    def sample_all(self):
+        return self.transition(*zip(*self.storage_list))
+
+    def __len__(self):
+        return len(self.storage_list)
+
+    def update_pointer_before_sample(self):
+        pass  # compatibility
+
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
+        memory_state = np.array([item.state for item in self.storage_list])
+        print_norm(memory_state, neg_avg, div_std)
+
+"""
+
+
+def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-10-10
+    if isinstance(batch_state, torch.Tensor):
+        batch_state = batch_state.cpu().data.numpy()
+    assert isinstance(batch_state, np.ndarray)
+
+    ary_avg = batch_state.mean(axis=0)
+    ary_std = batch_state.std(axis=0)
+    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
+               + ary_std) / 2
+
+    if neg_avg is not None:  # norm transfer
+        ary_avg = ary_avg - neg_avg / div_std
+        ary_std = fix_std / div_std
+
+    print(f"| Replay Buffer: avg, fixed std")
+    print(f"avg=np.{repr(ary_avg).replace('dtype=float32', 'dtype=np.float32')}")
+    print(f"std=np.{repr(ary_std).replace('dtype=float32', 'dtype=np.float32')}")
+
+
 """utils: Fix Env CarRacing-v0 - Box2D"""
 
 
@@ -1255,7 +1252,7 @@ def run__demo():
     train_agent_mp(args)  # train_agent(args)
     # exit()
 
-    # args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
+    # args = Arguments(rl_agent=Zoo.AgentSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
     args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
     args.break_step = int(5e5 * 8)  # used time 1500s
     args.net_dim = 2 ** 7
