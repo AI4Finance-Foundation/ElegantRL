@@ -235,29 +235,18 @@ Maybe the next codename is (Casual ChuMeng), which is a formal version with mult
 The multi-agent RL task of rllib is so complex, and I need long time to reconstruct. 
 
 - env previous state save into env. (not sure)
-- MixISAC (Entropy+ Entropy-)
-
-2020.11.11
-- ! update PPO(BufferTuple, (s,a,r,log_prob)) to OffPPO(BufferArray, (s,a,r,noise))
-- InterPPO
+- ! update PPO(BufferTuple, (s,a,r,log_prob)) to PPO(BufferArray, (s,a,r,noise))
+- fixPPO, OffPPO, InterPPO, InterOffPPO
 - fix bug on BufferArray.extend_memo()
-
-### plan to
+- fix CarRacing-v0
+- replay buffer dtype
 - update BufferArray to BufferTrajectory
 - gpu_id to agent_id
-- save norm npy
-- cancel explore_noise
-- anchor SAC instead of KL Divergence
 
-beta0 OffPPO
-beta3 OffPPO Minitaur, cancel value_norm
+#### Plan to 
+- add FlappyBird-v0 (PyGame), 2D state and 1D state
+- add [AI4Finance-LLC FinRL-Library](https://github.com/AI4Finance-LLC)
 
-Add the training stop signal: reach the target reward, reach the total step.
-Check InterISAC
-Move init_before_sample() to random_sample(). Should I? Not
-Mega CriticAdv to Critic
-Mega CriticAdvTwin to CriticTwin
-Use deepcopy for target network
 
 Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
 Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
