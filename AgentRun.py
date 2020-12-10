@@ -90,7 +90,7 @@ def train_agent(args):  # 2020-12-02
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
-    env_eval = build_env(env_name, if_print=False)[0]
+    env_eval = build_env(env_name, if_print=False)[0]  # todo env_eval 2020-12-10
 
     '''init: agent, buffer, recorder'''
     recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
