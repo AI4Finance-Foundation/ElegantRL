@@ -140,7 +140,10 @@ def train_agent(args):  # 2020-12-02
     print(f'SavedDir: {cwd}\n'
           f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
-    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    if hasattr(env, 'neg_state_avg'):  # todo 2020-12-11
+        buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    else:
+        buffer.print_state_norm()
 
 
 def train_agent_mp(args):  # 2020-1111
@@ -236,7 +239,10 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
                         or os.path.exists(f'{cwd}/stop'))
 
     env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
-    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    if hasattr(env, 'neg_state_avg'):  # todo 2020-12-11
+        buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    else:
+        buffer.print_state_norm()
 
     q_i_eva.put('stop')
     while q_i_eva.qsize() > 0:
@@ -392,8 +398,11 @@ class Recorder:  # 2020-10-12
 
 
 def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
-    record_explore = np.load('%s/record_explore.npy' % cwd)  # item: (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
-    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # item:(total_step, eva_r_avg, eva_r_std)
+    record_explore = np.load('%s/record_explore.npy' % cwd, allow_pickle=True)
+    # (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
+    record_evaluate = np.load('%s/record_evaluate.npy' % cwd, allow_pickle=True)
+    # (total_step, eva_r_avg, eva_r_std)
+    # todo 2020-12-11
 
     if len(record_evaluate.shape) == 1:
         record_evaluate = np.array([[0., 0., 0.]])
@@ -675,6 +684,15 @@ def build_env(env_name, if_print=True, if_norm=True):
         action_max = 1.0
         target_reward = 50
         if_discrete = False
+    elif env_name == 'FinRL':  # todo FinRL
+        from EnvFinRL import SingleStockFinEnv
+        env = SingleStockFinEnv()
+
+        state_dim = 4
+        action_dim = 1
+        action_max = 1.0
+        target_reward = 800
+        if_discrete = False
     else:
         env = gym.make(env_name)
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
@@ -745,7 +763,10 @@ def build_env(env_name, if_print=True, if_norm=True):
         #                     0.09843876, 0.10035378, 0.11045089, 0.11910835, 0.13400233,
         #                     0.15718603, 0.17106676, 0.14363566, 0.10100251])
 
-    env = decorate_env(env, action_max, avg, std, data_type=np.float32)
+    if env_name == 'FinRL':  # todo FinRL
+        pass
+    else:
+        env = decorate_env(env, action_max, avg, std, data_type=np.float32)
     return env, state_dim, action_dim, target_reward, if_discrete
 
 
