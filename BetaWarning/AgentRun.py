@@ -90,6 +90,7 @@ def train_agent(args):  # 2020-12-02
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    env_eval = build_env(env_name, if_print=False)[0]  # todo env_eval 2020-12-10
 
     '''init: agent, buffer, recorder'''
     recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
@@ -116,14 +117,13 @@ def train_agent(args):  # 2020-12-02
         '''update replay buffer by interact with environment'''
         with torch.no_grad():  # speed up running
             rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
-
         '''update network parameters by random sampling buffer for gradient descent'''
         loss_a, loss_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
         recorder.update__record_explore(steps, rewards, loss_a, loss_c)
 
-        if_save = recorder.update__record_evaluate(env, agent.act, max_step, agent.device, if_discrete)
+        if_save = recorder.update__record_evaluate(env_eval, agent.act, max_step, agent.device, if_discrete)
         recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
 
         with torch.no_grad():  # for saving the GPU buffer
@@ -140,7 +140,10 @@ def train_agent(args):  # 2020-12-02
     print(f'SavedDir: {cwd}\n'
           f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
-    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    if hasattr(env, 'neg_state_avg'):  # todo 2020-12-11
+        buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    else:
+        buffer.print_state_norm()
 
 
 def train_agent_mp(args):  # 2020-1111
@@ -206,6 +209,7 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
     if reward_avg is None:
         with torch.no_grad():
             reward_avg = get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
+    print(reward_avg)
 
     '''training loop'''
     if_train = True
@@ -235,7 +239,10 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
                         or os.path.exists(f'{cwd}/stop'))
 
     env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
-    buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    if hasattr(env, 'neg_state_avg'):  # todo 2020-12-11
+        buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
+    else:
+        buffer.print_state_norm()
 
     q_i_eva.put('stop')
     while q_i_eva.qsize() > 0:
@@ -254,7 +261,7 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     eval_size2 = args.eval_times2
     del args
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=True)
+    env_eval, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=True)
 
     '''build evaluated only actor'''
     act = q_i_eva.get()  # q_i_eva 1, act == act.to(device_cpu), requires_grad=False
@@ -262,12 +269,12 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     torch.set_num_threads(4)
     device = torch.device('cpu')
     recorder = Recorder(eval_size1, eval_size2)
-    recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
+    recorder.update__record_evaluate(env_eval, act, max_step, device, if_discrete)
 
     is_training = True
     with torch.no_grad():  # for saving the GPU buffer
         while is_training:
-            is_saved = recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
+            is_saved = recorder.update__record_evaluate(env_eval, act, max_step, device, if_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
@@ -391,8 +398,11 @@ class Recorder:  # 2020-10-12
 
 
 def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
-    record_explore = np.load('%s/record_explore.npy' % cwd)  # item: (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
-    record_evaluate = np.load('%s/record_evaluate.npy' % cwd)  # item:(total_step, eva_r_avg, eva_r_std)
+    record_explore = np.load('%s/record_explore.npy' % cwd, allow_pickle=True)
+    # (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
+    record_evaluate = np.load('%s/record_evaluate.npy' % cwd, allow_pickle=True)
+    # (total_step, eva_r_avg, eva_r_std)
+    # todo 2020-12-11
 
     if len(record_evaluate.shape) == 1:
         record_evaluate = np.array([[0., 0., 0.]])
@@ -674,6 +684,15 @@ def build_env(env_name, if_print=True, if_norm=True):
         action_max = 1.0
         target_reward = 50
         if_discrete = False
+    elif env_name == 'FinRL':  # todo FinRL
+        from EnvFinRL import SingleStockFinEnv
+        env = SingleStockFinEnv()
+
+        state_dim = 4
+        action_dim = 1
+        action_max = 1.0
+        target_reward = 800
+        if_discrete = False
     else:
         env = gym.make(env_name)
         state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
@@ -744,7 +763,10 @@ def build_env(env_name, if_print=True, if_norm=True):
         #                     0.09843876, 0.10035378, 0.11045089, 0.11910835, 0.13400233,
         #                     0.15718603, 0.17106676, 0.14363566, 0.10100251])
 
-    env = decorate_env(env, action_max, avg, std, data_type=np.float32)
+    if env_name == 'FinRL':  # todo FinRL
+        pass
+    else:
+        env = decorate_env(env, action_max, avg, std, data_type=np.float32)
     return env, state_dim, action_dim, target_reward, if_discrete
 
 
