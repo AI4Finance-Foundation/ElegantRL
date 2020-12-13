@@ -209,7 +209,6 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
     if reward_avg is None:
         with torch.no_grad():
             reward_avg = get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
-    print(reward_avg)
 
     '''training loop'''
     if_train = True
@@ -685,7 +684,7 @@ def build_env(env_name, if_print=True, if_norm=True):
         target_reward = 50
         if_discrete = False
     elif env_name == 'FinRL':  # todo FinRL
-        from EnvFinRL import SingleStockFinEnv
+        from AgentEnv import SingleStockFinEnv
         env = SingleStockFinEnv()
 
         state_dim = 4

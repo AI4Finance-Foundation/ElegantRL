@@ -138,7 +138,7 @@ class ActorPPO(nn.Module):
 
         # layer_norm(self.net__a[0], std=1.0)
         # layer_norm(self.net__a[2], std=1.0)
-        layer_norm(self.net[-1], std=0.5)  # output layer for action # todo
+        layer_norm(self.net[-1], std=0.1)  # output layer for action # todo
 
     def forward(self, s):
         a_avg = self.net(s)
