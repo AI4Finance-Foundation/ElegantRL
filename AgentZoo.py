@@ -382,7 +382,7 @@ class AgentSAC(AgentBaseAC):
 
                 next_a_noise, next_log_prob = self.act.get__a__log_prob(next_s)
                 next_q_label = self.cri_target(next_s, next_a_noise)
-                q_label = reward + mask * next_q_label + next_log_prob * self.alpha
+                q_label = reward + mask * (next_q_label + next_log_prob * self.alpha)  # fix notice by Zang
 
             """critic_obj"""
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
@@ -1235,7 +1235,7 @@ class AgentD3QN(AgentDoubleDQN):  # 2020-11-11
     # def update_policy() same as AgentDuelingDQN
 
 
-"""Utils for Algorithms"""
+"""Private Utils: other python don't need to import them"""
 
 
 def soft_target_update(target, current, tau=5e-3):
