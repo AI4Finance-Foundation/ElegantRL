@@ -86,7 +86,7 @@ def _whether_remove_history(cwd, is_remove=None):  # 2020-03-04
 """train agent in single or multi processing"""
 
 
-def train_agent(args):  # 2020-12-02 # todo important function
+def train_agent(args):  # 2020-12-12
     rl_agent = args.rl_agent
     env = args.env
     gpu_id = args.gpu_id
@@ -174,7 +174,7 @@ def train_agent(args):  # 2020-12-02 # todo important function
                             env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
 
 
-def train_agent_mp(args):  # 2020-1111 # todo important function
+def train_agent_mp(args):  # 2020-12-12
     import multiprocessing as mp
     q_i_eva = mp.Queue(maxsize=16)  # evaluate I
     q_o_eva = mp.Queue(maxsize=16)  # evaluate O
@@ -239,8 +239,7 @@ def _mp__update_params(args, q_i_eva, q_o_eva):  # 2020-12-12 update network par
         q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
         total_step += step_sum
     if reward_avg is None:
-        with torch.no_grad():
-            reward_avg = get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
+        reward_avg = _get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
 
     '''training loop'''
     if_train = True
@@ -411,12 +410,12 @@ class Recorder:  # 2020-10-12
 
     def update__record_evaluate(self, env, act, max_step, device, if_discrete):
         is_saved = False
-        reward_list = [get_total_return(env, act, max_step, device, if_discrete)
+        reward_list = [_get_total_return(env, act, max_step, device, if_discrete)
                        for _ in range(self.eva_size1)]
 
         eva_r_avg = np.average(reward_list)
         if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([get_total_return(env, act, max_step, device, if_discrete)
+            reward_list.extend([_get_total_return(env, act, max_step, device, if_discrete)
                                 for _ in range(self.eva_size2 - self.eva_size1)])
             eva_r_avg = np.average(reward_list)
             if eva_r_avg > self.eva_r_max:  # check final
@@ -547,7 +546,7 @@ class Recorder:  # 2020-10-12
         pass
 
 
-def get_total_return(env, act, max_step, device, if_discrete) -> float:
+def _get_total_return(env, act, max_step, device, if_discrete) -> float:
     # better to 'with torch.no_grad()'
     reward_item = 0.0
 
@@ -651,14 +650,6 @@ def _get_gym_env_information(env) -> (str, int, int, float, bool, float):
     env_name = env.unwrapped.spec.id
     if env_name == 'Pendulum-v0':
         env.spec.reward_threshold = -200.0  # target_reward
-    elif env_name == 'CarRacing-v0':  # todo need check
-        frame_num = 3
-        env = fix_car_racing_env(env, frame_num=frame_num, action_num=frame_num)
-        state_dim = (96, 96, frame_num)
-        action_dim = 3
-        target_reward = 900
-        if_discrete = False
-        return env, state_dim, action_dim, target_reward, if_discrete
 
     '''state_dim'''
     state_shape = env.observation_space.shape
@@ -681,7 +672,7 @@ def _get_gym_env_information(env) -> (str, int, int, float, bool, float):
         action_dim = env.action_space.shape[0]
         action_max = float(env.action_space.high[0])
 
-        action_edge = np.array([action_max, ] * action_dim)  # todo check
+        action_edge = np.array([action_max, ] * action_dim)  # need check
         if any(env.action_space.high - action_edge):
             raise RuntimeError(
                 f'| action_space.high should be {action_edge}, but {env.action_space.high}')
@@ -731,7 +722,7 @@ def _get_gym_env_state_norm(env_name, if_norm):
                 0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
                 0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
                 0.4858, 0.4227, 0.4428, 0.4831])
-        # elif env_name == 'MinitaurBulletEnv-v0': # todo check
+        # elif env_name == 'MinitaurBulletEnv-v0': # need check
         #     # avg = np.array([0.90172989, 1.54730119, 1.24560906, 1.97365306, 1.9413892,
         #     #                 1.03866835, 1.69646277, 1.18655352, -0.45842347, 0.17845232,
         #     #                 0.38784456, 0.58572877, 0.91414561, -0.45410697, 0.7591031,
@@ -744,7 +735,7 @@ def _get_gym_env_state_norm(env_name, if_norm):
         #     #                 13.03124941, 2.47718145, 2.55088804, 2.35964651, 2.51025567,
         #     #                 2.66379017, 2.37224904, 2.55892521, 2.41716885, 0.07529733,
         #     #                 0.05903034, 0.1314812, 0.0221248])
-        # elif env_name == "BipedalWalkerHardcore-v3": # todo check
+        # elif env_name == "BipedalWalkerHardcore-v3": # need check
         #     avg = np.array([-3.6378160e-02, -2.5788052e-03, 3.4413573e-01, -8.4189959e-03,
         #                     -9.1864385e-02, 3.2804706e-04, -6.4693891e-02, -9.8939031e-02,
         #                     3.5180664e-01, 6.8103075e-01, 2.2930240e-03, -4.5893672e-01,
@@ -855,19 +846,20 @@ def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
             action[1:] = (action[1:] + 1) / 2  # fix action_space.low
 
             reward_sum = 0
-            done = state = None  # todo check
+            done = state = None
             try:
                 for _ in range(action_num):
                     state, reward, done, info = env_step(action)
                     state = rgb2gray(state)
 
-                    if done:  # don't penalize "die state"
-                        reward += 100
+                    if done:
+                        # reward += 100  # don't penalize "die state"
+                        reward += 95  # don't penalize "die state" too much
                     if state.mean() > 192:  # 185.0:  # penalize when outside of road
                         reward -= 0.05
 
                     env.avg_reward = env.avg_reward * 0.95 + reward * 0.05
-                    if env.avg_reward <= -0.1:
+                    if env.avg_reward <= -0.1:  # done if car don't move
                         done = True
 
                     reward_sum += reward
@@ -2041,7 +2033,7 @@ def train__discrete_action():
     exit()
 
 
-def train__car_racing(gpu_id=None, random_seed=0):
+def train__car_racing():
     import AgentZoo as Zoo
 
     '''DEMO 4: Fix gym Box2D env CarRacing-v0 (pixel-level 2D-state, continuous action) using PPO'''
@@ -2050,9 +2042,8 @@ def train__car_racing(gpu_id=None, random_seed=0):
     env = gym.make('CarRacing-v0')
     env = fix_car_racing_env(env)
 
-    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=gpu_id)
+    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=None)
     args.if_break_early = True
-    args.random_seed += random_seed
     args.eval_times2 = 1
     args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
 
@@ -2071,4 +2062,8 @@ def train__car_racing(gpu_id=None, random_seed=0):
 
 if __name__ == '__main__':
     train__demo()
+    # train__off_policy()
+    # train__on_policy()
+    # train__discrete_action()
+    # train__car_racing()
     print('Finish:', sys.argv[-1])
