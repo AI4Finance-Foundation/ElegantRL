@@ -1,11 +1,10 @@
 from AgentRun import *
 from AgentZoo import *
-
-
-# from AgentNet import *
+from AgentNet import *
 
 
 def test__show_available_env():
+    import gym
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
 
@@ -43,7 +42,7 @@ def test__env_quickly():
 
     for env_name in env_names:
         print(f'| {env_name}')
-        build_env(env_name, if_print=True, if_norm=False)
+        decorate_env(env_name, if_print=True, if_norm=False)
         print()
 
 
@@ -54,12 +53,12 @@ def test__replay_buffer():
     gamma = 0.99
 
     env_name = 'LunarLanderContinuous-v2'
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = decorate_env(env_name, if_print=False)
     # state = env.reset()
 
     '''offline'''
     buffer_offline = BufferArray(max_memo, state_dim, 1 if if_discrete else action_dim, if_ppo=False)
-    _rewards, _steps = explore_before_train(env, buffer_offline, max_step, if_discrete, reward_scale, gamma, action_dim)
+    _rewards, _steps = _explore_before_train(env, buffer_offline, max_step, if_discrete, reward_scale, gamma, action_dim)
     print('Memory length of buffer_offline:', buffer_offline.now_len)
 
     '''online'''
@@ -80,7 +79,7 @@ def test__evaluate_agent():
     rl_agent = AgentInterSAC
     net_dim = 2 ** 8
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = decorate_env(env_name, if_print=False)
 
     agent = rl_agent(state_dim, action_dim, net_dim)
     del agent.cri
@@ -118,7 +117,7 @@ def test__evaluate_agent():
 def test__network():
     net_dim = 2 ** 4
     env_name = "LunarLanderContinuous-v2"
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = decorate_env(env_name, if_print=False)
 
     act = InterSPG(state_dim, action_dim, net_dim)
     act_optimizer = torch.optim.Adam([
@@ -141,7 +140,7 @@ def test__log_prob():
         print(t.cpu().data.numpy())
 
     env_name = "LunarLanderContinuous-v2"
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    env, state_dim, action_dim, target_reward, if_discrete = decorate_env(env_name, if_print=False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # batch_size = 1
@@ -185,7 +184,7 @@ def test__log_prob():
 def test__run_train_agent():
     args = Arguments(AgentInterSAC, gpu_id=1)
 
-    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
     args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
     args.init_for_training()
@@ -206,7 +205,7 @@ def test__buffer__data_type():
 
 def test__train_agent():
     rl_agent = AgentBaseAC
-    args = Arguments(rl_agent=rl_agent, env_name="LunarLanderContinuous-v2", gpu_id=None)
+    args = Arguments(rl_agent=rl_agent, env="LunarLanderContinuous-v2", gpu_id=None)
     args.init_for_training()
     train_agent(**vars(args))
 

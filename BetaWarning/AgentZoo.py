@@ -744,6 +744,7 @@ class AgentPPO:
     def select_action(self, states):  # CPU array to GPU tensor to CPU array
         states = torch.tensor(states, dtype=torch.float32, device=self.device)
 
+
         a_noise, noise = self.act.get__a_noise__noise(states)
         a_noise = a_noise.cpu().data.numpy()[0]
         noise = noise.cpu().data.numpy()[0]

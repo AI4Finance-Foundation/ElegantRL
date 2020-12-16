@@ -2,44 +2,33 @@ from AgentRun import *
 from AgentZoo import *
 from AgentNet import *
 
-"""
-ModPPO use_dn=True
-beta0 BW 256
-beta1 BW 128
-ceta0 Mini 256
-ceta1 Mini 128
 
-ModPPO StdPPO
-beta2
-"""
-
-
-def run__discrete_action():
+def train__car_racing(gpu_id=None, random_seed=0):
     import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
-    args.rl_agent = [
-        Zoo.AgentDQN,  # 2014.
-        Zoo.AgentDoubleDQN,  # 2016. stable
-        Zoo.AgentDuelingDQN,  # 2016. stable and fast
-        Zoo.AgentD3QN,  # 2016+ Dueling + Double DQN (Not a creative work)
-    ][3]  # I suggest to use D3QN
-    args.random_seed += 412
 
-    # args.env_name = "CartPole-v0"
-    # args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
-    # args.reward_scale = 2 ** 0  # 0 ~ 200
-    # args.net_dim = 2 ** 6
-    # args.init_for_training()
-    # train_agent_mp(args)  # train_agent(args)
-    # exit()
+    '''DEMO 4: Fix gym Box2D env CarRacing-v0 (pixel-level 2D-state, continuous action) using PPO'''
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('CarRacing-v0')
+    env = fix_car_racing_env(env)
 
-    args.env_name = "LunarLander-v2"
-    args.break_step = int(1e5 * 8)  # (5e4) 1e5 (3e5), used time (355s) 1000s (2000s)
-    args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
+    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=gpu_id)
+    args.if_break_early = True
+    args.random_seed += random_seed
+    args.eval_times2 = 1
+    args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
+
+    args.break_step = int(5e5 * 4)  # (2e5) 5e5, used time 25000s
+    args.reward_scale = 2 ** -2  # (-1) 50 ~ 900 (1001)
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 7
+    args.repeat_times = 2 ** 4
     args.net_dim = 2 ** 7
+    args.max_step = 2 ** 10
+    args.show_gap = 2 ** 8  # for Recorder
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
 
-run__discrete_action()
+train__car_racing()

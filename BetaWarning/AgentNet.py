@@ -121,7 +121,7 @@ class ActorPPO(nn.Module):
             nn.Linear(mid_dim, mid_dim), nn.ReLU(),
             nn.Linear(mid_dim, action_dim),
         ) if isinstance(state_dim, int) else nn.Sequential(
-            NnnReshape(*state_dim),  # -> [batch_size, 4, 96, 96]
+            NnnReshape(*state_dim),  # -> [batch_size, frame_num, 96, 96]
             nn.Conv2d(state_dim[0], idx_dim(0), 4, 2, bias=True), nn.LeakyReLU(),
             nn.Conv2d(idx_dim(0), idx_dim(1), 3, 2, bias=False), nn.ReLU(),
             nn.Conv2d(idx_dim(1), idx_dim(2), 3, 2, bias=False), nn.ReLU(),
@@ -138,7 +138,7 @@ class ActorPPO(nn.Module):
 
         # layer_norm(self.net__a[0], std=1.0)
         # layer_norm(self.net__a[2], std=1.0)
-        layer_norm(self.net[-1], std=0.1)  # output layer for action # todo
+        layer_norm(self.net[-1], std=0.1)  # output layer for action
 
     def forward(self, s):
         a_avg = self.net(s)
@@ -649,7 +649,7 @@ class QNetDuelTwin(nn.Module):
         return q1, q2
 
 
-"""utils"""
+"""Private Utils: other python don't need to import them"""
 
 
 class NnnReshape(nn.Module):
@@ -659,6 +659,15 @@ class NnnReshape(nn.Module):
 
     def forward(self, x):
         return x.view((x.size(0),) + self.args)
+
+
+class HardSwish(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.relu6 = nn.ReLU6()
+
+    def forward(self, x):
+        return self.relu6(x + 3.) / 6. * x
 
 
 class DenseNet(nn.Module):  # plan to hyper-param: layer_number
@@ -680,15 +689,6 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
         x3 = torch.cat((x2, self.dense2(x2)), dim=1)
         return x3
-
-
-class HardSwish(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.relu6 = nn.ReLU6()
-
-    def forward(self, x):
-        return self.relu6(x + 3.) / 6. * x
 
 
 def layer_norm(layer, std=1.0, bias_const=1e-6):
