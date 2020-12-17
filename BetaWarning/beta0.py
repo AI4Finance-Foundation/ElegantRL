@@ -1,6 +1,3 @@
-import numpy as np
-import numpy.random as rd
-
 from AgentRun import *
 from AgentZoo import *
 from AgentNet import *
