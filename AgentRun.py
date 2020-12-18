@@ -2,7 +2,6 @@ import os
 import sys
 import time
 
-import gym
 import torch
 import numpy as np
 import numpy.random as rd
@@ -18,11 +17,11 @@ https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 
 
 class Arguments:  # default working setting and hyper-parameters
-    def __init__(self, rl_agent=None, env_name=None, gpu_id=None):
+    def __init__(self, rl_agent=None, env=None, gpu_id=None):
         self.rl_agent = rl_agent
-        self.env_name = env_name
         self.gpu_id = gpu_id
         self.cwd = None  # init cwd in def init_for_training()
+        self.env = env
 
         '''Arguments for training'''
         self.net_dim = 2 ** 8  # the network width
@@ -44,12 +43,16 @@ class Arguments:  # default working setting and hyper-parameters
 
     def init_for_training(self, cpu_threads=6):
         assert self.rl_agent is not None
-        assert self.env_name is not None
+        assert self.env is not None
+        if not hasattr(self.env, 'env_name'):
+            assert RuntimeError('| init_for_training() WARNING: AttributeError. What is env.env_name?'
+                                '| use env = build_env(env) to decorate env.')
+
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
-        self.cwd = f'./{self.rl_agent.__name__}/{self.env_name}_{self.gpu_id}'
+        self.cwd = f'./{self.rl_agent.__name__}/{self.env.env_name}_{self.gpu_id}'
 
         print('| GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
-        whether_remove_history(self.cwd, self.if_remove_history)
+        _whether_remove_history(self.cwd, self.if_remove_history)
 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(self.gpu_id)
         torch.set_num_threads(cpu_threads)
@@ -63,12 +66,29 @@ class Arguments:  # default working setting and hyper-parameters
     #         setattr(self, key, value)
 
 
+def _whether_remove_history(cwd, is_remove=None):  # 2020-03-04
+    import shutil
+
+    if is_remove is None:
+        is_remove = bool(input("PRESS 'y' to REMOVE: {}? ".format(cwd)) == 'y')
+    if is_remove:
+        shutil.rmtree(cwd, ignore_errors=True)
+        print("| Remove")
+
+    os.makedirs(cwd, exist_ok=True)
+
+    # shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
+    # shutil.copy('AgentNet.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
+    del shutil
+
+
 """train agent in single or multi processing"""
 
 
-def train_agent(args):  # 2020-12-02
+def train_agent(args):  # 2020-12-12
     rl_agent = args.rl_agent
-    env_name = args.env_name
+    env = args.env
     gpu_id = args.gpu_id
     cwd = args.cwd
 
@@ -89,20 +109,27 @@ def train_agent(args):  # 2020-12-02
     eval_times2 = args.eval_times2
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
-    env_eval = build_env(env_name, if_print=False)[0]  # todo env_eval 2020-12-10
+    '''init: env'''
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+    if_discrete = env.if_discrete
+    target_reward = env.target_reward
+    from copy import deepcopy  # built-in library of Python
+    env = deepcopy(env)
+    env_eval = deepcopy(env)  # 2020-12-12
 
     '''init: agent, buffer, recorder'''
-    recorder = Recorder(eval_size1=eval_times1, eval_size2=eval_times2)
+    recorder = Recorder(eval_times1, eval_times2)
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
 
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
+    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentInterPPO'}):
         buffer = BufferArray(max_memo + max_step, state_dim, action_dim, if_ppo=True)
     else:
         buffer = BufferArray(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
+
         with torch.no_grad():  # update replay buffer
-            rewards, steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+            rewards, steps = _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
         recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
 
         '''pre training and hard update before training loop'''
@@ -135,29 +162,30 @@ def train_agent(args):  # 2020-12-02
                         or os.path.exists(f'{cwd}/stop'))
 
     recorder.save_npy__draw_plot(cwd)
-    os.rename(cwd, cwd[:-2] + f'_{recorder.eva_r_max:.2f}' + cwd[-2:])  # 2020-11-11
 
+    new_cwd = cwd[:-2] + f'_{recorder.eva_r_max:.2f}' + cwd[-2:]
+    if not os.path.exists(new_cwd):  # 2020-12-12
+        os.rename(cwd, new_cwd)
+        cwd = new_cwd
     print(f'SavedDir: {cwd}\n'
           f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
-    if hasattr(env, 'neg_state_avg'):  # todo 2020-12-11
-        buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
-    else:
-        buffer.print_state_norm()
+    buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
+                            env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
 
 
-def train_agent_mp(args):  # 2020-1111
+def train_agent_mp(args):  # 2020-12-12
     import multiprocessing as mp
     q_i_eva = mp.Queue(maxsize=16)  # evaluate I
     q_o_eva = mp.Queue(maxsize=16)  # evaluate O
-    process = [mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva)),
-               mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+    process = [mp.Process(target=_mp__update_params, args=(args, q_i_eva, q_o_eva)),
+               mp.Process(target=_mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
     [p.start() for p in process]
     [p.join() for p in process]
     print('\n')
 
 
-def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network parameters using replay buffer
+def _mp__update_params(args, q_i_eva, q_o_eva):  # 2020-12-12 update network parameters using replay buffer
     rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
@@ -166,20 +194,24 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
     batch_size = args.batch_size
     repeat_times = args.repeat_times
     cwd = args.cwd
-    env_name = args.env_name
+    env = args.env
     reward_scale = args.reward_scale
     if_stop = args.if_break_early
     gamma = args.gamma
     del args
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
+    '''init: env'''
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+    if_discrete = env.if_discrete
+    # target_reward = env.target_reward
 
     '''build agent'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
 
     '''send agent to q_i_eva'''
-    from copy import deepcopy
+    from copy import deepcopy  # built-in library of Python
     act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
     act_cpu.eval()
     [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
@@ -194,7 +226,7 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
         buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
         '''initial exploration'''
         with torch.no_grad():  # update replay buffer
-            rewards, steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+            rewards, steps = _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
         reward_avg = np.average(rewards)
         step_sum = sum(steps)
 
@@ -207,9 +239,7 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
         q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
         total_step += step_sum
     if reward_avg is None:
-        with torch.no_grad():
-            reward_avg = get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
-    print(reward_avg)
+        reward_avg = _get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
 
     '''training loop'''
     if_train = True
@@ -238,11 +268,8 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
                         or total_step > max_total_step
                         or os.path.exists(f'{cwd}/stop'))
 
-    env, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=False)
-    if hasattr(env, 'neg_state_avg'):  # todo 2020-12-11
-        buffer.print_state_norm(env.neg_state_avg, env.div_state_std)
-    else:
-        buffer.print_state_norm()
+    buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
+                            env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
 
     q_i_eva.put('stop')
     while q_i_eva.qsize() > 0:
@@ -251,8 +278,8 @@ def mp__update_params(args, q_i_eva, q_o_eva):  # 2020-11-11 update network para
     # print('; quit: params')
 
 
-def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
-    env_name = args.env_name
+def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
+    env = args.env
     cwd = args.cwd
     gpu_id = args.gpu_id
     max_step = args.max_memo
@@ -261,7 +288,12 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     eval_size2 = args.eval_times2
     del args
 
-    env_eval, state_dim, action_dim, target_reward, if_discrete = build_env(env_name, if_print=True)
+    from copy import deepcopy  # built-in library of Python
+    env_eval = deepcopy(env)
+    # state_dim = env.state_dim
+    # action_dim = env.action_dim
+    if_discrete = env.if_discrete
+    target_reward = env.target_reward
 
     '''build evaluated only actor'''
     act = q_i_eva.get()  # q_i_eva 1, act == act.to(device_cpu), requires_grad=False
@@ -292,7 +324,11 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
                 recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
 
     recorder.save_npy__draw_plot(cwd)
-    os.rename(cwd, cwd[:-2] + f'_{recorder.eva_r_max:.2f}' + cwd[-2:])  # 2020-11-11
+
+    new_cwd = cwd[:-2] + f'_{recorder.eva_r_max:.2f}' + cwd[-2:]
+    if not os.path.exists(new_cwd):  # 2020-12-12
+        os.rename(cwd, new_cwd)
+        cwd = new_cwd
     print(f'SavedDir: {cwd}\n'
           f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
@@ -301,6 +337,51 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its tot
     while q_i_eva.qsize() > 0:
         q_i_eva.get()
     # print('; quit: evaluate')
+
+
+def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
+    state = env.reset()
+
+    rewards = list()
+    reward_sum = 0.0
+    steps = list()
+    step = 0
+
+    if if_discrete:
+        def random_action__discrete():
+            return rd.randint(action_dim)
+
+        get_random_action = random_action__discrete
+    else:
+        def random_action__continuous():
+            return rd.uniform(-1, 1, size=action_dim)
+
+        get_random_action = random_action__continuous
+
+    global_step = 0
+    while global_step < max_step or len(rewards) == 0:  # warning 2020-10-10?
+        # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
+        action = get_random_action()
+        next_state, reward, done, _ = env.step(action * if_discrete)
+        reward_sum += reward
+        step += 1
+
+        adjust_reward = reward * reward_scale
+        mask = 0.0 if done else gamma
+        buffer.append_memo((adjust_reward, mask, state, action, next_state))
+
+        state = next_state
+        if done:
+            rewards.append(reward_sum)
+            steps.append(step)
+            global_step += step
+
+            state = env.reset()  # reset the environment
+            reward_sum = 0.0
+            step = 1
+
+    buffer.update_pointer_before_sample()
+    return rewards, steps
 
 
 """utils"""
@@ -329,12 +410,12 @@ class Recorder:  # 2020-10-12
 
     def update__record_evaluate(self, env, act, max_step, device, if_discrete):
         is_saved = False
-        reward_list = [get_total_return(env, act, max_step, device, if_discrete)
+        reward_list = [_get_total_return(env, act, max_step, device, if_discrete)
                        for _ in range(self.eva_size1)]
 
         eva_r_avg = np.average(reward_list)
         if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([get_total_return(env, act, max_step, device, if_discrete)
+            reward_list.extend([_get_total_return(env, act, max_step, device, if_discrete)
                                 for _ in range(self.eva_size2 - self.eva_size1)])
             eva_r_avg = np.average(reward_list)
             if eva_r_avg > self.eva_r_max:  # check final
@@ -388,101 +469,84 @@ class Recorder:  # 2020-10-12
 
         return self.is_solved
 
-    def save_npy__draw_plot(self, cwd):  # 2020-10-10
+    def save_npy__draw_plot(self, cwd):  # 2020-12-12
         np.save('%s/record_explore.npy' % cwd, self.record_exp)
         np.save('%s/record_evaluate.npy' % cwd, self.record_eva)
-        draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
+
+        # draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
+        train_time = time.time() - self.start_time
+        max_reward = self.eva_r_max
+
+        record_explore = np.load('%s/record_explore.npy' % cwd, allow_pickle=True)  # 2020-12-11 allow_pickle
+        # record_explore.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
+        record_evaluate = np.load('%s/record_evaluate.npy' % cwd, allow_pickle=True)
+        # record_evaluate.append((total_step, eva_r_avg, eva_r_std))
+
+        if len(record_evaluate.shape) == 1:
+            record_evaluate = np.array([[0., 0., 0.]])
+        if len(record_explore.shape) == 1:
+            record_explore = np.array([[0., 0., 0., 0.]])
+
+        train_time = int(train_time)
+        total_step = int(record_evaluate[-1][0])
+        save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
+        save_path = f"{cwd}/{save_title}.jpg"
+
+        """plot"""
+        import matplotlib as mpl  # draw figure in Terminal
+        mpl.use('Agg')
+        import matplotlib.pyplot as plt
+        # plt.style.use('ggplot')
+
+        fig, axs = plt.subplots(2)
+        plt.title(save_title, y=2.3)
+
+        ax11 = axs[0]
+        ax11_color = 'royalblue'
+        ax11_label = 'explore R'
+        exp_step = record_explore[:, 0]
+        exp_reward = record_explore[:, 1]
+        ax11.plot(exp_step, exp_reward, label=ax11_label, color=ax11_color)
+
+        ax12 = axs[0]
+        ax12_color = 'lightcoral'
+        ax12_label = 'Epoch R'
+        eva_step = record_evaluate[:, 0]
+        r_avg = record_evaluate[:, 1]
+        r_std = record_evaluate[:, 2]
+        ax12.plot(eva_step, r_avg, label=ax12_label, color=ax12_color)
+        ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
+
+        ax21 = axs[1]
+        ax21_color = 'lightcoral'  # same color as ax11 (expR)
+        ax21_label = 'lossA'
+        exp_loss_a = record_explore[:, 2]
+        ax21.set_ylabel(ax21_label, color=ax21_color)
+        ax21.plot(exp_step, exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
+        ax21.tick_params(axis='y', labelcolor=ax21_color)
+
+        ax22 = axs[1].twinx()
+        ax22_color = 'darkcyan'
+        ax22_label = 'lossC'
+        exp_loss_c = record_explore[:, 3]
+        ax22.set_ylabel(ax22_label, color=ax22_color)
+        ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
+        ax22.tick_params(axis='y', labelcolor=ax22_color)
+
+        # remove prev figure
+        prev_save_names = [name for name in os.listdir(cwd) if name[:9] == save_title[:9]]
+        os.remove(f'{cwd}/{prev_save_names[0]}') if len(prev_save_names) > 0 else None
+
+        plt.savefig(save_path)
+        # plt.pause(4)
+        # plt.show()
+        plt.close()
 
     def demo(self):
         pass
 
 
-def draw_plot_with_2npy(cwd, train_time, max_reward):  # 2020-09-18
-    record_explore = np.load('%s/record_explore.npy' % cwd, allow_pickle=True)
-    # (total_step, exp_r_avg, loss_a_avg, loss_c_avg)
-    record_evaluate = np.load('%s/record_evaluate.npy' % cwd, allow_pickle=True)
-    # (total_step, eva_r_avg, eva_r_std)
-    # todo 2020-12-11
-
-    if len(record_evaluate.shape) == 1:
-        record_evaluate = np.array([[0., 0., 0.]])
-    if len(record_explore.shape) == 1:
-        record_explore = np.array([[0., 0., 0., 0.]])
-
-    train_time = int(train_time)
-    total_step = int(record_evaluate[-1][0])
-    save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
-    save_path = f"{cwd}/{save_title}.jpg"
-
-    """plot"""
-    import matplotlib as mpl  # draw figure in Terminal
-    mpl.use('Agg')
-    import matplotlib.pyplot as plt
-    # plt.style.use('ggplot')
-
-    fig, axs = plt.subplots(2)
-    plt.title(save_title, y=2.3)
-
-    ax11 = axs[0]
-    ax11_color = 'royalblue'
-    ax11_label = 'explore R'
-    exp_step = record_explore[:, 0]
-    exp_reward = record_explore[:, 1]
-    ax11.plot(exp_step, exp_reward, label=ax11_label, color=ax11_color)
-
-    ax12 = axs[0]
-    ax12_color = 'lightcoral'
-    ax12_label = 'Epoch R'
-    eva_step = record_evaluate[:, 0]
-    r_avg = record_evaluate[:, 1]
-    r_std = record_evaluate[:, 2]
-    ax12.plot(eva_step, r_avg, label=ax12_label, color=ax12_color)
-    ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
-
-    ax21 = axs[1]
-    ax21_color = 'lightcoral'  # same color as ax11 (expR)
-    ax21_label = 'lossA'
-    exp_loss_a = record_explore[:, 2]
-    ax21.set_ylabel(ax21_label, color=ax21_color)
-    ax21.plot(exp_step, exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
-    ax21.tick_params(axis='y', labelcolor=ax21_color)
-
-    ax22 = axs[1].twinx()
-    ax22_color = 'darkcyan'
-    ax22_label = 'lossC'
-    exp_loss_c = record_explore[:, 3]
-    ax22.set_ylabel(ax22_label, color=ax22_color)
-    ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
-    ax22.tick_params(axis='y', labelcolor=ax22_color)
-
-    # remove prev figure
-    prev_save_names = [name for name in os.listdir(cwd) if name[:9] == save_title[:9]]
-    os.remove(f'{cwd}/{prev_save_names[0]}') if len(prev_save_names) > 0 else None
-
-    plt.savefig(save_path)
-    # plt.pause(4)
-    # plt.show()
-    plt.close()
-
-
-def whether_remove_history(cwd, is_remove=None):  # 2020-03-04
-    import shutil
-
-    if is_remove is None:
-        is_remove = bool(input("PRESS 'y' to REMOVE: {}? ".format(cwd)) == 'y')
-    if is_remove:
-        shutil.rmtree(cwd, ignore_errors=True)
-        print("| Remove")
-
-    os.makedirs(cwd, exist_ok=True)
-
-    # shutil.copy(sys.argv[-1], "{}/AgentRun-py-backup".format(cwd))  # copy *.py to cwd
-    # shutil.copy('AgentZoo.py', "{}/AgentZoo-py-backup".format(cwd))  # copy *.py to cwd
-    # shutil.copy('AgentNet.py', "{}/AgentNetwork-py-backup".format(cwd))  # copy *.py to cwd
-    del shutil
-
-
-def get_total_return(env, act, max_step, device, if_discrete) -> float:
+def _get_total_return(env, act, max_step, device, if_discrete) -> float:
     # better to 'with torch.no_grad()'
     reward_item = 0.0
 
@@ -541,54 +605,152 @@ def get_total_returns(agent, env_list, max_step) -> list:  # class Recorder 2020
     return reward_sums
 '''
 
-"""utils: Environment for training agent"""
+"""Environment for training agent"""
 
 
-def get_env_info(env, is_print=True) -> tuple:  # 2020-10-10
-    env_name = env.unwrapped.spec.id
+def decorate_env(env, if_print=True, if_norm=True):  # important function # 2020-12-12
+    assert env is not None
 
-    state_shape = env.observation_space.shape
-    if len(state_shape) == 1:
-        state_dim = state_shape[0]
+    if all([hasattr(env, attr) for attr in ('env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
+        # env_name = type(env).__name__
+        pass  # not elegant enough
     else:
-        state_dim = state_shape
+        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward
+         ) = _get_gym_env_information(env)
 
-    try:
-        if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-        if if_discrete:  # discrete
-            action_dim = env.action_space.n
-            action_max = int(1)
-        elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
-            action_dim = env.action_space.shape[0]
-            action_max = float(env.action_space.high[0])
+        # do normalization on state (if_norm=True) through decorate_env()
+        avg, std = _get_gym_env_state_norm(env_name, if_norm)
 
-            action_high = np.array(env.action_space.high)
-            action_high[:] = action_max
-            action_low = np.array(env.action_space.low)
-            action_low[:] = -action_max
-            if any(action_high != env.action_space.high) and any(action_low != env.action_space.low):
-                print(f'| Warning: '
-                      f'act_high {env.action_space.high}  '
-                      f'act_low  {env.action_space.low}')
-        else:
-            raise AttributeError
-    except AttributeError:
-        print("| Could you assign these value manually? \n"
-              "| I need: state_dim, action_dim, action_max, target_reward, if_discrete")
-        raise AttributeError
+        # convert state to float32 (for WinOS)
+        env = _get_decorate_env(env, action_max, avg, std, data_type=np.float32)
 
+        setattr(env, 'env_name', env_name)
+        setattr(env, 'state_dim', state_dim)
+        setattr(env, 'action_dim', action_dim)
+        setattr(env, 'if_discrete', if_discrete)
+        setattr(env, 'target_reward', target_reward)
+
+    if if_print:
+        print(f"| env_name: {env.env_name}, action space is discrete: {env.if_discrete}\n"
+              f"| state_dim: {env.state_dim}, action_dim: {env.action_dim}, target_reward: {env.target_reward}")
+    return env
+
+
+def _get_gym_env_information(env) -> (str, int, int, float, bool, float):
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+
+    if not isinstance(env, gym.Env):
+        raise RuntimeError(
+            '| It is not a standard gym env. Could tell me the values of the following?\n'
+            '| state_dim, action_dim, target_reward, if_discrete = (int, int, float, bool)'
+        )
+
+    '''env_name and special rule'''
+    env_name = env.unwrapped.spec.id
+    if env_name == 'Pendulum-v0':
+        env.spec.reward_threshold = -200.0  # target_reward
+
+    '''state_dim'''
+    state_shape = env.observation_space.shape
+    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
+
+    '''target_reward'''
     target_reward = env.spec.reward_threshold
     if target_reward is None:
-        assert target_reward is not None
+        raise RuntimeError(
+            '| I do not know how much is target_reward.\n'
+            '| If you do not either. You can set target_reward=+np.inf. \n'
+        )
 
-    if is_print:
-        print("| env_name: {}, action space: {}".format(env_name, 'if_discrete' if if_discrete else 'Continuous'))
-        print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
-            state_dim, action_dim, action_max, target_reward))
-    return state_dim, action_dim, action_max, target_reward, if_discrete
+    '''if_discrete action_dim, action_max'''
+    if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
+    if if_discrete:  # make sure it is discrete action space
+        action_dim = env.action_space.n
+        action_max = int(1)
+    elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
+        action_dim = env.action_space.shape[0]
+        action_max = float(env.action_space.high[0])
+
+        action_edge = np.array([action_max, ] * action_dim)  # need check
+        if any(env.action_space.high - action_edge):
+            raise RuntimeError(
+                f'| action_space.high should be {action_edge}, but {env.action_space.high}')
+        if any(env.action_space.low + action_edge):
+            raise RuntimeError(
+                f'| action_space.low should be {-action_edge}, but {env.action_space.low}')
+    else:
+        raise RuntimeError(
+            '| I do not know env.action_space is discrete or continuous.\n'
+            '| You can set these value manually: if_discrete, action_dim, action_max\n'
+        )
+    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward
 
 
-def decorate_env(env, action_max=1, state_avg=None, state_std=None, data_type=np.float32):
+def _get_gym_env_state_norm(env_name, if_norm):
+    avg = None
+    std = None
+    if if_norm:  # I use def print_norm() to get the following (avg, std)
+        # if env_name == 'Pendulum-v0':
+        #     state_mean = np.array([-0.00968592 -0.00118888 -0.00304381])
+        #     std = np.array([0.53825575 0.54198545 0.8671749 ])
+        if env_name == 'LunarLanderContinuous-v2':
+            avg = np.array([1.65470898e-02, -1.29684399e-01, 4.26883133e-03, -3.42124557e-02,
+                            -7.39076972e-03, -7.67103031e-04, 1.12640885e+00, 1.12409466e+00])
+            std = np.array([0.15094465, 0.29366297, 0.23490797, 0.25931464, 0.21603736,
+                            0.25886878, 0.277233, 0.27771219])
+        elif env_name == "BipedalWalker-v3":
+            avg = np.array([1.42211734e-01, -2.74547996e-03, 1.65104509e-01, -1.33418152e-02,
+                            -2.43243194e-01, -1.73886203e-02, 4.24114229e-02, -6.57800099e-02,
+                            4.53460692e-01, 6.08022244e-01, -8.64884810e-04, -2.08789053e-01,
+                            -2.92092949e-02, 5.04791247e-01, 3.33571745e-01, 3.37325723e-01,
+                            3.49106580e-01, 3.70363115e-01, 4.04074671e-01, 4.55838055e-01,
+                            5.36685407e-01, 6.70771701e-01, 8.80356865e-01, 9.97987386e-01])
+            std = np.array([0.84419678, 0.06317835, 0.16532085, 0.09356959, 0.486594,
+                            0.55477525, 0.44076614, 0.85030824, 0.29159821, 0.48093035,
+                            0.50323634, 0.48110776, 0.69684234, 0.29161077, 0.06962932,
+                            0.0705558, 0.07322677, 0.07793258, 0.08624322, 0.09846895,
+                            0.11752805, 0.14116005, 0.13839757, 0.07760469])
+        elif env_name == 'AntBulletEnv-v0':
+            avg = np.array([
+                0.4838, -0.047, 0.3500, 1.3028, -0.249, 0.0000, -0.281, 0.0573,
+                -0.261, 0.0000, 0.0424, 0.0000, 0.2278, 0.0000, -0.072, 0.0000,
+                0.0000, 0.0000, -0.175, 0.0000, -0.319, 0.0000, 0.1387, 0.0000,
+                0.1949, 0.0000, -0.136, -0.060])
+            std = np.array([
+                0.0601, 0.2267, 0.0838, 0.2680, 0.1161, 0.0757, 0.1495, 0.1235,
+                0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
+                0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
+                0.4858, 0.4227, 0.4428, 0.4831])
+        # elif env_name == 'MinitaurBulletEnv-v0': # need check
+        #     # avg = np.array([0.90172989, 1.54730119, 1.24560906, 1.97365306, 1.9413892,
+        #     #                 1.03866835, 1.69646277, 1.18655352, -0.45842347, 0.17845232,
+        #     #                 0.38784456, 0.58572877, 0.91414561, -0.45410697, 0.7591031,
+        #     #                 -0.07008998, 3.43842258, 0.61032482, 0.86689961, -0.33910894,
+        #     #                 0.47030415, 4.5623528, -2.39108079, 3.03559422, -0.36328256,
+        #     #                 -0.20753499, -0.47758384, 0.86756409])
+        #     # std = np.array([0.34192648, 0.51169916, 0.39370621, 0.55568461, 0.46910769,
+        #     #                 0.28387504, 0.51807949, 0.37723445, 13.16686185, 17.51240024,
+        #     #                 14.80264211, 16.60461412, 15.72930229, 11.38926597, 15.40598346,
+        #     #                 13.03124941, 2.47718145, 2.55088804, 2.35964651, 2.51025567,
+        #     #                 2.66379017, 2.37224904, 2.55892521, 2.41716885, 0.07529733,
+        #     #                 0.05903034, 0.1314812, 0.0221248])
+        # elif env_name == "BipedalWalkerHardcore-v3": # need check
+        #     avg = np.array([-3.6378160e-02, -2.5788052e-03, 3.4413573e-01, -8.4189959e-03,
+        #                     -9.1864385e-02, 3.2804706e-04, -6.4693891e-02, -9.8939031e-02,
+        #                     3.5180664e-01, 6.8103075e-01, 2.2930240e-03, -4.5893672e-01,
+        #                     -7.6047562e-02, 4.6414185e-01, 3.9363885e-01, 3.9603019e-01,
+        #                     4.0758255e-01, 4.3053803e-01, 4.6186063e-01, 5.0293463e-01,
+        #                     5.7822973e-01, 6.9820738e-01, 8.9829963e-01, 9.8080903e-01])
+        #     std = np.array([0.5771428, 0.05302362, 0.18906464, 0.10137994, 0.41284004,
+        #                     0.68852615, 0.43710527, 0.87153363, 0.3210142, 0.36864948,
+        #                     0.6926624, 0.38297284, 0.76805115, 0.33138904, 0.09618598,
+        #                     0.09843876, 0.10035378, 0.11045089, 0.11910835, 0.13400233,
+        #                     0.15718603, 0.17106676, 0.14363566, 0.10100251])
+    return avg, std
+
+
+def _get_decorate_env(env, action_max=1, state_avg=None, state_std=None, data_type=np.float32):
     if state_avg is None:
         neg_state_avg = 0
         div_state_std = 1
@@ -599,8 +761,8 @@ def decorate_env(env, action_max=1, state_avg=None, state_std=None, data_type=np
         neg_state_avg = -state_avg
         div_state_std = 1 / (state_std + 1e-4)
 
-    env.neg_state_avg = neg_state_avg  # for def print_norm() AgentZoo.py
-    env.div_state_std = div_state_std  # for def print_norm() AgentZoo.py
+    setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() AgentZoo.py
+    setattr(env, 'div_state_std', div_state_std)  # for def print_norm() AgentZoo.py
 
     '''decorator_step'''
     if state_avg is not None:
@@ -646,173 +808,678 @@ def decorate_env(env, action_max=1, state_avg=None, state_std=None, data_type=np
     return env
 
 
-def build_env(env_name, if_print=True, if_norm=True):
-    assert env_name is not None
-
-    '''UserWarning: WARN: Box bound precision lowered by casting to float32
-    https://stackoverflow.com/questions/60149105/
-    userwarning-warn-box-bound-precision-lowered-by-casting-to-float32
-    '''
-    gym.logger.set_level(40)  # non-essential
-
-    # env = gym.make(env_name)
-    # state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
-    '''env compatibility'''  # some env need to adjust.
-    if env_name == 'Pendulum-v0':
-        env = gym.make(env_name)
-        env.spec.reward_threshold = -200.0  # target_reward
-        state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
-    elif env_name == 'CarRacing-v0':
-        # | state_dim: (96, 96, 3), action_dim: 3, action_max: 1.0, target_reward: 900
-        frame_num = 3
-        env = gym.make(env_name)
-        env = fix_car_racing_env(env, frame_num=frame_num, action_num=frame_num)
-        state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
-        assert len(state_dim)
-        state_dim = (frame_num, state_dim[0], state_dim[1])  # two consecutive frame (96, 96)
-        # from AgentPixel import CarRacingEnv
-        # env = CarRacingEnv(img_stack=4, action_repeat=4)
-        # state_dim, action_dim, action_max = (4, 96, 96), 3, 1.0
-        # target_reward, if_discrete = 900, False
-    elif env_name == 'MultiWalker':
-        from multiwalker_base import MultiWalkerEnv, multi_to_single_walker_decorator
-        env = MultiWalkerEnv()
-        env = multi_to_single_walker_decorator(env)
-
-        state_dim = sum([box.shape[0] for box in env.observation_space])
-        action_dim = sum([box.shape[0] for box in env.action_space])
-        action_max = 1.0
-        target_reward = 50
-        if_discrete = False
-    elif env_name == 'FinRL':  # todo FinRL
-        from EnvFinRL import SingleStockFinEnv
-        env = SingleStockFinEnv()
-
-        state_dim = 4
-        action_dim = 1
-        action_max = 1.0
-        target_reward = 800
-        if_discrete = False
-    else:
-        env = gym.make(env_name)
-        state_dim, action_dim, action_max, target_reward, if_discrete = get_env_info(env, if_print)
-
-    '''Not necessary: check data type of state (but necessary for WinOS)'''
-    '''Not necessary: env normalization'''  # adjust action into [-1, +1] using action_max is necessary.
-    avg = None
-    std = None
-    if if_norm:  # I use def print_norm() to get the following (avg, std)
-        '''norm no need'''
-        # if env_name == 'Pendulum-v0':
-        #     state_mean = np.array([-0.00968592 -0.00118888 -0.00304381])
-        #     std = np.array([0.53825575 0.54198545 0.8671749 ])
-
-        '''norm could be'''
-        if env_name == 'LunarLanderContinuous-v2':
-            avg = np.array([1.65470898e-02, -1.29684399e-01, 4.26883133e-03, -3.42124557e-02,
-                            -7.39076972e-03, -7.67103031e-04, 1.12640885e+00, 1.12409466e+00])
-            std = np.array([0.15094465, 0.29366297, 0.23490797, 0.25931464, 0.21603736,
-                            0.25886878, 0.277233, 0.27771219])
-        elif env_name == "BipedalWalker-v3":
-            avg = np.array([1.42211734e-01, -2.74547996e-03, 1.65104509e-01, -1.33418152e-02,
-                            -2.43243194e-01, -1.73886203e-02, 4.24114229e-02, -6.57800099e-02,
-                            4.53460692e-01, 6.08022244e-01, -8.64884810e-04, -2.08789053e-01,
-                            -2.92092949e-02, 5.04791247e-01, 3.33571745e-01, 3.37325723e-01,
-                            3.49106580e-01, 3.70363115e-01, 4.04074671e-01, 4.55838055e-01,
-                            5.36685407e-01, 6.70771701e-01, 8.80356865e-01, 9.97987386e-01])
-            std = np.array([0.84419678, 0.06317835, 0.16532085, 0.09356959, 0.486594,
-                            0.55477525, 0.44076614, 0.85030824, 0.29159821, 0.48093035,
-                            0.50323634, 0.48110776, 0.69684234, 0.29161077, 0.06962932,
-                            0.0705558, 0.07322677, 0.07793258, 0.08624322, 0.09846895,
-                            0.11752805, 0.14116005, 0.13839757, 0.07760469])
-        elif env_name == 'AntBulletEnv-v0':
-            avg = np.array([
-                0.4838, -0.047, 0.3500, 1.3028, -0.249, 0.0000, -0.281, 0.0573,
-                -0.261, 0.0000, 0.0424, 0.0000, 0.2278, 0.0000, -0.072, 0.0000,
-                0.0000, 0.0000, -0.175, 0.0000, -0.319, 0.0000, 0.1387, 0.0000,
-                0.1949, 0.0000, -0.136, -0.060])
-            std = np.array([
-                0.0601, 0.2267, 0.0838, 0.2680, 0.1161, 0.0757, 0.1495, 0.1235,
-                0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
-                0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
-                0.4858, 0.4227, 0.4428, 0.4831])
-        # elif env_name == 'MinitaurBulletEnv-v0':
-        #     # avg = np.array([0.90172989, 1.54730119, 1.24560906, 1.97365306, 1.9413892,
-        #     #                 1.03866835, 1.69646277, 1.18655352, -0.45842347, 0.17845232,
-        #     #                 0.38784456, 0.58572877, 0.91414561, -0.45410697, 0.7591031,
-        #     #                 -0.07008998, 3.43842258, 0.61032482, 0.86689961, -0.33910894,
-        #     #                 0.47030415, 4.5623528, -2.39108079, 3.03559422, -0.36328256,
-        #     #                 -0.20753499, -0.47758384, 0.86756409])
-        #     # std = np.array([0.34192648, 0.51169916, 0.39370621, 0.55568461, 0.46910769,
-        #     #                 0.28387504, 0.51807949, 0.37723445, 13.16686185, 17.51240024,
-        #     #                 14.80264211, 16.60461412, 15.72930229, 11.38926597, 15.40598346,
-        #     #                 13.03124941, 2.47718145, 2.55088804, 2.35964651, 2.51025567,
-        #     #                 2.66379017, 2.37224904, 2.55892521, 2.41716885, 0.07529733,
-        #     #                 0.05903034, 0.1314812, 0.0221248])
-
-        # elif env_name == "BipedalWalkerHardcore-v3":
-        #     avg = np.array([-3.6378160e-02, -2.5788052e-03, 3.4413573e-01, -8.4189959e-03,
-        #                     -9.1864385e-02, 3.2804706e-04, -6.4693891e-02, -9.8939031e-02,
-        #                     3.5180664e-01, 6.8103075e-01, 2.2930240e-03, -4.5893672e-01,
-        #                     -7.6047562e-02, 4.6414185e-01, 3.9363885e-01, 3.9603019e-01,
-        #                     4.0758255e-01, 4.3053803e-01, 4.6186063e-01, 5.0293463e-01,
-        #                     5.7822973e-01, 6.9820738e-01, 8.9829963e-01, 9.8080903e-01])
-        #     std = np.array([0.5771428, 0.05302362, 0.18906464, 0.10137994, 0.41284004,
-        #                     0.68852615, 0.43710527, 0.87153363, 0.3210142, 0.36864948,
-        #                     0.6926624, 0.38297284, 0.76805115, 0.33138904, 0.09618598,
-        #                     0.09843876, 0.10035378, 0.11045089, 0.11910835, 0.13400233,
-        #                     0.15718603, 0.17106676, 0.14363566, 0.10100251])
-
-    if env_name == 'FinRL':  # todo FinRL
-        pass
-    else:
-        env = decorate_env(env, action_max, avg, std, data_type=np.float32)
-    return env, state_dim, action_dim, target_reward, if_discrete
+"""Extension: Fix Env CarRacing-v0 - Box2D"""
 
 
-def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
-    state = env.reset()
+def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
+    setattr(env, 'old_step', env.step)  # env.old_step = env.step
+    setattr(env, 'env_name', 'CarRacing-Fix')
+    setattr(env, 'state_dim', (frame_num, 96, 96))
+    setattr(env, 'action_dim', 3)
+    setattr(env, 'if_discrete', False)
+    setattr(env, 'target_reward', 800)  # 900 in default
 
-    rewards = list()
-    reward_sum = 0.0
-    steps = list()
-    step = 0
+    setattr(env, 'state_stack', None)  # env.state_stack = None
+    setattr(env, 'avg_reward', 0)  # env.avg_reward = 0
+    """ cancel the print() in environment
+    comment 'car_racing.py' line 233-234: print('Track generation ...
+    comment 'car_racing.py' line 308-309: print("retry to generate track ...
+    """
 
-    if if_discrete:
-        def random_action__discrete():
-            return rd.randint(action_dim)
+    def rgb2gray(rgb):
+        # # rgb image -> gray [0, 1]
+        # gray = np.dot(rgb[..., :], [0.299, 0.587, 0.114]).astype(np.float32)
+        # if norm:
+        #     # normalize
+        #     gray = gray / 128. - 1.
+        # return gray
 
-        get_random_action = random_action__discrete
-    else:
-        def random_action__continuous():
-            return rd.uniform(-1, 1, size=action_dim)
+        state = rgb[:, :, 1]  # show green
+        state[86:, 24:36] = rgb[86:, 24:36, 2]  # show red
+        state[86:, 72:] = rgb[86:, 72:, 0]  # show blue
+        state = (state - 128).astype(np.float32) / 128.
+        return state
 
-        get_random_action = random_action__continuous
+    def decorator_step(env_step):
+        def new_env_step(action):
+            action = action.copy()
+            action[1:] = (action[1:] + 1) / 2  # fix action_space.low
 
-    global_step = 0
-    while global_step < max_step or len(rewards) == 0:  # warning 2020-10-10?
-        # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
-        action = get_random_action()
-        next_state, reward, done, _ = env.step(action * if_discrete)
-        reward_sum += reward
-        step += 1
+            reward_sum = 0
+            done = state = None
+            try:
+                for _ in range(action_num):
+                    state, reward, done, info = env_step(action)
+                    state = rgb2gray(state)
 
-        adjust_reward = reward * reward_scale
-        mask = 0.0 if done else gamma
-        buffer.append_memo((adjust_reward, mask, state, action, next_state))
+                    if done:
+                        # reward += 100  # don't penalize "die state"
+                        reward += 99  # don't penalize "die state" too much
+                    if state.mean() > 192:  # 185.0:  # penalize when outside of road
+                        reward -= 0.05
 
-        state = next_state
+                    env.avg_reward = env.avg_reward * 0.95 + reward * 0.05
+                    if env.avg_reward <= -0.1:  # done if car don't move
+                        done = True
+
+                    reward_sum += reward
+
+                    if done:
+                        break
+            except Exception as error:
+                print(f"| CarRacing-v0 Error 'stack underflow'? {error}")
+                reward_sum = 0
+                done = True
+            env.state_stack.pop(0)
+            env.state_stack.append(state)
+
+            return np.array(env.state_stack).flatten(), reward_sum, done, {}
+
+        return new_env_step
+
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            state = rgb2gray(env_reset())
+            env.state_stack = [state, ] * frame_num
+            return np.array(env.state_stack).flatten()
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
+    return env
+
+
+def render__car_racing():
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('CarRacing-v0')
+    env = fix_car_racing_env(env)
+
+    state_dim = env.state_dim
+
+    _state = env.reset()
+    import cv2
+    action = np.array((0, 1.0, -1.0))
+    for i in range(321):
+        # action = env.action_space.sample()
+        state, reward, done, _ = env.step(action)
+        # env.render
+        show = state.reshape(state_dim)
+        show = ((show[0] + 1.0) * 128).astype(np.uint8)
+        cv2.imshow('', show)
+        cv2.waitKey(1)
         if done:
-            rewards.append(reward_sum)
-            steps.append(step)
-            global_step += step
+            break
+        # env.render()
 
-            state = env.reset()  # reset the environment
-            reward_sum = 0.0
-            step = 1
 
-    buffer.update_pointer_before_sample()
-    return rewards, steps
+"""Extension: Finance RL: Github AI4Finance-LLC"""
+
+
+class FinanceStock:  # adjust state, inner df_pandas, beta3 pass
+    """FinRL
+    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
+           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
+    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
+    Modify: Github Yonv1943 ElegantRL
+    """
+
+    """ Update Log 2020-12-12 by Github Yonv1943
+    change download_preprocess_data: If the data had been downloaded, then don't download again
+
+    # env 
+    move reward_memory out of Env
+    move plt.savefig('account_value.png') out of Env
+    cancel SingleStockEnv(gym.Env): There is not need to use OpenAI's gym
+    change pandas to numpy
+    fix bug in comment: ('open', 'high', 'low', 'close', 'adjcp', 'volume', 'macd'), lack 'macd' before
+    change slow 'state'
+    change repeat compute 'begin_total_asset', 'end_total_asset'
+    cancel self.asset_memory
+    cancel self.cost
+    cancel self.trade
+    merge '_sell_stock' and '_bug_stock' to _sell_or_but_stock
+    adjust order of state 
+    reserved expansion interface on self.stock self.stocks
+
+    # compatibility
+    move global variable into Env.__init__()
+    cancel matplotlib.use('Agg'): It will cause compatibility issues for ssh connection
+    """
+
+    def __init__(self, initial_account=100000, transaction_fee_percent=0.001, max_stock=200):
+        self.stock_dim = 1
+        self.initial_account = initial_account
+        self.transaction_fee_percent = transaction_fee_percent
+        self.max_stock = max_stock
+        self.state_div_std = np.array((2 ** -14, 2 ** -4, 2 ** 0, 2 ** -11))
+
+        self.ary = self.download_data_as_csv__load_as_array()
+        assert self.ary.shape == (2517, 9)  # ary: (date, item)
+        self.ary = self.ary[1:, 2:].astype(np.float32)
+        assert self.ary.shape == (2516, 7)  # ary: (date, item), item: (open, high, low, close, adjcp, volume, macd)
+        self.ary = np.concatenate((
+            self.ary[:, 4:5],  # adjcp? What is this? unit price?
+            self.ary[:, 6:7],  # macd? What is this?
+        ), axis=1)
+        self.max_day = self.ary.shape[0] - 1
+
+        # reset
+        self.day = 0
+        self.account = self.initial_account
+        self.day_npy = self.ary[self.day]
+        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32) # multi-stack
+        self.stock = 0
+        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
+
+        '''env information'''
+        self.env_name = 'FinanceStock-v0'
+        self.state_dim = 1 + 2 + self.stock_dim
+        self.action_dim = self.stock_dim
+        self.if_discrete = False
+        self.target_reward = 800
+
+    def reset(self):
+        self.day = 0
+        self.account = self.initial_account
+        self.day_npy = self.ary[self.day]
+        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
+        self.stock = 0
+        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
+        # state = np.hstack((self.account, self.day_npy, self.stocks)
+        #                   ).astype(np.float32) * self.state_div_std
+        state = np.hstack((self.account, self.day_npy, self.stock)
+                          ).astype(np.float32) * self.state_div_std
+        return state
+
+    def step(self, actions):
+        actions = actions * self.max_stock
+
+        """bug or sell stock"""
+        index = 0
+        action = actions[index]
+        adj = self.day_npy[index]
+        if action > 0:  # buy_stock
+            available_amount = self.account // adj
+            delta_stock = min(available_amount, action)
+            self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
+            # self.stocks[index] += delta_stock
+            self.stock += delta_stock
+        # elif self.stocks[index] > 0:  # sell_stock
+        #     delta_stock = min(-action, self.stocks[index])
+        #     self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
+        #     self.stocks[index] -= delta_stock
+        elif self.stock > 0:  # sell_stock
+            delta_stock = min(-action, self.stock)
+            self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
+            self.stock -= delta_stock
+
+        """update day"""
+        self.day += 1
+        # self.data = self.df.loc[self.day, :]
+        self.day_npy = self.ary[self.day]
+
+        # state = np.hstack((self.account, self.day_npy, self.stocks)
+        #                   ).astype(np.float32) * self.state_div_std
+        state = np.hstack((self.account, self.day_npy, self.stock)
+                          ).astype(np.float32) * self.state_div_std
+
+        # end_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        end_total_asset = self.account + self.day_npy[0] * self.stock
+        reward = end_total_asset - self.begin_total_asset
+        self.begin_total_asset = end_total_asset
+
+        done = self.day == self.max_day  # 2516 is over
+        return state, reward * 2 ** -10, done, None
+
+    @staticmethod
+    def download_data_as_csv__load_as_array(if_load=True):
+        save_path = './Result/AAPL_2009_2020.csv'
+
+        import os
+        if if_load and os.path.isfile(save_path):
+            ary = np.genfromtxt(save_path, delimiter=',')
+            assert isinstance(ary, np.ndarray)
+            return ary
+
+        import yfinance as yf
+        from stockstats import StockDataFrame as Sdf
+        """ pip install
+        !pip install yfinance
+        !pip install pandas
+        !pip install matplotlib
+        !pip install stockstats
+        """
+
+        """# Part 1: Download Data
+        Yahoo Finance is a website that provides stock data, financial news, financial reports, etc. 
+        All the data provided by Yahoo Finance is free.
+        """
+        print('| download_preprocess_data_as_csv: Download Data')
+
+        data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
+        assert data_pd.shape == (2974, 6)
+
+        data_pd = data_pd.reset_index()
+
+        data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
+
+        """# Part 2: Preprocess Data
+        Data preprocessing is a crucial step for training a high quality machine learning model. 
+        We need to check for missing data and do feature engineering 
+        in order to convert the data into a model-ready state.
+        """
+        print('| download_preprocess_data_as_csv: Preprocess Data')
+
+        # check missing data
+        data_pd.isnull().values.any()
+
+        # calculate technical indicators like MACD
+        stock = Sdf.retype(data_pd.copy())
+        # we need to use adjusted close price instead of close price
+        stock['close'] = stock['adjcp']
+        data_pd['macd'] = stock['macd']
+
+        # check missing data again
+        data_pd.isnull().values.any()
+        data_pd.head()
+        # data_pd=data_pd.fillna(method='bfill')
+
+        # Note that I always use a copy of the original data to try it track step by step.
+        data_clean = data_pd.copy()
+        data_clean.head()
+        data_clean.tail()
+
+        data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
+        data = data.reset_index(drop=True)  # the index needs to start from 0
+
+        data.to_csv(save_path)  # save *.csv
+        # assert isinstance(data_pd, pd.DataFrame)
+
+        df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
+        df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
+        ary = df_pandas.to_numpy()
+        return ary
+
+
+# import gym
+# class DemoGymEnv(gym.Env):
+#     def __init__(self):
+#         self.observation_space = gym.spaces.Box(low=-np.inf, high=+np.inf, shape=(4,))  # state_dim = 4
+#         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(2,))  # action_dim = 2
+#
+#     def reset(self):
+#         state = rd.randn(4)  # for example
+#         return state
+#
+#     def step(self, action):
+#         state = rd.randn(4)  # for example
+#         reward = 1
+#         done = False
+#         return state, reward, done, dict()  # gym.Env requires it to be a dict, even an empty dict
+#
+#     def render(self, mode='human'):
+#         pass
+
+
+# def original_download_pandas_data():
+#     import yfinance as yf
+#     from stockstats import StockDataFrame as Sdf
+#
+#     # Download and save the data in a pandas DataFrame:
+#     data_df = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
+#
+#     # data_df.shape
+#
+#     # reset the index, we want to use numbers instead of dates
+#     data_df = data_df.reset_index()
+#     data_df.head()
+#     # data_df.columns
+#
+#     # convert the column names to standardized names
+#     data_df.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
+#
+#     # save the data to a csv file in your current folder
+#     # data_df.to_csv('AAPL_2009_2020.csv')
+#
+#     """# Part 2: Preprocess Data
+#     Data preprocessing is a crucial step for training a high quality machine learning model.
+#     We need to check for missing data and do feature engineering
+#     in order to convert the data into a model-ready state.
+#     """
+#
+#     # check missing data
+#     data_df.isnull().values.any()
+#
+#     # calculate technical indicators like MACD
+#     stock = Sdf.retype(data_df.copy())
+#     # we need to use adjusted close price instead of close price
+#     stock['close'] = stock['adjcp']
+#     data_df['macd'] = stock['macd']
+#
+#     # check missing data again
+#     data_df.isnull().values.any()
+#
+#     data_df.head()
+#
+#     # data_df=data_df.fillna(method='bfill')
+#
+#     # Note that I always use a copy of the original data to try it track step by step.
+#     data_clean = data_df.copy()
+#
+#     data_clean.head()
+#
+#     data_clean.tail()
+#     return data_clean
+#
+#
+# class SingleStockFinEnvForStableBaseLines(gym.Env):  # adjust state, inner df_pandas, beta3 pass
+#     """FinRL
+#     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
+#            https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
+#     Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
+#     Modify: Github Yonv1943 ElegantRL
+#     """
+#
+#     """ Update Log 2020-12-12 by Github Yonv1943
+#     change download_preprocess_data: If the data had been downloaded, then don't download again
+#
+#     # env
+#     move reward_memory out of Env
+#     move plt.savefig('account_value.png') out of Env
+#     cancel SingleStockEnv(gym.Env): There is not need to use OpenAI's gym
+#     change pandas to numpy
+#     fix bug in comment: ('open', 'high', 'low', 'close', 'adjcp', 'volume', 'macd'), lack 'macd' before
+#     change slow 'state'
+#     change repeat compute 'begin_total_asset', 'end_total_asset'
+#     cancel self.asset_memory
+#     cancel self.cost
+#     cancel self.trade
+#     merge '_sell_stock' and '_bug_stock' to _sell_or_but_stock
+#     adjust order of state
+#     reserved expansion interface on self.stock self.stocks
+#
+#     # compatibility
+#     move global variable into Env.__init__()
+#     cancel matplotlib.use('Agg'): It will cause compatibility issues for ssh connection
+#     """
+#     """A stock trading environment for OpenAI gym"""
+#     metadata = {'render.modes': ['human']}
+#
+#     def __init__(self, initial_account=100000, transaction_fee_rate=0.001, max_stock=200):
+#         self.stock_dim = 1
+#
+#         # not necessary
+#         self.observation_space = gym.spaces.Box(low=0, high=2 ** 24, shape=(4,))
+#         self.action_space = gym.spaces.Box(low=-1, high=1, shape=(self.stock_dim,))
+#
+#         self.initial_account = initial_account
+#         self.transaction_fee_rate = transaction_fee_rate
+#         self.max_stock = max_stock
+#         self.state_div_std = np.array((2 ** -14, 2 ** -4, 2 ** 0, 2 ** -11))
+#
+#         self.ary = self.download_data_as_csv__load_as_array()
+#         assert self.ary.shape == (2517, 9)  # ary: (date, item)
+#         self.ary = self.ary[1:, 2:].astype(np.float32)
+#         assert self.ary.shape == (2516, 7)  # ary: (date, item), item: (open, high, low, close, adjcp, volume, macd)
+#         self.ary = np.concatenate((
+#             self.ary[:, 4:5],  # adjcp? What is this? unit price?
+#             self.ary[:, 6:7],  # macd? What is this?
+#         ), axis=1)
+#         self.max_day = self.ary.shape[0] - 1
+#
+#         # reset
+#         self.day = 0
+#         self.account = self.initial_account
+#         self.day_npy = self.ary[self.day]
+#         # self.stocks = np.zeros(self.stock_dim, dtype=np.float32) # multi-stack
+#         self.stock = 0
+#         # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+#         self.begin_total_asset = self.account + self.day_npy[0] * self.stock
+#
+#         self.step_sum = 0
+#         self.reward_sum = 0.0
+#
+#     def reset(self):
+#         self.reward_sum = 0.0
+#
+#         self.day = 0
+#         self.account = self.initial_account
+#         self.day_npy = self.ary[self.day]
+#         # self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
+#         self.stock = 0
+#         # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+#         self.begin_total_asset = self.account + self.day_npy[0] * self.stock
+#         # state = np.hstack((self.account, self.day_npy, self.stocks)
+#         #                   ).astype(np.float32) * self.state_div_std
+#         state = np.hstack((self.account, self.day_npy, self.stock)
+#                           ).astype(np.float32) * self.state_div_std
+#         return state
+#
+#     def step(self, actions):
+#         actions = actions * self.max_stock
+#
+#         """bug or sell stock"""
+#         index = 0
+#         action = actions[index]
+#         adj = self.day_npy[index]
+#         if action > 0:  # buy_stock
+#             available_amount = self.account // adj
+#             delta_stock = min(available_amount, action)
+#             self.account -= adj * delta_stock * (1 + self.transaction_fee_rate)
+#             # self.stocks[index] += delta_stock
+#             self.stock += delta_stock
+#         # elif self.stocks[index] > 0:  # sell_stock
+#         #     delta_stock = min(-action, self.stocks[index])
+#         #     self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
+#         #     self.stocks[index] -= delta_stock
+#         elif self.stock > 0:  # sell_stock
+#             delta_stock = min(-action, self.stock)
+#             self.account += adj * delta_stock * (1 - self.transaction_fee_rate)
+#             self.stock -= delta_stock
+#
+#         """update day"""
+#         self.day += 1
+#         # self.data = self.df.loc[self.day, :]
+#         self.day_npy = self.ary[self.day]
+#
+#         # state = np.hstack((self.account, self.day_npy, self.stocks)
+#         #                   ).astype(np.float32) * self.state_div_std
+#         state = np.hstack((self.account, self.day_npy, self.stock)
+#                           ).astype(np.float32) * self.state_div_std
+#
+#         # end_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+#         end_total_asset = self.account + self.day_npy[0] * self.stock
+#         reward = end_total_asset - self.begin_total_asset
+#         self.begin_total_asset = end_total_asset
+#
+#         done = self.day == self.max_day  # 2516 is over
+#         reward_ = reward * 2 ** -10
+#
+#         self.reward_sum += reward * 2 ** -10
+#         self.step_sum += 1
+#         if done:
+#             print(f'{self.step_sum:8}   {self.reward_sum:8.1f}')
+#         return state, reward_, done, {}
+#
+#     def render(self, mode='human'):
+#         pass
+#
+#     @staticmethod
+#     def download_data_as_csv__load_as_array(if_load=True):
+#         save_path = './AAPL_2009_2020.csv'
+#
+#         import os
+#         if if_load and os.path.isfile(save_path):
+#             ary = np.genfromtxt(save_path, delimiter=',')
+#             assert isinstance(ary, np.ndarray)
+#             return ary
+#         import yfinance as yf
+#         from stockstats import StockDataFrame as Sdf
+#         """ pip install
+#         !pip install yfinance
+#         !pip install pandas
+#         !pip install matplotlib
+#         !pip install stockstats
+#         """
+#
+#         """# Part 1: Download Data
+#         Yahoo Finance is a website that provides stock data, financial news, financial reports, etc.
+#         All the data provided by Yahoo Finance is free.
+#         """
+#         print('| download_preprocess_data_as_csv: Download Data')
+#
+#         data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
+#         assert data_pd.shape == (2974, 6)
+#
+#         data_pd = data_pd.reset_index()
+#
+#         data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
+#
+#         """# Part 2: Preprocess Data
+#         Data preprocessing is a crucial step for training a high quality machine learning model.
+#         We need to check for missing data and do feature engineering
+#         in order to convert the data into a model-ready state.
+#         """
+#         print('| download_preprocess_data_as_csv: Preprocess Data')
+#
+#         # check missing data
+#         data_pd.isnull().values.any()
+#
+#         # calculate technical indicators like MACD
+#         stock = Sdf.retype(data_pd.copy())
+#         # we need to use adjusted close price instead of close price
+#         stock['close'] = stock['adjcp']
+#         data_pd['macd'] = stock['macd']
+#
+#         # check missing data again
+#         data_pd.isnull().values.any()
+#         data_pd.head()
+#         # data_pd=data_pd.fillna(method='bfill')
+#
+#         # Note that I always use a copy of the original data to try it track step by step.
+#         data_clean = data_pd.copy()
+#         data_clean.head()
+#         data_clean.tail()
+#
+#         data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
+#         data = data.reset_index(drop=True)  # the index needs to start from 0
+#
+#         data.to_csv(save_path)  # save *.csv
+#         # assert isinstance(data_pd, pd.DataFrame)
+#
+#         df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
+#         df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
+#         ary = df_pandas.to_numpy()
+#         return ary
+
+
+# def test():
+#     env = SingleStockFinEnv()
+#     ary = env.download_data_as_csv__load_as_array(if_load=True)  # data_frame_pandas
+#     print(ary.shape)
+#     ary = env.download_data_as_csv__load_as_array(if_load=True)  # data_frame_pandas
+#     print(ary.shape)
+#
+#     env = SingleStockFinEnv(ary)
+#     state_dim, action_dim = 4, 1
+#
+#     # state = env.reset()
+#     # done = False
+#     reward_sum = 0
+#     for i in range(2514):
+#         state, reward, done, info = env.step(rd.uniform(-1, 1, size=action_dim))
+#         reward_sum += reward
+#         # print(f'{i:5} {done:5} {reward:8.1f}', state)
+#     print(';', reward_sum)
+#
+#     # state = env.reset()
+#     # done = False
+#     for _ in range(4):
+#         state, reward, done, info = env.step(rd.uniform(-1, 1, size=action_dim))
+#         print(f'{done:5} {reward:8.1f}', state)
+#
+#
+# def train():
+#     from AgentRun import Arguments, train_agent_mp
+#     from AgentZoo import AgentPPO, AgentModSAC
+#     args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+#     args.rl_agent = AgentModSAC
+#     """
+#     | GPU: 0 | CWD: ./AgentModSAC/FinRL_0
+#     ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
+#     0.0
+#     0   1.01e+04      1.30 |
+#     0   1.76e+04    485.86 |  158.33      0.00 |  430.58      0.67      0.07
+#     0   2.01e+04    916.53 |
+#     ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
+#     0   2.01e+04    800.00 |  916.53      0.00 |  141.46       322  ########
+#     0   3.27e+04    976.58 |  589.64      0.00 |  379.84      0.26      0.19
+#     0   5.78e+04    976.58 |  628.69      0.00 |  517.65     -0.02      0.41
+#
+#     | GPU: 1 | CWD: ./AgentModSAC/FinRL_1
+#     ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
+#     0.0
+#     1   5.03e+03      0.40 |
+#     1   1.76e+04      6.63 |    6.63      0.00 |   24.55      0.69      0.01
+#     1   2.26e+04    652.01 |
+#     1   2.77e+04    836.11 |
+#     ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
+#     1   2.77e+04    800.00 |  836.11      0.00 |  650.18       430  ########
+#     1   3.02e+04    873.22 |
+#     1   3.52e+04    913.21 |
+#     1   3.52e+04    913.21 |  913.21      0.00 |  842.45     -0.12      0.35
+#     """
+#     args.if_break_early = False
+#     args.break_step = 2 ** 20
+#
+#     args.max_memo = 2 ** 16
+#     args.gamma = 0.99  # important hyper-parameter, related to episode steps
+#     args.reward_scale = 2 ** -2
+#     args.max_step = 2515
+#     args.eval_times1 = 1
+#     args.eval_times2 = 1
+#
+#     args.env_name = 'FinRL'
+#     args.init_for_training()
+#     train_agent_mp(args)
+#
+#     args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+#     args.rl_agent = AgentPPO
+#     """
+#     | GPU: 3 | CWD: ./AgentPPO/FinRL_3
+#     ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
+#     3   2.51e+04     48.87 |
+#     3   5.53e+04    441.54 |
+#     3   1.06e+05    707.73 |
+#     ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
+#     3   2.01e+05    800.00 |  810.60      0.00 |  748.02       197  ########
+#     3   2.66e+05    862.69 |  855.54      0.00 |  797.89     -0.03      0.53
+#     3   5.33e+05    915.21 |  888.58      0.00 |  874.78      0.06      0.48
+#     3   1.07e+06    942.40 |  938.52      0.00 |  932.97     -0.10      0.44
+#     3   1.34e+06    948.64 |  944.51      0.00 |  945.21     -0.05      0.41
+#     """
+#     args.if_break_early = False
+#     args.break_step = 2 ** 21  # 2**20==1e6, 2**21
+#
+#     args.net_dim = 2 ** 8
+#     args.max_memo = 2 ** 12
+#     args.batch_size = 2 ** 9
+#     args.repeat_times = 2 ** 4
+#     # args.reward_scale = 2 ** -10  # unimportant hyper-parameter in PPO which do normalization on Q value
+#     args.gamma = 0.95  # important hyper-parameter, related to episode steps
+#     args.max_step = 2515 * 2
+#     args.eval_times1 = 1
+#     args.eval_times2 = 1
+#
+#     args.env_name = 'FinRL'
+#     args.init_for_training()
+#     train_agent_mp(args)
+#     exit()
 
 
 '''Utils: Experiment Replay Buffer'''
@@ -900,7 +1567,7 @@ class BufferArray:  # 2020-11-11
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         memory_state = self.memories[:, 2:self.state_idx]
-        print_norm(memory_state, neg_avg, div_std)
+        _print_norm(memory_state, neg_avg, div_std)
 
 
 class BufferArrayGPU:  # 2020-07-07
@@ -990,7 +1657,29 @@ class BufferArrayGPU:  # 2020-07-07
         else:
             memory_state = self.memories[:, 2:self.state_idx]
 
-        print_norm(memory_state, neg_avg, div_std)
+        _print_norm(memory_state, neg_avg, div_std)
+
+
+def _print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-12-12
+    if isinstance(batch_state, torch.Tensor):
+        batch_state = batch_state.cpu().data.numpy()
+    assert isinstance(batch_state, np.ndarray)
+
+    if np.isnan(batch_state).any():  # 2020-12-12
+        batch_state = np.nan_to_num(batch_state)  # nan to 0
+
+    ary_avg = batch_state.mean(axis=0)
+    ary_std = batch_state.std(axis=0)
+    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
+               + ary_std) / 2
+
+    if neg_avg is not None:  # norm transfer
+        ary_avg = ary_avg - neg_avg / div_std
+        ary_std = fix_std / div_std
+
+    print(f"| Replay Buffer: avg, fixed std")
+    print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
+    print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 
 
 """ Backup
@@ -1106,186 +1795,55 @@ class BufferTupleOnline:
 
 """
 
-
-def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-10-10
-    if isinstance(batch_state, torch.Tensor):
-        batch_state = batch_state.cpu().data.numpy()
-    assert isinstance(batch_state, np.ndarray)
-
-    ary_avg = batch_state.mean(axis=0)
-    ary_std = batch_state.std(axis=0)
-    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
-               + ary_std) / 2
-
-    if neg_avg is not None:  # norm transfer
-        ary_avg = ary_avg - neg_avg / div_std
-        ary_std = fix_std / div_std
-
-    print(f"| Replay Buffer: avg, fixed std")
-    print(f"avg=np.{repr(ary_avg).replace('dtype=float32', 'dtype=np.float32')}")
-    print(f"std=np.{repr(ary_std).replace('dtype=float32', 'dtype=np.float32')}")
+"""DEMO"""
 
 
-"""utils: Fix Env CarRacing-v0 - Box2D"""
-
-
-def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-11-11
-    env.old_step = env.step
-    """
-    comment 'car_racing.py' line 233-234: print('Track generation ...
-    comment 'car_racing.py' line 308-309: print("retry to generate track ...
-    """
-
-    def rgb2gray(rgb):
-        # # rgb image -> gray [0, 1]
-        # gray = np.dot(rgb[..., :], [0.299, 0.587, 0.114]).astype(np.float32)
-        # if norm:
-        #     # normalize
-        #     gray = gray / 128. - 1.
-        # return gray
-        state = rgb[:, :, 1]  # show green
-        state[86:, 24:36] = rgb[86:, 24:36, 2]  # show red
-        state[86:, 72:] = rgb[86:, 72:, 0]  # show blue
-        state = (state - 128) / 128.
-        return state
-
-    env.state_stack = None
-    env.avg_reward = 0
-    env.state = None
-
-    def decorator_step(env_step):
-        def new_env_step(action):
-            action = action.copy()
-            action[1:] = (action[1:] + 1) / 2  # fix action_space.low
-
-            reward_sum = 0
-            done = info = None
-            try:
-                for _ in range(action_num):
-                    env.state, reward, done, info = env_step(action)
-
-                    if done:  # don't penalize "die state"
-                        reward += 100
-                    if env.state.mean() > 192:  # 185.0:  # penalize when outside of road
-                        reward -= 0.05
-
-                    env.avg_reward = env.avg_reward * 0.95 + reward * 0.05
-                    if env.avg_reward <= -0.1:
-                        done = True
-
-                    reward_sum += reward
-
-                    if done:
-                        break
-            except Exception as error:
-                print(f"| CarRacing-v0 Error 'stack underflow'? {error}")
-                reward_sum = 0
-                done = True
-            env.state_stack.pop(0)
-            env.state_stack.append(rgb2gray(env.state))
-
-            return np.array(env.state_stack).flatten(), reward_sum, done, info
-
-        return new_env_step
-
-    env.step = decorator_step(env.step)
-
-    def decorator_reset(env_reset):
-        def new_env_reset():
-            state = rgb2gray(env_reset())
-            env.state_stack = [state, ] * frame_num
-            return np.array(env.state_stack).flatten()
-
-        return new_env_reset
-
-    env.reset = decorator_reset(env.reset)
-    return env
-
-
-def test_car_racing():
-    env_name = 'CarRacing-v0'
-    env, state_dim, action_dim, target_reward, is_discrete = build_env(env_name, if_print=True)
-
-    _state = env.reset()
-    import cv2
-    action = np.array((0, 1.0, -1.0))
-    for i in range(321):
-        # action = env.action_space.sample()
-        state, reward, done, _ = env.step(action)
-        # env.render
-        show = state.reshape(state_dim)
-        show = ((show[0] + 1.0) * 128).astype(np.uint8)
-        cv2.imshow('', show)
-        cv2.waitKey(1)
-        if done:
-            break
-        # env.render()
-
-
-def run__car_racing(gpu_id=None, random_seed=0):
-    print('pixel-level state')
-    import AgentZoo as Zoo
-    rl_agent = (
-        Zoo.AgentPPO,
-        Zoo.AgentInterPPO
-    )[1]  # choose DRl algorithm.
-
-    args = Arguments(rl_agent=rl_agent, gpu_id=gpu_id)
-    args.if_break_early = True
-    args.eval_times2 = 2
-    args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
-
-    args.env_name = "CarRacing-v0"
-    """
-    ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
-    3   1.93e+05    900.00 |  939.68    113.69 |  227.59      9112  ########
-    3   2.37e+05    900.00 |  957.16     36.60 |  365.65     12832  ########
-    0   4.49e+05    900.00 |  910.85     97.42 |  634.27     22515  ########
-    2   5.14e+05    900.00 |  953.76    104.13 |  752.05     24101  ########
-    
-    ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
-    2   1.82e+06   1001.72 | 1001.72     31.75 |  852.32     -1.17      1.03
-    """
-
-    args.random_seed = 1943 + random_seed
-    args.break_step = int(5e5 * 4)  # (2e5) 5e5, used time 25000s
-    args.reward_scale = 2 ** -2  # (-1) 80 ~ 900 (1001)
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 7
-    args.repeat_times = 2 ** 4
-    args.net_dim = 2 ** 7
-    args.max_step = 2 ** 10
-    args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-
-
-"""demo"""
-
-
-def run__demo():
+def train__demo():
     import AgentZoo as Zoo
 
-    # args = Arguments(rl_agent=Zoo.AgentDoubleDQN, env_name="LunarLander-v2", gpu_id=0)
-    args = Arguments(rl_agent=Zoo.AgentD3QN, env_name="LunarLander-v2", gpu_id=0)
-    args.break_step = int(1e5 * 8)  # used time 600s
-    args.net_dim = 2 ** 7
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    # exit()
+    '''DEMO 1: Standard gym env CartPole-v0 (discrete action) using D3QN (DuelingDoubleDQN, off-policy)'''
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('CartPole-v0')
+    env = decorate_env(env, if_print=True)
 
-    # args = Arguments(rl_agent=Zoo.AgentSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
-    args = Arguments(rl_agent=Zoo.AgentModSAC, env_name="LunarLanderContinuous-v2", gpu_id=0)
-    args.break_step = int(5e5 * 8)  # used time 1500s
+    args = Arguments(rl_agent=Zoo.AgentD3QN, env=env, gpu_id=0)
+    args.break_step = int(1e5 * 8)  # UsedTime: 60s (reach target_reward 195)
     args.net_dim = 2 ** 7
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
+    '''DEMO 2: Standard gym env LunarLanderContinuous-v2 (continuous action) using ModSAC (Modify SAC, off-policy)'''
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('LunarLanderContinuous-v2')
+    env = decorate_env(env, if_print=True)
 
-def run__off_policy():
+    args = Arguments(rl_agent=Zoo.AgentModSAC, env=env, gpu_id=0)
+    args.break_step = int(6e4 * 8)  # UsedTime: 900s (reach target_reward 200)
+    args.net_dim = 2 ** 7
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    '''DEMO 3: Custom env FinanceStock (continuous action) using PPO (PPO2+GAE, on-policy)'''
+    env = FinanceStock()
+
+    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=0)
+    args.break_step = 2 ** 18  # UsedTime: 60s
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 3
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+
+def train__off_policy():
     import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentDDPG,  # 2016. simple, simple, slow, unstable
         Zoo.AgentBaseAC,  # 2016+ modify DDPG, faster, more stable
@@ -1300,7 +1858,7 @@ def run__off_policy():
     args.if_break_early = True  # break training if reach the target reward (total return of an episode)
     args.if_remove_history = True  # delete the historical directory
 
-    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
     args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
     args.init_for_training()
@@ -1308,14 +1866,14 @@ def run__off_policy():
     # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
     exit()
 
-    args.env_name = "LunarLanderContinuous-v2"
+    args.env = "LunarLanderContinuous-v2"
     args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
     args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env_name = "BipedalWalker-v3"
+    args.env = "BipedalWalker-v3"
     args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
     args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
     args.init_for_training()
@@ -1324,7 +1882,7 @@ def run__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "ReacherBulletEnv-v0"
+    args.env = "ReacherBulletEnv-v0"
     args.break_step = int(5e4 * 8)  # (4e4) 5e4
     args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
     args.init_for_training()
@@ -1333,7 +1891,7 @@ def run__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "AntBulletEnv-v0"
+    args.env = "AntBulletEnv-v0"
     args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
     args.batch_size = 2 ** 8
@@ -1346,7 +1904,7 @@ def run__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "MinitaurBulletEnv-v0"
+    args.env = "MinitaurBulletEnv-v0"
     args.break_step = int(4e6 * 4)  # (2e6) 4e6
     args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
     args.batch_size = (2 ** 8)
@@ -1360,7 +1918,7 @@ def run__off_policy():
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env_name = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+    args.env = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
     args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (334)
     args.break_step = int(4e6 * 8)  # (2e6) 4e6
     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
@@ -1373,9 +1931,9 @@ def run__off_policy():
     exit()
 
 
-def run__on_policy():
+def train__on_policy():
     import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
         Zoo.AgentInterPPO,  # 2019. Integrated Network, useful in pixel-level task (state2D)
@@ -1388,7 +1946,7 @@ def run__on_policy():
     args.reward_scale = 2 ** 0  # unimportant hyper-parameter in PPO which do normalization on Q value
     args.gamma = 0.99  # important hyper-parameter, related to episode steps
 
-    args.env_name = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
     args.break_step = int(8e4 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
     args.reward_scale = 2 ** 0  # (-1800) -1000 ~ -200 (-50), UsedTime:  (100s) 200s
     args.gamma = 0.9  # important hyper-parameter, related to episode steps
@@ -1396,7 +1954,7 @@ def run__on_policy():
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env_name = "LunarLanderContinuous-v2"
+    args.env = "LunarLanderContinuous-v2"
     args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
     args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (301)
     args.gamma = 0.99  # important hyper-parameter, related to episode steps
@@ -1404,7 +1962,7 @@ def run__on_policy():
     train_agent_mp(args)  # train_agent(args)
     # exit()
 
-    args.env_name = "BipedalWalker-v3"
+    args.env = "BipedalWalker-v3"
     args.break_step = int(8e5 * 8)  # (4e5) 8e5 (4e6), UsedTimes: (600s) 1500s (8000s)
     args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (325)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -1414,7 +1972,7 @@ def run__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "ReacherBulletEnv-v0"
+    args.env = "ReacherBulletEnv-v0"
     args.break_step = int(2e6 * 8)  # (1e6) 2e6 (4e6), UsedTimes: 2000s (6000s)
     args.reward_scale = 2 ** 0  # (-15) 0 ~ 18 (25)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -1424,7 +1982,7 @@ def run__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "AntBulletEnv-v0"
+    args.env = "AntBulletEnv-v0"
     args.break_step = int(5e6 * 8)  # (1e6) 5e6 UsedTime: 25697s
     args.reward_scale = 2 ** -3  #
     args.gamma = 0.99  # important hyper-parameter, related to episode steps
@@ -1435,7 +1993,7 @@ def run__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
+    args.env = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
     args.break_step = int(1e6 * 8)  # (4e5) 1e6 (8e6)
     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -1448,9 +2006,9 @@ def run__on_policy():
     exit()
 
 
-def run__discrete_action():
+def train__discrete_action():
     import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentDQN,  # 2014.
         Zoo.AgentDoubleDQN,  # 2016. stable
@@ -1458,7 +2016,7 @@ def run__discrete_action():
         Zoo.AgentD3QN,  # 2016+ Dueling + Double DQN (Not a creative work)
     ][3]  # I suggest to use D3QN
 
-    args.env_name = "CartPole-v0"
+    args.env = "CartPole-v0"
     args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
     args.reward_scale = 2 ** 0  # 0 ~ 200
     args.net_dim = 2 ** 6
@@ -1466,7 +2024,7 @@ def run__discrete_action():
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env_name = "LunarLander-v2"
+    args.env = "LunarLander-v2"
     args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
     args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
     args.net_dim = 2 ** 7
@@ -1475,6 +2033,37 @@ def run__discrete_action():
     exit()
 
 
+def train__car_racing():
+    import AgentZoo as Zoo
+
+    '''DEMO 4: Fix gym Box2D env CarRacing-v0 (pixel-level 2D-state, continuous action) using PPO'''
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('CarRacing-v0')
+    env = fix_car_racing_env(env)
+
+    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=None)
+    args.if_break_early = True
+    args.eval_times2 = 1
+    args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
+
+    args.break_step = int(5e5 * 4)  # (2e5) 5e5, used time 25000s
+    args.reward_scale = 2 ** -2  # (-1) 50 ~ 900 (1001)
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 7
+    args.repeat_times = 2 ** 4
+    args.net_dim = 2 ** 7
+    args.max_step = 2 ** 10
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+
 if __name__ == '__main__':
-    run__demo()
+    train__demo()
+    # train__off_policy()
+    # train__on_policy()
+    # train__discrete_action()
+    # train__car_racing()
     print('Finish:', sys.argv[-1])

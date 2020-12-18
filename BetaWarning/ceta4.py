@@ -17,7 +17,7 @@ ceta3 BW
 
 def run__on_policy():
     import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
     args.rl_agent = [
         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
         Zoo.AgentModPPO,  # 2018+ Reliable Lambda
@@ -47,7 +47,7 @@ def run__on_policy():
     # train_agent_mp(args)  # train_agent(args)
     # # exit()
     #
-    args.env_name = "BipedalWalker-v3"
+    args.env = "BipedalWalker-v3"
     args.break_step = int(8e5 * 8)  # (4e5) 8e5 (4e6), UsedTimes: (600s) 1500s (8000s)
     args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (325)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -78,7 +78,7 @@ def run__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env_name = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
+    args.env = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
     args.break_step = int(1e6 * 8)  # (4e5) 1e6 (8e6)
     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps

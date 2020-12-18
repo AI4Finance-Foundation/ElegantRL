@@ -658,7 +658,7 @@ def multi_to_single_walker_decorator(env):
             action = action.clip(-1, 1)  # fix bug in class GymMultiWalkerEnv
             action_l = (action[0:4], action[4:8], action[8:12])
             state_l, reward_l, done_l, info = env_step(action_l)
-            state = np.hstack(state_l)
+            state = np.hstack(state_l).astype(np.float32)  # todo necessary astype?
             done = any(done_l)
             reward = sum(reward_l)
             return state, reward, done, info
@@ -670,7 +670,7 @@ def multi_to_single_walker_decorator(env):
     def decorator_reset(env_reset):
         def new_env_reset():
             state_l = env_reset()
-            state = np.hstack(state_l)
+            state = np.hstack(state_l).astype(np.float32)  # todo necessary astype?
             return state
 
         return new_env_reset

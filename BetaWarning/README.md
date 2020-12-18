@@ -19,12 +19,12 @@ I am still learning English. Pardon. More details see ↓ (write in Chinese).
 
 # Show results
 
-You can see these gif/png ↓ in file "Result".
+You can see these gif/png ↓ in file "/Temp" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/tree/master/History).
 
 LunarLanderContinuous-v2:
-![LunarLanderTwinDelay3](https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/LunarLanderTwinDelay3.gif)
+![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/Temp/LunarLanderTwinDelay3.gif)
 BipedalWalkerHardcore-v2: 
-![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
+![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Temp/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward.
 You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (A Mainland China Website)
@@ -38,8 +38,8 @@ For example, the training log is the following two figure.
 Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and DeepSAC. There are more stable than other algorithm.
 
 <p float="left">
-  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
-  <img src="https://github.com/Yonv1943/LightWeight_Stable_ReinfLearning/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
+  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Temp/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
+  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Temp/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
 </p>
 
 In the above two figure. 
@@ -51,7 +51,7 @@ In the above two figure.
 
 BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward. 
 I am happy that InterSAC train 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
-![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
+![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/ElegantRL/blob/master/Temp/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
 
 You can see more training log in file "Result". 
@@ -102,11 +102,11 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 
 ### Model-free DRL Algorithms
 
-![model-free_DRL_2020](https://github.com/Yonv1943/DL_RL_Zoo/blob/master/Result/model-free_DRL_2020.png)
-You can find above figure in `./Result/model-free_DRL_2020.png` or `*.pdf`.
+![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Temp/model-free_DRL_2020.png)
+You can find above figure in `./Temp/model-free_DRL_2020.png` or `*.pdf`.
 More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 + [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
-+ [Policy Gradient Algorithms translated by Ewan Li in Chinese](https://tomaxent.com/2019/04/14/%E7%AD%96%E7%95%A5%E6%A2%AF%E5%BA%A6%E6%96%B9%E6%B3%95/)
++ [Policy Gradient Algorithms translated by Ewan Li in Chinese](https://tomaxent.com/2019/04/14/%E7%AD%96%E7%95%A5%E6%A2%AF%E5%BA%A6%E6%96%B9%E6%B3%95/) (F12 Find and delete c_n13)
 
 ---
 ## If Necip want me to translate the following Chinese into English. I will. 
@@ -178,7 +178,7 @@ If you can understand Chinese, more details of DelayDDPG are described in Chines
 [强化学习DelayDDPG，月球着陆器，双足机器人，只需训练半个小时的轻量、稳定代码](https://zhuanlan.zhihu.com/p/72586697)
 + Build my pipeline based TD3's code, which is a wonderful RL framework. 
 [TD3's author implementation](https://github.com/sfujim/TD3)
-+ Build in YonV1943 Github, named 'DL_RL_Zoo'
++ Build in YonV1943 Github, named 'ElegantRL'
 + 2019.11.11 Try some deep learning techniques in DeepRL (especially GAN): spectral norm, DenseNet, etc.
 + parameter-sharing between actor and critic
 + 2020-02-02 Issay-0.1 Easy Essay, EAsy esSAY 谐音: 意识
@@ -201,26 +201,53 @@ Maybe the next codename is (Casual ChuMeng, formal version).
 + 2020-08-08 build this update log
 + remove build_critic_net_for_dpg build_actor_net_for_dpg
 + remove build_critic_net_for_spg build_actor_net_for_spg
++ Check DuelingDQN, DoubleDQN
++ Change 'super(xxx, self).__init__()' into 'super().__init__()'
++ Update ArgumentsBeta to Arguments, change 'max_epoch' to 'max_total_step'
++ Update InterSAC actor_term from std to log_std. 
++ fix multiprocessing queue bug (remove except FileNotFound error)
++ DenseNet Level 2 -> 3, (3/2)**i
++ Update to Recorder0825, 'stop.mark'
++ pipeline update for AgentRun.py
++ write a @Decorator for CarRacing-v0
++ fix a bug in class Recorder0825
++ update 'draw_plot_with_ npy' to 'draw_plot_with_ 2npy'
++ 2020-09-09 InterSAC (solve log_alpha trouble) beta3.py
++ IMPORTANT UPDATE! self.alpha = torch.tensor((0.5,), requires_grad=True, device=self.device) 
 
 
-#### ElegantRL 2020.08.12 (NewYork Necip)
-Plan:
-! Check Dueling DQN
-! Update ArgumentsBeta to Arguments doing!
-Add the training stop signal: reach the target reward, reach the total step.
-Check InterISAC
-Move init_before_sample() to random_sample(). Should I? Not
-Change 'super(xxx, self).__init__()' into 'super().__init__()'
-Mega CriticAdv to Critic
-Mega CriticAdvTwin to CriticTwin
-Use deepcopy for target network
+#### ElegantRL 2020.09.18 (NewYork Necip)
++ In offline policy, update 'self.repeat_times' to auto-TTUR with 'reliable_lambda'
++ ! important update: move max_action and state_norm to env.step (as decorate)
++ add information to Argument()
++ self.log_alpha[:] = self.log_alpha.clamp(-16, 1)
++ update loss_a_avg, loss_c_avg
++ Integrated Anchor load target network
++ pre training and hard update before loop
++ print_state_norm(self, old_mean=None, old_std=None)
++ ! tips for critic_loss explosion, SmoothL1 --> MSE, meanwhile reward_scale / 8
++ anchor lamb
 
-Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
-Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
-some variants of DQN: Rainbow DQN, Ape-X
-
-####  ElegantRL 2020.??.?? (Casual ChuMeng)
+####  ElegantRL 2020.10.10 (Casual ChuMeng)
 ElegantRL 2020.08 (NewYork Necip), where Necip is a codename for version ElegantRL 2020.08
 It is similar to Ubuntu 18.04 (Bionic Beaver)
 Maybe the next codename is (Casual ChuMeng), which is a formal version with multi-agent RL.
 The multi-agent RL task of rllib is so complex, and I need long time to reconstruct. 
+
+- env previous state save into env. (not sure)
+- ! update PPO(BufferTuple, (s,a,r,log_prob)) to PPO(BufferArray, (s,a,r,noise))
+- fixPPO, OffPPO, InterPPO, InterOffPPO
+- fix bug on BufferArray.extend_memo()
+- fix CarRacing-v0
+- replay buffer dtype
+- update BufferArray to BufferTrajectory
+- gpu_id to agent_id
+
+#### Plan to 
+- add FlappyBird-v0 (PyGame), 2D state and 1D state
+- add [AI4Finance-LLC FinRL-Library](https://github.com/AI4Finance-LLC)
+
+
+Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
+Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
+some variants of DQN: Rainbow DQN, Ape-X

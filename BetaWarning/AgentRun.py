@@ -854,7 +854,7 @@ def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
 
                     if done:
                         # reward += 100  # don't penalize "die state"
-                        reward += 95  # don't penalize "die state" too much
+                        reward += 99  # don't penalize "die state" too much
                     if state.mean() > 192:  # 185.0:  # penalize when outside of road
                         reward -= 0.05
 

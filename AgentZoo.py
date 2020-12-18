@@ -23,6 +23,8 @@ SQL https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py bad-
 DUEL https://github.com/gouxiangchen/dueling-DQN-pytorch good
 """
 
+'''Policy Gradient (Actor Critic)'''
+
 
 class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
     def __init__(self, state_dim, action_dim, net_dim):
@@ -88,7 +90,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             critic_obj.backward()
             self.cri_optimizer.step()
 
-            soft_target_update(self.cri_target, self.cri)
+            _soft_target_update(self.cri_target, self.cri)
 
             """actor (Policy Gradient)
             the optimization objective of actor is maximizing value function 'critic(state, actor(state))'
@@ -110,7 +112,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
             actor_obj.backward()
             self.act_optimizer.step()
 
-            soft_target_update(self.act_target, self.act)
+            _soft_target_update(self.act_target, self.act)
 
         return actor_obj.item(), critic_obj.item()
 
@@ -224,8 +226,8 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
             self.act_optimizer.step()
 
             if i % self.update_freq == 0:
-                soft_target_update(self.cri_target, self.cri)
-                soft_target_update(self.act_target, self.act)
+                _soft_target_update(self.cri_target, self.cri)
+                _soft_target_update(self.act_target, self.act)
 
         return q_label.mean().item(), self.avg_loss_c
 
@@ -322,8 +324,8 @@ class AgentTD3(AgentBaseAC):
                 self.act_optimizer.step()
 
             if i % self.update_freq == 0:  # delay update
-                soft_target_update(self.cri_target, self.cri)
-                soft_target_update(self.act_target, self.act)
+                _soft_target_update(self.cri_target, self.cri)
+                _soft_target_update(self.act_target, self.act)
 
         return actor_obj.item(), critic_obj.item()
 
@@ -382,7 +384,7 @@ class AgentSAC(AgentBaseAC):
 
                 next_a_noise, next_log_prob = self.act.get__a__log_prob(next_s)
                 next_q_label = self.cri_target(next_s, next_a_noise)
-                q_label = reward + mask * (next_q_label + next_log_prob * self.alpha)  # fix notice by Zang
+                q_label = reward + mask * (next_q_label + next_log_prob * self.alpha)  # fix notice by Dr. Zang
 
             """critic_obj"""
             q1_value, q2_value = self.cri.get__q1_q2(state, action)  # CriticTwin
@@ -392,7 +394,7 @@ class AgentSAC(AgentBaseAC):
             critic_obj.backward()
             self.cri_optimizer.step()
 
-            soft_target_update(self.cri_target, self.cri)
+            _soft_target_update(self.cri_target, self.cri)
 
             """actor_obj"""
             action_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
@@ -494,7 +496,7 @@ class AgentModSAC(AgentBaseAC):
             critic_obj.backward()
             self.cri_optimizer.step()
 
-            soft_target_update(self.cri_target, self.cri)
+            _soft_target_update(self.cri_target, self.cri)
 
             a_noise_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
 
@@ -519,7 +521,7 @@ class AgentModSAC(AgentBaseAC):
                 actor_obj.backward()
                 self.act_optimizer.step()
 
-                soft_target_update(self.act_target, self.act)
+                _soft_target_update(self.act_target, self.act)
 
         return log_prob.mean().item(), self.avg_loss_c
 
@@ -718,7 +720,7 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
             united_loss.backward()
             self.act_optimizer.step()
 
-            soft_target_update(self.act_target, self.act, tau=2 ** -8)
+            _soft_target_update(self.act_target, self.act, tau=2 ** -8)
 
         return log_prob.mean().item(), self.avg_loss_c
 
@@ -1013,6 +1015,9 @@ class AgentInterPPO(AgentPPO):
         return self.act.a_std_log.mean().item(), self.avg_loss_c
 
 
+'''DQN Variants (Critic Only)'''
+
+
 class AgentDQN(AgentBaseAC):  # 2020-06-06
     def __init__(self, state_dim, action_dim, net_dim):  # 2020-04-30
         super(AgentBaseAC, self).__init__()
@@ -1138,7 +1143,7 @@ class AgentDoubleDQN(AgentBaseAC):  # 2020-06-06 # I'm not sure.
             critic_obj.backward()
             self.act_optimizer.step()
 
-            soft_target_update(self.act_target, self.act)
+            _soft_target_update(self.act_target, self.act)
 
         return q_label.mean().item(), critic_obj.item() / 2
 
@@ -1200,7 +1205,7 @@ class AgentDuelingDQN(AgentDoubleDQN):  # 2020-11-11
             critic_obj.backward()
             self.act_optimizer.step()
 
-            soft_target_update(self.act_target, self.act)
+            _soft_target_update(self.act_target, self.act)
         return q_label.mean().item(), critic_obj.item()
 
 
@@ -1238,7 +1243,7 @@ class AgentD3QN(AgentDoubleDQN):  # 2020-11-11
 """Private Utils: other python don't need to import them"""
 
 
-def soft_target_update(target, current, tau=5e-3):
+def _soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
