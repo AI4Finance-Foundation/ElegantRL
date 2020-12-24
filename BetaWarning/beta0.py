@@ -3,21 +3,15 @@ import numpy as np
 import numpy.random as rd
 
 """
-1441 args.max_step = 1699
+1221 gamma_r
 beta0 max_memo = 1699 * 16, batch_size = 2 ** 10
-beta2 max_memo = 1699 * 8,  batch_size = 2 ** 9
-
-ceta1 max_memo = 1699 * 32, batch_size = 2 ** 11
+ceta0 max_memo = 1699 * 16, batch_size = 2 ** 12
 ceta4 max_memo = 1699 * 16, batch_size = 2 ** 11
-ceta2 max_memo = 1699 * 8, batch_size = 2 ** 10
 
-1647 args.max_step = 1699
-ceta2 gamma_r args.max_memo = 1699 * 4
-ceta3 gamma_r args.max_memo = 1699 * 8
 """
 
 
-class FinanceMultiStock2018:  # todo 2020-12-21 16:00
+class FinanceMultiStock1221:  # todo 2020-12-21 16:00
     """FinRL
     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
            https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
@@ -33,30 +27,34 @@ class FinanceMultiStock2018:  # todo 2020-12-21 16:00
 
         self.ary = self.load_csv_for_multi_stock()
         assert self.ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
-        self.max_day = self.ary.shape[0] - 1
 
         # reset
         self.day = 0
         self.account = self.initial_account
         self.day_npy = self.ary[self.day]
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)  # multi-stack
-        self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        # total_asset = account + (adjcp * stocks).sum()
+        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
 
         '''env information'''
         self.env_name = 'FinanceStock-v1'
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 800  # todo need to update
+        self.target_reward = 15
+        self.max_step = self.ary.shape[0]
+
+        self.gamma_r = 0.0
 
     def reset(self):
-        self.day = 0
-        self.account = self.initial_account * rd.uniform(0.99, 1.01)  # todo
-        self.day_npy = self.ary[self.day]
+        self.account = self.initial_account * rd.uniform(0.99, 1.00)  # todo
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
-        self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         # total_asset = account + (adjcp * stocks).sum()
+
+        self.day = 0
+        self.day_npy = self.ary[self.day]
+        self.day += 1
 
         state = np.hstack((
             self.account * 2 ** -16,
@@ -84,8 +82,9 @@ class FinanceMultiStock2018:  # todo 2020-12-21 16:00
                 self.stocks[index] -= delta_stock
 
         """update day"""
-        self.day += 1
         self.day_npy = self.ary[self.day]
+        self.day += 1
+        done = self.day == self.max_step  # 2020-12-21
 
         state = np.hstack((
             self.account * 2 ** -16,
@@ -93,22 +92,22 @@ class FinanceMultiStock2018:  # todo 2020-12-21 16:00
             self.stocks * 2 ** -12,
         ), ).astype(np.float32)
 
-        end_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        reward = (end_total_asset - self.begin_total_asset) * 2 ** -16  # notice scaling! todo -14
-        self.begin_total_asset = end_total_asset
+        next_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling! todo -14
+        self.total_asset = next_total_asset
 
-        done = self.day == self.max_day
+        self.gamma_r = self.gamma_r * 0.99 + reward  # todo gamma_r seems good?
+        if done:
+            reward += self.gamma_r
+            self.gamma_r = 0.0  # env.reset()
 
-        # self.gamma_r = self.gamma_r * 0.99 + reward  # todo gamma_r seems good?
-        # if done:
-        #     reward += self.gamma_r
-        #     self.gamma_r = 0.0
+            # cumulative_return_rate
+            self.episode_return = (next_total_asset - self.initial_account) / self.initial_account
 
         return state, reward, done, None
 
     @staticmethod
     def load_csv_for_multi_stock(if_load=True):  # todo need independent
-
 
         from preprocessing.preprocessors import pd, data_split, preprocess_data, add_turbulence
 
@@ -152,8 +151,8 @@ class FinanceMultiStock2018:  # todo 2020-12-21 16:00
         return data_ary
 
 
-def run__fin_rl_1441():
-    env = FinanceMultiStock2018()  # todo 2020-12-21 16:00
+def run__fin_rl_1221():
+    env = FinanceMultiStock1221()  # todo 2020-12-21 16:00
 
     from AgentRun import Arguments, train_agent_mp
     from AgentZoo import AgentPPO
@@ -162,8 +161,8 @@ def run__fin_rl_1441():
     args.eval_times1 = 1
     args.eval_times2 = 2
 
-    args.reward_scale = 2 ** 0  # 10 ~ 200+
-    args.break_step = int(4e6 * 4)  # UsedTime: 3800
+    args.reward_scale = 2 ** 0  # (0) 0.1 ~ 15 (18)
+    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
     args.net_dim = 2 ** 8
     args.max_step = 1699
     args.max_memo = 1699 * 16  # todo  larger is better?
@@ -171,7 +170,21 @@ def run__fin_rl_1441():
     args.repeat_times = 2 ** 4  # larger is better?
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    from AgentZoo import AgentModSAC
+
+    args = Arguments(rl_agent=AgentModSAC, env=env)  # much slower than on-policy trajectory
+    args.eval_times1 = 1
+    args.eval_times2 = 2
+
+    args.break_step = 2 ** 22  # UsedTime:
+    args.net_dim = 2 ** 7
+    args.max_memo = 2 ** 18
+    args.batch_size = 2 ** 8
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
 
 
 if __name__ == '__main__':
-    run__fin_rl_1441()
+    run__fin_rl_1221()

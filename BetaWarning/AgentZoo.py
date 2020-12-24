@@ -179,7 +179,9 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
 
             self.state = next_state
             if done:
-                rewards.append(self.reward_sum)
+                # Compatibility for ElegantRL 2020-12-21 todo
+                episode_return = env.episode_return if hasattr(env, 'episode_return') else self.reward_sum
+                rewards.append(episode_return)
                 self.reward_sum = 0.0
 
                 steps.append(self.step)
@@ -777,7 +779,9 @@ class AgentPPO:
 
                 state = next_state
 
-            rewards.append(reward_sum)
+            # Compatibility for ElegantRL 2020-12-21 todo
+            episode_return = env.episode_return if hasattr(env, 'episode_return') else reward_sum
+            rewards.append(episode_return)
             steps.append(step_sum)
 
             step_counter += step_sum
