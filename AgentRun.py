@@ -2060,7 +2060,8 @@ def train__demo():
     args.break_step = int(1e5 * 8)  # UsedTime: 60s (reach target_reward 195)
     args.net_dim = 2 ** 7
     args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
+    train_agent(args)  # use single-processing, more easy to find the error for custom environment.
+    # train_agent_mp(args)  # use multi-processing to speed up training
     exit()
 
     '''DEMO 2: Standard gym env LunarLanderContinuous-v2 (continuous action) using ModSAC (Modify SAC, off-policy)'''
@@ -2283,7 +2284,7 @@ def train__discrete_action():
 
 
 def train__pixel_level_state2d__car_racing():
-    import AgentZoo as Zoo
+    from AgentZoo import AgentPPO
 
     '''DEMO 4: Fix gym Box2D env CarRacing-v0 (pixel-level 2D-state, continuous action) using PPO'''
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
@@ -2291,13 +2292,16 @@ def train__pixel_level_state2d__car_racing():
     env = gym.make('CarRacing-v0')
     env = fix_car_racing_env(env)
 
-    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=None)
+    args = Arguments(rl_agent=AgentPPO, env=env, gpu_id=None)
     args.if_break_early = True
     args.eval_times2 = 1
     args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
-    args.rollout_workers_num = 6
+    args.rollout_workers_num = 4  # 8, 1e5, 1360
+    args.random_seed += 1943
 
-    args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5, used time (7,000s) 10ks 30ks (60ks)
+    args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5 (8e5) used time (7,000s) 10ks 30ks (60ks)
+    # sometimes unluckily, it reach 300 score in 5e5 steps and don't increase.
+    # You can change the random seed and retrain.
     args.reward_scale = 2 ** -2  # (-1) 50 ~ 700 ~ 900 (1001)
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 7
