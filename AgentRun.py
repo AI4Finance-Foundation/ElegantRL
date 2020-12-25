@@ -31,6 +31,7 @@ class Arguments:  # default working setting and hyper-parameters
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
+        self.rollout_workers_num = 2  # the number of rollout workers (larger is not always faster)
 
         '''Arguments for evaluate'''
         self.break_step = 2 ** 17  # break training after 'total_step > break_step'
@@ -45,8 +46,10 @@ class Arguments:  # default working setting and hyper-parameters
         assert self.rl_agent is not None
         assert self.env is not None
         if not hasattr(self.env, 'env_name'):
-            assert RuntimeError('| init_for_training() WARNING: AttributeError. What is env.env_name?'
-                                '| use env = build_env(env) to decorate env.')
+            raise RuntimeError(
+                '| init_for_training() WARNING: AttributeError. What is env.env_name?'
+                '| use env = build_env(env) to decorate env.'
+            )
 
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
         self.cwd = f'./{self.rl_agent.__name__}/{self.env.env_name}_{self.gpu_id}'
@@ -133,7 +136,7 @@ def train_agent(args):  # 2020-12-12
         recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
 
         '''pre training and hard update before training loop'''
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
         if 'act_target' in dir(agent):
             agent.act_target.load_state_dict(agent.act.state_dict())
@@ -178,14 +181,25 @@ def train_agent_mp(args):  # 2020-12-12
     import multiprocessing as mp
     q_i_eva = mp.Queue(maxsize=16)  # evaluate I
     q_o_eva = mp.Queue(maxsize=16)  # evaluate O
-    process = [mp.Process(target=_mp__update_params, args=(args, q_i_eva, q_o_eva)),
-               mp.Process(target=_mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)), ]
+    process = list()
+
+    act_workers = args.rollout_workers_num
+    qs_i_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
+    qs_o_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
+    for i in range(act_workers):
+        process.append(mp.Process(target=_mp__explore_a_env, args=(args, qs_i_exp[i], qs_o_exp[i], i)))
+
+    process.extend([
+        mp.Process(target=_mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)),
+        mp.Process(target=_mp__update_params, args=(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp)),
+    ])
+
     [p.start() for p in process]
     [p.join() for p in process]
     print('\n')
 
 
-def _mp__update_params(args, q_i_eva, q_o_eva):  # 2020-12-12 update network parameters using replay buffer
+def _mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
     rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
@@ -200,30 +214,32 @@ def _mp__update_params(args, q_i_eva, q_o_eva):  # 2020-12-12 update network par
     gamma = args.gamma
     del args
 
+    workers_num = len(qs_i_exp)
+
     '''init: env'''
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
     # target_reward = env.target_reward
 
-    '''build agent'''
+    '''build agent and act_cpu'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = env.reset()
-
-    '''send agent to q_i_eva'''
     from copy import deepcopy  # built-in library of Python
     act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
     act_cpu.eval()
     [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
-    q_i_eva.put(act_cpu)  # q_i_eva 1.
 
     '''build replay buffer, init: total_step, reward_avg'''
     reward_avg = None
     total_step = 0
     if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
-        buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)  # experiment replay buffer
+        buffer = BufferArrayGPU(max_memo + max_step * workers_num, state_dim, action_dim, if_ppo=True)
+        exp_step = max_memo // workers_num
     else:
         buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
+        exp_step = max_step // workers_num
+
         '''initial exploration'''
         with torch.no_grad():  # update replay buffer
             rewards, steps = _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
@@ -231,29 +247,45 @@ def _mp__update_params(args, q_i_eva, q_o_eva):  # 2020-12-12 update network par
         step_sum = sum(steps)
 
         '''pre training and hard update before training loop'''
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
         if 'act_target' in dir(agent):
             agent.act_target.load_state_dict(agent.act.state_dict())
 
-        q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
+        # q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
         total_step += step_sum
     if reward_avg is None:
-        reward_avg = _get_total_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
+        # reward_avg = _get_episode_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
+        reward_avg = _get_episode_return(env, agent.act, max_step, agent.device, if_discrete)
+
+    q_i_eva.put(act_cpu)  # q_i_eva 1.
+    for q_i_exp in qs_i_exp:
+        q_i_exp.put((agent.act, exp_step))  # q_i_exp 1.
 
     '''training loop'''
     if_train = True
     if_solve = False
     while if_train:
         '''update replay buffer by interact with environment'''
-        with torch.no_grad():  # speed up running
-            rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+        rewards = list()
+        steps = list()
+        for i, q_i_exp in enumerate(qs_i_exp):
+            q_i_exp.put(agent.act)  # q_i_exp n.
+            # q_i_exp.put(act_cpu)  # env_cpu--act_cpu
+        for i, q_o_exp in enumerate(qs_o_exp):
+            _memo_array, _rewards, _steps = q_o_exp.get()  # q_o_exp n.
+            buffer.extend_memo(_memo_array)
+            rewards.extend(_rewards)
+            steps.extend(_steps)
+        # with torch.no_grad():  # speed up running
+        #     rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+
         reward_avg = np.average(rewards) if len(rewards) else reward_avg
         step_sum = sum(steps)
         total_step += step_sum
 
         '''update network parameters by random sampling buffer for gradient descent'''
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
         loss_a_avg, loss_c_avg = agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
@@ -271,11 +303,60 @@ def _mp__update_params(args, q_i_eva, q_o_eva):  # 2020-12-12 update network par
     buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
                             env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
 
-    q_i_eva.put('stop')
-    while q_i_eva.qsize() > 0:
-        time.sleep(1)
+    for queue in [q_i_eva, ] + list(qs_i_exp):  # quit orderly and safely
+        queue.put('stop')
+        while queue.qsize() > 0:
+            time.sleep(1)
     time.sleep(4)
     # print('; quit: params')
+
+
+def _mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
+    env = args.env
+    rl_agent = args.rl_agent
+    net_dim = args.net_dim
+    reward_scale = args.reward_scale
+    gamma = args.gamma
+
+    torch.manual_seed(args.random_seed + act_id)
+    np.random.seed(args.random_seed + act_id)
+    del args
+
+    '''init: env'''
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+    if_discrete = env.if_discrete
+    # target_reward = env.target_reward
+
+    '''build agent'''
+    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    agent.state = env.reset()
+    # agent.device = torch.device('cpu')  # env_cpu--act_cpu a little faster than env_cpu--act_gpu, but high cpu-util
+
+    '''build replay buffer, init: total_step, reward_avg'''
+    act, exp_step = q_i_exp.get()  # q_i_exp 1.  # todo plan to make it elegant: max_memo, max_step, exp_step
+
+    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
+        buffer = BufferArray(exp_step * 2, state_dim, action_dim, if_ppo=True)
+    else:
+        buffer = BufferArray(exp_step, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
+
+    with torch.no_grad():  # speed up running
+        while True:
+            buffer.empty_memories__before_explore()
+            q_i_exp_get = q_i_exp.get()  # q_i_exp n.
+            if q_i_exp_get == 'stop':
+                break
+            agent.act = q_i_exp_get  # q_i_exp n.
+            rewards, steps = agent.update_buffer(env, buffer, exp_step, reward_scale, gamma)
+
+            buffer.update__now_len__before_sample()
+            q_o_exp.put((buffer.memories[:buffer.now_len], rewards, steps))  # q_o_exp n.
+
+    for queue in [q_o_exp, q_i_exp]:  # quit orderly and safely
+        while queue.qsize() > 0:
+            queue.get()
+    # print('; quit: explore')
 
 
 def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
@@ -288,8 +369,7 @@ def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its to
     eval_size2 = args.eval_times2
     del args
 
-    from copy import deepcopy  # built-in library of Python
-    env_eval = deepcopy(env)
+    '''init: env'''
     # state_dim = env.state_dim
     # action_dim = env.action_dim
     if_discrete = env.if_discrete
@@ -301,12 +381,12 @@ def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its to
     torch.set_num_threads(4)
     device = torch.device('cpu')
     recorder = Recorder(eval_size1, eval_size2)
-    recorder.update__record_evaluate(env_eval, act, max_step, device, if_discrete)
+    recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
 
-    is_training = True
+    if_train = True
     with torch.no_grad():  # for saving the GPU buffer
-        while is_training:
-            is_saved = recorder.update__record_evaluate(env_eval, act, max_step, device, if_discrete)
+        while if_train:
+            is_saved = recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
@@ -318,8 +398,8 @@ def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its to
             while q_i_eva.qsize():  # get the latest actor
                 q_i_eva_get = q_i_eva.get()  # q_i_eva n.
                 if q_i_eva_get == 'stop':
-                    is_training = False
-                    break
+                    if_train = False
+                    break  # it should break 'while q_i_eva.qsize():' and 'while if_train:'
                 act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
                 recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
 
@@ -332,10 +412,9 @@ def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its to
     print(f'SavedDir: {cwd}\n'
           f'UsedTime: {time.time() - recorder.start_time:.0f}')
 
-    while q_o_eva.qsize() > 0:
-        q_o_eva.get()
-    while q_i_eva.qsize() > 0:
-        q_i_eva.get()
+    for queue in [q_o_eva, q_i_eva]:  # quit orderly and safely
+        while queue.qsize() > 0:
+            queue.get()
     # print('; quit: evaluate')
 
 
@@ -380,7 +459,7 @@ def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamm
             reward_sum = 0.0
             step = 1
 
-    buffer.update_pointer_before_sample()
+    buffer.update__now_len__before_sample()
     return rewards, steps
 
 
@@ -410,12 +489,12 @@ class Recorder:  # 2020-10-12
 
     def update__record_evaluate(self, env, act, max_step, device, if_discrete):
         is_saved = False
-        reward_list = [_get_total_return(env, act, max_step, device, if_discrete)
+        reward_list = [_get_episode_return(env, act, max_step, device, if_discrete)
                        for _ in range(self.eva_size1)]
 
         eva_r_avg = np.average(reward_list)
         if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([_get_total_return(env, act, max_step, device, if_discrete)
+            reward_list.extend([_get_episode_return(env, act, max_step, device, if_discrete)
                                 for _ in range(self.eva_size2 - self.eva_size1)])
             eva_r_avg = np.average(reward_list)
             if eva_r_avg > self.eva_r_max:  # check final
@@ -546,9 +625,12 @@ class Recorder:  # 2020-10-12
         pass
 
 
-def _get_total_return(env, act, max_step, device, if_discrete) -> float:
-    # better to 'with torch.no_grad()'
-    reward_item = 0.0
+def _get_episode_return(env, act, max_step, device, if_discrete) -> float:  # 2020-12-21
+    # faster to run 'with torch.no_grad()'
+    episode_return = 0.0  # sum of rewards in an episode
+
+    # Compatibility for ElegantRL 2020-12-21
+    max_step = env.max_step if hasattr(env, 'max_step') else max_step
 
     state = env.reset()
     for _ in range(max_step):
@@ -558,12 +640,15 @@ def _get_total_return(env, act, max_step, device, if_discrete) -> float:
         action = a_tensor.cpu().data.numpy()[0]
 
         next_state, reward, done, _ = env.step(action)
-        reward_item += reward
+        episode_return += reward
 
         if done:
             break
         state = next_state
-    return reward_item
+
+    # Compatibility for ElegantRL 2020-12-21
+    episode_return = env.episode_return if hasattr(env, 'episode_return') else episode_return
+    return episode_return
 
 
 ''' backup of get_total_returns
@@ -817,7 +902,7 @@ def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
     setattr(env, 'state_dim', (frame_num, 96, 96))
     setattr(env, 'action_dim', 3)
     setattr(env, 'if_discrete', False)
-    setattr(env, 'target_reward', 800)  # 900 in default
+    setattr(env, 'target_reward', 700)  # 900 in default
 
     setattr(env, 'state_stack', None)  # env.state_stack = None
     setattr(env, 'avg_reward', 0)  # env.avg_reward = 0
@@ -853,8 +938,7 @@ def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
                     state = rgb2gray(state)
 
                     if done:
-                        # reward += 100  # don't penalize "die state"
-                        reward += 99  # don't penalize "die state" too much
+                        reward += 100  # don't penalize "die state"
                     if state.mean() > 192:  # 185.0:  # penalize when outside of road
                         reward -= 0.05
 
@@ -918,7 +1002,7 @@ def render__car_racing():
 """Extension: Finance RL: Github AI4Finance-LLC"""
 
 
-class FinanceStock:  # adjust state, inner df_pandas, beta3 pass
+class FinanceSingleStockEnv:  # adjust state, inner df_pandas, beta3 pass
     """FinRL
     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
            https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
@@ -1045,65 +1129,226 @@ class FinanceStock:  # adjust state, inner df_pandas, beta3 pass
             ary = np.genfromtxt(save_path, delimiter=',')
             assert isinstance(ary, np.ndarray)
             return ary
+        else:
+            raise RuntimeError(
+                f'| FinanceSingleStockEnv(): Can you download and put it into: {save_path}\n'
+                f'| https://github.com/Yonv1943/ElegantRL/blob/master/Result/AAPL_2009_2020.csv'
+                f'| Or you can use the following code to generate it from a csv file.'
+            )
+        #
+        # import yfinance as yf
+        # from stockstats import StockDataFrame as Sdf
+        # """ pip install
+        # !pip install yfinance
+        # !pip install pandas
+        # !pip install matplotlib
+        # !pip install stockstats
+        # """
+        #
+        # """# Part 1: Download Data
+        # Yahoo Finance is a website that provides stock data, financial news, financial reports, etc.
+        # All the data provided by Yahoo Finance is free.
+        # """
+        # print('| download_preprocess_data_as_csv: Download Data')
+        #
+        # data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
+        # assert data_pd.shape == (2974, 6)
+        #
+        # data_pd = data_pd.reset_index()
+        #
+        # data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
+        #
+        # """# Part 2: Preprocess Data
+        # Data preprocessing is a crucial step for training a high quality machine learning model.
+        # We need to check for missing data and do feature engineering
+        # in order to convert the data into a model-ready state.
+        # """
+        # print('| download_preprocess_data_as_csv: Preprocess Data')
+        #
+        # # check missing data
+        # data_pd.isnull().values.any()
+        #
+        # # calculate technical indicators like MACD
+        # stock = Sdf.retype(data_pd.copy())
+        # # we need to use adjusted close price instead of close price
+        # stock['close'] = stock['adjcp']
+        # data_pd['macd'] = stock['macd']
+        #
+        # # check missing data again
+        # data_pd.isnull().values.any()
+        # data_pd.head()
+        # # data_pd=data_pd.fillna(method='bfill')
+        #
+        # # Note that I always use a copy of the original data to try it track step by step.
+        # data_clean = data_pd.copy()
+        # data_clean.head()
+        # data_clean.tail()
+        #
+        # data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
+        # data = data.reset_index(drop=True)  # the index needs to start from 0
+        #
+        # data.to_csv(save_path)  # save *.csv
+        # # assert isinstance(data_pd, pd.DataFrame)
+        #
+        # df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
+        # df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
+        # ary = df_pandas.to_numpy()
+        # return ary
 
-        import yfinance as yf
-        from stockstats import StockDataFrame as Sdf
-        """ pip install
-        !pip install yfinance
-        !pip install pandas
-        !pip install matplotlib
-        !pip install stockstats
-        """
 
-        """# Part 1: Download Data
-        Yahoo Finance is a website that provides stock data, financial news, financial reports, etc. 
-        All the data provided by Yahoo Finance is free.
-        """
-        print('| download_preprocess_data_as_csv: Download Data')
+class FinanceMultiStockEnv:  # 2020-12-24
+    """FinRL
+    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
+           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
+    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
+    Modify: Github Yonv1943 ElegantRL
+    """
 
-        data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
-        assert data_pd.shape == (2974, 6)
+    def __init__(self, initial_account=1e6, transaction_fee_percent=1e-3, max_stock=100):
+        self.stock_dim = 30
+        self.initial_account = initial_account
+        self.transaction_fee_percent = transaction_fee_percent
+        self.max_stock = max_stock
 
-        data_pd = data_pd.reset_index()
+        self.ary = self.load_training_data_for_multi_stock()
+        assert self.ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
 
-        data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
+        # reset
+        self.day = 0
+        self.account = self.initial_account
+        self.day_npy = self.ary[self.day]
+        self.stocks = np.zeros(self.stock_dim, dtype=np.float32)  # multi-stack
+        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
 
-        """# Part 2: Preprocess Data
-        Data preprocessing is a crucial step for training a high quality machine learning model. 
-        We need to check for missing data and do feature engineering 
-        in order to convert the data into a model-ready state.
-        """
-        print('| download_preprocess_data_as_csv: Preprocess Data')
+        '''env information'''
+        self.env_name = 'FinanceStock-v1'
+        self.state_dim = 1 + (5 + 1) * self.stock_dim
+        self.action_dim = self.stock_dim
+        self.if_discrete = False
+        self.target_reward = 15
+        self.max_step = self.ary.shape[0]
 
-        # check missing data
-        data_pd.isnull().values.any()
+        self.gamma_r = 0.0
 
-        # calculate technical indicators like MACD
-        stock = Sdf.retype(data_pd.copy())
-        # we need to use adjusted close price instead of close price
-        stock['close'] = stock['adjcp']
-        data_pd['macd'] = stock['macd']
+    def reset(self):
+        self.account = self.initial_account * rd.uniform(0.99, 1.00)  # notice reset()
+        self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
+        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        # total_asset = account + (adjcp * stocks).sum()
 
-        # check missing data again
-        data_pd.isnull().values.any()
-        data_pd.head()
-        # data_pd=data_pd.fillna(method='bfill')
+        self.day = 0
+        self.day_npy = self.ary[self.day]
+        self.day += 1
 
-        # Note that I always use a copy of the original data to try it track step by step.
-        data_clean = data_pd.copy()
-        data_clean.head()
-        data_clean.tail()
+        state = np.hstack((
+            self.account * 2 ** -16,
+            self.day_npy * 2 ** -8,
+            self.stocks * 2 ** -12,
+        ), ).astype(np.float32)
 
-        data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
-        data = data.reset_index(drop=True)  # the index needs to start from 0
+        return state
 
-        data.to_csv(save_path)  # save *.csv
-        # assert isinstance(data_pd, pd.DataFrame)
+    def step(self, actions):
+        actions = actions * self.max_stock
 
-        df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
-        df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
-        ary = df_pandas.to_numpy()
-        return ary
+        """bug or sell stock"""
+        for index in range(self.stock_dim):
+            action = actions[index]
+            adj = self.day_npy[index]
+            if action > 0:  # buy_stock
+                available_amount = self.account // adj
+                delta_stock = min(available_amount, action)
+                self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
+                self.stocks[index] += delta_stock
+            elif self.stocks[index] > 0:  # sell_stock
+                delta_stock = min(-action, self.stocks[index])
+                self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
+                self.stocks[index] -= delta_stock
+
+        """update day"""
+        self.day_npy = self.ary[self.day]
+        self.day += 1
+        done = self.day == self.max_step  # 2020-12-21
+
+        state = np.hstack((
+            self.account * 2 ** -16,
+            self.day_npy * 2 ** -8,
+            self.stocks * 2 ** -12,
+        ), ).astype(np.float32)
+
+        next_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling!
+        self.total_asset = next_total_asset
+
+        self.gamma_r = self.gamma_r * 0.99 + reward  # notice: gamma_r seems good? Yes
+        if done:
+            reward += self.gamma_r
+            self.gamma_r = 0.0  # env.reset()
+
+            # cumulative_return_rate
+            self.episode_return = next_total_asset / self.initial_account
+
+        return state, reward, done, None
+
+    @staticmethod
+    def load_training_data_for_multi_stock(if_load=True):  # need more independent
+        npy_path = './Result/FinanceMultiStock.npy'
+        if if_load and os.path.exists(npy_path):
+            data_ary = np.load(npy_path)
+            assert data_ary.shape[1] == 5 * 30
+            return data_ary
+        else:
+            raise RuntimeError(
+                f'| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}\n'
+                f'| https://github.com/Yonv1943/ElegantRL/blob/master/Result/FinanceMultiStock.npy'
+                f'| Or you can use the following code to generate it from a csv file.'
+            )
+
+        # from preprocessing.preprocessors import pd, data_split, preprocess_data, add_turbulence
+        #
+        # # the following is same as part of run_model()
+        # preprocessed_path = "done_data.csv"
+        # if if_load and os.path.exists(preprocessed_path):
+        #     data = pd.read_csv(preprocessed_path, index_col=0)
+        # else:
+        #     data = preprocess_data()
+        #     data = add_turbulence(data)
+        #     data.to_csv(preprocessed_path)
+        #
+        # df = data
+        # rebalance_window = 63
+        # validation_window = 63
+        # i = rebalance_window + validation_window
+        #
+        # unique_trade_date = data[(data.datadate > 20151001) & (data.datadate <= 20200707)].datadate.unique()
+        # train__df = data_split(df, start=20090000, end=unique_trade_date[i - rebalance_window - validation_window])
+        # # print(train__df) # df: DataFrame of Pandas
+        #
+        # train_ary = train__df.to_numpy().reshape((-1, 30, 12))
+        # '''state_dim = 1 + 6 * stock_dim, stock_dim=30
+        # n   item    index
+        # 1   ACCOUNT -
+        # 30  adjcp   2
+        # 30  stock   -
+        # 30  macd    7
+        # 30  rsi     8
+        # 30  cci     9
+        # 30  adx     10
+        # '''
+        # data_ary = np.empty((train_ary.shape[0], 5, 30), dtype=np.float32)
+        # data_ary[:, 0] = train_ary[:, :, 2]  # adjcp
+        # data_ary[:, 1] = train_ary[:, :, 7]  # macd
+        # data_ary[:, 2] = train_ary[:, :, 8]  # rsi
+        # data_ary[:, 3] = train_ary[:, :, 9]  # cci
+        # data_ary[:, 4] = train_ary[:, :, 10]  # adx
+        #
+        # data_ary = data_ary.reshape((-1, 5 * 30))
+        #
+        # os.makedirs(npy_path[:npy_path.rfind('/')])
+        # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
+        # print('| FinanceMultiStockEnv(): save in:', npy_path)
+        # return data_ary
 
 
 # import gym
@@ -1557,10 +1802,10 @@ class BufferArray:  # 2020-11-11
         tensors = [torch.tensor(ary, device=self.device) for ary in tensors]
         return tensors
 
-    def update_pointer_before_sample(self):
+    def update__now_len__before_sample(self):
         self.now_len = self.max_len if self.is_full else self.next_idx
 
-    def empty_memories_before_explore(self):
+    def empty_memories__before_explore(self):
         self.next_idx = 0
         self.now_len = 0
         self.is_full = False
@@ -1617,10 +1862,10 @@ class BufferArrayGPU:  # 2020-07-07
             self.memories[self.next_idx:next_idx] = memo_tensor
         self.next_idx = next_idx
 
-    def update_pointer_before_sample(self):
+    def update__now_len__before_sample(self):
         self.now_len = self.max_len if self.is_full else self.next_idx
 
-    def empty_memories_before_explore(self):
+    def empty_memories__before_explore(self):
         self.next_idx = 0
         self.is_full = False
         self.now_len = 0
@@ -1664,6 +1909,10 @@ def _print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-12-12
     if isinstance(batch_state, torch.Tensor):
         batch_state = batch_state.cpu().data.numpy()
     assert isinstance(batch_state, np.ndarray)
+
+    if batch_state.shape[1] > 64:
+        print(f"| _print_norm(): state_dim: {batch_state.shape[1]:.0f} is too large to print its norm. ")
+        return None
 
     if np.isnan(batch_state).any():  # 2020-12-12
         batch_state = np.nan_to_num(batch_state)  # nan to 0
@@ -1799,7 +2048,7 @@ class BufferTupleOnline:
 
 
 def train__demo():
-    import AgentZoo as Zoo
+    from AgentZoo import AgentD3QN, AgentModSAC, AgentPPO
 
     '''DEMO 1: Standard gym env CartPole-v0 (discrete action) using D3QN (DuelingDoubleDQN, off-policy)'''
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
@@ -1807,7 +2056,7 @@ def train__demo():
     env = gym.make('CartPole-v0')
     env = decorate_env(env, if_print=True)
 
-    args = Arguments(rl_agent=Zoo.AgentD3QN, env=env, gpu_id=0)
+    args = Arguments(rl_agent=AgentD3QN, env=env, gpu_id=0)
     args.break_step = int(1e5 * 8)  # UsedTime: 60s (reach target_reward 195)
     args.net_dim = 2 ** 7
     args.init_for_training()
@@ -1820,7 +2069,7 @@ def train__demo():
     env = gym.make('LunarLanderContinuous-v2')
     env = decorate_env(env, if_print=True)
 
-    args = Arguments(rl_agent=Zoo.AgentModSAC, env=env, gpu_id=0)
+    args = Arguments(rl_agent=AgentModSAC, env=env, gpu_id=0)
     args.break_step = int(6e4 * 8)  # UsedTime: 900s (reach target_reward 200)
     args.net_dim = 2 ** 7
     args.init_for_training()
@@ -1828,9 +2077,9 @@ def train__demo():
     exit()
 
     '''DEMO 3: Custom env FinanceStock (continuous action) using PPO (PPO2+GAE, on-policy)'''
-    env = FinanceStock()
+    env = FinanceSingleStockEnv()
 
-    args = Arguments(rl_agent=Zoo.AgentPPO, env=env, gpu_id=0)
+    args = Arguments(rl_agent=AgentPPO, env=env, gpu_id=0)
     args.break_step = 2 ** 18  # UsedTime: 60s
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 12
@@ -1841,7 +2090,7 @@ def train__demo():
     exit()
 
 
-def train__off_policy():
+def train__continuous_action__off_policy():
     import AgentZoo as Zoo
     args = Arguments(rl_agent=None, env=None, gpu_id=None)
     args.rl_agent = [
@@ -1931,7 +2180,7 @@ def train__off_policy():
     exit()
 
 
-def train__on_policy():
+def train__continuous_action__on_policy():
     import AgentZoo as Zoo
     args = Arguments(rl_agent=None, env=None, gpu_id=None)
     args.rl_agent = [
@@ -2033,7 +2282,7 @@ def train__discrete_action():
     exit()
 
 
-def train__car_racing():
+def train__pixel_level_state2d__car_racing():
     import AgentZoo as Zoo
 
     '''DEMO 4: Fix gym Box2D env CarRacing-v0 (pixel-level 2D-state, continuous action) using PPO'''
@@ -2046,9 +2295,10 @@ def train__car_racing():
     args.if_break_early = True
     args.eval_times2 = 1
     args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
+    args.rollout_workers_num = 4
 
-    args.break_step = int(5e5 * 4)  # (2e5) 5e5, used time 25000s
-    args.reward_scale = 2 ** -2  # (-1) 50 ~ 900 (1001)
+    args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5, used time (7,000s) 10ks 30ks (60ks)
+    args.reward_scale = 2 ** -2  # (-1) 50 ~ 700 ~ 900 (1001)
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 7
     args.repeat_times = 2 ** 4
@@ -2058,6 +2308,42 @@ def train__car_racing():
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
+
+
+def run__fin_rl():
+    env = FinanceMultiStockEnv()  # 2020-12-24
+
+    from AgentZoo import AgentPPO
+
+    args = Arguments(rl_agent=AgentPPO, env=env)
+    args.eval_times1 = 1
+    args.eval_times2 = 1
+    args.rollout_workers_num = 4
+    args.if_break_early = False
+
+    args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
+    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
+    args.net_dim = 2 ** 8
+    args.max_step = 1699
+    args.max_memo = 1699 * 16
+    args.batch_size = 2 ** 10
+    args.repeat_times = 2 ** 4
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    # from AgentZoo import AgentModSAC
+    #
+    # args = Arguments(rl_agent=AgentModSAC, env=env)  # much slower than on-policy trajectory
+    # args.eval_times1 = 1
+    # args.eval_times2 = 2
+    #
+    # args.break_step = 2 ** 22  # UsedTime:
+    # args.net_dim = 2 ** 7
+    # args.max_memo = 2 ** 18
+    # args.batch_size = 2 ** 8
+    # args.init_for_training()
+    # train_agent_mp(args)  # train_agent(args)
 
 
 if __name__ == '__main__':
