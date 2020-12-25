@@ -4,6 +4,8 @@ import torch.nn as nn  # import torch.nn.functional as F
 
 """ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
 Issay, Easy Essay, EAsy esSAY 谐音: 意识
+
+plan to torch.nn.DataParallel(net_block)
 """
 
 '''Actor Critic'''
