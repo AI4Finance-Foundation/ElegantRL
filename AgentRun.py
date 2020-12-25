@@ -2295,7 +2295,7 @@ def train__pixel_level_state2d__car_racing():
     args.if_break_early = True
     args.eval_times2 = 1
     args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
-    args.rollout_workers_num = 4
+    args.rollout_workers_num = 6
 
     args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5, used time (7,000s) 10ks 30ks (60ks)
     args.reward_scale = 2 ** -2  # (-1) 50 ~ 700 ~ 900 (1001)
