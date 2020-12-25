@@ -2060,8 +2060,8 @@ def train__demo():
     args.break_step = int(1e5 * 8)  # UsedTime: 60s (reach target_reward 195)
     args.net_dim = 2 ** 7
     args.init_for_training()
-    train_agent(args)  # use single-processing, more easy to find the error for custom environment.
-    # train_agent_mp(args)  # use multi-processing to speed up training
+    train_agent(args)  # training using single-processing, easier to find the error on your custom environment.
+    # train_agent_mp(args)  # training using multi-processing to speed up training
     exit()
 
     '''DEMO 2: Standard gym env LunarLanderContinuous-v2 (continuous action) using ModSAC (Modify SAC, off-policy)'''
