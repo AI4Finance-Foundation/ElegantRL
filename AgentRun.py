@@ -2300,8 +2300,8 @@ def train__pixel_level_state2d__car_racing():
     args.random_seed += 1943
 
     args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5 (8e5) used time (7,000s) 10ks 30ks (60ks)
-    # sometimes unluckily, it reach 300 score in 5e5 steps and don't increase.
-    # You can change the random seed and retrain.
+    # Sometimes bad luck (5%), it reach 300 score in 5e5 steps and don't increase.
+    # You just need to change the random seed and retrain.
     args.reward_scale = 2 ** -2  # (-1) 50 ~ 700 ~ 900 (1001)
     args.max_memo = 2 ** 11
     args.batch_size = 2 ** 7
