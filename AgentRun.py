@@ -6,11 +6,11 @@ import torch
 import numpy as np
 import numpy.random as rd
 
-"""ZenYiYan GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenYiYan, GitHub: YonV1943 ElegantRL (Pytorch 3 files model-free DRL Library)
 I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
 They feel more like a Cerebellum (Little Brain) for Machines.
 In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
-Actually, they "learn game feel" or "get a soft touch". In Chinese "shou3 gan3 手感". 
+Actually, they "learn game feel" or "get a soft touch". In Chinese "shǒu gǎn 手感". 
 Learn more about policy gradient algorithms in:
 https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 """
@@ -334,7 +334,7 @@ def _mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
     # agent.device = torch.device('cpu')  # env_cpu--act_cpu a little faster than env_cpu--act_gpu, but high cpu-util
 
     '''build replay buffer, init: total_step, reward_avg'''
-    act, exp_step = q_i_exp.get()  # q_i_exp 1.  # todo plan to make it elegant: max_memo, max_step, exp_step
+    act, exp_step = q_i_exp.get()  # q_i_exp 1.  # plan to make it elegant: max_memo, max_step, exp_step
 
     if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
         buffer = BufferArray(exp_step * 2, state_dim, action_dim, if_ppo=True)
@@ -1002,200 +1002,6 @@ def render__car_racing():
 """Extension: Finance RL: Github AI4Finance-LLC"""
 
 
-class FinanceSingleStockEnv:  # adjust state, inner df_pandas, beta3 pass
-    """FinRL
-    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
-           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
-    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
-    Modify: Github Yonv1943 ElegantRL
-    """
-
-    """ Update Log 2020-12-12 by Github Yonv1943
-    change download_preprocess_data: If the data had been downloaded, then don't download again
-
-    # env 
-    move reward_memory out of Env
-    move plt.savefig('account_value.png') out of Env
-    cancel SingleStockEnv(gym.Env): There is not need to use OpenAI's gym
-    change pandas to numpy
-    fix bug in comment: ('open', 'high', 'low', 'close', 'adjcp', 'volume', 'macd'), lack 'macd' before
-    change slow 'state'
-    change repeat compute 'begin_total_asset', 'end_total_asset'
-    cancel self.asset_memory
-    cancel self.cost
-    cancel self.trade
-    merge '_sell_stock' and '_bug_stock' to _sell_or_but_stock
-    adjust order of state 
-    reserved expansion interface on self.stock self.stocks
-
-    # compatibility
-    move global variable into Env.__init__()
-    cancel matplotlib.use('Agg'): It will cause compatibility issues for ssh connection
-    """
-
-    def __init__(self, initial_account=100000, transaction_fee_percent=0.001, max_stock=200):
-        self.stock_dim = 1
-        self.initial_account = initial_account
-        self.transaction_fee_percent = transaction_fee_percent
-        self.max_stock = max_stock
-        self.state_div_std = np.array((2 ** -14, 2 ** -4, 2 ** 0, 2 ** -11))
-
-        self.ary = self.download_data_as_csv__load_as_array()
-        assert self.ary.shape == (2517, 9)  # ary: (date, item)
-        self.ary = self.ary[1:, 2:].astype(np.float32)
-        assert self.ary.shape == (2516, 7)  # ary: (date, item), item: (open, high, low, close, adjcp, volume, macd)
-        self.ary = np.concatenate((
-            self.ary[:, 4:5],  # adjcp? What is this? unit price?
-            self.ary[:, 6:7],  # macd? What is this?
-        ), axis=1)
-        self.max_day = self.ary.shape[0] - 1
-
-        # reset
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32) # multi-stack
-        self.stock = 0
-        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
-
-        '''env information'''
-        self.env_name = 'FinanceStock-v0'
-        self.state_dim = 1 + 2 + self.stock_dim
-        self.action_dim = self.stock_dim
-        self.if_discrete = False
-        self.target_reward = 800
-
-    def reset(self):
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
-        self.stock = 0
-        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
-        # state = np.hstack((self.account, self.day_npy, self.stocks)
-        #                   ).astype(np.float32) * self.state_div_std
-        state = np.hstack((self.account, self.day_npy, self.stock)
-                          ).astype(np.float32) * self.state_div_std
-        return state
-
-    def step(self, actions):
-        actions = actions * self.max_stock
-
-        """bug or sell stock"""
-        index = 0
-        action = actions[index]
-        adj = self.day_npy[index]
-        if action > 0:  # buy_stock
-            available_amount = self.account // adj
-            delta_stock = min(available_amount, action)
-            self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
-            # self.stocks[index] += delta_stock
-            self.stock += delta_stock
-        # elif self.stocks[index] > 0:  # sell_stock
-        #     delta_stock = min(-action, self.stocks[index])
-        #     self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
-        #     self.stocks[index] -= delta_stock
-        elif self.stock > 0:  # sell_stock
-            delta_stock = min(-action, self.stock)
-            self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
-            self.stock -= delta_stock
-
-        """update day"""
-        self.day += 1
-        # self.data = self.df.loc[self.day, :]
-        self.day_npy = self.ary[self.day]
-
-        # state = np.hstack((self.account, self.day_npy, self.stocks)
-        #                   ).astype(np.float32) * self.state_div_std
-        state = np.hstack((self.account, self.day_npy, self.stock)
-                          ).astype(np.float32) * self.state_div_std
-
-        # end_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        end_total_asset = self.account + self.day_npy[0] * self.stock
-        reward = end_total_asset - self.begin_total_asset
-        self.begin_total_asset = end_total_asset
-
-        done = self.day == self.max_day  # 2516 is over
-        return state, reward * 2 ** -10, done, None
-
-    @staticmethod
-    def download_data_as_csv__load_as_array(if_load=True):
-        save_path = './Result/AAPL_2009_2020.csv'
-
-        import os
-        if if_load and os.path.isfile(save_path):
-            ary = np.genfromtxt(save_path, delimiter=',')
-            assert isinstance(ary, np.ndarray)
-            return ary
-        else:
-            raise RuntimeError(
-                f'| FinanceSingleStockEnv(): Can you download and put it into: {save_path}\n'
-                f'| https://github.com/Yonv1943/ElegantRL/blob/master/Result/AAPL_2009_2020.csv'
-                f'| Or you can use the following code to generate it from a csv file.'
-            )
-        #
-        # import yfinance as yf
-        # from stockstats import StockDataFrame as Sdf
-        # """ pip install
-        # !pip install yfinance
-        # !pip install pandas
-        # !pip install matplotlib
-        # !pip install stockstats
-        # """
-        #
-        # """# Part 1: Download Data
-        # Yahoo Finance is a website that provides stock data, financial news, financial reports, etc.
-        # All the data provided by Yahoo Finance is free.
-        # """
-        # print('| download_preprocess_data_as_csv: Download Data')
-        #
-        # data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
-        # assert data_pd.shape == (2974, 6)
-        #
-        # data_pd = data_pd.reset_index()
-        #
-        # data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
-        #
-        # """# Part 2: Preprocess Data
-        # Data preprocessing is a crucial step for training a high quality machine learning model.
-        # We need to check for missing data and do feature engineering
-        # in order to convert the data into a model-ready state.
-        # """
-        # print('| download_preprocess_data_as_csv: Preprocess Data')
-        #
-        # # check missing data
-        # data_pd.isnull().values.any()
-        #
-        # # calculate technical indicators like MACD
-        # stock = Sdf.retype(data_pd.copy())
-        # # we need to use adjusted close price instead of close price
-        # stock['close'] = stock['adjcp']
-        # data_pd['macd'] = stock['macd']
-        #
-        # # check missing data again
-        # data_pd.isnull().values.any()
-        # data_pd.head()
-        # # data_pd=data_pd.fillna(method='bfill')
-        #
-        # # Note that I always use a copy of the original data to try it track step by step.
-        # data_clean = data_pd.copy()
-        # data_clean.head()
-        # data_clean.tail()
-        #
-        # data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
-        # data = data.reset_index(drop=True)  # the index needs to start from 0
-        #
-        # data.to_csv(save_path)  # save *.csv
-        # # assert isinstance(data_pd, pd.DataFrame)
-        #
-        # df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
-        # df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
-        # ary = df_pandas.to_numpy()
-        # return ary
-
-
 class FinanceMultiStockEnv:  # 2020-12-24
     """FinRL
     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
@@ -1295,7 +1101,7 @@ class FinanceMultiStockEnv:  # 2020-12-24
     def load_training_data_for_multi_stock(if_load=True):  # need more independent
         npy_path = './Result/FinanceMultiStock.npy'
         if if_load and os.path.exists(npy_path):
-            data_ary = np.load(npy_path)
+            data_ary = np.load(npy_path).astype(np.float32)
             assert data_ary.shape[1] == 5 * 30
             return data_ary
         else:
@@ -2078,17 +1884,37 @@ def train__demo():
     exit()
 
     '''DEMO 3: Custom env FinanceStock (continuous action) using PPO (PPO2+GAE, on-policy)'''
-    env = FinanceSingleStockEnv()
+    env = FinanceMultiStockEnv()  # 2020-12-24
 
-    args = Arguments(rl_agent=AgentPPO, env=env, gpu_id=0)
-    args.break_step = 2 ** 18  # UsedTime: 60s
+    from AgentZoo import AgentPPO
+    args = Arguments(rl_agent=AgentPPO, env=env)
+    args.eval_times1 = 1
+    args.eval_times2 = 1
+    args.rollout_workers_num = 4
+    args.if_break_early = True
+
+    args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
+    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
     args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3
+    args.max_step = 1699
+    args.max_memo = 1699 * 16
+    args.batch_size = 2 ** 10
+    args.repeat_times = 2 ** 4
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
+
+    # from AgentZoo import AgentModSAC
+    # args = Arguments(rl_agent=AgentModSAC, env=env)  # much slower than on-policy trajectory
+    # args.eval_times1 = 1
+    # args.eval_times2 = 2
+    #
+    # args.break_step = 2 ** 22  # UsedTime:
+    # args.net_dim = 2 ** 7
+    # args.max_memo = 2 ** 18
+    # args.batch_size = 2 ** 8
+    # args.init_for_training()
+    # train_agent_mp(args)  # train_agent(args)
 
 
 def train__continuous_action__off_policy():
@@ -2283,7 +2109,7 @@ def train__discrete_action():
     exit()
 
 
-def train__pixel_level_state2d__car_racing():
+def train__car_racing__pixel_level_state2d():
     from AgentZoo import AgentPPO
 
     '''DEMO 4: Fix gym Box2D env CarRacing-v0 (pixel-level 2D-state, continuous action) using PPO'''
@@ -2296,7 +2122,7 @@ def train__pixel_level_state2d__car_racing():
     args.if_break_early = True
     args.eval_times2 = 1
     args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
-    args.rollout_workers_num = 4  # 8, 1e5, 1360
+    args.rollout_workers_num = 4  # (num, step, time) (8, 1e5, 1360) (4, 1e4, 1860)
     args.random_seed += 1943
 
     args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5 (8e5) used time (7,000s) 10ks 30ks (60ks)

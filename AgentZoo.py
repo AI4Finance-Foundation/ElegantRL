@@ -11,7 +11,7 @@ from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import InterDPG, InterSPG, InterPPO  # parameter sharing
 
-"""ZenYiYan GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenYiYan, GitHub: YonV1943 ElegantRL (Pytorch 3 files model-free DRL Library)
 reference
 TD3 https://github.com/sfujim/TD3 good++
 TD3 https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
