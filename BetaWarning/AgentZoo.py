@@ -11,7 +11,7 @@ from AgentNet import ActorSAC, CriticTwinShared  # SAC
 from AgentNet import ActorPPO, CriticAdv  # PPO
 from AgentNet import InterDPG, InterSPG, InterPPO  # parameter sharing
 
-"""ZenYiYan GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
+"""ZenYiYan, GitHub: YonV1943 ElegantRL (Pytorch 3 files model-free DRL Library)
 reference
 TD3 https://github.com/sfujim/TD3 good++
 TD3 https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
@@ -66,7 +66,7 @@ class AgentDDPG:  # DEMO (tutorial only, simplify, low effective)
         2. experiment replay buffer for stabilizing training
         3. soft target update for stabilizing training
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         critic_obj = actor_obj = None  # just for print return
         for _ in range(int(max_step * repeat_times)):
@@ -179,7 +179,7 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
 
             self.state = next_state
             if done:
-                # Compatibility for ElegantRL 2020-12-21 todo
+                # Compatibility for ElegantRL 2020-12-21
                 episode_return = env.episode_return if hasattr(env, 'episode_return') else self.reward_sum
                 rewards.append(episode_return)
                 self.reward_sum = 0.0
@@ -191,7 +191,7 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
         return rewards, steps
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         q_label = None  # just for print return
 
@@ -297,7 +297,7 @@ class AgentTD3(AgentBaseAC):
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
         3. delay update (I think it is not very useful)
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         critic_obj = actor_obj = None
         for i in range(int(max_step * repeat_times)):
@@ -360,9 +360,9 @@ class AgentSAC(AgentBaseAC):
         self.step = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha = self.log_alpha.exp()
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.alpha_log = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha = self.alpha_log.exp()
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         self.target_entropy = np.log(action_dim)
 
     def select_action(self, state):
@@ -376,7 +376,7 @@ class AgentSAC(AgentBaseAC):
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
         3. SAC use TD3's TwinCritics too
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         log_prob = critic_obj = None  # just for print return
 
@@ -401,13 +401,13 @@ class AgentSAC(AgentBaseAC):
             """actor_obj"""
             action_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
             # auto alpha
-            alpha_loss = (self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            alpha_loss = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
 
             # policy gradient
-            self.alpha = self.log_alpha.exp()
+            self.alpha = self.alpha_log.exp()
             q_eval_pg = self.cri(state, action_pg)  # policy gradient
             actor_obj = -(q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
 
@@ -451,7 +451,8 @@ class AgentModSAC(AgentBaseAC):
 
         '''extension: auto-alpha for maximum entropy'''
         self.target_entropy = np.log(action_dim)
-        self.alpha_log = torch.tensor((-self.target_entropy * np.e,), requires_grad=True, device=self.device)
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True, device=self.device)
+        # todo ? or -1
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         '''extension: reliable lambda for auto-learning-rate'''
         self.avg_loss_c = (-np.log(0.5)) ** 0.5
@@ -468,7 +469,7 @@ class AgentModSAC(AgentBaseAC):
         3. Auto-TTUR updates parameter in non-integer times.
         4. net_dim of critic is slightly larger than actor.
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         log_prob = None  # just for print return
         alpha = self.alpha_log.exp().detach()
@@ -508,7 +509,7 @@ class AgentModSAC(AgentBaseAC):
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.alpha_log[:] = self.alpha_log.clamp(-16, 1)
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)  # todo (-16, 1)
             alpha = self.alpha_log.exp().detach()
 
             """actor_obj"""
@@ -525,6 +526,7 @@ class AgentModSAC(AgentBaseAC):
 
                 _soft_target_update(self.act_target, self.act)
 
+        # print(f'| alpha_log: {self.alpha_log.item():.3e}')
         return log_prob.mean().item(), self.avg_loss_c
 
 
@@ -572,7 +574,7 @@ class AgentInterAC(AgentBaseAC):  # warning: sth. wrong
 
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         actor_obj = None  # just for print return
 
@@ -671,7 +673,7 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
         3. Auto-TTUR updates parameter in non-integer times.
         4. Different learning rate is better than actor_term in parameter-sharing network training.
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         log_prob = None  # just for print return
         alpha = self.alpha_log.exp().detach()  # auto temperature parameter
@@ -779,7 +781,7 @@ class AgentPPO:
 
                 state = next_state
 
-            # Compatibility for ElegantRL 2020-12-21 todo
+            # Compatibility for ElegantRL 2020-12-21
             episode_return = env.episode_return if hasattr(env, 'episode_return') else reward_sum
             rewards.append(episode_return)
             steps.append(step_sum)
@@ -793,7 +795,7 @@ class AgentPPO:
         2. use the advantage function of A3C (Asynchronous Advantage Actor-Critic)
         3. add GAE. ICLR 2016. Generalization Advantage Estimate and use trajectory to calculate Q value
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
@@ -933,7 +935,7 @@ class AgentInterPPO(AgentPPO):
         self.avg_loss_c = (-np.log(0.5)) ** 0.5
 
     def update_policy(self, buffer, _max_step, batch_size, repeat_times):
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
@@ -1015,7 +1017,7 @@ class AgentInterPPO(AgentPPO):
             united_loss.backward()
             self.act_optimizer.step()
 
-        buffer.empty_memories_before_explore()
+        buffer.empty_memories__before_explore()
         return self.act.a_std_log.mean().item(), self.avg_loss_c
 
 
@@ -1059,7 +1061,7 @@ class AgentDQN(AgentBaseAC):  # 2020-06-06
         2. Use experiment replay buffer to train a neural network in RL
         3. Use soft target update to stablize training in RL
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         critic_obj = None
 
@@ -1124,7 +1126,7 @@ class AgentDoubleDQN(AgentBaseAC):  # 2020-06-06 # I'm not sure.
         """Contribution of DDQN (Double DQN)
         1. Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         q_label = critic_obj = None
 
@@ -1185,7 +1187,7 @@ class AgentDuelingDQN(AgentDoubleDQN):  # 2020-11-11
         """Contribution of Dueling DQN
         1. Advantage function (of A2C) --> Dueling Q value = val_q + adv_q - adv_q.mean()
         """
-        buffer.update_pointer_before_sample()
+        buffer.update__now_len__before_sample()
 
         q_label = critic_obj = None
 

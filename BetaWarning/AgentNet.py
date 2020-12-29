@@ -2,8 +2,9 @@ import numpy as np  # import numpy.random as rd
 import torch
 import torch.nn as nn  # import torch.nn.functional as F
 
-"""ZenJiaHao, GitHub: YonV1943 ElegantRL (Pytorch model-free DRL)
-Issay, Easy Essay, EAsy esSAY 谐音: 意识
+"""ZenYiYan, GitHub: YonV1943 ElegantRL (Pytorch 3 files model-free DRL Library)
+Issay, Easy Essay, 谐音: 意识
+plan to MultiGPU: torch.nn.DataParallel(net_block)
 """
 
 '''Actor Critic'''
@@ -42,7 +43,7 @@ class ActorPPO(nn.Module):
         super().__init__()
 
         def idx_dim(i):
-            return int(8 * 1.5 ** i)
+            return int(16 * 1.5 ** i)
 
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -255,7 +256,7 @@ class CriticAdv(nn.Module):  # 2020-05-05 fix bug
         super().__init__()
 
         def idx_dim(i):
-            return int(8 * 1.5 ** i)
+            return int(16 * 1.5 ** i)
 
         self.net = nn.Sequential(
             nn.Linear(state_dim, mid_dim), nn.ReLU(),

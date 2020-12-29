@@ -1,569 +1,217 @@
 import numpy as np
 import numpy.random as rd
+# import matplotlib.pyplot as plt
+from beta0 import *
 
 
-class SingleStockFinEnv:  # adjust state, inner df_pandas, beta3 pass
-    """FinRL
-    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
-           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
-    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
-    Modify: Github Yonv1943 ElegantRL
-    """
+class BeamFormerEnv:  # 2020-12-24
+    def __init__(self, antennas_num=8, user_num=4,
+                 max_power=1., noise_h_std=1., noise_y_std=1.):
+        """Down-link Multi-user MIMO beam-forming"""
+        self.n = antennas_num
+        self.k = user_num
+        self.max_power = max_power  # P, max power of Base Station
+        self.h_std = 1  # I, std of channel
+        self.noise_h_std = noise_h_std  # gamma, std of observed channel noise
+        self.noise_y_std = noise_y_std  # sigma, std of received channel noise
 
-    """ Update Log 2020-12-12 by Github Yonv1943
-    change download_preprocess_data: If the data had been downloaded, then don't download again
+        self.func_inv = np.linalg.inv
+        self.h_k = None
 
-    # env 
-    move reward_memory out of Env
-    move plt.savefig('account_value.png') out of Env
-    cancel SingleStockEnv(gym.Env): There is not need to use OpenAI's gym
-    change pandas to numpy
-    fix bug in comment: ('open', 'high', 'low', 'close', 'adjcp', 'volume', 'macd'), lack 'macd' before
-    change slow 'state'
-    change repeat compute 'begin_total_asset', 'end_total_asset'
-    cancel self.asset_memory
-    cancel self.cost
-    cancel self.trade
-    merge '_sell_stock' and '_bug_stock' to _sell_or_but_stock
-    adjust order of state 
-    reserved expansion interface on self.stock self.stocks
+        self.gamma_r = None
+        self.now_step = None
+        self.episode_return = None
 
-    # compatibility
-    move global variable into Env.__init__()
-    cancel matplotlib.use('Agg'): It will cause compatibility issues for ssh connection
-    """
+        '''env information'''
+        self.env_name = 'BeamFormerEnv-v0'
+        self.state_dim = self.k * self.n
+        self.action_dim = self.k * self.n
+        self.if_discrete = False
+        self.target_reward = 1024
+        self.max_step = 2 ** 10
 
-    def __init__(self, initial_account=100000, transaction_fee_percent=0.001, max_stock=200):
-        # state_dim, action_dim = 4, 1
-
-        self.stock_dim = 1
-        self.initial_account = initial_account
-        self.transaction_fee_percent = transaction_fee_percent
-        self.max_stock = max_stock
-        self.state_div_std = np.array((2 ** -14, 2 ** -4, 2 ** 0, 2 ** -11))
-
-        self.ary = self.download_data_as_csv__load_as_array()
-        assert self.ary.shape == (2517, 9)  # ary: (date, item)
-        self.ary = self.ary[1:, 2:].astype(np.float32)
-        assert self.ary.shape == (2516, 7)  # ary: (date, item), item: (open, high, low, close, adjcp, volume, macd)
-        self.ary = np.concatenate((
-            self.ary[:, 4:5],  # adjcp? What is this? unit price?
-            self.ary[:, 6:7],  # macd? What is this?
-        ), axis=1)
-        self.max_day = self.ary.shape[0] - 1
-
-        # reset
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32) # multi-stack
-        self.stock = 0
-        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
+        self.r_offset = self.get__r_offset()  # behind '''env information'''
+        # print(f"| BeamFormerEnv()    self.r_offset: {self.r_offset:.3f}")
 
     def reset(self):
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
-        self.stock = 0
-        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
-        # state = np.hstack((self.account, self.day_npy, self.stocks)
-        #                   ).astype(np.float32) * self.state_div_std
-        state = np.hstack((self.account, self.day_npy, self.stock)
-                          ).astype(np.float32) * self.state_div_std
-        return state
-
-    def step(self, actions):
-        actions = actions * self.max_stock
-
-        """bug or sell stock"""
-        index = 0
-        action = actions[index]
-        adj = self.day_npy[index]
-        if action > 0:  # buy_stock
-            available_amount = self.account // adj
-            delta_stock = min(available_amount, action)
-            self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
-            # self.stocks[index] += delta_stock
-            self.stock += delta_stock
-        # elif self.stocks[index] > 0:  # sell_stock
-        #     delta_stock = min(-action, self.stocks[index])
-        #     self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
-        #     self.stocks[index] -= delta_stock
-        elif self.stock > 0:  # sell_stock
-            delta_stock = min(-action, self.stock)
-            self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
-            self.stock -= delta_stock
-
-        """update day"""
-        self.day += 1
-        # self.data = self.df.loc[self.day, :]
-        self.day_npy = self.ary[self.day]
-
-        # state = np.hstack((self.account, self.day_npy, self.stocks)
-        #                   ).astype(np.float32) * self.state_div_std
-        state = np.hstack((self.account, self.day_npy, self.stock)
-                          ).astype(np.float32) * self.state_div_std
-
-        # end_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        end_total_asset = self.account + self.day_npy[0] * self.stock
-        reward = end_total_asset - self.begin_total_asset
-        self.begin_total_asset = end_total_asset
-
-        done = self.day == self.max_day  # 2516 is over
-        return state, reward * 2 ** -10, done, None
-
-    @staticmethod
-    def download_data_as_csv__load_as_array(if_load=True):
-        save_path = './AAPL_2009_2020.csv'
-
-        import os
-        if if_load and os.path.isfile(save_path):
-            ary = np.genfromtxt(save_path, delimiter=',')
-            assert isinstance(ary, np.ndarray)
-            return ary
-
-        import yfinance as yf
-        from stockstats import StockDataFrame as Sdf
-        """ pip install
-        !pip install yfinance
-        !pip install pandas
-        !pip install matplotlib
-        !pip install stockstats
-        """
-
-        """# Part 1: Download Data
-        Yahoo Finance is a website that provides stock data, financial news, financial reports, etc. 
-        All the data provided by Yahoo Finance is free.
-        """
-        print('| download_preprocess_data_as_csv: Download Data')
-
-        data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
-        assert data_pd.shape == (2974, 6)
-
-        data_pd = data_pd.reset_index()
-
-        data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
-
-        """# Part 2: Preprocess Data
-        Data preprocessing is a crucial step for training a high quality machine learning model. 
-        We need to check for missing data and do feature engineering 
-        in order to convert the data into a model-ready state.
-        """
-        print('| download_preprocess_data_as_csv: Preprocess Data')
-
-        # check missing data
-        data_pd.isnull().values.any()
-
-        # calculate technical indicators like MACD
-        stock = Sdf.retype(data_pd.copy())
-        # we need to use adjusted close price instead of close price
-        stock['close'] = stock['adjcp']
-        data_pd['macd'] = stock['macd']
-
-        # check missing data again
-        data_pd.isnull().values.any()
-        data_pd.head()
-        # data_pd=data_pd.fillna(method='bfill')
-
-        # Note that I always use a copy of the original data to try it track step by step.
-        data_clean = data_pd.copy()
-        data_clean.head()
-        data_clean.tail()
-
-        data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
-        data = data.reset_index(drop=True)  # the index needs to start from 0
-
-        data.to_csv(save_path)  # save *.csv
-        # assert isinstance(data_pd, pd.DataFrame)
-
-        df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
-        df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
-        ary = df_pandas.to_numpy()
-        return ary
-
-
-def original_download_pandas_data():
-    import yfinance as yf
-    from stockstats import StockDataFrame as Sdf
-
-    # Download and save the data in a pandas DataFrame:
-    data_df = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
-
-    data_df.shape
-
-    # reset the index, we want to use numbers instead of dates
-    data_df = data_df.reset_index()
-
-    data_df.head()
-
-    data_df.columns
-
-    # convert the column names to standardized names
-    data_df.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
-
-    # save the data to a csv file in your current folder
-    # data_df.to_csv('AAPL_2009_2020.csv')
-
-    """# Part 2: Preprocess Data
-    Data preprocessing is a crucial step for training a high quality machine learning model. We need to check for missing data and do feature engineering in order to convert the data into a model-ready state.
-    """
-
-    # check missing data
-    data_df.isnull().values.any()
-
-    # calculate technical indicators like MACD
-    stock = Sdf.retype(data_df.copy())
-    # we need to use adjusted close price instead of close price
-    stock['close'] = stock['adjcp']
-    data_df['macd'] = stock['macd']
-
-    # check missing data again
-    data_df.isnull().values.any()
-
-    data_df.head()
-
-    # data_df=data_df.fillna(method='bfill')
-
-    # Note that I always use a copy of the original data to try it track step by step.
-    data_clean = data_df.copy()
-
-    data_clean.head()
-
-    data_clean.tail()
-    return data_clean
-
-
-import gym
-
-
-class SingleStockFinEnvForStableBaseLines(gym.Env):  # adjust state, inner df_pandas, beta3 pass
-    """FinRL
-    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
-           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
-    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
-    Modify: Github Yonv1943 ElegantRL
-    """
-
-    """ Update Log 2020-12-12 by Github Yonv1943
-    change download_preprocess_data: If the data had been downloaded, then don't download again
-
-    # env 
-    move reward_memory out of Env
-    move plt.savefig('account_value.png') out of Env
-    cancel SingleStockEnv(gym.Env): There is not need to use OpenAI's gym
-    change pandas to numpy
-    fix bug in comment: ('open', 'high', 'low', 'close', 'adjcp', 'volume', 'macd'), lack 'macd' before
-    change slow 'state'
-    change repeat compute 'begin_total_asset', 'end_total_asset'
-    cancel self.asset_memory
-    cancel self.cost
-    cancel self.trade
-    merge '_sell_stock' and '_bug_stock' to _sell_or_but_stock
-    adjust order of state 
-    reserved expansion interface on self.stock self.stocks
-
-    # compatibility
-    move global variable into Env.__init__()
-    cancel matplotlib.use('Agg'): It will cause compatibility issues for ssh connection
-    """
-    """A stock trading environment for OpenAI gym"""
-    metadata = {'render.modes': ['human']}
-
-    def __init__(self, initial_account=100000, transaction_fee_rate=0.001, max_stock=200):
-        self.stock_dim = 1
-
-        # not necessary
-        self.observation_space = gym.spaces.Box(low=0, high=2 ** 24, shape=(4,))
-        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(self.stock_dim,))
-
-        self.initial_account = initial_account
-        self.transaction_fee_rate = transaction_fee_rate
-        self.max_stock = max_stock
-        self.state_div_std = np.array((2 ** -14, 2 ** -4, 2 ** 0, 2 ** -11))
-
-        self.ary = self.download_data_as_csv__load_as_array()
-        assert self.ary.shape == (2517, 9)  # ary: (date, item)
-        self.ary = self.ary[1:, 2:].astype(np.float32)
-        assert self.ary.shape == (2516, 7)  # ary: (date, item), item: (open, high, low, close, adjcp, volume, macd)
-        self.ary = np.concatenate((
-            self.ary[:, 4:5],  # adjcp? What is this? unit price?
-            self.ary[:, 6:7],  # macd? What is this?
-        ), axis=1)
-        self.max_day = self.ary.shape[0] - 1
-
-        # reset
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32) # multi-stack
-        self.stock = 0
-        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
-
-        self.step_sum = 0  # todo
-        self.reward_sum = 0.0  # todo
-
-    def reset(self):
-        self.reward_sum = 0.0  # todo
-
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        # self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
-        self.stock = 0
-        # self.begin_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.begin_total_asset = self.account + self.day_npy[0] * self.stock
-        # state = np.hstack((self.account, self.day_npy, self.stocks)
-        #                   ).astype(np.float32) * self.state_div_std
-        state = np.hstack((self.account, self.day_npy, self.stock)
-                          ).astype(np.float32) * self.state_div_std
-        return state
-
-    def step(self, actions):
-        actions = actions * self.max_stock
-
-        """bug or sell stock"""
-        index = 0
-        action = actions[index]
-        adj = self.day_npy[index]
-        if action > 0:  # buy_stock
-            available_amount = self.account // adj
-            delta_stock = min(available_amount, action)
-            self.account -= adj * delta_stock * (1 + self.transaction_fee_rate)
-            # self.stocks[index] += delta_stock
-            self.stock += delta_stock
-        # elif self.stocks[index] > 0:  # sell_stock
-        #     delta_stock = min(-action, self.stocks[index])
-        #     self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
-        #     self.stocks[index] -= delta_stock
-        elif self.stock > 0:  # sell_stock
-            delta_stock = min(-action, self.stock)
-            self.account += adj * delta_stock * (1 - self.transaction_fee_rate)
-            self.stock -= delta_stock
-
-        """update day"""
-        self.day += 1
-        # self.data = self.df.loc[self.day, :]
-        self.day_npy = self.ary[self.day]
-
-        # state = np.hstack((self.account, self.day_npy, self.stocks)
-        #                   ).astype(np.float32) * self.state_div_std
-        state = np.hstack((self.account, self.day_npy, self.stock)
-                          ).astype(np.float32) * self.state_div_std
-
-        # end_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        end_total_asset = self.account + self.day_npy[0] * self.stock
-        reward = end_total_asset - self.begin_total_asset
-        self.begin_total_asset = end_total_asset
-
-        done = self.day == self.max_day  # 2516 is over
-        reward_ = reward * 2 ** -10
-
-        self.reward_sum += reward * 2 ** -10
-        self.step_sum += 1
-        if done:  # todo
-            print(f'{self.step_sum:8}   {self.reward_sum:8.1f}')
-        return state, reward_, done, {}
-
-    def render(self, mode='human'):
-        pass
-
-    @staticmethod
-    def download_data_as_csv__load_as_array(if_load=True):
-        save_path = './AAPL_2009_2020.csv'
-
-        import os
-        if if_load and os.path.isfile(save_path):
-            ary = np.genfromtxt(save_path, delimiter=',')
-            assert isinstance(ary, np.ndarray)
-            return ary
-        import yfinance as yf
-        from stockstats import StockDataFrame as Sdf
-        """ pip install
-        !pip install yfinance
-        !pip install pandas
-        !pip install matplotlib
-        !pip install stockstats
-        """
-
-        """# Part 1: Download Data
-        Yahoo Finance is a website that provides stock data, financial news, financial reports, etc. 
-        All the data provided by Yahoo Finance is free.
-        """
-        print('| download_preprocess_data_as_csv: Download Data')
-
-        data_pd = yf.download("AAPL", start="2009-01-01", end="2020-10-23")
-        assert data_pd.shape == (2974, 6)
-
-        data_pd = data_pd.reset_index()
-
-        data_pd.columns = ['datadate', 'open', 'high', 'low', 'close', 'adjcp', 'volume']
-
-        """# Part 2: Preprocess Data
-        Data preprocessing is a crucial step for training a high quality machine learning model. 
-        We need to check for missing data and do feature engineering 
-        in order to convert the data into a model-ready state.
-        """
-        print('| download_preprocess_data_as_csv: Preprocess Data')
-
-        # check missing data
-        data_pd.isnull().values.any()
-
-        # calculate technical indicators like MACD
-        stock = Sdf.retype(data_pd.copy())
-        # we need to use adjusted close price instead of close price
-        stock['close'] = stock['adjcp']
-        data_pd['macd'] = stock['macd']
-
-        # check missing data again
-        data_pd.isnull().values.any()
-        data_pd.head()
-        # data_pd=data_pd.fillna(method='bfill')
-
-        # Note that I always use a copy of the original data to try it track step by step.
-        data_clean = data_pd.copy()
-        data_clean.head()
-        data_clean.tail()
-
-        data = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
-        data = data.reset_index(drop=True)  # the index needs to start from 0
-
-        data.to_csv(save_path)  # save *.csv
-        # assert isinstance(data_pd, pd.DataFrame)
-
-        df_pandas = data[(data.datadate >= '2009-01-01') & (data.datadate < '2019-01-01')]
-        df_pandas = df_pandas.reset_index(drop=True)  # the index needs to start from 0
-        ary = df_pandas.to_numpy()
-        return ary
-
-
-def test():
-    env = SingleStockFinEnv()
-    ary = env.download_data_as_csv__load_as_array(if_load=True)  # data_frame_pandas
-    print(ary.shape)
-    ary = env.download_data_as_csv__load_as_array(if_load=True)  # data_frame_pandas
-    print(ary.shape)
-
-    env = SingleStockFinEnv(ary)
-    state_dim, action_dim = 4, 1
-
-    # state = env.reset()
-    # done = False
-    reward_sum = 0
-    for i in range(2514):
-        state, reward, done, info = env.step(rd.uniform(-1, 1, size=action_dim))
-        reward_sum += reward
-        # print(f'{i:5} {done:5} {reward:8.1f}', state)
-    print(';', reward_sum)
-
-    # state = env.reset()
-    # done = False
-    for _ in range(4):
-        state, reward, done, info = env.step(rd.uniform(-1, 1, size=action_dim))
-        print(f'{done:5} {reward:8.1f}', state)
-
-
-# def train__baselines_rl():
-#     from stable_baselines import PPO2, DDPG, A2C, ACKTR, TD3
-#     from stable_baselines import DDPG
-#     from stable_baselines import A2C
-#     from stable_baselines import SAC
-#     from stable_baselines.common.vec_env import DummyVecEnv
-#
-#     data_clean = download_preprocess_data()
-#
-#     train = data_clean[(data_clean.datadate >= '2009-01-01') & (data_clean.datadate < '2019-01-01')]
-#     train = train.reset_index(drop=True)  # the index needs to start from 0
-#     train.head()
-#
-#     env_train = DummyVecEnv([lambda: SingleStockEnv(train)])
-#     model_ppo = PPO2('MlpPolicy', env_train, tensorboard_log="./single_stock_trading_2_tensorboard/")
-#     model_ppo.learn(total_timesteps=100000, tb_log_name="run_aapl_ppo")
-
-def train():
-    from AgentRun import Arguments, train_agent_mp
-    from AgentZoo import AgentPPO, AgentModSAC
-    # args = Arguments(rl_agent=None, env_name=None, gpu_id=None)
-    # args.rl_agent = AgentModSAC
-    # """
-    # | GPU: 0 | CWD: ./AgentModSAC/FinRL_0
-    # ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
-    # 0.0
-    # 0   1.01e+04      1.30 |
-    # 0   1.76e+04    485.86 |  158.33      0.00 |  430.58      0.67      0.07
-    # 0   2.01e+04    916.53 |
-    # ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
-    # 0   2.01e+04    800.00 |  916.53      0.00 |  141.46       322  ########
-    # 0   3.27e+04    976.58 |  589.64      0.00 |  379.84      0.26      0.19
-    # 0   5.78e+04    976.58 |  628.69      0.00 |  517.65     -0.02      0.41
+        self.gamma_r = 0.0
+        self.now_step = 1
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
+
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
+
+        state += rd.randn(self.state_dim) * self.noise_h_std
+        return state.astype(np.float32)
+
+    def step(self, action):
+        w_k = action.reshape((self.k, self.n))
+        r_avg = self.get_sinr_rate(w_k, self.h_k)
+        r = r_avg - self.r_offset
+
+        self.episode_return += r_avg  # Compatibility for ElegantRL 2020-12-21
+
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
+
+        state += rd.randn(self.state_dim) * self.noise_h_std
+
+        done = self.now_step == self.max_step
+        self.gamma_r = self.gamma_r * 0.99 + r
+        self.now_step += 1
+        if done:
+            r += self.gamma_r
+            self.episode_return /= self.max_step
+
+        return state.astype(np.float32), r, done, {}
+
+    def get_random_action(self):
+        w_k = rd.randn(self.k, self.n)
+        return self.action__power_limit(w_k, if_max=True)
+
+    def get_traditional_action(self, _state):  # h_k=state
+        h_k = self.h_k  # self.h_k = state.reshape((self.k, self.n))
+        hh_k = np.dot(h_k.T, h_k)
+        # print(f'| traditional solution: hh_k.shape={hh_k.shape}')
+        a_k = self.h_std ** 2 + hh_k * (self.max_power / (self.k * self.noise_y_std ** 2))
+        # print(f'| traditional solution: a_k.shape={a_k.shape}')
+
+        a_inv = self.func_inv(a_k + np.eye(self.n) * 1e-8)  # avoid ERROR: numpy.linalg.LinAlgError: Singular matrix
+        # print(a_inv.shape, np.allclose(np.dot(a_k, a_inv), np.eye(self.n)))
+        # print(f'| traditional solution: a_inv.shape={a_inv.shape}')
+
+        a_inv__h_k = np.dot(h_k, a_inv)
+        # print(f'| traditional solution: a_inv__h_k.shape={a_inv__h_k.shape}')
+        # action_k = a_inv__h_k * (self.max_p / (self.k * np.abs(a_inv__h_k).sum()))
+        # print(f'| traditional solution: action_k.shape={action_k.shape}')
+        return self.action__power_limit(a_inv__h_k, if_max=True)
+
+    def action__power_limit(self, w_k, if_max=False):  # w_k is action
+        # print(f'| Power of BS: {np.power(w_k, 2).sum():.2f}')
+        power = np.power(w_k, 2).sum() ** 0.5
+        if if_max or power > self.max_power:
+            w_k = w_k / (power / self.max_power ** 0.5)
+
+        # power = np.power(w_k, 2).sum() ** 0.5
+        # print(f'| Power of BS: {power:.2f}')
+        # print(f'| Power of BS: if Power < MaxPower: {power <= self.max_p}')
+        return w_k
+
+    def get_sinr_rate(self, w_k, h_k):
+        hw_k = (w_k * h_k).sum(axis=1)
+        h_w_k = np.dot(w_k, h_k.T).sum(axis=0)
+        sinr_k = np.power(hw_k, 2) / (np.power(h_w_k - hw_k, 2) + np.power(self.noise_y_std, 2))
+        # print(f'| Signal-to-Interference-and-Noise Ratio (SINR): shape={sinr_k.shape}')
+
+        r_k = np.log(sinr_k + 1)
+        # print(f'| rate of each user: shape={r_k.shape}')
+        return r_k.mean()
+
+    def get__r_offset(self):
+        env = self
+        self.r_offset = 0.0
+
+        # # random action
+        # _state = env.reset()
+        # for i in range(env.max_step):
+        #     action = env.get_random_action()
+        #     state, reward, done, _ = env.step(action)
+        # r_avg__rd = env.episode_return
+
+        # traditional action
+        state = env.reset()
+        for i in range(env.max_step):
+            action = env.get_traditional_action(state)
+            state, reward, done, _ = env.step(action)
+        r_avg__td = env.episode_return
+
+        # r_offset = (r_avg__rd + r_avg__td) / 2
+        # print('| get__r_offset() r_avg__rd, r_avg__td:', r_avg__rd, r_avg__td)
+        r_offset = r_avg__td
+        return r_offset
+
+    def get_snr_db(self):
+        snr = self.max_power / self.noise_y_std ** 2  # P/sigma^2
+        return 10 * np.log10(snr)
+
+    def show_information(self):
+        print(f"| antennas_num N, user_num K, max_power P: ({self.n}, {self.k}, {self.max_power})\n"
+              f"| SNR: {self.get_snr_db()},        channel std h_std: {self.h_std}\n"
+              f"| received channel noise noise_y_std: {self.noise_y_std}\n"
+              f"| observed channel noise noise_h_std: {self.noise_h_std}\n")
+    # def demo0(self, action=None):
+    #     w_k = self.get_random_action() if action is None else action  # w_k is action
     #
-    # | GPU: 1 | CWD: ./AgentModSAC/FinRL_1
-    # ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
-    # 0.0
-    # 1   5.03e+03      0.40 |
-    # 1   1.76e+04      6.63 |    6.63      0.00 |   24.55      0.69      0.01
-    # 1   2.26e+04    652.01 |
-    # 1   2.77e+04    836.11 |
-    # ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
-    # 1   2.77e+04    800.00 |  836.11      0.00 |  650.18       430  ########
-    # 1   3.02e+04    873.22 |
-    # 1   3.52e+04    913.21 |
-    # 1   3.52e+04    913.21 |  913.21      0.00 |  842.45     -0.12      0.35
-    # """
-    # args.if_break_early = False
-    # args.break_step = 2 ** 20
+    #     '''Basic Station (BS)'''
+    #     h_k = rd.randn(self.k, self.n) * self.h_std  # h_k is state
+    #     print(f'| channel between BS and each user:  shape={h_k.shape}, h_std={self.h_std:.2f}')
+    #     s_k = rd.randn(self.k)
+    #     print(f'| symbol for each user from BS:      shape={s_k.shape}')
+    #     x_n = np.dot(w_k.T, s_k)
+    #     print(f'| transmitted signal   from BS:      shape={x_n.shape}')
     #
-    # args.max_memo = 2 ** 16
-    # args.gamma = 0.99  # important hyper-parameter, related to episode steps
-    # args.reward_scale = 2 ** -2
-    # args.max_step = 2515
-    # args.eval_times1 = 1
-    # args.eval_times2 = 1
+    #     # ## Tutorial of np.dot and np.matmul
+    #     # a = np.ones((2, 3))
+    #     # b = rd.rand(3, 4)
+    #     # c = np.matmul(a, b) # (np.matmul == np.dot) when both a, b are 1D or 2D matrix
+    #     # print(c)
+    #     # y_k = [(h_k[i] * x_n).sum() for i in range(self.k)]
+    #     # y_k = [np.dot(h_k[i], x_n.T) for i in range(self.k)]
+    #     # y_k = [np.dot(x_n, h_k[i].T) for i in range(self.k)]
+    #     # y_k = np.dot(h_k, np.expand_dims(x_n, 1)).T
+    #     # y_k = np.dot(x_n, h_k.T)
+    #     y_k = np.dot(x_n, h_k.T)
+    #     print(f'| received signal by each user:      shape={y_k.shape}')
+    #     noisy_y_k = y_k + rd.randn(self.k) * self.noise_y_std
+    #     print(f'| received signal by each user:      shape={noisy_y_k.shape}, noise_y_std={self.noise_y_std:.2f}')
     #
-    # args.env_name = 'FinRL'
-    # args.init_for_training()
-    # train_agent_mp(args)
+    #     avg_r = self.get_sinr_rate(w_k, h_k)
+    #     print(f'| rate of each user (random action): avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution'''
+    #     action_k = self.get_traditional_action(h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution: noisy channel'''
+    #     noisy_h_k = h_k + rd.randn(self.k, self.n) * self.noise_h_std
+    #     action_k = self.get_traditional_action(noisy_h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}, noise_h_std={self.noise_h_std:.2f}')
 
-    args = Arguments(rl_agent=None, env=None, gpu_id=None)
-    args.rl_agent = AgentPPO
-    """
-    | GPU: 3 | CWD: ./AgentPPO/FinRL_3
-    ID      Step      MaxR |    avgR      stdR |    ExpR     LossA     LossC
-    3   2.51e+04     48.87 |
-    3   5.53e+04    441.54 |
-    3   1.06e+05    707.73 |
-    ID      Step   TargetR |    avgR      stdR |    ExpR  UsedTime  ########
-    3   2.01e+05    800.00 |  810.60      0.00 |  748.02       197  ########
-    3   2.66e+05    862.69 |  855.54      0.00 |  797.89     -0.03      0.53
-    3   5.33e+05    915.21 |  888.58      0.00 |  874.78      0.06      0.48
-    3   1.07e+06    942.40 |  938.52      0.00 |  932.97     -0.10      0.44
-    3   1.34e+06    948.64 |  944.51      0.00 |  945.21     -0.05      0.41
-    """
-    args.if_break_early = False
-    args.break_step = 2 ** 18  # 2**20==1e6, 2**21
-    args.random_seed = 1424
 
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 3
-    # args.reward_scale = 2 ** -10  # unimportant hyper-parameter in PPO which do normalization on Q value
-    args.gamma = 0.95  # important hyper-parameter, related to episode steps
-    args.max_step = 2515 * 2
-    args.eval_times1 = 1
-    args.eval_times2 = 1
+def train__rl():
+    antennas_num = 8
+    user_num = 4
+    noise_y_std = 1.0
+    noise_h_std = 1.0
 
-    args.env = 'FinRL'
-    args.init_for_training()
-    train_agent_mp(args)
-    exit()
+    snr_db_l = np.linspace(-10, 20, 7)  # 13
+    print(snr_db_l.round(3))
+    power__l = 10 ** (snr_db_l / 10) * (noise_y_std ** 2)
+    print(power__l.round(3))
+
+    # from beta0 import BeamFormerEnv
+    for max_power in power__l[0:2]:
+        print(f'\n| max_power:{max_power:.2f} \n')
+        env = BeamFormerEnv(antennas_num, user_num, max_power, noise_h_std, noise_y_std)
+
+        from AgentZoo import AgentModSAC
+        # AgentModSAC().alpha_log = -5.0
+
+        args = Arguments(rl_agent=AgentModSAC, env=env)
+        args.rollout_workers_num = 4
+        args.eval_times1 = 1
+        args.eval_times2 = 2
+
+        args.break_step = int(6e4 * 8)  # UsedTime: 900s (reach target_reward 200)
+        args.net_dim = 2 ** 7
+        args.init_for_training()
+        train_agent_mp(args)  # train_agent(args)
 
 
 if __name__ == '__main__':
-    # run()
-    # test()
-    train()
-    # train__baselines_rl()
+    # run__plan()
+    # read_print_terminal_data()
+    # read_print_terminal_data1()
+    train__rl()

@@ -1,359 +1,659 @@
-import os
 import numpy as np
 import numpy.random as rd
+# import matplotlib.pyplot as plt
+
 from AgentRun import *
 
 """
-ceta0 
+Env1606 alpha_log = -np.log(action_dim) * np.e
+ceta3 P=2.0 
+ceta1 power__l[0:2]
+ceta2 power__l[2:4]
+ceta4 power__l[4:6]
+
+EnvNoise 1606
+ceta0     for noise_h_std in (0.0, 0.5, 0.1):  # todo
+
 """
 
 
-def _mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
-    rl_agent = args.rl_agent
-    max_memo = args.max_memo
-    net_dim = args.net_dim
-    max_step = args.max_step
-    max_total_step = args.break_step
-    batch_size = args.batch_size
-    repeat_times = args.repeat_times
-    cwd = args.cwd
-    env = args.env
-    reward_scale = args.reward_scale
-    if_stop = args.if_break_early
-    gamma = args.gamma
-    del args
+class BeamFormerEnv1000:  # 2020-12-24 stable
+    def __init__(self, antennas_num=8, user_num=4,
+                 max_power=2., noise_h_std=1., noise_y_std=1.):
+        """Down-link Multi-user MIMO beam-forming"""
+        self.n = antennas_num
+        self.k = user_num
+        self.max_power = max_power  # P, max power of Base Station
+        self.h_std = 1  # I, std of channel
+        self.noise_h_std = noise_h_std  # gamma, std of observed channel noise
+        self.noise_y_std = noise_y_std  # sigma, std of received channel noise
 
-    workers_num = len(qs_i_exp)
+        self.func_inv = np.linalg.inv
+        self.h_k = None
 
-    '''init: env'''
-    state_dim = env.state_dim
-    action_dim = env.action_dim
-    if_discrete = env.if_discrete
-    # target_reward = env.target_reward
+        self.gamma_r = None
+        self.now_step = None
+        self.episode_return = None
 
-    '''build agent and act_cpu'''
-    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
-    agent.state = env.reset()
-    from copy import deepcopy  # built-in library of Python
-    act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
-    act_cpu.eval()
-    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
+        '''env information'''
+        self.env_name = 'BeamFormerEnv-v0'
+        self.state_dim = self.k * self.n
+        self.action_dim = self.k * self.n
+        self.if_discrete = False
+        self.target_reward = 1024
+        self.max_step = 2 ** 10
 
-    '''build replay buffer, init: total_step, reward_avg'''
-    reward_avg = None
-    total_step = 0
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
-        buffer = BufferArrayGPU(max_memo + max_step * workers_num, state_dim, action_dim, if_ppo=True)
-        exp_step = max_memo // workers_num
-        # todo workers_num
-    else:
-        buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-        exp_step = max_step // workers_num
+        self.r_offset = self.get__r_offset()  # behind '''env information'''
 
-        '''initial exploration'''
-        with torch.no_grad():  # update replay buffer
-            rewards, steps = _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
-        reward_avg = np.average(rewards)
-        step_sum = sum(steps)
+    def reset(self):
+        self.gamma_r = 0.0
+        self.now_step = 1
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
 
-        '''pre training and hard update before training loop'''
-        buffer.update_pointer_before_sample()
-        agent.update_policy(buffer, max_step, batch_size, repeat_times)
-        if 'act_target' in dir(agent):
-            agent.act_target.load_state_dict(agent.act.state_dict())
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
 
-        # q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
-        total_step += step_sum
-    if reward_avg is None:
-        # reward_avg = _get_episode_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
-        reward_avg = _get_episode_return(env, agent.act, max_step, agent.device, if_discrete)
+        state += rd.randn(self.state_dim) * self.noise_h_std
+        return state.astype(np.float32)
 
-    q_i_eva.put(act_cpu)  # q_i_eva 1.
-    for q_i_exp in qs_i_exp:
-        q_i_exp.put((agent.act, exp_step))  # q_i_exp 1.
+    def step(self, action):
+        w_k = action.reshape((self.k, self.n))
+        r_avg = self.get_sinr_rate(w_k, self.h_k)
+        r = r_avg - self.r_offset
 
-    '''training loop'''
-    if_train = True
-    if_solve = False
-    while if_train:
-        '''update replay buffer by interact with environment'''
-        rewards = list()
-        steps = list()
-        for i, q_i_exp in enumerate(qs_i_exp):
-            q_i_exp.put(agent.act)  # q_i_exp n.
-        for i, q_o_exp in enumerate(qs_o_exp):
-            _memo_array, _rewards, _steps = q_o_exp.get()  # q_o_exp n.
-            buffer.extend_memo(_memo_array)
-            rewards.extend(_rewards)
-            steps.extend(_steps)
-        # with torch.no_grad():  # speed up running
-        #     rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+        self.episode_return += r_avg  # Compatibility for ElegantRL 2020-12-21
 
-        reward_avg = np.average(rewards) if len(rewards) else reward_avg
-        step_sum = sum(steps)
-        total_step += step_sum
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
 
-        '''update network parameters by random sampling buffer for gradient descent'''
-        buffer.update_pointer_before_sample()
-        loss_a_avg, loss_c_avg = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        state += rd.randn(self.state_dim) * self.noise_h_std
 
-        '''saves the agent with max reward'''
-        act_cpu.load_state_dict(agent.act.state_dict())
-        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
-
-        if q_o_eva.qsize() > 0:
-            if_solve = q_o_eva.get()  # q_o_eva n.
-
-        '''break loop rules'''
-        if_train = not ((if_stop and if_solve)
-                        or total_step > max_total_step
-                        or os.path.exists(f'{cwd}/stop'))
-
-    buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
-                            env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
-
-    for queue in [q_i_eva, ] + list(qs_i_exp):  # quit orderly and safely
-        queue.put('stop')
-        while queue.qsize() > 0:
-            time.sleep(1)
-    time.sleep(4)
-    # print('; quit: params')
-
-
-def _mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
-    env = args.env
-    rl_agent = args.rl_agent
-    net_dim = args.net_dim
-    reward_scale = args.reward_scale
-    gamma = args.gamma
-
-    torch.manual_seed(args.random_seed + act_id)
-    np.random.seed(args.random_seed + act_id)
-    del args
-
-    '''init: env'''
-    state_dim = env.state_dim
-    action_dim = env.action_dim
-    if_discrete = env.if_discrete
-    # target_reward = env.target_reward
-
-    '''build agent'''
-    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
-    agent.state = env.reset()
-
-    '''build replay buffer, init: total_step, reward_avg'''
-    act, exp_step = q_i_exp.get()  # q_i_exp 1.  # todo plan to make it elegant: max_memo, max_step, exp_step
-
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
-        buffer = BufferArray(exp_step * 2, state_dim, action_dim, if_ppo=True)
-    else:
-        buffer = BufferArray(exp_step, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-
-    with torch.no_grad():  # speed up running
-        while True:
-            q_i_exp_get = q_i_exp.get()  # q_i_exp n.
-            if q_i_exp_get == 'stop':
-                break
-            agent.act = q_i_exp_get  # q_i_exp n.
-            rewards, steps = agent.update_buffer(env, buffer, exp_step, reward_scale, gamma)
-
-            buffer.update_pointer_before_sample()
-            q_o_exp.put((buffer.memories[:buffer.now_len], rewards, steps))  # q_o_exp n.
-            buffer.empty_memories_before_explore()
-
-    for queue in [q_o_exp, q_i_exp]:  # quit orderly and safely
-        while queue.qsize() > 0:
-            queue.get()
-    # print('; quit: explore')
-
-
-def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
-    env = args.env
-    cwd = args.cwd
-    gpu_id = args.gpu_id
-    max_step = args.max_memo
-    show_gap = args.show_gap
-    eval_size1 = args.eval_times1
-    eval_size2 = args.eval_times2
-    del args
-
-    '''init: env'''
-    # state_dim = env.state_dim
-    # action_dim = env.action_dim
-    if_discrete = env.if_discrete
-    target_reward = env.target_reward
-
-    '''build evaluated only actor'''
-    act = q_i_eva.get()  # q_i_eva 1, act == act.to(device_cpu), requires_grad=False
-
-    torch.set_num_threads(4)
-    device = torch.device('cpu')
-    recorder = Recorder(eval_size1, eval_size2)
-    recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
-
-    if_train = True
-    with torch.no_grad():  # for saving the GPU buffer
-        while if_train:
-            is_saved = recorder.update__record_evaluate(env, act, max_step, device, if_discrete)
-            recorder.save_act(cwd, act, gpu_id) if is_saved else None
-
-            is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
-            q_o_eva.put(is_solved)  # q_o_eva n.
-
-            '''update actor'''
-            while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
-                time.sleep(1)
-            while q_i_eva.qsize():  # get the latest actor
-                q_i_eva_get = q_i_eva.get()  # q_i_eva n.
-                if q_i_eva_get == 'stop':
-                    if_train = False
-                    break  # it should break 'while q_i_eva.qsize():' and 'while if_train:'
-                act, exp_r_avg, exp_s_sum, loss_a_avg, loss_c_avg = q_i_eva_get
-                recorder.update__record_explore(exp_s_sum, exp_r_avg, loss_a_avg, loss_c_avg)
-
-    recorder.save_npy__draw_plot(cwd)
-
-    new_cwd = cwd[:-2] + f'_{recorder.eva_r_max:.2f}' + cwd[-2:]
-    if not os.path.exists(new_cwd):  # 2020-12-12
-        os.rename(cwd, new_cwd)
-        cwd = new_cwd
-    print(f'SavedDir: {cwd}\n'
-          f'UsedTime: {time.time() - recorder.start_time:.0f}')
-
-    for queue in [q_o_eva, q_i_eva]:  # quit orderly and safely
-        while queue.qsize() > 0:
-            queue.get()
-    # print('; quit: evaluate')
-
-
-def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
-    state = env.reset()
-
-    rewards = list()
-    reward_sum = 0.0
-    steps = list()
-    step = 0
-
-    if if_discrete:
-        def random_action__discrete():
-            return rd.randint(action_dim)
-
-        get_random_action = random_action__discrete
-    else:
-        def random_action__continuous():
-            return rd.uniform(-1, 1, size=action_dim)
-
-        get_random_action = random_action__continuous
-
-    global_step = 0
-    while global_step < max_step or len(rewards) == 0:  # warning 2020-10-10?
-        # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
-        action = get_random_action()
-        next_state, reward, done, _ = env.step(action * if_discrete)
-        reward_sum += reward
-        step += 1
-
-        adjust_reward = reward * reward_scale
-        mask = 0.0 if done else gamma
-        buffer.append_memo((adjust_reward, mask, state, action, next_state))
-
-        state = next_state
+        done = self.now_step == self.max_step
+        self.gamma_r = self.gamma_r * 0.99 + r
+        self.now_step += 1
         if done:
-            rewards.append(reward_sum)
-            steps.append(step)
-            global_step += step
+            r += self.gamma_r
+        return state.astype(np.float32), r, done, {}
 
-            state = env.reset()  # reset the environment
-            reward_sum = 0.0
-            step = 1
+    def get_random_action(self):
+        w_k = rd.randn(self.k, self.n)
+        return self.action__power_limit(w_k, if_max=True)
 
-    buffer.update_pointer_before_sample()
-    return rewards, steps
+    def get_traditional_action(self, _state):  # h_k=state
+        h_k = self.h_k  # self.h_k = state.reshape((self.k, self.n))
+        hh_k = np.dot(h_k.T, h_k)
+        # print(f'| traditional solution: hh_k.shape={hh_k.shape}')
+        a_k = self.h_std ** 2 + hh_k * (self.max_power / (self.k * self.noise_y_std ** 2))
+        # print(f'| traditional solution: a_k.shape={a_k.shape}')
+
+        a_inv = self.func_inv(a_k + np.eye(self.n) * 1e-8)  # avoid ERROR: numpy.linalg.LinAlgError: Singular matrix
+        # print(a_inv.shape, np.allclose(np.dot(a_k, a_inv), np.eye(self.n)))
+        # print(f'| traditional solution: a_inv.shape={a_inv.shape}')
+
+        a_inv__h_k = np.dot(h_k, a_inv)
+        # print(f'| traditional solution: a_inv__h_k.shape={a_inv__h_k.shape}')
+        # action_k = a_inv__h_k * (self.max_p / (self.k * np.abs(a_inv__h_k).sum()))
+        # print(f'| traditional solution: action_k.shape={action_k.shape}')
+        return self.action__power_limit(a_inv__h_k, if_max=True)
+
+    def action__power_limit(self, w_k, if_max=False):  # w_k is action
+        # print(f'| Power of BS: {np.power(w_k, 2).sum():.2f}')
+        power = np.power(w_k, 2).sum() ** 0.5
+        if if_max or power > self.max_power:
+            w_k = w_k / (power / self.max_power ** 0.5)
+
+        # power = np.power(w_k, 2).sum() ** 0.5
+        # print(f'| Power of BS: {power:.2f}')
+        # print(f'| Power of BS: if Power < MaxPower: {power <= self.max_p}')
+        return w_k
+
+    def get_sinr_rate(self, w_k, h_k):
+        hw_k = (w_k * h_k).sum(axis=1)
+        h_w_k = np.dot(w_k, h_k.T).sum(axis=0)
+        sinr_k = np.power(hw_k, 2) / (np.power(h_w_k - hw_k, 2) + np.power(self.noise_y_std, 2))
+        # print(f'| Signal-to-Interference-and-Noise Ratio (SINR): shape={sinr_k.shape}')
+
+        r_k = np.log(sinr_k + 1)
+        # print(f'| rate of each user: shape={r_k.shape}')
+        return r_k.mean()
+
+    def get__r_offset(self):
+        env = self
+        self.r_offset = 0.0
+
+        # # random action
+        # _state = env.reset()
+        # for i in range(env.max_step):
+        #     action = env.get_random_action()
+        #     state, reward, done, _ = env.step(action)
+        # r_avg__rd = env.episode_return / env.max_step
+
+        # traditional action
+        state = env.reset()
+        for i in range(env.max_step):
+            action = env.get_traditional_action(state)
+            state, reward, done, _ = env.step(action)
+        r_avg__td = env.episode_return / env.max_step
+
+        # r_offset = (r_avg__rd + r_avg__td) / 2
+        # print('| get__r_offset() r_avg__rd, r_avg__td:', r_avg__rd, r_avg__td)
+        r_offset = r_avg__td
+        return r_offset
+
+    def get_snr_db(self):
+        snr = self.max_power / self.noise_y_std ** 2  # P/sigma^2
+        return 10 * np.log10(snr)
+
+    def show_information(self):
+        print(f"| antennas_num N, user_num K, max_power P: ({self.n}, {self.k}, {self.max_power})\n"
+              f"| SNR: {self.get_snr_db()},        channel std h_std: {self.h_std}\n"
+              f"| received channel noise noise_y_std: {self.noise_y_std}\n"
+              f"| observed channel noise noise_h_std: {self.noise_h_std}\n")
+    # def demo0(self, action=None):
+    #     w_k = self.get_random_action() if action is None else action  # w_k is action
+    #
+    #     '''Basic Station (BS)'''
+    #     h_k = rd.randn(self.k, self.n) * self.h_std  # h_k is state
+    #     print(f'| channel between BS and each user:  shape={h_k.shape}, h_std={self.h_std:.2f}')
+    #     s_k = rd.randn(self.k)
+    #     print(f'| symbol for each user from BS:      shape={s_k.shape}')
+    #     x_n = np.dot(w_k.T, s_k)
+    #     print(f'| transmitted signal   from BS:      shape={x_n.shape}')
+    #
+    #     # ## Tutorial of np.dot and np.matmul
+    #     # a = np.ones((2, 3))
+    #     # b = rd.rand(3, 4)
+    #     # c = np.matmul(a, b) # (np.matmul == np.dot) when both a, b are 1D or 2D matrix
+    #     # print(c)
+    #     # y_k = [(h_k[i] * x_n).sum() for i in range(self.k)]
+    #     # y_k = [np.dot(h_k[i], x_n.T) for i in range(self.k)]
+    #     # y_k = [np.dot(x_n, h_k[i].T) for i in range(self.k)]
+    #     # y_k = np.dot(h_k, np.expand_dims(x_n, 1)).T
+    #     # y_k = np.dot(x_n, h_k.T)
+    #     y_k = np.dot(x_n, h_k.T)
+    #     print(f'| received signal by each user:      shape={y_k.shape}')
+    #     noisy_y_k = y_k + rd.randn(self.k) * self.noise_y_std
+    #     print(f'| received signal by each user:      shape={noisy_y_k.shape}, noise_y_std={self.noise_y_std:.2f}')
+    #
+    #     avg_r = self.get_sinr_rate(w_k, h_k)
+    #     print(f'| rate of each user (random action): avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution'''
+    #     action_k = self.get_traditional_action(h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution: noisy channel'''
+    #     noisy_h_k = h_k + rd.randn(self.k, self.n) * self.noise_h_std
+    #     action_k = self.get_traditional_action(noisy_h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}, noise_h_std={self.noise_h_std:.2f}')
 
 
-def _get_episode_return(env, act, max_step, device, if_discrete) -> float:  # todo 2020-12-21
-    # faster to run 'with torch.no_grad()'
-    episode_return = 0.0  # sum of rewards in an episode
+class BeamFormerEnv1524:  # 2020-12-24
+    def __init__(self, antennas_num=8, user_num=4,
+                 max_power=2., noise_h_std=1., noise_y_std=1.):
+        """Down-link Multi-user MIMO beam-forming"""
+        self.n = antennas_num
+        self.k = user_num
+        self.max_power = max_power  # P, max power of Base Station
+        self.h_std = 1  # I, std of channel
+        self.noise_h_std = noise_h_std  # gamma, std of observed channel noise
+        self.noise_y_std = noise_y_std  # sigma, std of received channel noise
 
-    # Compatibility for ElegantRL 2020-12-21
-    max_step = env.max_step if hasattr(env, 'max_step') else max_step
+        self.func_inv = np.linalg.inv
+        self.h_k = None
+
+        self.gamma_r = None
+        self.now_step = None
+        self.episode_return = None
+
+        '''env information'''
+        self.env_name = 'BeamFormerEnv-v0'
+        self.state_dim = self.k * self.n
+        self.action_dim = self.k * self.n
+        self.if_discrete = False
+        self.target_reward = 1024
+        self.max_step = 2 ** 10
+
+        self.r_offset = self.get__r_offset()  # behind '''env information'''
+        # print(f"| BeamFormerEnv()    self.r_offset: {self.r_offset:.3f}")
+
+    def reset(self):
+        self.gamma_r = 0.0
+        self.now_step = 1
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
+
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
+
+        state += rd.randn(self.state_dim) * self.noise_h_std
+        return state.astype(np.float32)
+
+    def step(self, action):
+        w_k = action.reshape((self.k, self.n))
+        r_avg = self.get_sinr_rate(w_k, self.h_k)
+        r = r_avg - self.r_offset
+
+        self.episode_return += r_avg  # Compatibility for ElegantRL 2020-12-21
+
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
+
+        state += rd.randn(self.state_dim) * self.noise_h_std
+
+        done = self.now_step == self.max_step
+        self.gamma_r = self.gamma_r * 0.99 + r
+        self.now_step += 1
+        if done:
+            r += self.gamma_r
+            self.episode_return /= self.max_step
+
+        return state.astype(np.float32), r, done, {}
+
+    def get_random_action(self):
+        w_k = rd.randn(self.k, self.n)
+        return self.action__power_limit(w_k, if_max=True)
+
+    def get_traditional_action(self, _state):  # h_k=state
+        h_k = self.h_k  # self.h_k = state.reshape((self.k, self.n))
+        hh_k = np.dot(h_k.T, h_k)
+        # print(f'| traditional solution: hh_k.shape={hh_k.shape}')
+        a_k = self.h_std ** 2 + hh_k * (self.max_power / (self.k * self.noise_y_std ** 2))
+        # print(f'| traditional solution: a_k.shape={a_k.shape}')
+
+        a_inv = self.func_inv(a_k + np.eye(self.n) * 1e-8)  # avoid ERROR: numpy.linalg.LinAlgError: Singular matrix
+        # print(a_inv.shape, np.allclose(np.dot(a_k, a_inv), np.eye(self.n)))
+        # print(f'| traditional solution: a_inv.shape={a_inv.shape}')
+
+        a_inv__h_k = np.dot(h_k, a_inv)
+        # print(f'| traditional solution: a_inv__h_k.shape={a_inv__h_k.shape}')
+        # action_k = a_inv__h_k * (self.max_p / (self.k * np.abs(a_inv__h_k).sum()))
+        # print(f'| traditional solution: action_k.shape={action_k.shape}')
+        return self.action__power_limit(a_inv__h_k, if_max=True)
+
+    def action__power_limit(self, w_k, if_max=False):  # w_k is action
+        # print(f'| Power of BS: {np.power(w_k, 2).sum():.2f}')
+        power = np.power(w_k, 2).sum() ** 0.5
+        if if_max or power > self.max_power:
+            w_k = w_k / (power / self.max_power ** 0.5)
+
+        # power = np.power(w_k, 2).sum() ** 0.5
+        # print(f'| Power of BS: {power:.2f}')
+        # print(f'| Power of BS: if Power < MaxPower: {power <= self.max_p}')
+        return w_k
+
+    def get_sinr_rate(self, w_k, h_k):
+        hw_k = (w_k * h_k).sum(axis=1)
+        h_w_k = np.dot(w_k, h_k.T).sum(axis=0)
+        sinr_k = np.power(hw_k, 2) / (np.power(h_w_k - hw_k, 2) + np.power(self.noise_y_std, 2))
+        # print(f'| Signal-to-Interference-and-Noise Ratio (SINR): shape={sinr_k.shape}')
+
+        r_k = np.log(sinr_k + 1)
+        # print(f'| rate of each user: shape={r_k.shape}')
+        return r_k.mean()
+
+    def get__r_offset(self):
+        env = self
+        self.r_offset = 0.0
+
+        # # random action
+        # _state = env.reset()
+        # for i in range(env.max_step):
+        #     action = env.get_random_action()
+        #     state, reward, done, _ = env.step(action)
+        # r_avg__rd = env.episode_return
+
+        # traditional action
+        state = env.reset()
+        for i in range(env.max_step):
+            action = env.get_traditional_action(state)
+            state, reward, done, _ = env.step(action)
+        r_avg__td = env.episode_return
+
+        # r_offset = (r_avg__rd + r_avg__td) / 2
+        # print('| get__r_offset() r_avg__rd, r_avg__td:', r_avg__rd, r_avg__td)
+        r_offset = r_avg__td
+        return r_offset
+
+    def get_snr_db(self):
+        snr = self.max_power / self.noise_y_std ** 2  # P/sigma^2
+        return 10 * np.log10(snr)
+
+    def show_information(self):
+        print(f"| antennas_num N, user_num K, max_power P: ({self.n}, {self.k}, {self.max_power})\n"
+              f"| SNR: {self.get_snr_db()},        channel std h_std: {self.h_std}\n"
+              f"| received channel noise noise_y_std: {self.noise_y_std}\n"
+              f"| observed channel noise noise_h_std: {self.noise_h_std}\n")
+    # def demo0(self, action=None):
+    #     w_k = self.get_random_action() if action is None else action  # w_k is action
+    #
+    #     '''Basic Station (BS)'''
+    #     h_k = rd.randn(self.k, self.n) * self.h_std  # h_k is state
+    #     print(f'| channel between BS and each user:  shape={h_k.shape}, h_std={self.h_std:.2f}')
+    #     s_k = rd.randn(self.k)
+    #     print(f'| symbol for each user from BS:      shape={s_k.shape}')
+    #     x_n = np.dot(w_k.T, s_k)
+    #     print(f'| transmitted signal   from BS:      shape={x_n.shape}')
+    #
+    #     # ## Tutorial of np.dot and np.matmul
+    #     # a = np.ones((2, 3))
+    #     # b = rd.rand(3, 4)
+    #     # c = np.matmul(a, b) # (np.matmul == np.dot) when both a, b are 1D or 2D matrix
+    #     # print(c)
+    #     # y_k = [(h_k[i] * x_n).sum() for i in range(self.k)]
+    #     # y_k = [np.dot(h_k[i], x_n.T) for i in range(self.k)]
+    #     # y_k = [np.dot(x_n, h_k[i].T) for i in range(self.k)]
+    #     # y_k = np.dot(h_k, np.expand_dims(x_n, 1)).T
+    #     # y_k = np.dot(x_n, h_k.T)
+    #     y_k = np.dot(x_n, h_k.T)
+    #     print(f'| received signal by each user:      shape={y_k.shape}')
+    #     noisy_y_k = y_k + rd.randn(self.k) * self.noise_y_std
+    #     print(f'| received signal by each user:      shape={noisy_y_k.shape}, noise_y_std={self.noise_y_std:.2f}')
+    #
+    #     avg_r = self.get_sinr_rate(w_k, h_k)
+    #     print(f'| rate of each user (random action): avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution'''
+    #     action_k = self.get_traditional_action(h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution: noisy channel'''
+    #     noisy_h_k = h_k + rd.randn(self.k, self.n) * self.noise_h_std
+    #     action_k = self.get_traditional_action(noisy_h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}, noise_h_std={self.noise_h_std:.2f}')
+
+
+class BeamFormerEnvNoisy:  # 2020-12-24
+    def __init__(self, antennas_num=8, user_num=4,
+                 max_power=1., noise_h_std=1., noise_y_std=1.):
+        """Down-link Multi-user MIMO beam-forming"""
+        self.n = antennas_num
+        self.k = user_num
+        self.max_power = max_power  # P, max power of Base Station
+        self.h_std = 1  # I, std of channel
+        self.noise_h_std = noise_h_std  # gamma, std of observed channel noise
+        self.noise_y_std = noise_y_std  # sigma, std of received channel noise
+
+        self.func_inv = np.linalg.inv
+        self.h_k = None
+
+        self.gamma_r = None
+        self.now_step = None
+        self.episode_return = None
+
+        '''env information'''
+        self.env_name = 'BeamFormerEnv-v0'
+        self.state_dim = self.k * self.n
+        self.action_dim = self.k * self.n
+        self.if_discrete = False
+        self.target_reward = 1024
+        self.max_step = 2 ** 10
+
+        self.r_offset = self.get__r_offset()  # behind '''env information'''
+        # print(f"| BeamFormerEnv()    self.r_offset: {self.r_offset:.3f}")
+
+    def reset(self):
+        self.gamma_r = 0.0
+        self.now_step = 1
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
+
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
+
+        state += rd.randn(self.state_dim) * self.noise_h_std
+        return state.astype(np.float32)
+
+    def step(self, action):
+        w_k = action.reshape((self.k, self.n))
+        r_avg = self.get_sinr_rate(w_k, self.h_k)
+        r = r_avg - self.r_offset
+
+        self.episode_return += r_avg  # Compatibility for ElegantRL 2020-12-21
+
+        state = rd.randn(self.state_dim) * self.h_std
+        self.h_k = state.reshape((self.k, self.n))
+
+        state += rd.randn(self.state_dim) * self.noise_h_std
+
+        done = self.now_step == self.max_step
+        self.gamma_r = self.gamma_r * 0.99 + r
+        self.now_step += 1
+        if done:
+            r += self.gamma_r
+            self.episode_return /= self.max_step
+
+        return state.astype(np.float32), r, done, {}
+
+    def get_random_action(self):
+        w_k = rd.randn(self.k, self.n)
+        return self.action__power_limit(w_k, if_max=True)
+
+    def get_traditional_action(self, _state):  # h_k=state
+        h_k = self.h_k  # self.h_k = state.reshape((self.k, self.n))
+        hh_k = np.dot(h_k.T, h_k)
+        # print(f'| traditional solution: hh_k.shape={hh_k.shape}')
+        a_k = self.h_std ** 2 + hh_k * (self.max_power / (self.k * self.noise_y_std ** 2))
+        # print(f'| traditional solution: a_k.shape={a_k.shape}')
+
+        a_inv = self.func_inv(a_k + np.eye(self.n) * 1e-8)  # avoid ERROR: numpy.linalg.LinAlgError: Singular matrix
+        # print(a_inv.shape, np.allclose(np.dot(a_k, a_inv), np.eye(self.n)))
+        # print(f'| traditional solution: a_inv.shape={a_inv.shape}')
+
+        a_inv__h_k = np.dot(h_k, a_inv)
+        # print(f'| traditional solution: a_inv__h_k.shape={a_inv__h_k.shape}')
+        # action_k = a_inv__h_k * (self.max_p / (self.k * np.abs(a_inv__h_k).sum()))
+        # print(f'| traditional solution: action_k.shape={action_k.shape}')
+        return self.action__power_limit(a_inv__h_k, if_max=True)
+
+    def action__power_limit(self, w_k, if_max=False):  # w_k is action
+        # print(f'| Power of BS: {np.power(w_k, 2).sum():.2f}')
+        power = np.power(w_k, 2).sum() ** 0.5
+        if if_max or power > self.max_power:
+            w_k = w_k / (power / self.max_power ** 0.5)
+
+        # power = np.power(w_k, 2).sum() ** 0.5
+        # print(f'| Power of BS: {power:.2f}')
+        # print(f'| Power of BS: if Power < MaxPower: {power <= self.max_p}')
+        return w_k
+
+    def get_sinr_rate(self, w_k, h_k):
+        hw_k = (w_k * h_k).sum(axis=1)
+        h_w_k = np.dot(w_k, h_k.T).sum(axis=0)
+        sinr_k = np.power(hw_k, 2) / (np.power(h_w_k - hw_k, 2) + np.power(self.noise_y_std, 2))
+        # print(f'| Signal-to-Interference-and-Noise Ratio (SINR): shape={sinr_k.shape}')
+
+        r_k = np.log(sinr_k + 1)
+        # print(f'| rate of each user: shape={r_k.shape}')
+        return r_k.mean()
+
+    def get__r_offset(self):
+        env = self
+        self.r_offset = 0.0
+
+        # # random action
+        # _state = env.reset()
+        # for i in range(env.max_step):
+        #     action = env.get_random_action()
+        #     state, reward, done, _ = env.step(action)
+        # r_avg__rd = env.episode_return
+
+        # traditional action
+        state = env.reset()
+        for i in range(env.max_step):
+            action = env.get_traditional_action(state)
+            state, reward, done, _ = env.step(action)
+        r_avg__td = env.episode_return
+
+        # r_offset = (r_avg__rd + r_avg__td) / 2
+        # print('| get__r_offset() r_avg__rd, r_avg__td:', r_avg__rd, r_avg__td)
+        r_offset = r_avg__td
+        return r_offset
+
+    def get_snr_db(self):
+        snr = self.max_power / self.noise_y_std ** 2  # P/sigma^2
+        return 10 * np.log10(snr)
+
+    def show_information(self):
+        print(f"| antennas_num N, user_num K, max_power P: ({self.n}, {self.k}, {self.max_power})\n"
+              f"| SNR: {self.get_snr_db()},        channel std h_std: {self.h_std}\n"
+              f"| received channel noise noise_y_std: {self.noise_y_std}\n"
+              f"| observed channel noise noise_h_std: {self.noise_h_std}\n")
+    # def demo0(self, action=None):
+    #     w_k = self.get_random_action() if action is None else action  # w_k is action
+    #
+    #     '''Basic Station (BS)'''
+    #     h_k = rd.randn(self.k, self.n) * self.h_std  # h_k is state
+    #     print(f'| channel between BS and each user:  shape={h_k.shape}, h_std={self.h_std:.2f}')
+    #     s_k = rd.randn(self.k)
+    #     print(f'| symbol for each user from BS:      shape={s_k.shape}')
+    #     x_n = np.dot(w_k.T, s_k)
+    #     print(f'| transmitted signal   from BS:      shape={x_n.shape}')
+    #
+    #     # ## Tutorial of np.dot and np.matmul
+    #     # a = np.ones((2, 3))
+    #     # b = rd.rand(3, 4)
+    #     # c = np.matmul(a, b) # (np.matmul == np.dot) when both a, b are 1D or 2D matrix
+    #     # print(c)
+    #     # y_k = [(h_k[i] * x_n).sum() for i in range(self.k)]
+    #     # y_k = [np.dot(h_k[i], x_n.T) for i in range(self.k)]
+    #     # y_k = [np.dot(x_n, h_k[i].T) for i in range(self.k)]
+    #     # y_k = np.dot(h_k, np.expand_dims(x_n, 1)).T
+    #     # y_k = np.dot(x_n, h_k.T)
+    #     y_k = np.dot(x_n, h_k.T)
+    #     print(f'| received signal by each user:      shape={y_k.shape}')
+    #     noisy_y_k = y_k + rd.randn(self.k) * self.noise_y_std
+    #     print(f'| received signal by each user:      shape={noisy_y_k.shape}, noise_y_std={self.noise_y_std:.2f}')
+    #
+    #     avg_r = self.get_sinr_rate(w_k, h_k)
+    #     print(f'| rate of each user (random action): avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution'''
+    #     action_k = self.get_traditional_action(h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}')
+    #
+    #     '''traditional solution: noisy channel'''
+    #     noisy_h_k = h_k + rd.randn(self.k, self.n) * self.noise_h_std
+    #     action_k = self.get_traditional_action(noisy_h_k)
+    #     avg_r = self.get_sinr_rate(action_k, h_k)
+    #     print(f'| rate of each user (traditional):   avg_r={avg_r:.2f}, noise_h_std={self.noise_h_std:.2f}')
+
+
+def simulate_random(sim_times=2 ** 18, antennas_num=20, user_num=10,
+                    max_power=2., noise_h_std=1., noise_y_std=1.):
+    # print(f'Random')
+    env = BeamFormerEnv1524(antennas_num, user_num, max_power, noise_h_std, noise_y_std)
+    # env.show_information()
+
+    sim_times1 = int(sim_times ** 0.5)
+    sim_times2 = int(sim_times / sim_times1)
+
+    import tqdm
+    t = tqdm.trange(sim_times1, desc='Random avgR')
+
+    reward_sum1 = 0.0
+
+    for i in t:
+        reward_sum2 = 0.0
+
+        _state = env.reset()
+        for _ in range(sim_times2):
+            action = env.get_random_action()  # env.get_traditional_action(state)
+            next_state, reward, done, _ = env.step(action)
+            reward_sum2 += reward
+            # state = next_state
+
+        reward_avg2 = reward_sum2 / sim_times2
+        reward_sum1 += reward_avg2
+
+        t.set_description(f"Random avgR: {reward_sum1 / (i + 1):.4f}", refresh=True)
+    reward_avg1 = reward_sum1 / sim_times1
+    # print(f"Random avgR: {reward_avg1:.4f}, SNR: {env.get_snr_db()} dB")
+    return reward_avg1
+
+
+def simulate_traditional(sim_times=2 ** 18, antennas_num=20, user_num=10,
+                         max_power=2., noise_h_std=1., noise_y_std=1.):
+    # print(f'Traditional')
+    env = BeamFormerEnv1524(antennas_num, user_num, max_power, noise_h_std, noise_y_std)
+    # env.show_information()
+
+    sim_times1 = int(sim_times ** 0.5)
+    sim_times2 = int(sim_times / sim_times1)
+
+    import tqdm
+    t = tqdm.trange(sim_times1, desc='Traditional avgR')
+
+    reward_sum1 = 0.0
+
+    for i in t:
+        reward_sum2 = 0.0
+
+        state = env.reset()
+        for _ in range(sim_times2):
+            action = env.get_traditional_action(state)
+            next_state, reward, done, _ = env.step(action)
+            reward_sum2 += reward
+            state = next_state
+
+        reward_avg2 = reward_sum2 / sim_times2
+        reward_sum1 += reward_avg2
+
+        t.set_description(f"Traditional avgR: {reward_sum1 / (i + 1):.4f}", refresh=True)
+    reward_avg1 = reward_sum1 / sim_times1
+    # print(f"Traditional avgR: {reward_avg1:.4f}, SNR: {env.get_snr_db()} dB")
+    return reward_avg1
+
+
+def run__plan():
+    env = BeamFormerEnv1524()
 
     state = env.reset()
-    for _ in range(max_step):
-        s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
+    r_sum = 0.0
+    for i in range(env.max_step):
+        action = env.get_traditional_action(state)
+        state, reward, done, _ = env.step(action)
+        r_sum += reward
+    print(';', r_sum)
 
-        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.cpu().data.numpy()[0]
-
-        next_state, reward, done, _ = env.step(action)
-        episode_return += reward
-
-        if done:
-            break
-        state = next_state
-
-    # Compatibility for ElegantRL 2020-12-21
-    episode_return = env.episode_return if hasattr(env, 'episode_return') else episode_return
-    return episode_return
-
-
-def train_agent_mp_1223(args):  # 2020-12-12
-    import multiprocessing as mp
-    q_i_eva = mp.Queue(maxsize=16)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=16)  # evaluate O
-    process = list()
-
-    act_workers = args.act_workers  # todo act_workers
-    qs_i_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
-    qs_o_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
-    for i in range(act_workers):
-        process.append(mp.Process(target=_mp__explore_a_env, args=(args, qs_i_exp[i], qs_o_exp[i], i)))
-
-    process.extend([
-        mp.Process(target=_mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)),
-        mp.Process(target=_mp__update_params, args=(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp)),
-    ])
-
-    [p.start() for p in process]
-    [p.join() for p in process]
-    print('\n')
-
-
-def run__fin_rl_1223():
-    env = FinanceMultiStock1221()  # todo 2020-12-21 16:00
-
-    from AgentZoo import AgentPPO
-
-    args = Arguments(rl_agent=AgentPPO, env=env)
-    args.eval_times1 = 1
-    args.eval_times2 = 2
-    args.act_workers = 4
-    args.if_break_early = False
-
-    args.reward_scale = 2 ** 0  # (0) 1.1 ~ 16 (19)
-    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
-    args.net_dim = 2 ** 8
-    args.max_step = 1699
-    args.max_memo = 1699 * 16  # todo  larger is better?
-    args.batch_size = 2 ** 10  # todo
-    args.repeat_times = 2 ** 4  # larger is better?
-    args.init_for_training()
-    train_agent_mp_1223(args)  # train_agent(args)
     exit()
+    sim_times = 2 ** 16
+    noise_y_std = 1.0
+    noise_h_std = 1.0
+
+    snr_db_l = np.linspace(-10, 20, 13)
+    power__l = 10 ** (snr_db_l / 10) * (noise_y_std ** 2)
+
+    recorder = list()
+
+    for antennas_num, user_num in ((20, 10), (20, 5), (10, 5), (10, 10)):
+        for max_power in power__l:
+            # r = simulate_traditional(sim_times, antennas_num, user_num, max_power, noise_h_std, noise_y_std)
+            r = simulate_random(sim_times, antennas_num, user_num, max_power, noise_h_std, noise_y_std)
+            recorder.append(r)
+
+    save_npy = 'beta0-y_std-0.5--h_std-1.0.npy'
+    np.save(save_npy, recorder, )
+    print('| Saved:', save_npy)
+
+
+def train__rl():
+    env = BeamFormerEnv1524()
 
     from AgentZoo import AgentModSAC
 
-    args = Arguments(rl_agent=AgentModSAC, env=env)  # much slower than on-policy trajectory
-    args.eval_times1 = 1
-    args.eval_times2 = 2
-
-    args.break_step = 2 ** 22  # UsedTime:
+    args = Arguments(rl_agent=AgentModSAC, env=env, gpu_id=0)
+    args.break_step = int(6e4 * 8)  # UsedTime: 900s (reach target_reward 200)
     args.net_dim = 2 ** 7
-    args.max_memo = 2 ** 18
-    args.batch_size = 2 ** 8
     args.init_for_training()
-    train_agent_mp_1223(args)  # train_agent(args)
+    train_agent_mp(args)  # train_agent(args)
 
 
 if __name__ == '__main__':
-    run__fin_rl_1223()
+    # run__plan()
+    # read_print_terminal_data()
+    # read_print_terminal_data1()
+    train__rl()
