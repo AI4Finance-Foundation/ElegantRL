@@ -47,8 +47,8 @@ class Arguments:  # default working setting and hyper-parameters
         assert self.env is not None
         if not hasattr(self.env, 'env_name'):
             raise RuntimeError(
-                '| init_for_training() WARNING: AttributeError. What is env.env_name?'
-                '| use env = build_env(env) to decorate env.'
+                '\n| init_for_training() WARNING: AttributeError. '
+                '\n| What is env.env_name? use env = build_env(env) to decorate env'
             )
 
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
@@ -359,7 +359,7 @@ def _mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
     # print('; quit: explore')
 
 
-def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # evaluate agent and get its total reward of an episode
+def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
     env = args.env
     cwd = args.cwd
     gpu_id = args.gpu_id
@@ -422,7 +422,7 @@ def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamm
     state = env.reset()
 
     rewards = list()
-    reward_sum = 0.0
+    episode_return = 0.0  # 2020-12-12 episode_return
     steps = list()
     step = 0
 
@@ -442,7 +442,7 @@ def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamm
         # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
         action = get_random_action()
         next_state, reward, done, _ = env.step(action * if_discrete)
-        reward_sum += reward
+        episode_return += reward
         step += 1
 
         adjust_reward = reward * reward_scale
@@ -451,12 +451,14 @@ def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamm
 
         state = next_state
         if done:
-            rewards.append(reward_sum)
+            episode_return = env.episode_return if hasattr(env, 'episode_return') else episode_return
+
+            rewards.append(episode_return)
             steps.append(step)
             global_step += step
 
             state = env.reset()  # reset the environment
-            reward_sum = 0.0
+            episode_return = 0.0
             step = 1
 
     buffer.update__now_len__before_sample()
@@ -470,8 +472,8 @@ class Recorder:  # 2020-10-12
     def __init__(self, eval_size1=3, eval_size2=9):
         self.eva_r_max = -np.inf
         self.total_step = 0
-        self.record_exp = [(0., 0., 0., 0.), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
-        self.record_eva = [(0., 0., 0.), ]  # total_step, eva_r_avg, eva_r_std
+        self.record_exp = [(0., -np.inf, 0., 0.), ]  # total_step, exp_r_avg, loss_a_avg, loss_c_avg
+        self.record_eva = [(0., -np.inf, 0.), ]  # total_step, eva_r_avg, eva_r_std
         self.is_solved = False
 
         '''constant'''
@@ -488,6 +490,9 @@ class Recorder:  # 2020-10-12
               f"{'ExpR':>8}  {'LossA':>8}  {'LossC':>8}")
 
     def update__record_evaluate(self, env, act, max_step, device, if_discrete):
+        if self.total_step == self.record_eva[-1][0]:
+            return None  # plan to be more elegant
+
         is_saved = False
         reward_list = [_get_episode_return(env, act, max_step, device, if_discrete)
                        for _ in range(self.eva_size1)]
@@ -549,25 +554,27 @@ class Recorder:  # 2020-10-12
         return self.is_solved
 
     def save_npy__draw_plot(self, cwd):  # 2020-12-12
-        np.save('%s/record_explore.npy' % cwd, self.record_exp)
-        np.save('%s/record_evaluate.npy' % cwd, self.record_eva)
+        if len(self.record_exp) == 0 or len(self.record_eva) == 0:
+            print(f"| save_npy__draw_plot() WARNNING: len(self.record_exp) == {len(self.record_exp)}")
+            print(f"| save_npy__draw_plot() WARNNING: len(self.record_eva) == {len(self.record_eva)}")
+            return None
+
+        np.save('%s/record_exp.npy' % cwd, self.record_exp)
+        np.save('%s/record_eva.npy' % cwd, self.record_eva)
 
         # draw_plot_with_2npy(cwd, train_time=time.time() - self.start_time, max_reward=self.eva_r_max)
         train_time = time.time() - self.start_time
         max_reward = self.eva_r_max
 
-        record_explore = np.load('%s/record_explore.npy' % cwd, allow_pickle=True)  # 2020-12-11 allow_pickle
-        # record_explore.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
-        record_evaluate = np.load('%s/record_evaluate.npy' % cwd, allow_pickle=True)
-        # record_evaluate.append((total_step, eva_r_avg, eva_r_std))
-
-        if len(record_evaluate.shape) == 1:
-            record_evaluate = np.array([[0., 0., 0.]])
-        if len(record_explore.shape) == 1:
-            record_explore = np.array([[0., 0., 0., 0.]])
+        # record_exp = np.load('%s/record_exp.npy' % cwd, allow_pickle=True)  # 2020-12-11 allow_pickle
+        # # record_exp.append((total_step, exp_r_avg, loss_a_avg, loss_c_avg))
+        # record_eva = np.load('%s/record_eva.npy' % cwd, allow_pickle=True)
+        # # record_eva.append((total_step, eva_r_avg, eva_r_std))
+        record_exp = np.array(self.record_exp[1:], dtype=np.float32)
+        record_eva = np.array(self.record_eva[1:], dtype=np.float32)  # 2020-12-12 Compatibility
 
         train_time = int(train_time)
-        total_step = int(record_evaluate[-1][0])
+        total_step = int(record_eva[-1][0])
         save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{max_reward:.3f}"
         save_path = f"{cwd}/{save_title}.jpg"
 
@@ -583,23 +590,23 @@ class Recorder:  # 2020-10-12
         ax11 = axs[0]
         ax11_color = 'royalblue'
         ax11_label = 'explore R'
-        exp_step = record_explore[:, 0]
-        exp_reward = record_explore[:, 1]
+        exp_step = record_exp[:, 0]
+        exp_reward = record_exp[:, 1]
         ax11.plot(exp_step, exp_reward, label=ax11_label, color=ax11_color)
 
         ax12 = axs[0]
         ax12_color = 'lightcoral'
         ax12_label = 'Epoch R'
-        eva_step = record_evaluate[:, 0]
-        r_avg = record_evaluate[:, 1]
-        r_std = record_evaluate[:, 2]
+        eva_step = record_eva[:, 0]
+        r_avg = record_eva[:, 1]
+        r_std = record_eva[:, 2]
         ax12.plot(eva_step, r_avg, label=ax12_label, color=ax12_color)
         ax12.fill_between(eva_step, r_avg - r_std, r_avg + r_std, facecolor=ax12_color, alpha=0.3, )
 
         ax21 = axs[1]
         ax21_color = 'lightcoral'  # same color as ax11 (expR)
         ax21_label = 'lossA'
-        exp_loss_a = record_explore[:, 2]
+        exp_loss_a = record_exp[:, 2]
         ax21.set_ylabel(ax21_label, color=ax21_color)
         ax21.plot(exp_step, exp_loss_a, label=ax21_label, color=ax21_color)  # negative loss A
         ax21.tick_params(axis='y', labelcolor=ax21_color)
@@ -607,7 +614,7 @@ class Recorder:  # 2020-10-12
         ax22 = axs[1].twinx()
         ax22_color = 'darkcyan'
         ax22_label = 'lossC'
-        exp_loss_c = record_explore[:, 3]
+        exp_loss_c = record_exp[:, 3]
         ax22.set_ylabel(ax22_label, color=ax22_color)
         ax22.fill_between(exp_step, exp_loss_c, facecolor=ax22_color, alpha=0.2, )
         ax22.tick_params(axis='y', labelcolor=ax22_color)
@@ -696,8 +703,8 @@ def get_total_returns(agent, env_list, max_step) -> list:  # class Recorder 2020
 def decorate_env(env, if_print=True, if_norm=True):  # important function # 2020-12-12
     assert env is not None
 
-    if all([hasattr(env, attr) for attr in ('env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
-        # env_name = type(env).__name__
+    if all([hasattr(env, attr) for attr in (
+            'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
         pass  # not elegant enough
     else:
         (env_name, state_dim, action_dim, action_max, if_discrete, target_reward
@@ -1854,7 +1861,7 @@ class BufferTupleOnline:
 
 
 def train__demo():
-    from AgentZoo import AgentD3QN, AgentModSAC, AgentPPO
+    pass
 
     '''DEMO 1: Standard gym env CartPole-v0 (discrete action) using D3QN (DuelingDoubleDQN, off-policy)'''
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
@@ -1862,6 +1869,7 @@ def train__demo():
     env = gym.make('CartPole-v0')
     env = decorate_env(env, if_print=True)
 
+    from AgentZoo import AgentD3QN
     args = Arguments(rl_agent=AgentD3QN, env=env, gpu_id=0)
     args.break_step = int(1e5 * 8)  # UsedTime: 60s (reach target_reward 195)
     args.net_dim = 2 ** 7
@@ -1876,6 +1884,7 @@ def train__demo():
     env = gym.make('LunarLanderContinuous-v2')
     env = decorate_env(env, if_print=True)
 
+    from AgentZoo import AgentModSAC
     args = Arguments(rl_agent=AgentModSAC, env=env, gpu_id=0)
     args.break_step = int(6e4 * 8)  # UsedTime: 900s (reach target_reward 200)
     args.net_dim = 2 ** 7
@@ -1917,196 +1926,196 @@ def train__demo():
     # train_agent_mp(args)  # train_agent(args)
 
 
-def train__continuous_action__off_policy():
-    import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env=None, gpu_id=None)
-    args.rl_agent = [
-        Zoo.AgentDDPG,  # 2016. simple, simple, slow, unstable
-        Zoo.AgentBaseAC,  # 2016+ modify DDPG, faster, more stable
-        Zoo.AgentTD3,  # 2018. twin critics, delay target update
-        Zoo.AgentSAC,  # 2018. twin critics, maximum entropy, auto alpha, fix log_prob
-        Zoo.AgentModSAC,  # 2018+ modify SAC, faster, more stable
-        Zoo.AgentInterAC,  # 2019. Integrated AC(DPG)
-        Zoo.AgentInterSAC,  # 2020. Integrated SAC(SPG)
-    ][4]  # I suggest to use ModSAC (Modify SAC)
-    # On-policy PPO is not here 'run__off_policy()'. See PPO in 'run__on_policy()'.
-
-    args.if_break_early = True  # break training if reach the target reward (total return of an episode)
-    args.if_remove_history = True  # delete the historical directory
-
-    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
-    args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
-    args.init_for_training()
-    train_agent(args)  # Train agent using single process. Recommend run on PC.
-    # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
-    exit()
-
-    args.env = "LunarLanderContinuous-v2"
-    args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
-    args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    args.env = "BipedalWalker-v3"
-    args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
-    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env = "ReacherBulletEnv-v0"
-    args.break_step = int(5e4 * 8)  # (4e4) 5e4
-    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env = "AntBulletEnv-v0"
-    args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
-    args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
-    args.batch_size = 2 ** 8
-    args.max_memo = 2 ** 20
-    args.eva_size = 2 ** 3  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env = "MinitaurBulletEnv-v0"
-    args.break_step = int(4e6 * 4)  # (2e6) 4e6
-    args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
-    args.batch_size = (2 ** 8)
-    args.net_dim = int(2 ** 8)
-    args.max_step = 2 ** 11
-    args.max_memo = 2 ** 20
-    args.eval_times2 = 3  # for Recorder
-    args.eval_times2 = 9  # for Recorder
-    args.show_gap = 2 ** 9  # for Recorder
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    args.env = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
-    args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (334)
-    args.break_step = int(4e6 * 8)  # (2e6) 4e6
-    args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
-    args.max_memo = int(2 ** 21)
-    args.batch_size = int(2 ** 8)
-    args.eval_times2 = 2 ** 5  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
-    args.init_for_training()
-    train_agent_mp(args)  # train_offline_policy(args)
-    exit()
-
-
-def train__continuous_action__on_policy():
-    import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env=None, gpu_id=None)
-    args.rl_agent = [
-        Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
-        Zoo.AgentInterPPO,  # 2019. Integrated Network, useful in pixel-level task (state2D)
-    ][0]
-
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 12
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
-    args.reward_scale = 2 ** 0  # unimportant hyper-parameter in PPO which do normalization on Q value
-    args.gamma = 0.99  # important hyper-parameter, related to episode steps
-
-    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
-    args.break_step = int(8e4 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
-    args.reward_scale = 2 ** 0  # (-1800) -1000 ~ -200 (-50), UsedTime:  (100s) 200s
-    args.gamma = 0.9  # important hyper-parameter, related to episode steps
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    args.env = "LunarLanderContinuous-v2"
-    args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
-    args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (301)
-    args.gamma = 0.99  # important hyper-parameter, related to episode steps
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    # exit()
-
-    args.env = "BipedalWalker-v3"
-    args.break_step = int(8e5 * 8)  # (4e5) 8e5 (4e6), UsedTimes: (600s) 1500s (8000s)
-    args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (325)
-    args.gamma = 0.95  # important hyper-parameter, related to episode steps
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env = "ReacherBulletEnv-v0"
-    args.break_step = int(2e6 * 8)  # (1e6) 2e6 (4e6), UsedTimes: 2000s (6000s)
-    args.reward_scale = 2 ** 0  # (-15) 0 ~ 18 (25)
-    args.gamma = 0.95  # important hyper-parameter, related to episode steps
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env = "AntBulletEnv-v0"
-    args.break_step = int(5e6 * 8)  # (1e6) 5e6 UsedTime: 25697s
-    args.reward_scale = 2 ** -3  #
-    args.gamma = 0.99  # important hyper-parameter, related to episode steps
-    args.net_dim = 2 ** 9
-    args.init_for_training()
-    train_agent_mp(args)
-    exit()
-
-    import pybullet_envs  # for python-bullet-gym
-    dir(pybullet_envs)
-    args.env = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
-    args.break_step = int(1e6 * 8)  # (4e5) 1e6 (8e6)
-    args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
-    args.gamma = 0.95  # important hyper-parameter, related to episode steps
-    args.net_dim = 2 ** 8
-    args.max_memo = 2 ** 11
-    args.batch_size = 2 ** 9
-    args.repeat_times = 2 ** 4
-    args.init_for_training()
-    train_agent_mp(args)
-    exit()
-
-
-def train__discrete_action():
-    import AgentZoo as Zoo
-    args = Arguments(rl_agent=None, env=None, gpu_id=None)
-    args.rl_agent = [
-        Zoo.AgentDQN,  # 2014.
-        Zoo.AgentDoubleDQN,  # 2016. stable
-        Zoo.AgentDuelingDQN,  # 2016. stable and fast
-        Zoo.AgentD3QN,  # 2016+ Dueling + Double DQN (Not a creative work)
-    ][3]  # I suggest to use D3QN
-
-    args.env = "CartPole-v0"
-    args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
-    args.reward_scale = 2 ** 0  # 0 ~ 200
-    args.net_dim = 2 ** 6
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    args.env = "LunarLander-v2"
-    args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
-    args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
-    args.net_dim = 2 ** 7
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
+# def train__continuous_action__off_policy():
+#     import AgentZoo as Zoo
+#     args = Arguments(rl_agent=None, env=None, gpu_id=None)
+#     args.rl_agent = [
+#         Zoo.AgentDDPG,  # 2016. simple, simple, slow, unstable
+#         Zoo.AgentBaseAC,  # 2016+ modify DDPG, faster, more stable
+#         Zoo.AgentTD3,  # 2018. twin critics, delay target update
+#         Zoo.AgentSAC,  # 2018. twin critics, maximum entropy, auto alpha, fix log_prob
+#         Zoo.AgentModSAC,  # 2018+ modify SAC, faster, more stable
+#         Zoo.AgentInterAC,  # 2019. Integrated AC(DPG)
+#         Zoo.AgentInterSAC,  # 2020. Integrated SAC(SPG)
+#     ][4]  # I suggest to use ModSAC (Modify SAC)
+#     # On-policy PPO is not here 'run__off_policy()'. See PPO in 'run__on_policy()'.
+#
+#     args.if_break_early = True  # break training if reach the target reward (total return of an episode)
+#     args.if_remove_history = True  # delete the historical directory
+#
+#     args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+#     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
+#     args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
+#     args.init_for_training()
+#     train_agent(args)  # Train agent using single process. Recommend run on PC.
+#     # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
+#     exit()
+#
+#     args.env = "LunarLanderContinuous-v2"
+#     args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
+#     args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     args.env = "BipedalWalker-v3"
+#     args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
+#     args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     import pybullet_envs  # for python-bullet-gym
+#     dir(pybullet_envs)
+#     args.env = "ReacherBulletEnv-v0"
+#     args.break_step = int(5e4 * 8)  # (4e4) 5e4
+#     args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     import pybullet_envs  # for python-bullet-gym
+#     dir(pybullet_envs)
+#     args.env = "AntBulletEnv-v0"
+#     args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+#     args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
+#     args.batch_size = 2 ** 8
+#     args.max_memo = 2 ** 20
+#     args.eva_size = 2 ** 3  # for Recorder
+#     args.show_gap = 2 ** 8  # for Recorder
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     import pybullet_envs  # for python-bullet-gym
+#     dir(pybullet_envs)
+#     args.env = "MinitaurBulletEnv-v0"
+#     args.break_step = int(4e6 * 4)  # (2e6) 4e6
+#     args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
+#     args.batch_size = (2 ** 8)
+#     args.net_dim = int(2 ** 8)
+#     args.max_step = 2 ** 11
+#     args.max_memo = 2 ** 20
+#     args.eval_times2 = 3  # for Recorder
+#     args.eval_times2 = 9  # for Recorder
+#     args.show_gap = 2 ** 9  # for Recorder
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     args.env = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+#     args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (334)
+#     args.break_step = int(4e6 * 8)  # (2e6) 4e6
+#     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
+#     args.max_memo = int(2 ** 21)
+#     args.batch_size = int(2 ** 8)
+#     args.eval_times2 = 2 ** 5  # for Recorder
+#     args.show_gap = 2 ** 8  # for Recorder
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_offline_policy(args)
+#     exit()
+#
+#
+# def train__continuous_action__on_policy():
+#     import AgentZoo as Zoo
+#     args = Arguments(rl_agent=None, env=None, gpu_id=None)
+#     args.rl_agent = [
+#         Zoo.AgentPPO,  # 2018. PPO2 + GAE, slow but quite stable, especially in high-dim
+#         Zoo.AgentInterPPO,  # 2019. Integrated Network, useful in pixel-level task (state2D)
+#     ][0]
+#
+#     args.net_dim = 2 ** 8
+#     args.max_memo = 2 ** 12
+#     args.batch_size = 2 ** 9
+#     args.repeat_times = 2 ** 4
+#     args.reward_scale = 2 ** 0  # unimportant hyper-parameter in PPO which do normalization on Q value
+#     args.gamma = 0.99  # important hyper-parameter, related to episode steps
+#
+#     args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+#     args.break_step = int(8e4 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
+#     args.reward_scale = 2 ** 0  # (-1800) -1000 ~ -200 (-50), UsedTime:  (100s) 200s
+#     args.gamma = 0.9  # important hyper-parameter, related to episode steps
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     args.env = "LunarLanderContinuous-v2"
+#     args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
+#     args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (301)
+#     args.gamma = 0.99  # important hyper-parameter, related to episode steps
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     # exit()
+#
+#     args.env = "BipedalWalker-v3"
+#     args.break_step = int(8e5 * 8)  # (4e5) 8e5 (4e6), UsedTimes: (600s) 1500s (8000s)
+#     args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (325)
+#     args.gamma = 0.95  # important hyper-parameter, related to episode steps
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     import pybullet_envs  # for python-bullet-gym
+#     dir(pybullet_envs)
+#     args.env = "ReacherBulletEnv-v0"
+#     args.break_step = int(2e6 * 8)  # (1e6) 2e6 (4e6), UsedTimes: 2000s (6000s)
+#     args.reward_scale = 2 ** 0  # (-15) 0 ~ 18 (25)
+#     args.gamma = 0.95  # important hyper-parameter, related to episode steps
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     import pybullet_envs  # for python-bullet-gym
+#     dir(pybullet_envs)
+#     args.env = "AntBulletEnv-v0"
+#     args.break_step = int(5e6 * 8)  # (1e6) 5e6 UsedTime: 25697s
+#     args.reward_scale = 2 ** -3  #
+#     args.gamma = 0.99  # important hyper-parameter, related to episode steps
+#     args.net_dim = 2 ** 9
+#     args.init_for_training()
+#     train_agent_mp(args)
+#     exit()
+#
+#     import pybullet_envs  # for python-bullet-gym
+#     dir(pybullet_envs)
+#     args.env = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
+#     args.break_step = int(1e6 * 8)  # (4e5) 1e6 (8e6)
+#     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
+#     args.gamma = 0.95  # important hyper-parameter, related to episode steps
+#     args.net_dim = 2 ** 8
+#     args.max_memo = 2 ** 11
+#     args.batch_size = 2 ** 9
+#     args.repeat_times = 2 ** 4
+#     args.init_for_training()
+#     train_agent_mp(args)
+#     exit()
+#
+#
+# def train__discrete_action():
+#     import AgentZoo as Zoo
+#     args = Arguments(rl_agent=None, env=None, gpu_id=None)
+#     args.rl_agent = [
+#         Zoo.AgentDQN,  # 2014.
+#         Zoo.AgentDoubleDQN,  # 2016. stable
+#         Zoo.AgentDuelingDQN,  # 2016. stable and fast
+#         Zoo.AgentD3QN,  # 2016+ Dueling + Double DQN (Not a creative work)
+#     ][3]  # I suggest to use D3QN
+#
+#     args.env = "CartPole-v0"
+#     args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
+#     args.reward_scale = 2 ** 0  # 0 ~ 200
+#     args.net_dim = 2 ** 6
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
+#
+#     args.env = "LunarLander-v2"
+#     args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
+#     args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
+#     args.net_dim = 2 ** 7
+#     args.init_for_training()
+#     train_agent_mp(args)  # train_agent(args)
+#     exit()
 
 
 def train__car_racing__pixel_level_state2d():

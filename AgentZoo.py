@@ -360,9 +360,10 @@ class AgentSAC(AgentBaseAC):
         self.step = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha = self.log_alpha.exp()
-        self.alpha_optimizer = torch.optim.Adam((self.log_alpha,), lr=self.learning_rate)
+        self.alpha_log = torch.zeros(1, requires_grad=True, device=self.device)
+        # self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True, device=self.device)
+        self.alpha = self.alpha_log.exp()
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         self.target_entropy = np.log(action_dim)
 
     def select_action(self, state):
@@ -401,13 +402,13 @@ class AgentSAC(AgentBaseAC):
             """actor_obj"""
             action_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
             # auto alpha
-            alpha_loss = (self.log_alpha * (log_prob - self.target_entropy).detach()).mean()
+            alpha_loss = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
 
             # policy gradient
-            self.alpha = self.log_alpha.exp()
+            self.alpha = self.alpha_log.exp()
             q_eval_pg = self.cri(state, action_pg)  # policy gradient
             actor_obj = -(q_eval_pg + log_prob * self.alpha).mean()  # policy gradient
 
@@ -451,7 +452,8 @@ class AgentModSAC(AgentBaseAC):
 
         '''extension: auto-alpha for maximum entropy'''
         self.target_entropy = np.log(action_dim)
-        self.alpha_log = torch.tensor((-self.target_entropy * np.e,), requires_grad=True, device=self.device)
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True, device=self.device)
+        # todo ? or -1
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         '''extension: reliable lambda for auto-learning-rate'''
         self.avg_loss_c = (-np.log(0.5)) ** 0.5
@@ -508,7 +510,7 @@ class AgentModSAC(AgentBaseAC):
             alpha_loss.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
-                self.alpha_log[:] = self.alpha_log.clamp(-16, 1)
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)  # todo (-16, 1)
             alpha = self.alpha_log.exp().detach()
 
             """actor_obj"""
@@ -525,6 +527,7 @@ class AgentModSAC(AgentBaseAC):
 
                 _soft_target_update(self.act_target, self.act)
 
+        # print(f'| alpha_log: {self.alpha_log.item():.3e}')
         return log_prob.mean().item(), self.avg_loss_c
 
 
