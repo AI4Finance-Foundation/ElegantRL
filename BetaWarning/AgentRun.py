@@ -177,29 +177,32 @@ def train_agent(args):  # 2020-12-12
                             env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
 
 
-def train_agent_mp(args):  # 2020-12-12
+def train_agent_mp(args):  # 2021-01-01
+    act_workers = args.rollout_num
+
     import multiprocessing as mp
-    q_i_eva = mp.Queue(maxsize=16)  # evaluate I
-    q_o_eva = mp.Queue(maxsize=16)  # evaluate O
+    eva_pipe1, eva_pipe2 = mp.Pipe(duplex=True)
     process = list()
 
-    act_workers = args.rollout_num
-    qs_i_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
-    qs_o_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
+    exp_pipe2s = list()
     for i in range(act_workers):
-        process.append(mp.Process(target=mp__explore_a_env, args=(args, qs_i_exp[i], qs_o_exp[i], i)))
-
+        exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
+        exp_pipe2s.append(exp_pipe1)
+        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, i)))
     process.extend([
-        mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)),
-        mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp)),
+        mp.Process(target=mp_evaluate_agent, args=(args, eva_pipe1)),
+        mp.Process(target=mp__update_params, args=(args, eva_pipe2, exp_pipe2s)),
     ])
 
     [p.start() for p in process]
-    [p.join() for p in process]
+    process[-1].join()
+    eva_pipe2.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
+    process[-2].join()
+    [p.terminate() for p in process]
     print('\n')
 
 
-def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
+def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
@@ -214,17 +217,18 @@ def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
     gamma = args.gamma
     del args
 
-    workers_num = len(qs_i_exp)
-
     '''init: env'''
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
-    # target_reward = env.target_reward
 
     '''build agent and act_cpu'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
-    agent.state = env.reset()
+    agent.state = [pipe.recv() for pipe in pipes]
+    agent.action = agent.select_actions(agent.state)
+    for i in range(len(pipes)):
+        pipes[i].send(agent.action[i])
+
     from copy import deepcopy  # built-in library of Python
     act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
     act_cpu.eval()
@@ -233,12 +237,10 @@ def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
     '''build replay buffer, init: total_step, reward_avg'''
     reward_avg = None
     total_step = 0
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
-        buffer = BufferArrayGPU(max_memo + max_step * workers_num, state_dim, action_dim, if_ppo=True)
-        exp_step = max_memo // workers_num
+    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentInterPPO'}):
+        buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)
     else:
         buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-        exp_step = max_step // workers_num
 
         '''initial exploration'''
         with torch.no_grad():  # update replay buffer
@@ -252,33 +254,17 @@ def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
         if 'act_target' in dir(agent):
             agent.act_target.load_state_dict(agent.act.state_dict())
 
-        # q_i_eva.put((act_cpu, reward_avg, step_sum, 0, 0))  # q_i_eva n.
         total_step += step_sum
     if reward_avg is None:
-        # reward_avg = _get_episode_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
         reward_avg = get_episode_return(env, agent.act, max_step, agent.device, if_discrete)
-
-    q_i_eva.put(act_cpu)  # q_i_eva 1.
-    for q_i_exp in qs_i_exp:
-        q_i_exp.put((agent.act, exp_step))  # q_i_exp 1.
 
     '''training loop'''
     if_train = True
     if_solve = False
     while if_train:
         '''update replay buffer by interact with environment'''
-        rewards = list()
-        steps = list()
-        for i, q_i_exp in enumerate(qs_i_exp):
-            q_i_exp.put(agent.act)  # q_i_exp n.
-            # q_i_exp.put(act_cpu)  # env_cpu--act_cpu
-        for i, q_o_exp in enumerate(qs_o_exp):
-            _memo_array, _rewards, _steps = q_o_exp.get()  # q_o_exp n.
-            buffer.extend_memo(_memo_array)
-            rewards.extend(_rewards)
-            steps.extend(_steps)
-        # with torch.no_grad():  # speed up running
-        #     rewards, steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+        with torch.no_grad():  # speed up running
+            rewards, steps = agent.update_buffer__pipe(pipes, buffer, max_step)
 
         reward_avg = np.average(rewards) if len(rewards) else reward_avg
         step_sum = sum(steps)
@@ -290,10 +276,10 @@ def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
 
         '''saves the agent with max reward'''
         act_cpu.load_state_dict(agent.act.state_dict())
-        q_i_eva.put((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # q_i_eva n.
+        eva_pipe.send((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # eva_pipe act
 
-        if q_o_eva.qsize() > 0:
-            if_solve = q_o_eva.get()  # q_o_eva n.
+        if eva_pipe.poll():
+            if_solve = eva_pipe.recv()  # eva_pipe if_solve
 
         '''break loop rules'''
         if_train = not ((if_stop and if_solve)
@@ -302,67 +288,14 @@ def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
 
     buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
                             env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
-
-    for queue in [q_i_eva, ] + list(qs_i_exp):  # quit orderly and safely
-        queue.put('stop')
-        while queue.qsize() > 0:
-            time.sleep(1)
-    time.sleep(4)
     # print('; quit: params')
 
 
-def mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
+def mp_explore_in_env(args, pipe, _act_id):
     env = args.env
-    rl_agent = args.rl_agent
-    net_dim = args.net_dim
     reward_scale = args.reward_scale
     gamma = args.gamma
-
-    torch.manual_seed(args.random_seed + act_id)
-    np.random.seed(args.random_seed + act_id)
     del args
-
-    '''init: env'''
-    state_dim = env.state_dim
-    action_dim = env.action_dim
-    if_discrete = env.if_discrete
-    # target_reward = env.target_reward
-
-    '''build agent'''
-    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
-    agent.state = env.reset()
-    # agent.device = torch.device('cpu')  # env_cpu--act_cpu a little faster than env_cpu--act_gpu, but high cpu-util
-
-    '''build replay buffer, init: total_step, reward_avg'''
-    act, exp_step = q_i_exp.get()  # q_i_exp 1.  # plan to make it elegant: max_memo, max_step, exp_step
-
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentModPPO', 'AgentInterPPO'}):
-        buffer = BufferArray(exp_step * 2, state_dim, action_dim, if_ppo=True)
-    else:
-        buffer = BufferArray(exp_step, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-
-    with torch.no_grad():  # speed up running
-        while True:
-            buffer.empty_memories__before_explore()
-            q_i_exp_get = q_i_exp.get()  # q_i_exp n.
-            if q_i_exp_get == 'stop':
-                break
-            agent.act = q_i_exp_get  # q_i_exp n.
-            rewards, steps = agent.update_buffer(env, buffer, exp_step, reward_scale, gamma)
-
-            buffer.update__now_len__before_sample()
-            q_o_exp.put((buffer.memories[:buffer.now_len], rewards, steps))  # q_o_exp n.
-
-    for queue in [q_o_exp, q_i_exp]:  # quit orderly and safely
-        while queue.qsize() > 0:
-            queue.get()
-    # print('; quit: explore')
-
-
-def mp__explore_pipe_env(args, pipe, _act_id):
-    env = args.env
-    reward_scale = args.reward_scale
-    gamma = args.gamma
 
     next_state = env.reset()
     pipe.send(next_state)
@@ -377,7 +310,7 @@ def mp__explore_pipe_env(args, pipe, _act_id):
         pipe.send((reward_mask, next_state))
 
 
-def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
+def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
     env = args.env
     cwd = args.cwd
     gpu_id = args.gpu_id
@@ -388,13 +321,11 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
     del args
 
     '''init: env'''
-    # state_dim = env.state_dim
-    # action_dim = env.action_dim
     if_discrete = env.if_discrete
     target_reward = env.target_reward
 
     '''build evaluated only actor'''
-    act = q_i_eva.get()  # q_i_eva 1, act == act.to(device_cpu), requires_grad=False
+    act = eva_pipe.recv()  # eva_pipe 1, act == act.to(device_cpu), requires_grad=False
 
     torch.set_num_threads(4)
     device = torch.device('cpu')
@@ -408,13 +339,13 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
             recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
-            q_o_eva.put(is_solved)  # q_o_eva n.
+            eva_pipe.send(is_solved)  # eva_pipe is_solved
 
             '''update actor'''
-            while q_i_eva.qsize() == 0:  # wait until q_i_eva has item
+            while not eva_pipe.poll():  # wait until eva_pipe not empty
                 time.sleep(1)
-            while q_i_eva.qsize():  # get the latest actor
-                q_i_eva_get = q_i_eva.get()  # q_i_eva n.
+            while eva_pipe.poll():  # receive the latest object from pipe
+                q_i_eva_get = eva_pipe.recv()  # eva_pipe act
                 if q_i_eva_get == 'stop':
                     if_train = False
                     break  # it should break 'while q_i_eva.qsize():' and 'while if_train:'
@@ -427,12 +358,13 @@ def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
     if not os.path.exists(new_cwd):  # 2020-12-12
         os.rename(cwd, new_cwd)
         cwd = new_cwd
-    print(f'SavedDir: {cwd}\n'
-          f'UsedTime: {time.time() - recorder.start_time:.0f}')
+    else:
+        print(f'| SavedDir: {new_cwd}    WARNING: file exit')
+    print(f'| SavedDir: {cwd}\n'
+          f'| UsedTime: {time.time() - recorder.start_time:.0f}')
 
-    for queue in [q_o_eva, q_i_eva]:  # quit orderly and safely
-        while queue.qsize() > 0:
-            queue.get()
+    while eva_pipe.poll():  # empty the pipe
+        eva_pipe.recv()
     # print('; quit: evaluate')
 
 
