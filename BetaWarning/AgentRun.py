@@ -31,7 +31,7 @@ class Arguments:  # default working setting and hyper-parameters
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
-        self.rollout_workers_num = 2  # the number of rollout workers (larger is not always faster)
+        self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
 
         '''Arguments for evaluate'''
         self.break_step = 2 ** 17  # break training after 'total_step > break_step'
@@ -47,14 +47,14 @@ class Arguments:  # default working setting and hyper-parameters
         assert self.env is not None
         if not hasattr(self.env, 'env_name'):
             raise RuntimeError(
-                '| init_for_training() WARNING: AttributeError. What is env.env_name?'
-                '| use env = build_env(env) to decorate env.'
+                '\n| init_for_training() WARNING: AttributeError. '
+                '\n| What is env.env_name? use env = build_env(env) to decorate env'
             )
 
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
         self.cwd = f'./{self.rl_agent.__name__}/{self.env.env_name}_{self.gpu_id}'
 
-        print('| GPU: {} | CWD: {}'.format(self.gpu_id, self.cwd))
+        print(f'| GPU id: {self.gpu_id}, cwd: {self.cwd}')  # 2021-01-01
         _whether_remove_history(self.cwd, self.if_remove_history)
 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(self.gpu_id)
@@ -132,7 +132,7 @@ def train_agent(args):  # 2020-12-12
         buffer = BufferArray(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
 
         with torch.no_grad():  # update replay buffer
-            rewards, steps = _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+            rewards, steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
         recorder.update__record_explore(steps, rewards, loss_a=0, loss_c=0)
 
         '''pre training and hard update before training loop'''
@@ -183,15 +183,15 @@ def train_agent_mp(args):  # 2020-12-12
     q_o_eva = mp.Queue(maxsize=16)  # evaluate O
     process = list()
 
-    act_workers = args.rollout_workers_num
+    act_workers = args.rollout_num
     qs_i_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
     qs_o_exp = [mp.Queue(maxsize=16) for _ in range(act_workers)]
     for i in range(act_workers):
-        process.append(mp.Process(target=_mp__explore_a_env, args=(args, qs_i_exp[i], qs_o_exp[i], i)))
+        process.append(mp.Process(target=mp__explore_a_env, args=(args, qs_i_exp[i], qs_o_exp[i], i)))
 
     process.extend([
-        mp.Process(target=_mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)),
-        mp.Process(target=_mp__update_params, args=(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp)),
+        mp.Process(target=mp_evaluate_agent, args=(args, q_i_eva, q_o_eva)),
+        mp.Process(target=mp__update_params, args=(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp)),
     ])
 
     [p.start() for p in process]
@@ -199,7 +199,7 @@ def train_agent_mp(args):  # 2020-12-12
     print('\n')
 
 
-def _mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
+def mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-22
     rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
@@ -242,7 +242,7 @@ def _mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-2
 
         '''initial exploration'''
         with torch.no_grad():  # update replay buffer
-            rewards, steps = _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+            rewards, steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
         reward_avg = np.average(rewards)
         step_sum = sum(steps)
 
@@ -256,7 +256,7 @@ def _mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-2
         total_step += step_sum
     if reward_avg is None:
         # reward_avg = _get_episode_return(env, act_cpu, max_step, torch.device("cpu"), if_discrete)
-        reward_avg = _get_episode_return(env, agent.act, max_step, agent.device, if_discrete)
+        reward_avg = get_episode_return(env, agent.act, max_step, agent.device, if_discrete)
 
     q_i_eva.put(act_cpu)  # q_i_eva 1.
     for q_i_exp in qs_i_exp:
@@ -311,7 +311,7 @@ def _mp__update_params(args, q_i_eva, q_o_eva, qs_i_exp, qs_o_exp):  # 2020-12-2
     # print('; quit: params')
 
 
-def _mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
+def mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
     env = args.env
     rl_agent = args.rl_agent
     net_dim = args.net_dim
@@ -359,7 +359,25 @@ def _mp__explore_a_env(args, q_i_exp, q_o_exp, act_id):
     # print('; quit: explore')
 
 
-def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
+def mp__explore_pipe_env(args, pipe, _act_id):
+    env = args.env
+    reward_scale = args.reward_scale
+    gamma = args.gamma
+
+    next_state = env.reset()
+    pipe.send(next_state)
+    while True:
+        action = pipe.recv()
+        next_state, reward, done, _ = env.step(action)
+
+        reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
+        if done:
+            next_state = env.reset()
+
+        pipe.send((reward_mask, next_state))
+
+
+def mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
     env = args.env
     cwd = args.cwd
     gpu_id = args.gpu_id
@@ -418,7 +436,7 @@ def _mp_evaluate_agent(args, q_i_eva, q_o_eva):  # 2020-12-12
     # print('; quit: evaluate')
 
 
-def _explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
+def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
     state = env.reset()
 
     rewards = list()
@@ -494,12 +512,12 @@ class Recorder:  # 2020-10-12
             return None  # plan to be more elegant
 
         is_saved = False
-        reward_list = [_get_episode_return(env, act, max_step, device, if_discrete)
+        reward_list = [get_episode_return(env, act, max_step, device, if_discrete)
                        for _ in range(self.eva_size1)]
 
         eva_r_avg = np.average(reward_list)
         if eva_r_avg > self.eva_r_max:  # check 1
-            reward_list.extend([_get_episode_return(env, act, max_step, device, if_discrete)
+            reward_list.extend([get_episode_return(env, act, max_step, device, if_discrete)
                                 for _ in range(self.eva_size2 - self.eva_size1)])
             eva_r_avg = np.average(reward_list)
             if eva_r_avg > self.eva_r_max:  # check final
@@ -632,7 +650,7 @@ class Recorder:  # 2020-10-12
         pass
 
 
-def _get_episode_return(env, act, max_step, device, if_discrete) -> float:  # 2020-12-21
+def get_episode_return(env, act, max_step, device, if_discrete) -> float:  # 2020-12-21
     # faster to run 'with torch.no_grad()'
     episode_return = 0.0  # sum of rewards in an episode
 
@@ -703,8 +721,8 @@ def get_total_returns(agent, env_list, max_step) -> list:  # class Recorder 2020
 def decorate_env(env, if_print=True, if_norm=True):  # important function # 2020-12-12
     assert env is not None
 
-    if all([hasattr(env, attr) for attr in ('env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
-        # env_name = type(env).__name__
+    if all([hasattr(env, attr) for attr in (
+            'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
         pass  # not elegant enough
     else:
         (env_name, state_dim, action_dim, action_max, if_discrete, target_reward
@@ -723,7 +741,7 @@ def decorate_env(env, if_print=True, if_norm=True):  # important function # 2020
         setattr(env, 'target_reward', target_reward)
 
     if if_print:
-        print(f"| env_name: {env.env_name}, action space is discrete: {env.if_discrete}\n"
+        print(f"| env_name:  {env.env_name}, action is {'Discrete' if env.if_discrete else 'Continuous'}\n"
               f"| state_dim: {env.state_dim}, action_dim: {env.action_dim}, target_reward: {env.target_reward}")
     return env
 
@@ -1659,6 +1677,17 @@ class BufferArrayGPU:  # 2020-07-07
             self.is_full = True
             self.next_idx = 0
 
+    def append_memo_ary(self, memo_array):
+        """
+        memo_tuple == (reward, mask, state, action, next_state)
+        memo_array = np.hstack(memo_tuple)
+        """
+        self.memories[self.next_idx] = torch.tensor(memo_array, device=self.device)
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
+            self.is_full = True
+            self.next_idx = 0
+
     def extend_memo(self, memo_array):  # 2020-07-07
         # assert isinstance(memo_array, np.ndarray)
         size = memo_array.shape[0]
@@ -1739,7 +1768,7 @@ def _print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-12-12
         ary_avg = ary_avg - neg_avg / div_std
         ary_std = fix_std / div_std
 
-    print(f"| Replay Buffer: avg, fixed std")
+    print(f"| print_norm: state_avg, state_fix_std")
     print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
     print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 
@@ -1874,8 +1903,7 @@ def train__demo():
     args.break_step = int(1e5 * 8)  # UsedTime: 60s (reach target_reward 195)
     args.net_dim = 2 ** 7
     args.init_for_training()
-    train_agent(args)  # training using single-processing, easier to find the error on your custom environment.
-    # train_agent_mp(args)  # training using multi-processing to speed up training
+    train_agent(args)
     exit()
 
     '''DEMO 2: Standard gym env LunarLanderContinuous-v2 (continuous action) using ModSAC (Modify SAC, off-policy)'''
@@ -1889,7 +1917,8 @@ def train__demo():
     args.break_step = int(6e4 * 8)  # UsedTime: 900s (reach target_reward 200)
     args.net_dim = 2 ** 7
     args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
+    # train_agent(args)  # Train agent using single process. Recommend run on PC.
+    train_agent_mp(args)  # Train using multi process. Recommend run on Server.
     exit()
 
     '''DEMO 3: Custom env FinanceStock (continuous action) using PPO (PPO2+GAE, on-policy)'''
@@ -1899,7 +1928,7 @@ def train__demo():
     args = Arguments(rl_agent=AgentPPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
-    args.rollout_workers_num = 4
+    args.rollout_num = 4
     args.if_break_early = True
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
@@ -1940,10 +1969,13 @@ def train__continuous_action__off_policy():
     ][4]  # I suggest to use ModSAC (Modify SAC)
     # On-policy PPO is not here 'run__off_policy()'. See PPO in 'run__on_policy()'.
 
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     args.if_break_early = True  # break training if reach the target reward (total return of an episode)
     args.if_remove_history = True  # delete the historical directory
 
-    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    env = gym.make('Pendulum-v0')  # It is easy to reach target score -200.0 (-100 is harder)
+    args.env = decorate_env(env, if_print=True)
     args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
     args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
     args.init_for_training()
@@ -1951,14 +1983,14 @@ def train__continuous_action__off_policy():
     # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
     exit()
 
-    args.env = "LunarLanderContinuous-v2"
+    args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
     args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
     args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env = "BipedalWalker-v3"
+    args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
     args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
     args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
     args.init_for_training()
@@ -1967,7 +1999,7 @@ def train__continuous_action__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = "ReacherBulletEnv-v0"
+    args.env = decorate_env(gym.make('ReacherBulletEnv-v0'), if_print=True)
     args.break_step = int(5e4 * 8)  # (4e4) 5e4
     args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
     args.init_for_training()
@@ -1976,7 +2008,7 @@ def train__continuous_action__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = "AntBulletEnv-v0"
+    args.env = decorate_env(gym.make('AntBulletEnv-v0'), if_print=True)
     args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
     args.batch_size = 2 ** 8
@@ -1989,7 +2021,7 @@ def train__continuous_action__off_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = "MinitaurBulletEnv-v0"
+    args.env = decorate_env(gym.make('MinitaurBulletEnv-v0'), if_print=True)
     args.break_step = int(4e6 * 4)  # (2e6) 4e6
     args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
     args.batch_size = (2 ** 8)
@@ -2003,7 +2035,7 @@ def train__continuous_action__off_policy():
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env = "BipedalWalkerHardcore-v3"  # 2020-08-24 plan
+    args.env = decorate_env(gym.make('BipedalWalkerHardcore-v3'), if_print=True)  # 2020-08-24 plan
     args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (334)
     args.break_step = int(4e6 * 8)  # (2e6) 4e6
     args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
@@ -2024,6 +2056,11 @@ def train__continuous_action__on_policy():
         Zoo.AgentInterPPO,  # 2019. Integrated Network, useful in pixel-level task (state2D)
     ][0]
 
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    args.if_break_early = True  # break training if reach the target reward (total return of an episode)
+    args.if_remove_history = True  # delete the historical directory
+
     args.net_dim = 2 ** 8
     args.max_memo = 2 ** 12
     args.batch_size = 2 ** 9
@@ -2031,7 +2068,8 @@ def train__continuous_action__on_policy():
     args.reward_scale = 2 ** 0  # unimportant hyper-parameter in PPO which do normalization on Q value
     args.gamma = 0.99  # important hyper-parameter, related to episode steps
 
-    args.env = "Pendulum-v0"  # It is easy to reach target score -200.0 (-100 is harder)
+    env = gym.make('Pendulum-v0')  # It is easy to reach target score -200.0 (-100 is harder)
+    args.env = decorate_env(env, if_print=True)
     args.break_step = int(8e4 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
     args.reward_scale = 2 ** 0  # (-1800) -1000 ~ -200 (-50), UsedTime:  (100s) 200s
     args.gamma = 0.9  # important hyper-parameter, related to episode steps
@@ -2039,7 +2077,7 @@ def train__continuous_action__on_policy():
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env = "LunarLanderContinuous-v2"
+    args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
     args.break_step = int(3e5 * 8)  # (2e5) 3e5 , used time: (400s) 600s
     args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (301)
     args.gamma = 0.99  # important hyper-parameter, related to episode steps
@@ -2047,7 +2085,7 @@ def train__continuous_action__on_policy():
     train_agent_mp(args)  # train_agent(args)
     # exit()
 
-    args.env = "BipedalWalker-v3"
+    args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
     args.break_step = int(8e5 * 8)  # (4e5) 8e5 (4e6), UsedTimes: (600s) 1500s (8000s)
     args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (325)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -2057,7 +2095,7 @@ def train__continuous_action__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = "ReacherBulletEnv-v0"
+    args.env = decorate_env(gym.make('ReacherBulletEnv-v0'), if_print=True)
     args.break_step = int(2e6 * 8)  # (1e6) 2e6 (4e6), UsedTimes: 2000s (6000s)
     args.reward_scale = 2 ** 0  # (-15) 0 ~ 18 (25)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -2067,7 +2105,7 @@ def train__continuous_action__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = "AntBulletEnv-v0"
+    args.env = decorate_env(gym.make('AntBulletEnv-v0'), if_print=True)
     args.break_step = int(5e6 * 8)  # (1e6) 5e6 UsedTime: 25697s
     args.reward_scale = 2 ** -3  #
     args.gamma = 0.99  # important hyper-parameter, related to episode steps
@@ -2078,7 +2116,7 @@ def train__continuous_action__on_policy():
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = "MinitaurBulletEnv-v0"  # PPO is the best, I don't know why.
+    args.env = decorate_env(gym.make('MinitaurBulletEnv-v0'), if_print=True)
     args.break_step = int(1e6 * 8)  # (4e5) 1e6 (8e6)
     args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
     args.gamma = 0.95  # important hyper-parameter, related to episode steps
@@ -2089,6 +2127,14 @@ def train__continuous_action__on_policy():
     args.init_for_training()
     train_agent_mp(args)
     exit()
+
+    # args.env = decorate_env(gym.make('BipedalWalkerHardcore-v3'), if_print=True)  # 2020-08-24 plan
+    # on-policy (like PPO) is BAD at learning on a environment with so many random factors (like BipedalWalkerHardcore).
+    # exit()
+
+    args.env = fix_car_racing_env(gym.make('CarRacing-v0'))
+    # on-policy (like PPO) is GOOD at learning on a environment with less random factors (like 'CarRacing-v0').
+    # see 'train__car_racing__pixel_level_state2d()'
 
 
 def train__discrete_action():
@@ -2101,7 +2147,10 @@ def train__discrete_action():
         Zoo.AgentD3QN,  # 2016+ Dueling + Double DQN (Not a creative work)
     ][3]  # I suggest to use D3QN
 
-    args.env = "CartPole-v0"
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+
+    args.env = decorate_env(gym.make('CartPole-v0'), if_print=True)
     args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
     args.reward_scale = 2 ** 0  # 0 ~ 200
     args.net_dim = 2 ** 6
@@ -2109,7 +2158,7 @@ def train__discrete_action():
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    args.env = "LunarLander-v2"
+    args.env = decorate_env(gym.make('LunarLander-v2'), if_print=True)
     args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
     args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
     args.net_dim = 2 ** 7
@@ -2131,7 +2180,7 @@ def train__car_racing__pixel_level_state2d():
     args.if_break_early = True
     args.eval_times2 = 1
     args.eval_times2 = 3  # CarRacing Env is so slow. The GPU-util is low while training CarRacing.
-    args.rollout_workers_num = 4  # (num, step, time) (8, 1e5, 1360) (4, 1e4, 1860)
+    args.rollout_num = 4  # (num, step, time) (8, 1e5, 1360) (4, 1e4, 1860)
     args.random_seed += 1943
 
     args.break_step = int(5e5 * 4)  # (1e5) 2e5 4e5 (8e5) used time (7,000s) 10ks 30ks (60ks)
@@ -2157,7 +2206,7 @@ def run__fin_rl():
     args = Arguments(rl_agent=AgentPPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
-    args.rollout_workers_num = 4
+    args.rollout_num = 4
     args.if_break_early = False
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)

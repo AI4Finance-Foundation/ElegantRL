@@ -23,6 +23,7 @@ SQL https://github.com/gouxiangchen/soft-Q-learning/blob/master/sql.py bad-
 DUEL https://github.com/gouxiangchen/dueling-DQN-pytorch good
 """
 
+# todo should change all select_action to select_actions
 '''Policy Gradient (Actor Critic)'''
 
 
@@ -143,6 +144,7 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
 
         '''training record'''
         self.state = None  # env.reset()
+        self.action = None
         self.reward_sum = 0.0
         self.step = 0
 
@@ -159,16 +161,22 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
         actions = self.act.get__noise_action(states, self.explore_noise)
         return actions.cpu().data.numpy()[0]
 
+    def select_actions(self, states):  # todo should change all select_action to select_actions
+        # assert isinstance(states, tuple)
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act.get__noise_action(states, self.explore_noise)
+        return actions.cpu().data.numpy()
+
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        rewards = list()
-        steps = list()
+        # rewards = list()
+        # steps = list()
         for _ in range(max_step):
             '''inactive with environment'''
             action = self.select_action(self.state)
             next_state, reward, done, _ = env.step(action)
 
-            self.reward_sum += reward
-            self.step += 1
+            # self.reward_sum += reward
+            # self.step += 1
 
             '''update replay buffer'''
             # reward_ = reward * reward_scale
@@ -177,18 +185,101 @@ class AgentBaseAC:  # DEMO (base class, a modify DDPG without OU-Process)
             reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
             buffer.append_memo((reward_mask, self.state, action, next_state))
 
-            self.state = next_state
             if done:
                 # Compatibility for ElegantRL 2020-12-21
-                episode_return = env.episode_return if hasattr(env, 'episode_return') else self.reward_sum
-                rewards.append(episode_return)
-                self.reward_sum = 0.0
-
-                steps.append(self.step)
-                self.step = 0
+                # episode_return = env.episode_return if hasattr(env, 'episode_return') else self.reward_sum
+                # rewards.append(episode_return)
+                # self.reward_sum = 0.0
+                #
+                # steps.append(self.step)
+                # self.step = 0
 
                 self.state = env.reset()
-        return rewards, steps
+            else:
+                self.state = next_state  # todo should update for all
+
+                # return rewards, steps
+        return [0.0, ], [max_step, ]
+
+    def update_buffer__env_list(self, env_list, buffer, max_step, reward_scale, gamma):  # todo
+        env_num = len(env_list)
+
+        # rewards = list()
+        # steps = list()
+
+        for _ in range(max_step):
+            actions = self.select_actions(self.state)
+            for i in range(env_num):
+                env = env_list[i]
+                action = actions[i]
+                state = self.state[i]
+
+                next_state, reward, done, _ = env.step(action)
+
+                # self.reward_sum[i] += reward
+                # self.step[i] += 1
+
+                reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
+                buffer.append_memo((reward_mask, state, action, next_state))
+                self.state[i] = next_state
+
+                if done:
+                    # Compatibility for ElegantRL 2020-12-21
+                    # episode_return = env.episode_return if hasattr(env, 'episode_return') else self.reward_sum[i]
+                    # rewards.append(episode_return)
+                    # self.reward_sum[i] = 0.0
+                    #
+                    # steps.append(self.step[i])
+                    # self.step[i] = 0
+
+                    self.state[i] = env.reset()
+        # return rewards, steps
+        return [0.0, ], [max_step, ]
+
+    def update_buffer__pipe_list1(self, pipes, buffer, max_step, reward_scale, gamma):  # todo
+        env_num = len(pipes)
+        env_num2 = env_num // 2
+
+        # rewards = list()
+        # steps = list()
+
+        for _ in range(max_step // env_num):
+            for j in (0, env_num2):
+                for i in range(j, j + env_num2):
+                    reward_mask, action, next_state = pipes[i].recv()
+                    buffer.append_memo((reward_mask, self.state[i], action, next_state))
+                    self.state[i] = next_state
+                actions = self.select_actions(self.state[:env_num2])
+                for i in range(j, j + env_num2):
+                    pipes[i].send(actions[i - j])
+
+        return [0.0, ], [max_step, ]
+
+    def update_buffer__pipe_list(self, pipes, buffer, max_step, reward_scale, gamma):  # todo
+        env_num = len(pipes)
+        env_num2 = env_num // 2
+
+        # rewards = list()
+        # steps = list()
+
+        for _ in range(max_step // env_num):
+            for i in range(env_num2):
+                reward_mask, next_state = pipes[i].recv()
+                buffer.append_memo((reward_mask, self.state[i], self.action[i], next_state))
+                self.state[i] = next_state
+            self.action[:env_num2] = self.select_actions(self.state[:env_num2])
+            for i in range(env_num2):
+                pipes[i].send(self.action[i])
+
+            for i in range(env_num2, env_num):
+                reward_mask, next_state = pipes[i].recv()
+                buffer.append_memo((reward_mask, self.state[i], self.action[i], next_state))
+                self.state[i] = next_state
+            self.action[env_num2:] = self.select_actions(self.state[env_num2:])
+            for i in range(env_num2, env_num):
+                pipes[i].send(self.action[i])
+
+        return [0.0, ], [max_step, ]
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
@@ -361,6 +452,7 @@ class AgentSAC(AgentBaseAC):
 
         '''extension: auto-alpha for maximum entropy'''
         self.alpha_log = torch.zeros(1, requires_grad=True, device=self.device)
+        # self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True, device=self.device)
         self.alpha = self.alpha_log.exp()
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         self.target_entropy = np.log(action_dim)
@@ -446,6 +538,7 @@ class AgentModSAC(AgentBaseAC):
 
         '''training record'''
         self.state = None  # env.reset()
+        self.action = None
         self.reward_sum = 0.0
         self.step = 0
 
@@ -461,6 +554,11 @@ class AgentModSAC(AgentBaseAC):
         states = torch.tensor((state,), dtype=torch.float32, device=self.device)
         actions = self.act.get__noise_action(states)
         return actions.cpu().data.numpy()[0]
+
+    def select_actions(self, states):  # todo should change all select_action to select_actions
+        states = torch.tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act.get__noise_action(states)
+        return actions.cpu().data.numpy()
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         """Modify content of ModSAC
