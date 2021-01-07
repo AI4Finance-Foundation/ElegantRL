@@ -196,7 +196,6 @@ def train_agent_mp(args):  # 2021-01-01
 
     [p.start() for p in process]
     process[-1].join()
-    eva_pipe2.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
     process[-2].join()
     [p.terminate() for p in process]
     print('\n')
@@ -288,6 +287,8 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
     buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
                             env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
+    eva_pipe.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
+    time.sleep(4)
     # print('; quit: params')
 
 
@@ -674,7 +675,7 @@ def decorate_env(env, if_print=True, if_norm=True):  # important function # 2020
 
     if if_print:
         print(f"| env_name:  {env.env_name}, action is {'Discrete' if env.if_discrete else 'Continuous'}\n"
-              f"| state_dim: {env.state_dim}, action_dim: {env.action_dim}, target_reward: {env.target_reward}")
+              f"| state_dim, action_dim: ({env.state_dim}, {env.action_dim}), target_reward: {env.target_reward}")
     return env
 
 
