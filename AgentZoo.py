@@ -360,7 +360,7 @@ class AgentSAC(AgentBaseAC):
         self.step = 0
 
         '''extension: auto-alpha for maximum entropy'''
-        self.alpha_log = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha_log = torch.zeros(1, dtype=torch.float32, requires_grad=True, device=self.device)
         # self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True, device=self.device)
         self.alpha = self.alpha_log.exp()
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
@@ -452,7 +452,7 @@ class AgentModSAC(AgentBaseAC):
 
         '''extension: auto-alpha for maximum entropy'''
         self.target_entropy = np.log(action_dim)
-        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True, device=self.device)
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32, requires_grad=True, device=self.device)
         # todo ? or -1
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         '''extension: reliable lambda for auto-learning-rate'''
@@ -655,7 +655,7 @@ class AgentInterSAC(AgentBaseAC):  # Integrated Soft Actor-Critic Methods
 
         '''extension: auto-alpha for maximum entropy'''
         self.target_entropy = np.log(action_dim)
-        self.alpha_log = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
+        self.alpha_log = torch.tensor((-self.target_entropy,), dtype=torch.float32, requires_grad=True, device=self.device)
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=self.learning_rate)
         '''extension: reliable lambda for auto-learning-rate'''
         self.avg_loss_c = (-np.log(0.5)) ** 0.5
