@@ -142,25 +142,25 @@ Github上有很多深度强化学习无模型算法的开源库。为何我还�
 3. 尽管 PyTorch 0.4 运行速度慢于TensorFlow 1（在2019年我做过测试）。但是现在PyTorch 1.x 已经快很多了。
 
 ### DRL 算法的稳定性
-我非常清楚微调超参数可以在实验室里刷出很高的分数，用这些方法可以为某个算法得到虚高的分数。然而无论是学术界抑或工业界，事实上我们需要的是一个泛用的，稳定的算法。
+我非常清楚微调超参数可以在实验室里刷出很高的分数，这些方法可为某个算法得到虚高的分数。然而事实上无论是学术界抑或工业界，我们需要的是一个泛用的，稳定的算法。
 我坚持以下原则：
 
-1. 绝不使用需要精心调试的 OU Process. 
-2. 绝不使用一些随着训练次数增加而变小的参数。例如噪声方差逐渐减小，我绝不用。
-3. 使用网格搜索 grid search 从一堆超参数中选出合适的一组。如果这组参数的泛用性越高，则其价值越高。我将默认的超参数写在 `class Argument() in AgentRun.py`。里面的许多超参数都是 `2 ** n`，这就是为了表明我只对超参数进行粗调整，我绝不使用某些奇奇怪怪的值。
+1. 不使用需要精心调试的 OU Process. 
+2. 不使用一些随着训练次数增加而变小的参数。例如噪声方差逐渐减小，我不用。
+3. 使用网格搜索 grid search 从一堆超参数中选出合适的一组。如果这组参数的泛用性越高，则其价值越高。我将默认的超参数写在 `class Argument() in AgentRun.py`。里面的许多超参数都是 `2 ** n`，这就是为了表明我只对超参数进行粗调整，我不使用某些奇奇怪怪的值。
 
 
 
 # More
 
-The following content is too old and need to update.
-以下内容比较旧，需要更新。
+The following content is a littile bit old and need to update.
+以下内容有点旧，需要更新。
 
-If you can understand Chinese, more details of DelayDDPG are described in Chinese in this website ↓
+If you can read Chinese, more details of DelayDDPG are described in Chinese in this website ↓
  
 [Enhanced Learning DelayDDPG, LunarLander, BipedalWalker, only need to train half an hour of lightweight, stable code](https://zhuanlan.zhihu.com/p/72586697)
 
-如果你能看得懂中文，那么我用中文写了对这个算法的详细介绍:
+如果你能看懂中文，那么我用中文写了对这个算法的详细介绍:
   
 [强化学习DelayDDPG，月球着陆器，双足机器人，只需训练半个小时的轻量、稳定代码](https://zhuanlan.zhihu.com/p/72586697)
  
@@ -174,7 +174,7 @@ If you can understand Chinese, more details of DelayDDPG are described in Chines
 + DQN for UAV in crossroad
 
 #### ElegantRL 2019.07.07 (Yonder YonV)
-+ DelayDDPG: a simplify TwinDelayDDPG (TD3). 
++ DelayDDPG: a simplified TwinDelayDDPG (TD3). 
 [强化学习DelayDDPG，月球着陆器，双足机器人，只需训练半个小时的轻量、稳定代码](https://zhuanlan.zhihu.com/p/72586697)
 + Build my pipeline based TD3's code, which is a wonderful RL framework. 
 [TD3's author implementation](https://github.com/sfujim/TD3)
@@ -235,7 +235,7 @@ Maybe the next codename is (Casual ChuMeng), which is a formal version with mult
 The multi-agent RL task of rllib is so complex, and I need long time to reconstruct. 
 
 - env previous state save into env. (not sure)
-- ! update PPO(BufferTuple, (s,a,r,log_prob)) to PPO(BufferArray, (s,a,r,noise))
+- ! update PPO (BufferTuple, (s,a,r,log_prob)) to PPO(BufferArray, (s,a,r,noise))
 - fixPPO, OffPPO, InterPPO, InterOffPPO
 - fix bug on BufferArray.extend_memo()
 - fix CarRacing-v0
@@ -243,11 +243,11 @@ The multi-agent RL task of rllib is so complex, and I need long time to reconstr
 - update BufferArray to BufferTrajectory
 - gpu_id to agent_id
 
-#### Plan to 
+#### Plan to add 
 - add FlappyBird-v0 (PyGame), 2D state and 1D state
 - add [AI4Finance-LLC FinRL-Library](https://github.com/AI4Finance-LLC)
 
 
 Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
 Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
-some variants of DQN: Rainbow DQN, Ape-X
+some variants of DQN: Rainbow DQN, Ape-X.
