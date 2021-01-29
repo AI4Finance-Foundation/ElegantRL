@@ -11,7 +11,7 @@ It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
 Also you can find Multi-agent in folder 'BetaWarning'.
 
-Interested users can check more details see ↓ (written in Chinese). 
+Interested users can check more details ↓ (written in Chinese). 
 
 更多细节，详见下方。↓
 
@@ -26,8 +26,8 @@ LunarLanderContinuous-v2:
 BipedalWalkerHardcore-v2: 
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Temp/BipedalWalkerHardcore-v2-total-668kb.gif)
 
-BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward.
-You can also see the video in [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC). (A Mainland China Website)
+BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementations that can reach the target reward.
+You can also check the video [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC).
 
 For example, the training log is the following two figures.
 
@@ -35,7 +35,7 @@ For example, the training log is the following two figures.
 + The second is a slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
 + The name of the log figure is `plot_<Episode>_<TotalStep>_<UsedTimeInSecond>.png` when agent reaches the default target reward.
 
-Although BasicAC is my improved DDPG, it is still not stable enough. You can try other DRL algorithm, such as SAC and DeepSAC. There are more stable than other algorithm.
+BasicAC is an improved DDPG, not in a stable status at this moment. You can try other DRL algorithms, such as SAC and DeepSAC, which are more stable than other algorithms.
 
 <p float="left">
   <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Temp/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
@@ -43,13 +43,13 @@ Although BasicAC is my improved DDPG, it is still not stable enough. You can try
 </p>
 
 In the above two figures. 
-+ Blue curve: Total reward (with explore noise)
-+ Red curve: Total reward (without explore noise, mean and std)
++ Blue curve: Total reward (with exploration noise)
++ Red curve: Total reward (without exploration noise, mean and std)
 + Grey area: The step of one episode while exploring.
 + Green curve: 'loss' value of actor (mean of Q value estimate)
 + Green area: loss value of critic
 
-BipedalWalkerHardcore is a hard RL task in continuous action space. There is less RL implementation can reach the target reward. 
+BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementation can reach the target reward. 
 I am happy that InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
 ![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/ElegantRL/blob/master/Temp/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
