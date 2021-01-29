@@ -1,23 +1,23 @@
-## An lightweight, stable, efficient DRL PyTorch implement
-Many people suggested that I could call it "3-Python-file-RL (PyTorch)"
+## Lightweight, Stable and Efficient DRL Implementation Using PyTorch 
+Many people suggested to call it "3-Python-file-RL (PyTorch)"
 
-Model-free Deep Reinforcement Learning (DRL) Algorithm: 
-+ **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (I don't add A2C and TRPO because they are no good enough.)
+Model-free Deep Reinforcement Learning (DRL) Algorithms: 
++ **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (I don't add A2C and TRPO because they are not good enough.)
 + **DQN, DoubleDQN, DuelingDQN, GAE for discrete action**
 + More DQN (wait for adding Rainbow, Ape-X, SAC for discrete)
 + Multi-agent (wait for adding MADDPG, COMA, QMIX, QTRAN etc.)
 
 It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
-Maybe you can find Multi-agent in folder 'BetaWarning'.
+Also you can find Multi-agent in folder 'BetaWarning'.
 
-I am still learning English. Pardon. More details see ↓ (write in Chinese). 
+Interested users can check more details see ↓ (written in Chinese). 
 
-我英文差，还望包涵。更多细节，详见下方。↓
+更多细节，详见下方。↓
 
 知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
 
-# Show results
+# Experimental results
 
 You can see these gif/png ↓ in file "/Temp" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/tree/master/History).
 
