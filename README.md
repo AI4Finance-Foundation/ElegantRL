@@ -56,7 +56,6 @@ I am happy that InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 rewar
 
 You can see more training log in file "Result". 
 
-%The following Readme in English is written for Necip and other people who can't read Chinese.
 
 # Requirement
 
