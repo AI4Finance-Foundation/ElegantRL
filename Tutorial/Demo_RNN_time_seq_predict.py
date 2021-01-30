@@ -5,12 +5,13 @@ from torch import nn
 import matplotlib.pyplot as plt
 
 """
-Refer: The source of training data: https://github.com/L1aoXingyu/
+Github: Yonv1943 Zen4 Jia1 hao2
+https://github.com/Yonv1943/DL_RL_Zoo/blob/master/RNN
+
+The source of training data 
+https://github.com/L1aoXingyu/
 code-of-learn-deep-learning-with-pytorch/blob/master/
 chapter5_RNN/time-series/lstm-time-series.ipynb
-
-Github: Yonv1943 ZenYiYan
-https://github.com/Yonv1943/ElegantRL/edit/master/Tutorial/Demo_RNN_time_seq_predict.py
 """
 
 
