@@ -9,11 +9,10 @@ import numpy.random as rd
 
 """AgentNet"""
 
-
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),  #yanglet: which one of "ReLU, LeakyReLu, or Hardswich" ?
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), )
 
@@ -24,8 +23,7 @@ class Actor(nn.Module):
         action = self.net(s).tanh()
         return (action + torch.randn_like(action) * a_std).clamp(-1.0, 1.0)
 
-
-class ActorSAC(nn.Module):
+class ActorSAC(nn.Module):  #yanglet: can we use ActorSAC(Actor) ?
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -34,7 +32,7 @@ class ActorSAC(nn.Module):
         self.net__d = nn.Linear(mid_dim, action_dim)  # network of action_log_std
 
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # constant
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu").     #yanglet: add code coment here
 
     def forward(self, s):
         x = self.net__s(s)
@@ -49,7 +47,7 @@ class ActorSAC(nn.Module):
     def get__a__log_prob(self, s):
         x = self.net__s(s)
         a_avg = self.net__a(x)
-        a_std_log = self.net__d(x).clamp(self.log_std_min, self.log_std_max)
+        a_std_log = self.net__d(x).clamp(self.log_std_min, self.log_std_max)   #yanglet: add code coment here
         a_std = a_std_log.exp()
 
         a = a_avg + a_std * torch.randn_like(a_avg, requires_grad=True, device=self.device)  # todo ?
@@ -73,8 +71,7 @@ class Critic(nn.Module):
         return self.net_q1(x), self.net_q2(x)
 
 
-"""AgentZoo"""
-
+"""Agent"""
 
 class AgentBaseAC:
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
@@ -256,14 +253,12 @@ class AgentModSAC(AgentBaseAC):
                 self.act_optimizer.step()
                 _soft_target_update(self.act_target, self.act)
 
-
 def _soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 
-"""AgentRun"""
-
+"""Run"""
 
 class Arguments:
     def __init__(self, rl_agent=None, env=None, gpu_id=None):
@@ -318,14 +313,7 @@ def _whether_remove_history(cwd, is_remove=None):
     del shutil
 
 
-class FinanceMultiStockEnv:  # 2021-01-01
-    """FinRL
-    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
-           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
-    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
-    Modify: Github Yonv1943 ElegantRL
-    """
-
+class FinanceMultiStockEnv:  #yanglet: please call it MultiStockEnv
     def __init__(self, initial_account=1e6, transaction_fee_percent=1e-3, max_stock=100):
         self.stock_dim = 30
         self.initial_account = initial_account
@@ -374,7 +362,7 @@ class FinanceMultiStockEnv:  # 2021-01-01
     def step(self, actions):
         actions = actions * self.max_stock
 
-        """bug or sell stock"""
+        """buy or sell stock"""
         for index in range(self.stock_dim):
             action = actions[index]
             adj = self.day_npy[index]
