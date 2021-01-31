@@ -29,9 +29,11 @@ class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), )  # network of state
-        self.net__a = nn.Linear(mid_dim, action_dim)  # network of action_average
-        self.net__d = nn.Linear(mid_dim, action_dim)  # network of action_log_std
+                                    nn.Linear(mid_dim, mid_dim), HardSwish(), )  # network of state
+        self.net__a = nn.Sequential(nn.Linear(mid_dim, mid_dim), HardSwish(),
+                                    nn.Linear(mid_dim, action_dim), HardSwish(), )  # network of action_average
+        self.net__d = nn.Sequential(nn.Linear(mid_dim, mid_dim), HardSwish(),
+                                    nn.Linear(mid_dim, action_dim), HardSwish(), )  # network of action_log_std
 
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # constant
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,13 +79,24 @@ class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), )
-        self.net_q1 = nn.Linear(mid_dim, 1)
-        self.net_q2 = nn.Linear(mid_dim, 1)
+                                    nn.Linear(mid_dim, mid_dim), HardSwish())  # concat(state, action)
+        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), HardSwish(),
+                                    nn.Linear(mid_dim, 1), HardSwish(), )  # q1 value
+        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), HardSwish(),
+                                    nn.Linear(mid_dim, 1), HardSwish(), )  # q2 value
 
     def forward(self, state, action):
         x = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(x), self.net_q2(x)
+
+
+class HardSwish(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.relu6 = nn.ReLU6()
+
+    def forward(self, x):
+        return self.relu6(x + 3.) / 6. * x
 
 
 """AgentZoo"""
