@@ -9,10 +9,11 @@ import numpy.random as rd
 
 """AgentNet"""
 
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),  #yanglet: which one of "ReLU, LeakyReLu, or Hardswich" ?
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), )
 
@@ -23,7 +24,8 @@ class Actor(nn.Module):
         action = self.net(s).tanh()
         return (action + torch.randn_like(action) * a_std).clamp(-1.0, 1.0)
 
-class ActorSAC(nn.Module):  #yanglet: can we use ActorSAC(Actor) ?
+
+class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -32,7 +34,7 @@ class ActorSAC(nn.Module):  #yanglet: can we use ActorSAC(Actor) ?
         self.net__d = nn.Linear(mid_dim, action_dim)  # network of action_log_std
 
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # constant
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu").     #yanglet: add code coment here
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, s):
         x = self.net__s(s)
@@ -47,18 +49,18 @@ class ActorSAC(nn.Module):  #yanglet: can we use ActorSAC(Actor) ?
     def get__a__log_prob(self, s):
         x = self.net__s(s)
         a_avg = self.net__a(x)
-        a_std_log = self.net__d(x).clamp(self.log_std_min, self.log_std_max)   #yanglet: add code coment here
+        a_std_log = self.net__d(x).clamp(-20, 2)
         a_std = a_std_log.exp()
 
         a = a_avg + a_std * torch.randn_like(a_avg, requires_grad=True, device=self.device)  # todo ?
         a_tanh = a.tanh()
 
-        log_prob = (((a_avg - a) / a_std).pow(2) * 0.5 + a_std_log + self.sqrt_2pi_log
-                    + (-a_tanh.pow(2) + 1.000001).log().sum(1, keepdim=True))
+        log_prob = ((a_avg - a) / a_std).pow(2) * 0.5 + a_std_log + self.sqrt_2pi_log
+        log_prob = (log_prob + (-a_tanh.pow(2) + 1.000001).log()).sum(1, keepdim=True)
         return a_tanh, log_prob
 
 
-class Critic(nn.Module):
+class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
@@ -71,11 +73,13 @@ class Critic(nn.Module):
         return self.net_q1(x), self.net_q2(x)
 
 
-"""Agent"""
+"""AgentZoo"""
+
 
 class AgentBaseAC:
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        self.actor_obj, self.critic_obj = 0.0, 0.5
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.obj_a, self.obj_c = 0.0, 0.5
         self.explore_noise, self.policy__noise = 0.1, 0.2
 
         self.state = self.action = None
@@ -89,9 +93,9 @@ class AgentBaseAC:
         self.act_target = Actor(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.cri = Critic(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
+        self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=learning_rate)
-        self.cri_target = Critic(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
+        self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
     def select_actions(self, states):  # states = (state, )
@@ -116,7 +120,7 @@ class AgentBaseAC:
                 self.state[i] = next_state
             self.action[:env_num2] = self.select_actions(self.state[:env_num2])
             for i in range(env_num2):
-                pipes[i].send(self.action[i])
+                pipes[i].send(self.action[i])  # pipes action
 
             for i in range(env_num2, env_num):
                 reward_mask, next_state = pipes[i].recv()
@@ -124,7 +128,8 @@ class AgentBaseAC:
                 self.state[i] = next_state
             self.action[env_num2:] = self.select_actions(self.state[env_num2:])
             for i in range(env_num2, env_num):
-                pipes[i].send(self.action[i])
+                pipes[i].send(self.action[i])  # pipes action
+        return max_step - max_step % env_num  # not elegant
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
@@ -141,17 +146,17 @@ class AgentBaseAC:
                 q_label = reward + mask * self.cri_target(next_s, next_action)
 
             q1, q2 = self.cri(state, action)
-            critic_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
-            self.critic_obj = 0.995 * self.critic_obj + 0.005 * critic_obj.item() / 2
-            lamb = np.exp(-self.critic_obj ** 2)
+            cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+            self.obj_c = 0.995 * self.obj_c + 0.005 * cri_obj.item() / 2
+            lamb = np.exp(-self.obj_c ** 2)
             self.cri_optimizer.zero_grad()  # todo try mega
-            critic_obj.backward()
+            cri_obj.backward()
             self.cri_optimizer.step()
 
-            actor_obj = -self.cri(state, self.act(state)).mean() * lamb
-            self.actor_obj = 0.995 * self.actor_obj + 0.005 * q_label.mean().item()
+            act_obj = -self.cri(state, self.act(state)).mean() * lamb
+            self.obj_a = 0.995 * self.obj_a + 0.005 * q_label.mean().item()
             self.act_optimizer.zero_grad()
-            actor_obj.backward()
+            act_obj.backward()
             self.act_optimizer.step()
 
             _soft_target_update(self.cri_target, self.cri)
@@ -176,7 +181,8 @@ class AgentBaseAC:
 class AgentModSAC(AgentBaseAC):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
         super(AgentBaseAC, self).__init__()
-        self.obj_a, self.critic_obj = 0.0, (-np.log(0.5)) ** 0.5
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.obj_a, self.obj_c = 0.0, (-np.log(0.5)) ** 0.5
         self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,),
                                       dtype=torch.float32, requires_grad=True, device=self.device)
@@ -193,9 +199,9 @@ class AgentModSAC(AgentBaseAC):
         self.act_target = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.cri = Critic(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
+        self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=learning_rate)
-        self.cri_target = Critic(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
+        self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
     def select_actions(self, states):
@@ -220,45 +226,46 @@ class AgentModSAC(AgentBaseAC):
                 next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
                 q_label = reward + mask * (torch.min(*self.cri_target(next_s, next_a_noise)) + next_log_prob * alpha)
 
-            """critic_obj"""
             q1, q2 = self.cri(state, action)
-            critic_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
-            self.critic_obj = 0.995 * self.critic_obj + 0.0025 * critic_obj.item()
+            cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+            self.obj_c = 0.995 * self.obj_c + 0.0025 * cri_obj.item()
 
             self.cri_optimizer.zero_grad()
-            critic_obj.backward()
+            cri_obj.backward()
             self.cri_optimizer.step()
             _soft_target_update(self.cri_target, self.cri)
 
             a_noise_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
 
-            alpha_loss = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            alpha_obj = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
 
             self.alpha_optimizer.zero_grad()
-            alpha_loss.backward()
+            alpha_obj.backward()
             self.alpha_optimizer.step()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
             alpha = self.alpha_log.exp().detach()
 
-            lamb = np.exp(-self.critic_obj ** 2)
+            lamb = np.exp(-self.obj_c ** 2)
             if update_a / update_c < 1 / (2 - lamb):  # auto TTUR
                 update_a += 1
 
-                actor_obj = -(torch.min(*self.cri(state, a_noise_pg)) + log_prob * alpha).mean()
-                self.actor_obj = 0.995 * self.actor_obj + 0.005 * q_label.mean().item()
+                act_obj = -(torch.min(*self.cri(state, a_noise_pg)) + log_prob * alpha).mean()
+                self.obj_a = 0.995 * self.obj_a + 0.005 * q_label.mean().item()
 
                 self.act_optimizer.zero_grad()
-                actor_obj.backward()
+                act_obj.backward()
                 self.act_optimizer.step()
                 _soft_target_update(self.act_target, self.act)
+
 
 def _soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 
-"""Run"""
+"""AgentRun"""
+
 
 class Arguments:
     def __init__(self, rl_agent=None, env=None, gpu_id=None):
@@ -311,109 +318,6 @@ def _whether_remove_history(cwd, is_remove=None):
         print("| Remove")
     os.makedirs(cwd, exist_ok=True)
     del shutil
-
-
-class FinanceMultiStockEnv:  #yanglet: please call it MultiStockEnv
-    def __init__(self, initial_account=1e6, transaction_fee_percent=1e-3, max_stock=100):
-        self.stock_dim = 30
-        self.initial_account = initial_account
-        self.transaction_fee_percent = transaction_fee_percent
-        self.max_stock = max_stock
-
-        self.ary = self.load_training_data_for_multi_stock()
-        assert self.ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
-
-        # reset
-        self.day = 0
-        self.account = self.initial_account
-        self.day_npy = self.ary[self.day]
-        self.stocks = np.zeros(self.stock_dim, dtype=np.float32)  # multi-stack
-        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
-
-        '''env information'''
-        self.env_name = 'FinanceStock-v1'
-        self.state_dim = 1 + (5 + 1) * self.stock_dim
-        self.action_dim = self.stock_dim
-        self.if_discrete = False
-        self.target_reward = 15
-        self.max_step = self.ary.shape[0]
-
-        self.gamma_r = 0.0
-
-    def reset(self):
-        self.account = self.initial_account * rd.uniform(0.99, 1.00)  # notice reset()
-        self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
-        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        # total_asset = account + (adjcp * stocks).sum()
-
-        self.day = 0
-        self.day_npy = self.ary[self.day]
-        self.day += 1
-
-        state = np.hstack((
-            self.account * 2 ** -16,
-            self.day_npy * 2 ** -8,
-            self.stocks * 2 ** -12,
-        ), ).astype(np.float32)
-
-        return state
-
-    def step(self, actions):
-        actions = actions * self.max_stock
-
-        """buy or sell stock"""
-        for index in range(self.stock_dim):
-            action = actions[index]
-            adj = self.day_npy[index]
-            if action > 0:  # buy_stock
-                available_amount = self.account // adj
-                delta_stock = min(available_amount, action)
-                self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
-                self.stocks[index] += delta_stock
-            elif self.stocks[index] > 0:  # sell_stock
-                delta_stock = min(-action, self.stocks[index])
-                self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
-                self.stocks[index] -= delta_stock
-
-        """update day"""
-        self.day_npy = self.ary[self.day]
-        self.day += 1
-        done = self.day == self.max_step  # 2020-12-21
-
-        state = np.hstack((
-            self.account * 2 ** -16,
-            self.day_npy * 2 ** -8,
-            self.stocks * 2 ** -12,
-        ), ).astype(np.float32)
-
-        next_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
-        reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling!
-        self.total_asset = next_total_asset
-
-        self.gamma_r = self.gamma_r * 0.99 + reward  # notice: gamma_r seems good? Yes
-        if done:
-            reward += self.gamma_r
-            self.gamma_r = 0.0  # env.reset()
-
-            # cumulative_return_rate
-            self.episode_return = next_total_asset / self.initial_account
-
-        return state, reward, done, dict()
-
-    @staticmethod
-    def load_training_data_for_multi_stock(if_load=True):  # need more independent
-        npy_path = './Result/FinanceMultiStock.npy'
-        if if_load and os.path.exists(npy_path):
-            data_ary = np.load(npy_path).astype(np.float32)
-            assert data_ary.shape[1] == 5 * 30
-            return data_ary
-        else:
-            raise RuntimeError(
-                f'\n| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}'
-                f'\n| https://github.com/Yonv1943/ElegantRL/blob/master/Result/FinanceMultiStock.npy'
-                f'\n| Or you can use the following code to generate it from a csv file.'
-            )
 
 
 def train_agent_mp(args):  # 2021-01-01
@@ -472,8 +376,7 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     act_cpu.eval()
     [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
 
-    '''build replay buffer, init: total_step, reward_avg'''
-    reward_avg = None
+    '''build replay buffer, init: total_step, r_avg'''
     total_step = 0
     if bool(rl_agent.__name__ in {'AgentPPO', 'AgentInterPPO'}):
         buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)
@@ -482,9 +385,7 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
         '''initial exploration'''
         with torch.no_grad():  # update replay buffer
-            rewards, steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
-        reward_avg = np.average(rewards)
-        step_sum = sum(steps)
+            steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
 
         '''pre training and hard update before training loop'''
         buffer.update__now_len__before_sample()
@@ -492,9 +393,8 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
         if 'act_target' in dir(agent):
             agent.act_target.load_state_dict(agent.act.state_dict())
 
-        total_step += step_sum
-    if reward_avg is None:
-        reward_avg = get_episode_return(env, agent.act, max_step, agent.device, if_discrete)
+        total_step += steps
+    eva_pipe.send(act_cpu)  # eva_pipe act
 
     '''training loop'''
     if_train = True
@@ -502,19 +402,16 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     while if_train:
         '''update replay buffer by interact with environment'''
         with torch.no_grad():  # speed up running
-            rewards, steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes n send
-
-        reward_avg = np.average(rewards) if len(rewards) else reward_avg
-        step_sum = sum(steps)
-        total_step += step_sum
+            steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes action inside
+        total_step += steps
 
         '''update network parameters by random sampling buffer for gradient descent'''
         buffer.update__now_len__before_sample()
-        loss_a_avg, loss_c_avg = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
         act_cpu.load_state_dict(agent.act.state_dict())
-        eva_pipe.send((act_cpu, reward_avg, step_sum, loss_a_avg, loss_c_avg))  # eva_pipe act
+        eva_pipe.send((act_cpu, steps, agent.obj_a, agent.obj_c))  # eva_pipe act
 
         if eva_pipe.poll():
             if_solve = eva_pipe.recv()  # eva_pipe if_solve
@@ -526,7 +423,6 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
     eva_pipe.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
     time.sleep(4)
-    # print('; quit: params')
 
 
 def mp_explore_in_env(args, pipe, _act_id):
@@ -563,7 +459,7 @@ def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
     target_reward = env.target_reward
 
     '''build evaluated only actor'''
-    act = eva_pipe.recv()  # eva_pipe 1, act == act.to(device_cpu), requires_grad=False
+    act = eva_pipe.recv()  # eva_pipe act, act == act.to(device_cpu), requires_grad=False
     obj_a, obj_c = 0., 0.
 
     torch.set_num_threads(4)
@@ -574,8 +470,6 @@ def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
     if_train = True
     with torch.no_grad():  # for saving the GPU buffer
         while if_train:
-            is_saved = recorder.update_recorder(env, act, max_step, device, if_discrete, obj_a, obj_c)
-            recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
             is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
             eva_pipe.send(is_solved)  # eva_pipe is_solved
@@ -583,12 +477,18 @@ def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
             '''update actor'''
             while not eva_pipe.poll():  # wait until eva_pipe not empty
                 time.sleep(1)
+
+            step_sum = 0
             while eva_pipe.poll():  # receive the latest object from pipe
                 q_i_eva_get = eva_pipe.recv()  # eva_pipe act
                 if q_i_eva_get == 'stop':
                     if_train = False
                     break  # it should break 'while q_i_eva.qsize():' and 'while if_train:'
-                act, obj_a, obj_c = q_i_eva_get
+                act, steps, obj_a, obj_c = q_i_eva_get
+                step_sum += steps
+            if step_sum > 0:
+                is_saved = recorder.update_recorder(env, act, step_sum, device, if_discrete, obj_a, obj_c)
+                recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
     recorder.save_npy__draw_plot(cwd)
 
@@ -603,54 +503,27 @@ def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
 
     while eva_pipe.poll():  # empty the pipe
         eva_pipe.recv()
-    # print('; quit: evaluate')
 
 
 def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
     state = env.reset()
+    steps = 0
 
-    rewards = list()
-    episode_return = 0.0  # 2020-12-12 episode_return
-    steps = list()
-    step = 0
-
-    if if_discrete:
-        def random_action__discrete():
-            return rd.randint(action_dim)
-
-        get_random_action = random_action__discrete
-    else:
-        def random_action__continuous():
-            return rd.uniform(-1, 1, size=action_dim)
-
-        get_random_action = random_action__continuous
-
-    global_step = 0
-    while global_step < max_step or len(rewards) == 0:  # warning 2020-10-10?
-        # action = np.tanh(rd.normal(0, 0.25, size=action_dim))  # zero-mean gauss exploration
-        action = get_random_action()
+    while steps < max_step:
+        action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action * if_discrete)
-        episode_return += reward
-        step += 1
+        steps += 1
 
         adjust_reward = reward * reward_scale
         mask = 0.0 if done else gamma
-        buffer.append_memo((adjust_reward, mask, state, action, next_state))
+        buffer.append_memo((adjust_reward, mask, *state, *action, *next_state))
 
         state = next_state
         if done:
-            episode_return = env.episode_return if hasattr(env, 'episode_return') else episode_return
-
-            rewards.append(episode_return)
-            steps.append(step)
-            global_step += step
-
             state = env.reset()  # reset the environment
-            episode_return = 0.0
-            step = 1
 
     buffer.update__now_len__before_sample()
-    return rewards, steps
+    return steps
 
 
 class Recorder:
@@ -673,9 +546,6 @@ class Recorder:
               f"{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
     def update_recorder(self, env, act, max_step, device, if_discrete, obj_a, obj_c):
-        if self.total_step == self.recorder[-1][0]:
-            return None  # plan to be more elegant
-
         is_saved = False
         reward_list = [get_episode_return(env, act, max_step, device, if_discrete)
                        for _ in range(self.eva_size1)]
@@ -773,9 +643,11 @@ def get_episode_return(env, act, max_step, device, if_discrete) -> float:  # 202
     state = env.reset()
     for _ in range(max_step):
         s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
-        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
+        a_tensor = act(s_tensor)
+        if if_discrete:
+            a_tensor = a_tensor.argmax(dim=1)
         action = a_tensor.cpu().data.numpy()[0]
-        state, reward, done, _ = env.step(action)[1]
+        state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
             break
@@ -802,6 +674,7 @@ class BufferArrayGPU:  # 2021-01-01
         self.state_idx = 1 + 1 + state_dim  # reward_dim=1, done_dim=1
         self.action_idx = self.state_idx + action_dim
 
+    # plan to not send next_s
     def append_memo(self, memo_tuple):  # memo_tuple = (reward, mask, state, action, next_state)
         self.memories[self.next_idx] = torch.as_tensor(np.hstack(memo_tuple), device=self.device)
         self.next_idx = self.next_idx + 1
@@ -835,8 +708,258 @@ class BufferArrayGPU:  # 2021-01-01
                 self.memories[:self.now_len, self.action_idx:])  # next_states or log_prob_sum
 
 
+"""Env"""
+
+
+def decorate_env(env, if_print=True):  # important function # 2020-12-12
+    assert env is not None
+
+    if all([hasattr(env, attr) for attr in (
+            'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
+        pass
+    else:
+        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward
+         ) = _get_gym_env_information(env)
+
+        env = _get_decorate_env(env, action_max, data_type=np.float32)
+
+        setattr(env, 'env_name', env_name)
+        setattr(env, 'state_dim', state_dim)
+        setattr(env, 'action_dim', action_dim)
+        setattr(env, 'if_discrete', if_discrete)
+        setattr(env, 'target_reward', target_reward)
+
+    if if_print:
+        print(f"| env_name:  {env.env_name}, action is {'Discrete' if env.if_discrete else 'Continuous'}\n"
+              f"| state_dim, action_dim: ({env.state_dim}, {env.action_dim}), target_reward: {env.target_reward}")
+    return env
+
+
+def _get_gym_env_information(env) -> (str, int, int, float, bool, float):
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+
+    if not isinstance(env, gym.Env):
+        raise RuntimeError(
+            '| It is not a standard gym env. Could tell me the values of the following?\n'
+            '| state_dim, action_dim, target_reward, if_discrete = (int, int, float, bool)'
+        )
+
+    '''env_name and special rule'''
+    env_name = env.unwrapped.spec.id
+    if env_name == 'Pendulum-v0':
+        env.spec.reward_threshold = -200.0  # target_reward
+
+    '''state_dim'''
+    state_shape = env.observation_space.shape
+    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
+
+    '''target_reward'''
+    target_reward = env.spec.reward_threshold
+    if target_reward is None:
+        raise RuntimeError(
+            '| I do not know how much is target_reward.\n'
+            '| If you do not either. You can set target_reward=+np.inf. \n'
+        )
+
+    '''if_discrete action_dim, action_max'''
+    if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
+    if if_discrete:  # make sure it is discrete action space
+        action_dim = env.action_space.n
+        action_max = int(1)
+    elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
+        action_dim = env.action_space.shape[0]
+        action_max = float(env.action_space.high[0])
+
+        action_edge = np.array([action_max, ] * action_dim)  # need check
+        if any(env.action_space.high - action_edge):
+            raise RuntimeError(
+                f'| action_space.high should be {action_edge}, but {env.action_space.high}')
+        if any(env.action_space.low + action_edge):
+            raise RuntimeError(
+                f'| action_space.low should be {-action_edge}, but {env.action_space.low}')
+    else:
+        raise RuntimeError(
+            '| I do not know env.action_space is discrete or continuous.\n'
+            '| You can set these value manually: if_discrete, action_dim, action_max\n'
+        )
+    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward
+
+
+def _get_decorate_env(env, action_max=1, state_avg=None, state_std=None, data_type=np.float32):
+    if state_avg is None:
+        neg_state_avg = 0
+        div_state_std = 1
+    else:
+        state_avg = state_avg.astype(data_type)
+        state_std = state_std.astype(data_type)
+
+        neg_state_avg = -state_avg
+        div_state_std = 1 / (state_std + 1e-4)
+
+    setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() AgentZoo.py
+    setattr(env, 'div_state_std', div_state_std)  # for def print_norm() AgentZoo.py
+
+    '''decorator_step'''
+    if state_avg is not None:
+        def decorator_step(env_step):
+            def new_env_step(action):
+                state, reward, done, info = env_step(action * action_max)
+                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
+
+            return new_env_step
+    elif action_max is not None:
+        def decorator_step(env_step):
+            def new_env_step(action):
+                state, reward, done, info = env_step(action * action_max)
+                return state.astype(data_type), reward, done, info
+
+            return new_env_step
+    else:  # action_max is None:
+        def decorator_step(env_step):
+            def new_env_step(action):
+                state, reward, done, info = env_step(action * action_max)
+                return state.astype(data_type), reward, done, info
+
+            return new_env_step
+    env.step = decorator_step(env.step)
+
+    '''decorator_reset'''
+    if state_avg is not None:
+        def decorator_reset(env_reset):
+            def new_env_reset():
+                state = env_reset()
+                return (state.astype(data_type) + neg_state_avg) * div_state_std
+
+            return new_env_reset
+    else:
+        def decorator_reset(env_reset):
+            def new_env_reset():
+                state = env_reset()
+                return state.astype(data_type)
+
+            return new_env_reset
+    env.reset = decorator_reset(env.reset)
+
+    return env
+
+
+class FinanceMultiStockEnv:  # 2021-01-01
+    """FinRL
+    Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
+           https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
+    Source: Github https://github.com/AI4Finance-LLC/FinRL-Library
+    Modify: Github Yonv1943 ElegantRL
+    """
+
+    def __init__(self, initial_account=1e6, transaction_fee_percent=1e-3, max_stock=100):
+        self.stock_dim = 30
+        self.initial_account = initial_account
+        self.transaction_fee_percent = transaction_fee_percent
+        self.max_stock = max_stock
+
+        self.ary = self.load_training_data_for_multi_stock()
+        assert self.ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
+
+        # reset
+        self.day = 0
+        self.account = self.initial_account
+        self.day_npy = self.ary[self.day]
+        self.stocks = np.zeros(self.stock_dim, dtype=np.float32)  # multi-stack
+        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
+
+        '''env information'''
+        self.env_name = 'FinanceStock-v1'
+        self.state_dim = 1 + (5 + 1) * self.stock_dim
+        self.action_dim = self.stock_dim
+        self.if_discrete = False
+        self.target_reward = 15
+        self.max_step = self.ary.shape[0]
+
+        self.gamma_r = 0.0
+
+    def reset(self):
+        self.account = self.initial_account * rd.uniform(0.99, 1.00)  # notice reset()
+        self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
+        self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        # total_asset = account + (adjcp * stocks).sum()
+
+        self.day = 0
+        self.day_npy = self.ary[self.day]
+        self.day += 1
+
+        state = np.hstack((
+            self.account * 2 ** -16,
+            self.day_npy * 2 ** -8,
+            self.stocks * 2 ** -12,
+        ), ).astype(np.float32)
+
+        return state
+
+    def step(self, actions):
+        actions = actions * self.max_stock
+
+        """bug or sell stock"""
+        for index in range(self.stock_dim):
+            action = actions[index]
+            adj = self.day_npy[index]
+            if action > 0:  # buy_stock
+                available_amount = self.account // adj
+                delta_stock = min(available_amount, action)
+                self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
+                self.stocks[index] += delta_stock
+            elif self.stocks[index] > 0:  # sell_stock
+                delta_stock = min(-action, self.stocks[index])
+                self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
+                self.stocks[index] -= delta_stock
+
+        """update day"""
+        self.day_npy = self.ary[self.day]
+        self.day += 1
+        done = self.day == self.max_step  # 2020-12-21
+
+        state = np.hstack((
+            self.account * 2 ** -16,
+            self.day_npy * 2 ** -8,
+            self.stocks * 2 ** -12,
+        ), ).astype(np.float32)
+
+        next_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+        reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling!
+        self.total_asset = next_total_asset
+
+        self.gamma_r = self.gamma_r * 0.99 + reward  # notice: gamma_r seems good? Yes
+        if done:
+            reward += self.gamma_r
+            self.gamma_r = 0.0  # env.reset()
+
+            # cumulative_return_rate
+            self.episode_return = next_total_asset / self.initial_account
+
+        return state, reward, done, dict()
+
+    @staticmethod
+    def load_training_data_for_multi_stock(if_load=True):  # need more independent
+        npy_path = './Result/FinanceMultiStock.npy'
+        if if_load and os.path.exists(npy_path):
+            data_ary = np.load(npy_path).astype(np.float32)
+            assert data_ary.shape[1] == 5 * 30
+            return data_ary
+        else:
+            raise RuntimeError(
+                f'\n| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}'
+                f'\n| https://github.com/Yonv1943/ElegantRL/blob/master/Result/FinanceMultiStock.npy'
+                f'\n| Or you can use the following code to generate it from a csv file.'
+            )
+
+
 def train__demo():
-    env = FinanceMultiStockEnv()  # 2020-12-24
+    # env = FinanceMultiStockEnv()  # 2020-12-24
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('LunarLanderContinuous-v2')
+    env = decorate_env(env, if_print=True)
 
     args = Arguments(rl_agent=AgentModSAC, env=env)  # much slower than on-policy trajectory
     args.break_step = 2 ** 12  # todo just for test
