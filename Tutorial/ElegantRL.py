@@ -15,6 +15,7 @@ class Actor(nn.Module):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), )
 
     def forward(self, s):  # state
@@ -29,11 +30,13 @@ class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), )  # network of state
-        self.net__a = nn.Linear(mid_dim, action_dim)  # network of action_average
-        self.net__d = nn.Linear(mid_dim, action_dim)  # network of action_log_std
+                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish(), )  # network of state
+        self.net__a = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim), )  # network of action_average
+        self.net__d = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim), )  # network of action_log_std
 
-        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # constant
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # it is a constant
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, s):
@@ -52,11 +55,10 @@ class ActorSAC(nn.Module):
         a_std_log = self.net__d(x).clamp(-20, 2)
         a_std = a_std_log.exp()
 
-        a = a_avg + a_std * torch.randn_like(a_avg, requires_grad=True, device=self.device)  # todo ?
-        a_tanh = a.tanh()
-
-        log_prob = ((a_avg - a) / a_std).pow(2) * 0.5 + a_std_log + self.sqrt_2pi_log
-        log_prob = (log_prob + (-a_tanh.pow(2) + 1.000001).log()).sum(1, keepdim=True)
+        noise = torch.randn_like(a_avg, requires_grad=True, device=self.device)
+        a_tanh = (a_avg + a_std * noise).tanh()
+        log_prob = (noise.pow(2) * 0.5 + a_std_log + self.sqrt_2pi_log
+                    + (-a_tanh.pow(2) + 1.000001).log()).sum(1, keepdim=True)
         return a_tanh, log_prob
 
 
@@ -64,9 +66,11 @@ class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), )
-        self.net_q1 = nn.Linear(mid_dim, 1)
-        self.net_q2 = nn.Linear(mid_dim, 1)
+                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish())  # concat(state, action)
+        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, 1), )  # q1 value
+        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, 1), )  # q2 value
 
     def forward(self, state, action):
         x = self.net_sa(torch.cat((state, action), dim=1))
@@ -89,14 +93,17 @@ class AgentBaseAC:
         self.criterion = nn.SmoothL1Loss()
 
         self.act = Actor(state_dim, action_dim, net_dim).to(self.device)
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
         self.act_target = Actor(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=learning_rate)
         self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.optimizer = torch.optim.Adam([
+            {'params': self.act.parameters(), 'lr': learning_rate},
+            {'params': self.cri.parameters(), 'lr': learning_rate},
+        ], lr=learning_rate)
 
     def select_actions(self, states):  # states = (state, )
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
@@ -149,15 +156,14 @@ class AgentBaseAC:
             cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
             self.obj_c = 0.995 * self.obj_c + 0.005 * cri_obj.item() / 2
             lamb = np.exp(-self.obj_c ** 2)
-            self.cri_optimizer.zero_grad()  # todo try mega
-            cri_obj.backward()
-            self.cri_optimizer.step()
 
-            act_obj = -self.cri(state, self.act(state)).mean() * lamb
+            act_obj = -self.cri_target(state, self.act(state)).mean()
             self.obj_a = 0.995 * self.obj_a + 0.005 * q_label.mean().item()
-            self.act_optimizer.zero_grad()
-            act_obj.backward()
-            self.act_optimizer.step()
+
+            united_obj = cri_obj + act_obj * lamb
+            self.optimizer.zero_grad()
+            united_obj.backward()
+            self.optimizer.step()
 
             _soft_target_update(self.cri_target, self.cri)
             _soft_target_update(self.act_target, self.act)
@@ -166,14 +172,14 @@ class AgentBaseAC:
         for net, name in ((self.act, 'act'), (self.cri, 'cri')):
             if name not in dir(self):
                 continue
+
             save_path = f'{cwd}/{name}.pth'
             if if_save:
                 torch.save(net.state_dict(), save_path)
-                # print("Saved act and cri:", cwd)
             elif os.path.exists(save_path):
                 net = torch.load(save_path, map_location=lambda storage, loc: storage)
                 net.load_state_dict(net)
-                print("Loaded act and cri:", cwd)
+                print(f"Loaded act and cri: {cwd}")
             else:
                 print(f"FileNotFound when load_model: {cwd}")
 
@@ -184,9 +190,8 @@ class AgentModSAC(AgentBaseAC):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.obj_a, self.obj_c = 0.0, (-np.log(0.5)) ** 0.5
         self.target_entropy = np.log(action_dim)
-        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,),
-                                      dtype=torch.float32, requires_grad=True, device=self.device)
-        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), lr=learning_rate)
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True,
+                                      dtype=torch.float32, device=self.device)
 
         self.state = self.action = None
         self.reward_sum = 0.0
@@ -195,14 +200,18 @@ class AgentModSAC(AgentBaseAC):
         self.criterion = nn.SmoothL1Loss()
 
         self.act = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
         self.act_target = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=learning_rate)
         self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.optimizer = torch.optim.Adam([
+            {'params': self.act.parameters(), 'lr': learning_rate},
+            {'params': self.cri.parameters(), 'lr': learning_rate},
+            {'params': (self.alpha_log,), 'lr': learning_rate},
+        ], lr=learning_rate)
 
     def select_actions(self, states):
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
@@ -230,32 +239,30 @@ class AgentModSAC(AgentBaseAC):
             cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
             self.obj_c = 0.995 * self.obj_c + 0.0025 * cri_obj.item()
 
-            self.cri_optimizer.zero_grad()
-            cri_obj.backward()
-            self.cri_optimizer.step()
-            _soft_target_update(self.cri_target, self.cri)
-
             a_noise_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
 
             alpha_obj = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
-
-            self.alpha_optimizer.zero_grad()
-            alpha_obj.backward()
-            self.alpha_optimizer.step()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
             alpha = self.alpha_log.exp().detach()
 
+            united_obj = cri_obj + alpha_obj
+
             lamb = np.exp(-self.obj_c ** 2)
-            if update_a / update_c < 1 / (2 - lamb):  # auto TTUR
+            if_update_a = update_a / update_c < 1 / (2 - lamb)
+            if if_update_a:  # auto TTUR
                 update_a += 1
 
-                act_obj = -(torch.min(*self.cri(state, a_noise_pg)) + log_prob * alpha).mean()
+                act_obj = -(torch.min(*self.cri_target(state, a_noise_pg)) + log_prob * alpha).mean()
                 self.obj_a = 0.995 * self.obj_a + 0.005 * q_label.mean().item()
+                united_obj += act_obj
 
-                self.act_optimizer.zero_grad()
-                act_obj.backward()
-                self.act_optimizer.step()
+            self.optimizer.zero_grad()
+            united_obj.backward()
+            self.optimizer.step()
+
+            _soft_target_update(self.cri_target, self.cri)
+            if if_update_a:
                 _soft_target_update(self.act_target, self.act)
 
 
@@ -359,12 +366,11 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     gamma = args.gamma
     del args
 
-    '''init: env'''
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
 
-    '''build agent and act_cpu'''
+    '''build agent'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     agent.state = [pipe.recv() for pipe in pipes]
     agent.action = agent.select_actions(agent.state)
@@ -373,53 +379,38 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
     from copy import deepcopy  # built-in library of Python
     act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
-    act_cpu.eval()
     [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
 
-    '''build replay buffer, init: total_step, r_avg'''
+    '''build replay buffer'''
     total_step = 0
     if bool(rl_agent.__name__ in {'AgentPPO', 'AgentInterPPO'}):
         buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)
+        steps = 0
     else:
         buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-
-        '''initial exploration'''
-        with torch.no_grad():  # update replay buffer
+        with torch.no_grad():  # initial exploration
             steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
 
-        '''pre training and hard update before training loop'''
-        buffer.update__now_len__before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
-        if 'act_target' in dir(agent):
-            agent.act_target.load_state_dict(agent.act.state_dict())
+        agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
 
-        total_step += steps
-    eva_pipe.send(act_cpu)  # eva_pipe act
+    total_step += steps
+    eva_pipe.send((act_cpu, steps, agent.obj_a, agent.obj_c))  # eva_pipe act
 
     '''training loop'''
-    if_train = True
     if_solve = False
-    while if_train:
-        '''update replay buffer by interact with environment'''
+    while not ((if_stop and if_solve) or total_step > max_total_step or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
             steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes action inside
         total_step += steps
 
-        '''update network parameters by random sampling buffer for gradient descent'''
         buffer.update__now_len__before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
-        '''saves the agent with max reward'''
         act_cpu.load_state_dict(agent.act.state_dict())
         eva_pipe.send((act_cpu, steps, agent.obj_a, agent.obj_c))  # eva_pipe act
-
         if eva_pipe.poll():
             if_solve = eva_pipe.recv()  # eva_pipe if_solve
-
-        '''break loop rules'''
-        if_train = not ((if_stop and if_solve)
-                        or total_step > max_total_step
-                        or os.path.exists(f'{cwd}/stop'))
 
     eva_pipe.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
     time.sleep(4)
@@ -427,54 +418,42 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
 def mp_explore_in_env(args, pipe, _act_id):
     env = args.env
-    reward_scale = args.reward_scale
     gamma = args.gamma
+    reward_scale = args.reward_scale
     del args
 
-    next_state = env.reset()
-    pipe.send(next_state)
+    pipe.send(env.reset())  # next_state
     while True:
         action = pipe.recv()
         next_state, reward, done, _ = env.step(action)  # pipes 1 recv, pipes n recv
-
-        reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
-        if done:
-            next_state = env.reset()
-
-        pipe.send((reward_mask, next_state))
+        pipe.send((np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32),  # reward__and_mask
+                   env.reset() if done else next_state,))  # next_state
 
 
-def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
+def mp_evaluate_agent(args, eva_pipe):
     env = args.env
     cwd = args.cwd
     gpu_id = args.gpu_id
-    max_step = args.max_memo
     show_gap = args.show_gap
     eval_size1 = args.eval_times1
     eval_size2 = args.eval_times2
     del args
 
-    '''init: env'''
-    if_discrete = env.if_discrete
     target_reward = env.target_reward
 
-    '''build evaluated only actor'''
-    act = eva_pipe.recv()  # eva_pipe act, act == act.to(device_cpu), requires_grad=False
-    obj_a, obj_c = 0., 0.
-
+    '''build recorder'''
+    act, step_sum, obj_a, obj_c = eva_pipe.recv()  # eva_pipe act, act == act.to(device_cpu), requires_grad=False
     torch.set_num_threads(4)
     device = torch.device('cpu')
     recorder = Recorder(eval_size1, eval_size2)
-    recorder.update_recorder(env, act, max_step, device, if_discrete, obj_a, obj_c)
+    recorder.update_recorder(env, act, device, step_sum, obj_a, obj_c)
 
     if_train = True
-    with torch.no_grad():  # for saving the GPU buffer
+    with torch.no_grad():  # for saving the GPU util
         while if_train:
-
             is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
             eva_pipe.send(is_solved)  # eva_pipe is_solved
 
-            '''update actor'''
             while not eva_pipe.poll():  # wait until eva_pipe not empty
                 time.sleep(1)
 
@@ -487,7 +466,7 @@ def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
                 act, steps, obj_a, obj_c = q_i_eva_get
                 step_sum += steps
             if step_sum > 0:
-                is_saved = recorder.update_recorder(env, act, step_sum, device, if_discrete, obj_a, obj_c)
+                is_saved = recorder.update_recorder(env, act, device, step_sum, obj_a, obj_c)
                 recorder.save_act(cwd, act, gpu_id) if is_saved else None
 
     recorder.save_npy__draw_plot(cwd)
@@ -508,21 +487,15 @@ def mp_evaluate_agent(args, eva_pipe):  # 2020-12-12
 def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
     state = env.reset()
     steps = 0
-
     while steps < max_step:
         action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action * if_discrete)
         steps += 1
 
-        adjust_reward = reward * reward_scale
+        scaled_reward = reward * reward_scale
         mask = 0.0 if done else gamma
-        buffer.append_memo((adjust_reward, mask, *state, *action, *next_state))
-
-        state = next_state
-        if done:
-            state = env.reset()  # reset the environment
-
-    buffer.update__now_len__before_sample()
+        buffer.append_memo((scaled_reward, mask, *state, *action, *next_state))
+        state = env.reset() if done else next_state
     return steps
 
 
@@ -532,27 +505,22 @@ class Recorder:
         self.r_max = -np.inf
         self.is_solved = False
         self.total_step = 0
+        self.eva_size1 = eval_size1  # constant
+        self.eva_size2 = eval_size2  # constant
 
-        '''constant'''
-        self.eva_size1 = eval_size1
-        self.eva_size2 = eval_size2
-
-        '''print_reward'''
         self.used_time = None
         self.start_time = time.time()
         self.print_time = time.time()
+        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
-              f"{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
-
-    def update_recorder(self, env, act, max_step, device, if_discrete, obj_a, obj_c):
+    def update_recorder(self, env, act, device, step_sum, obj_a, obj_c):
         is_saved = False
-        reward_list = [get_episode_return(env, act, max_step, device, if_discrete)
+        reward_list = [get_episode_return(env, act, device)
                        for _ in range(self.eva_size1)]
 
         r_avg = np.average(reward_list)
         if r_avg > self.r_max:  # check 1
-            reward_list.extend([get_episode_return(env, act, max_step, device, if_discrete)
+            reward_list.extend([get_episode_return(env, act, device)
                                 for _ in range(self.eva_size2 - self.eva_size1)])
             r_avg = np.average(reward_list)
             if r_avg > self.r_max:  # check final
@@ -560,6 +528,7 @@ class Recorder:
                 is_saved = True
 
         r_std = float(np.std(reward_list))
+        self.total_step += step_sum
         self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))
         return is_saved
 
@@ -635,18 +604,20 @@ class Recorder:
         plt.close()
 
 
-def get_episode_return(env, act, max_step, device, if_discrete) -> float:  # 2020-12-21
+def get_episode_return(env, act, device) -> float:  # 2020-12-21
     if hasattr(env, 'episode_return'):  # Compatibility for ElegantRL 2020-12-21
         return env.episode_return
     episode_return = 0.0  # sum of rewards in an episode
-    max_step = env.max_step if hasattr(env, 'max_step') else max_step
+    max_step = env.max_step if hasattr(env, 'max_step') else 2 ** 10
+    if_discrete = env.if_discrete
+
     state = env.reset()
     for _ in range(max_step):
-        s_tensor = torch.tensor((state,), dtype=torch.float32, device=device)
+        s_tensor = torch.as_tensor((state,), device=device)
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.cpu().data.numpy()[0]
+        action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
@@ -656,25 +627,20 @@ def get_episode_return(env, act, max_step, device, if_discrete) -> float:  # 202
 
 class BufferArrayGPU:  # 2021-01-01
     def __init__(self, memo_max_len, state_dim, action_dim, if_ppo=False):
-        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
-
-        if if_ppo:  # for Offline PPO
-            memo_dim = 1 + 1 + state_dim + action_dim + action_dim
-        else:
-            memo_dim = 1 + 1 + state_dim + action_dim + state_dim
-
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
-
         self.next_idx = 0
         self.is_full = False
         self.max_len = memo_max_len
         self.now_len = self.max_len if self.is_full else self.next_idx
 
+        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
+        last_dim = action_dim if if_ppo else state_dim
+        memo_dim = 1 + 1 + state_dim + action_dim + last_dim
+        self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
         self.state_idx = 1 + 1 + state_dim  # reward_dim=1, done_dim=1
         self.action_idx = self.state_idx + action_dim
 
-    # plan to not send next_s
+    # todo plan to not send next_s
     def append_memo(self, memo_tuple):  # memo_tuple = (reward, mask, state, action, next_state)
         self.memories[self.next_idx] = torch.as_tensor(np.hstack(memo_tuple), device=self.device)
         self.next_idx = self.next_idx + 1
@@ -712,12 +678,8 @@ class BufferArrayGPU:  # 2021-01-01
 
 
 def decorate_env(env, if_print=True):  # important function # 2020-12-12
-    assert env is not None
-
-    if all([hasattr(env, attr) for attr in (
+    if not all([hasattr(env, attr) for attr in (
             'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
-        pass
-    else:
         (env_name, state_dim, action_dim, action_max, if_discrete, target_reward
          ) = _get_gym_env_information(env)
 
@@ -728,7 +690,6 @@ def decorate_env(env, if_print=True):  # important function # 2020-12-12
         setattr(env, 'action_dim', action_dim)
         setattr(env, 'if_discrete', if_discrete)
         setattr(env, 'target_reward', target_reward)
-
     if if_print:
         print(f"| env_name:  {env.env_name}, action is {'Discrete' if env.if_discrete else 'Continuous'}\n"
               f"| state_dim, action_dim: ({env.state_dim}, {env.action_dim}), target_reward: {env.target_reward}")
@@ -740,29 +701,21 @@ def _get_gym_env_information(env) -> (str, int, int, float, bool, float):
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
     if not isinstance(env, gym.Env):
-        raise RuntimeError(
-            '| It is not a standard gym env. Could tell me the values of the following?\n'
-            '| state_dim, action_dim, target_reward, if_discrete = (int, int, float, bool)'
-        )
+        raise RuntimeError('| It is not a standard gym env. Could tell the following values?\n'
+                           '| state_dim=int, action_dim=int, target_reward=float, if_discrete=bool')
 
-    '''env_name and special rule'''
+    '''special rule'''
     env_name = env.unwrapped.spec.id
     if env_name == 'Pendulum-v0':
         env.spec.reward_threshold = -200.0  # target_reward
 
-    '''state_dim'''
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-    '''target_reward'''
     target_reward = env.spec.reward_threshold
     if target_reward is None:
-        raise RuntimeError(
-            '| I do not know how much is target_reward.\n'
-            '| If you do not either. You can set target_reward=+np.inf. \n'
-        )
+        raise RuntimeError('| I do not know how much is target_reward? Maybe set as +np.inf?')
 
-    '''if_discrete action_dim, action_max'''
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if if_discrete:  # make sure it is discrete action space
         action_dim = env.action_space.n
@@ -773,16 +726,11 @@ def _get_gym_env_information(env) -> (str, int, int, float, bool, float):
 
         action_edge = np.array([action_max, ] * action_dim)  # need check
         if any(env.action_space.high - action_edge):
-            raise RuntimeError(
-                f'| action_space.high should be {action_edge}, but {env.action_space.high}')
+            raise RuntimeError(f'| action_space.high should be {action_edge}, but {env.action_space.high}')
         if any(env.action_space.low + action_edge):
-            raise RuntimeError(
-                f'| action_space.low should be {-action_edge}, but {env.action_space.low}')
+            raise RuntimeError(f'| action_space.low should be {-action_edge}, but {env.action_space.low}')
     else:
-        raise RuntimeError(
-            '| I do not know env.action_space is discrete or continuous.\n'
-            '| You can set these value manually: if_discrete, action_dim, action_max\n'
-        )
+        raise RuntimeError('| Set these value manually? if_discrete=bool, action_dim=int, action_max=1.0')
     return env_name, state_dim, action_dim, action_max, if_discrete, target_reward
 
 
@@ -796,7 +744,6 @@ def _get_decorate_env(env, action_max=1, state_avg=None, state_std=None, data_ty
 
         neg_state_avg = -state_avg
         div_state_std = 1 / (state_std + 1e-4)
-
     setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() AgentZoo.py
     setattr(env, 'div_state_std', div_state_std)  # for def print_norm() AgentZoo.py
 
@@ -934,9 +881,7 @@ class FinanceMultiStockEnv:  # 2021-01-01
             reward += self.gamma_r
             self.gamma_r = 0.0  # env.reset()
 
-            # cumulative_return_rate
-            self.episode_return = next_total_asset / self.initial_account
-
+            self.episode_return = next_total_asset / self.initial_account  # cumulative_return_rate
         return state, reward, done, dict()
 
     @staticmethod
@@ -955,26 +900,32 @@ class FinanceMultiStockEnv:  # 2021-01-01
 
 
 def train__demo():
-    # env = FinanceMultiStockEnv()  # 2020-12-24
+    # agent = AgentModSAC(state_dim=4, action_dim=2, net_dim=2**8)  # training agent
+    # exit()  # temp
+
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
-    env = gym.make('LunarLanderContinuous-v2')
-    env = decorate_env(env, if_print=True)
+    args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
+    # args.break_step = 2 ** 12  # todo just for test
+    # args.show_gap = 2 ** 1  # todo just for test
+    args.if_break_early = True
 
-    args = Arguments(rl_agent=AgentModSAC, env=env)  # much slower than on-policy trajectory
-    args.break_step = 2 ** 12  # todo just for test
-    args.show_gap = 2 ** 1  # todo just for test
-    args.eval_times1 = 1
-    args.eval_times2 = 2
-
-    # args.break_step = 2 ** 22  # UsedTime:
-    args.net_dim = 2 ** 7
-    args.max_memo = 2 ** 18
-    args.batch_size = 2 ** 8
+    args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
+    args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
+    args.reward_scale = 2 ** -2  # (-800) -200 ~ 200 (302)
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
+    args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
+    args.gamma = 0.98
+    args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
+    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    env = FinanceMultiStockEnv()  # 2020-12-24
     from AgentZoo import AgentPPO
     args = Arguments(rl_agent=AgentPPO, env=env)
     args.eval_times1 = 1
@@ -996,3 +947,4 @@ def train__demo():
 
 if __name__ == '__main__':
     train__demo()
+
