@@ -80,7 +80,7 @@ This is why it is **lightweight**.
     ----folder---
     BetaWarning  # I put the latest version here. You can find lots of bug here, but new.
     History      # I put the historical files here. You can find the bug-free code here, but old.
-There are only 3 python file in my DRL PyTorch implement. (`Tutorial.py` is **not** the part of this lib.)
+There are only 3 python file in this DRL PyTorch implementation. (`Tutorial.py` is **not** a part of the lib.)
 
 # Run
     python3 AgentRun.py
