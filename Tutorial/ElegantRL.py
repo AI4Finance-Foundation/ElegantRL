@@ -7,10 +7,14 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 
+"""
+update update_buffer__pipe()
+"""
+
 """AgentNet"""
 
 
-class Actor(nn.Module):
+class ActorDPG(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -62,6 +66,35 @@ class ActorSAC(nn.Module):
         return a_tanh, log_prob
 
 
+class ActorPPO(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net__a = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim), )  # network of action average
+        self.net__d = nn.Parameter(torch.zeros((1, action_dim), dtype=torch.float32) - 0.5,
+                                   requires_grad=True)  # network of action_log_std
+
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
+
+    def forward(self, s):
+        return self.net__a(s).tanh()  # action
+
+    def get__a_noise__noise(self, state):
+        a_avg = self.net__a(state)
+        noise = torch.randn_like(a_avg)
+
+        a_noise = a_avg + noise * self.net__d.exp()
+        return a_noise, noise
+
+    def compute__log_prob(self, state, a_noise):
+        a_avg = self.net__a(state)
+        a_std = self.net__d.exp()
+        delta = ((a_avg - a_noise) / a_std).pow(2).__mul__(0.5)
+        return -(self.net__d + self.sqrt_2pi_log + delta).sum(1)  # log_prob_sum
+
+
 class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
@@ -77,29 +110,38 @@ class CriticTwin(nn.Module):
         return self.net_q1(x), self.net_q2(x)
 
 
+class CriticAdv(nn.Module):  # 2020-05-05 fix bug
+    def __init__(self, state_dim, mid_dim):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                 nn.Linear(mid_dim, 1), )
+
+    def forward(self, s):
+        return self.net(s)  # q value
+
+
 """AgentZoo"""
 
 
 class AgentBaseAC:
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
+        self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.obj_a, self.obj_c = 0.0, 0.5
         self.explore_noise, self.policy__noise = 0.1, 0.2
 
-        self.state = self.action = None
-        self.reward_sum = 0.0
-        self.step = 0
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.criterion = nn.SmoothL1Loss()
-
-        self.act = Actor(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target = Actor(state_dim, action_dim, net_dim).to(self.device)
+        self.act = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
+        self.obj_a = 0.0
+        self.obj_c = 0.5
+        self.criterion = nn.SmoothL1Loss()
         self.optimizer = torch.optim.Adam([
             {'params': self.act.parameters(), 'lr': learning_rate},
             {'params': self.cri.parameters(), 'lr': learning_rate},
@@ -120,23 +162,24 @@ class AgentBaseAC:
     def update_buffer__pipe(self, pipes, buffer, max_step):
         env_num = len(pipes)
         env_num2 = env_num // 2
-        for _ in range(max_step // env_num):
-            for i in range(env_num2):
-                reward_mask, next_state = pipes[i].recv()
-                buffer.append_memo((*reward_mask, *self.state[i], *self.action[i], *next_state))
-                self.state[i] = next_state
-            self.action[:env_num2] = self.select_actions(self.state[:env_num2])
-            for i in range(env_num2):
-                pipes[i].send(self.action[i])  # pipes action
 
-            for i in range(env_num2, env_num):
-                reward_mask, next_state = pipes[i].recv()
-                buffer.append_memo((*reward_mask, *self.state[i], *self.action[i], *next_state))
-                self.state[i] = next_state
-            self.action[env_num2:] = self.select_actions(self.state[env_num2:])
-            for i in range(env_num2, env_num):
-                pipes[i].send(self.action[i])  # pipes action
-        return max_step - max_step % env_num  # not elegant
+        trajectories = [list() for _ in range(env_num)]
+        for _ in range(max_step // env_num):
+            for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
+                for i in range(i_beg, i_end):
+                    reward, mask, next_state = pipes[i].recv()
+                    trajectories[i].append([reward, mask, *self.state[i], *self.action[i], *next_state])
+                    self.state[i] = next_state
+
+                self.action[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
+                for i in range(i_beg, i_end):
+                    pipes[i].send(self.action[i])  # pipes action
+
+        steps_sum = 0
+        for trajectory in trajectories:
+            steps_sum += len(trajectory)
+            buffer.extend_memo(memo_tuple=trajectory)
+        return steps_sum
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
@@ -187,17 +230,11 @@ class AgentBaseAC:
 class AgentModSAC(AgentBaseAC):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
         super(AgentBaseAC, self).__init__()
+        self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.obj_a, self.obj_c = 0.0, (-np.log(0.5)) ** 0.5
         self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True,
                                       dtype=torch.float32, device=self.device)
-
-        self.state = self.action = None
-        self.reward_sum = 0.0
-        self.step = 0
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.criterion = nn.SmoothL1Loss()
 
         self.act = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
         self.act_target = ActorSAC(state_dim, action_dim, net_dim).to(self.device)
@@ -207,6 +244,9 @@ class AgentModSAC(AgentBaseAC):
         self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
+        self.obj_a = 0.0
+        self.obj_c = (-np.log(0.5)) ** 0.5
+        self.criterion = nn.SmoothL1Loss()
         self.optimizer = torch.optim.Adam([
             {'params': self.act.parameters(), 'lr': learning_rate},
             {'params': self.cri.parameters(), 'lr': learning_rate},
@@ -264,6 +304,219 @@ class AgentModSAC(AgentBaseAC):
             _soft_target_update(self.cri_target, self.cri)
             if if_update_a:
                 _soft_target_update(self.act_target, self.act)
+
+
+class AgentGaePPO(AgentBaseAC):  # 2021-02-02
+    def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
+        super(AgentBaseAC, self).__init__()
+        self.state = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.act = ActorPPO(state_dim, action_dim, net_dim).to(self.device)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+
+        self.cri = CriticAdv(state_dim, net_dim).to(self.device)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=learning_rate)
+
+        self.obj_a = 0.0
+        self.obj_c = 0.5
+        self.criterion = nn.SmoothL1Loss()
+        self.optimizer = torch.optim.Adam([
+            {'params': self.act.parameters(), 'lr': learning_rate},
+            {'params': self.cri.parameters(), 'lr': learning_rate},
+        ], lr=learning_rate)
+
+    def select_actions(self, states):
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        noisy_actions, noise = self.act.get__a_noise__noise(states)
+
+        noisy_actions = noisy_actions.cpu().data.numpy()  # noisy action without tanh()
+        noise = noise.cpu().data.numpy()
+        return noisy_actions, noise
+
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
+        buffer.empty_memories__before_explore()
+        step_counter = 0
+        target_step = buffer.max_len - max_step
+        while step_counter < target_step:
+            state = env.reset()
+            for step_sum in range(max_step):
+                noisy_a, noise = self.select_actions((state,))
+
+                next_state, reward, done, _ = env.step(np.tanh(noisy_a))
+                buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *state, *noisy_a, *noise))
+
+                if done:
+                    break
+                state = next_state
+                step_counter += 1
+
+    def update_buffer__pipe(self, pipes, buffer, max_step):
+        buffer.empty_memories__before_explore()
+        env_num = len(pipes)
+        env_num2 = env_num // 2
+        target_step = buffer.max_len - env_num * max_step
+
+        action, noise = self.select_actions(self.state)
+        for i in range(env_num):
+            pipes[i].send(action[i])  # pipes 1 send ppo
+
+        trajectories = [list() for _ in range(env_num)]
+        for _ in range(target_step // env_num):
+            for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
+                for i in range(i_beg, i_end):
+                    reward, mask, next_state = pipes[i].recv()
+                    # todo ppo_pipe
+                    trajectories[i].append([reward, mask, *self.state[i], *action[i], *noise[i]])
+                    self.state[i] = next_state
+
+                # todo ppo_pipe
+                action[i_beg:i_end], noise[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
+                for i in range(i_beg, i_end):
+                    pipes[i].send(action[i])  # pipes action
+
+        # trajectories stop  # todo ppo_pipe
+        if_stops = [trajectory[-1][1] == 0 for trajectory in trajectories]  # trajectory[-1][1]==mask
+        for _ in range(target_step // env_num):
+            if all(if_stops):
+                break
+
+            for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
+                for i in range(i_beg, i_end):
+                    if if_stops[i]:
+                        continue
+                    reward, mask, next_state = pipes[i].recv()
+                    trajectories[i].append([reward, mask, *self.state[i], *action[i], *noise[i]])
+                    self.state[i] = next_state
+                    if_stops[i] = mask == 0
+
+                action[i_beg:i_end], noise[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
+                for i in range(i_beg, i_end):
+                    if if_stops[i]:
+                        continue
+                    pipes[i].send(action[i])  # pipes action
+
+        steps_sum = 0
+        for trajectory in trajectories:
+            steps_sum += len(trajectory)
+            buffer.extend_memo(memo_tuple=trajectory)
+        print(';', steps_sum // env_num, )
+        return steps_sum
+
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times):
+        buffer.update__now_len__before_sample()
+
+        clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        lambda_adv = 0.98  # why 0.98? cannot use 0.99
+        lambda_entropy = 0.01  # could be 0.02
+        # repeat_times = 8 could be 2**3 ~ 2**5
+
+        actor_obj = critic_obj = None  # just for print return
+
+        '''the batch for training'''
+        max_memo = buffer.now_len
+        all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
+
+        all__new_v = list()
+        all_log_prob = list()
+        with torch.no_grad():
+            b_size = 2 ** 10
+            a_std_log__sqrt_2pi_log = self.act.net__d + self.act.sqrt_2pi_log
+            for i in range(0, all_state.size()[0], b_size):
+                new_v = self.cri(all_state[i:i + b_size])
+                all__new_v.append(new_v)
+
+                log_prob = -(all_noise[i:i + b_size].pow(2) / 2 + a_std_log__sqrt_2pi_log).sum(1)
+                all_log_prob.append(log_prob)
+
+            all__new_v = torch.cat(all__new_v, dim=0)
+            all_log_prob = torch.cat(all_log_prob, dim=0)
+
+        '''compute old_v (old policy value), adv_v (advantage value) 
+        refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
+        https://arxiv.org/pdf/1506.02438.pdf'''
+        all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
+        all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+        all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+
+        prev_old_v = 0  # old q value
+        prev_new_v = 0  # new q value
+        prev_adv_v = 0  # advantage q value
+        for i in range(max_memo - 1, -1, -1):
+            all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
+            all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
+            all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * lambda_adv
+
+            prev_old_v = all__old_v[i]
+            prev_new_v = all__new_v[i]
+            prev_adv_v = all__adv_v[i]
+
+        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
+
+        '''mini batch sample'''
+        sample_times = int(repeat_times * max_memo / batch_size)
+        for _ in range(sample_times):
+            '''random sample'''
+            indices = rd.randint(max_memo, size=batch_size)
+
+            state = all_state[indices]
+            action = all_action[indices]
+            advantage = all__adv_v[indices]
+            old_value = all__old_v[indices].unsqueeze(1)
+            old_log_prob = all_log_prob[indices]
+
+            """Adaptive KL Penalty Coefficient
+            loss_KLPEN = surrogate_obj + value_obj * lambda_value + entropy_obj * lambda_entropy
+            loss_KLPEN = (value_obj * lambda_value) + (surrogate_obj + entropy_obj * lambda_entropy)
+            loss_KLPEN = (critic_obj) + (actor_obj)
+            """
+
+            """critic_obj"""
+            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
+            new_value = self.cri(state)
+
+            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+
+            self.cri_optimizer.zero_grad()
+            critic_obj.backward()
+            self.cri_optimizer.step()
+
+            """actor_obj"""
+            # surrogate objective of TRPO
+            ratio = torch.exp(new_log_prob - old_log_prob)
+            surrogate_obj0 = advantage * ratio
+            surrogate_obj1 = advantage * ratio.clamp(1 - clip, 1 + clip)
+            surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
+            loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
+
+            actor_obj = surrogate_obj + loss_entropy * lambda_entropy
+
+            self.act_optimizer.zero_grad()
+            actor_obj.backward()
+            self.act_optimizer.step()
+
+        return actor_obj.item(), critic_obj.item()
+
+    def save_or_load_model(self, cwd, if_save):  # 2020-07-07
+        act_save_path = '{}/actor.pth'.format(cwd)
+        cri_save_path = '{}/critic.pth'.format(cwd)
+        has_act = 'act' in dir(self)
+        has_cri = 'cri' in dir(self)
+
+        def load_torch_file(network, save_path):
+            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
+            network.load_state_dict(network_dict)
+
+        if if_save:
+            torch.save(self.act.state_dict(), act_save_path) if has_act else None
+            torch.save(self.cri.state_dict(), cri_save_path) if has_cri else None
+            # print("Saved act and cri:", cwd)
+        elif os.path.exists(act_save_path):
+            load_torch_file(self.act, act_save_path) if has_act else None
+            load_torch_file(self.cri, cri_save_path) if has_cri else None
+            print("Loaded act and cri:", cwd)
+        else:
+            print("FileNotFound when load_model: {}".format(cwd))
 
 
 def _soft_target_update(target, current, tau=5e-3):
@@ -356,7 +609,7 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     max_memo = args.max_memo
     net_dim = args.net_dim
     max_step = args.max_step
-    max_total_step = args.break_step
+    break_step = args.break_step
     batch_size = args.batch_size
     repeat_times = args.repeat_times
     cwd = args.cwd
@@ -369,13 +622,17 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
+    env_num = len(pipes)
 
     '''build agent'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
+
     agent.state = [pipe.recv() for pipe in pipes]
-    agent.action = agent.select_actions(agent.state)
-    for i in range(len(pipes)):  # todo Error: PPO return a_noise, noise
-        pipes[i].send(agent.action[i])  # pipes 1 send
+    if not if_on_policy:  # todo ppo_pipe
+        agent.action = agent.select_actions(agent.state)
+        for i in range(env_num):
+            pipes[i].send(agent.action[i])  # pipes 1 send
 
     from copy import deepcopy  # built-in library of Python
     act_cpu = deepcopy(agent.act).to(torch.device("cpu"))
@@ -383,8 +640,8 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
     '''build replay buffer'''
     total_step = 0
-    if bool(rl_agent.__name__ in {'AgentPPO', 'AgentInterPPO'}):
-        buffer = BufferArrayGPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)
+    if if_on_policy:
+        buffer = BufferArrayGPU(max_memo + env_num * max_step, state_dim, action_dim, if_ppo=True)
         steps = 0
     else:
         buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
@@ -399,7 +656,7 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
 
     '''training loop'''
     if_solve = False
-    while not ((if_stop and if_solve) or total_step > max_total_step or os.path.exists(f'{cwd}/stop')):
+    while not ((if_stop and if_solve) or total_step > break_step or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
             steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes action inside
         total_step += steps
@@ -416,7 +673,7 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     time.sleep(4)
 
 
-def mp_explore_in_env(args, pipe, _act_id):
+def mp_explore_in_env(args, pipe, _act_id):  # 2021-02-02
     env = args.env
     gamma = args.gamma
     reward_scale = args.reward_scale
@@ -426,7 +683,8 @@ def mp_explore_in_env(args, pipe, _act_id):
     while True:
         action = pipe.recv()
         next_state, reward, done, _ = env.step(action)  # pipes 1 recv, pipes n recv
-        pipe.send((np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32),  # reward__and_mask
+        pipe.send((reward * reward_scale,  # reward
+                   0.0 if done else gamma,  # mask
                    env.reset() if done else next_state,))  # next_state
 
 
@@ -625,7 +883,7 @@ def get_episode_return(env, act, device) -> float:  # 2020-12-21
     return episode_return
 
 
-class BufferArrayGPU:  # 2021-01-01
+class BufferArrayGPU:  # 2021-02-02
     def __init__(self, memo_max_len, state_dim, action_dim, if_ppo=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.next_idx = 0
@@ -640,13 +898,27 @@ class BufferArrayGPU:  # 2021-01-01
         self.state_idx = 1 + 1 + state_dim  # reward_dim=1, done_dim=1
         self.action_idx = self.state_idx + action_dim
 
-    # todo plan to not send next_s
     def append_memo(self, memo_tuple):  # memo_tuple = (reward, mask, state, action, next_state)
         self.memories[self.next_idx] = torch.as_tensor(np.hstack(memo_tuple), device=self.device)
         self.next_idx = self.next_idx + 1
         if self.next_idx >= self.max_len:
             self.is_full = True
             self.next_idx = 0
+
+    def extend_memo(self, memo_tuple):  # 2021-02-02
+        size = len(memo_tuple)
+        memo_tensor = torch.as_tensor(memo_tuple, dtype=torch.float32, device=self.device)
+
+        next_idx = self.next_idx + size
+        if next_idx > self.max_len:
+            if next_idx > self.max_len:
+                self.memories[self.next_idx:self.max_len] = memo_tensor[:self.max_len - self.next_idx]
+            self.is_full = True
+            next_idx = next_idx - self.max_len
+            self.memories[0:next_idx] = memo_tensor[-next_idx:]
+        else:
+            self.memories[self.next_idx:next_idx] = memo_tensor
+        self.next_idx = next_idx
 
     def update__now_len__before_sample(self):
         self.now_len = self.max_len if self.is_full else self.next_idx
@@ -903,31 +1175,29 @@ def train__demo():
     # agent = AgentModSAC(state_dim=4, action_dim=2, net_dim=2**8)  # training agent
     # exit()  # temp
 
-    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
-    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
-    args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
-    # args.break_step = 2 ** 12  # todo just for test
-    # args.show_gap = 2 ** 1  # todo just for test
-    args.if_break_early = True
-
-    args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
-    args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
-    args.reward_scale = 2 ** -2  # (-800) -200 ~ 200 (302)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
-
-    args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
-    args.gamma = 0.98
-    args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
-    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
-    exit()
+    # import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    # gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    # args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
+    # args.break_step = 2 ** 14  # todo just for test
+    # args.show_gap = 2 ** 4  # todo just for test
+    #
+    # # args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
+    # # # args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
+    # # args.reward_scale = 2 ** -2  # (-800) -200 ~ 200 (302)
+    # # args.init_for_training()
+    # # train_agent_mp(args)  # train_agent(args)
+    # # exit()
+    # #
+    # args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
+    # args.gamma = 0.96
+    # # args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
+    # args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+    # args.init_for_training()
+    # train_agent_mp(args)  # train_agent(args)
+    # exit()
 
     env = FinanceMultiStockEnv()  # 2020-12-24
-    from AgentZoo import AgentPPO
-    args = Arguments(rl_agent=AgentPPO, env=env)
+    args = Arguments(rl_agent=AgentGaePPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
     args.rollout_num = 4
@@ -937,7 +1207,7 @@ def train__demo():
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
     args.net_dim = 2 ** 8
     args.max_step = 1699
-    args.max_memo = 1699 * 16
+    args.max_memo = 1698 * 16
     args.batch_size = 2 ** 10
     args.repeat_times = 2 ** 4
     args.init_for_training()
