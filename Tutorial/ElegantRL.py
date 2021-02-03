@@ -8,7 +8,11 @@ import numpy as np
 import numpy.random as rd
 
 """
-update update_buffer__pipe()
+GaePPO update update_buffer__pipe()
+beta0 rollout_num=8
+beta3 rollout_num=4
+ceta4 rollout_num=8
+
 """
 
 """AgentNet"""
@@ -313,10 +317,7 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.act = ActorPPO(state_dim, action_dim, net_dim).to(self.device)
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
-
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=learning_rate)
 
         self.obj_a = 0.0
         self.obj_c = 0.5
@@ -400,18 +401,16 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
         for trajectory in trajectories:
             steps_sum += len(trajectory)
             buffer.extend_memo(memo_tuple=trajectory)
-        print(';', steps_sum // env_num, )
         return steps_sum
 
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times):
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times=4):
         buffer.update__now_len__before_sample()
 
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
-        # repeat_times = 8 could be 2**3 ~ 2**5
 
-        actor_obj = critic_obj = None  # just for print return
+        act_obj = cri_obj = None  # just for print return
 
         '''the batch for training'''
         max_memo = buffer.now_len
@@ -465,37 +464,25 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
             old_value = all__old_v[indices].unsqueeze(1)
             old_log_prob = all_log_prob[indices]
 
-            """Adaptive KL Penalty Coefficient
-            loss_KLPEN = surrogate_obj + value_obj * lambda_value + entropy_obj * lambda_entropy
-            loss_KLPEN = (value_obj * lambda_value) + (surrogate_obj + entropy_obj * lambda_entropy)
-            loss_KLPEN = (critic_obj) + (actor_obj)
-            """
-
-            """critic_obj"""
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
             new_value = self.cri(state)
+            cri_obj = self.criterion(new_value, old_value) / (old_value.std() + 1e-5)
 
-            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
-
-            self.cri_optimizer.zero_grad()
-            critic_obj.backward()
-            self.cri_optimizer.step()
-
-            """actor_obj"""
-            # surrogate objective of TRPO
+            new_log_prob = self.act.compute__log_prob(state, action)  # it is act_obj
             ratio = torch.exp(new_log_prob - old_log_prob)
             surrogate_obj0 = advantage * ratio
             surrogate_obj1 = advantage * ratio.clamp(1 - clip, 1 + clip)
             surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
             loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
 
-            actor_obj = surrogate_obj + loss_entropy * lambda_entropy
+            act_obj = surrogate_obj + loss_entropy * lambda_entropy
 
-            self.act_optimizer.zero_grad()
-            actor_obj.backward()
-            self.act_optimizer.step()
+            united_loss = act_obj + cri_obj
+            self.optimizer.zero_grad()
+            united_loss.backward()
+            self.optimizer.step()
 
-        return actor_obj.item(), critic_obj.item()
+        self.obj_a = act_obj.item()
+        self.obj_c = cri_obj.item()
 
     def save_or_load_model(self, cwd, if_save):  # 2020-07-07
         act_save_path = '{}/actor.pth'.format(cwd)
@@ -862,9 +849,7 @@ class Recorder:
         plt.close()
 
 
-def get_episode_return(env, act, device) -> float:  # 2020-12-21
-    if hasattr(env, 'episode_return'):  # Compatibility for ElegantRL 2020-12-21
-        return env.episode_return
+def get_episode_return(env, act, device) -> float:  # 2021-02-02
     episode_return = 0.0  # sum of rewards in an episode
     max_step = env.max_step if hasattr(env, 'max_step') else 2 ** 10
     if_discrete = env.if_discrete
@@ -876,11 +861,13 @@ def get_episode_return(env, act, device) -> float:  # 2020-12-21
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
         action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
             break
-    return episode_return
+
+    return env.episode_return if hasattr(env, 'episode_return') else episode_return
 
 
 class BufferArrayGPU:  # 2021-02-02
@@ -1200,14 +1187,14 @@ def train__demo():
     args = Arguments(rl_agent=AgentGaePPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
-    args.rollout_num = 4
-    args.if_break_early = True
+    args.rollout_num = 8  # todo
+    args.if_break_early = False
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
-    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
+    args.break_step = int(5e6)  # * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
     args.net_dim = 2 ** 8
     args.max_step = 1699
-    args.max_memo = 1698 * 16
+    args.max_memo = (args.max_step - 1) * 16
     args.batch_size = 2 ** 10
     args.repeat_times = 2 ** 4
     args.init_for_training()
