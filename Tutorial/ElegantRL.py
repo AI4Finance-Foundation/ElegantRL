@@ -38,7 +38,7 @@ class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish(), )  # network of state
+                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # network of state
         self.net__a = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                     nn.Linear(mid_dim, action_dim), )  # network of action_average
         self.net__d = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
@@ -74,7 +74,7 @@ class ActorPPO(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net__a = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                     nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                     nn.Linear(mid_dim, action_dim), )  # network of action average
         self.net__d = nn.Parameter(torch.zeros((1, action_dim), dtype=torch.float32) - 0.5,
@@ -103,7 +103,7 @@ class CriticTwin(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish())  # concat(state, action)
+                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # concat(state, action)
         self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                     nn.Linear(mid_dim, 1), )  # q1 value
         self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
@@ -118,7 +118,7 @@ class CriticAdv(nn.Module):  # 2020-05-05 fix bug
     def __init__(self, state_dim, mid_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                  nn.Linear(mid_dim, 1), )
 
@@ -1086,7 +1086,7 @@ class FinanceMultiStockEnv:  # 2021-01-01
         self.gamma_r = 0.0
 
     def reset(self):
-        self.account = self.initial_account * rd.uniform(0.99, 1.00)  # notice reset()
+        self.account = self.initial_account * rd.uniform(0.9, 1.00)  # notice reset()
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
         self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         # total_asset = account + (adjcp * stocks).sum()
@@ -1187,15 +1187,15 @@ def train__demo():
     args = Arguments(rl_agent=AgentGaePPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
-    args.rollout_num = 8  # todo
+    args.rollout_num = 4
     args.if_break_early = False
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
-    args.break_step = int(5e6)  # * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
+    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
     args.net_dim = 2 ** 8
     args.max_step = 1699
-    args.max_memo = (args.max_step - 1) * 16
-    args.batch_size = 2 ** 10
+    args.max_memo = (args.max_step - 1) * 8
+    args.batch_size = 2 ** 11  # todo
     args.repeat_times = 2 ** 4
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
