@@ -8,15 +8,21 @@ import numpy as np
 import numpy.random as rd
 
 """PPO pipe
-beta1 rollout_num = 1
-beta2 rollout_num = 4
-beta3 rollout_num = 8
+beta1 rollout_num = 1, 1613, 4.3
+beta2 rollout_num = 4,  547, 4.7
+
+beta2 rollout_num = 4, 
+beta3 rollout_num = 8,
 """
 
-"""AgentNet"""
+"""AgentNet
+ZenYiYan, GitHub: YonV1943 ElegantRL (Pytorch 3 files model-free DRL Library)
+Issay, Easy Essay, 谐音: 意识
+plan to MultiGPU: torch.nn.DataParallel(net_block)
+"""
 
 
-class ActorDPG(nn.Module):
+class ActorDPG(nn.Module):  # Deterministic Policy Gradient
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -24,48 +30,13 @@ class ActorDPG(nn.Module):
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), )
 
-    def forward(self, s):  # state
-        return self.net(s).tanh()
+    def forward(self, state):
+        return self.net(state).tanh()  # action
 
-    def get_noisy_action(self, s, a_std):  # state, action_std
-        action = self.net(s).tanh()
-        return (action + torch.randn_like(action) * a_std).clamp(-1.0, 1.0)
-
-
-class ActorSAC(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
-        super().__init__()
-        self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # network of state
-        self.net__a = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, action_dim), )  # network of action_average
-        self.net__d = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, action_dim), )  # network of action_log_std
-
-        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # it is a constant
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    def forward(self, s):
-        x = self.net__s(s)
-        return self.net__a(x).tanh()
-
-    def get__noise_action(self, s):
-        x = self.net__s(s)
-        a_avg = self.net__a(x)  # action_average
-        a_std_log = self.net__d(x).clamp(-16, 2)  # action_log_std
-        return torch.normal(a_avg, a_std_log.exp()).tanh()
-
-    def get__a__log_prob(self, s):
-        x = self.net__s(s)
-        a_avg = self.net__a(x)
-        a_std_log = self.net__d(x).clamp(-20, 2)
-        a_std = a_std_log.exp()
-
-        noise = torch.randn_like(a_avg, requires_grad=True, device=self.device)
-        a_tanh = (a_avg + a_std * noise).tanh()
-        log_prob = (noise.pow(2) * 0.5 + a_std_log + self.sqrt_2pi_log
-                    + (-a_tanh.pow(2) + 1.000001).log()).sum(1, keepdim=True)
-        return a_tanh, log_prob
+    def get__a_noisy(self, state, a_std):  # action_std
+        action = self.net(state).tanh()
+        noise = torch.randn_like(action)
+        return (action + noise * a_std).clamp(-1.0, 1.0)
 
 
 class ActorPPO(nn.Module):  # 2021-02-02
@@ -73,60 +44,192 @@ class ActorPPO(nn.Module):  # 2021-02-02
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), )
         _layer_norm(self.net[-1], std=0.1)  # output layer for action
 
         self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
-    def forward(self, s):
-        a_avg = self.net(s)
-        return a_avg.tanh()
+    def forward(self, state):
+        return self.net(state).tanh()  # action
 
-    def get__a_noise__noise(self, state):
+    def get__a_noisy__noise(self, state):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
         noise = torch.randn_like(a_avg)
-        a_noise = a_avg + noise * a_std
-        return a_noise, noise
+        a_noisy = a_avg + noise * a_std
+        return a_noisy, noise
 
     def compute__log_prob(self, state, a_noise):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
         delta = ((a_avg - a_noise) / a_std).pow(2).__mul__(0.5)
-        log_prob = -(delta + (self.a_std_log + self.sqrt_2pi_log))
+        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)
         return log_prob.sum(1)
 
 
-class CriticTwin(nn.Module):
+class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # concat(state, action)
-        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, 1), )  # q1 value
-        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, 1), )  # q2 value
+        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+        self.net_action = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                        nn.Linear(mid_dim, action_dim), )
+        self.net__a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                        nn.Linear(mid_dim, action_dim), )
+
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # it is a constant
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def forward(self, state):
+        t_tmp = self.net__state(state)  # temp tensor
+        return self.net_action(t_tmp).tanh()  # action
+
+    def get__a_noisy(self, state):
+        t_tmp = self.net__state(state)
+        a_avg = self.net_action(t_tmp)
+        a_std = self.net__a_std(t_tmp).clamp(-16, 2).exp()
+        return torch.normal(a_avg, a_std).tanh()  # re-parameterize
+
+    def get__a__log_prob(self, s):
+        t_tmp = self.net__state(s)
+        a_avg = self.net_action(t_tmp)
+        a_std_log = self.net__a_std(t_tmp).clamp(-16, 2)
+        a_std = a_std_log.exp()
+
+        noise = torch.randn_like(a_avg, requires_grad=True, device=self.device)
+        a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
+        log_prob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5) + (-a_tan.pow(2) + 1.000001).log()
+        return a_tan, log_prob.sum(1, keepdim=True)
+
+
+class Critic(nn.Module):  # 2021-02-02
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net__value = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, 1), )
 
     def forward(self, state, action):
-        x = self.net_sa(torch.cat((state, action), dim=1))
-        return self.net_q1(x), self.net_q2(x)
+        t_tmp = torch.cat((state, action), dim=1)
+        return self.net__value(t_tmp)  # q value
 
 
-class CriticAdv(nn.Module):  # 2020-05-05 fix bug
+class CriticTwin(nn.Module):  # shared parameter
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net____s_a = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # concat(state, action)
+        self.net_value1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                        nn.Linear(mid_dim, 1), )  # q1 value
+        self.net_value2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                        nn.Linear(mid_dim, 1), )  # q2 value
+
+    def forward(self, state, action):
+        t_tmp = self.net____s_a(torch.cat((state, action), dim=1))
+        return self.net_value1(t_tmp), self.net_value2(t_tmp)  # q1 value, q2 value
+
+
+class CriticAdv(nn.Module):  # 2021-02-02
     def __init__(self, state_dim, mid_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, 1), )
-
         _layer_norm(self.net[-1], std=1.0)  # output layer for action
 
+    def forward(self, state):
+        return self.net(state)  # q value
+
+
+class QNet(nn.Module):  # class AgentQLearning
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, action_dim), )
+
     def forward(self, s):
-        q = self.net(s)
-        return q
+        return self.net(s)  # q value
+
+
+class QNetTwin(nn.Module):  # shared parameter
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+        self.net_value1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, action_dim), )  # q1 value
+        self.net_value2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, action_dim), )  # q2 value
+
+    def forward(self, state):
+        t_tmp = self.net__state(state)
+        q_v_1 = self.net_value1(t_tmp)  # q1 value
+        q_v_2 = self.net_value2(t_tmp)  # q2 value
+        return torch.min(q_v_1, q_v_2)  # min q value
+
+    def get__q1_q2(self, state):
+        t_tmp = self.net__state(state)
+        return self.net_value1(t_tmp), self.net_value2(t_tmp)  # q_value1, q_value3
+
+
+class QNetDuel(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+
+        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+        self.net__value = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, 1), )  # q value
+        self.net__adv_v = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, action_dim), )  # advantage function value
+
+    def forward(self, state):
+        t_tmp = self.net__state(state)
+        q_val = self.net__value(t_tmp)  # q value
+        q_adv = self.net__adv_v(t_tmp)  # advantage function value
+        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # dueling q value
+
+
+class QNetDuelTwin(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+
+        self.net_value1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, 1), )
+        self.net_value2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, 1), )
+        self.net_adv_v1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, action_dim), )
+        self.net_adv_v2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, action_dim), )
+
+    def forward(self, state):
+        t_tmp = self.net__state(state)
+        v_val = self.net_value1(t_tmp)
+        v_adv = self.net_adv_v1(t_tmp)
+        return v_val + v_adv - v_adv.mean(dim=1, keepdim=True)  # single dueling q value
+
+    def get__q1_q2(self, state):
+        t_tmp = self.net__state(state)
+
+        val1 = self.net_value1(t_tmp)
+        adv1 = self.net_adv_v1(t_tmp)
+        q1 = val1 + adv1 - adv1.mean(dim=1, keepdim=True)
+
+        val2 = self.net_value2(t_tmp)
+        adv2 = self.net_adv_v2(t_tmp)
+        q2 = val2 + adv2 - adv2.mean(dim=1, keepdim=True)
+        return q1, q2
 
 
 class NnnReshape(nn.Module):
@@ -170,7 +273,7 @@ class AgentBaseAC:  # In fact, it is a TD3 without delay update
 
     def select_actions(self, states):  # states = (state, )
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act.get_noisy_action(states, self.explore_noise)
+        actions = self.act.get__a_noisy(states, self.explore_noise)
         return actions.detach().cpu().numpy()
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
@@ -214,7 +317,7 @@ class AgentBaseAC:  # In fact, it is a TD3 without delay update
             with torch.no_grad():
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size_, )
 
-                next_action = self.act_target.get_noisy_action(next_s, self.policy__noise)
+                next_action = self.act_target.get__a_noisy(next_s, self.policy__noise)
                 q_label = reward + mask * self.cri_target(next_s, next_action)
 
             q1, q2 = self.cri(state, action)
@@ -277,7 +380,7 @@ class AgentModSAC(AgentBaseAC):
 
     def select_actions(self, states):
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act.get__noise_action(states)
+        actions = self.act.get__a_noisy(states)
         return actions.detach().cpu().numpy()
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
@@ -348,7 +451,7 @@ class AgentGaePPO:
     def select_actions(self, states):  # CPU array to GPU tensor to CPU array
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
 
-        a_noise, noise = self.act.get__a_noise__noise(states)
+        a_noise, noise = self.act.get__a_noisy__noise(states)
         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
@@ -391,16 +494,14 @@ class AgentGaePPO:
             for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
                 for i in range(i_beg, i_end):
                     reward, mask, next_state = pipes[i].recv()
-                    # todo ppo_pipe
                     trajectories[i].append([reward, mask, *self.state[i], *action[i], *noise[i]])
                     self.state[i] = next_state
 
-                # todo ppo_pipe
                 action[i_beg:i_end], noise[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
                 for i in range(i_beg, i_end):
                     pipes[i].send(np.tanh(action[i]))  # pipes action # not elegant
 
-        # trajectories stop  # todo ppo_pipe
+        # trajectories stop
         if_stops = [trajectory[-1][1] == 0 for trajectory in trajectories]  # trajectory[-1][1]==mask
         for _ in range(target_step // env_num):
             if all(if_stops):
@@ -549,6 +650,7 @@ def _soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
+# todo QNet
 
 """AgentRun"""
 
@@ -1275,7 +1377,7 @@ def train__demo():
     args = Arguments(rl_agent=AgentGaePPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
-    args.rollout_num = 4
+    args.rollout_num = 8
     args.if_break_early = False
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
