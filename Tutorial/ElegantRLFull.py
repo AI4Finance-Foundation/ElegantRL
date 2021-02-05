@@ -155,8 +155,11 @@ class QNet(nn.Module):  # class AgentQLearning
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim), )
 
-    def forward(self, s):
-        return self.net(s)  # q value
+    def forward(self, state):
+        return self.net(state).argmax(dim=1)  # action_id = q_value.argmax(dim=1)
+
+    def get__q(self, state):
+        return self.net(state)  # q value
 
 
 class QNetTwin(nn.Module):  # shared parameter
@@ -171,19 +174,19 @@ class QNetTwin(nn.Module):  # shared parameter
 
     def forward(self, state):
         t_tmp = self.net__state(state)
-        q_v_1 = self.net_value1(t_tmp)  # q1 value
-        q_v_2 = self.net_value2(t_tmp)  # q2 value
-        return torch.min(q_v_1, q_v_2)  # min q value
+        q1 = self.net_value1(t_tmp)  # q1 value
+        return q1.argmax(dim=1)  # action_id
 
     def get__q1_q2(self, state):
         t_tmp = self.net__state(state)
-        return self.net_value1(t_tmp), self.net_value2(t_tmp)  # q_value1, q_value3
+        q1 = self.net_value1(t_tmp)  # q1 value
+        q2 = self.net_value2(t_tmp)  # q2 value
+        return q1, q2
 
 
 class QNetDuel(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                         nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
         self.net__value = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -192,6 +195,13 @@ class QNetDuel(nn.Module):
                                         nn.Linear(mid_dim, action_dim), )  # advantage function value
 
     def forward(self, state):
+        t_tmp = self.net__state(state)
+        q_val = self.net__value(t_tmp)  # q value
+        q_adv = self.net__adv_v(t_tmp)  # advantage function value
+        q = q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # dueling q value
+        return q.argmax(dim=1)
+
+    def get__q(self, state):
         t_tmp = self.net__state(state)
         q_val = self.net__value(t_tmp)  # q value
         q_adv = self.net__adv_v(t_tmp)  # advantage function value
@@ -204,30 +214,31 @@ class QNetDuelTwin(nn.Module):
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                         nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
 
-        self.net_value1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, 1), )
-        self.net_value2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, 1), )
-        self.net_adv_v1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, action_dim), )
-        self.net_adv_v2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, action_dim), )
+        self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, 1), )
+        self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, 1), )
+        self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, action_dim), )
+        self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, action_dim), )
 
     def forward(self, state):
         t_tmp = self.net__state(state)
-        v_val = self.net_value1(t_tmp)
-        v_adv = self.net_adv_v1(t_tmp)
-        return v_val + v_adv - v_adv.mean(dim=1, keepdim=True)  # single dueling q value
+        q_val = self.net_val1(t_tmp)
+        q_adv = self.net_adv1(t_tmp)
+        q = q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # single dueling q value
+        return q.argmax(dim=1)
 
     def get__q1_q2(self, state):
         t_tmp = self.net__state(state)
 
-        val1 = self.net_value1(t_tmp)
-        adv1 = self.net_adv_v1(t_tmp)
+        val1 = self.net_val1(t_tmp)
+        adv1 = self.net_adv1(t_tmp)
         q1 = val1 + adv1 - adv1.mean(dim=1, keepdim=True)
 
-        val2 = self.net_value2(t_tmp)
-        adv2 = self.net_adv_v2(t_tmp)
+        val2 = self.net_val2(t_tmp)
+        adv2 = self.net_adv2(t_tmp)
         q2 = val2 + adv2 - adv2.mean(dim=1, keepdim=True)
         return q1, q2
 
@@ -646,11 +657,150 @@ class AgentGaePPO:
             print("FileNotFound when load_model: {}".format(cwd))
 
 
+class AgentDQN(AgentBaseAC):  # 2021-02-02
+    def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4, net=None):  # 2020-04-30
+        super(AgentBaseAC, self).__init__()
+        self.explore_rate = 0.1  # epsilon-Greedy
+
+        self.state = self.action = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.action_dim = action_dim
+
+        net = QNet if net is None else net
+        self.act = net(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = net(state_dim, action_dim, net_dim).to(self.device)
+
+        self.obj_a = 0.0
+        self.obj_c = 0.5
+        self.criterion = nn.MSELoss()
+        self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+
+    def select_actions(self, states):  # for discrete action space
+        if rd.rand() < self.explore_rate:
+            a_int = rd.randint(self.action_dim, size=states.shape[0])  # discrete action
+        else:
+            states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+            actions = self.act(states)
+            a_int = actions.argmax(dim=1).detach().cpu().numpy()
+        return a_int
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        """Contribution of DQN (Deep Q Network)
+        1. Q-table (discrete state space) --> Q-network (continuous state space)
+        2. Use experiment replay buffer to train a neural network in RL
+        3. Use soft target update to stablize training in RL
+        """
+        buffer.update__now_len__before_sample()
+
+        q_label = critic_obj = None
+
+        update_times = int(max_step * repeat_times)
+        for _ in range(update_times):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size)
+
+                next_q_label = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_label = rewards + masks * next_q_label
+
+            q_eval = self.act(states).gather(1, actions.type(torch.long))
+            critic_obj = self.criterion(q_eval, q_label)
+
+            self.optimizer.zero_grad()
+            critic_obj.backward()
+            self.optimizer.step()
+            _soft_target_update(self.act_target, self.act)
+
+        self.obj_a = q_label.mean.item()
+        self.obj_c = critic_obj.item()
+
+
+class AgentDuelingDQN(AgentDQN):
+    def __init__(self, **kwargs):  # 2020-04-30
+        AgentDQN.__init__(**kwargs, net=QNetDuel)
+        self.explore_rate = 0.1  # epsilon-Greedy
+        """Contribution of Dueling DQN
+        1. Sometimes the q = QNet(state) is independent with actions. 
+        2. Advantage function helps RL learns the Q value faster without collecting each action in these state.
+        3. Advantage function value + Original Q value --> Dueling Q value = val_q + adv_q - adv_q.mean()
+        """
+
+
+class AgentDoubleDQN(AgentDQN):  # 2021-02-02
+    def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4, net=None):  # 2020-04-30
+        object.__init__(self)
+        self.explore_rate = 0.1  # epsilon-Greedy
+        self.softmax = nn.Softmax(dim=1)
+
+        self.state = self.action = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.action_dim = action_dim
+
+        net = QNetTwin if net is None else net
+        self.act = net(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = net(state_dim, action_dim, net_dim).to(self.device)
+
+        self.obj_a = 0.0
+        self.obj_c = 0.5
+        self.criterion = nn.MSELoss()
+        self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+
+    def select_actions(self, states):  # for discrete action space
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states)
+
+        if rd.rand() < self.explore_rate:
+            a_prob_l = self.softmax(actions).cpu().data.numpy()
+            a_int = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_prob_l]
+        else:
+            a_int = actions.argmax(dim=1).cpu().data.numpy()
+        return a_int
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        """Contribution of DDQN (Double DQN)
+        1. The Q value estimation of Value network (critic) is noisy
+        2. Over-estimation will propagated through the Bellman equation because of maximum operation.
+        3. Under-estimation won't.
+        4. Twin Q-Network. Use q=min(q1, q2) to reduce over-estimation.
+        """
+        buffer.update__now_len__before_sample()
+
+        q_label = cri_obj = None
+
+        update_times = int(max_step * repeat_times)
+        for _ in range(update_times):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size)
+                actions = actions.type(torch.long)
+
+                next_q = torch.min(*self.act_target.get__q1_q2(next_states))
+                next_q = next_q.max(dim=1, keepdim=True)[0]
+                q_label = rewards + masks * next_q
+
+            q1, q2 = [qs.gather(1, actions) for qs in self.act.get__q1_q2(states)]
+            cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+
+            self.optimizer.zero_grad()
+            cri_obj.backward()
+            self.optimizer.step()
+            _soft_target_update(self.act_target, self.act)
+
+        self.obj_a = q_label.mean().item()
+        self.obj_c = cri_obj.item()
+
+
+class AgentD3QN(AgentDoubleDQN):
+    def __init__(self, **kwargs):  # 2020-04-30
+        AgentDoubleDQN.__init__(**kwargs, net=QNetDuelTwin)
+        self.explore_rate = 0.1  # epsilon-Greedy
+        """Contribution of D3QN (Dueling Double DQN)
+        Anyone who just started deep reinforcement learning can discover D3QN algorithm independently.
+        """
+
+
 def _soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
-# todo QNet
 
 """AgentRun"""
 
