@@ -7,9 +7,10 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 
-"""GaePPO
-beta2 batch_size = 2 ** 10
-beta3 batch_size = 2 ** 11
+"""PPO pipe
+beta1 rollout_num = 1
+beta2 rollout_num = 4
+beta3 rollout_num = 8
 """
 
 """AgentNet"""
@@ -67,33 +68,36 @@ class ActorSAC(nn.Module):
         return a_tanh, log_prob
 
 
-class ActorPPO(nn.Module):
+class ActorPPO(nn.Module):  # 2021-02-02
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
-        self.net__a = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, action_dim), )  # network of action average
-        self.net__d = nn.Parameter(torch.zeros((1, action_dim), dtype=torch.float32) - 0.5,
-                                   requires_grad=True)  # network of action_log_std
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, action_dim), )
+        _layer_norm(self.net[-1], std=0.1)  # output layer for action
 
+        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, s):
-        return self.net__a(s).tanh()  # action
+        a_avg = self.net(s)
+        return a_avg.tanh()
 
     def get__a_noise__noise(self, state):
-        a_avg = self.net__a(state)
-        noise = torch.randn_like(a_avg)
+        a_avg = self.net(state)
+        a_std = self.a_std_log.exp()
 
-        a_noise = a_avg + noise * self.net__d.exp()
+        noise = torch.randn_like(a_avg)
+        a_noise = a_avg + noise * a_std
         return a_noise, noise
 
     def compute__log_prob(self, state, a_noise):
-        a_avg = self.net__a(state)
-        a_std = self.net__d.exp()
+        a_avg = self.net(state)
+        a_std = self.a_std_log.exp()
+
         delta = ((a_avg - a_noise) / a_std).pow(2).__mul__(0.5)
-        return -(self.net__d + self.sqrt_2pi_log + delta).sum(1)  # log_prob_sum
+        log_prob = -(delta + (self.a_std_log + self.sqrt_2pi_log))
+        return log_prob.sum(1)
 
 
 class CriticTwin(nn.Module):
@@ -116,11 +120,27 @@ class CriticAdv(nn.Module):  # 2020-05-05 fix bug
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                  nn.Linear(mid_dim, 1), )
 
+        _layer_norm(self.net[-1], std=1.0)  # output layer for action
+
     def forward(self, s):
-        return self.net(s)  # q value
+        q = self.net(s)
+        return q
+
+
+class NnnReshape(nn.Module):
+    def __init__(self, *args):
+        super().__init__()
+        self.args = args
+
+    def forward(self, x):
+        return x.view((x.size(0),) + self.args)
+
+
+def _layer_norm(layer, std=1.0, bias_const=1e-6):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
 
 
 """AgentZoo"""
@@ -159,6 +179,7 @@ class AgentBaseAC:  # In fact, it is a TD3 without delay update
             next_state, reward, done, _ = env.step(action)
             buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *self.state, *action, *next_state))
             self.state = env.reset() if done else next_state
+        return max_step
 
     def update_buffer__pipe(self, pipes, buffer, max_step):
         env_num = len(pipes)
@@ -307,12 +328,12 @@ class AgentModSAC(AgentBaseAC):
                 _soft_target_update(self.act_target, self.act)
 
 
-class AgentGaePPO(AgentBaseAC):  # 2021-02-02
+class AgentGaePPO:
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        super(AgentBaseAC, self).__init__()
-        self.state = None
+        self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        '''network'''
         self.act = ActorPPO(state_dim, action_dim, net_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
 
@@ -324,30 +345,36 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
             {'params': self.cri.parameters(), 'lr': learning_rate},
         ], lr=learning_rate)
 
-    def select_actions(self, states):
+    def select_actions(self, states):  # CPU array to GPU tensor to CPU array
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        noisy_actions, noise = self.act.get__a_noise__noise(states)
 
-        noisy_actions = noisy_actions.cpu().data.numpy()  # noisy action without tanh()
-        noise = noise.cpu().data.numpy()
-        return noisy_actions, noise
+        a_noise, noise = self.act.get__a_noise__noise(states)
+        return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         buffer.empty_memories__before_explore()
+
         step_counter = 0
         target_step = buffer.max_len - max_step
         while step_counter < target_step:
             state = env.reset()
-            for step_sum in range(max_step):
-                noisy_a, noise = self.select_actions((state,))
 
-                next_state, reward, done, _ = env.step(np.tanh(noisy_a))
-                buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *state, *noisy_a, *noise))
+            for _ in range(max_step):
+                action, noise = self.select_actions((state,))
+                action = action[0]
+                noise = noise[0]
+
+                next_state, reward, done, _ = env.step(np.tanh(action))
+                step_counter += 1
+
+                buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *state, *action, *noise))
 
                 if done:
                     break
+
                 state = next_state
-                step_counter += 1
+
+        return step_counter
 
     def update_buffer__pipe(self, pipes, buffer, max_step):
         buffer.empty_memories__before_explore()
@@ -357,7 +384,7 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
 
         action, noise = self.select_actions(self.state)
         for i in range(env_num):
-            pipes[i].send(action[i])  # pipes 1 send ppo
+            pipes[i].send(np.tanh(action[i]))  # pipes 1 send ppo # not elegant
 
         trajectories = [list() for _ in range(env_num)]
         for _ in range(target_step // env_num):
@@ -371,7 +398,7 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
                 # todo ppo_pipe
                 action[i_beg:i_end], noise[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
                 for i in range(i_beg, i_end):
-                    pipes[i].send(action[i])  # pipes action
+                    pipes[i].send(np.tanh(action[i]))  # pipes action # not elegant
 
         # trajectories stop  # todo ppo_pipe
         if_stops = [trajectory[-1][1] == 0 for trajectory in trajectories]  # trajectory[-1][1]==mask
@@ -392,7 +419,7 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
                 for i in range(i_beg, i_end):
                     if if_stops[i]:
                         continue
-                    pipes[i].send(action[i])  # pipes action
+                    pipes[i].send(np.tanh(action[i]))  # pipes action # not elegant
 
         steps_sum = 0
         for trajectory in trajectories:
@@ -400,14 +427,20 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
             buffer.extend_memo(memo_tuple=trajectory)
         return steps_sum
 
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=4):
-        buffer.update__now_len__before_sample()
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times):
+        """Contribution of PPO (Proximal Policy Optimization
+        1. the surrogate objective of TRPO, PPO simplified calculation of TRPO
+        2. use the advantage function of A3C (Asynchronous Advantage Actor-Critic)
+        3. add GAE. ICLR 2016. Generalization Advantage Estimate and use trajectory to calculate Q value
+        """
+        buffer.update__now_len__before_sample()  # write
 
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
         lambda_entropy = 0.01  # could be 0.02
+        # repeat_times = 8 could be 2**3 ~ 2**5
 
-        act_obj = cri_obj = None  # just for print return
+        actor_obj = critic_obj = None  # just for print return
 
         '''the batch for training'''
         max_memo = buffer.now_len
@@ -417,7 +450,7 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
         all_log_prob = list()
         with torch.no_grad():
             b_size = 2 ** 10
-            a_std_log__sqrt_2pi_log = self.act.net__d + self.act.sqrt_2pi_log
+            a_std_log__sqrt_2pi_log = self.act.a_std_log + self.act.sqrt_2pi_log
             for i in range(0, all_state.size()[0], b_size):
                 new_v = self.cri(all_state[i:i + b_size])
                 all__new_v.append(new_v)
@@ -461,25 +494,34 @@ class AgentGaePPO(AgentBaseAC):  # 2021-02-02
             old_value = all__old_v[indices].unsqueeze(1)
             old_log_prob = all_log_prob[indices]
 
-            new_value = self.cri(state)
-            cri_obj = self.criterion(new_value, old_value) / (old_value.std() + 1e-5)
+            """Adaptive KL Penalty Coefficient
+            loss_KLPEN = surrogate_obj + value_obj * lambda_value + entropy_obj * lambda_entropy
+            loss_KLPEN = (value_obj * lambda_value) + (surrogate_obj + entropy_obj * lambda_entropy)
+            loss_KLPEN = (critic_obj) + (actor_obj)
+            """
 
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is act_obj
+            """critic_obj"""
+            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
+            new_value = self.cri(state)
+
+            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+
+            """actor_obj"""
             ratio = torch.exp(new_log_prob - old_log_prob)
-            surrogate_obj0 = advantage * ratio
+            surrogate_obj0 = advantage * ratio  # surrogate objective of TRPO
             surrogate_obj1 = advantage * ratio.clamp(1 - clip, 1 + clip)
             surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
             loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
 
-            act_obj = surrogate_obj + loss_entropy * lambda_entropy
+            actor_obj = surrogate_obj + loss_entropy * lambda_entropy
 
-            united_loss = act_obj + cri_obj
+            united_obj = actor_obj + critic_obj
             self.optimizer.zero_grad()
-            united_loss.backward()
+            united_obj.backward()
             self.optimizer.step()
 
-        self.obj_a = act_obj.item()
-        self.obj_c = cri_obj.item()
+        self.obj_a = actor_obj.item()
+        self.obj_c = critic_obj.item()
 
     def save_or_load_model(self, cwd, if_save):  # 2020-07-07
         act_save_path = '{}/actor.pth'.format(cwd)
@@ -571,24 +613,24 @@ def train_agent_mp(args):  # 2021-01-01
     eva_pipe1, eva_pipe2 = mp.Pipe(duplex=True)
     process = list()
 
-    exp_pipe2s = list()
-    for i in range(act_workers):
-        exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
-        exp_pipe2s.append(exp_pipe1)
-        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, i)))
-    process.extend([
-        mp.Process(target=mp_evaluate_agent, args=(args, eva_pipe1)),
-        mp.Process(target=mp__update_params, args=(args, eva_pipe2, exp_pipe2s)),
-    ])
+    exp_pipes = list()
+    if act_workers >= 2:
+        for i in range(act_workers):
+            exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
+            exp_pipes.append(exp_pipe1)
+            process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, i)))
+
+    proc_evaluate_agent = mp.Process(target=mp_evaluate_agent, args=(args, eva_pipe1))
+    proc__update_params = mp.Process(target=mp__update_params, args=(args, eva_pipe2, exp_pipes))
+    process.extend([proc_evaluate_agent, proc__update_params])
 
     [p.start() for p in process]
-    process[-1].join()
-    process[-2].join()
+    proc__update_params.join()
+    proc_evaluate_agent.join()
     [p.terminate() for p in process]
-    print('\n')
 
 
-def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
+def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
     rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
@@ -612,9 +654,9 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
     if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
 
-    agent.state = [pipe.recv() for pipe in pipes]
-    if not if_on_policy:  # todo ppo_pipe
-        agent.action = agent.select_actions(agent.state)
+    agent.state = [pipe.recv() for pipe in pipes] if env_num else env.reset()
+    if not if_on_policy:
+        agent.action = agent.select_actions(agent.state if env_num else (agent.state,))
         for i in range(env_num):
             pipes[i].send(agent.action[i])  # pipes 1 send
 
@@ -642,7 +684,11 @@ def mp__update_params(args, eva_pipe, pipes):  # 2020-12-22
     if_solve = False
     while not ((if_stop and if_solve) or total_step > break_step or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes action inside
+            if env_num:  # not elegant
+                steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes action inside
+            else:
+                steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+
         total_step += steps
 
         buffer.update__now_len__before_sample()
@@ -1047,7 +1093,7 @@ def _get_decorate_env(env, action_max=1, state_avg=None, state_std=None, data_ty
     return env
 
 
-class FinanceMultiStockEnv:  # 2021-01-01
+class FinanceMultiStockEnv:  # 2021-02-02
     """FinRL
     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
            https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
@@ -1082,8 +1128,8 @@ class FinanceMultiStockEnv:  # 2021-01-01
 
         self.gamma_r = 0.0
 
-    def reset(self):
-        self.account = self.initial_account * rd.uniform(0.9, 1.00)  # notice reset()
+    def reset(self):  # 2021-02-03
+        self.account = self.initial_account * rd.uniform(0.9, 1.0)  # notice reset()
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
         self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         # total_asset = account + (adjcp * stocks).sum()
@@ -1092,11 +1138,9 @@ class FinanceMultiStockEnv:  # 2021-01-01
         self.day_npy = self.ary[self.day]
         self.day += 1
 
-        state = np.hstack((
-            self.account * 2 ** -16,
-            self.day_npy * 2 ** -8,
-            self.stocks * 2 ** -12,
-        ), ).astype(np.float32)
+        state = np.hstack((self.account * 2 ** -16,
+                           self.day_npy * 2 ** -8,
+                           self.stocks * 2 ** -12,), ).astype(np.float32)
 
         return state
 
@@ -1137,8 +1181,10 @@ class FinanceMultiStockEnv:  # 2021-01-01
             reward += self.gamma_r
             self.gamma_r = 0.0  # env.reset()
 
-            self.episode_return = next_total_asset / self.initial_account  # cumulative_return_rate
-        return state, reward, done, dict()
+            # cumulative_return_rate
+            self.episode_return = next_total_asset / self.initial_account
+
+        return state, reward, done, None
 
     @staticmethod
     def load_training_data_for_multi_stock(if_load=True):  # need more independent
@@ -1149,10 +1195,55 @@ class FinanceMultiStockEnv:  # 2021-01-01
             return data_ary
         else:
             raise RuntimeError(
-                f'\n| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}'
-                f'\n| https://github.com/Yonv1943/ElegantRL/blob/master/Result/FinanceMultiStock.npy'
-                f'\n| Or you can use the following code to generate it from a csv file.'
+                f'| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}\n'
+                f'| https://github.com/Yonv1943/ElegantRL/blob/master/Result/FinanceMultiStock.npy'
+                f'| Or you can use the following code to generate it from a csv file.'
             )
+
+        # from preprocessing.preprocessors import pd, data_split, preprocess_data, add_turbulence
+        #
+        # # the following is same as part of run_model()
+        # preprocessed_path = "done_data.csv"
+        # if if_load and os.path.exists(preprocessed_path):
+        #     data = pd.read_csv(preprocessed_path, index_col=0)
+        # else:
+        #     data = preprocess_data()
+        #     data = add_turbulence(data)
+        #     data.to_csv(preprocessed_path)
+        #
+        # df = data
+        # rebalance_window = 63
+        # validation_window = 63
+        # i = rebalance_window + validation_window
+        #
+        # unique_trade_date = data[(data.datadate > 20151001) & (data.datadate <= 20200707)].datadate.unique()
+        # train__df = data_split(df, start=20090000, end=unique_trade_date[i - rebalance_window - validation_window])
+        # # print(train__df) # df: DataFrame of Pandas
+        #
+        # train_ary = train__df.to_numpy().reshape((-1, 30, 12))
+        # '''state_dim = 1 + 6 * stock_dim, stock_dim=30
+        # n   item    index
+        # 1   ACCOUNT -
+        # 30  adjcp   2
+        # 30  stock   -
+        # 30  macd    7
+        # 30  rsi     8
+        # 30  cci     9
+        # 30  adx     10
+        # '''
+        # data_ary = np.empty((train_ary.shape[0], 5, 30), dtype=np.float32)
+        # data_ary[:, 0] = train_ary[:, :, 2]  # adjcp
+        # data_ary[:, 1] = train_ary[:, :, 7]  # macd
+        # data_ary[:, 2] = train_ary[:, :, 8]  # rsi
+        # data_ary[:, 3] = train_ary[:, :, 9]  # cci
+        # data_ary[:, 4] = train_ary[:, :, 10]  # adx
+        #
+        # data_ary = data_ary.reshape((-1, 5 * 30))
+        #
+        # os.makedirs(npy_path[:npy_path.rfind('/')])
+        # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
+        # print('| FinanceMultiStockEnv(): save in:', npy_path)
+        # return data_ary
 
 
 def train__demo():
@@ -1162,8 +1253,8 @@ def train__demo():
     # import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     # gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     # args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
-    # args.break_step = 2 ** 14  # todo just for test
-    # args.show_gap = 2 ** 4  # todo just for test
+    # args.break_step = 2 ** 14  # just for test
+    # args.show_gap = 2 ** 4  # just for test
     #
     # # args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
     # # # args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
@@ -1180,7 +1271,7 @@ def train__demo():
     # train_agent_mp(args)  # train_agent(args)
     # exit()
 
-    env = FinanceMultiStockEnv()  # 2021-02-02 todo too slow? warning update_buffer_pipe trajectory
+    env = FinanceMultiStockEnv()  # 2020-12-24
     args = Arguments(rl_agent=AgentGaePPO, env=env)
     args.eval_times1 = 1
     args.eval_times2 = 1
@@ -1188,11 +1279,11 @@ def train__demo():
     args.if_break_early = False
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
-    args.break_step = int(5e6)  # * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
+    args.break_step = int(1e6)  # 5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
     args.net_dim = 2 ** 8
     args.max_step = 1699
-    args.max_memo = (args.max_step - 1) * 8
-    args.batch_size = 2 ** 11  # todo
+    args.max_memo = (args.max_step - 1) * 16
+    args.batch_size = 2 ** 11
     args.repeat_times = 2 ** 4
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
