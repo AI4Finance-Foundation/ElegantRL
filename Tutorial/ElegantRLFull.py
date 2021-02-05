@@ -688,7 +688,7 @@ class AgentDQN(AgentBaseAC):  # 2021-02-02
         """Contribution of DQN (Deep Q Network)
         1. Q-table (discrete state space) --> Q-network (continuous state space)
         2. Use experiment replay buffer to train a neural network in RL
-        3. Use soft target update to stablize training in RL
+        3. Use soft target update for stable training in RL
         """
         buffer.update__now_len__before_sample()
 
