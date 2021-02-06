@@ -8,11 +8,7 @@ import numpy as np
 import numpy.random as rd
 
 """PPO pipe
-beta1 rollout_num = 1, 1613, 4.3
-beta2 rollout_num = 4,  547, 4.7
-
-beta2 rollout_num = 4, 
-beta3 rollout_num = 8,
+lack QNet test
 """
 
 """AgentNet
@@ -156,9 +152,6 @@ class QNet(nn.Module):  # class AgentQLearning
                                  nn.Linear(mid_dim, action_dim), )
 
     def forward(self, state):
-        return self.net(state).argmax(dim=1)  # action_id = q_value.argmax(dim=1)
-
-    def get__q(self, state):
         return self.net(state)  # q value
 
 
@@ -174,8 +167,7 @@ class QNetTwin(nn.Module):  # shared parameter
 
     def forward(self, state):
         t_tmp = self.net__state(state)
-        q1 = self.net_value1(t_tmp)  # q1 value
-        return q1.argmax(dim=1)  # action_id
+        return self.net_value1(t_tmp)  # q1 value
 
     def get__q1_q2(self, state):
         t_tmp = self.net__state(state)
@@ -195,13 +187,6 @@ class QNetDuel(nn.Module):
                                         nn.Linear(mid_dim, action_dim), )  # advantage function value
 
     def forward(self, state):
-        t_tmp = self.net__state(state)
-        q_val = self.net__value(t_tmp)  # q value
-        q_adv = self.net__adv_v(t_tmp)  # advantage function value
-        q = q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # dueling q value
-        return q.argmax(dim=1)
-
-    def get__q(self, state):
         t_tmp = self.net__state(state)
         q_val = self.net__value(t_tmp)  # q value
         q_adv = self.net__adv_v(t_tmp)  # advantage function value
@@ -227,8 +212,7 @@ class QNetDuelTwin(nn.Module):
         t_tmp = self.net__state(state)
         q_val = self.net_val1(t_tmp)
         q_adv = self.net_adv1(t_tmp)
-        q = q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # single dueling q value
-        return q.argmax(dim=1)
+        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # single dueling q value
 
     def get__q1_q2(self, state):
         t_tmp = self.net__state(state)
@@ -677,12 +661,46 @@ class AgentDQN(AgentBaseAC):  # 2021-02-02
 
     def select_actions(self, states):  # for discrete action space
         if rd.rand() < self.explore_rate:
-            a_int = rd.randint(self.action_dim, size=states.shape[0])  # discrete action
+            a_ints = rd.randint(self.action_dim, size=states.shape[0])  # a_int if_discrete
         else:
             states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
             actions = self.act(states)
-            a_int = actions.argmax(dim=1).detach().cpu().numpy()
-        return a_int
+            a_ints = actions.argmax(dim=1).detach().cpu().numpy()  # a_int if_discrete
+        return a_ints
+
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
+        for _ in range(max_step):
+            action = self.select_actions((self.state,))[0]
+            action = action.argmax()  # a_int if_discrete
+            next_state, reward, done, _ = env.step(action)
+            buffer.append_memo((reward * reward_scale, 0.0 if done else gamma,
+                                *self.state, action,  # a_int if_discrete
+                                *next_state))
+            self.state = env.reset() if done else next_state
+        return max_step
+
+    def update_buffer__pipe(self, pipes, buffer, max_step):
+        env_num = len(pipes)
+        env_num2 = env_num // 2
+
+        trajectories = [list() for _ in range(env_num)]
+        for _ in range(max_step // env_num):
+            for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
+                for i in range(i_beg, i_end):
+                    reward, mask, next_state = pipes[i].recv()
+                    trajectories[i].append([reward, mask, *self.state[i], self.action[i],  # a_int if_discrete
+                                            *next_state])
+                    self.state[i] = next_state
+
+                self.action[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
+                for i in range(i_beg, i_end):
+                    pipes[i].send(self.action[i])  # pipes action
+
+        steps_sum = 0
+        for trajectory in trajectories:
+            steps_sum += len(trajectory)
+            buffer.extend_memo(memo_tuple=trajectory)
+        return steps_sum
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DQN (Deep Q Network)
@@ -716,7 +734,7 @@ class AgentDQN(AgentBaseAC):  # 2021-02-02
 
 class AgentDuelingDQN(AgentDQN):
     def __init__(self, **kwargs):  # 2020-04-30
-        AgentDQN.__init__(**kwargs, net=QNetDuel)
+        AgentDQN.__init__(**kwargs, learning_rate=1e-4, net=QNetDuel)
         self.explore_rate = 0.1  # epsilon-Greedy
         """Contribution of Dueling DQN
         1. Sometimes the q = QNet(state) is independent with actions. 
@@ -749,11 +767,11 @@ class AgentDoubleDQN(AgentDQN):  # 2021-02-02
         actions = self.act(states)
 
         if rd.rand() < self.explore_rate:
-            a_prob_l = self.softmax(actions).cpu().data.numpy()
-            a_int = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_prob_l]
+            a_prob_l = self.softmax(actions).detach().cpu().numpy()
+            a_ints = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_prob_l]
         else:
-            a_int = actions.argmax(dim=1).cpu().data.numpy()
-        return a_int
+            a_ints = actions.argmax(dim=1).detach().cpu().numpy()
+        return a_ints
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DDQN (Double DQN)
@@ -789,8 +807,8 @@ class AgentDoubleDQN(AgentDQN):  # 2021-02-02
 
 
 class AgentD3QN(AgentDoubleDQN):
-    def __init__(self, **kwargs):  # 2020-04-30
-        AgentDoubleDQN.__init__(**kwargs, net=QNetDuelTwin)
+    def __init__(self, *kwargs, learning_rate=1e-4):  # 2021-02-02
+        AgentDoubleDQN.__init__(self, *kwargs, learning_rate, net=QNetDuelTwin)
         self.explore_rate = 0.1  # epsilon-Greedy
         """Contribution of D3QN (Dueling Double DQN)
         Anyone who just started deep reinforcement learning can discover D3QN algorithm independently.
@@ -1029,12 +1047,15 @@ def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma
     steps = 0
     while steps < max_step:
         action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
-        next_state, reward, done, _ = env.step(action * if_discrete)
+        next_state, reward, done, _ = env.step(action)
         steps += 1
 
         scaled_reward = reward * reward_scale
         mask = 0.0 if done else gamma
-        buffer.append_memo((scaled_reward, mask, *state, *action, *next_state))
+        memo_tuple = (scaled_reward, mask, *state, action, *next_state) if if_discrete else \
+            (scaled_reward, mask, *state, *action, *next_state)  # not elegant
+        buffer.append_memo(memo_tuple)
+
         state = env.reset() if done else next_state
     return steps
 
@@ -1499,29 +1520,29 @@ class FinanceMultiStockEnv:  # 2021-02-02
 
 
 def train__demo():
-    # agent = AgentModSAC(state_dim=4, action_dim=2, net_dim=2**8)  # training agent
-    # exit()  # temp
+    agent = AgentModSAC(state_dim=4, action_dim=2, net_dim=2 ** 8)  # training agent
+    exit()  # temp
 
-    # import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
-    # gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
-    # args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
-    # args.break_step = 2 ** 14  # just for test
-    # args.show_gap = 2 ** 4  # just for test
-    #
-    # # args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
-    # # # args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
-    # # args.reward_scale = 2 ** -2  # (-800) -200 ~ 200 (302)
-    # # args.init_for_training()
-    # # train_agent_mp(args)  # train_agent(args)
-    # # exit()
-    # #
-    # args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
-    # args.gamma = 0.96
-    # # args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
-    # args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
+    args.break_step = 2 ** 14  # just for test
+    args.show_gap = 2 ** 4  # just for test
+
+    # args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
+    # # args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
+    # args.reward_scale = 2 ** -2  # (-800) -200 ~ 200 (302)
     # args.init_for_training()
     # train_agent_mp(args)  # train_agent(args)
     # exit()
+    #
+    args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
+    args.gamma = 0.96
+    # args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
+    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
 
     env = FinanceMultiStockEnv()  # 2020-12-24
     args = Arguments(rl_agent=AgentGaePPO, env=env)
@@ -1542,5 +1563,30 @@ def train__demo():
     exit()
 
 
+def train__discrete_action():
+    args = Arguments(rl_agent=AgentD3QN, env=None, gpu_id=None)
+
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    args.rollout_num = 4
+
+    args.env = decorate_env(gym.make("CartPole-v0"), if_print=True)
+    args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
+    args.reward_scale = 2 ** 0  # 0 ~ 200
+    args.net_dim = 2 ** 6
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    args.env = decorate_env(gym.make("LunarLander-v2"), if_print=True)
+    args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
+    args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
+    args.net_dim = 2 ** 7
+    args.init_for_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+
 if __name__ == '__main__':
-    train__demo()
+    # train__demo()
+    train__discrete_action()
