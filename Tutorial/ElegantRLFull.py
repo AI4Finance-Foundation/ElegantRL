@@ -661,7 +661,7 @@ class AgentDQN(AgentBaseAC):  # 2021-02-02
 
     def select_actions(self, states):  # for discrete action space
         if rd.rand() < self.explore_rate:
-            a_ints = rd.randint(self.action_dim, size=states.shape[0])  # a_int if_discrete
+            a_ints = rd.randint(self.action_dim, size=len(states))  # a_int if_discrete
         else:
             states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
             actions = self.act(states)
@@ -728,13 +728,13 @@ class AgentDQN(AgentBaseAC):  # 2021-02-02
             self.optimizer.step()
             _soft_target_update(self.act_target, self.act)
 
-        self.obj_a = q_label.mean.item()
+        self.obj_a = q_label.mean().item()
         self.obj_c = critic_obj.item()
 
 
 class AgentDuelingDQN(AgentDQN):
-    def __init__(self, **kwargs):  # 2020-04-30
-        AgentDQN.__init__(**kwargs, learning_rate=1e-4, net=QNetDuel)
+    def __init__(self, *kwargs):  # 2021-02-02
+        AgentDQN.__init__(self, *kwargs, net=QNetDuel)
         self.explore_rate = 0.1  # epsilon-Greedy
         """Contribution of Dueling DQN
         1. Sometimes the q = QNet(state) is independent with actions. 
@@ -807,8 +807,8 @@ class AgentDoubleDQN(AgentDQN):  # 2021-02-02
 
 
 class AgentD3QN(AgentDoubleDQN):
-    def __init__(self, *kwargs, learning_rate=1e-4):  # 2021-02-02
-        AgentDoubleDQN.__init__(self, *kwargs, learning_rate, net=QNetDuelTwin)
+    def __init__(self, *kwargs,):  # 2021-02-02
+        AgentDoubleDQN.__init__(self, *kwargs, net=QNetDuelTwin)
         self.explore_rate = 0.1  # epsilon-Greedy
         """Contribution of D3QN (Dueling Double DQN)
         Anyone who just started deep reinforcement learning can discover D3QN algorithm independently.
@@ -1564,7 +1564,7 @@ def train__demo():
 
 
 def train__discrete_action():
-    args = Arguments(rl_agent=AgentD3QN, env=None, gpu_id=None)
+    args = Arguments(rl_agent=AgentD3DQN, env=None, gpu_id=None)
 
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
@@ -1576,7 +1576,7 @@ def train__discrete_action():
     args.net_dim = 2 ** 6
     args.init_for_training()
     train_agent_mp(args)  # train_agent(args)
-    exit()
+    # exit()
 
     args.env = decorate_env(gym.make("LunarLander-v2"), if_print=True)
     args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
