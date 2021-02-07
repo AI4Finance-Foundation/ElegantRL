@@ -233,131 +233,25 @@ def layer_norm(layer, std=1.0, bias_const=1e-6):
 """AgentZoo"""
 
 
-class AgentBase:
+class AgentBaseAC:
     def __init__(self, ):
         self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.act = None  # Network
+        self.act = None
+        self.cri = None
         self.criterion = None
         self.optimizer = None
 
         self.obj_a = 0.0
         self.obj_c = 0.5
 
-        self.update_buffer = None  # update_buffer__* # not elegant
+        self.update_buffer = None
         # plan to merge update_buffer__continuous() and update_buffer__discrete()
 
     def select_actions(self, states):  # states = (state, )
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states)
-        return actions.detach().cpu().numpy()
-
-    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        for _ in range(max_step):
-            action = self.select_actions((self.state,))[0]
-            next_state, reward, done, _ = env.step(action)
-
-            r = reward * reward_scale
-            mask = 0.0 if done else gamma
-            item = (r, mask, *self.state, action, *next_state) if isinstance(action, int) else \
-                (r, mask, *self.state, *action, *next_state)  # not elegant: isinstance(action, int)
-            buffer.append_memo(item)
-
-            self.state = env.reset() if done else next_state
-        return max_step
-
-    def update_buffer__pipe(self, pipes, buffer, max_step):
-        env_num = len(pipes)
-        env_num2 = env_num // 2
-
-        trajectories = [list() for _ in range(env_num)]
-        for _ in range(max_step // env_num):
-            for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
-                for i in range(i_beg, i_end):
-                    reward, mask, next_state = pipes[i].recv()
-                    trajectories[i].append([reward, mask, *self.state[i], *self.action[i], *next_state])
-                    self.state[i] = next_state
-
-                self.action[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
-                for i in range(i_beg, i_end):
-                    pipes[i].send(self.action[i])  # pipes action
-
-        steps_sum = 0
-        for trajectory in trajectories:
-            steps_sum += len(trajectory)
-            buffer.extend_memo(memo_tuple=trajectory)
-        return steps_sum
-
-    def update_buffer__pipe_discrete(self, pipes, buffer, max_step):
-        env_num = len(pipes)
-        env_num2 = env_num // 2
-
-        trajectories = [list() for _ in range(env_num)]
-        for _ in range(max_step // env_num):
-            for i_beg, i_end in ((0, env_num2), (env_num2, env_num)):
-                for i in range(i_beg, i_end):
-                    reward, mask, next_state = pipes[i].recv()
-
-                    a = self.action[i]
-                    item = [reward, mask, *self.state[i], a, *next_state] if isinstance(a, int) else \
-                        [reward, mask, *self.state[i], *a, *next_state] # not elegant: isinstance(action, int)
-                    trajectories[i].append(item)
-
-                    self.state[i] = next_state
-
-                self.action[i_beg:i_end] = self.select_actions(self.state[i_beg:i_end])
-                for i in range(i_beg, i_end):
-                    pipes[i].send(self.action[i])  # pipes action
-
-        steps_sum = 0
-        for trajectory in trajectories:
-            steps_sum += len(trajectory)
-            buffer.extend_memo(memo_tuple=trajectory)
-        return steps_sum
-
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
-        buffer.update__now_len__before_sample()
-
-        for i in range(int(max_step * repeat_times)):
-            with torch.no_grad():
-                buffer.random_sample(batch_size)
-
-            self.optimizer.zero_grad()
-            # united_obj.backward()
-            self.optimizer.step()
-
-        self.obj_a = 0.0
-        self.obj_c = 0.5
-
-
-class AgentTD3:  # In fact, it is a TD3 without delay update
-    def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        self.state = self.action = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.explore_noise = 0.1
-        self.policy__noise = 0.2
-
-        self.act = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target.load_state_dict(self.act.state_dict())
-
-        cri_dim = int(net_dim * 1.25)
-        self.cri = CriticTwin(state_dim, action_dim, cri_dim).to(self.device)
-        self.cri_target = CriticTwin(state_dim, action_dim, cri_dim).to(self.device)
-        self.cri_target.load_state_dict(self.cri.state_dict())
-
-        self.obj_a = 0.0
-        self.obj_c = 0.5
-        self.criterion = nn.SmoothL1Loss()
-        self.optimizer = torch.optim.Adam([
-            {'params': self.act.parameters(), 'lr': learning_rate},
-            {'params': self.cri.parameters(), 'lr': learning_rate},
-        ], lr=learning_rate)
-
-    def select_actions(self, states):  # states = (state, )
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act.get__a_noisy(states, self.explore_noise)
         return actions.detach().cpu().numpy()
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
@@ -393,6 +287,61 @@ class AgentTD3:  # In fact, it is a TD3 without delay update
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
+        for i in range(int(max_step * repeat_times)):
+            with torch.no_grad():
+                buffer.random_sample(batch_size)
+
+            self.optimizer.zero_grad()
+            # united_obj.backward()
+            self.optimizer.step()
+
+        self.obj_a = 0.0
+        self.obj_c = 0.5
+
+    def save_or_load_model(self, cwd, if_save):
+        for net, name in ((self.act, 'act'), (self.cri, 'cri')):
+            if net is None:
+                continue
+
+            save_path = f'{cwd}/{name}.pth'
+            if if_save:
+                torch.save(net.state_dict(), save_path)
+            elif os.path.exists(save_path):
+                net = torch.load(save_path, map_location=lambda storage, loc: storage)
+                net.load_state_dict(net)
+                print(f"Loaded act and cri: {cwd}")
+            else:
+                print(f"FileNotFound when load_model: {cwd}")
+
+
+class AgentTD3(AgentBaseAC):
+    def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
+        super(AgentBaseAC, self).__init__()
+        self.explore_noise = 0.1  # standard deviation of explore noise
+        self.policy__noise = 0.2  # standard deviation of policy noise
+        self.update_freq = 2  # set as 2 or 4 for soft target update
+
+        self.act = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = ActorDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        cri_dim = int(net_dim * 1.25)
+        self.cri = CriticTwin(state_dim, action_dim, cri_dim).to(self.device)
+        self.cri_target = CriticTwin(state_dim, action_dim, cri_dim).to(self.device)
+        self.cri_target.load_state_dict(self.cri.state_dict())
+
+        self.criterion = nn.MSELoss()
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate}, ])
+
+    def select_actions(self, states):
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act.get__a_noisy(states, self.explore_noise)
+        return actions.detach().cpu().numpy()
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        buffer.update__now_len__before_sample()
+
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
         update_times = int(max_step * k * repeat_times)
@@ -417,25 +366,12 @@ class AgentTD3:  # In fact, it is a TD3 without delay update
             united_obj.backward()
             self.optimizer.step()
 
-            _soft_target_update(self.cri_target, self.cri)
-            _soft_target_update(self.act_target, self.act)
-
-    def save_or_load_model(self, cwd, if_save):
-        for net, name in ((self.act, 'act'), (self.cri, 'cri')):
-            if name not in dir(self):
-                continue
-
-            save_path = f'{cwd}/{name}.pth'
-            if if_save:
-                torch.save(net.state_dict(), save_path)
-            elif os.path.exists(save_path):
-                net = torch.load(save_path, map_location=lambda storage, loc: storage)
-                net.load_state_dict(net)
-                print(f"Loaded act and cri: {cwd}")
-            else:
-                print(f"FileNotFound when load_model: {cwd}")
+            if i % self.update_freq == 0:
+                _soft_target_update(self.cri_target, self.cri)
+                _soft_target_update(self.act_target, self.act)
 
 
+# todo 2021-02-07-18-23
 class AgentModSAC(AgentBaseAC):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
         super(AgentBaseAC, self).__init__()
