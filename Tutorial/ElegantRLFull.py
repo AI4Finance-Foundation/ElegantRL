@@ -26,38 +26,6 @@ class ActorDPG(nn.Module):  # Deterministic Policy Gradient
         return (action + torch.randn_like(action) * a_std).clamp(-1.0, 1.0)
 
 
-class ActorPPO(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim):
-        super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), )
-        layer_norm(self.net[-1], std=0.1)  # output layer of action
-
-        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)  # trainable parameter
-        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # a constant
-
-    def forward(self, state):
-        return self.net(state).tanh()  # action
-
-    def get__a_noisy__noise(self, state):
-        a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
-
-        noise = torch.randn_like(a_avg)
-        a_noisy = a_avg + noise * a_std
-        return a_noisy, noise
-
-    def compute__log_prob(self, state, a_noise):
-        a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
-
-        delta = ((a_avg - a_noise) / a_std).pow(2).__mul__(0.5)
-        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)
-        return log_prob.sum(1)
-
-
 class ActorSAC(nn.Module):
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
@@ -91,6 +59,38 @@ class ActorSAC(nn.Module):
         a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
         log_prob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5) + (-a_tan.pow(2) + 1.000001).log()
         return a_tan, log_prob.sum(1, keepdim=True)
+
+
+class ActorPPO(nn.Module):
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, action_dim), )
+        layer_norm(self.net[-1], std=0.1)  # output layer of action
+
+        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)  # trainable parameter
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))  # a constant
+
+    def forward(self, state):
+        return self.net(state).tanh()  # action
+
+    def get__a_noisy__noise(self, state):
+        a_avg = self.net(state)
+        a_std = self.a_std_log.exp()
+
+        noise = torch.randn_like(a_avg)
+        a_noisy = a_avg + noise * a_std
+        return a_noisy, noise
+
+    def compute__log_prob(self, state, a_noise):
+        a_avg = self.net(state)
+        a_std = self.a_std_log.exp()
+
+        delta = ((a_avg - a_noise) / a_std).pow(2).__mul__(0.5)
+        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)
+        return log_prob.sum(1)
 
 
 class Critic(nn.Module):
@@ -313,7 +313,7 @@ class AgentBase:  # DDPG-style.2016 (Deep Deterministic Policy Gradient)
 
 class AgentTD3(AgentBase):  # TD3.2018 (Twin Delay DDPG)
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        super(AgentBase, self).__init__()
+        AgentBase.__init__(self)
         self.explore_noise = 0.1  # standard deviation of explore noise
         self.policy__noise = 0.2  # standard deviation of policy noise
         self.update_freq = 2  # set as 2 or 4 for soft target update
@@ -347,7 +347,7 @@ class AgentTD3(AgentBase):  # TD3.2018 (Twin Delay DDPG)
            DQN + DPG -> DDPG: (discrete action space Q-net -> continuous action space Policy Gradient)
         2. experiment replay buffer for stabilizing training
         3. soft target update for stabilizing training
-        
+
         Contribution of TD3 (TDDD, Twin Delay DDPG)
         1. twin critics (DoubleDQN -> TwinCritic, good idea)
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
@@ -385,7 +385,7 @@ class AgentTD3(AgentBase):  # TD3.2018 (Twin Delay DDPG)
 
 class AgentModSAC(AgentBase):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        super(AgentBase, self).__init__()
+        AgentBase.__init__(self)
         self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), requires_grad=True,
                                       dtype=torch.float32, device=self.device)
@@ -416,7 +416,7 @@ class AgentModSAC(AgentBase):
         1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
         3. SAC use TD3's TwinCritics too
-        
+
         Modify content of ModSAC
         1. Reliable Lambda is calculated based on Critic's loss function value.
         2. Increasing batch_size and update_times
@@ -470,7 +470,7 @@ class AgentModSAC(AgentBase):
 
 class AgentGaePPO(AgentBase):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        super(AgentBase, self).__init__()
+        AgentBase.__init__(self)
 
         self.act = ActorPPO(state_dim, action_dim, net_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -613,7 +613,7 @@ class AgentGaePPO(AgentBase):
         actor_obj = critic_obj = None
         for _ in range(int(repeat_times * max_memo / batch_size)):
             '''random sample'''
-            indices = rd.randint(max_memo, size=batch_size)
+            indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
 
             state = all_state[indices]
             action = all_action[indices]
@@ -753,7 +753,7 @@ class AgentBaseDQN:
 
 class AgentDQN(AgentBaseDQN):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        super(AgentBaseDQN, self).__init__()
+        AgentBaseDQN.__init__(self)
         self.explore_rate = 0.1  # epsilon-greedy: explore env by randomly choosing actions
         self.action_dim = action_dim
 
@@ -771,7 +771,7 @@ class AgentDQN(AgentBaseDQN):
 
 class AgentDuelingDQN(AgentBaseDQN):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
-        super(AgentBaseDQN, self).__init__()
+        AgentBaseDQN.__init__(self)
         self.explore_rate = 0.1  # epsilon-Greedy
         self.action_dim = action_dim
 
@@ -789,7 +789,7 @@ class AgentDuelingDQN(AgentBaseDQN):
 
 class AgentDoubleDQN(AgentBaseDQN):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4, if_dueling=False):
-        super(AgentBaseDQN, self).__init__()
+        AgentBaseDQN.__init__(self)
         self.explore_rate = 0.1  # epsilon-greedy: explore env by randomly choosing actions
         self.action_dim = action_dim
 
@@ -959,12 +959,13 @@ def train_agent(args):  # 2021-02-02
     '''build ReplayBuffer'''
     total_step = 0
     if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
+
+    buffer = ReplayBufferCPU(max_memo, state_dim,
+                             action_dim=1 if if_discrete else action_dim,
+                             if_on_policy=if_on_policy)
     if if_on_policy:
-        buffer = ReplayBufferCPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)
         steps = 0
     else:
-        buffer = ReplayBufferCPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
-
         with torch.no_grad():  # update replay buffer
             steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
 
@@ -976,7 +977,8 @@ def train_agent(args):  # 2021-02-02
 
     '''build Recorder'''
     recorder = Recorder(eval_times1, eval_times2)
-    recorder.update_recorder(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
+    with torch.no_grad():
+        recorder.update_recorder(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
 
     '''loop'''
     if_solve = False
@@ -1067,11 +1069,12 @@ def mp__update_params(args, eva_pipe, pipes):
 
     '''build replay buffer'''
     total_step = 0
+    buffer = ReplayBufferGPU(max_memo, state_dim,
+                             action_dim=1 if if_discrete else action_dim,
+                             if_on_policy=if_on_policy)
     if if_on_policy:
-        buffer = ReplayBufferGPU(max_memo + env_num * max_step, state_dim, action_dim, if_ppo=True)
         steps = 0
     else:
-        buffer = ReplayBufferGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
         with torch.no_grad():  # initial exploration
             steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
 
@@ -1362,8 +1365,8 @@ class ReplayBufferBase:
         self.next_idx = next_idx
 
     def random_sample(self, batch_size):
-        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
-        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # indices = rd.choice(self.now_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.now_len, batch_size, replace=True)  # why perform better?
         # same as:
         indices = rd.randint(self.now_len, size=batch_size)
         memory = torch.as_tensor(self.memories[indices], device=self.device)
@@ -1393,26 +1396,48 @@ class ReplayBufferBase:
         self.now_len = 0
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        memory_state = self.memories[:self.now_len, 2:self.state_idx]
-        print_norm(memory_state, neg_avg, div_std)
+        batch_state = self.memories[:self.now_len, 2:self.state_idx]
+        if isinstance(batch_state, torch.Tensor):
+            batch_state = batch_state.detach().cpu().numpy()
+        assert isinstance(batch_state, np.ndarray)
+
+        if batch_state.shape[1] > 64:
+            print(f"| _print_norm(): state_dim: {batch_state.shape[1]:.0f} is too large to print its norm. ")
+            return None
+
+        if np.isnan(batch_state).any():  # 2020-12-12
+            batch_state = np.nan_to_num(batch_state)  # nan to 0
+
+        ary_avg = batch_state.mean(axis=0)
+        ary_std = batch_state.std(axis=0)
+        fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
+                   + ary_std) / 2
+
+        if neg_avg is not None:  # norm transfer
+            ary_avg = ary_avg - neg_avg / div_std
+            ary_std = fix_std / div_std
+
+        print(f"| Replay Buffer: avg, fixed std")
+        print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
+        print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 
 
 class ReplayBufferCPU(ReplayBufferBase):
-    def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
-        ReplayBufferBase.__init__(self, max_len, state_dim, action_dim, if_ppo)
+    def __init__(self, max_len, state_dim, action_dim, if_on_policy=False):
+        ReplayBufferBase.__init__(self, max_len, state_dim, action_dim, if_on_policy)
         self.memories = np.empty((max_len, self.memo_dim), dtype=np.float32)
 
 
 class ReplayBufferGPU(ReplayBufferBase):
-    def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
-        ReplayBufferBase.__init__(self, max_len, state_dim, action_dim, if_ppo)
+    def __init__(self, max_len, state_dim, action_dim, if_on_policy=False):
+        ReplayBufferBase.__init__(self, max_len, state_dim, action_dim, if_on_policy)
         self.memories = torch.empty((max_len, self.memo_dim), dtype=torch.float32, device=self.device)
 
     def convert_tuple(self, memo_tuple):
         return torch.as_tensor(memo_tuple, dtype=torch.float32, device=self.device)  # if_gpu
 
     def random_sample(self, batch_size):
-        indices = torch.randint(self.now_len, size=batch_size)
+        indices = torch.randint(self.now_len, size=(batch_size,), device=self.device)
         memory = self.memories[indices]
         return (memory[:, 0:1],  # rewards
                 memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
@@ -1426,32 +1451,6 @@ class ReplayBufferGPU(ReplayBufferBase):
                 self.memories[:self.now_len, 2:self.state_idx],  # state
                 self.memories[:self.now_len, self.state_idx:self.action_idx],  # actions
                 self.memories[:self.now_len, self.action_idx:])  # next_states or log_prob_sum
-
-
-def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-12-12
-    if isinstance(batch_state, torch.Tensor):
-        batch_state = batch_state.detach().cpu().numpy()
-    assert isinstance(batch_state, np.ndarray)
-
-    if batch_state.shape[1] > 64:
-        print(f"| _print_norm(): state_dim: {batch_state.shape[1]:.0f} is too large to print its norm. ")
-        return None
-
-    if np.isnan(batch_state).any():  # 2020-12-12
-        batch_state = np.nan_to_num(batch_state)  # nan to 0
-
-    ary_avg = batch_state.mean(axis=0)
-    ary_std = batch_state.std(axis=0)
-    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
-               + ary_std) / 2
-
-    if neg_avg is not None:  # norm transfer
-        ary_avg = ary_avg - neg_avg / div_std
-        ary_std = fix_std / div_std
-
-    print(f"| Replay Buffer: avg, fixed std")
-    print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
-    print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 
 
 """AgentRun"""
