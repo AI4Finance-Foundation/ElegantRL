@@ -72,8 +72,8 @@ class ActorSAC(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, state):
-        t_tmp = self.net__state(state)  # temp tensor
-        return self.net_action(t_tmp).tanh()  # action
+        tmp = self.net__state(state)  # temp tensor
+        return self.net_action(tmp).tanh()  # action
 
     def get__a_noisy(self, state):
         t_tmp = self.net__state(state)
@@ -102,8 +102,8 @@ class Critic(nn.Module):
                                         nn.Linear(mid_dim, 1), )
 
     def forward(self, state, action):
-        t_tmp = torch.cat((state, action), dim=1)
-        return self.net__value(t_tmp)  # q value
+        tmp = torch.cat((state, action), dim=1)
+        return self.net__value(tmp)  # q value
 
 
 class CriticTwin(nn.Module):  # shared parameter
@@ -117,8 +117,8 @@ class CriticTwin(nn.Module):  # shared parameter
                                     nn.Linear(mid_dim, 1), )  # q2 value
 
     def forward(self, state, action):
-        t_tmp = self.net_sa(torch.cat((state, action), dim=1))
-        return self.net_q1(t_tmp), self.net_q2(t_tmp)  # q1 value, q2 value
+        tmp = self.net_sa(torch.cat((state, action), dim=1))
+        return self.net_q1(tmp), self.net_q2(tmp)  # q1 value, q2 value
 
 
 class CriticAdv(nn.Module):  # 2021-02-02
@@ -233,7 +233,7 @@ def layer_norm(layer, std=1.0, bias_const=1e-6):
 """AgentZoo"""
 
 
-class AgentBase:
+class AgentBase:  # DDPG-style.2016 (Deep Deterministic Policy Gradient)
     def __init__(self, ):
         self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -311,7 +311,7 @@ class AgentBase:
                 print(f"FileNotFound when load_model: {cwd}")
 
 
-class AgentTD3(AgentBase):
+class AgentTD3(AgentBase):  # TD3.2018 (Twin Delay DDPG)
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
         super(AgentBase, self).__init__()
         self.explore_noise = 0.1  # standard deviation of explore noise
@@ -340,6 +340,19 @@ class AgentTD3(AgentBase):
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
+        """Contribution of DDPG (Deep Deterministic Policy Gradient)
+        1. Policy Gradient with Deep network: DQN + DPG -> DDPG
+           Q_value = reward + gamma * next_Q_value
+           Q-learning -> DQN (Deep Q-learning): (discrete state space Q-table -> continuous state space Q-net)
+           DQN + DPG -> DDPG: (discrete action space Q-net -> continuous action space Policy Gradient)
+        2. experiment replay buffer for stabilizing training
+        3. soft target update for stabilizing training
+        
+        Contribution of TD3 (TDDD, Twin Delay DDPG)
+        1. twin critics (DoubleDQN -> TwinCritic, good idea)
+        2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
+        3. delay update (I think it is not very useful)
+        """
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
@@ -399,7 +412,17 @@ class AgentModSAC(AgentBase):
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
-
+        """Contribution of SAC (Soft Actor-Critic with maximum entropy)
+        1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
+        2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
+        3. SAC use TD3's TwinCritics too
+        
+        Modify content of ModSAC
+        1. Reliable Lambda is calculated based on Critic's loss function value.
+        2. Increasing batch_size and update_times
+        3. Auto-TTUR updates parameter in non-integer times.
+        4. net_dim of critic is slightly larger than actor.
+        """
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
         train_steps = int(max_step * k * repeat_times)
@@ -534,12 +557,12 @@ class AgentGaePPO(AgentBase):
         return steps_sum
 
     def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+        buffer.update__now_len__before_sample()
         """Contribution of PPO (Proximal Policy Optimization
         1. the surrogate objective of TRPO, PPO simplified calculation of TRPO
         2. use the advantage function of A3C (Asynchronous Advantage Actor-Critic)
         3. add GAE. ICLR 2016. Generalization Advantage Estimate and use trajectory to calculate Q value
         """
-        buffer.update__now_len__before_sample()  # write
 
         clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         lambda_adv = 0.98  # why 0.98? cannot use 0.99
@@ -566,7 +589,8 @@ class AgentGaePPO(AgentBase):
 
         '''compute old_v (old policy value), adv_v (advantage value) 
         refer: GAE. ICLR 2016. Generalization Advantage Estimate. 
-        https://arxiv.org/pdf/1506.02438.pdf'''
+        https://arxiv.org/pdf/1506.02438.pdf
+        '''
         all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
         all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
         all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
@@ -738,7 +762,6 @@ class AgentDQN(AgentBaseDQN):
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
-
         """Contribution of Dueling DQN
         1. Sometimes the q = QNet(state) is independent with actions. 
         2. Advantage function helps RL learns the Q value faster without collecting each action in these state.
@@ -757,6 +780,11 @@ class AgentDuelingDQN(AgentBaseDQN):
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+        """Contribution of Dueling DQN
+        1. Sometimes the q = QNet(state) is independent with actions. 
+        2. Advantage function helps RL learns the Q value faster without collecting each action in these state.
+        3. Advantage function value + Original Q value --> Dueling Q value = val_q + adv_q - adv_q.mean()
+        """
 
 
 class AgentDoubleDQN(AgentBaseDQN):
@@ -820,14 +848,14 @@ class AgentD3QN(AgentDoubleDQN):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
         AgentDoubleDQN.__init__(self, state_dim, action_dim, net_dim, learning_rate, if_dueling=True)
         self.explore_rate = 0.1  # epsilon-greedy: explore env by randomly choosing actions
-
         """Contribution of D3QN (Dueling Double DQN)
-        DoubleDQN is compatible with Dueling DQN
-        Anyone who just started deep reinforcement learning can discover D3QN algorithm independently.
+        1. DoubleDQN is compatible with Dueling DQN
+        2. Anyone who just started deep reinforcement learning can discover D3QN algorithm independently
         """
 
 
 def soft_target_update(target, current, tau=5e-3):
+    # Paper: Taming the noise in reinforcement learning via soft updates. 2016
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
@@ -932,10 +960,10 @@ def train_agent(args):  # 2021-02-02
     total_step = 0
     if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
     if if_on_policy:
-        buffer = ReplayBuffer(max_memo + max_step, state_dim, action_dim, if_ppo=True)
+        buffer = ReplayBufferCPU(max_memo + max_step, state_dim, action_dim, if_ppo=True)
         steps = 0
     else:
-        buffer = ReplayBuffer(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
+        buffer = ReplayBufferCPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
 
         with torch.no_grad():  # update replay buffer
             steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
@@ -983,30 +1011,27 @@ def train_agent(args):  # 2021-02-02
 
 def train_agent_mp(args):  # 2021-01-01
     args.init_before_training()
-    act_workers = args.rollout_num
+    act_workers = 0 if args.rollout_num < 2 else args.rollout_num
 
     import multiprocessing as mp
-    eva_pipe1, eva_pipe2 = mp.Pipe(duplex=True)
     process = list()
 
     exp_pipes = list()
-    if act_workers >= 2:
-        for i in range(act_workers):
-            exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
-            exp_pipes.append(exp_pipe1)
-            process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, i)))
+    for i in range(act_workers):
+        exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
+        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, i)))
 
-    proc_evaluate_agent = mp.Process(target=mp_evaluate_agent, args=(args, eva_pipe1))
-    proc__update_params = mp.Process(target=mp__update_params, args=(args, eva_pipe2, exp_pipes))
-    process.extend([proc_evaluate_agent, proc__update_params])
+    eva_pipe1, eva_pipe2 = mp.Pipe(duplex=True)
+    process = [mp.Process(target=mp__update_params, args=(args, eva_pipe2, exp_pipes)),
+               mp.Process(target=mp_evaluate_agent, args=(args, eva_pipe1)),
+               ] + process
 
     [p.start() for p in process]
-    proc__update_params.join()
-    proc_evaluate_agent.join()
-    [p.terminate() for p in process]
+    [p.join() for p in process[:2]]
+    [p.terminate() for p in process[2:]]
 
 
-def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
+def mp__update_params(args, eva_pipe, pipes):
     rl_agent = args.rl_agent
     max_memo = args.max_memo
     net_dim = args.net_dim
@@ -1294,36 +1319,37 @@ def get_episode_return(env, act, device) -> float:  # 2021-02-02
     return env.episode_return if hasattr(env, 'episode_return') else episode_return
 
 
-class ReplayBuffer:  # 2021-02-02
+class ReplayBufferBase:
     def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
-        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
-
-        if if_ppo:  # for Offline PPO
-            memo_dim = 1 + 1 + state_dim + action_dim + action_dim
-        else:
-            memo_dim = 1 + 1 + state_dim + action_dim + state_dim
-
-        self.memories = np.empty((max_len, memo_dim), dtype=np.float32)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        self.max_len = max_len
-        self.now_len = 0
         self.next_idx = 0
         self.is_full = False
+        self.max_len = max_len
+        self.now_len = self.max_len if self.is_full else self.next_idx
 
-        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.state_idx = 1 + 1 + state_dim  # reward_dim=1, done_dim=1
         self.action_idx = self.state_idx + action_dim
 
+        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
+        last_dim = action_dim if if_ppo else state_dim
+        self.memo_dim = 1 + 1 + state_dim + action_dim + last_dim
+        self.memories = None
+
+    @staticmethod
+    def convert_tuple(memo_tuple):
+        return memo_tuple
+
     def append_memo(self, memo_tuple):
-        self.memories[self.next_idx] = memo_tuple
+        self.memories[self.next_idx] = self.convert_tuple(memo_tuple)
         self.next_idx = self.next_idx + 1
         if self.next_idx >= self.max_len:
             self.is_full = True
             self.next_idx = 0
 
     def extend_memo(self, memo_array):
-        # assert isinstance(memo_array, np.ndarray)
         size = memo_array.shape[0]
+        memo_array = self.convert_tuple(memo_array)
+
         next_idx = self.next_idx + size
         if next_idx > self.max_len:
             if next_idx > self.max_len:
@@ -1336,25 +1362,18 @@ class ReplayBuffer:  # 2021-02-02
         self.next_idx = next_idx
 
     def random_sample(self, batch_size):
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
         # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
         # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
         # same as:
         indices = rd.randint(self.now_len, size=batch_size)
-        memory = torch.tensor(self.memories[indices], device=self.device)
+        memory = torch.as_tensor(self.memories[indices], device=self.device)
+        return (memory[:, 0:1],  # rewards
+                memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+                memory[:, 2:self.state_idx],  # states
+                memory[:, self.state_idx:self.action_idx],  # actions
+                memory[:, self.action_idx:],)  # next_states
 
-        '''convert array into torch.tensor'''
-        tensors = (
-            memory[:, 0:1],  # rewards
-            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
-            memory[:, 2:self.state_idx],  # states
-            memory[:, self.state_idx:self.action_idx],  # actions
-            memory[:, self.action_idx:],  # next_states
-        )
-        return tensors
-
-    def all_sample(self):  # 2020-11-11 fix bug for ModPPO
+    def all_sample(self):
         tensors = (
             self.memories[:self.now_len, 0:1],  # rewards
             self.memories[:self.now_len, 1:2],  # masks, mark == (1-float(done)) * gamma
@@ -1370,63 +1389,31 @@ class ReplayBuffer:  # 2021-02-02
 
     def empty_memories__before_explore(self):
         self.next_idx = 0
-        self.now_len = 0
         self.is_full = False
+        self.now_len = 0
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         memory_state = self.memories[:self.now_len, 2:self.state_idx]
         print_norm(memory_state, neg_avg, div_std)
 
 
-class ReplayBufferGPU:  # 2021-02-02
-    def __init__(self, memo_max_len, state_dim, action_dim, if_ppo=False):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.next_idx = 0
-        self.is_full = False
-        self.max_len = memo_max_len
-        self.now_len = self.max_len if self.is_full else self.next_idx
+class ReplayBufferCPU(ReplayBufferBase):
+    def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
+        ReplayBufferBase.__init__(self, max_len, state_dim, action_dim, if_ppo)
+        self.memories = np.empty((max_len, self.memo_dim), dtype=np.float32)
 
-        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
-        last_dim = action_dim if if_ppo else state_dim
-        memo_dim = 1 + 1 + state_dim + action_dim + last_dim
-        self.memories = torch.empty((memo_max_len, memo_dim), dtype=torch.float32, device=self.device)
-        self.state_idx = 1 + 1 + state_dim  # reward_dim=1, done_dim=1
-        self.action_idx = self.state_idx + action_dim
 
-    def append_memo(self, memo_tuple):  # memo_tuple = (reward, mask, state, action, next_state)
-        self.memories[self.next_idx] = torch.as_tensor(np.hstack(memo_tuple), device=self.device)
-        self.next_idx = self.next_idx + 1
-        if self.next_idx >= self.max_len:
-            self.is_full = True
-            self.next_idx = 0
+class ReplayBufferGPU(ReplayBufferBase):
+    def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
+        ReplayBufferBase.__init__(self, max_len, state_dim, action_dim, if_ppo)
+        self.memories = torch.empty((max_len, self.memo_dim), dtype=torch.float32, device=self.device)
 
-    def extend_memo(self, memo_tuple):  # 2021-02-02
-        size = len(memo_tuple)
-        memo_tensor = torch.as_tensor(memo_tuple, dtype=torch.float32, device=self.device)
+    def convert_tuple(self, memo_tuple):
+        return torch.as_tensor(memo_tuple, dtype=torch.float32, device=self.device)  # if_gpu
 
-        next_idx = self.next_idx + size
-        if next_idx > self.max_len:
-            if next_idx > self.max_len:
-                self.memories[self.next_idx:self.max_len] = memo_tensor[:self.max_len - self.next_idx]
-            self.is_full = True
-            next_idx = next_idx - self.max_len
-            self.memories[0:next_idx] = memo_tensor[-next_idx:]
-        else:
-            self.memories[self.next_idx:next_idx] = memo_tensor
-        self.next_idx = next_idx
-
-    def update__now_len__before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-    def empty_memories__before_explore(self):
-        self.next_idx = 0
-        self.is_full = False
-        self.now_len = 0
-
-    def random_sample(self, batch_size):  # _device should remove
-        indices = rd.randint(self.now_len, size=batch_size)
+    def random_sample(self, batch_size):
+        indices = torch.randint(self.now_len, size=batch_size)
         memory = self.memories[indices]
-
         return (memory[:, 0:1],  # rewards
                 memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
                 memory[:, 2:self.state_idx],  # state
@@ -1439,10 +1426,6 @@ class ReplayBufferGPU:  # 2021-02-02
                 self.memories[:self.now_len, 2:self.state_idx],  # state
                 self.memories[:self.now_len, self.state_idx:self.action_idx],  # actions
                 self.memories[:self.now_len, self.action_idx:])  # next_states or log_prob_sum
-
-    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        memory_state = self.memories[:self.now_len, 2:self.state_idx]
-        print_norm(memory_state, neg_avg, div_std)
 
 
 def print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-12-12

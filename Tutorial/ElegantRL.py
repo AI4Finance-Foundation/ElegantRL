@@ -371,7 +371,6 @@ class AgentTD3(AgentBaseAC):
                 _soft_target_update(self.act_target, self.act)
 
 
-# todo 2021-02-07-18-23
 class AgentModSAC(AgentBaseAC):
     def __init__(self, state_dim, action_dim, net_dim, learning_rate=1e-4):
         super(AgentBaseAC, self).__init__()
