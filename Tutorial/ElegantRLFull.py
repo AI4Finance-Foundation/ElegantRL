@@ -671,7 +671,6 @@ class AgentDQN(AgentBaseAC):  # 2021-02-02
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         for _ in range(max_step):
             action = self.select_actions((self.state,))[0]
-            action = action.argmax()  # a_int if_discrete
             next_state, reward, done, _ = env.step(action)
             buffer.append_memo((reward * reward_scale, 0.0 if done else gamma,
                                 *self.state, action,  # a_int if_discrete
@@ -807,7 +806,7 @@ class AgentDoubleDQN(AgentDQN):  # 2021-02-02
 
 
 class AgentD3QN(AgentDoubleDQN):
-    def __init__(self, *kwargs,):  # 2021-02-02
+    def __init__(self, *kwargs, ):  # 2021-02-02
         AgentDoubleDQN.__init__(self, *kwargs, net=QNetDuelTwin)
         self.explore_rate = 0.1  # epsilon-Greedy
         """Contribution of D3QN (Dueling Double DQN)
@@ -827,7 +826,7 @@ class Arguments:
     def __init__(self, rl_agent=None, env=None, gpu_id=None):
         self.rl_agent = rl_agent
         self.gpu_id = gpu_id
-        self.cwd = None  # init cwd in def init_for_training()
+        self.cwd = None  # init cwd in def init_before_training()()
         self.env = env
 
         '''Arguments for training'''
@@ -839,6 +838,7 @@ class Arguments:
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
         self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
+        self.num_threads = 4  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for evaluate'''
         self.break_step = 2 ** 17  # break training after 'total_step > break_step'
@@ -849,7 +849,7 @@ class Arguments:
         self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > target_reward'
         self.random_seed = 1943  # Github: YonV 1943
 
-    def init_for_training(self, cpu_threads=6):
+    def init_before_training(self):
         if not hasattr(self.env, 'env_name'):
             raise RuntimeError('| What is env.env_name? use env = build_env(env) to decorate env')
 
@@ -859,7 +859,7 @@ class Arguments:
         _whether_remove_history(self.cwd, self.if_remove_history)
 
         os.environ['CUDA_VISIBLE_DEVICES'] = str(self.gpu_id)
-        torch.set_num_threads(cpu_threads)
+        torch.set_num_threads(self.num_threads)
         torch.set_default_dtype(torch.float32)
         torch.manual_seed(self.random_seed)
         np.random.seed(self.random_seed)
@@ -876,7 +876,100 @@ def _whether_remove_history(cwd, is_remove=None):
     del shutil
 
 
+def train_agent(args):  # 2021-02-02
+    args.init_before_training()
+
+    '''basic arguments'''
+    rl_agent = args.rl_agent
+    gpu_id = args.gpu_id
+    env = args.env
+    cwd = args.cwd
+
+    '''training arguments'''
+    gamma = args.gamma
+    net_dim = args.net_dim
+    max_memo = args.max_memo
+    max_step = args.max_step
+    batch_size = args.batch_size
+    repeat_times = args.repeat_times
+    reward_scale = args.reward_scale
+
+    '''evaluate arguments'''
+    break_step = args.break_step
+    if_break_early = args.if_break_early
+    show_gap = args.show_gap
+    eval_times1 = args.eval_times1
+    eval_times2 = args.eval_times2
+    del args  # In order to show these hyper-parameters clearly, I put them above.
+
+    '''init: env'''
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+    if_discrete = env.if_discrete
+    target_reward = env.target_reward
+    from copy import deepcopy  # built-in library of Python
+    env = deepcopy(env)
+    env_eval = deepcopy(env)  # 2020-12-12
+
+    '''build rl_agent'''
+    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    agent.state = env.reset()
+
+    '''build ReplayBuffer'''
+    total_step = 0
+    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
+    if if_on_policy:
+        buffer = ReplayBuffer(max_memo + max_step, state_dim, action_dim, if_ppo=True)
+        steps = 0
+    else:
+        buffer = ReplayBuffer(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
+
+        with torch.no_grad():  # update replay buffer
+            steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
+
+        '''pre training and hard update before training loop'''
+        buffer.update__now_len__before_sample()
+        agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
+    total_step += steps
+
+    '''build Recorder'''
+    recorder = Recorder(eval_times1, eval_times2)
+    recorder.update_recorder(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
+
+    '''loop'''
+    if_solve = False
+    while not ((if_break_early and if_solve) or total_step > break_step or os.path.exists(f'{cwd}/stop')):
+        with torch.no_grad():  # speed up running
+            steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+        total_step += steps
+
+        buffer.update__now_len__before_sample()
+        agent.update_policy(buffer, max_step, batch_size, repeat_times)
+
+        with torch.no_grad():  # for saving the GPU buffer
+            if_save = recorder.update_recorder(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
+            recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
+
+            if_solve = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
+
+    recorder.save_npy__draw_plot(cwd)
+
+    new_cwd = cwd[:-2] + f'_{recorder.r_max:.2f}' + cwd[-2:]
+    if not os.path.exists(new_cwd):  # 2020-12-12
+        os.rename(cwd, new_cwd)
+        cwd = new_cwd
+    else:
+        print(f'| SavedDir: {new_cwd}    WARNING: file exit')
+    print(f'| SavedDir: {cwd}\n'
+          f'| UsedTime {time.time() - recorder.start_time:.0f}')
+
+    buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
+                            env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
+
+
 def train_agent_mp(args):  # 2021-01-01
+    args.init_before_training()
     act_workers = args.rollout_num
 
     import multiprocessing as mp
@@ -911,7 +1004,7 @@ def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
     cwd = args.cwd
     env = args.env
     reward_scale = args.reward_scale
-    if_stop = args.if_break_early
+    if_break_early = args.if_break_early
     gamma = args.gamma
     del args
 
@@ -922,9 +1015,9 @@ def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
 
     '''build agent'''
     agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
-    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
-
     agent.state = [pipe.recv() for pipe in pipes] if env_num else env.reset()
+
+    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
     if not if_on_policy:
         agent.action = agent.select_actions(agent.state if env_num else (agent.state,))
         for i in range(env_num):
@@ -937,10 +1030,10 @@ def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
     '''build replay buffer'''
     total_step = 0
     if if_on_policy:
-        buffer = BufferArrayGPU(max_memo + env_num * max_step, state_dim, action_dim, if_ppo=True)
+        buffer = ReplayBufferGPU(max_memo + env_num * max_step, state_dim, action_dim, if_ppo=True)
         steps = 0
     else:
-        buffer = BufferArrayGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
+        buffer = ReplayBufferGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim, if_ppo=False)
         with torch.no_grad():  # initial exploration
             steps = explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim)
 
@@ -950,15 +1043,14 @@ def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
     total_step += steps
     eva_pipe.send((act_cpu, steps, agent.obj_a, agent.obj_c))  # eva_pipe act
 
-    '''training loop'''
+    '''loop'''
     if_solve = False
-    while not ((if_stop and if_solve) or total_step > break_step or os.path.exists(f'{cwd}/stop')):
+    while not ((if_break_early and if_solve) or total_step > break_step or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
             if env_num:  # not elegant
                 steps = agent.update_buffer__pipe(pipes, buffer, max_step)  # pipes action inside
             else:
                 steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
-
         total_step += steps
 
         buffer.update__now_len__before_sample()
@@ -968,6 +1060,9 @@ def mp__update_params(args, eva_pipe, pipes):  # 2021-02-02
         eva_pipe.send((act_cpu, steps, agent.obj_a, agent.obj_c))  # eva_pipe act
         if eva_pipe.poll():
             if_solve = eva_pipe.recv()  # eva_pipe if_solve
+
+    buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
+                            env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
 
     eva_pipe.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
     time.sleep(4)
@@ -1009,8 +1104,8 @@ def mp_evaluate_agent(args, eva_pipe):
     if_train = True
     with torch.no_grad():  # for saving the GPU util
         while if_train:
-            is_solved = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
-            eva_pipe.send(is_solved)  # eva_pipe is_solved
+            is_solve = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
+            eva_pipe.send(is_solve)  # eva_pipe is_solve
 
             while not eva_pipe.poll():  # wait until eva_pipe not empty
                 time.sleep(1)
@@ -1036,7 +1131,7 @@ def mp_evaluate_agent(args, eva_pipe):
     else:
         print(f'| SavedDir: {new_cwd}    WARNING: file exit')
     print(f'| SavedDir: {cwd}\n'
-          f'| UsedTime: {time.time() - recorder.start_time:.0f}')
+          f'| UsedTime {time.time() - recorder.start_time:.0f}')
 
     while eva_pipe.poll():  # empty the pipe
         eva_pipe.recv()
@@ -1186,7 +1281,91 @@ def get_episode_return(env, act, device) -> float:  # 2021-02-02
     return env.episode_return if hasattr(env, 'episode_return') else episode_return
 
 
-class BufferArrayGPU:  # 2021-02-02
+class ReplayBuffer:  # 2021-02-02
+    def __init__(self, max_len, state_dim, action_dim, if_ppo=False):
+        state_dim = state_dim if isinstance(state_dim, int) else np.prod(state_dim)  # pixel-level state
+
+        if if_ppo:  # for Offline PPO
+            memo_dim = 1 + 1 + state_dim + action_dim + action_dim
+        else:
+            memo_dim = 1 + 1 + state_dim + action_dim + state_dim
+
+        self.memories = np.empty((max_len, memo_dim), dtype=np.float32)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.max_len = max_len
+        self.now_len = 0
+        self.next_idx = 0
+        self.is_full = False
+
+        self.state_idx = 1 + 1 + state_dim  # reward_dim==1, done_dim==1
+        self.action_idx = self.state_idx + action_dim
+
+    def append_memo(self, memo_tuple):
+        self.memories[self.next_idx] = memo_tuple
+        self.next_idx = self.next_idx + 1
+        if self.next_idx >= self.max_len:
+            self.is_full = True
+            self.next_idx = 0
+
+    def extend_memo(self, memo_array):
+        # assert isinstance(memo_array, np.ndarray)
+        size = memo_array.shape[0]
+        next_idx = self.next_idx + size
+        if next_idx > self.max_len:
+            if next_idx > self.max_len:
+                self.memories[self.next_idx:self.max_len] = memo_array[:self.max_len - self.next_idx]
+            self.is_full = True
+            next_idx = next_idx - self.max_len
+            self.memories[0:next_idx] = memo_array[-next_idx:]
+        else:
+            self.memories[self.next_idx:next_idx] = memo_array
+        self.next_idx = next_idx
+
+    def random_sample(self, batch_size):
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # indices = rd.choice(self.memo_len, batch_size, replace=False)  # why perform worse?
+        # indices = rd.choice(self.memo_len, batch_size, replace=True)  # why perform better?
+        # same as:
+        indices = rd.randint(self.now_len, size=batch_size)
+        memory = torch.tensor(self.memories[indices], device=self.device)
+
+        '''convert array into torch.tensor'''
+        tensors = (
+            memory[:, 0:1],  # rewards
+            memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
+            memory[:, 2:self.state_idx],  # states
+            memory[:, self.state_idx:self.action_idx],  # actions
+            memory[:, self.action_idx:],  # next_states
+        )
+        return tensors
+
+    def all_sample(self):  # 2020-11-11 fix bug for ModPPO
+        tensors = (
+            self.memories[:self.now_len, 0:1],  # rewards
+            self.memories[:self.now_len, 1:2],  # masks, mark == (1-float(done)) * gamma
+            self.memories[:self.now_len, 2:self.state_idx],  # states
+            self.memories[:self.now_len, self.state_idx:self.action_idx],  # actions
+            self.memories[:self.now_len, self.action_idx:],  # next_states or log_prob_sum
+        )
+        tensors = [torch.tensor(ary, device=self.device) for ary in tensors]
+        return tensors
+
+    def update__now_len__before_sample(self):
+        self.now_len = self.max_len if self.is_full else self.next_idx
+
+    def empty_memories__before_explore(self):
+        self.next_idx = 0
+        self.now_len = 0
+        self.is_full = False
+
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
+        memory_state = self.memories[:self.now_len, 2:self.state_idx]
+        _print_norm(memory_state, neg_avg, div_std)
+
+
+class ReplayBufferGPU:  # 2021-02-02
     def __init__(self, memo_max_len, state_dim, action_dim, if_ppo=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.next_idx = 0
@@ -1248,8 +1427,38 @@ class BufferArrayGPU:  # 2021-02-02
                 self.memories[:self.now_len, self.state_idx:self.action_idx],  # actions
                 self.memories[:self.now_len, self.action_idx:])  # next_states or log_prob_sum
 
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
+        memory_state = self.memories[:self.now_len, 2:self.state_idx]
+        _print_norm(memory_state, neg_avg, div_std)
 
-"""Env"""
+
+def _print_norm(batch_state, neg_avg=None, div_std=None):  # 2020-12-12
+    if isinstance(batch_state, torch.Tensor):
+        batch_state = batch_state.detach().cpu().numpy()
+    assert isinstance(batch_state, np.ndarray)
+
+    if batch_state.shape[1] > 64:
+        print(f"| _print_norm(): state_dim: {batch_state.shape[1]:.0f} is too large to print its norm. ")
+        return None
+
+    if np.isnan(batch_state).any():  # 2020-12-12
+        batch_state = np.nan_to_num(batch_state)  # nan to 0
+
+    ary_avg = batch_state.mean(axis=0)
+    ary_std = batch_state.std(axis=0)
+    fix_std = ((np.max(batch_state, axis=0) - np.min(batch_state, axis=0)) / 6
+               + ary_std) / 2
+
+    if neg_avg is not None:  # norm transfer
+        ary_avg = ary_avg - neg_avg / div_std
+        ary_std = fix_std / div_std
+
+    print(f"| Replay Buffer: avg, fixed std")
+    print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
+    print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
+
+
+"""AgentRun"""
 
 
 def decorate_env(env, if_print=True):  # important function # 2020-12-12
@@ -1520,73 +1729,235 @@ class FinanceMultiStockEnv:  # 2021-02-02
 
 
 def train__demo():
-    agent = AgentModSAC(state_dim=4, action_dim=2, net_dim=2 ** 8)  # training agent
-    exit()  # temp
+    args = Arguments(rl_agent=None, env=None, gpu_id=0)
 
+    '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
-    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
-    args = Arguments(rl_agent=AgentModSAC)  # much slower than on-policy trajectory
-    args.break_step = 2 ** 14  # just for test
-    args.show_gap = 2 ** 4  # just for test
+    gym.logger.set_level(40)  # Block warning: "WARN: Box bound precision lowered by casting to float32"
+    args.env = decorate_env(env=gym.make('CartPole-v0'), if_print=True)
+    args.rl_agent = AgentD3QN  # Dueling Double DQN (off-policy)
+    args.break_step = int(1e5 * 8)  # UsedTime 60s (reach target_reward 195)
+    args.net_dim = 2 ** 7  # network dimension (width)
+    train_agent(args)  # training using single process. Easy to find errors
+    # train_agent_mp(args)  # training using multiple processes. Speed up training
+    exit()
 
-    # args.env = decorate_env(gym.make('LunarLanderContinuous-v2'), if_print=True)
-    # # args.break_step = int(5e5 * 8)  # (2e4) 5e5, used time 1500s
-    # args.reward_scale = 2 ** -2  # (-800) -200 ~ 200 (302)
-    # args.init_for_training()
-    # train_agent_mp(args)  # train_agent(args)
-    # exit()
-    #
-    args.env = decorate_env(gym.make('BipedalWalker-v3'), if_print=True)
-    args.gamma = 0.96
-    # args.break_step = int(2e5 * 8)  # (1e5) 2e5, used time 3500s
-    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
-    args.init_for_training()
+    '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
+    import gym
+    gym.logger.set_level(40)
+    args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'), if_print=True)
+    args.rl_agent = AgentModSAC  # Modified SAC (off-policy)
+    args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
+    args.net_dim = 2 ** 7
     train_agent_mp(args)  # train_agent(args)
     exit()
 
-    env = FinanceMultiStockEnv()  # 2020-12-24
-    args = Arguments(rl_agent=AgentGaePPO, env=env)
+    '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
+    args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
+    args.rl_agent = AgentGaePPO  # PPO+GAE (on-policy)
     args.eval_times1 = 1
     args.eval_times2 = 1
-    args.rollout_num = 8
-    args.if_break_early = False
+    args.rollout_num = 4
+    args.if_break_early = True
 
     args.reward_scale = 2 ** 0  # (0) 1.1 ~ 15 (19)
-    args.break_step = int(1e6)  # 5e6 * 4)  # 5e6 (15e6) UsedTime: 4,000s (12,000s)
+    args.break_step = int(1e6)  # 5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
     args.max_step = 1699
     args.max_memo = (args.max_step - 1) * 16
     args.batch_size = 2 ** 11
     args.repeat_times = 2 ** 4
-    args.init_for_training()
+    args.init_before_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
 
 def train__discrete_action():
-    args = Arguments(rl_agent=AgentD3DQN, env=None, gpu_id=None)
+    args = Arguments(rl_agent=AgentD3QN, env=None, gpu_id=None)
 
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     args.rollout_num = 4
 
-    args.env = decorate_env(gym.make("CartPole-v0"), if_print=True)
-    args.break_step = int(1e4 * 8)  # (3e5) 1e4, used time 20s
-    args.reward_scale = 2 ** 0  # 0 ~ 200
-    args.net_dim = 2 ** 6
-    args.init_for_training()
-    train_agent_mp(args)  # train_agent(args)
+    # args.env = decorate_env(gym.make("CartPole-v0"), if_print=True)
+    # args.break_step = int(1e4 * 8)  # (3e5) 1e4, UsedTime 20s
+    # args.reward_scale = 2 ** 0  # 0 ~ 200
+    # args.net_dim = 2 ** 6
+    # args.init_before_training()()
+    # train_agent_mp(args)  # train_agent(args)
     # exit()
 
     args.env = decorate_env(gym.make("LunarLander-v2"), if_print=True)
-    args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), used time (200s) 1000s (2000s)
+    args.break_step = int(1e5 * 8)  # (2e4) 1e5 (3e5), UsedTime: (200s) 1000s (2000s)
     args.reward_scale = 2 ** -1  # (-1000) -150 ~ 200 (285)
     args.net_dim = 2 ** 7
-    args.init_for_training()
+    args.init_before_training()
     train_agent_mp(args)  # train_agent(args)
     exit()
 
 
+def train__continuous_action__off_policy():
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
+    # args.rl_agent in {AgentModSAC, }
+
+    args.if_break_early = True  # break training if reach the target reward (total return of an episode)
+    args.if_remove_history = True  # delete the historical directory
+
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+
+    args.env = decorate_env(gym.make("Pendulum-v0"), if_print=True)
+    args.rl_agent = AgentModSAC
+    args.break_step = int(1e4 * 8)  # 1e4 means the average total training step of InterSAC to reach target_reward
+    args.reward_scale = 2 ** -2  # (-1800) -1000 ~ -200 (-50)
+    train_agent(args)  # Train agent using single process. Recommend run on PC.
+    # train_agent_mp(args)  # Train using multi process. Recommend run on Server. Mix CPU(eval) GPU(train)
+    exit()
+
+    args.env = decorate_env(gym.make("LunarLanderContinuous-v2"), if_print=True)
+    args.rl_agent = AgentModSAC
+    args.break_step = int(5e5 * 8)  # (2e4) 5e5, UsedTime 1500s
+    args.reward_scale = 2 ** -3  # (-800) -200 ~ 200 (302)
+    args.init_before_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    args.env = decorate_env(gym.make("BipedalWalker-v3"), if_print=True)
+    args.rl_agent = AgentModSAC
+    args.break_step = int(2e5 * 8)  # (1e5) 2e5, UsedTime 3500s
+    args.reward_scale = 2 ** -1  # (-200) -140 ~ 300 (341)
+    args.init_before_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    # args.env = decorate_env(gym.make("BipedalWalkerHardcore-v3"), if_print=True)
+    # args.rl_agent = AgentModSAC
+    # args.reward_scale = 2 ** 0  # (-200) -150 ~ 300 (334), UsedTime 24 hours
+    # args.break_step = int(4e6 * 8)  # (2e6) 4e6
+    # args.net_dim = int(2 ** 8)  # int(2 ** 8.5) #
+    # args.max_memo = int(2 ** 21)
+    # args.batch_size = int(2 ** 8)
+    # args.eval_times2 = 2 ** 5  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    # args.init_before_training()
+    # train_agent_mp(args)  # train_offline_policy(args)
+    # exit()
+
+    import gym  # import gym before import pybullet_envs
+    import pybullet_envs  # for PyBullet
+    dir(pybullet_envs)
+
+    args.env = decorate_env(gym.make("ReacherBulletEnv-v0"), if_print=True)  # PyBullet
+    args.rl_agent = AgentModSAC
+    args.break_step = int(5e4 * 8)  # (4e4) 5e4
+    args.reward_scale = 2 ** 0  # (-37) 0 ~ 18 (29)
+    args.init_before_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    args.env = decorate_env(gym.make("AntBulletEnv-v0"), if_print=True)  # PyBullet
+    args.rl_agent = AgentModSAC
+    args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.reward_scale = 2 ** -3  # (-50) 0 ~ 2500 (3340)
+    args.batch_size = 2 ** 8
+    args.max_memo = 2 ** 20
+    args.eva_size = 2 ** 3  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+    args.init_before_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    args.env = decorate_env(gym.make("MinitaurBulletEnv-v0"), if_print=True)  # PyBullet
+    args.rl_agent = AgentModSAC
+    args.break_step = int(4e6 * 4)  # (2e6) 4e6
+    args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
+    args.batch_size = (2 ** 8)
+    args.net_dim = int(2 ** 8)
+    args.max_step = 2 ** 11
+    args.max_memo = 2 ** 20
+    args.eval_times2 = 3  # for Recorder
+    args.eval_times2 = 9  # for Recorder
+    args.show_gap = 2 ** 9  # for Recorder
+    args.init_before_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+
+def train__continuous_action__on_policy():
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
+    # args.rl_agent in {AgentPPO, }
+
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 12
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.reward_scale = 2 ** 0  # unimportant hyper-parameter in PPO which do normalization on Q value
+
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+
+    args.env = decorate_env(gym.make("Pendulum-v0"), if_print=True)
+    args.rl_agent = AgentGaePPO
+    args.break_step = int(8e4 * 8)  # 5e5 means the average total training step of ModPPO to reach target_reward
+    args.reward_scale = 2 ** 0  # (-1800) -1000 ~ -200 (-50), UsedTime  (100s) 200s
+    args.gamma = 0.9  # discount factor
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    args.env = decorate_env(gym.make("LunarLanderContinuous-v2"), if_print=True)
+    args.rl_agent = AgentGaePPO
+    args.break_step = int(3e5 * 8)  # (2e5) 3e5 , UsedTime: (400s) 600s
+    args.reward_scale = 2 ** 0  # (-800) -200 ~ 200 (301)
+    args.gamma = 0.99
+    args.init_before_training()
+    train_agent_mp(args)
+    exit()
+
+    args.env = decorate_env(gym.make("BipedalWalker-v3"), if_print=True)
+    args.rl_agent = AgentGaePPO
+    args.break_step = int(8e5 * 8)  # (4e5) 8e5 (4e6), UsedTime: (600s) 1500s (8000s)
+    args.reward_scale = 2 ** 0  # (-150) -90 ~ 300 (325)
+    args.gamma = 0.96
+    args.init_before_training()
+    train_agent_mp(args)
+    exit()
+
+    import gym  # import gym before import pybullet_envs
+    import pybullet_envs  # for PyBullet
+    dir(pybullet_envs)
+
+    args.env = decorate_env(gym.make("ReacherBulletEnv-v0"), if_print=True)  # PyBullet
+    args.rl_agent = AgentGaePPO
+    args.break_step = int(2e6 * 8)  # (1e6) 2e6 (4e6), UsedTime: 2000s (6000s)
+    args.reward_scale = 2 ** 0  # (-15) 0 ~ 18 (25)
+    args.gamma = 0.95
+    args.init_before_training()
+    train_agent_mp(args)  # train_agent(args)
+    exit()
+
+    args.env = decorate_env(gym.make("AntBulletEnv-v0"), if_print=True)  # PyBullet
+    args.rl_agent = AgentGaePPO
+    args.break_step = int(5e6 * 8)  # (1e6) 5e6 UsedTime 25697s
+    args.reward_scale = 2 ** -3  #
+    args.gamma = 0.99
+    args.net_dim = 2 ** 9
+    args.init_before_training()
+    train_agent_mp(args)
+    exit()
+
+    args.env = decorate_env(gym.make("MinitaurBulletEnv-v0"), if_print=True)  # PyBullet
+    args.rl_agent = AgentGaePPO
+    args.break_step = int(1e6 * 8)  # (4e5) 1e6 (8e6)
+    args.reward_scale = 2 ** 4  # (-2) 0 ~ 16 (PPO 34)
+    args.gamma = 0.95
+    args.net_dim = 2 ** 8
+    args.max_memo = 2 ** 11
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
+    args.init_before_training()
+    train_agent_mp(args)
+    exit()
+
+
 if __name__ == '__main__':
-    # train__demo()
-    train__discrete_action()
+    train__demo()
