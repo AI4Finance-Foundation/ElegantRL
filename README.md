@@ -1,4 +1,4 @@
-## Lightweight, Stable and Efficient DRL Implementation Using PyTorch 
+## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
 Many people suggested to call it "3-Python-file-RL (PyTorch)"
 
 Model-free Deep Reinforcement Learning (DRL) Algorithms: 
