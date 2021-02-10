@@ -9,9 +9,9 @@ Model-free Deep Reinforcement Learning (DRL) Algorithms:
 
 Please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/) for the algorithms.
 
-It is a beta version. The part of single-agent DRL has been finished.
-After I finish the part of multi-agent, I will officially release it. 
-Also you can find Multi-agent in folder 'BetaWarning'.
+It is a beta version. The part of single-agent DRL has been done.
+After including the part of multi-agents, we will officially release it. 
+Also you can find the current implementation of Multi-agent in the folder 'BetaWarning'.
 
 Interested users can check more details ↓ (written in Chinese). 
 
