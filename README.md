@@ -109,9 +109,6 @@ More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 + [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 + [Policy Gradient Algorithms translated by Ewan Li in Chinese](https://tomaxent.com/2019/04/14/%E7%AD%96%E7%95%A5%E6%A2%AF%E5%BA%A6%E6%96%B9%E6%B3%95/) (F12 Find and delete c_n13)
 
----
-## If Necip want me to translate the following Chinese into English. I will. 
----
 
 
 ## 为何我要写这个库？
@@ -165,7 +162,6 @@ If you can read Chinese, more details of DelayDDPG are described in Chinese in t
   
 [强化学习DelayDDPG，月球着陆器，双足机器人，只需训练半个小时的轻量、稳定代码](https://zhuanlan.zhihu.com/p/72586697)
  
-
 
 # 更新日志 Update Log for ElegantRL 
 
