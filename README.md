@@ -242,8 +242,6 @@ The multi-agent RL task of rllib is so complex, and I need long time to reconstr
 
 #### Plan to add 
 - add FlappyBird-v0 (PyGame), 2D state and 1D state
-- add [AI4Finance-LLC FinRL-Library](https://github.com/AI4Finance-LLC)
-
 
 Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
 Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
