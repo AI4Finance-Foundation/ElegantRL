@@ -2,10 +2,12 @@
 Many people suggested to call it "3-Python-file-RL (PyTorch)"
 
 Model-free Deep Reinforcement Learning (DRL) Algorithms: 
-+ **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (Not include A2C and TRPO because they are not good enough.)
++ **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (Not include A2C and TRPO yet, as they are not good enough.)
 + **DQN, DoubleDQN, DuelingDQN, GAE for discrete action**
 + More DQN (wait for adding Rainbow, Ape-X, SAC for discrete)
 + Multi-agent (wait for adding MADDPG, COMA, QMIX, QTRAN etc.)
+
+Please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/) for the algorithms.
 
 It is a beta version. The part of single-agent DRL has been finished.
 After I finish the part of multi-agent, I will officially release it. 
