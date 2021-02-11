@@ -101,5 +101,7 @@ More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
 - add FlappyBird-v0 (PyGame), 2D state and 1D state
 
 Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
+
 Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
+
 some variants of DQN: Rainbow DQN, Ape-X.
