@@ -64,14 +64,14 @@ It is **lightweight**.
 
 # File Structure
     -----file----
-    AgentRun.py  # Choose your RL agent here. Then run it for training.
-    AgentZoo.py  # Many model-free RL algorithms are here.
-    AgentNet.py  # The neural network architectures are here. 
-    Tutorial.py  # It is a turorial for RL learner. Simplify DQN and DDPG are here.
+    AgentRun.py  # Choose an RL agent here.
+    AgentZoo.py  # Model-free RL algorithms.
+    AgentNet.py  # Neural networks. 
+    Tutorial.py  # A turorial: simplify DQN and DDPG are here.
     
     ----folder---
-    BetaWarning  # I put the latest version here. You can find lots of bug here, but new.
-    History      # I put the historical files here. You can find the bug-free code here, but old.
+    BetaWarning  # The latest version, may inclue bugs.
+    History      # Historical files here.
 There are only 3 python files. (`Tutorial.py` is **not** a part of the lib.)
 
 # Run
