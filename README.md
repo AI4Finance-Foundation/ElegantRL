@@ -52,13 +52,13 @@ You can see more training log in "Result".
 # Requirement
 
     Necessary:
-    | Python 3.7      | Python 3.5+ is ok, because I use Python's multiprocessing     
-    | PyTorch 1.0.2   | PyTorch 1.X is ok. After all, PyTorch is not TensorFlow.      
+    | Python 3.7           
+    | PyTorch 1.0.2       
 
     Not necessary:
-    | Numpy 1.19.0    | Numpy 1.X is ok. Numpy is one of the requirement for PyTorch. 
-    | gym 0.17.2      | In early gym version, some task XXX-v3 would be XXX-v2        
-    | box2d-py 2.3.8  | This box2d-py is OpenAI's instead of the original author's    
+    | Numpy 1.19.0   
+    | gym 0.17.2             
+    | box2d-py 2.3.8    
     | matplotlib 3.2  | Just for drawing plot
 It is **lightweight**.
 
