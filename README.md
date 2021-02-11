@@ -10,13 +10,12 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 
 ![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
 
-More policy gradient algorithms (Actor-Critic methods):
-+ [Policy gradient algorithms by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
+More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 
 # Experimental results
 
-You can see these gif/png ↓ in file "/Result" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result).
+Results gif/png ↓ in "/Result" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result).
 
 LunarLanderContinuous-v2
 
@@ -27,15 +26,15 @@ BipedalWalkerHardcore-v2
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementations that can reach the target reward.
-You can also check the video [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC).
+Check the video [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC).
 
-For example, the training log is the following two figures.
+For example, in the following two figures.
 
 + The first is a luck result of BasicAC: `plot_0072E_22405T_701s.png`.
 + The second is a slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
 + The name of the log figure is `plot_<Episode>_<TotalStep>_<UsedTimeInSecond>.png` when agent reaches the default target reward.
 
-BasicAC is an improved DDPG, not in a stable status at this moment. You can try other DRL algorithms, such as SAC and DeepSAC, which are more stable than other algorithms.
+BasicAC is an improved DDPG. SAC and DeepSAC are more stable.
 
 <p float="left">
   <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
@@ -49,12 +48,11 @@ In the above two figures.
 + Green curve: 'loss' value of actor (mean of Q value estimate)
 + Green area: loss value of critic
 
-BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementation can reach the target reward. 
-I am happy that InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward. It is quite fast and good.
+InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward, which is quite fast and good.
 ![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
 
-You can see more training log in "Result". 
+More training logs in "Result". 
 
 
 # Requirement
