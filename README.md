@@ -94,8 +94,6 @@ The following steps:
 
 ![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
 
-You can find above figure in `./Temp/model-free_DRL_2020.png` or `*.pdf`.
-
 More policy gradient algorithms (Actor-Critic methods):
 + [Policy gradient algorithms by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
