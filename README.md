@@ -1,5 +1,4 @@
 ## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
-Many people suggested to call it "3-Python-file-RL (PyTorch)"
 
 Model-free Deep Reinforcement Learning (DRL) Algorithms: 
 + **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (Not include A2C and TRPO yet, as they are not good enough.)
