@@ -23,7 +23,7 @@ More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorit
 
 # Experimental results
 
-Results gif/png ↓ in "/Result" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result).
+Results using [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result): gif/png ↓ in "/Result".
 
 [LunarLanderContinuous-v2](https://gym.openai.com/envs/LunarLanderContinuous-v2/)
 
