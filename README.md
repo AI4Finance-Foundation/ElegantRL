@@ -11,10 +11,8 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 You can see these gif/png ↓ in file "/Result" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result).
 
 LunarLanderContinuous-v2:
-
 ![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/Result/LunarLanderTwinDelay3.gif)
 BipedalWalkerHardcore-v2: 
-
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementations that can reach the target reward.
@@ -82,9 +80,8 @@ There are only 3 python file in this DRL PyTorch implementation. (`Tutorial.py` 
 + It would print the total reward while training. Maybe I should use TensorBoardX?
 + There are many comment in the code. I believe these comments can answer some of your questions.
 
-### How to use other DRL?
-For example, if you want to use SAC, do the following: (I don't like import argprase)
-
+### Use other DRL algorithms?
+The following steps:
 1. See `run__xxx()` in `AgentRun.py`.
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
@@ -93,10 +90,11 @@ For example, if you want to use SAC, do the following: (I don't like import argp
 ### Model-free DRL Algorithms
 
 ![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
+
 You can find above figure in `./Temp/model-free_DRL_2020.png` or `*.pdf`.
-More Policy Gradient Algorithms (Actor-Critic Methods) see the follow:
-+ [Policy Gradient Algorithms written by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
-+ [Policy Gradient Algorithms translated by Ewan Li in Chinese](https://tomaxent.com/2019/04/14/%E7%AD%96%E7%95%A5%E6%A2%AF%E5%BA%A6%E6%96%B9%E6%B3%95/) (F12 Find and delete c_n13)
+
+More Policy Gradient Algorithms (Actor-Critic Methods):
++ [Policy gradient algorithms by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 
 #### Plan to add 
