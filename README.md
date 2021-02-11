@@ -11,8 +11,10 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 You can see these gif/png ↓ in file "/Result" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result).
 
 LunarLanderContinuous-v2:
+
 ![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/Result/LunarLanderTwinDelay3.gif)
 BipedalWalkerHardcore-v2: 
+
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementations that can reach the target reward.
