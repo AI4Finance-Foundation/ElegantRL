@@ -95,13 +95,3 @@ The following steps:
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
-
-
-#### Plan to add 
-- add FlappyBird-v0 (PyGame), 2D state and 1D state
-
-Soft Actor-Critic for Discrete Action Settings https://www.arxiv-vanity.com/papers/1910.07207/
-
-Multi-Agent Deep RL: MADDPG, QMIX, QTRAN
-
-some variants of DQN: Rainbow DQN, Ape-X.
