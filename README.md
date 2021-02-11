@@ -60,7 +60,7 @@ You can see more training log in file "Result".
     | gym 0.17.2      | In early gym version, some task XXX-v3 would be XXX-v2        
     | box2d-py 2.3.8  | This box2d-py is OpenAI's instead of the original author's    
     | matplotlib 3.2  | Just for drawing plot
-This is why it is **lightweight**.
+It is **lightweight**.
 
 # File Structure
     -----file----
