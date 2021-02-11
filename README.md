@@ -1,6 +1,6 @@
 ## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
 
-Model-free Deep Reinforcement Learning (DRL) Algorithms: 
+Model-free deep reinforcement learning (DRL) Algorithms: 
 + **DDPG, A2C, PPO(GAE), SAC, TD3, InterAC, InterSAC for continuous actions**
 + **DQN, DoubleDQN, DuelingDQN, GAE for discrete actions**
 
