@@ -13,6 +13,7 @@ from AgentZoo import AgentModSAC, AgentGaePPO
 - move old comment (about SAC PPO etc.) to here.
 - Add PER for Kuka, KukaCamera
 - Add MARL
+- Add QR-DQN (Q value distributional perspective RL)
 """
 
 class Arguments:

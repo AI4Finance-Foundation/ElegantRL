@@ -5,6 +5,11 @@ import torch.nn as nn
 from AgentNet import ActorSAC, CriticTwin
 from AgentNet import ActorPPO, CriticAdv
 
+"""plan to 
+- move old comment to here
+- move DQN and etc, DDPG, TD3 etc from ElegantRLFull.py to here
+- add Model-based RL: MBPO MuZero
+"""
 
 class AgentBase:  # DDPG-style
     def __init__(self, ):
