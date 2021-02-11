@@ -46,7 +46,7 @@ I am happy that InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 rewar
 ![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
 
-You can see more training log in file "Result". 
+You can see more training log in "Result". 
 
 
 # Requirement
@@ -72,7 +72,7 @@ It is **lightweight**.
     ----folder---
     BetaWarning  # I put the latest version here. You can find lots of bug here, but new.
     History      # I put the historical files here. You can find the bug-free code here, but old.
-There are only 3 python file in this DRL PyTorch implementation. (`Tutorial.py` is **not** a part of the lib.)
+There are only 3 python files. (`Tutorial.py` is **not** a part of the lib.)
 
 # Run
     python3 AgentRun.py
@@ -96,7 +96,7 @@ The following steps:
 
 You can find above figure in `./Temp/model-free_DRL_2020.png` or `*.pdf`.
 
-More Policy Gradient Algorithms (Actor-Critic Methods):
+More policy gradient algorithms (Actor-Critic methods):
 + [Policy gradient algorithms by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 
