@@ -1,22 +1,10 @@
 ## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
 
 Model-free Deep Reinforcement Learning (DRL) Algorithms: 
-+ **DDPG, TD3, PPO(GAE), SAC, InterAC, InterSAC** (Not include A2C and TRPO yet, as they are not good enough.)
++ **DDPG, A2C, PPO(GAE), SAC, TD3, InterAC, InterSAC**
 + **DQN, DoubleDQN, DuelingDQN, GAE for discrete action**
-+ More DQN (wait for adding Rainbow, Ape-X, SAC for discrete)
-+ Multi-agent (wait for adding MADDPG, COMA, QMIX, QTRAN etc.)
 
-Please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/) for the algorithms.
-
-It is a beta version. The part of single-agent DRL has been done.
-After including the part of multi-agents, we will officially release it. 
-Also you can find the current implementation of Multi-agent in the folder 'BetaWarning'.
-
-Interested users can check more details ↓ (written in Chinese). 
-
-更多细节，详见下方。↓
-
-知乎 [「何须天授？彼可取而代也」用于入门的强化学习库 model-free RL in PyTorch](https://zhuanlan.zhihu.com/p/127792558)
+For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/) 
 
 # Experimental results
 
