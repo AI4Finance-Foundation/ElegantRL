@@ -6,6 +6,14 @@ Model-free deep reinforcement learning (DRL) Algorithms:
 
 For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
+### Model-free DRL Algorithms
+
+![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
+
+More policy gradient algorithms (Actor-Critic methods):
++ [Policy gradient algorithms by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
+
+
 # Experimental results
 
 You can see these gif/png ↓ in file "/Result" in [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result).
@@ -59,7 +67,7 @@ You can see more training log in "Result".
     | Numpy 1.19.0   
     | gym 0.17.2             
     | box2d-py 2.3.8    
-    | matplotlib 3.2  | Just for drawing plot
+    | matplotlib 3.2  | For plots
 It is **lightweight**.
 
 # File Structure
@@ -89,13 +97,6 @@ The following steps:
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
-
-### Model-free DRL Algorithms
-
-![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
-
-More policy gradient algorithms (Actor-Critic methods):
-+ [Policy gradient algorithms by Lilian Weng](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 
 #### Plan to add 
