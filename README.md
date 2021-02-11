@@ -31,6 +31,10 @@ LunarLanderContinuous-v2
 
 BipedalWalkerHardcore-v2
 
+
+<img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif" width="250" height="250"/>
+
+
 ![BipedalWalkerHardcore-v2-total](https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif)
 
 BipedalWalkerHardcore is a hard task in a continuous action space. There is less RL implementations that can reach the target reward.
