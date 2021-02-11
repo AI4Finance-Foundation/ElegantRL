@@ -1,5 +1,13 @@
 ## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
 
+We maintain an **elegant (lightweight, efficient and stable)** lib, for researchers and practitioners.
+  
+  + **Lightweight**: The core codes have less than 800 code lines, using PyTorch, OpenAI Gym, and NumPy.
+  
+  + **Efficient**: Its performance is comparable with Ray RLlib [link](https://github.com/ray-project/ray).
+  
+  + **Stable**: It is as stable as Stable Baseline 3 [link](https://github.com/DLR-RM/stable-baselines3).
+
 Model-free deep reinforcement learning (DRL) Algorithms: 
 + **DDPG, A2C, PPO(GAE), SAC, TD3, InterAC, InterSAC for continuous actions**
 + **DQN, DoubleDQN, DuelingDQN, GAE for discrete actions**
