@@ -6,7 +6,7 @@ import numpy as np
 import numpy.random as rd
 
 from Agent import AgentModSAC, AgentGaePPO
-from Agent import ReplayBuffer, explore_before_train
+from Agent import ReplayBuffer
 
 
 class Arguments:
@@ -131,6 +131,23 @@ def train_agent(args):
             recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
             if_solve = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
 
+def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
+    state = env.reset()
+    steps = 0
+
+    while steps < max_step:
+        action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
+        next_state, reward, done, _ = env.step(action)
+        steps += 1
+
+        scaled_reward = reward * reward_scale
+        mask = 0.0 if done else gamma
+        memo_tuple = (scaled_reward, mask, *state, action, *next_state) if if_discrete else \
+            (scaled_reward, mask, *state, *action, *next_state)  # not elegant but ok
+        buffer.append_memo(memo_tuple)
+
+        state = env.reset() if done else next_state
+    return steps            
 
 class Recorder:
     def __init__(self, eval_size):
