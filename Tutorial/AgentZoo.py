@@ -1,8 +1,8 @@
-import os
 import numpy as np
+import numpy.random as rd
 import torch
 import torch.nn as nn
-from AgentNet import QNet, QNetDuel, QNetTwin, QNetDuelTwin
+from AgentNet import QNet, QNetTwin, QNetDuelTwin
 from AgentNet import Actor, ActorSAC, ActorPPO
 from AgentNet import Critic, CriticAdv, CriticTwin
 
@@ -32,6 +32,114 @@ class AgentBase:
             buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *self.state, *action, *next_state))
             self.state = env.reset() if done else next_state
         return max_step
+
+
+class AgentDQN(AgentBase):
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        super().__init__()
+        self.explore_rate = 0.1
+        self.action_dim = action_dim
+
+        self.act = QNet(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = QNet(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        self.criterion = nn.MSELoss()
+        self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+
+    def select_actions(self, states):  # for discrete action space
+        if rd.rand() < self.explore_rate:
+            a_int = rd.randint(self.action_dim)
+        else:
+            states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+            actions = self.act(states)
+            a_int = actions.argmax(dim=1).detach().cpu().numpy()
+        return a_int
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        buffer.update__now_len__before_sample()
+
+        next_q = critic_obj = None
+        for _ in range(int(max_step * repeat_times)):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size)
+
+                next_q = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_label = rewards + masks * next_q
+
+            q_eval = self.act(states).gather(1, actions.type(torch.long))
+            critic_obj = self.criterion(q_eval, q_label)
+
+            self.optimizer.zero_grad()
+            critic_obj.backward()
+            self.optimizer.step()
+            soft_target_update(self.act_target, self.act)
+
+        self.obj_a = next_q.mean().item()
+        self.obj_c = critic_obj.item()
+
+
+class AgentDoubleDQN(AgentBase):
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        super().__init__()
+        self.explore_rate = 0.25  # explore rate when update_buffer()
+        self.action_dim = action_dim
+        self.softmax = nn.Softmax(dim=1)
+
+        self.act = QNet(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = QNet(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        self.criterion = nn.MSELoss()
+        self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+
+    def select_actions(self, states):  # for discrete action space
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states)
+
+        if rd.rand() < self.explore_rate:
+            a_prob = self.softmax(actions).detach().cpu().numpy()
+            a_int = rd.choice(self.action_dim, p=a_prob)
+        else:
+            a_int = actions.argmax(dim=1).detach().cpu().numpy()
+        return a_int
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        buffer.update__now_len__before_sample()
+
+        next_q = critic_obj = None
+        for _ in range(int(max_step * repeat_times)):
+            with torch.no_grad():
+                rewards, masks, states, actions, next_states = buffer.random_sample(batch_size)
+
+                next_q = self.act_target(next_states).max(dim=1, keepdim=True)[0]
+                q_label = rewards + masks * next_q
+
+            actions = actions.type(torch.long)
+            q_eval1, q_eval2 = [qs.gather(1, actions) for qs in self.act.get__q1_q2(states)]
+            critic_obj = self.criterion(q_eval1, q_label) + self.criterion(q_eval2, q_label)
+
+            self.optimizer.zero_grad()
+            critic_obj.backward()
+            self.optimizer.step()
+            soft_target_update(self.act_target, self.act)
+        self.obj_a = next_q.mean().item()
+        self.obj_c = critic_obj.item() / 2
+
+
+class AgentD3QN(AgentDoubleDQN):
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        super().__init__(net_dim, state_dim, action_dim, learning_rate)
+        self.explore_rate = 0.5  # explore rate when update_buffer()
+        self.softmax = nn.Softmax(dim=1)
+        self.action_dim = action_dim
+
+        self.act = QNetDuelTwin(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target = QNetDuelTwin(state_dim, action_dim, net_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
+
+        self.criterion = nn.MSELoss()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
 
 class AgentDDPG(AgentBase):

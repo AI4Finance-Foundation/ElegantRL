@@ -20,23 +20,6 @@ class QNet(QNetBase):
                                  nn.Linear(mid_dim, action_dim), )
 
 
-class QNetDuel(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
-        super().__init__()
-        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        self.net__value = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, 1), )  # q value
-        self.net__adv_v = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, action_dim), )  # advantage function value
-
-    def forward(self, state):
-        t_tmp = self.net__state(state)
-        q_val = self.net__value(t_tmp)  # q value
-        q_adv = self.net__adv_v(t_tmp)  # advantage function value
-        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # dueling q value
-
-
 class QNetTwin(nn.Module):  # shared parameter
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
@@ -88,9 +71,6 @@ class QNetDuelTwin(nn.Module):
         adv2 = self.net_adv2(tmp)
         q2 = val2 + adv2 - adv2.mean(dim=1, keepdim=True)
         return q1, q2
-
-
-'''Actor (Policy network)'''
 
 
 class ActorBase(nn.Module):  # There is not need to use ActorBase()
@@ -175,9 +155,6 @@ class ActorSAC(ActorBase):
         log_prob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5)
         log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
         return a_tan, log_prob.sum(1, keepdim=True)
-
-
-'''Critic (Value network)'''
 
 
 class CriticBase(nn.Module):  # There is not need to use ActorBase()
