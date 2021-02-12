@@ -138,7 +138,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
 
     @staticmethod
     def load_training_data_for_multi_stock(if_load=True):  # need more independent
-        npy_path = './Result/FinanceMultiStock.npy'
+        npy_path = './FinanceMultiStock.npy'
         if if_load and os.path.exists(npy_path):
             data_ary = np.load(npy_path).astype(np.float32)
             assert data_ary.shape[1] == 5 * 30
