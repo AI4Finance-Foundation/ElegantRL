@@ -146,7 +146,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         else:
             raise RuntimeError(
                 f'| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}\n'
-                f'| https://github.com/Yonv1943/ElegantRL/blob/master/Result/FinanceMultiStock.npy'
+                f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy'
                 f'| Or you can use the following code to generate it from a csv file.'
             )
 
