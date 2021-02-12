@@ -26,8 +26,11 @@ def get_gym_env_information(env) -> (str, int, int, float, bool, float):
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    target_reward = env.spec.reward_threshold
-    assert target_reward is not None
+    if env.spec.reward_threshold is None: 
+        target_reward = 2 ** 16
+        print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
+    else:
+        target_reward = env.spec.reward_threshold
 
     if if_discrete:  # make sure it is discrete action space
         action_dim = env.action_space.n
