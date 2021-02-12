@@ -3,7 +3,7 @@
 <br/>
 <a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
 	<div align="center">
-		<img src="Result/ElegantRL.jpg" width="40%"/>
+		<img src="figs/ElegantRL.jpg" width="40%"/>
 	</div>
 <!-- 	<div align="center"><caption>Slack Invitation Link</caption></div> -->
 </a>
@@ -25,23 +25,23 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 
 ### Model-free DRL Algorithms
 
-![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/Result/model-free_DRL_2020.png)
+![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/model-free_DRL_2020.png)
 
 More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 
 # Experimental results
 
-Results using [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Result): gif/png ↓ in "/Result".
+Results using [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/figs): gif/png ↓ 
 
 [LunarLanderContinuous-v2](https://gym.openai.com/envs/LunarLanderContinuous-v2/)
 
-![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/Result/LunarLanderTwinDelay3.gif)
+![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/figs/LunarLanderTwinDelay3.gif)
 
 [BipedalWalkerHardcore-v2](https://gym.openai.com/envs/BipedalWalkerHardcore-v2/)
 
 
-<img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="150"/>
+<img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="150"/>
 
 
 BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward.
