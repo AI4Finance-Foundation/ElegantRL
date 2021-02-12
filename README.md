@@ -3,7 +3,7 @@
 <br/>
 <a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
 	<div align="center">
-		<img src="figs/ElegantRL.jpg" width="40%"/>
+		<img src="figs/ElegantRL.png" width="40%"/>
 	</div>
 <!-- 	<div align="center"><caption>Slack Invitation Link</caption></div> -->
 </a>
