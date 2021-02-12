@@ -18,7 +18,7 @@ We maintain an **elegant (lightweight, efficient and stable)** lib, for research
   + **Stable**: It is as stable as Stable Baseline 3 [link](https://github.com/DLR-RM/stable-baselines3).
 
 Model-free deep reinforcement learning (DRL) Algorithms: 
-+ **DDPG, A2C, PPO(GAE), SAC, TD3, InterAC, InterSAC for continuous actions**
++ **DDPG, A2C, PPO(GAE), SAC, TD3 for continuous actions**
 + **DQN, DoubleDQN, DuelingDQN, GAE for discrete actions**
 
 For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
