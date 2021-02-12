@@ -36,7 +36,7 @@ Results using [ElegantRL](https://github.com/Yonv1943/ElegantRL/blob/master/Resu
 
 
 BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward.
-Check the video [bilibili Faster Pass BipedalWalkerHardcore-v2 total reward 310](https://www.bilibili.com/video/BV1wi4y187tC).
+Check out our video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
 
 For example, in the following two figures.
 
