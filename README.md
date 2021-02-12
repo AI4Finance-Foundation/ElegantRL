@@ -3,7 +3,7 @@
 <br/>
 <a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
 	<div align="center">
-		<img src="figs/ElegantRL.png" width="40%"/>
+		<img src="figs/ElegantRL.jpg" width="40%"/>
 	</div>
 <!-- 	<div align="center"><caption>Slack Invitation Link</caption></div> -->
 </a>
@@ -29,6 +29,12 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 
 More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
+# File Structure
+    -----file----
+    Net.py   # Neural networks.
+    Agent.py # Model-free RL algorithms.
+    Env.py   # 
+    Main.py  # 
 
 # Experimental results
 
@@ -73,8 +79,7 @@ InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward, which is quit
 
 More training logs in "Result". 
 
-
-# Requirement
+# Requirements
 
     Necessary:
     | Python 3.7           
@@ -86,18 +91,6 @@ More training logs in "Result".
     | box2d-py 2.3.8    
     | matplotlib 3.2  | For plots
 It is **lightweight**.
-
-# File Structure
-    -----file----
-    AgentRun.py  # Choose an RL agent here.
-    AgentZoo.py  # Model-free RL algorithms.
-    AgentNet.py  # Neural networks. 
-    Tutorial.py  # A turorial: simplify DQN and DDPG are here.
-    
-    ----folder---
-    BetaWarning  # The latest version, may inclue bugs.
-    History      # Historical files here.
-There are only 3 python files. (`Tutorial.py` is **not** a part of the lib.)
 
 # Run
     python3 AgentRun.py
