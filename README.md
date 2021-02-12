@@ -1,5 +1,14 @@
 ## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
 
+<br/>
+<a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
+	<div align="center">
+		<img src="Result/ElegantRL.jpg" width="40%"/>
+	</div>
+<!-- 	<div align="center"><caption>Slack Invitation Link</caption></div> -->
+</a>
+<br/>
+
 We maintain an **elegant (lightweight, efficient and stable)** lib, for researchers and practitioners.
   
   + **Lightweight**: The core codes have less than 800 code lines, using PyTorch, OpenAI Gym, and NumPy.
