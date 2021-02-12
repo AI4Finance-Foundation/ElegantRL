@@ -13,7 +13,7 @@ We maintain an **elegant (lightweight, efficient and stable)** lib, for research
   
   + **Lightweight**: The core codes have less than 1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
   
-  + **Efficient**: Its performance is comparable with 【Ray RLlib](https://github.com/ray-project/ray).
+  + **Efficient**: Its performance is comparable with [Ray RLlib](https://github.com/ray-project/ray).
   
   + **Stable**: It is as stable as [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
 
