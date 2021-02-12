@@ -11,7 +11,7 @@
 
 We maintain an **elegant (lightweight, efficient and stable)** lib, for researchers and practitioners.
   
-  + **Lightweight**: The cores have less than 1000 code lines, using PyTorch, OpenAI Gym, and NumPy.
+  + **Lightweight**: The core codes have less than 1000 code lines, using PyTorch, OpenAI Gym, and NumPy.
   
   + **Efficient**: Its performance is comparable with Ray RLlib [link](https://github.com/ray-project/ray).
   
