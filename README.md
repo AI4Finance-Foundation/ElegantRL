@@ -77,8 +77,6 @@ InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward, which is quit
 ![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
 
 
-More training logs in "Result". 
-
 # Requirements
 
     Necessary:
