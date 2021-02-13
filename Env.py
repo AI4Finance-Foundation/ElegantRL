@@ -3,19 +3,45 @@ import numpy as np
 import numpy.random as rd
 
 
-def decorate_env(env):
+def decorate_env(env, data_type=np.float32, if_print=True):
+    action_max = None
     if not all([hasattr(env, attr) for attr in (
             'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
-        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = get_gym_env_information(env)
+        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = get_gym_env_info(env, if_print)
         setattr(env, 'env_name', env_name)
         setattr(env, 'state_dim', state_dim)
         setattr(env, 'action_dim', action_dim)
         setattr(env, 'if_discrete', if_discrete)
         setattr(env, 'target_reward', target_reward)
+
+    if action_max is not None:
+        def decorator_step(env_step):
+            def new_env_step(action):
+                state, reward, done, info = env_step(action * action_max)
+                return state.astype(data_type), reward, done, info
+
+            return new_env_step
+    else:  # action_max is None:
+        def decorator_step(env_step):
+            def new_env_step(action):
+                state, reward, done, info = env_step(action * action_max)
+                return state.astype(data_type), reward, done, info
+
+            return new_env_step
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            state = env_reset()
+            return state.astype(data_type)
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
     return env
 
 
-def get_gym_env_information(env) -> (str, int, int, float, bool, float):
+def get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
@@ -26,7 +52,7 @@ def get_gym_env_information(env) -> (str, int, int, float, bool, float):
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if env.spec.reward_threshold is None: 
+    if env.spec.reward_threshold is None:
         target_reward = 2 ** 16
         print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
     else:
@@ -40,6 +66,11 @@ def get_gym_env_information(env) -> (str, int, int, float, bool, float):
         action_max = float(env.action_space.high[0])
     else:
         raise RuntimeError('| Please set these value manually: if_discrete=bool, action_dim=int, action_max=1.0')
+
+    if if_print:
+        print("| env_name: {}, action space: {}".format(env_name, 'if_discrete' if if_discrete else 'Continuous'))
+        print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
+            state_dim, action_dim, action_max, target_reward))
     return env_name, state_dim, action_dim, action_max, if_discrete, target_reward
 
 

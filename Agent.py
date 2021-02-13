@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import numpy.random as rd
-from Net import QNet, QNetTwin, QNetDuelTwin
+from Net import QNet, QNetDuelTwin
 from Net import Actor, ActorSAC, ActorPPO
 from Net import Critic, CriticAdv, CriticTwin
 
@@ -56,6 +56,14 @@ class AgentDQN(AgentBase):
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
 
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
+        for _ in range(max_step):
+            action = self.select_actions((self.state,))[0]
+            next_state, reward, done, _ = env.step(action)
+            buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *self.state, action, *next_state))
+            self.state = env.reset() if done else next_state
+        return max_step
+
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
@@ -79,15 +87,15 @@ class AgentDQN(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-class AgentDoubleDQN(AgentBase):
+class AgentD3QN(AgentDQN):  # Dueling Double DQN
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__()
-        self.explore_rate = 0.25  # explore rate when update_buffer()
-        self.action_dim = action_dim
+        super().__init__(net_dim, state_dim, action_dim, learning_rate)
+        self.explore_rate = 0.25  # epsilon-greedy, the rate of choosing random action
         self.softmax = nn.Softmax(dim=1)
+        self.action_dim = action_dim
 
-        self.act = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act = QNetDuelTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = QNetDuelTwin(net_dim, state_dim, action_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.criterion = nn.MSELoss()
@@ -98,8 +106,8 @@ class AgentDoubleDQN(AgentBase):
         actions = self.act(states)
 
         if rd.rand() < self.explore_rate:
-            a_prob = self.softmax(actions).detach().cpu().numpy()
-            a_int = rd.choice(self.action_dim, p=a_prob)
+            a_prob_l = self.softmax(actions).detach().cpu().numpy()
+            a_int = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_prob_l]
         else:
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
@@ -125,21 +133,6 @@ class AgentDoubleDQN(AgentBase):
             soft_target_update(self.act_target, self.act)
         self.obj_a = next_q.mean().item()
         self.obj_c = critic_obj.item() / 2
-
-
-class AgentD3QN(AgentDoubleDQN):  # Dueling Double DQN
-    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__(net_dim, state_dim, action_dim, learning_rate)
-        self.explore_rate = 0.5  # explore rate when update_buffer()
-        self.softmax = nn.Softmax(dim=1)
-        self.action_dim = action_dim
-
-        self.act = QNetDuelTwin(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target = QNetDuelTwin(state_dim, action_dim, net_dim).to(self.device)
-        self.act_target.load_state_dict(self.act.state_dict())
-
-        self.criterion = nn.MSELoss()
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
 
 class AgentDDPG(AgentBase):
@@ -285,7 +278,7 @@ class AgentA3C(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-class AgentGaePPO(AgentBase):
+class AgentPPO(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -406,8 +399,8 @@ class AgentModSAC(AgentBase):
         self.act_target = ActorSAC(net_dim, state_dim, action_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
-        self.cri = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
-        self.cri_target = CriticTwin(state_dim, action_dim, int(net_dim * 1.25)).to(self.device)
+        self.cri = CriticTwin(net_dim, state_dim, action_dim, ).to(self.device)
+        self.cri_target = CriticTwin(net_dim, state_dim, action_dim, ).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
         self.criterion = nn.SmoothL1Loss()
@@ -419,7 +412,7 @@ class AgentModSAC(AgentBase):
 
     def select_actions(self, states):
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act.get__a_noisy(states)
+        actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
@@ -435,14 +428,16 @@ class AgentModSAC(AgentBase):
             with torch.no_grad():
                 reward, mask, state, action, next_s = buffer.random_sample(batch_size_)
 
-                next_a_noise, next_log_prob = self.act_target.get__a__log_prob(next_s)
-                q_label = reward + mask * (torch.min(*self.cri_target(next_s, next_a_noise)) + next_log_prob * alpha)
+                next_action, next_log_prob = self.act_target.get__action__log_prob(next_s)
+                # print(';', next_s.shape, next_action.shape, next_log_prob.shape)
+                q_label = reward + mask * (
+                            torch.min(*self.cri_target.get__q1_q2(next_s, next_action)) + next_log_prob * alpha)
 
-            q1, q2 = self.cri(state, action)
+            q1, q2 = self.cri.get__q1_q2(state, action)
             cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
             self.obj_c = 0.995 * self.obj_c + 0.0025 * cri_obj.item()
 
-            a_noise_pg, log_prob = self.act.get__a__log_prob(state)  # policy gradient
+            a_noise_pg, log_prob = self.act.get__action__log_prob(state)  # policy gradient
             alpha_obj = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
@@ -453,7 +448,7 @@ class AgentModSAC(AgentBase):
                 update_a += 1
 
                 alpha = self.alpha_log.exp().detach()
-                act_obj = -(torch.min(*self.cri_target(state, a_noise_pg)) + log_prob * alpha).mean()
+                act_obj = -(torch.min(*self.cri_target.get__q1_q2(state, a_noise_pg)) + log_prob * alpha).mean()
                 self.obj_a = 0.995 * self.obj_a + 0.005 * q_label.mean().item()
 
                 united_obj = cri_obj + alpha_obj + act_obj
@@ -519,5 +514,3 @@ class ReplayBuffer:
         self.next_idx = 0
         self.now_len = 0
         self.is_full = False
-
-

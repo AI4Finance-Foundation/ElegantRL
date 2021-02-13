@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import numpy.random as rd
 
-from Agent import AgentModSAC, AgentGaePPO
+from Agent import AgentD3QN, AgentModSAC, AgentPPO
 from Agent import ReplayBuffer
 
 
@@ -90,10 +90,10 @@ def train_agent(args):
     target_reward = env.target_reward
     from copy import deepcopy  # built-in library of Python
     env = deepcopy(env)
-    env_eval = deepcopy(env)  # 2020-12-12
+    env_eval = deepcopy(env)
 
     '''build rl_agent'''
-    agent = rl_agent(state_dim, action_dim, net_dim)  # training agent
+    agent = rl_agent(net_dim, state_dim, action_dim)
     agent.state = env.reset()
 
     '''build ReplayBuffer'''
@@ -131,6 +131,7 @@ def train_agent(args):
             recorder.save_act(cwd, agent.act, gpu_id) if if_save else None
             if_solve = recorder.check__if_solved(target_reward, gpu_id, show_gap, cwd)
 
+
 def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma, action_dim):
     state = env.reset()
     steps = 0
@@ -147,7 +148,8 @@ def explore_before_train(env, buffer, max_step, if_discrete, reward_scale, gamma
         buffer.append_memo(memo_tuple)
 
         state = env.reset() if done else next_state
-    return steps            
+    return steps
+
 
 class Recorder:
     def __init__(self, eval_size):
@@ -222,10 +224,18 @@ def get_episode_return(env, act, device) -> float:
 def train__demo():
     args = Arguments(rl_agent=None, env=None, gpu_id=0)
 
-    '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
     import gym
-    from Env import decorate_env
     gym.logger.set_level(40)
+    from Env import decorate_env
+
+    '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
+    args.env = decorate_env(env=gym.make('CartPole-v0'))
+    args.rl_agent = AgentD3QN  # Dueling Double DQN
+    args.net_dim = 2 ** 7
+    train_agent(args)
+    exit()
+
+    '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     args.rl_agent = AgentModSAC  # Modified SAC (off-policy)
 
@@ -237,7 +247,7 @@ def train__demo():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    args.rl_agent = AgentGaePPO  # PPO+GAE (on-policy)
+    args.rl_agent = AgentPPO  # PPO+GAE (on-policy)
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8

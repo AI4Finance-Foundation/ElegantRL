@@ -20,25 +20,6 @@ class QNet(QNetBase):
                                  nn.Linear(mid_dim, action_dim), )
 
 
-class QNetTwin(QNetBase):  # shared parameter
-    def __init__(self, mid_dim, state_dim, action_dim):
-        super().__init__()
-        self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # state
-        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, action_dim), )  # q1 value
-        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, action_dim), )  # q2 value
-
-    def forward(self, state):
-        tmp = self.net__s(state)
-        return self.net_q1(tmp)  # q1 value
-
-    def get__q1_q2(self, state):
-        tmp = self.net__s(state)
-        return self.net_q1(tmp), self.net_q2(tmp)  # q1 q2 value
-
-
 class QNetDuelTwin(QNetBase):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
@@ -122,7 +103,7 @@ class ActorPPO(ActorBase):
 
 
 class ActorSAC(ActorBase):
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, mid_dim, state_dim, action_dim):
         super(ActorBase, self).__init__()
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                         nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
@@ -136,7 +117,7 @@ class ActorSAC(ActorBase):
         tmp = self.net__state(state)
         return self.net_action(tmp).tanh()  # action
 
-    def get__action(self, state):
+    def get_action(self, state):
         t_tmp = self.net__state(state)
         a_avg = self.net_action(t_tmp)
         a_std = self.net__a_std(t_tmp).clamp(-16, 2).exp()
@@ -186,7 +167,7 @@ class CriticAdv(CriticBase):
 
 
 class CriticTwin(CriticBase):  # shared parameter
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, mid_dim, state_dim, action_dim):
         super(CriticBase, self).__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                     nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # concat(state, action)
