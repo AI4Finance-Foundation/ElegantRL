@@ -24,7 +24,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
     else:  # action_max is None:
         def decorator_step(env_step):
             def new_env_step(action):
-                state, reward, done, info = env_step(action * action_max)
+                state, reward, done, info = env_step(action)
                 return state.astype(data_type), reward, done, info
 
             return new_env_step
