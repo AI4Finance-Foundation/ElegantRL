@@ -136,9 +136,7 @@ class AgentBase:
         self.obj_c = (-np.log(0.5)) ** 0.5
 
     def select_actions(self, states):  # states = (state, ...)
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states)
-        return actions.detach().cpu().numpy()
+        return (None,)  # action in (-1, +1)
 
     def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
         for _ in range(max_step):
@@ -202,22 +200,17 @@ class AgentDDPG(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-class AgentTD3(AgentBase):
+class AgentTD3(AgentDDPG):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__()
+        AgentDDPG.__init__(net_dim, state_dim, action_dim, learning_rate)
         self.explore_noise = 0.1  # standard deviation of explore noise
         self.policy_noise = 0.2  # standard deviation of policy noise
         self.update_freq = 2  # delay update frequency, for soft target update
 
-        self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = Actor(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target.load_state_dict(self.act.state_dict())
-
         self.cri = CriticTwin(net_dim, state_dim, action_dim).to(self.device)
-        self.cri_target = Critic(net_dim, state_dim, action_dim).to(self.device)
+        self.cri_target = CriticTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
-        self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
 
@@ -264,50 +257,6 @@ class AgentA2C(AgentBase):
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
 
-    def select_actions(self, states):
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        a_noise, noise = self.act.get__action_noise(states)
-        return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
-
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
-        buffer.update__now_len__before_sample()
-
-        max_memo = buffer.now_len
-        actor_obj = critic_obj = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):
-            with torch.no_grad():
-                reward, mask, state, action, next_s = buffer.random_sample(batch_size)
-
-                # advantage =  # todo
-            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
-
-
-            loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
-            actor_obj = -(log_probs * advantage.detach() + loss_entropy * self.lambda_entropy).mean()
-
-            united_obj = actor_obj + critic_obj
-            self.optimizer.zero_grad()
-            united_obj.backward()
-            self.optimizer.step()
-
-        self.obj_a = actor_obj.item()
-        self.obj_c = critic_obj.item()
-
-
-class AgentPPO(AgentBase):
-    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__()
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_adv = 0.98  # could be 0.95~0.99
-        self.lambda_entropy = 0.01  # could be 0.02
-
-        self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
-        self.cri = CriticAdv(state_dim, net_dim).to(self.device)
-
-        self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
-                                           {'params': self.cri.parameters(), 'lr': learning_rate}])
-
     def select_actions(self, states):  # states = (state, ...)
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         a_noise, noise = self.act.get__action_noise(states)
@@ -339,8 +288,55 @@ class AgentPPO(AgentBase):
 
         max_memo = buffer.now_len
         all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
+        with torch.no_grad():
+            all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+
+            prev_old_v = 0  # old q value
+            for i in range(max_memo - 1, -1, -1):  # could be more elegant
+                all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
+                prev_old_v = all__old_v[i]
+
+        max_memo = buffer.now_len
+        actor_obj = critic_obj = None
+        for _ in range(int(repeat_times * max_memo / batch_size)):
+            with torch.no_grad():
+                # reward, mask, state, action, next_s = buffer.random_sample(batch_size)
+                indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
+
+                state = all_state[indices]
+                action = all_action[indices]
+                old_value = all__old_v[indices].unsqueeze(1)
+
+            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
+            new_value = self.cri(state)
+            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+
+            advantage = new_value - old_value
+            loss_entropy = new_log_prob.mean()  # policy entropy
+            actor_obj = -(new_log_prob * advantage.detach() + loss_entropy * self.lambda_entropy).mean()
+
+            united_obj = actor_obj + critic_obj
+            self.optimizer.zero_grad()
+            united_obj.backward()
+            self.optimizer.step()
+
+        self.obj_a = actor_obj.item()
+        self.obj_c = critic_obj.item()
+
+
+class AgentPPO(AgentA2C):
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        AgentA2C.__init__(net_dim, state_dim, action_dim, learning_rate)
+        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        self.lambda_adv = 0.98  # could be 0.95~0.99
+        self.lambda_entropy = 0.01  # could be 0.02
+
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+        buffer.update__now_len__before_sample()
 
         '''GAE: Generalized Advantage Estimation'''
+        max_memo = buffer.now_len
+        all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
         all__new_v = list()
         all_log_prob = list()
         with torch.no_grad():
@@ -359,7 +355,7 @@ class AgentPPO(AgentBase):
             '''get all__adv_v'''
             all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
             all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-            all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device, requires_grad=False)  # advantage value
+            all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
 
             prev_old_v = 0  # old q value
             prev_new_v = 0  # new q value
@@ -381,7 +377,7 @@ class AgentPPO(AgentBase):
 
             state = all_state[indices]
             action = all_action[indices]
-            advantage = all__adv_v[indices]#.detach()  # todo
+            advantage = all__adv_v[indices]
             old_value = all__old_v[indices].unsqueeze(1)
             old_log_prob = all_log_prob[indices]
 
@@ -405,7 +401,7 @@ class AgentPPO(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-class AgentModSAC(AgentBase):
+class AgentSAC(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
         self.target_entropy = np.log(action_dim)
@@ -420,7 +416,7 @@ class AgentModSAC(AgentBase):
         self.cri_target = CriticTwin(net_dim, state_dim, action_dim, ).to(self.device)
         self.cri_target.load_state_dict(self.cri.state_dict())
 
-        self.criterion = nn.SmoothL1Loss()
+        self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
                                            {'params': self.cri.parameters(), 'lr': learning_rate},
                                            {'params': (self.alpha_log,), 'lr': learning_rate}])
@@ -429,6 +425,48 @@ class AgentModSAC(AgentBase):
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
+
+    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+        buffer.update__now_len__before_sample()
+
+        alpha = self.alpha_log.exp().detach()
+        actor_obj = critic_obj = None
+        for _ in range(int(max_step * repeat_times)):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size)
+
+                next_action, next_log_prob = self.act_target.get__action__log_prob(next_s)
+                next_q = torch.min(*self.cri_target.get__q1_q2(next_s, next_action))
+                q_label = reward + mask * (next_q + next_log_prob * alpha)
+
+            q1, q2 = self.cri.get__q1_q2(state, action)
+            critic_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+
+            a_noise_pg, log_prob = self.act.get__action__log_prob(state)  # policy gradient
+            alpha_obj = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
+
+            alpha = self.alpha_log.exp().detach()
+            actor_obj = -(torch.min(*self.cri_target.get__q1_q2(state, a_noise_pg)) + log_prob * alpha).mean()
+            self.obj_a = 0.995 * self.obj_a + 0.005 * q_label.mean().item()
+
+            united_obj = critic_obj + alpha_obj + actor_obj
+            self.optimizer.zero_grad()
+            united_obj.backward()
+            self.optimizer.step()
+
+            soft_target_update(self.cri_target, self.cri)
+            soft_target_update(self.act_target, self.act)
+
+        self.obj_a = actor_obj.item()
+        self.obj_c = critic_obj.item()
+
+
+class AgentModSAC(AgentSAC):  # Modify SAC
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        AgentSAC.__init__(net_dim, state_dim, action_dim, learning_rate)
+        self.criterion = nn.SmoothL1Loss()
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
@@ -481,5 +519,3 @@ class AgentModSAC(AgentBase):
 def soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
-
-

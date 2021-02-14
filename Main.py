@@ -54,7 +54,7 @@ class Arguments:
 
 
 def main():
-    args = Arguments(rl_agent=None, env=None, gpu_id=0)
+    args = Arguments(rl_agent=None, env=None, gpu_id=None)
     from Env import decorate_env
 
     # '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
@@ -80,8 +80,9 @@ def main():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    from Agent import AgentPPO
-    args.rl_agent = AgentPPO  # PPO+GAE (on-policy)
+    from Agent import AgentA2C  #AgentPPO
+    args.rl_agent = AgentA2C  # PPO+GAE (on-policy)
+    # args.rl_agent = AgentPPO  # PPO+GAE (on-policy)
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
@@ -118,7 +119,7 @@ def train_and_evaluate(args):
     eval_times = args.eval_times
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
-    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
+    if_on_policy = rl_agent.__name__ in {'AgentA2C', 'AgentPPO'}
 
     '''init: env'''
     state_dim = env.state_dim
