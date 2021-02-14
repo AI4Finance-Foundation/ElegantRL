@@ -252,46 +252,46 @@ class AgentTD3(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-# class AgentA2C(AgentBase):
-#     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-#         super().__init__()
-#         self.lambda_entropy = 0.01
-#
-#         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
-#         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
-#
-#         self.criterion = nn.MSELoss()
-#         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
-#                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
-#
-#     def select_actions(self, states):
-#         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-#         a_noise, noise = self.act.get__action_noise(states)
-#         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
-#
-#     def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
-#         buffer.update__now_len__before_sample()
-#
-#         max_memo = buffer.now_len
-#         actor_obj = critic_obj = None
-#         for _ in range(int(repeat_times * max_memo / batch_size)):
-#             with torch.no_grad():
-#                 reward, mask, state, action, next_s = buffer.random_sample(batch_size)
-#
-#                 advantage =
-#             critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
-#
-#
-#             loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
-#             actor_obj = -(log_probs * advantage.detach() + loss_entropy * self.lambda_entropy).mean()
-#
-#             united_obj = actor_obj + critic_obj
-#             self.optimizer.zero_grad()
-#             united_obj.backward()
-#             self.optimizer.step()
-#
-#         self.obj_a = actor_obj.item()
-#         self.obj_c = critic_obj.item()
+class AgentA2C(AgentBase):
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        super().__init__()
+        self.lambda_entropy = 0.01
+
+        self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
+        self.cri = CriticAdv(state_dim, net_dim).to(self.device)
+
+        self.criterion = nn.MSELoss()
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate}])
+
+    def select_actions(self, states):
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        a_noise, noise = self.act.get__action_noise(states)
+        return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
+
+    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+        buffer.update__now_len__before_sample()
+
+        max_memo = buffer.now_len
+        actor_obj = critic_obj = None
+        for _ in range(int(repeat_times * max_memo / batch_size)):
+            with torch.no_grad():
+                reward, mask, state, action, next_s = buffer.random_sample(batch_size)
+
+                # advantage =  # todo
+            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+
+
+            loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
+            actor_obj = -(log_probs * advantage.detach() + loss_entropy * self.lambda_entropy).mean()
+
+            united_obj = actor_obj + critic_obj
+            self.optimizer.zero_grad()
+            united_obj.backward()
+            self.optimizer.step()
+
+        self.obj_a = actor_obj.item()
+        self.obj_c = critic_obj.item()
 
 
 class AgentPPO(AgentBase):
@@ -340,6 +340,7 @@ class AgentPPO(AgentBase):
         max_memo = buffer.now_len
         all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
 
+        '''GAE: Generalized Advantage Estimation'''
         all__new_v = list()
         all_log_prob = list()
         with torch.no_grad():
@@ -355,30 +356,32 @@ class AgentPPO(AgentBase):
             all__new_v = torch.cat(all__new_v, dim=0)
             all_log_prob = torch.cat(all_log_prob, dim=0)
 
-        all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
-        all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-        all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+            '''get all__adv_v'''
+            all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
+            all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+            all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device, requires_grad=False)  # advantage value
 
-        prev_old_v = 0  # old q value
-        prev_new_v = 0  # new q value
-        prev_adv_v = 0  # advantage q value
-        for i in range(max_memo - 1, -1, -1):  # could be more elegant
-            all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
-            all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
-            all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * self.lambda_adv
+            prev_old_v = 0  # old q value
+            prev_new_v = 0  # new q value
+            prev_adv_v = 0  # advantage q value
+            for i in range(max_memo - 1, -1, -1):  # could be more elegant
+                all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
+                all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
+                all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * self.lambda_adv
 
-            prev_old_v = all__old_v[i]
-            prev_new_v = all__new_v[i]
-            prev_adv_v = all__adv_v[i]
-        all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
+                prev_old_v = all__old_v[i]
+                prev_new_v = all__new_v[i]
+                prev_adv_v = all__adv_v[i]
+            all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # advantage_norm:
 
+        '''PPO: Clipped Surrogate objective of Trust Region'''
         actor_obj = critic_obj = None
         for _ in range(int(repeat_times * max_memo / batch_size)):
             indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
 
             state = all_state[indices]
             action = all_action[indices]
-            advantage = all__adv_v[indices]
+            advantage = all__adv_v[indices]#.detach()  # todo
             old_value = all__old_v[indices].unsqueeze(1)
             old_log_prob = all_log_prob[indices]
 
