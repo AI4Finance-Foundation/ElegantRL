@@ -91,8 +91,8 @@ InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward, which is quit
 It is **lightweight**.
 
 # Run
-    python3 AgentRun.py
-    # You can see run__demo(gpu_id=0, cwd='AC_BasicAC') in AgentRun.py.
+    python3 Main.py
+    # You can see run__demo(gpu_id=0, cwd='AC_BasicAC') in Main.py.
 + In default, it will train a stable-DDPG in LunarLanderContinuous-v2 for 2000 second.
 + It would choose CPU or GPU automatically. Don't worry, I never use `.cuda()`.
 + It would save the log and model parameters file in Current Working Directory `cwd='AC_BasicAC'`. 
