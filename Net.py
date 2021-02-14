@@ -76,6 +76,9 @@ class Actor(nn.Module):  # DPG: Deterministic Policy Gradient
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim))
 
+    def forward(self, state):
+        return self.net(state).tanh()  # action
+
     def get_action(self, state, action_std):
         action = self.net(state).tanh()
         noise = (torch.randn_like(action) * action_std).clamp(-0.5, 0.5)
@@ -91,6 +94,9 @@ class ActorPPO(nn.Module):
                                  nn.Linear(mid_dim, action_dim))
         self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)  # trainable parameter
         self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
+
+    def forward(self, state):
+        return self.net(state).tanh()  # action
 
     def get__action_noise(self, state):
         a_avg = self.net(state)
