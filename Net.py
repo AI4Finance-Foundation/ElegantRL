@@ -11,7 +11,7 @@ class QNet(nn.Module):
                                  nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
-        return self.net(state)  # q value
+        return self.net(state)  # Q value
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -26,13 +26,13 @@ class QNetTwin(nn.Module):  # Double DQN
 
     def forward(self, state):
         tmp = self.net__s(state)
-        return self.net_q1(tmp)  # single q value
+        return self.net_q1(tmp)  # Single Q value
 
     def get__q1_q2(self, state):
         tmp = self.net__s(state)
         q1 = self.net_q1(tmp)
         q2 = self.net_q2(tmp)
-        return q1, q2  # twin q value
+        return q1, q2  # Double Q values
 
 
 class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
