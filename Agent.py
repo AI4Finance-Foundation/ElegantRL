@@ -2,41 +2,17 @@ import torch
 import torch.nn as nn
 import numpy as np
 import numpy.random as rd
-from Net import QNet, QNetDuelTwin
+from Net import QNet, QNetTwin, QNetTwinDuel
 from Net import Actor, ActorSAC, ActorPPO
 from Net import Critic, CriticAdv, CriticTwin
 
 
-class AgentBase:
-    def __init__(self, ):
+class AgentDQN:
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        super().__init__()
         self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.act = None
-        self.cri = None
-        self.criterion = None
-        self.optimizer = None
-
-        self.obj_a = 0.0
-        self.obj_c = (-np.log(0.5)) ** 0.5
-
-    def select_actions(self, states):  # states = (state, )
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states)
-        return actions.detach().cpu().numpy()
-
-    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        for _ in range(max_step):
-            action = self.select_actions((self.state,))[0]
-            next_state, reward, done, _ = env.step(action)
-            buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *self.state, *action, *next_state))
-            self.state = env.reset() if done else next_state
-        return max_step
-
-
-class AgentDQN(AgentBase):
-    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__()
         self.explore_rate = 0.1
         self.action_dim = action_dim
 
@@ -46,6 +22,8 @@ class AgentDQN(AgentBase):
 
         self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
+        self.obj_a = 0.0
+        self.obj_c = (-np.log(0.5)) ** 0.5
 
     def select_actions(self, states):  # for discrete action space
         if rd.rand() < self.explore_rate:
@@ -87,15 +65,15 @@ class AgentDQN(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-class AgentD3QN(AgentDQN):  # Dueling Double DQN
+class AgentDoubleDQN(AgentDQN):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.explore_rate = 0.25  # epsilon-greedy, the rate of choosing random action
         self.softmax = nn.Softmax(dim=1)
         self.action_dim = action_dim
 
-        self.act = QNetDuelTwin(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = QNetDuelTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
 
         self.criterion = nn.MSELoss()
@@ -135,6 +113,42 @@ class AgentD3QN(AgentDQN):  # Dueling Double DQN
         self.obj_c = critic_obj.item() / 2
 
 
+class AgentD3QN(AgentDoubleDQN):  # Dueling Double DQN
+    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+        AgentDoubleDQN.__init__(net_dim, state_dim, action_dim, learning_rate)
+        self.explore_rate = 0.25  # epsilon-greedy, the rate of choosing random action
+
+        self.act = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target.load_state_dict(self.act.state_dict())
+
+
+class AgentBase:
+    def __init__(self, ):
+        self.state = self.action = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.act = None
+        self.cri = None
+        self.criterion = None
+        self.optimizer = None
+        self.obj_a = 0.0
+        self.obj_c = (-np.log(0.5)) ** 0.5
+
+    def select_actions(self, states):  # states = (state, ...)
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+        actions = self.act(states)
+        return actions.detach().cpu().numpy()
+
+    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
+        for _ in range(max_step):
+            action = self.select_actions((self.state,))[0]
+            next_state, reward, done, _ = env.step(action)
+            buffer.append_memo((reward * reward_scale, 0.0 if done else gamma, *self.state, *action, *next_state))
+            self.state = env.reset() if done else next_state
+        return max_step
+
+
 class AgentDDPG(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         AgentBase.__init__(self)
@@ -149,12 +163,10 @@ class AgentDDPG(AgentBase):
         self.cri_target.load_state_dict(self.cri.state_dict())
 
         self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam([
-            {'params': self.act.parameters(), 'lr': learning_rate},
-            {'params': self.cri.parameters(), 'lr': learning_rate},
-        ], lr=learning_rate)
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate}])
 
-    def select_actions(self, states):  # states = (state, )
+    def select_actions(self, states):  # states = (state, ...)
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states)
         actions = (actions + torch.randn_like(actions) * self.explore_noise).clamp(-1, 1)
@@ -206,10 +218,8 @@ class AgentTD3(AgentBase):
         self.cri_target.load_state_dict(self.cri.state_dict())
 
         self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam([
-            {'params': self.act.parameters(), 'lr': learning_rate},
-            {'params': self.cri.parameters(), 'lr': learning_rate},
-        ], lr=learning_rate)
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate}])
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
@@ -242,40 +252,46 @@ class AgentTD3(AgentBase):
         self.obj_c = critic_obj.item()
 
 
-class AgentA3C(AgentBase):
-    def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__()
-
-        self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
-        self.cri = CriticAdv(state_dim, net_dim).to(self.device)
-
-        self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam([
-            {'params': self.act.parameters(), 'lr': learning_rate},
-            {'params': self.cri.parameters(), 'lr': learning_rate},
-        ], lr=learning_rate)
-
-    def select_actions(self, states):
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        a_noise, noise = self.act.get__action_noise(states)
-        return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
-
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
-        buffer.update__now_len__before_sample()
-
-        max_memo = buffer.now_len
-        actor_obj = critic_obj = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):
-            actor_obj = torch.ones(1)  # todo
-            critic_obj = torch.ones(1)  # todo
-
-            united_obj = actor_obj + critic_obj
-            self.optimizer.zero_grad()
-            united_obj.backward()
-            self.optimizer.step()
-
-        self.obj_a = actor_obj.item()
-        self.obj_c = critic_obj.item()
+# class AgentA2C(AgentBase):
+#     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
+#         super().__init__()
+#         self.lambda_entropy = 0.01
+#
+#         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
+#         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
+#
+#         self.criterion = nn.MSELoss()
+#         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+#                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
+#
+#     def select_actions(self, states):
+#         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
+#         a_noise, noise = self.act.get__action_noise(states)
+#         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
+#
+#     def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+#         buffer.update__now_len__before_sample()
+#
+#         max_memo = buffer.now_len
+#         actor_obj = critic_obj = None
+#         for _ in range(int(repeat_times * max_memo / batch_size)):
+#             with torch.no_grad():
+#                 reward, mask, state, action, next_s = buffer.random_sample(batch_size)
+#
+#                 advantage =
+#             critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+#
+#
+#             loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
+#             actor_obj = -(log_probs * advantage.detach() + loss_entropy * self.lambda_entropy).mean()
+#
+#             united_obj = actor_obj + critic_obj
+#             self.optimizer.zero_grad()
+#             united_obj.backward()
+#             self.optimizer.step()
+#
+#         self.obj_a = actor_obj.item()
+#         self.obj_c = critic_obj.item()
 
 
 class AgentPPO(AgentBase):
@@ -289,12 +305,10 @@ class AgentPPO(AgentBase):
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
 
         self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam([
-            {'params': self.act.parameters(), 'lr': learning_rate},
-            {'params': self.cri.parameters(), 'lr': learning_rate},
-        ], lr=learning_rate)
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate}])
 
-    def select_actions(self, states):
+    def select_actions(self, states):  # states = (state, ...)
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         a_noise, noise = self.act.get__action_noise(states)
         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
@@ -404,13 +418,11 @@ class AgentModSAC(AgentBase):
         self.cri_target.load_state_dict(self.cri.state_dict())
 
         self.criterion = nn.SmoothL1Loss()
-        self.optimizer = torch.optim.Adam([
-            {'params': self.act.parameters(), 'lr': learning_rate},
-            {'params': self.cri.parameters(), 'lr': learning_rate},
-            {'params': (self.alpha_log,), 'lr': learning_rate},
-        ], lr=learning_rate)
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate},
+                                           {'params': (self.alpha_log,), 'lr': learning_rate}])
 
-    def select_actions(self, states):
+    def select_actions(self, states):  # states = (state, ...)
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
@@ -431,7 +443,7 @@ class AgentModSAC(AgentBase):
                 next_action, next_log_prob = self.act_target.get__action__log_prob(next_s)
                 # print(';', next_s.shape, next_action.shape, next_log_prob.shape)
                 q_label = reward + mask * (
-                            torch.min(*self.cri_target.get__q1_q2(next_s, next_action)) + next_log_prob * alpha)
+                        torch.min(*self.cri_target.get__q1_q2(next_s, next_action)) + next_log_prob * alpha)
 
             q1, q2 = self.cri.get__q1_q2(state, action)
             cri_obj = self.criterion(q1, q_label) + self.criterion(q2, q_label)
@@ -468,49 +480,3 @@ def soft_target_update(target, current, tau=5e-3):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 
-class ReplayBuffer:
-    def __init__(self, max_len, state_dim, action_dim, if_on_policy=False):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.next_idx = 0
-        self.is_full = False
-        self.max_len = max_len
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-        self.state_idx = 1 + 1 + state_dim  # reward_dim=1, done_dim=1
-        self.action_idx = self.state_idx + action_dim
-
-        last_dim = action_dim if if_on_policy else state_dim
-        self.memo_dim = 1 + 1 + state_dim + action_dim + last_dim
-        self.memories = np.empty((max_len, self.memo_dim), dtype=np.float32)
-
-    def append_memo(self, memo_tuple):
-        self.memories[self.next_idx] = memo_tuple
-        self.next_idx += 1
-        if self.next_idx >= self.max_len:
-            self.is_full = True
-            self.next_idx = 0
-
-    def random_sample(self, batch_size):
-        indices = rd.randint(self.now_len, size=batch_size)
-        memory = torch.as_tensor(self.memories[indices], device=self.device)
-        return (memory[:, 0:1],  # rewards
-                memory[:, 1:2],  # masks, mark == (1-float(done)) * gamma
-                memory[:, 2:self.state_idx],  # states
-                memory[:, self.state_idx:self.action_idx],  # actions
-                memory[:, self.action_idx:],)  # next_states
-
-    def all_sample(self):
-        tensors = (self.memories[:self.now_len, 0:1],  # rewards
-                   self.memories[:self.now_len, 1:2],  # masks, mark == (1-float(done)) * gamma
-                   self.memories[:self.now_len, 2:self.state_idx],  # states
-                   self.memories[:self.now_len, self.state_idx:self.action_idx],  # actions
-                   self.memories[:self.now_len, self.action_idx:],)  # next_states or log_prob_sum
-        return [torch.tensor(ary, device=self.device) for ary in tensors]
-
-    def update__now_len__before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
-
-    def empty_memories__before_explore(self):
-        self.next_idx = 0
-        self.now_len = 0
-        self.is_full = False

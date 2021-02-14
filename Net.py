@@ -2,37 +2,52 @@ import torch
 import torch.nn as nn
 
 
-class QNetBase(nn.Module):  # There is not need to use ActorBase()
-    def __init__(self):
+class QNet(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = None
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
         return self.net(state)  # q value
 
 
-class QNet(QNetBase):
+class QNetTwin(nn.Module):  # Double DQN
     def __init__(self, mid_dim, state_dim, action_dim):
-        super(QNetBase, self).__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), )
+        super().__init__()
+        self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                    nn.Linear(mid_dim, mid_dim), nn.ReLU())  # state
+        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                    nn.Linear(mid_dim, action_dim))  # q1 value
+        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                    nn.Linear(mid_dim, action_dim))  # q2 value
+
+    def forward(self, state):
+        tmp = self.net__s(state)
+        return self.net_q1(tmp)  # single q value
+
+    def get__q1_q2(self, state):
+        tmp = self.net__s(state)
+        q1 = self.net_q1(tmp)
+        q2 = self.net_q2(tmp)
+        return q1, q2  # twin q value
 
 
-class QNetDuelTwin(QNetBase):
+class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
         self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, 1), )
+                                      nn.Linear(mid_dim, 1))  # q1 value
         self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, 1), )
+                                      nn.Linear(mid_dim, 1))  # q2 value
         self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, action_dim), )
+                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
         self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, action_dim), )
+                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
 
     def forward(self, state):
         t_tmp = self.net__state(state)
@@ -53,22 +68,13 @@ class QNetDuelTwin(QNetBase):
         return q1, q2
 
 
-class ActorBase(nn.Module):  # There is not need to use ActorBase()
-    def __init__(self):
-        super().__init__()
-        self.net = None
-
-    def forward(self, state):
-        return self.net(state).tanh()  # action
-
-
-class Actor(ActorBase):  # There is not need to use ActorBase()
+class Actor(nn.Module):  # DPG: Deterministic Policy Gradient
     def __init__(self, mid_dim, state_dim, action_dim):
-        super(ActorBase, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), )
+                                 nn.Linear(mid_dim, action_dim))
 
     def get_action(self, state, action_std):
         action = self.net(state).tanh()
@@ -76,13 +82,13 @@ class Actor(ActorBase):  # There is not need to use ActorBase()
         return (action + noise).clamp(-1.0, 1.0)
 
 
-class ActorPPO(ActorBase):
+class ActorPPO(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
-        super(ActorBase, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), )
+                                 nn.Linear(mid_dim, action_dim))
         self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)  # trainable parameter
         self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
 
@@ -102,15 +108,15 @@ class ActorPPO(ActorBase):
         return log_prob.sum(1)
 
 
-class ActorSAC(ActorBase):
+class ActorSAC(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
-        super(ActorBase, self).__init__()
+        super().__init__()
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
         self.net_action = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim), )
+                                        nn.Linear(mid_dim, action_dim))
         self.net__a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim), )
+                                        nn.Linear(mid_dim, action_dim))
         self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
@@ -132,49 +138,43 @@ class ActorSAC(ActorBase):
         noise = torch.randn_like(a_avg, requires_grad=True)
         a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
 
-        log_prob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5)
+        log_prob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
         log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
         return a_tan, log_prob.sum(1, keepdim=True)
 
 
-class CriticBase(nn.Module):  # There is not need to use CriticBase()
-    def __init__(self):
-        super().__init__()
-        self.net = None
-
-
-class Critic(CriticBase):
+class Critic(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
-        super(CriticBase, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1), )
+                                 nn.Linear(mid_dim, 1))
 
     def forward(self, state, action):
         return self.net(torch.cat((state, action), dim=1))  # q value
 
 
-class CriticAdv(CriticBase):
+class CriticAdv(nn.Module):
     def __init__(self, state_dim, mid_dim):
-        super(CriticBase, self).__init__()
+        super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1), )
+                                 nn.Linear(mid_dim, 1))
 
     def forward(self, state):
         return self.net(state)  # q value
 
 
-class CriticTwin(CriticBase):  # shared parameter
+class CriticTwin(nn.Module):  # shared parameter
     def __init__(self, mid_dim, state_dim, action_dim):
-        super(CriticBase, self).__init__()
+        super().__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU(), )  # concat(state, action)
+                                    nn.Linear(mid_dim, mid_dim), nn.ReLU())  # concat(state, action)
         self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, 1), )  # q1 value
+                                    nn.Linear(mid_dim, 1))  # q1 value
         self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, 1), )  # q2 value
+                                    nn.Linear(mid_dim, 1))  # q2 value
 
     def forward(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))

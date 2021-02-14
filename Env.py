@@ -4,7 +4,6 @@ import numpy.random as rd
 
 
 def decorate_env(env, data_type=np.float32, if_print=True):
-    action_max = None
     if not all([hasattr(env, attr) for attr in (
             'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
         (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = get_gym_env_info(env, if_print)
@@ -13,15 +12,17 @@ def decorate_env(env, data_type=np.float32, if_print=True):
         setattr(env, 'action_dim', action_dim)
         setattr(env, 'if_discrete', if_discrete)
         setattr(env, 'target_reward', target_reward)
+    else:
+        action_max = 1
 
-    if action_max is not None:
+    if action_max != 1:
         def decorator_step(env_step):
             def new_env_step(action):
                 state, reward, done, info = env_step(action * action_max)
                 return state.astype(data_type), reward, done, info
 
             return new_env_step
-    else:  # action_max is None:
+    else:
         def decorator_step(env_step):
             def new_env_step(action):
                 state, reward, done, info = env_step(action)
