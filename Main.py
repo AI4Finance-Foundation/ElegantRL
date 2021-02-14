@@ -57,25 +57,25 @@ def main():
     args = Arguments(rl_agent=None, env=None, gpu_id=0)
     from Env import decorate_env
 
-    '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
-    import gym
-    args.env = decorate_env(env=gym.make('CartPole-v0'))
-    from Agent import AgentD3QN
-    args.rl_agent = AgentD3QN  # Dueling Double DQN
-    args.net_dim = 2 ** 7
-    train_and_evaluate(args)
-    exit()
-
-    '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
-    import gym
-    args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
-    from Agent import AgentModSAC
-    args.rl_agent = AgentModSAC  # Modified SAC (off-policy)
-
-    args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
-    args.net_dim = 2 ** 7
-    train_and_evaluate(args)
-    exit()
+    # '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
+    # import gym
+    # args.env = decorate_env(env=gym.make('CartPole-v0'))
+    # from Agent import AgentD3QN
+    # args.rl_agent = AgentD3QN  # Dueling Double DQN
+    # args.net_dim = 2 ** 7
+    # train_and_evaluate(args)
+    # exit()
+    #
+    # '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
+    # import gym
+    # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
+    # from Agent import AgentModSAC
+    # args.rl_agent = AgentModSAC  # Modified SAC (off-policy)
+    #
+    # args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
+    # args.net_dim = 2 ** 7
+    # train_and_evaluate(args)
+    # exit()
 
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
@@ -89,7 +89,6 @@ def main():
     args.max_memo = (args.max_step - 1) * 16
     args.batch_size = 2 ** 11
     args.repeat_times = 2 ** 4
-    args.init_before_training()
     train_and_evaluate(args)
     exit()
 
