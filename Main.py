@@ -79,7 +79,7 @@ def main():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    args.rl_agent = Agent.AgentA2C  # PPO+GAE (on-policy)
+    args.rl_agent = Agent.AgentPPO  # PPO+GAE (on-policy)
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
