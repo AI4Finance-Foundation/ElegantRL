@@ -47,7 +47,7 @@ Results using ElegantRL
 [BipedalWalkerHardcore-v2](https://gym.openai.com/envs/BipedalWalkerHardcore-v2/)
 
 
-<img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="150"/>
+<img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="100"/>
 
 
 BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward.
