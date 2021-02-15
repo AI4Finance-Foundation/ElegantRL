@@ -54,35 +54,32 @@ class Arguments:
 
 
 def main():
+    import Agent
     args = Arguments(rl_agent=None, env=None, gpu_id=None)
     from Env import decorate_env
 
-    # '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
-    # import gym
-    # args.env = decorate_env(env=gym.make('CartPole-v0'))
-    # from Agent import AgentD3QN
-    # args.rl_agent = AgentD3QN  # Dueling Double DQN
-    # args.net_dim = 2 ** 7
-    # train_and_evaluate(args)
-    # exit()
-    #
-    # '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
-    # import gym
-    # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
-    # from Agent import AgentModSAC
-    # args.rl_agent = AgentModSAC  # Modified SAC (off-policy)
-    #
-    # args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
-    # args.net_dim = 2 ** 7
-    # train_and_evaluate(args)
-    # exit()
+    '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
+    import gym
+    args.env = decorate_env(env=gym.make('CartPole-v0'))
+    args.rl_agent = Agent.AgentD3QN  # Dueling Double DQN
+    args.net_dim = 2 ** 7
+    train_and_evaluate(args)
+    exit()
+
+    '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
+    import gym
+    args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
+    args.rl_agent = Agent.AgentModSAC  # Modified SAC (off-policy)
+
+    args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
+    args.net_dim = 2 ** 7
+    train_and_evaluate(args)
+    exit()
 
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    from Agent import AgentA2C  #AgentPPO
-    args.rl_agent = AgentA2C  # PPO+GAE (on-policy)
-    # args.rl_agent = AgentPPO  # PPO+GAE (on-policy)
+    args.rl_agent = Agent.AgentA2C  # PPO+GAE (on-policy)
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8

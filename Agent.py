@@ -9,7 +9,6 @@ from Net import Critic, CriticAdv, CriticTwin
 
 class AgentDQN:
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        super().__init__()
         self.state = self.action = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -27,7 +26,7 @@ class AgentDQN:
 
     def select_actions(self, states):  # for discrete action space
         if rd.rand() < self.explore_rate:
-            a_int = rd.randint(self.action_dim)
+            a_int = rd.randint(self.action_dim, size=(len(states), ))
         else:
             states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
             actions = self.act(states)
@@ -115,12 +114,15 @@ class AgentDoubleDQN(AgentDQN):
 
 class AgentD3QN(AgentDoubleDQN):  # Dueling Double DQN
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        AgentDoubleDQN.__init__(net_dim, state_dim, action_dim, learning_rate)
+        super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.explore_rate = 0.25  # epsilon-greedy, the rate of choosing random action
 
-        self.act = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.act = QNetTwinDuel(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = QNetTwinDuel(net_dim, state_dim, action_dim).to(self.device)
         self.act_target.load_state_dict(self.act.state_dict())
+
+        self.criterion = nn.SmoothL1Loss()
+        self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
 
 class AgentBase:
@@ -149,7 +151,7 @@ class AgentBase:
 
 class AgentDDPG(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        AgentBase.__init__(self)
+        super().__init__()
         self.explore_noise = 0.05
 
         self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
@@ -202,7 +204,7 @@ class AgentDDPG(AgentBase):
 
 class AgentTD3(AgentDDPG):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        AgentDDPG.__init__(net_dim, state_dim, action_dim, learning_rate)
+        super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.explore_noise = 0.1  # standard deviation of explore noise
         self.policy_noise = 0.2  # standard deviation of policy noise
         self.update_freq = 2  # delay update frequency, for soft target update
@@ -248,7 +250,7 @@ class AgentTD3(AgentDDPG):
 class AgentA2C(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
-        self.lambda_entropy = 0.01
+        self.lambda_entropy = 0.001
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -326,7 +328,7 @@ class AgentA2C(AgentBase):
 
 class AgentPPO(AgentA2C):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        AgentA2C.__init__(net_dim, state_dim, action_dim, learning_rate)
+        super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_adv = 0.98  # could be 0.95~0.99
         self.lambda_entropy = 0.01  # could be 0.02
@@ -465,7 +467,7 @@ class AgentSAC(AgentBase):
 
 class AgentModSAC(AgentSAC):  # Modify SAC
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
-        AgentSAC.__init__(net_dim, state_dim, action_dim, learning_rate)
+        super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.criterion = nn.SmoothL1Loss()
 
     def update_policy(self, buffer, max_step, batch_size, repeat_times):
