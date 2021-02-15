@@ -33,8 +33,8 @@ More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorit
     -----file----
     Net.py   # Neural networks.
     Agent.py # Model-free RL algorithms.
-    Env.py   # 
-    Main.py  # 
+    Env.py   # gym env or custom env (MultiStockEnv Finance)
+    Main.py  # run and learn the DEMO 1 ~ 3 in Main.py
 
 # Experimental results
 
