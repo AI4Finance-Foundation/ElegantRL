@@ -25,7 +25,7 @@ class Arguments:
         self.num_threads = 4  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for evaluate'''
-        self.break_step = 2 ** 17  # break training after 'total_step > break_step'
+        self.break_step = 2 ** 20  # break training after 'total_step > break_step'
         self.if_break_early = True  # break training after 'eval_reward > target reward'
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.show_gap = 2 ** 8  # show the Reward and Loss of actor and critic per show_gap seconds

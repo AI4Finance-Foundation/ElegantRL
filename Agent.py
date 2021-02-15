@@ -313,7 +313,7 @@ class AgentA2C(AgentBase):
             new_value = self.cri(state)
             critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
 
-            advantage = new_value - old_value
+            advantage = old_value - new_value
             loss_entropy = new_log_prob.mean()  # policy entropy
             actor_obj = -(new_log_prob * advantage.detach() + loss_entropy * self.lambda_entropy).mean()
 
