@@ -25,7 +25,7 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 
 ### Model-free DRL Algorithms
 
-![model-free_DRL_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/model-free_DRL_2020.png)
+![RL_survey_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/RL_survey_2020.png)
 
 More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
