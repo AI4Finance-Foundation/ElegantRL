@@ -105,3 +105,11 @@ The following steps:
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
+
+# Training pipeline
+
++ Initialize the hyper-parameters using `args`.
++ <span style="color:red">Initialize `buffer=ReplayBuffer()` : store the transitions.</span>
++ <span style="color:blue">Initialize `agent=AgentXXX()` : update neural network parameters.</span>
++ <span style="color:green">Initialize `recorder=Recorder()` : evaluate and store the trained model.</span>
++ Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
