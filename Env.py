@@ -54,7 +54,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if env.spec.reward_threshold is None:
-        target_reward = 2 ** 16
+        target_reward = env.target_reward if hasattr(env, 'target_reward') else 2 ** 16
         print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
     else:
         target_reward = env.spec.reward_threshold

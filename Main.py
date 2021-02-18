@@ -70,9 +70,19 @@ def main():
     import gym
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     args.rl_agent = Agent.AgentModSAC  # Modified SAC (off-policy)
-
     args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
     args.net_dim = 2 ** 7
+    train_and_evaluate(args)
+    exit()
+
+    args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
+    # args.env = decorate_env(env=gym.make('Pendulum-v0'))
+    args.rl_agent = Agent.AgentPPO  # PPO+GAE (on-policy)
+    args.net_dim = 2 ** 7
+    args.max_step = 2 ** 10
+    args.max_memo = (args.max_step - 1) * 4
+    args.batch_size = 2 ** 9
+    args.repeat_times = 2 ** 4
     train_and_evaluate(args)
     exit()
 
