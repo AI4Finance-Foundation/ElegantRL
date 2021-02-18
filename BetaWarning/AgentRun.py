@@ -53,7 +53,7 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
-def run():
+def run__demo():
     import AgentZoo
     args = Arguments(agent_rl=None, env=None, gpu_id=None)
     from AgentEnv import decorate_env
@@ -337,4 +337,4 @@ def get_episode_return(env, act, device) -> float:
 
 
 if __name__ == '__main__':
-    run()
+    run__demo()
