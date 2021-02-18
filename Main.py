@@ -156,7 +156,7 @@ def train_and_evaluate(args):
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step += steps
 
-    '''build Recorder'''
+    '''build Evaluator'''
     evaluator = Evaluator(eval_times)
     with torch.no_grad():
         evaluator.evaluate_and_save_checkpoint(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
