@@ -7,8 +7,8 @@ import numpy.random as rd
 
 
 class Arguments:
-    def __init__(self, rl_agent=None, env=None, gpu_id=None):
-        self.rl_agent = rl_agent  # Deep Reinforcement Learning algorithm
+    def __init__(self, agent_rl=None, env=None, gpu_id=None):
+        self.agent_rl = agent_rl  # Deep Reinforcement Learning algorithm
         self.gpu_id = gpu_id  # choose the GPU for running. gpu_id is None means set it automatically
         self.cwd = None  # current work directory. cwd is None means set it automatically
         self.env = env  # the environment for training
@@ -34,7 +34,7 @@ class Arguments:
 
     def init_before_training(self):
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
-        self.cwd = f'./{self.rl_agent.__name__}/{self.env.env_name}_{self.gpu_id}' if self.cwd is None else self.cwd
+        self.cwd = f'./{self.agent_rl.__name__}/{self.env.env_name}_{self.gpu_id}' if self.cwd is None else self.cwd
         print(f'| GPU id: {self.gpu_id}, cwd: {self.cwd}')
 
         import shutil  # weather remove history?
@@ -55,13 +55,13 @@ class Arguments:
 
 def run():
     import AgentZoo
-    args = Arguments(rl_agent=None, env=None, gpu_id=None)
+    args = Arguments(agent_rl=None, env=None, gpu_id=None)
     from AgentEnv import decorate_env
 
     '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
     import gym
     args.env = decorate_env(env=gym.make('CartPole-v0'))
-    args.rl_agent = AgentZoo.AgentD3QN  # Dueling Double DQN
+    args.agent_rl = AgentZoo.AgentD3QN  # Dueling Double DQN
     args.net_dim = 2 ** 7
     train_and_evaluate(args)
     exit()
@@ -69,7 +69,7 @@ def run():
     '''DEMO 2: Continuous action env: LunarLanderContinuous-v2 of gym.box2D'''
     import gym
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
-    args.rl_agent = AgentZoo.AgentModSAC  # Modified SAC (off-policy)
+    args.agent_rl = AgentZoo.AgentModSAC  # Modified SAC (off-policy)
     args.break_step = int(6e4 * 8)  # UsedTime 900s (reach target_reward 200)
     args.net_dim = 2 ** 7
     train_and_evaluate(args)
@@ -77,7 +77,7 @@ def run():
 
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('Pendulum-v0'))
-    args.rl_agent = AgentZoo.AgentGaePPO  # PPO+GAE (on-policy)
+    args.agent_rl = AgentZoo.AgentGaePPO  # PPO+GAE (on-policy)
     args.net_dim = 2 ** 7
     args.max_step = 2 ** 10
     args.max_memo = (args.max_step - 1) * 4
@@ -89,7 +89,7 @@ def run():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from AgentEnv import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    args.rl_agent = AgentZoo.AgentGaePPO  # PPO+GAE (on-policy)
+    args.agent_rl = AgentZoo.AgentGaePPO  # PPO+GAE (on-policy)
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
@@ -104,14 +104,12 @@ def run():
 def train_and_evaluate(args):
     args.init_before_training()
 
-    '''basic arguments'''
-    rl_agent = args.rl_agent
-    gpu_id = args.gpu_id
+    agent_rl = args.agent_rl  # basic arguments
+    agent_id = args.gpu_id
     env = args.env
     cwd = args.cwd
 
-    '''training arguments'''
-    gamma = args.gamma
+    gamma = args.gamma  # training arguments
     net_dim = args.net_dim
     max_memo = args.max_memo
     max_step = args.max_step
@@ -119,14 +117,11 @@ def train_and_evaluate(args):
     repeat_times = args.repeat_times
     reward_scale = args.reward_scale
 
-    '''evaluate arguments'''
+    show_gap = args.show_gap  # evaluate arguments
+    eval_times = args.eval_times
     break_step = args.break_step
     if_break_early = args.if_break_early
-    show_gap = args.show_gap
-    eval_times = args.eval_times
     del args  # In order to show these hyper-parameters clearly, I put them above.
-
-    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
 
     '''init: env'''
     state_dim = env.state_dim
@@ -137,34 +132,24 @@ def train_and_evaluate(args):
     env_eval = deepcopy(env)
     del deepcopy
 
-    '''build rl_agent'''
-    agent = rl_agent(net_dim, state_dim, action_dim)
+    evaluator = Evaluator(cwd, agent_id, eval_times, show_gap)  # build Evaluator
+    agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
     agent.state = env.reset()
 
-    '''build ReplayBuffer'''
+    if_on_policy = agent_rl.__name__ in {'AgentPPO', 'AgentGaePPO'}  # build ReplayBuffer
     if if_on_policy:
         buffer = ReplayBufferCPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim)
-    else:
-        buffer = ReplayBufferGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim)
-
-    total_step = 0
-    if if_on_policy:
         steps = 0
     else:
+        buffer = ReplayBufferGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim)
         with torch.no_grad():  # update replay buffer
             steps = explore_before_train(env, buffer, max_step, reward_scale, gamma)
         '''pre training and hard update before training loop'''
         buffer.update__now_len__before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
-    total_step += steps
+    total_step = steps
 
-    '''build Recorder'''
-    evaluator = Evaluator(eval_times)
-    with torch.no_grad():
-        evaluator.evaluate_and_save_checkpoint(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
-
-    '''loop'''
     if_solve = False
     while not ((if_break_early and if_solve) or total_step > break_step or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
@@ -174,11 +159,8 @@ def train_and_evaluate(args):
         buffer.update__now_len__before_sample()
         agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
-        with torch.no_grad():  # for saving the GPU buffer
-            if_save = evaluator.evaluate_and_save_checkpoint(env_eval, agent.act, agent.device, steps, agent.obj_a,
-                                                             agent.obj_c)
-            evaluator.save_checkpoint(cwd, agent.act, gpu_id) if if_save else None
-            if_solve = evaluator.evaluate(target_reward, gpu_id, show_gap, cwd)
+        with torch.no_grad():  # speed up running
+            evaluator.evaluate_and_save(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)
 
 
 def explore_before_train(env, buffer, target_step, reward_scale, gamma):  # version 2021-02-17
@@ -285,53 +267,53 @@ class ReplayBufferGPU(ReplayBufferBase):
 
 
 class Evaluator:
-    def __init__(self, eval_size):
+    def __init__(self, cwd, agent_id, eval_times, show_gap):
         self.recorder = [(0., -np.inf, 0., 0., 0.), ]  # total_step, r_avg, r_std, obj_a, obj_c
         self.r_max = -np.inf
-        self.is_solved = False
         self.total_step = 0
-        self.eva_size = eval_size  # constant
+
+        self.cwd = cwd  # constant
+        self.agent_id = agent_id
+        self.show_gap = show_gap
+        self.eva_times = eval_times
 
         self.used_time = None
         self.start_time = time.time()
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-    def evaluate_and_save_checkpoint(self, env, act, device, step_sum, obj_a, obj_c):
-        is_saved = False
-        reward_list = [get_episode_return(env, act, device) for _ in range(self.eva_size)]
+    def evaluate_and_save(self, env, act, device, steps, obj_a, obj_c):
+        if_save = False
+        reward_list = [get_episode_return(env, act, device) for _ in range(self.eva_times)]
 
-        r_avg = np.average(reward_list)
+        r_avg = np.average(reward_list)  # episode return average
         if r_avg > self.r_max:  # check final
             self.r_max = r_avg
-            is_saved = True
+            if_save = True
+        r_std = float(np.std(reward_list))  # episode return std
 
-        r_std = float(np.std(reward_list))
-        self.total_step += step_sum
-        self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))
-        return is_saved
+        self.total_step += steps
+        self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
 
-    def evaluate(self, target_reward, agent_id, show_gap, _cwd):
-        total_step, r_avg, r_std, obj_a, obj_c = self.recorder[-1]
-
-        self.is_solved = bool(self.r_max > target_reward)
-        if self.is_solved and self.used_time is None:
+        target_reward = env.target_reward
+        if_solve = bool(self.r_max > target_reward)  # check if_solve
+        if if_solve and self.used_time is None:
             self.used_time = int(time.time() - self.start_time)
             print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
                   f"{'avgR':>8}  {'stdR':>8}   {'UsedTime':>8}  ########\n"
-                  f"{agent_id:<2}  {total_step:8.2e}  {target_reward:8.2f} |"
+                  f"{self.agent_id:<2}  {self.total_step:8.2e}  {target_reward:8.2f} |"
                   f"{r_avg:8.2f}  {r_std:8.2f}   {self.used_time:>8}  ########")
 
-        if time.time() - self.print_time > show_gap:
+        if time.time() - self.print_time > self.show_gap:
             self.print_time = time.time()
-            print(f"{agent_id:<2}  {total_step:8.2e}  {self.r_max:8.2f} |"
+            print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |"
                   f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f}")
-        return self.is_solved
 
-    def save_checkpoint(self, cwd, act, agent_id):
-        act_save_path = f'{cwd}/actor.pth'
-        torch.save(act.state_dict(), act_save_path)
-        print(f"{agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |")
+        if if_save:  # save checkpoint with highest episode return
+            act_save_path = f'{self.cwd}/actor.pth'
+            torch.save(act.state_dict(), act_save_path)
+            print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |")
+        return if_save
 
 
 def get_episode_return(env, act, device) -> float:
