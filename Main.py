@@ -77,7 +77,7 @@ def main():
 
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('Pendulum-v0'))
-    args.rl_agent = Agent.AgentPPO  # PPO+GAE (on-policy)
+    args.rl_agent = Agent.AgentGaePPO  # PPO+GAE (on-policy)
     args.net_dim = 2 ** 7
     args.max_step = 2 ** 10
     args.max_memo = (args.max_step - 1) * 4
@@ -89,7 +89,7 @@ def main():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    args.rl_agent = Agent.AgentPPO  # PPO+GAE (on-policy)
+    args.rl_agent = Agent.AgentGaePPO  # PPO+GAE (on-policy)
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
@@ -126,7 +126,7 @@ def train_and_evaluate(args):
     eval_times = args.eval_times
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
-    if_on_policy = rl_agent.__name__ in {'AgentA2C', 'AgentPPO'}
+    if_on_policy = rl_agent.__name__ in {'AgentPPO', 'AgentGaePPO'}
 
     '''init: env'''
     state_dim = env.state_dim
@@ -156,7 +156,7 @@ def train_and_evaluate(args):
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step += steps
 
-    '''build Evaluator'''
+    '''build Recorder'''
     evaluator = Evaluator(eval_times)
     with torch.no_grad():
         evaluator.evaluate_and_save_checkpoint(env_eval, agent.act, agent.device, steps, agent.obj_a, agent.obj_c)

@@ -247,10 +247,11 @@ class AgentTD3(AgentDDPG):
         self.obj_c = critic_obj.item()
 
 
-class AgentA2C(AgentBase):
+class AgentPPO(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
-        self.lambda_entropy = 0.001
+        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        self.lambda_entropy = 0.01  # could be 0.02
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -285,81 +286,11 @@ class AgentA2C(AgentBase):
                 state = next_state
         return step_counter
 
-    def update_policy_good(self, buffer, _max_step, batch_size, repeat_times=8):
-        buffer.update__now_len__before_sample()
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_adv = 0.98  # could be 0.95~0.99
-        self.lambda_entropy = 0.01  # could be 0.02
-
-        '''GAE: Generalized Advantage Estimation'''
-        with torch.no_grad():
-            max_memo = buffer.now_len
-            all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
-            all__new_v = list()
-            all_log_prob = list()
-
-            b_size = 2 ** 10
-            a_std_log__sqrt_2pi_log = self.act.a_std_log + self.act.sqrt_2pi_log
-            for i in range(0, all_state.size(0), b_size):
-                new_v = self.cri(all_state[i:i + b_size])
-                all__new_v.append(new_v)
-                log_prob = -(all_noise[i:i + b_size].pow(2) / 2 + a_std_log__sqrt_2pi_log).sum(1)
-                all_log_prob.append(log_prob)
-            all__new_v = torch.cat(all__new_v, dim=0)
-            all_log_prob = torch.cat(all_log_prob, dim=0)
-
-            '''get all__adv_v'''
-            all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
-            all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-            all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
-
-            prev_old_v = 0  # old q value
-            prev_new_v = 0  # new q value
-            prev_adv_v = 0  # advantage q value
-            for i in range(max_memo - 1, -1, -1):  # could be more elegant
-                all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
-                all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
-                all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * self.lambda_adv
-
-                prev_old_v = all__old_v[i]
-                prev_new_v = all__new_v[i]
-                prev_adv_v = all__adv_v[i]
-            all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # value norm
-
-        '''PPO: Clipped Surrogate objective of Trust Region'''
-        actor_obj = critic_obj = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):
-            indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
-
-            state = all_state[indices]
-            action = all_action[indices]
-            advantage = all__adv_v[indices]
-            old_value = all__old_v[indices].unsqueeze(1)
-            old_log_prob = all_log_prob[indices]
-
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
-            new_value = self.cri(state)
-            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
-
-            ratio = torch.exp(new_log_prob - old_log_prob)
-            actor_obj = -(advantage * ratio).mean()
-
-            united_obj = actor_obj + critic_obj
-            self.optimizer.zero_grad()
-            united_obj.backward()
-            self.optimizer.step()
-
-        self.obj_a = actor_obj.item()
-        self.obj_c = critic_obj.item()
-
     def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_adv = 0.98  # could be 0.95~0.99
-        self.lambda_entropy = 0.01  # could be 0.02
         max_memo = buffer.now_len
 
-        '''GAE: Generalized Advantage Estimation'''
+        '''Trajectory using reverse reward'''
         with torch.no_grad():
             all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
             all__new_v = list()
@@ -377,123 +308,55 @@ class AgentA2C(AgentBase):
 
             '''get all__adv_v'''
             all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-            all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
-
             prev_old_v = 0  # old q value
             for i in range(max_memo - 1, -1, -1):  # could be more elegant
                 all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
-                all__adv_v[i] = all_reward[i] - all__new_v[i]
                 prev_old_v = all__old_v[i]
-            all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # value norm
 
-        '''PPO: Clipped Surrogate objective of Trust Region'''
-        actor_obj = critic_obj = None
+            all__adv_v = all__old_v - (all_mask * all__new_v).squeeze(1)
+            all__adv_v = all__adv_v / (all__adv_v.std() + 1e-5)
+
+        '''PPO: Surrogate objective of Trust Region'''
+        obj_actor = obj_critic = None
         for _ in range(int(repeat_times * max_memo / batch_size)):
             indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
 
             state = all_state[indices]
             action = all_action[indices]
             advantage = all__adv_v[indices]
-            old_value = all__old_v[indices].unsqueeze(1)
+            old_value = all__old_v[indices]
             old_log_prob = all_log_prob[indices]
 
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
-            new_value = self.cri(state)
-            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
+            new_log_prob = self.act.compute__log_prob(state, action)  # it is obj_actor
+            ratio = (new_log_prob - old_log_prob).exp()
+            obj_surrogate1 = advantage * ratio
+            obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
+            obj_actor = -torch.min(obj_surrogate1, obj_surrogate2).mean()
 
-            ratio = torch.exp(new_log_prob - old_log_prob)
-            actor_obj = -(advantage * ratio).mean()
+            new_value = self.cri(state).squeeze(1)
+            obj_critic = self.criterion(new_value, old_value)
 
-            united_obj = actor_obj + critic_obj
+            obj_united = obj_actor + obj_critic / (old_value.std() + 1e-5)
             self.optimizer.zero_grad()
-            united_obj.backward()
+            obj_united.backward()
             self.optimizer.step()
 
-        self.obj_a = actor_obj.item()
-        self.obj_c = critic_obj.item()
+        self.obj_a = obj_actor.item()
+        self.obj_c = obj_critic.item()
 
 
-
-class AgentPPO(AgentA2C):
+class AgentGaePPO(AgentPPO):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_adv = 0.98  # could be 0.95~0.99
         self.lambda_entropy = 0.01  # could be 0.02
 
-    def update_policy0(self, buffer, _max_step, batch_size, repeat_times=8):
-        buffer.update__now_len__before_sample()
-        max_memo = buffer.now_len
-
-        '''GAE: Generalized Advantage Estimation'''
-        with torch.no_grad():
-            all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
-            all__new_v = list()
-            all_log_prob = list()
-
-            b_size = 2 ** 10
-            for i in range(0, all_state.size(0), b_size):
-                new_v = self.cri(all_state[i:i + b_size])
-                all__new_v.append(new_v)
-                log_prob = -(all_noise[i:i + b_size].pow(2).__mul__(0.5) +
-                             self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
-                all_log_prob.append(log_prob)
-            all__new_v = torch.cat(all__new_v, dim=0)
-            all_log_prob = torch.cat(all_log_prob, dim=0)
-
-            '''get all__adv_v'''
-            all__delta = torch.empty(max_memo, dtype=torch.float32, device=self.device)
-            all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-            all__adv_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
-
-            prev_old_v = 0  # old q value
-            prev_new_v = 0  # new q value
-            prev_adv_v = 0  # advantage q value
-            for i in range(max_memo - 1, -1, -1):  # could be more elegant
-                all__delta[i] = all_reward[i] + all_mask[i] * prev_new_v - all__new_v[i]
-                all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
-                all__adv_v[i] = all__delta[i] + all_mask[i] * prev_adv_v * self.lambda_adv
-
-                prev_old_v = all__old_v[i]
-                prev_new_v = all__new_v[i]
-                prev_adv_v = all__adv_v[i]
-            all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # value norm
-
-        '''PPO: Clipped Surrogate objective of Trust Region'''
-        actor_obj = critic_obj = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):
-            indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
-
-            state = all_state[indices]
-            action = all_action[indices]
-            advantage = all__adv_v[indices]
-            old_value = all__old_v[indices].unsqueeze(1)
-            old_log_prob = all_log_prob[indices]
-
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
-            new_value = self.cri(state)
-            critic_obj = (self.criterion(new_value, old_value)) / (old_value.std() + 1e-5)
-
-            ratio = (new_log_prob - old_log_prob).exp()
-            surrogate_obj0 = advantage * ratio  # surrogate objective of TRPO
-            surrogate_obj1 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
-            surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
-            loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
-            actor_obj = surrogate_obj + loss_entropy * self.lambda_entropy
-
-            united_obj = actor_obj + critic_obj
-            self.optimizer.zero_grad()
-            united_obj.backward()
-            self.optimizer.step()
-
-        self.obj_a = actor_obj.item()
-        self.obj_c = critic_obj.item()
-
     def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
-        '''GAE: Generalized Advantage Estimation'''
+        '''Trajectory using Generalized Advantage Estimation (GAE)'''
         with torch.no_grad():
             all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
             all__new_v = list()
@@ -517,13 +380,13 @@ class AgentPPO(AgentA2C):
             prev_gae_v = 0  # GAE q value
             for i in range(max_memo - 1, -1, -1):  # could be more elegant
                 all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
+                prev_old_v = all__old_v[i]
                 all__adv_v[i] = all_reward[i] + all_mask[i] * prev_gae_v - all__new_v[i]
                 prev_gae_v = all__new_v[i] + all__adv_v[i] * self.lambda_adv
-                prev_old_v = all__old_v[i]
-            all__adv_v = (all__adv_v - all__adv_v.mean()) / (all__adv_v.std() + 1e-5)  # value norm
+            all__adv_v = all__adv_v / (all__adv_v.std() + 1e-5)
 
         '''PPO: Clipped Surrogate objective of Trust Region'''
-        actor_obj = critic_obj = None
+        obj_actor = obj_critic = None
         for _ in range(int(repeat_times * max_memo / batch_size)):
             indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
 
@@ -533,24 +396,24 @@ class AgentPPO(AgentA2C):
             old_value = all__old_v[indices]
             old_log_prob = all_log_prob[indices]
 
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is actor_obj
-            new_value = self.cri(state).squeeze(1)
-            critic_obj = self.criterion(new_value, old_value) / (old_value.std() + 1e-5)
-
+            new_log_prob = self.act.compute__log_prob(state, action)
             ratio = (new_log_prob - old_log_prob).exp()
-            surrogate_obj0 = advantage * ratio  # surrogate objective of TRPO
-            surrogate_obj1 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
-            surrogate_obj = -torch.min(surrogate_obj0, surrogate_obj1).mean()
-            loss_entropy = (torch.exp(new_log_prob) * new_log_prob).mean()  # policy entropy
-            actor_obj = surrogate_obj + loss_entropy * self.lambda_entropy
+            obj_surrogate1 = advantage * ratio
+            obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
+            obj_surrogate = -torch.min(obj_surrogate1, obj_surrogate2).mean()
+            obj_entropy = (new_log_prob.exp() * new_log_prob).mean() * self.lambda_entropy  # policy entropy
+            obj_actor = obj_surrogate + obj_entropy
 
-            united_obj = actor_obj + critic_obj
+            new_value = self.cri(state).squeeze(1)
+            obj_critic = self.criterion(new_value, old_value)
+
+            obj_united = obj_actor + obj_critic / (old_value.std() + 1e-5)
             self.optimizer.zero_grad()
-            united_obj.backward()
+            obj_united.backward()
             self.optimizer.step()
 
-        self.obj_a = actor_obj.item()
-        self.obj_c = critic_obj.item()
+        self.obj_a = obj_actor.item()
+        self.obj_c = obj_critic.item()
 
 
 class AgentSAC(AgentBase):
