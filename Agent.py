@@ -293,18 +293,11 @@ class AgentPPO(AgentBase):
         '''Trajectory using reverse reward'''
         with torch.no_grad():
             all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
-            all__new_v = list()
-            all_log_prob = list()
 
             b_size = 2 ** 10
-            for i in range(0, all_state.size(0), b_size):
-                new_v = self.cri(all_state[i:i + b_size])
-                all__new_v.append(new_v)
-                log_prob = -(all_noise[i:i + b_size].pow(2).__mul__(0.5) +
-                             self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
-                all_log_prob.append(log_prob)
-            all__new_v = torch.cat(all__new_v, dim=0)
-            all_log_prob = torch.cat(all_log_prob, dim=0)
+            all__new_v = torch.cat([self.cri(all_state[i:i + b_size])
+                                    for i in range(0, all_state.size(0), b_size)], dim=0)
+            all_log_prob = -(all_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
             '''get all__adv_v'''
             all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
@@ -359,18 +352,11 @@ class AgentGaePPO(AgentPPO):
         '''Trajectory using Generalized Advantage Estimation (GAE)'''
         with torch.no_grad():
             all_reward, all_mask, all_state, all_action, all_noise = buffer.all_sample()
-            all__new_v = list()
-            all_log_prob = list()
 
             b_size = 2 ** 10
-            for i in range(0, all_state.size(0), b_size):
-                new_v = self.cri(all_state[i:i + b_size])
-                all__new_v.append(new_v)
-                log_prob = -(all_noise[i:i + b_size].pow(2).__mul__(0.5) +
-                             self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
-                all_log_prob.append(log_prob)
-            all__new_v = torch.cat(all__new_v, dim=0)
-            all_log_prob = torch.cat(all_log_prob, dim=0)
+            all__new_v = torch.cat([self.cri(all_state[i:i + b_size])
+                                    for i in range(0, all_state.size(0), b_size)], dim=0)
+            all_log_prob = -(all_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
             '''get all__adv_v'''
             all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
