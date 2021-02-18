@@ -109,7 +109,10 @@ The following steps:
 # Training pipeline
 
 + Initialize the hyper-parameters using `args`.
-+ <span style="color:red">Initialize `buffer=ReplayBuffer()` : store the transitions.</span>
-+ <span style="color:blue">Initialize `agent=AgentXXX()` : update neural network parameters.</span>
-+ <span style="color:green">Initialize `recorder=Recorder()` : evaluate and store the trained model.</span>
++ <span style="color:blue">Initialize `agent = AgentXXX()` : update neural network parameters.</span>
++ <span style="color:red">Initialize `buffer = ReplayBuffer()` : store the transitions.</span>
++ <span style="color:green">Initialize `evaluator = Evaluator()` : evaluate and store the trained model.</span>
 + Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
+  + <span style="color:red">`agent.update_buffer(...)`</span> The agent explores the environment within target steps, generates transition data, and stores it in the ReplayBuffer. Run in parallel.
+  + <span style="color:blue">`agent.update_policy(...)` </span> The agent uses a batch from the ReplayBuffer to update the network parameters. Run in parallel.
+  + <span style="color:green">`evaluator.update_recorder(...)`</span> Evaluate the performance of the agent and keep the model with the highest score. Independent of the training process.
