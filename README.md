@@ -101,9 +101,9 @@ It is **lightweight**.
 
 ### Use other DRL algorithms?
 The following steps:
-1. See `run__xxx()` in `AgentRun.py`.
+1. See `run__xxx()` in `Main.py`.
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
-3. Choose a DRL algorithm: `from AgentZoo import AgentXXX`.
+3. Choose a DRL algorithm: `from Agent import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
 
 # Training pipeline
