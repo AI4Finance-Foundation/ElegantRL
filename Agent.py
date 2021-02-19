@@ -12,16 +12,17 @@ class AgentDQN:
         self.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy
         self.action_dim = action_dim
 
+        self.obj_a = 0.0
+        self.obj_c = (-np.log(0.5)) ** 0.5
+        self.state = self.action = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.act = QNet(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
 
         self.criterion = torch.torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
-        self.obj_a = 0.0
-        self.obj_c = (-np.log(0.5)) ** 0.5
-        self.state = self.action = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def select_actions(self, states):  # for discrete action space
         if rd.rand() < self.explore_rate:  # epsilon-greedy

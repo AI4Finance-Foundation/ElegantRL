@@ -142,9 +142,7 @@ def train_and_evaluate(args):
         buffer = ReplayBufferGPU(max_memo, state_dim, action_dim=1 if if_discrete else action_dim)
         with torch.no_grad():  # update replay buffer
             steps = explore_before_train(env, buffer, max_step, reward_scale, gamma)
-        '''pre training and hard update before training loop'''
-        buffer.update__now_len__before_sample()
-        agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        agent.update_policy(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
 
@@ -164,7 +162,7 @@ def train_and_evaluate(args):
 '''utils'''
 
 
-def explore_before_train(env, buffer, target_step, reward_scale, gamma):  # version 2021-02-17
+def explore_before_train(env, buffer, target_step, reward_scale, gamma):
     # just for off-policy. Because on-policy don't explore before training.
     if_discrete = env.if_discrete
     action_dim = env.action_dim
@@ -189,33 +187,33 @@ def explore_before_train(env, buffer, target_step, reward_scale, gamma):  # vers
 class ReplayBufferBase:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.max_len = 0
+        self.max_len = None
         self.now_len = 0
         self.next_idx = 0
-        self.is_full = False
+        self.if_full = False
 
         self.all_state = None
         self.all_other = None
 
     def update__now_len__before_sample(self):
-        self.now_len = self.max_len if self.is_full else self.next_idx
+        self.now_len = self.max_len if self.if_full else self.next_idx
 
     def empty_memories__before_explore(self):
         self.next_idx = 0
         self.now_len = 0
-        self.is_full = False
+        self.if_full = False
 
 
 class ReplayBufferCPU(ReplayBufferBase):  # for on-policy
     def __init__(self, max_len, state_dim, action_dim):
         super().__init__()
-        if isinstance(state_dim, int):
-            self.all_state = np.empty((max_len, state_dim), dtype=np.float32)
-        else:  # isinstance(state_dim, list):
-            self.all_state = np.empty((max_len, *state_dim), dtype=np.int8)
+        self.max_len = max_len
+        self.is_full = True
+        self.action_dim = action_dim  # for self.sample_for_ppo(
 
         other_dim = 1 + 1 + action_dim * 2
         self.all_other = np.empty((max_len, other_dim), dtype=np.float32)
+        self.all_state = np.empty((max_len, state_dim), dtype=np.float32)
 
         self.action_dim = action_dim  # for self.sample_for_ppo(
 
@@ -240,13 +238,12 @@ class ReplayBufferCPU(ReplayBufferBase):  # for on-policy
 class ReplayBufferGPU(ReplayBufferBase):
     def __init__(self, max_len, state_dim, action_dim, if_on_policy=False):
         super().__init__()
-        if isinstance(state_dim, int):
-            self.all_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
-        else:  # isinstance(state_dim, list):
-            self.all_state = torch.empty((max_len, *state_dim), dtype=torch.int8, device=self.device)
+        self.max_len = max_len
+        self.if_full = False
 
         other_dim = 1 + 1 + action_dim * 2 if if_on_policy else 1 + 1 + action_dim
         self.all_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
+        self.all_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
 
     def append_memo(self, state, other):
         self.all_state[self.next_idx, :] = torch.as_tensor(state, device=self.device)
@@ -254,7 +251,7 @@ class ReplayBufferGPU(ReplayBufferBase):
 
         self.next_idx += 1
         if self.next_idx >= self.max_len:
-            self.is_full = True
+            self.if_full = True
             self.next_idx = 0
 
     def random_sample(self, batch_size):
