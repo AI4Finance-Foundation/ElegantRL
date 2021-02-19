@@ -74,14 +74,17 @@ def run__demo():
     # args.env = decorate_env(env=gym.make('Pendulum-v0'))
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
-
     args.agent_rl = Agent.AgentSAC  # off-policy
     train_and_evaluate(args)
     exit()
-    args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
-    args.agent_rl = Agent.AgentPPO  # on-policy
-    train_and_evaluate(args)
-    exit()
+
+    # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
+    # # args.env = decorate_env(env=gym.make('Pendulum-v0'))
+    # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
+    # # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
+    # args.agent_rl = Agent.AgentPPO  # on-policy
+    # train_and_evaluate(args)
+    # exit()
 
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     from Env import FinanceMultiStockEnv
