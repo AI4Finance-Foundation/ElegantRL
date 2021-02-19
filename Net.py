@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class QNet(nn.Module):
+class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -33,39 +33,6 @@ class QNetTwin(nn.Module):  # Double DQN
         q1 = self.net_q1(tmp)
         q2 = self.net_q2(tmp)
         return q1, q2  # twin q value
-
-
-class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
-    def __init__(self, mid_dim, state_dim, action_dim):
-        super().__init__()
-        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, 1))  # q1 value
-        self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, 1))  # q2 value
-        self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
-        self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
-
-    def forward(self, state):
-        t_tmp = self.net__state(state)
-        q_val = self.net_val1(t_tmp)
-        q_adv = self.net_adv1(t_tmp)
-        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # single dueling q value
-
-    def get__q1_q2(self, state):
-        tmp = self.net__state(state)
-
-        val1 = self.net_val1(tmp)
-        adv1 = self.net_adv1(tmp)
-        q1 = val1 + adv1 - adv1.mean(dim=1, keepdim=True)
-
-        val2 = self.net_val2(tmp)
-        adv2 = self.net_adv2(tmp)
-        q2 = val2 + adv2 - adv2.mean(dim=1, keepdim=True)
-        return q1, q2
 
 
 class Actor(nn.Module):  # DPG: Deterministic Policy Gradient
@@ -109,7 +76,7 @@ class ActorPPO(nn.Module):
     def compute__log_prob(self, state, action):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
-        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)
+        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)  # __mul__(0.5) is * 0.5
         log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)
         return log_prob.sum(1)
 
@@ -119,25 +86,25 @@ class ActorSAC(nn.Module):
         super().__init__()
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                         nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_action = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim))
+        self.net__a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                        nn.Linear(mid_dim, action_dim))  # the average of action
         self.net__a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim))
+                                        nn.Linear(mid_dim, action_dim))  # the log_std of action
         self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
         tmp = self.net__state(state)
-        return self.net_action(tmp).tanh()  # action
+        return self.net__a_avg(tmp).tanh()  # action
 
     def get_action(self, state):
         t_tmp = self.net__state(state)
-        a_avg = self.net_action(t_tmp)
+        a_avg = self.net__a_avg(t_tmp)
         a_std = self.net__a_std(t_tmp).clamp(-16, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get__action__log_prob(self, state):
         t_tmp = self.net__state(state)
-        a_avg = self.net_action(t_tmp)
+        a_avg = self.net__a_avg(t_tmp)
         a_std_log = self.net__a_std(t_tmp).clamp(-16, 2)
         a_std = a_std_log.exp()
 
