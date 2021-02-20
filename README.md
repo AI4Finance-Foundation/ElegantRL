@@ -115,4 +115,4 @@ The following steps:
 + Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
   + <span style="color:red">`agent.update_buffer(...)`</span> The agent explores the environment within target steps, generates transition data, and stores it in the ReplayBuffer. Run in parallel.
   + <span style="color:blue">`agent.update_policy(...)` </span> The agent uses a batch from the ReplayBuffer to update the network parameters. Run in parallel.
-  + <span style="color:green">`evaluator.update_recorder(...)`</span> Evaluate the performance of the agent and keep the model with the highest score. Independent of the training process.
+  + <span style="color:green">`evaluator.evaluate_and_save(...)`</span> Evaluate the performance of the agent and keep the model with the highest score. Independent of the training process.
