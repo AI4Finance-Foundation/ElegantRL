@@ -109,7 +109,7 @@ The following steps:
 # Training pipeline
 
 + Initialize the hyper-parameters using `args`.
-+ <span style="color:blue">Initialize `agent = AgentXXX()` : update neural network parameters.</span>
++ <span style="color:blue">Initialize `agent = AgentXXX()` : create the DRL agent based on the algorithm.</span>
 + <span style="color:red">Initialize `buffer = ReplayBuffer()` : store the transitions.</span>
 + <span style="color:green">Initialize `evaluator = Evaluator()` : evaluate and store the trained model.</span>
 + Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
