@@ -23,7 +23,6 @@ class AgentDQN:
         self.criterion = torch.torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
-
     def select_actions(self, states):  # for discrete action space
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_int = rd.randint(self.action_dim, size=(len(states),))  # choosing action randomly
@@ -220,7 +219,6 @@ class AgentPPO(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_entropy = 0.01  # could be 0.02
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -261,42 +259,41 @@ class AgentPPO(AgentBase):
         max_memo = buffer.now_len
 
         with torch.no_grad():  # Trajectory using reverse reward
-            all_reward, all_mask, all_action, all_noise, all_state = buffer.sample_for_ppo()
+            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_for_ppo()
 
-            b_size = 2 ** 10
-            all__new_v = [self.cri(all_state[i:i + b_size]) for i in range(0, all_state.size(0), b_size)]
-            all__new_v = torch.cat(all__new_v, dim=0)
-            all_log_prob = -(all_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
+            bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
+            buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
+            buf_log_prob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            all__old_v = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-            prev_old_v = 0  # old q value
-            for i in range(max_memo - 1, -1, -1):  # could be more elegant
-                all__old_v[i] = all_reward[i] + all_mask[i] * prev_old_v
-                prev_old_v = all__old_v[i]
-            all__adv_v = all__old_v - (all_mask * all__new_v).squeeze(1)
-            all__adv_v = all__adv_v / (all__adv_v.std() + 1e-5)
+            buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+            pre_r_sum = 0  # reward sum of previous step
+            for i in range(max_memo - 1, -1, -1):
+                buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
+                pre_r_sum = buf_r_sum[i]
+            buf_advantage = buf_r_sum - (buf_mask * buf_value).squeeze(1)
+            buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
 
-            del all_reward, all_mask, all_noise
+            del buf_reward, buf_mask, buf_noise
 
         obj_actor = obj_critic = None
         for _ in range(int(repeat_times * max_memo / batch_size)):  # PPO: Surrogate objective of Trust Region
             indices = torch.randint(max_memo, size=(batch_size,), requires_grad=False, device=self.device)
-            state = all_state[indices]
-            action = all_action[indices]
-            advantage = all__adv_v[indices]
-            old_value = all__old_v[indices]
-            old_log_prob = all_log_prob[indices]
+            state = buf_state[indices]
+            action = buf_action[indices]
+            r_sum = buf_r_sum[indices]
+            log_prob = buf_log_prob[indices]
+            advantage = buf_advantage[indices]
 
             new_log_prob = self.act.compute__log_prob(state, action)  # it is obj_actor
-            ratio = (new_log_prob - old_log_prob).exp()
+            ratio = (new_log_prob - log_prob).exp()
             obj_surrogate1 = advantage * ratio
             obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
             obj_actor = -torch.min(obj_surrogate1, obj_surrogate2).mean()
 
-            new_value = self.cri(state).squeeze(1)
-            obj_critic = self.criterion(new_value, old_value)
+            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum value of state
+            obj_critic = self.criterion(value, r_sum)
 
-            obj_united = obj_actor + obj_critic / (old_value.std() + 1e-5)
+            obj_united = obj_actor + obj_critic / (r_sum.std() + 1e-5)
             self.optimizer.zero_grad()
             obj_united.backward()
             self.optimizer.step()
@@ -362,4 +359,3 @@ class AgentSAC(AgentBase):
 def soft_target_update(target, current, tau=5e-3):
     for target_param, param in zip(target.parameters(), current.parameters()):
         target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
-
