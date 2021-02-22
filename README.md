@@ -30,11 +30,13 @@ For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup
 More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 # File Structure
-    -----file----
-    Net.py   # Neural networks.
-    Agent.py # Model-free RL algorithms.
-    Env.py   # gym env or custom env (MultiStockEnv Finance)
-    Main.py  # run and learn the DEMO 1 ~ 3 in Main.py
+    -----kernel file----
+    AgentNet.py  # Neural networks.
+    AgentZoo.py  # Model-free RL algorithms.
+    AgentRun.py  # run and learn the DEMO 1 ~ 3 in run__demo()
+    -----utils file----
+    AgentEnv.py               # gym env or custom env (MultiStockEnv Finance)
+    ElegantRL-examples.ipynb  # run and learn the DEMO 1 ~ 3 in jupyter notebook
 
 # Experimental results
 
