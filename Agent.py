@@ -265,7 +265,11 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_log_prob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
+<<<<<<< HEAD
             buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
+=======
+            buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
+>>>>>>> 19e6346769ffd3ec2ae636434913fa4d958b2052
             pre_r_sum = 0  # reward sum of previous step
             for i in range(max_memo - 1, -1, -1):
                 buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
@@ -290,7 +294,11 @@ class AgentPPO(AgentBase):
             obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
             obj_actor = -torch.min(obj_surrogate1, obj_surrogate2).mean()
 
+<<<<<<< HEAD
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum value of state
+=======
+            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+>>>>>>> 19e6346769ffd3ec2ae636434913fa4d958b2052
             obj_critic = self.criterion(value, r_sum)
 
             obj_united = obj_actor + obj_critic / (r_sum.std() + 1e-5)
