@@ -2,9 +2,9 @@ from copy import deepcopy
 import torch
 import numpy as np
 import numpy.random as rd
-from Net import QNet, QNetTwin
-from Net import Actor, ActorSAC, ActorPPO
-from Net import Critic, CriticAdv, CriticTwin
+from AgentNet import QNet, QNetTwin
+from AgentNet import Actor, ActorSAC, ActorPPO
+from AgentNet import Critic, CriticAdv, CriticTwin
 
 
 class AgentDQN:
@@ -12,9 +12,7 @@ class AgentDQN:
         self.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy
         self.action_dim = action_dim
 
-        self.obj_a = 0.0
-        self.obj_c = (-np.log(0.5)) ** 0.5
-        self.state = self.action = None
+        self.state = None  # set for self.update_buffer(), initialize self.state before training
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.act = QNet(net_dim, state_dim, action_dim).to(self.device)
@@ -58,8 +56,7 @@ class AgentDQN:
             obj_critic.backward()
             self.optimizer.step()
             soft_target_update(self.act_target, self.act, tau=5e-3)
-        self.obj_a = next_q.mean().item()
-        self.obj_c = obj_critic.item()
+        return next_q.mean().item(), obj_critic.item()  #
 
 
 class AgentDoubleDQN(AgentDQN):
@@ -72,7 +69,7 @@ class AgentDoubleDQN(AgentDQN):
         self.act = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
 
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.SmoothL1Loss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
     def select_actions(self, states):  # for discrete action space
@@ -102,16 +99,12 @@ class AgentDoubleDQN(AgentDQN):
             obj_critic.backward()
             self.optimizer.step()
             soft_target_update(self.act_target, self.act)
-
-        self.obj_a = next_q.mean().item()
-        self.obj_c = obj_critic.item() / 2
+        return next_q.mean().item(), obj_critic.item() / 2
 
 
 class AgentBase:
     def __init__(self):
-        self.obj_a = 0.0
-        self.obj_c = (-np.log(0.5)) ** 0.5
-        self.state = self.action = None
+        self.state = None  # set for self.update_buffer(), initialize self.state before training
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def select_actions(self, states):  # states = (state, ...)
@@ -168,9 +161,7 @@ class AgentDDPG(AgentBase):
 
             soft_target_update(self.cri_target, self.cri)
             soft_target_update(self.act_target, self.act)
-
-        self.obj_a = obj_actor.item()
-        self.obj_c = obj_critic.item()
+        return obj_actor.item(), obj_critic.item()
 
 
 class AgentTD3(AgentDDPG):
@@ -210,9 +201,7 @@ class AgentTD3(AgentDDPG):
             if i % self.update_freq == 0:  # delay update
                 soft_target_update(self.cri_target, self.cri)
                 soft_target_update(self.act_target, self.act)
-
-        self.obj_a = obj_actor.item()
-        self.obj_c = obj_critic.item()
+        return obj_actor.item(), obj_critic.item() / 2
 
 
 class AgentPPO(AgentBase):
@@ -265,11 +254,7 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_log_prob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-<<<<<<< HEAD
-            buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-=======
             buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
->>>>>>> 19e6346769ffd3ec2ae636434913fa4d958b2052
             pre_r_sum = 0  # reward sum of previous step
             for i in range(max_memo - 1, -1, -1):
                 buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
@@ -294,11 +279,7 @@ class AgentPPO(AgentBase):
             obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
             obj_actor = -torch.min(obj_surrogate1, obj_surrogate2).mean()
 
-<<<<<<< HEAD
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum value of state
-=======
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
->>>>>>> 19e6346769ffd3ec2ae636434913fa4d958b2052
             obj_critic = self.criterion(value, r_sum)
 
             obj_united = obj_actor + obj_critic / (r_sum.std() + 1e-5)
@@ -306,8 +287,7 @@ class AgentPPO(AgentBase):
             obj_united.backward()
             self.optimizer.step()
 
-        self.obj_a = obj_actor.item()
-        self.obj_c = obj_critic.item()
+        return obj_actor.item(), obj_critic.item()
 
 
 class AgentSAC(AgentBase):
@@ -359,9 +339,7 @@ class AgentSAC(AgentBase):
 
             soft_target_update(self.cri_target, self.cri)
             soft_target_update(self.act_target, self.act)
-
-        self.obj_a = obj_actor.item()
-        self.obj_c = obj_critic.item()
+        return obj_actor.item(), obj_critic.item()
 
 
 def soft_target_update(target, current, tau=5e-3):
