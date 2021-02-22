@@ -64,8 +64,8 @@ For example, in the following two figures.
 BasicAC is an improved DDPG. SAC and DeepSAC are more stable.
 
 <p float="left">
-  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
-  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/Result/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
+  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
+  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
 </p>
 
 In the above two figures. 
