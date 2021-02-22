@@ -53,31 +53,8 @@ Results using ElegantRL
 
 
 BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward.
+
 Check out our video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
-
-For example, in the following two figures.
-
-+ The first is a luck result of BasicAC: `plot_0072E_22405T_701s.png`.
-+ The second is a slow result of BasicAC: `plot_0249E_159736T_1867s.png`. 
-+ The name of the log figure is `plot_<Episode>_<TotalStep>_<UsedTimeInSecond>.png` when agent reaches the default target reward.
-
-BasicAC is an improved DDPG. SAC and DeepSAC are more stable.
-
-<p float="left">
-  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BasicAC_LunarLanderContinuous-v2_luck/plot_0072E_22405T_701s.png" width="400" />
-  <img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BasicAC_LunarLanderContinuous-v2_unluck/plot_0249E_159736T_1867s.png" width="400" /> 
-</p>
-
-In the above two figures. 
-+ Blue curve: Total reward (with exploration noise)
-+ Red curve: Total reward (without exploration noise, mean and std)
-+ Grey area: The step of one episode while exploring.
-+ Green curve: 'loss' value of actor (mean of Q value estimate)
-+ Green area: loss value of critic
-
-InterSAC trains 1e5s (28hours) in 2.6e6 steps, and get 310 reward, which is quite fast and good.
-![InterSAC_BipedalWalkerHardcore](https://github.com/Yonv1943/ElegantRL/blob/master/Result/InterSAC_BipedalWalkerHardcore-v3_310/plot_Step_Time_2665512_102194.png)
-
 
 # Requirements
 
