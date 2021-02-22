@@ -35,7 +35,7 @@ More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorit
     AgentZoo.py  # Model-free RL algorithms.
     AgentRun.py  # run and learn the DEMO 1 ~ 3 in run__demo()
     -----utils file----
-    AgentEnv.py               # gym env or custom env (MultiStockEnv Finance)
+    AgentEnv.py  # gym env or custom env (MultiStockEnv Finance)
     ElegantRL-examples.ipynb  # run and learn the DEMO 1 ~ 3 in jupyter notebook
 
 # Experimental results
