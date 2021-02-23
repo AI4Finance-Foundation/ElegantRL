@@ -15,6 +15,9 @@ def decorate_env(env, data_type=np.float32, if_print=True):
     else:
         action_max = 1
 
+    '''state_norm is useful but non-necessary'''
+
+    '''decorator_step'''
     if action_max != 1:
         def decorator_step(env_step):
             def new_env_step(action):
@@ -31,6 +34,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
             return new_env_step
     env.step = decorator_step(env.step)
 
+    '''decorator_reset'''
     def decorator_reset(env_reset):
         def new_env_reset():
             state = env_reset()
