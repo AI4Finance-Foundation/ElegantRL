@@ -18,7 +18,7 @@ class AgentDQN:
         self.act = QNet(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
 
-        self.criterion = torch.torch.nn.MSELoss()
+        self.criterion = torch.torch.nn.SmoothL1Loss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
 
     def select_actions(self, states):  # for discrete action space
@@ -130,7 +130,7 @@ class AgentDDPG(AgentBase):
         self.cri = Critic(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
 
-        self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.SmoothL1Loss()
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
 
@@ -208,6 +208,7 @@ class AgentPPO(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        self.lambda_entropy = 0.01  # larger lambda_entropy means more exploration
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -277,7 +278,9 @@ class AgentPPO(AgentBase):
             ratio = (new_log_prob - log_prob).exp()
             obj_surrogate1 = advantage * ratio
             obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
-            obj_actor = -torch.min(obj_surrogate1, obj_surrogate2).mean()
+            obj_surrogate = -torch.min(obj_surrogate1, obj_surrogate2).mean()
+            obj_entropy = (new_log_prob.exp() * new_log_prob).mean()  # policy entropy
+            obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum)
@@ -299,12 +302,12 @@ class AgentSAC(AgentBase):
 
         self.act = ActorSAC(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
-        self.cri = CriticTwin(net_dim, state_dim, action_dim, ).to(self.device)
+        self.cri = CriticTwin(int(net_dim * 1.25), state_dim, action_dim, ).to(self.device)
         self.cri_target = deepcopy(self.cri)
 
-        self.criterion = torch.nn.MSELoss()
-        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
-                                           {'params': self.cri.parameters(), 'lr': learning_rate},
+        self.criterion = torch.nn.SmoothL1Loss()
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate * 0.75},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate * 1.25},
                                            {'params': (self.alpha_log,), 'lr': learning_rate}])
 
     def select_actions(self, states):  # states = (state, ...)
@@ -330,6 +333,8 @@ class AgentSAC(AgentBase):
             obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
 
             alpha = self.alpha_log.exp().detach()
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
             obj_actor = -(torch.min(*self.cri_target.get__q1_q2(state, action_pg)) + log_prob * alpha).mean()
 
             obj_united = obj_critic + obj_alpha + obj_actor
@@ -339,7 +344,8 @@ class AgentSAC(AgentBase):
 
             soft_target_update(self.cri_target, self.cri)
             soft_target_update(self.act_target, self.act)
-        return obj_actor.item(), obj_critic.item()
+        # return obj_actor.item(), obj_critic.item()
+        return alpha.item(), obj_critic.item()
 
 
 def soft_target_update(target, current, tau=5e-3):
