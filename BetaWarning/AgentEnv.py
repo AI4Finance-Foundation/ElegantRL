@@ -16,34 +16,107 @@ def decorate_env(env, data_type=np.float32, if_print=True):
         action_max = 1
 
     '''state_norm is useful but non-necessary'''
+    state_avg, state_std = special_rule(env.env_name)
+    if state_avg is None:
+        neg_state_avg = 0
+        div_state_std = 1
+    else:
+        state_avg = state_avg.astype(np.float32)
+        state_std = state_std.astype(np.float32)
+        neg_state_avg = -state_avg
+        div_state_std = 1 / (state_std + 1e-4)
+    setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() AgentZoo.py
+    setattr(env, 'div_state_std', div_state_std)  # for def print_norm() AgentZoo.py
 
-    '''decorator_step'''
-    if action_max != 1:
-        def decorator_step(env_step):
+    def decorator_step(env_step):
+        if neg_state_avg is not None and action_max != 1:
+            def new_env_step(action):
+                state, reward, done, info = env_step(action * action_max)
+                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
+        elif neg_state_avg is not None:
+            def new_env_step(action):
+                state, reward, done, info = env_step(action)
+                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
+        else:
             def new_env_step(action):
                 state, reward, done, info = env_step(action * action_max)
                 return state.astype(data_type), reward, done, info
+        return new_env_step
 
-            return new_env_step
-    else:
-        def decorator_step(env_step):
-            def new_env_step(action):
-                state, reward, done, info = env_step(action)
-                return state.astype(data_type), reward, done, info
-
-            return new_env_step
     env.step = decorator_step(env.step)
 
-    '''decorator_reset'''
     def decorator_reset(env_reset):
-        def new_env_reset():
-            state = env_reset()
-            return state.astype(data_type)
-
+        if neg_state_avg is not None:
+            def new_env_reset():
+                state = env_reset()
+                return state.astype(data_type) + neg_state_avg
+        else:
+            def new_env_reset():
+                state = env_reset()
+                return state.astype(data_type)
         return new_env_reset
 
     env.reset = decorator_reset(env.reset)
     return env
+
+
+def special_rule(env_name):
+    avg = None
+    std = None
+    if env_name == 'LunarLanderContinuous-v2':
+        avg = np.array([1.65470898e-02, -1.29684399e-01, 4.26883133e-03, -3.42124557e-02,
+                        -7.39076972e-03, -7.67103031e-04, 1.12640885e+00, 1.12409466e+00])
+        std = np.array([0.15094465, 0.29366297, 0.23490797, 0.25931464, 0.21603736,
+                        0.25886878, 0.277233, 0.27771219])
+    elif env_name == "BipedalWalker-v3":
+        avg = np.array([1.42211734e-01, -2.74547996e-03, 1.65104509e-01, -1.33418152e-02,
+                        -2.43243194e-01, -1.73886203e-02, 4.24114229e-02, -6.57800099e-02,
+                        4.53460692e-01, 6.08022244e-01, -8.64884810e-04, -2.08789053e-01,
+                        -2.92092949e-02, 5.04791247e-01, 3.33571745e-01, 3.37325723e-01,
+                        3.49106580e-01, 3.70363115e-01, 4.04074671e-01, 4.55838055e-01,
+                        5.36685407e-01, 6.70771701e-01, 8.80356865e-01, 9.97987386e-01])
+        std = np.array([0.84419678, 0.06317835, 0.16532085, 0.09356959, 0.486594,
+                        0.55477525, 0.44076614, 0.85030824, 0.29159821, 0.48093035,
+                        0.50323634, 0.48110776, 0.69684234, 0.29161077, 0.06962932,
+                        0.0705558, 0.07322677, 0.07793258, 0.08624322, 0.09846895,
+                        0.11752805, 0.14116005, 0.13839757, 0.07760469])
+    elif env_name == 'AntBulletEnv-v0':
+        avg = np.array([
+            0.4838, -0.047, 0.3500, 1.3028, -0.249, 0.0000, -0.281, 0.0573,
+            -0.261, 0.0000, 0.0424, 0.0000, 0.2278, 0.0000, -0.072, 0.0000,
+            0.0000, 0.0000, -0.175, 0.0000, -0.319, 0.0000, 0.1387, 0.0000,
+            0.1949, 0.0000, -0.136, -0.060])
+        std = np.array([
+            0.0601, 0.2267, 0.0838, 0.2680, 0.1161, 0.0757, 0.1495, 0.1235,
+            0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
+            0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
+            0.4858, 0.4227, 0.4428, 0.4831])
+    # elif env_name == 'MinitaurBulletEnv-v0': # need check
+    #     # avg = np.array([0.90172989, 1.54730119, 1.24560906, 1.97365306, 1.9413892,
+    #     #                 1.03866835, 1.69646277, 1.18655352, -0.45842347, 0.17845232,
+    #     #                 0.38784456, 0.58572877, 0.91414561, -0.45410697, 0.7591031,
+    #     #                 -0.07008998, 3.43842258, 0.61032482, 0.86689961, -0.33910894,
+    #     #                 0.47030415, 4.5623528, -2.39108079, 3.03559422, -0.36328256,
+    #     #                 -0.20753499, -0.47758384, 0.86756409])
+    #     # std = np.array([0.34192648, 0.51169916, 0.39370621, 0.55568461, 0.46910769,
+    #     #                 0.28387504, 0.51807949, 0.37723445, 13.16686185, 17.51240024,
+    #     #                 14.80264211, 16.60461412, 15.72930229, 11.38926597, 15.40598346,
+    #     #                 13.03124941, 2.47718145, 2.55088804, 2.35964651, 2.51025567,
+    #     #                 2.66379017, 2.37224904, 2.55892521, 2.41716885, 0.07529733,
+    #     #                 0.05903034, 0.1314812, 0.0221248])
+    # elif env_name == "BipedalWalkerHardcore-v3": # need check
+    #     avg = np.array([-3.6378160e-02, -2.5788052e-03, 3.4413573e-01, -8.4189959e-03,
+    #                     -9.1864385e-02, 3.2804706e-04, -6.4693891e-02, -9.8939031e-02,
+    #                     3.5180664e-01, 6.8103075e-01, 2.2930240e-03, -4.5893672e-01,
+    #                     -7.6047562e-02, 4.6414185e-01, 3.9363885e-01, 3.9603019e-01,
+    #                     4.0758255e-01, 4.3053803e-01, 4.6186063e-01, 5.0293463e-01,
+    #                     5.7822973e-01, 6.9820738e-01, 8.9829963e-01, 9.8080903e-01])
+    #     std = np.array([0.5771428, 0.05302362, 0.18906464, 0.10137994, 0.41284004,
+    #                     0.68852615, 0.43710527, 0.87153363, 0.3210142, 0.36864948,
+    #                     0.6926624, 0.38297284, 0.76805115, 0.33138904, 0.09618598,
+    #                     0.09843876, 0.10035378, 0.11045089, 0.11910835, 0.13400233,
+    #                     0.15718603, 0.17106676, 0.14363566, 0.10100251])
+    return avg, std
 
 
 def get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):

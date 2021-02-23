@@ -180,10 +180,10 @@ def train_and_evaluate__multiprocessing(args):
 
     import multiprocessing as mp  # Python built-in multiprocessing library
 
-    pipe1_eva, pipe2_eva = mp.Pipe(duplex=True)
+    pipe1_eva, pipe2_eva = mp.Pipe()
     process = [
-        mp.Process(target=_mp__update_params, args=(args, pipe1_eva)),
-        mp.Process(target=_mp_evaluate_agent, args=(args, pipe1_eva)),
+        mp.Process(target=mp__update_params, args=(args, pipe1_eva)),
+        mp.Process(target=mp_evaluate_agent, args=(args, pipe2_eva)),
     ]
 
     [p.start() for p in process]
@@ -191,7 +191,7 @@ def train_and_evaluate__multiprocessing(args):
     print('\n')
 
 
-def _mp__update_params(args, pipe1_eva):
+def mp__update_params(args, pipe1_eva):
     agent_rl = args.agent_rl  # basic arguments
     env = args.env
     cwd = args.cwd
@@ -233,6 +233,7 @@ def _mp__update_params(args, pipe1_eva):
         agent.update_policy(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
+    pipe1_eva.send((act_cpu, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
 
     if_solve = False
     while not ((if_break_early and if_solve)
@@ -259,9 +260,8 @@ def _mp__update_params(args, pipe1_eva):
     # print('; quit: params')
 
 
-def _mp_evaluate_agent(args, pipe2_eva):
+def mp_evaluate_agent(args, pipe2_eva):
     env = args.env
-
     cwd = args.cwd
     agent_id = args.gpu_id
     show_gap = args.show_gap  # evaluate arguments
@@ -276,7 +276,7 @@ def _mp_evaluate_agent(args, pipe2_eva):
                           eval_times=eval_times, show_gap=show_gap)  # build Evaluator
 
     with torch.no_grad():  # speed up running
-        act, steps, obj_a, obj_c = pipe2_eva.recv()
+        act, steps, obj_a, obj_c = pipe2_eva.recv()  # pipe2_eva (act, steps, obj_a, obj_c)
 
         if_loop = True
         while if_loop:
