@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class QNet(nn.Module):
+class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -12,6 +12,23 @@ class QNet(nn.Module):
 
     def forward(self, state):
         return self.net(state)  # q value
+
+
+class QNetDuel(nn.Module):  # Dueling DQN
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
+        self.net_val = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                     nn.Linear(mid_dim, 1))  # q value
+        self.net_adv = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                     nn.Linear(mid_dim, action_dim))  # advantage function value 1
+
+    def forward(self, state):
+        t_tmp = self.net__state(state)
+        q_val = self.net_val(t_tmp)
+        q_adv = self.net_adv(t_tmp)
+        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # dueling q value
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -109,7 +126,7 @@ class ActorPPO(nn.Module):
     def compute__log_prob(self, state, action):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
-        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)
+        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)  # __mul__(0.5) is * 0.5
         log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)
         return log_prob.sum(1)
 
@@ -119,25 +136,25 @@ class ActorSAC(nn.Module):
         super().__init__()
         self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                         nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_action = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim))
+        self.net__a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                        nn.Linear(mid_dim, action_dim))  # the average of action
         self.net__a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim))
+                                        nn.Linear(mid_dim, action_dim))  # the log_std of action
         self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
         tmp = self.net__state(state)
-        return self.net_action(tmp).tanh()  # action
+        return self.net__a_avg(tmp).tanh()  # action
 
     def get_action(self, state):
         t_tmp = self.net__state(state)
-        a_avg = self.net_action(t_tmp)
+        a_avg = self.net__a_avg(t_tmp)
         a_std = self.net__a_std(t_tmp).clamp(-16, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get__action__log_prob(self, state):
         t_tmp = self.net__state(state)
-        a_avg = self.net_action(t_tmp)
+        a_avg = self.net__a_avg(t_tmp)
         a_std_log = self.net__a_std(t_tmp).clamp(-16, 2)
         a_std = a_std_log.exp()
 
