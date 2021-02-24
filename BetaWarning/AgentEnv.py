@@ -16,7 +16,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
         action_max = 1
 
     '''state_norm is useful but non-necessary'''
-    state_avg, state_std = special_rule(env.env_name)
+    state_avg, state_std = get_avg_std__for_state_norm(env.env_name)
     if state_avg is None:
         neg_state_avg = 0
         div_state_std = 1
@@ -60,7 +60,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
     return env
 
 
-def special_rule(env_name):
+def get_avg_std__for_state_norm(env_name):
     avg = None
     std = None
     if env_name == 'LunarLanderContinuous-v2':
@@ -150,6 +150,9 @@ def get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
         print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
             state_dim, action_dim, action_max, target_reward))
     return env_name, state_dim, action_dim, action_max, if_discrete, target_reward
+
+
+"""Custom environment: Finance RL, Github AI4Finance-LLC"""
 
 
 class FinanceMultiStockEnv:  # 2021-02-02
@@ -303,3 +306,109 @@ class FinanceMultiStockEnv:  # 2021-02-02
         # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
         # print('| FinanceMultiStockEnv(): save in:', npy_path)
         # return data_ary
+
+
+"""Custom environment: Fix Env CarRacing-v0 - Box2D"""
+
+
+def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
+    setattr(env, 'old_step', env.step)  # env.old_step = env.step
+    setattr(env, 'env_name', 'CarRacing-Fix')
+    setattr(env, 'state_dim', (frame_num, 96, 96))
+    setattr(env, 'action_dim', 3)
+    setattr(env, 'if_discrete', False)
+    setattr(env, 'target_reward', 700)  # 900 in default
+
+    setattr(env, 'state_stack', None)  # env.state_stack = None
+    setattr(env, 'avg_reward', 0)  # env.avg_reward = 0
+    """ cancel the print() in environment
+    comment 'car_racing.py' line 233-234: print('Track generation ...
+    comment 'car_racing.py' line 308-309: print("retry to generate track ...
+    """
+
+    def rgb2gray(rgb):
+        # # rgb image -> gray [0, 1]
+        # gray = np.dot(rgb[..., :], [0.299, 0.587, 0.114]).astype(np.float32)
+        # if norm:
+        #     # normalize
+        #     gray = gray / 128. - 1.
+        # return gray
+
+        state = rgb[:, :, 1]  # show green
+        state[86:, 24:36] = rgb[86:, 24:36, 2]  # show red
+        state[86:, 72:] = rgb[86:, 72:, 0]  # show blue
+        state = (state - 128).astype(np.float32) / 128.
+        return state
+
+    def decorator_step(env_step):
+        def new_env_step(action):
+            action = action.copy()
+            action[1:] = (action[1:] + 1) / 2  # fix action_space.low
+
+            reward_sum = 0
+            done = state = None
+            try:
+                for _ in range(action_num):
+                    state, reward, done, info = env_step(action)
+                    state = rgb2gray(state)
+
+                    if done:
+                        reward += 100  # don't penalize "die state"
+                    if state.mean() > 192:  # 185.0:  # penalize when outside of road
+                        reward -= 0.05
+
+                    env.avg_reward = env.avg_reward * 0.95 + reward * 0.05
+                    if env.avg_reward <= -0.1:  # done if car don't move
+                        done = True
+
+                    reward_sum += reward
+
+                    if done:
+                        break
+            except Exception as error:
+                print(f"| CarRacing-v0 Error 'stack underflow'? {error}")
+                reward_sum = 0
+                done = True
+            env.state_stack.pop(0)
+            env.state_stack.append(state)
+
+            return np.array(env.state_stack).flatten(), reward_sum, done, {}
+
+        return new_env_step
+
+    env.step = decorator_step(env.step)
+
+    def decorator_reset(env_reset):
+        def new_env_reset():
+            state = rgb2gray(env_reset())
+            env.state_stack = [state, ] * frame_num
+            return np.array(env.state_stack).flatten()
+
+        return new_env_reset
+
+    env.reset = decorator_reset(env.reset)
+    return env
+
+
+def render__car_racing():
+    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    env = gym.make('CarRacing-v0')
+    env = fix_car_racing_env(env)
+
+    state_dim = env.state_dim
+
+    _state = env.reset()
+    import cv2
+    action = np.array((0, 1.0, -1.0))
+    for i in range(321):
+        # action = env.action_space.sample()
+        state, reward, done, _ = env.step(action)
+        # env.render
+        show = state.reshape(state_dim)
+        show = ((show[0] + 1.0) * 128).astype(np.uint8)
+        cv2.imshow('', show)
+        cv2.waitKey(1)
+        if done:
+            break
+        # env.render()
