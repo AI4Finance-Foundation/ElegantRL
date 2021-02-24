@@ -521,7 +521,7 @@ def train_and_evaluate(args):
         obj_a, obj_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
-            if_solve = evaluator.evaluate_act_and_save_checkpoint(agent.act, steps, obj_a, obj_c)
+            if_solve = evaluator.evaluate_act__save_checkpoint(agent.act, steps, obj_a, obj_c)
 
 
 '''multiprocessing training'''
@@ -674,7 +674,7 @@ def mp_evaluate_agent(args, pipe2_eva):
                     break
                 act, steps, obj_a, obj_c = q_i_eva_get
                 steps_sum += steps
-            if_solve = evaluator.evaluate_act_and_save_checkpoint(act, steps_sum, obj_a, obj_c)
+            if_solve = evaluator.evaluate_act__save_checkpoint(act, steps_sum, obj_a, obj_c)
             pipe2_eva.send(if_solve)
 
             evaluator.save_npy__draw_plot()
@@ -702,6 +702,7 @@ class Evaluator:
         self.recorder = [(0., -np.inf, 0., 0., 0.), ]  # total_step, r_avg, r_std, obj_a, obj_c
         self.r_max = -np.inf
         self.total_step = 0
+        self.save_path = ''
 
         self.cwd = cwd  # constant
         self.device = device
@@ -722,7 +723,7 @@ class Evaluator:
         # plt.style.use('ggplot')
         self.plt = plt
 
-    def evaluate_act_and_save_checkpoint(self, act, steps, obj_a, obj_c):
+    def evaluate_act__save_checkpoint(self, act, steps, obj_a, obj_c):
         reward_list = [_get_episode_return(self.env, act, self.device) for _ in range(self.eva_times)]
         r_avg = np.average(reward_list)  # episode return average
         r_std = float(np.std(reward_list))  # episode return std
@@ -794,10 +795,13 @@ class Evaluator:
         plt.title(save_title, y=2.3)
 
         '''plot save'''
-        save_path = f"{self.cwd}/{save_title}.jpg"
-        plt.savefig(save_path)
+        if self.save_path:  # remove old plot figure
+            os.remove(self.save_path)
+        self.save_path = f"{self.cwd}/{save_title}.jpg"
+        plt.savefig(self.save_path)
         # plt.show()
-        plt.close()
+        # plt.close()
+        plt.clf()
 
 
 def _get_episode_return(env, act, device) -> float:

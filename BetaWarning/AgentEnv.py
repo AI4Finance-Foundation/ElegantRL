@@ -6,7 +6,7 @@ import numpy.random as rd
 def decorate_env(env, data_type=np.float32, if_print=True):
     if not all([hasattr(env, attr) for attr in (
             'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
-        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = get_gym_env_info(env, if_print)
+        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = _get_gym_env_info(env, if_print)
         setattr(env, 'env_name', env_name)
         setattr(env, 'state_dim', state_dim)
         setattr(env, 'action_dim', action_dim)
@@ -16,7 +16,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
         action_max = 1
 
     '''state_norm is useful but non-necessary'''
-    state_avg, state_std = get_avg_std__for_state_norm(env.env_name)
+    state_avg, state_std = _get_avg_std__for_state_norm(env.env_name)
     if state_avg is None:
         neg_state_avg = 0
         div_state_std = 1
@@ -60,7 +60,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
     return env
 
 
-def get_avg_std__for_state_norm(env_name):
+def _get_avg_std__for_state_norm(env_name):
     avg = None
     std = None
     if env_name == 'LunarLanderContinuous-v2':
@@ -119,7 +119,7 @@ def get_avg_std__for_state_norm(env_name):
     return avg, std
 
 
-def get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
+def _get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
