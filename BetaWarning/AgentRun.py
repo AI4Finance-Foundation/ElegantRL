@@ -39,6 +39,11 @@ class Arguments:
         self.random_seed = 0  # initialize random seed in self.init_before_training(
 
     def init_before_training(self):
+        assert self.agent_rl is not None
+        assert self.env is not None
+        if not hasattr(self.env, 'env_name'):
+            raise RuntimeError('\n| What is env.env_name? use env = decorate_env(env)')
+
         import sys
         self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
         self.gpu_id = self.gpu_id if self.gpu_id.isdigit() else '0'
@@ -314,28 +319,6 @@ def mp_evaluate_agent(args, pipe2_eva):
 '''utils'''
 
 
-def explore_before_train(env, buffer, target_step, reward_scale, gamma):
-    # just for off-policy. Because on-policy don't explore before training.
-    if_discrete = env.if_discrete
-    action_dim = env.action_dim
-
-    state = env.reset()
-    steps = 0
-
-    while steps < target_step:
-        action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
-        next_state, reward, done, _ = env.step(action)
-        steps += 1
-
-        scaled_reward = reward * reward_scale
-        mask = 0.0 if done else gamma
-        other = (scaled_reward, mask, action) if if_discrete else (scaled_reward, mask, *action)
-        buffer.append_memo(state, other)
-
-        state = env.reset() if done else next_state
-    return steps
-
-
 class ReplayBuffer:
     def __init__(self, max_len, state_dim, action_dim, if_on_policy):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -438,6 +421,28 @@ class ReplayBuffer:
         print(f"| print_norm: state_avg, state_fix_std")
         print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
         print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
+
+
+def explore_before_train(env, buffer, target_step, reward_scale, gamma):
+    # just for off-policy. Because on-policy don't explore before training.
+    if_discrete = env.if_discrete
+    action_dim = env.action_dim
+
+    state = env.reset()
+    steps = 0
+
+    while steps < target_step:
+        action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
+        next_state, reward, done, _ = env.step(action)
+        steps += 1
+
+        scaled_reward = reward * reward_scale
+        mask = 0.0 if done else gamma
+        other = (scaled_reward, mask, action) if if_discrete else (scaled_reward, mask, *action)
+        buffer.append_memo(state, other)
+
+        state = env.reset() if done else next_state
+    return steps
 
 
 class Evaluator:
