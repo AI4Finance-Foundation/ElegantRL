@@ -176,53 +176,5 @@ class FinanceMultiStockEnv:  # 2021-02-02
             assert data_ary.shape[1] == 5 * 30
             return data_ary
         else:
-            raise RuntimeError(
-                f'| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}\n'
-                f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy'
-                f'| Or you can use the following code to generate it from a csv file.'
-            )
-
-        # from preprocessing.preprocessors import pd, data_split, preprocess_data, add_turbulence
-        #
-        # # the following is same as part of run_model()
-        # preprocessed_path = "done_data.csv"
-        # if if_load and os.path.exists(preprocessed_path):
-        #     data = pd.read_csv(preprocessed_path, index_col=0)
-        # else:
-        #     data = preprocess_data()
-        #     data = add_turbulence(data)
-        #     data.to_csv(preprocessed_path)
-        #
-        # df = data
-        # rebalance_window = 63
-        # validation_window = 63
-        # i = rebalance_window + validation_window
-        #
-        # unique_trade_date = data[(data.datadate > 20151001) & (data.datadate <= 20200707)].datadate.unique()
-        # train__df = data_split(df, start=20090000, end=unique_trade_date[i - rebalance_window - validation_window])
-        # # print(train__df) # df: DataFrame of Pandas
-        #
-        # train_ary = train__df.to_numpy().reshape((-1, 30, 12))
-        # '''state_dim = 1 + 6 * stock_dim, stock_dim=30
-        # n   item    index
-        # 1   ACCOUNT -
-        # 30  adjcp   2
-        # 30  stock   -
-        # 30  macd    7
-        # 30  rsi     8
-        # 30  cci     9
-        # 30  adx     10
-        # '''
-        # data_ary = np.empty((train_ary.shape[0], 5, 30), dtype=np.float32)
-        # data_ary[:, 0] = train_ary[:, :, 2]  # adjcp
-        # data_ary[:, 1] = train_ary[:, :, 7]  # macd
-        # data_ary[:, 2] = train_ary[:, :, 8]  # rsi
-        # data_ary[:, 3] = train_ary[:, :, 9]  # cci
-        # data_ary[:, 4] = train_ary[:, :, 10]  # adx
-        #
-        # data_ary = data_ary.reshape((-1, 5 * 30))
-        #
-        # os.makedirs(npy_path[:npy_path.rfind('/')])
-        # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
-        # print('| FinanceMultiStockEnv(): save in:', npy_path)
-        # return data_ary
+            raise RuntimeError(f'| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}\n'
+                               f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy')
