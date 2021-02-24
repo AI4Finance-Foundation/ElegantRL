@@ -165,10 +165,9 @@ class ActorSAC(nn.Module):
                                             nn_dense_net, )
             lay_dim = nn_dense_net.out_dim
         else:  # use a simple network. Deeper network does not mean better performance in RL.
+            lay_dim = mid_dim * 2
             self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                            nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                            nn.Linear(mid_dim, mid_dim), )
-            lay_dim = mid_dim
+                                            nn.Linear(mid_dim, lay_dim), nn.ReLU(), )
         self.net__a_avg = nn.Linear(lay_dim, action_dim)  # the average of action
         self.net__a_std = nn.Linear(lay_dim, action_dim)  # the log_std of action
 
@@ -182,7 +181,7 @@ class ActorSAC(nn.Module):
     def get_action(self, state):
         t_tmp = self.net__state(state)
         a_avg = self.net__a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
-        a_std = self.net__a_std(t_tmp).clamp(-16, 2).exp()
+        a_std = self.net__a_std(t_tmp).clamp(-20, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get__action__log_prob(self, state):
@@ -273,10 +272,9 @@ class CriticTwin(nn.Module):  # 2020-06-18
             self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                         nn_dense, )  # state-action value function
         else:  # use a simple network for actor. Deeper network does not mean better performance in RL.
-            lay_dim = mid_dim
+            lay_dim = mid_dim * 2
             self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), )
+                                        nn.Linear(mid_dim, lay_dim), nn.ReLU(), )
 
         self.net_q1 = nn.Linear(lay_dim, 1)
         self.net_q2 = nn.Linear(lay_dim, 1)
@@ -579,7 +577,7 @@ def layer_norm(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.constant_(layer.bias, bias_const)
 
 
-def test_conv2d():
+def demo__conv2d_state():
     state_dim = (4, 96, 96)
     batch_size = 3
 

@@ -1,5 +1,5 @@
 import os
-from copy import deepcopy
+from copy import deepcopy  # deepcopy target_network
 
 import torch
 import numpy as np
@@ -9,7 +9,22 @@ from AgentNet import Actor, ActorSAC, ActorPPO
 from AgentNet import Critic, CriticAdv, CriticTwin
 from AgentNet import InterDPG, InterSPG, InterPPO
 
-"""ZenYiYan, GitHub: YonV1943 ElegantRL (Pytorch 3 files model-free DRL Library)
+"""ElegantRL (Pytorch 3 files model-free DRL Library)
+GitHub.com: YonV1943, Zhihu.com: 曾伊言
+
+I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
+They feel more like a Cerebellum (Little Brain) for Machines.
+In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
+Actually, they "learn game feel" or "get a soft touch". In Chinese "shǒu gǎn 手感". 
+Learn more about policy gradient algorithms in:
+
+Policy Gradient Algorithm summary
+https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
+如何选择深度强化学习算法？MuZero/SAC/PPO/TD3/DDPG/DQN/等 
+https://zhuanlan.zhihu.com/p/342919579
+深度强化学习调参技巧：以D3QN、TD3、PPO、SAC算法为例
+https://zhuanlan.zhihu.com/p/345353294
+
 reference:
 TD3 https://github.com/sfujim/TD3 good++
 TD3 https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
@@ -163,8 +178,10 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 
 class AgentBase:
     def __init__(self):
-        self.state = None  # set for self.update_buffer(), initialize self.state before training
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.state = None  # set for self.update_buffer(), initialize before training
+        self.action = None  # set for self.update_buffer__pipe(), initialize before training
+        self.trajectory_temp = list()  # set for self.update_buffer__pipe()
 
         self.act = None
         self.cri = None
@@ -180,6 +197,32 @@ class AgentBase:
             buffer.append_memo(self.state, other)
             self.state = env.reset() if done else next_s
         return max_step
+
+    def update_buffer__pipe(self, pipes, buffer, max_step):  # todo
+        m = len(pipes)
+        n = m // 2
+
+        trajectory_list = list()
+        for _i in range(max_step // m):
+            for beg, end in ((0, n), (n, m)):
+                for i in range(beg, end):
+                    reward_mask, next_state = pipes[i].recv()
+                    if reward_mask[1] == 0:
+                        trajectory_list.append(self.trajectory_temp[i])
+                        self.trajectory_temp[i] = list()
+                    self.trajectory_temp[i].append((np.hstack((reward_mask, self.action[i])), next_state))
+                    self.state[i] = next_state
+                self.action[beg:end] = self.select_actions(self.state[beg:end])
+                for i in range(beg, end):
+                    pipes[i].send(self.action[i])
+
+        steps = 0
+        for trajectory in trajectory_list:
+            steps += len(trajectory)
+            buf_state = np.stack([item[1] for item in trajectory])
+            buf_other = np.stack([item[0] for item in trajectory])
+            buffer.extend_memo(buf_state, buf_other)
+        return steps
 
     def save_or_load_model(self, cwd, if_save):  # 2020-07-07
         act_save_path = '{}/actor.pth'.format(cwd)
@@ -652,9 +695,8 @@ class AgentSAC(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
         self.target_entropy = np.log(action_dim)
-        self.alpha_log = torch.tensor((-self.target_entropy,), requires_grad=True, device=self.device)
-        # self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
-        #                               requires_grad=True, device=self.device)  # trainable parameter
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
+                                      requires_grad=True, device=self.device)  # trainable parameter
 
         self.act = ActorSAC(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
