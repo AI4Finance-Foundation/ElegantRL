@@ -21,7 +21,7 @@ setup(
     author="author",
     author_email="author_email",
     url="https://github.com/AI4Finance-LLC/ElegantRL",
-    license="MIT",
+    license="Apache",
     packages=find_packages(),
     # install_requires=REQUIRES,
     install_requires=REQUIRES
