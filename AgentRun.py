@@ -60,7 +60,7 @@ class Arguments:
 
 def run__demo():
     import gym  # don't worry about 'WARN: Box bound precision lowered by casting to float32'
-    import AgentZoo
+    from .AgentZoo import AgentDoubleDQN
     from AgentEnv import decorate_env
     args = Arguments(agent_rl=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
@@ -327,4 +327,7 @@ def get_episode_return(env, act, device) -> float:
 
 
 if __name__ == '__main__':
-    run__demo()
+    # run__demo()
+    print('test')
+    from .AgentNet import Actor
+    print('from AgentNet import Actor')

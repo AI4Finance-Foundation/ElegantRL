@@ -2,9 +2,9 @@ from copy import deepcopy
 import torch
 import numpy as np
 import numpy.random as rd
-from AgentNet import QNet, QNetTwin
-from AgentNet import Actor, ActorSAC, ActorPPO
-from AgentNet import Critic, CriticAdv, CriticTwin
+from .AgentNet import QNet, QNetTwin
+from .AgentNet import Actor, ActorSAC, ActorPPO
+from .AgentNet import Critic, CriticAdv, CriticTwin
 
 
 class AgentDQN:
