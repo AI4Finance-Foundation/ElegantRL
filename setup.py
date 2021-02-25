@@ -23,9 +23,7 @@ setup(
     license="MIT",
     packages=find_packages(),
     # install_requires=REQUIRES,
-    install_requires=REQUIRES
-    + ["pyfolio @ git+https://github.com/quantopian/pyfolio.git#egg=pyfolio-0.9.2"],
-    # dependency_links=['git+https://github.com/quantopian/pyfolio.git#egg=pyfolio-0.9.2'],
+    install_requires=REQUIRES,
     description="Lightweight, Efficient and Stable DRL Implementation Using PyTorch",
     classifiers=[
         # Trove classifiers
