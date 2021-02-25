@@ -86,7 +86,8 @@ def run__demo():
     # args.env = decorate_env(env=gym.make('Pendulum-v0'))
     args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
-    args.agent_rl = AgentZoo.AgentPPO  # on-policy
+    # args.agent_rl = AgentZoo.AgentPPO  # on-policy
+    args.agent_rl = AgentZoo.AgentGaePPO  # on-policy
     train_and_evaluate(args)
     exit()
 
