@@ -14,7 +14,7 @@ except:
     print("'requirements.txt' not found!")
     REQUIRES = list()
 setup(
-    name="ElegantRL",
+    name="elegant-rl",
     version="0.0.1",
     include_package_data=True,
     author="author",
