@@ -9,6 +9,7 @@ try:
             line = line[: line.find("#")].strip()
         if line:
             REQUIRES.append(line)
+    print(REQUIRES)
 except:
     print("'requirements.txt' not found!")
     REQUIRES = list()
