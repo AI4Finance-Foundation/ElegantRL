@@ -1,0 +1,10 @@
+# data handling
+numpy
+
+# plot
+matplotlib
+
+# Model Building Requirements
+pytorch>=1.0.2
+gym>=0.17
+pybullet box2d-py
