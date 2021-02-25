@@ -40,6 +40,5 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     keywords="Deep Reinforcment Learning",
-    platform=["any"],
     python_requires=">=3.6",
 )
