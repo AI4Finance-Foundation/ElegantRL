@@ -15,19 +15,26 @@ except:
     REQUIRES = list()
 
 setup(
-    name="ElegantRL",
-    version="0.0.1",
+    name="finrl",
+    version="0.0.3",
     include_package_data=True,
-    author="author",
-    author_email="author_email",
-    url="https://github.com/AI4Finance-LLC/ElegantRL",
-    license="Apache",
+    author="Hongyang Yang, Xiaoyang Liu",
+    author_email="hy2500@columbia.edu",
+    url="https://github.com/finrl/finrl-library",
+    license="MIT",
     packages=find_packages(),
     # install_requires=REQUIRES,
     install_requires=REQUIRES
     + ["pyfolio @ git+https://github.com/quantopian/pyfolio.git#egg=pyfolio-0.9.2"],
     # dependency_links=['git+https://github.com/quantopian/pyfolio.git#egg=pyfolio-0.9.2'],
-    description="Lightweight, Efficient and Stable DRL Implementation Using PyTorch",
+    description="FinRL library, a Deep Reinforcement Learning library designed specifically for automated stock trading.",
+    long_description="""finrl is a Python library for that facilitates beginners to expose themselves to quantitative finance 
+    and to develop their own trading strategies, it is developed by `AI4Finance`_. 
+    
+    FinRL has been developed under three primary principles: completeness, hands-on tutorial and reproducibility. 
+    
+    .. _AI4Finance: https://github.com/AI4Finance-LLC
+    """,
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
@@ -40,7 +47,7 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
-    keywords="Deep Reinforcment Learning",
+    keywords="Reinforcment Learning",
     platform=["any"],
     python_requires=">=3.6",
 )
