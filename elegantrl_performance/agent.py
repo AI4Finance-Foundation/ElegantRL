@@ -197,27 +197,50 @@ class AgentBase:
             self.state = env.reset() if done else next_s
         return max_step
 
-    def update_buffer__pipe(self, pipes, buffer, max_step):  # todo
+    def update_buffer__pipe(self, pipes, buffer_mp, max_step):  # todo
+        buffer_mp.empty_memories__before_explore()  # NOTICE! necessary
+
         m = len(pipes)
-        # n = m // 2
+        n = m // 2
 
         trajectory_list = [list() for _ in range(m)]
-        for _i in range(max_step // m):
-            for i in range(m):
-                reward_mask, next_state = pipes[i].recv()
-                trajectory_list[i].append((np.hstack((reward_mask, self.action[i])), next_state))
-                self.state[i] = next_state
-            self.action = self.select_actions(self.state)
-            for i in range(m):
-                pipes[i].send(self.action[i])
+        for _i in range(max_step):
+            # '''two cpu clusters'''  # beta1 beta2
+            # for beg, end in ((0, n), (n, m)):
+            #     for i in range(beg, end):
+            #         reward_mask_action, next_state = pipes[i].recv()
+            #         trajectory_list[i].append((reward_mask_action, next_state))
+            #         self.state[i] = next_state
+            #     self.action[beg:end] = self.select_actions(self.state[beg:end])
+            #     for i in range(beg, end):
+            #         pipes[i].send(self.action[i])
+            '''two cpu clusters'''  # beta3
+            for beg, end in ((0, n), (n, m)):
+                for i in range(beg, end):
+                    reward, mask, next_state = pipes[i].recv()
+                    trajectory_list[i].append(((reward, mask, *self.action[i]), next_state))
+                    self.state[i] = next_state
+                self.action[beg:end] = self.select_actions(self.state[beg:end])
+                for i in range(beg, end):
+                    pipes[i].send(self.action[i])
+            '''single cpu cluster'''
+            # for i in range(m):
+            #     reward_mask, next_state = pipes[i].recv()
+            #     trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])), next_state))
+            #     self.state[i] = next_state
+            # self.action, self.noise = self.select_actions(self.state)
+            # for i in range(m):
+            #     pipes[i].send(self.action[i])
 
         steps = 0
         for i in range(m):
             trajectory = trajectory_list[i]
-            steps += len(trajectory_list)
-            buf_other = np.stack([item[0] for item in trajectory])
-            buf_state = np.stack([item[1] for item in trajectory])
-            buffer.extend_memo_mp(buf_state, buf_other, i)
+            steps += len(trajectory)
+            # buf_other = np.stack([item[0] for item in trajectory])
+            # buf_state = np.stack([item[1] for item in trajectory])
+            buf_other = [item[0] for item in trajectory]
+            buf_state = [item[1] for item in trajectory]
+            buffer_mp.extend_memo_mp(buf_state, buf_other, i)
         return steps
 
     def save_or_load_model(self, cwd, if_save):  # 2020-07-07
@@ -521,16 +544,15 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__(net_dim, state_dim, action_dim, learning_rate)
 
-        if_use_dn = False # beta1
-        # if_use_dn = True # beta3
+        if_use_dn = True
         self.act = ActorSAC(net_dim, state_dim, action_dim, if_use_dn=if_use_dn).to(self.device)
         self.act_target = deepcopy(self.act)
         self.cri = CriticTwin(int(net_dim * 1.25), state_dim, action_dim, if_use_dn=if_use_dn).to(self.device)
         self.cri_target = deepcopy(self.cri)
 
         self.criterion = torch.nn.SmoothL1Loss()
-        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
-                                           {'params': self.cri.parameters(), 'lr': learning_rate},
+        self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate * 0.9},
+                                           {'params': self.cri.parameters(), 'lr': learning_rate * 1.1},
                                            {'params': (self.alpha_log,), 'lr': learning_rate}])
 
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
@@ -734,11 +756,11 @@ class AgentPPO(AgentBase):
         target_step = buffer_mp.l_buffer[0].max_len - max_step
 
         for _i in range(target_step):
-            '''two cpu clusters'''
+            '''two cpu clusters'''  # beta1 next_state=tuple
             for beg, end in ((0, n), (n, m)):
                 for i in range(beg, end):
-                    reward_mask, next_state = pipes[i].recv()
-                    trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])), next_state))
+                    reward, mask, next_state = pipes[i].recv()
+                    trajectory_list[i].append((np.hstack((reward, mask, *self.action[i], *self.noise[i])), next_state))
                     self.state[i] = next_state
                 self.action[beg:end], self.noise[beg:end] = self.select_actions(self.state[beg:end])
                 for i in range(beg, end):
@@ -752,27 +774,28 @@ class AgentPPO(AgentBase):
             # for i in range(m):
             #     pipes[i].send(self.action[i])
 
-        masks = [trajectory[-1][0][1] for trajectory in trajectory_list]
-        while any(masks):  # todo wait for checking
-            for beg, end in ((0, n), (n, m)):
-                for i in range(beg, end):
-                    if masks[i]:
-                        reward_mask, next_state = pipes[i].recv()
-                        trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])), next_state))
-                        self.state[i] = next_state
-                        masks[i] = reward_mask[1]
-                self.action[beg:end], self.noise[beg:end] = self.select_actions(self.state[beg:end])
-                for i in range(beg, end):
-                    if masks[i]:
-                        pipes[i].send(self.action[i])
+        # masks = [trajectory[-1][0][1] for trajectory in trajectory_list]
+        # while any(masks):  # todo wait for checking
+        #     for beg, end in ((0, n), (n, m)):
+        #         for i in range(beg, end):
+        #             if masks[i]:
+        #                 reward_mask, next_state = pipes[i].recv()
+        #                 trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])),
+        #                                            next_state))
+        #                 self.state[i] = next_state
+        #                 masks[i] = reward_mask[1]
+        #         self.action[beg:end], self.noise[beg:end] = self.select_actions(self.state[beg:end])
+        #         for i in range(beg, end):
+        #             if masks[i]:
+        #                 pipes[i].send(self.action[i])
 
         steps = 0
         for i in range(m):
             trajectory = trajectory_list[i]
 
             steps += len(trajectory)
-            buf_other = np.stack([item[0] for item in trajectory])
-            buf_state = np.stack([item[1] for item in trajectory])
+            buf_other = [item[0] for item in trajectory]
+            buf_state = [item[1] for item in trajectory]
             buffer_mp.extend_memo_mp(buf_state, buf_other, i)
         return steps
 
@@ -828,7 +851,7 @@ class AgentPPO(AgentBase):
         for i in range(max_memo - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
-        buf_advantage = buf_r_sum - (buf_mask * buf_value).squeeze(1)
+        buf_advantage = buf_r_sum - (buf_mask * buf_value.squeeze(1))
         buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 

@@ -622,8 +622,8 @@ def train_and_evaluate__multiprocessing(args):
         process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, worker_id)))
 
     [p.start() for p in process]
-    process_train.join()
     process_eval.join()
+    process_train.join()
     [p.terminate() for p in process]
     print('\n')
 
@@ -659,8 +659,10 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     agent.state = [pipe.recv() for pipe in pipe1_exp_list]
     if if_on_policy:
         agent.action, agent.noise = agent.select_actions(agent.state)
-        for i in range(rollout_num):
-            pipe1_exp_list[i].send(agent.action[i])
+    else:
+        agent.action = agent.select_actions(agent.state)
+    for i in range(rollout_num):
+        pipe1_exp_list[i].send(agent.action[i])
 
     buffer_mp = ReplayBufferMP(max_memo + max_step * rollout_num, state_dim,
                                if_on_policy=if_on_policy,
@@ -678,20 +680,25 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     pipe1_eva.send((agent.act, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
 
     if_solve = False
+    # print(';;0')
     while not ((if_break_early and if_solve)
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
+        # print(';;1', max_step)
         with torch.no_grad():  # speed up running
             # steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
             steps = agent.update_buffer__pipe(pipe1_exp_list, buffer_mp, max_step)
         total_step += steps
 
+        # print(';;2', total_step)
         obj_a, obj_c = agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)
 
+        # print(';;3')
         '''saves the agent with max reward'''
         pipe1_eva.send((agent.act, steps, obj_a, obj_c))  # pipe1_eva act_cpu
         if_solve = pipe1_eva.recv()
 
+        # print(';;4')
         if pipe1_eva.poll():
             if_solve = pipe1_eva.recv()  # pipe1_eva if_solve
 
@@ -718,10 +725,9 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
         action = pipe2_exp.recv()  # pipe1_exp.send(action)
         next_state, reward, done, _ = env.step(action)
 
-        reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
         if done:
             next_state = env.reset()
-        pipe2_exp.send((reward_mask, next_state))
+        pipe2_exp.send((reward * reward_scale, 0.0 if done else gamma, next_state))
 
 
 def mp_evaluate_agent(args, pipe2_eva):
@@ -952,7 +958,7 @@ class ReplayBuffer:
             state = torch.as_tensor(state, device=self.device)
             other = torch.as_tensor(other, device=self.device)
 
-        size = other.shape[0]
+        size = len(other)
         next_idx = self.next_idx + size
         if next_idx > self.max_len:
             if next_idx > self.max_len:
@@ -1105,4 +1111,6 @@ def _explore_before_train(env, buffer, target_step, reward_scale, gamma):
 
 
 if __name__ == '__main__':
+    timer = time.time()
     run__demo()
+    print(time.time() - timer)

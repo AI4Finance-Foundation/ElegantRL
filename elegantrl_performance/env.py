@@ -163,7 +163,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
     Modify: Github Yonv1943 ElegantRL
     """
 
-    def __init__(self, initial_account=1e6, max_stock=1e2, transaction_fee_percent=1e-3, if_evaluate=False):
+    def __init__(self, initial_account=1e6, max_stock=1e2, transaction_fee_percent=1e-3, if_train=True):
         self.stock_dim = 30
         self.initial_account = initial_account
         self.transaction_fee_percent = transaction_fee_percent
@@ -171,12 +171,10 @@ class FinanceMultiStockEnv:  # 2021-02-02
 
         ary = self.load_training_data_for_multi_stock()
         assert ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
-        if if_evaluate:
-            self.max_step = 1699-1280
-            self.ary = ary[-self.max_step:]
-        else:
-            self.max_step = 1280
-            self.ary = ary[:self.max_step]
+        train_len = 1280
+        self.ary_train = ary[:train_len]
+        self.ary_valid = ary[train_len:]
+        self.ary = self.ary_train if if_train else self.ary_valid
 
         # reset
         self.day = 0
@@ -187,14 +185,15 @@ class FinanceMultiStockEnv:  # 2021-02-02
 
         self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
+        self.gamma_return = 0.0
 
         '''env information'''
         self.env_name = 'FinanceStock-v2'
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 1.5
-        self.terminal_r = 0.0
+        self.target_reward = 5
+        self.max_step = self.ary.shape[0]
 
     def reset(self):
         self.initial_account__reset = self.initial_account * rd.uniform(0.9, 1.1)  # reset()
@@ -212,20 +211,20 @@ class FinanceMultiStockEnv:  # 2021-02-02
                            self.stocks * 2 ** -12,), ).astype(np.float32)
         return state
 
-    def step(self, actions):
-        actions = actions * self.max_stock
+    def step(self, action):
+        action = action * self.max_stock
 
         """bug or sell stock"""
         for index in range(self.stock_dim):
-            action = actions[index]
+            stock_action = action[index]
             adj = self.day_npy[index]
-            if action > 0:  # buy_stock
+            if stock_action > 0:  # buy_stock
                 available_amount = self.account // adj
-                delta_stock = min(available_amount, action)
+                delta_stock = min(available_amount, stock_action)
                 self.account -= adj * delta_stock * (1 + self.transaction_fee_percent)
                 self.stocks[index] += delta_stock
             elif self.stocks[index] > 0:  # sell_stock
-                delta_stock = min(-action, self.stocks[index])
+                delta_stock = min(-stock_action, self.stocks[index])
                 self.account += adj * delta_stock * (1 - self.transaction_fee_percent)
                 self.stocks[index] -= delta_stock
 
@@ -234,23 +233,21 @@ class FinanceMultiStockEnv:  # 2021-02-02
         self.day += 1
         done = self.day == self.max_step  # 2020-12-21
 
-        state = np.hstack((
-            self.account * 2 ** -16,
-            self.day_npy * 2 ** -8,
-            self.stocks * 2 ** -12,
-        ), ).astype(np.float32)
+        state = np.hstack((self.account * 2 ** -16,
+                           self.day_npy * 2 ** -8,
+                           self.stocks * 2 ** -12,), ).astype(np.float32)
 
         next_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling!
         self.total_asset = next_total_asset
 
-        self.terminal_r = self.terminal_r * 0.99 + reward  # notice: gamma_r seems good? Yes
+        self.gamma_return = self.gamma_return * 0.99 + reward  # notice: gamma_r seems good? Yes
         if done:
-            reward += self.terminal_r
-            self.terminal_r = 0.0  # env.reset()
+            reward += self.gamma_return
+            self.gamma_return = 0.0  # env.reset()
 
             # cumulative_return_rate
-            self.episode_return = next_total_asset / self.initial_account__reset
+            self.episode_return = next_total_asset / self.initial_account
 
         return state, reward, done, None
 
@@ -263,10 +260,9 @@ class FinanceMultiStockEnv:  # 2021-02-02
             return data_ary
         else:
             raise RuntimeError(
-                f'| FinanceMultiStockEnv(): Can you download and put it into: {npy_path}\n'
+                f'| Download and put it into: {npy_path}\n for FinanceMultiStockEnv()'
                 f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy'
-                f'| Or you can use the following code to generate it from a csv file.'
-            )
+                f'| Or you can use the following code to generate it from a csv file.')
 
         # from preprocessing.preprocessors import pd, data_split, preprocess_data, add_turbulence
         #
@@ -312,6 +308,24 @@ class FinanceMultiStockEnv:  # 2021-02-02
         # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
         # print('| FinanceMultiStockEnv(): save in:', npy_path)
         # return data_ary
+
+    def draw_cumulative_return(self, agent, torch):
+        act = agent.act
+        device = agent.device
+
+        state = self.reset()
+        episode_returns = list()  # the cumulative_return / initial_account
+        with torch.no_grad():
+            for i in range(self.max_step):
+                s_tensor = torch.as_tensor((state,), device=device)
+                a_tensor = act(s_tensor)
+                action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+                state, reward, done, _ = self.step(action)
+
+                episode_returns.append(self.episode_return)
+                if done:
+                    break
+        return np.array(episode_returns)
 
 
 """Custom environment: Fix Env CarRacing-v0 - Box2D"""
