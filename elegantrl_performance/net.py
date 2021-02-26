@@ -367,7 +367,7 @@ class InterDPG(nn.Module):  # DPG means deterministic policy gradient
 
 
 class InterSPG(nn.Module):  # SPG means stochastic policy gradient
-    def __init__(self, state_dim, action_dim, mid_dim):
+    def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.log_sqrt_2pi_sum = np.log(np.sqrt(2 * np.pi)) * action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -405,7 +405,7 @@ class InterSPG(nn.Module):  # SPG means stochastic policy gradient
         a_ = self.net(s_)
         a_avg = self.dec_a(a_)  # NOTICE! it is a_avg without tensor.tanh()
 
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std_log = self.dec_d(a_).clamp(-20, 2)
         a_std = a_std_log.exp()
 
         action = torch.normal(a_avg, a_std)  # NOTICE! it is action without .tanh()
@@ -417,7 +417,7 @@ class InterSPG(nn.Module):  # SPG means stochastic policy gradient
 
         """add noise to action, stochastic policy"""
         a_avg = self.dec_a(a_)  # NOTICE! it is action without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std_log = self.dec_d(a_).clamp(-20, 2)
         a_std = a_std_log.exp()
 
         noise = torch.randn_like(a_avg, requires_grad=True)
@@ -434,7 +434,7 @@ class InterSPG(nn.Module):  # SPG means stochastic policy gradient
 
         """add noise to action, stochastic policy"""
         a_avg = self.dec_a(a_)  # NOTICE! it is action without .tanh()
-        a_std_log = self.dec_d(a_).clamp(self.log_std_min, self.log_std_max)
+        a_std_log = self.dec_d(a_).clamp(-20, 2)
         a_std = a_std_log.exp()
 
         noise = torch.randn_like(a_avg, requires_grad=True)

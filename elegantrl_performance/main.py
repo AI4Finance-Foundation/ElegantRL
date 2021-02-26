@@ -13,6 +13,7 @@ class Arguments:
         self.gpu_id = gpu_id  # choose the GPU for running. gpu_id is None means set it automatically
         self.cwd = None  # current work directory. cwd is None means set it automatically
         self.env = env  # the environment for training
+        self.env_eval = None  # the environment for evaluating
 
         '''Arguments for training (off-policy)'''
         self.net_dim = 2 ** 8  # the network width
@@ -535,10 +536,11 @@ def run__demo():
 def train_and_evaluate(args):
     args.init_before_training()
 
-    agent_rl = args.agent_rl  # basic arguments
-    agent_id = args.gpu_id
-    env = args.env
     cwd = args.cwd
+    env = args.env
+    env_eval = args.env_eval
+    agent_id = args.gpu_id
+    agent_rl = args.agent_rl  # basic arguments
 
     gamma = args.gamma  # training arguments
     net_dim = args.net_dim
@@ -552,16 +554,21 @@ def train_and_evaluate(args):
     eval_times = args.eval_times
     break_step = args.break_step
     if_break_early = args.if_break_early
+    from copy import deepcopy  # built-in library of Python
+    env_eval = args.env_eval if args.env_eval else deepcopy(env)
+    del deepcopy
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     '''init: env'''
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
-    from copy import deepcopy  # built-in library of Python
-    env_eval = deepcopy(env)
-    del deepcopy
+    if env_eval is None:
+        from copy import deepcopy
+        env_eval = deepcopy(env)
+        del deepcopy
 
+    '''init: Agent, Evaluator, ReplayBuffer'''
     agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
     agent.state = env.reset()
     evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=agent.device, env=env_eval,
@@ -605,16 +612,18 @@ def train_and_evaluate__multiprocessing(args):
     pipe1_eva, pipe2_eva = mp.Pipe()  # Pipe() for Process mp_evaluate_agent()
     pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()
 
-    process = list()
-    for _ in range(act_workers):
+    process_train = mp.Process(target=mp__update_params, args=(args, pipe2_eva, pipe2_exp_list))
+    process_eval = mp.Process(target=mp_evaluate_agent, args=(args, pipe1_eva))
+    process = [process_train, process_eval]
+
+    for worker_id in range(act_workers):
         exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
         pipe2_exp_list.append(exp_pipe1)
-        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2)))
-    process.extend([mp.Process(target=mp_evaluate_agent, args=(args, pipe1_eva)),
-                    mp.Process(target=mp__update_params, args=(args, pipe2_eva, pipe2_exp_list))])
+        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, worker_id)))
 
     [p.start() for p in process]
-    [p.join() for p in (process[-1], process[-2])]  # wait
+    process_train.join()
+    process_eval.join()
     [p.terminate() for p in process]
     print('\n')
 
@@ -623,6 +632,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     agent_rl = args.agent_rl  # basic arguments
     env = args.env
     cwd = args.cwd
+    rollout_num = args.rollout_num
 
     gamma = args.gamma  # training arguments
     net_dim = args.net_dim
@@ -643,30 +653,29 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
 
     '''build agent'''
     agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
-    agent.state = [pipe.recv() for pipe in pipe1_exp_list]
-    agent.action = agent.select_actions(agent.state)
-    for i in range(len(pipe1_exp_list)):
-        pipe1_exp_list[i].send(agent.action[i])
-        agent.trajectory_temp.append(list())
-
-    '''act_cpu without gradient for pipe1_eva'''
-    from copy import deepcopy  # built-in library of Python
-    act_cpu = deepcopy(agent.act).to(torch.device("cpu"))  # for pipe1_eva
-    act_cpu.eval()
-    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
-
+    pipe1_eva.send(agent.act)  # act = pipe2_eva.recv()
     if_on_policy = agent_rl.__name__ in {'AgentPPO', 'AgentGaePPO'}
-    buffer = ReplayBuffer(max_memo, state_dim, if_on_policy=if_on_policy,
-                          action_dim=1 if if_discrete else action_dim)  # build experience replay buffer
+
+    agent.state = [pipe.recv() for pipe in pipe1_exp_list]
     if if_on_policy:
-        steps = 0
-    else:
+        agent.action, agent.noise = agent.select_actions(agent.state)
+        for i in range(rollout_num):
+            pipe1_exp_list[i].send(agent.action[i])
+
+    buffer_mp = ReplayBufferMP(max_memo + max_step * rollout_num, state_dim,
+                               if_on_policy=if_on_policy,
+                               action_dim=1 if if_discrete else action_dim,
+                               rollout_num=rollout_num)  # build experience replay buffer
+
+    steps = 0
+    if not if_on_policy:
         with torch.no_grad():  # update replay buffer
-            steps = _explore_before_train(env, buffer, max_step, reward_scale, gamma)
-        agent.update_policy(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
+            for _buffer in buffer_mp.l_buffer:
+                steps += _explore_before_train(env, _buffer, max_step // rollout_num, reward_scale, gamma)
+        agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
-    pipe1_eva.send((act_cpu, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
+    pipe1_eva.send((agent.act, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
 
     if_solve = False
     while not ((if_break_early and if_solve)
@@ -674,36 +683,39 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
             # steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
-            steps = agent.update_buffer__pipe(pipe1_exp_list, buffer, max_step)
+            steps = agent.update_buffer__pipe(pipe1_exp_list, buffer_mp, max_step)
         total_step += steps
 
-        obj_a, obj_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        obj_a, obj_c = agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
-        act_cpu.load_state_dict(agent.act.state_dict())
-        pipe1_eva.send((act_cpu, steps, obj_a, obj_c))  # pipe1_eva act_cpu
+        pipe1_eva.send((agent.act, steps, obj_a, obj_c))  # pipe1_eva act_cpu
         if_solve = pipe1_eva.recv()
 
         if pipe1_eva.poll():
             if_solve = pipe1_eva.recv()  # pipe1_eva if_solve
 
-    buffer.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
-                            env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
+    buffer_mp.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
+                               env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
     pipe1_eva.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
     time.sleep(4)
     # print('; quit: params')
 
 
-def mp_explore_in_env(args, pipe2_exp):
+def mp_explore_in_env(args, pipe2_exp, worker_id):
     env = args.env
     reward_scale = args.reward_scale
     gamma = args.gamma
     del args
 
+    random_seed = int(2 ** 16 * rd.rand() + worker_id)
+    np.random.seed(random_seed)
+    torch.manual_seed(random_seed)
+
     next_state = env.reset()
     pipe2_exp.send(next_state)
     while True:
-        action = pipe2_exp.recv()
+        action = pipe2_exp.recv()  # pipe1_exp.send(action)
         next_state, reward, done, _ = env.step(action)
 
         reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
@@ -714,18 +726,25 @@ def mp_explore_in_env(args, pipe2_exp):
 
 def mp_evaluate_agent(args, pipe2_eva):
     env = args.env
+    env_eval = args.env
     cwd = args.cwd
     agent_id = args.gpu_id
     show_gap = args.show_gap  # evaluate arguments
     eval_times = args.eval_times
 
     from copy import deepcopy  # built-in library of Python
-    env_eval = deepcopy(env)
+    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
     del deepcopy
 
     device = torch.device("cpu")
     evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=device, env=env_eval,
                           eval_times=eval_times, show_gap=show_gap)  # build Evaluator
+
+    '''act_cpu without gradient for pipe1_eva'''
+    from copy import deepcopy  # built-in library of Python
+    act = pipe2_eva.recv()  # pipe1_eva.send(agent.act)
+    act_cpu = deepcopy(act).to(torch.device("cpu"))  # for pipe1_eva
+    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
 
     with torch.no_grad():  # speed up running
         act, steps, obj_a, obj_c = pipe2_eva.recv()  # pipe2_eva (act, steps, obj_a, obj_c)
@@ -743,7 +762,8 @@ def mp_evaluate_agent(args, pipe2_eva):
                     break
                 act, steps, obj_a, obj_c = q_i_eva_get
                 steps_sum += steps
-            if_solve = evaluator.evaluate_act__save_checkpoint(act, steps_sum, obj_a, obj_c)
+            act_cpu.load_state_dict(act.state_dict())
+            if_solve = evaluator.evaluate_act__save_checkpoint(act_cpu, steps_sum, obj_a, obj_c)
             pipe2_eva.send(if_solve)
 
             evaluator.save_npy__draw_plot()
@@ -790,7 +810,9 @@ class Evaluator:
         mpl.use('Agg')
         import matplotlib.pyplot as plt
         # plt.style.use('ggplot')
+
         self.plt = plt
+        fig, self.axs = plt.subplots(2)
 
     def evaluate_act__save_checkpoint(self, act, steps, obj_a, obj_c):
         reward_list = [_get_episode_return(self.env, act, self.device) for _ in range(self.eva_times)]
@@ -830,7 +852,7 @@ class Evaluator:
 
         '''plot subplots'''
         plt = self.plt
-        fig, axs = plt.subplots(2)
+        axs = self.axs
 
         recorder = np.array(self.recorder)  # recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))
         steps = recorder[:, 0]  # x-axis is training steps
@@ -901,21 +923,21 @@ class ReplayBuffer:
         self.next_idx = 0
         self.if_full = False
         self.action_dim = action_dim  # for self.sample_for_ppo(
+        self.if_on_policy = if_on_policy
 
         if if_on_policy:
             other_dim = 1 + 1 + action_dim * 2
             self.buf_other = np.empty((max_len, other_dim), dtype=np.float32)
             self.buf_state = np.empty((max_len, state_dim), dtype=np.float32)
-            self.append_memo = self.append_memo__on_policy
-            self.extend_memo = self.extend_memo__on_policy
         else:
             other_dim = 1 + 1 + action_dim
             self.buf_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
             self.buf_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
-            self.append_memo = self.append_memo__off_policy
-            self.extend_memo = self.extend_memo__off_policy
 
-    def append_memo__on_policy(self, state, other):  # CPU array to CPU array
+    def append_memo(self, state, other):  # CPU array to CPU array
+        if not self.if_on_policy:
+            state = torch.as_tensor(state, device=self.device)
+            other = torch.as_tensor(other, device=self.device)
         self.buf_state[self.next_idx] = state
         self.buf_other[self.next_idx] = other
 
@@ -924,13 +946,12 @@ class ReplayBuffer:
             self.if_full = True
             self.next_idx = 0
 
-    def append_memo__off_policy(self, state, other):  # CPU array to GPU tensor
-        state = torch.as_tensor(state, device=self.device)
-        other = torch.as_tensor(other, device=self.device)
-        self.append_memo__on_policy(state, other)
-
-    def extend_memo__on_policy(self, state, other):  # CPU array to CPU array
+    def extend_memo(self, state, other):  # CPU array to CPU array
         # assert isinstance(other, np.ndarray)
+        if not self.if_on_policy:
+            state = torch.as_tensor(state, device=self.device)
+            other = torch.as_tensor(other, device=self.device)
+
         size = other.shape[0]
         next_idx = self.next_idx + size
         if next_idx > self.max_len:
@@ -946,11 +967,6 @@ class ReplayBuffer:
             self.buf_other[self.next_idx:next_idx] = other
         self.next_idx = next_idx
 
-    def extend_memo__off_policy(self, state, other):  # CPU array to GPU tensor, for AgentPPO.update_buffer__pipe(
-        state = torch.as_tensor(state, device=self.device)
-        other = torch.as_tensor(other, device=self.device)
-        self.extend_memo__on_policy(state, other)
-
     def random_sample(self, batch_size):
         indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
         r_m_a = self.buf_other[indices]
@@ -962,8 +978,8 @@ class ReplayBuffer:
 
     def sample_for_ppo(self):
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
-        return (all_other[:, 0:1],  # reward
-                all_other[:, 1:2],  # mask = 0.0 if done else gamma
+        return (all_other[:, 0],  # reward
+                all_other[:, 1],  # mask = 0.0 if done else gamma
                 all_other[:, 2:2 + self.action_dim],  # action
                 all_other[:, 2 + self.action_dim:],  # noise
                 torch.as_tensor(self.buf_state[:self.now_len], device=self.device))  # state
@@ -982,7 +998,7 @@ class ReplayBuffer:
         '''check if pass'''
         state_shape = self.buf_state.shape
         if len(state_shape) > 2 or state_shape[1] > 64:
-            print(f"| print_state_norm(): state_dim: {state_shape:.0f} is too large to print its norm. ")
+            print(f"| print_state_norm(): state_dim: {state_shape} is too large to print its norm. ")
             return None
 
         '''sample state'''
@@ -1015,6 +1031,55 @@ class ReplayBuffer:
         print(f"| print_norm: state_avg, state_fix_std")
         print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
         print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
+
+
+class ReplayBufferMP:
+    def __init__(self, max_len, state_dim, action_dim, if_on_policy, rollout_num):
+        self.now_len = 0
+        self.max_len = max_len
+        self.rollout_num = rollout_num
+
+        _max_len = max_len // rollout_num
+        self.l_buffer = [ReplayBuffer(_max_len, state_dim, action_dim, if_on_policy)
+                         for _ in range(rollout_num)]
+
+    def extend_memo_mp(self, state, other, i):
+        self.l_buffer[i].extend_memo(state, other)
+
+    def random_sample(self, batch_size):
+        _batch_size = batch_size // self.rollout_num
+
+        l__r_m_a_s_ns = [self.l_buffer[i].random_sample(_batch_size)
+                         for i in range(self.rollout_num)]
+        return (torch.cat([item[0] for item in l__r_m_a_s_ns], dim=0),
+                torch.cat([item[1] for item in l__r_m_a_s_ns], dim=0),
+                torch.cat([item[2] for item in l__r_m_a_s_ns], dim=0),
+                torch.cat([item[3] for item in l__r_m_a_s_ns], dim=0),
+                torch.cat([item[4] for item in l__r_m_a_s_ns], dim=0))
+
+    def sample_for_ppo(self):
+        l__r_m_a_n_s = [self.l_buffer[i].sample_for_ppo()
+                        for i in range(self.rollout_num)]
+        return (torch.cat([item[0] for item in l__r_m_a_n_s], dim=0),
+                torch.cat([item[1] for item in l__r_m_a_n_s], dim=0),
+                torch.cat([item[2] for item in l__r_m_a_n_s], dim=0),
+                torch.cat([item[3] for item in l__r_m_a_n_s], dim=0),
+                torch.cat([item[4] for item in l__r_m_a_n_s], dim=0))
+
+    def update__now_len__before_sample(self):
+        self.now_len = 0
+        for buffer in self.l_buffer:
+            buffer.update__now_len__before_sample()
+            self.now_len += buffer.now_len
+
+    def empty_memories__before_explore(self):
+        for buffer in self.l_buffer:
+            buffer.empty_memories__before_explore()
+
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
+        pass  # bug
+        # for buffer in self.l_buffer:
+        #     buffer.print_state_norm(neg_avg, div_std)
 
 
 def _explore_before_train(env, buffer, target_step, reward_scale, gamma):

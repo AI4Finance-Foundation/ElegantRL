@@ -163,35 +163,42 @@ class FinanceMultiStockEnv:  # 2021-02-02
     Modify: Github Yonv1943 ElegantRL
     """
 
-    def __init__(self, initial_account=1e6, transaction_fee_percent=1e-3, max_stock=100):
+    def __init__(self, initial_account=1e6, max_stock=1e2, transaction_fee_percent=1e-3, if_evaluate=False):
         self.stock_dim = 30
         self.initial_account = initial_account
         self.transaction_fee_percent = transaction_fee_percent
         self.max_stock = max_stock
 
-        self.ary = self.load_training_data_for_multi_stock()
-        assert self.ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
+        ary = self.load_training_data_for_multi_stock()
+        assert ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
+        if if_evaluate:
+            self.max_step = 1699-1280
+            self.ary = ary[-self.max_step:]
+        else:
+            self.max_step = 1280
+            self.ary = ary[:self.max_step]
 
         # reset
         self.day = 0
-        self.account = self.initial_account
+        self.initial_account__reset = self.initial_account
+        self.account = self.initial_account__reset
         self.day_npy = self.ary[self.day]
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)  # multi-stack
+
         self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         self.episode_return = 0.0  # Compatibility for ElegantRL 2020-12-21
 
         '''env information'''
-        self.env_name = 'FinanceStock-v1'
+        self.env_name = 'FinanceStock-v2'
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 15
-        self.max_step = self.ary.shape[0]
-
-        self.gamma_r = 0.0
+        self.target_reward = 1.5
+        self.terminal_r = 0.0
 
     def reset(self):
-        self.account = self.initial_account * rd.uniform(0.9, 1.0)  # notice reset()
+        self.initial_account__reset = self.initial_account * rd.uniform(0.9, 1.1)  # reset()
+        self.account = self.initial_account__reset
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
         self.total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         # total_asset = account + (adjcp * stocks).sum()
@@ -203,7 +210,6 @@ class FinanceMultiStockEnv:  # 2021-02-02
         state = np.hstack((self.account * 2 ** -16,
                            self.day_npy * 2 ** -8,
                            self.stocks * 2 ** -12,), ).astype(np.float32)
-
         return state
 
     def step(self, actions):
@@ -238,13 +244,13 @@ class FinanceMultiStockEnv:  # 2021-02-02
         reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling!
         self.total_asset = next_total_asset
 
-        self.gamma_r = self.gamma_r * 0.99 + reward  # notice: gamma_r seems good? Yes
+        self.terminal_r = self.terminal_r * 0.99 + reward  # notice: gamma_r seems good? Yes
         if done:
-            reward += self.gamma_r
-            self.gamma_r = 0.0  # env.reset()
+            reward += self.terminal_r
+            self.terminal_r = 0.0  # env.reset()
 
             # cumulative_return_rate
-            self.episode_return = next_total_asset / self.initial_account
+            self.episode_return = next_total_asset / self.initial_account__reset
 
         return state, reward, done, None
 
