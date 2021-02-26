@@ -67,72 +67,82 @@ class Arguments:
 
 
 def run__demo():
+    import elegantrl_performance.agent as agent
+    from elegantrl_performance.env import decorate_env
+    # from elegantrl_performance.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
     import gym
+
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
-    '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
+    """DEMO 1: Discrete action env: CartPole-v0 of gym"""
     args = Arguments(agent_rl=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
-    from elegantrl_performance.agent import AgentDoubleDQN
-    args.agent_rl = AgentDoubleDQN  # choose an DRL algorithm
-
-    from elegantrl_performance.env import decorate_env
+    args.agent_rl = agent.AgentD3QN  # choose an DRL algorithm
     args.env = decorate_env(env=gym.make('CartPole-v0'))
     args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.env = decorate_env(env=gym.make('LunarLander-v2'))
     # args.net_dim = 2 ** 8  # change a default hyper-parameters
 
     train_and_evaluate(args)
-    exit()
 
-    '''DEMO 2.1: Continuous action env, off-policy'''
-    args = Arguments(if_on_policy=False)  # if_on_policy=False in default
+    """DEMO 2: Continuous action env, gym.Box2D"""
+    if_on_policy = False
+    args = Arguments(if_on_policy=if_on_policy)  # on-policy has different hyper-parameters from off-policy
+    if if_on_policy:
+        args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
+    else:
+        args.agent_rl = agent.AgentModSAC  # off-policy: AgentSAC, AgentModPPO, AgentTD3, AgentDDPG
 
-    from elegantrl_performance.agent import AgentModSAC  # AgentSAC, AgentTD3
-    args.agent_rl = AgentModSAC  # off-policy
-
-    from elegantrl_performance.env import decorate_env
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     args.env = decorate_env(env=env)
+    args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
 
     train_and_evaluate(args)
-    exit()
 
-    '''DEMO 2.2: Continuous action env, on-policy'''
-    args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
-
-    from elegantrl_performance.agent import AgentGaePPO  # AgentPPO
-    args.agent_rl = AgentGaePPO  # on-policy
-
-    from elegantrl_performance.env import decorate_env
-    env = gym.make('Pendulum-v0')
-    env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = decorate_env(env=env)
-    # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
-    # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
-    train_and_evaluate(args)
-    exit()
-
-    '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
+    """DEMO 3: Custom Continuous action env: FinanceStock-v1"""
     args = Arguments(if_on_policy=True)
-
-    from elegantrl_performance.agent import AgentGaePPO  # AgentPPO
-    args.agent_rl = AgentGaePPO  # PPO+GAE (on-policy)
+    args.agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
 
     from elegantrl_performance.env import FinanceMultiStockEnv
-    args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
-    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
+    args.env = FinanceMultiStockEnv(if_train=True)  # a standard env for ElegantRL, not need decorate_env()
+    args.env_eval = FinanceMultiStockEnv(if_train=False)
+    args.break_step = int(2e6)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
-    args.max_step = 1699
-    args.max_memo = (args.max_step - 1) * 16
+    args.max_step = args.env.max_step
+    args.max_memo = (args.max_step - 1) * 8
     args.batch_size = 2 ** 11
     args.repeat_times = 2 ** 4
+    args.eval_times = 2 ** 3
 
-    train_and_evaluate(args)
-    exit()
+    # train_and_evaluate(args)
+    args.rollout_num = 8
+    train_and_evaluate__multiprocessing(args)
+
+    args = Arguments(if_on_policy=False)
+    # args.agent_rl = agent.AgentModSAC
+    args.agent_rl = agent.AgentInterSAC
+
+    env_name = 'AntBulletEnv-v0'
+    assert env_name in {"AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
+                        "HumanoidBulletEnv-v0", "HumanoidFlagrunBulletEnv-v0", "HumanoidFlagrunHarderBulletEnv-v0"}
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env = decorate_env(gym.make('AntBulletEnv-v0'))
+
+    # args.break_step = int(2e5)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+    args.batch_size = 2 ** 8
+    args.max_memo = 2 ** 20
+    args.eva_size = 2 ** 2  # for Recorder
+    args.show_gap = 2 ** 8  # for Recorder
+
+    # train_and_evaluate(args)
+    args.rollout_num = 4
+    train_and_evaluate__multiprocessing(args)
 
 
 '''DEMO wait for updating'''
@@ -732,7 +742,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
 
 def mp_evaluate_agent(args, pipe2_eva):
     env = args.env
-    env_eval = args.env
+    env_eval = args.env_eval
     cwd = args.cwd
     agent_id = args.gpu_id
     show_gap = args.show_gap  # evaluate arguments
