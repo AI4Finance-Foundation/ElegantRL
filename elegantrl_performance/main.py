@@ -139,9 +139,12 @@ def run__demo():
         plt.show()
 
     '''DEMO 4: PyBullet(MuJoCo) Robot Env'''
-    args = Arguments(if_on_policy=False)
-    # args.agent_rl = agent.AgentModSAC
-    args.agent_rl = agent.AgentInterSAC
+    if_on_policy = True
+    args = Arguments(if_on_policy=if_on_policy)  # on-policy has different hyper-parameters from off-policy
+    if if_on_policy:
+        args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
+    else:
+        args.agent_rl = agent.AgentModSAC  # off-policy: AgentSAC, AgentModPPO, AgentTD3, AgentDDPG
 
     env_name = 'AntBulletEnv-v0'
     assert env_name in {"AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
