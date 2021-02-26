@@ -322,7 +322,9 @@ class FinanceMultiStockEnv:  # 2021-02-02
                 action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
                 state, reward, done, _ = self.step(action)
 
-                episode_returns.append(self.episode_return)
+                episode_return = (self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
+                                  ) / self.initial_account__reset
+                episode_returns.append(episode_return)
                 if done:
                     break
         return np.array(episode_returns)

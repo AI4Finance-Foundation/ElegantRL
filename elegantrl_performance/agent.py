@@ -254,13 +254,16 @@ class AgentBase:
             network.load_state_dict(network_dict)
 
         if if_save:
-            torch.save(self.act.state_dict(), act_save_path) if has_act else None
-            torch.save(self.cri.state_dict(), cri_save_path) if has_cri else None
-            # print("Saved act and cri:", cwd)
-        elif os.path.exists(act_save_path):
-            load_torch_file(self.act, act_save_path) if has_act else None
-            load_torch_file(self.cri, cri_save_path) if has_cri else None
-            print("Loaded act and cri:", cwd)
+            if has_act:
+                torch.save(self.act.state_dict(), act_save_path)
+            if has_cri:
+                torch.save(self.cri.state_dict(), cri_save_path)
+        elif has_act and os.path.exists(act_save_path):
+            load_torch_file(self.act, act_save_path)
+            print("Loaded act:", cwd)
+        elif has_cri and os.path.exists(cri_save_path):
+            load_torch_file(self.cri, cri_save_path)
+            print("Loaded cri:", cwd)
         else:
             print("FileNotFound when load_model: {}".format(cwd))
 

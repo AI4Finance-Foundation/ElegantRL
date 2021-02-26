@@ -121,6 +121,24 @@ def run__demo():
     args.rollout_num = 8
     train_and_evaluate__multiprocessing(args)
 
+    def draw_cumulative_return_curve(cwd='FinanceStock-v2_1.61_3'):
+        from elegantrl_performance.env import FinanceMultiStockEnv
+        env = FinanceMultiStockEnv(if_train=False)
+
+        agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
+        net_dim = 2 ** 8
+        agent_ppo = agent_rl(net_dim, env.state_dim, env.action_dim)
+        agent_ppo.save_or_load_model(cwd, if_save=False)
+
+        import torch
+        cumulative_returns = env.draw_cumulative_return(agent_ppo, torch)
+
+        import matplotlib.pyplot as plt
+
+        plt.plot(cumulative_returns)
+        plt.show()
+
+    '''DEMO 4: PyBullet(MuJoCo) Robot Env'''
     args = Arguments(if_on_policy=False)
     # args.agent_rl = agent.AgentModSAC
     args.agent_rl = agent.AgentInterSAC
