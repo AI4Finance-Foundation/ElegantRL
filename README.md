@@ -9,33 +9,33 @@
 </a>
 <br/>
 
-We maintain an **elegant (lightweight, efficient and stable)** lib, for researchers and practitioners.
+ElegantRL is featured with **lightweight, efficient and stable**, for researchers and practitioners.
   
-  + **Lightweight**: The core codes have less than 1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
+  + **Lightweight**: The core codes  <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
   
-  + **Efficient**: Its performance is comparable with [Ray RLlib](https://github.com/ray-project/ray).
+  + **Efficient**: performance is comparable with [Ray RLlib](https://github.com/ray-project/ray).
   
-  + **Stable**: It is as stable as [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
+  + **Stable**: as stable as [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
 
 Model-free deep reinforcement learning (DRL) algorithms: 
-+ **DDPG, TD3, SAC, PPO(GAE) for continuous actions**
-+ **DQN, DoubleDQN, DuelingDQN for discrete actions**
++ **DDPG, TD3, SAC, A2C, PPO(GAE)** for continuous actions
++ **DQN, DoubleDQN, D3QN** for discrete actions
 
-For the algorithms, please check out the [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
+For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
 ### Model-free DRL Algorithms
 
 ![RL_survey_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/RL_survey_2020.png)
 
-More policy gradient algorithms (Actor-Critic methods): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
+More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
 # File Structure
     -----kernel file----
-    elegantrl.net.py    # Neural networks.
-    elegantrl.agent.py  # Model-free RL algorithms.
-    elegantrl.main.py   # run and learn the DEMO 1 ~ 3 in run__demo()
+    erl/net.py    # Neural networks.
+    erl/agent.py  # Model-free RL algorithms.
+    erl/main.py   # run and learn the DEMO 1 ~ 3 in run__demo()
     -----utils file----
-    elegantel.env.py    # gym env or custom env (MultiStockEnv Finance)
+    erl/env.py    # gym env or custom env (MultiStockEnv Finance)
     Examples.ipynb      # run and learn the DEMO 1 ~ 3 in jupyter notebook (new version)
     ElegantRL-examples.ipynb  # run and learn the DEMO 1 ~ 3 in jupyter notebook (old version)
 
@@ -55,7 +55,7 @@ Results using ElegantRL
 
 BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward.
 
-Check out our video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
+Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
 
 # Requirements
 
