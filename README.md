@@ -31,11 +31,11 @@ More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithm
 
 # File Structure
     -----kernel file----
-    erl/net.py    # Neural networks.
-    erl/agent.py  # Model-free RL algorithms.
-    erl/main.py   # run and learn the DEMO 1 ~ 3 in run__demo()
+    elegantrl/net.py    # Neural networks.
+    elegantrl/agent.py  # Model-free RL algorithms.
+    elegantrl/main.py   # run and learn the DEMO 1 ~ 3 in run__demo()
     -----utils file----
-    erl/env.py    # gym env or custom env (MultiStockEnv Finance)
+    elegantrl/env.py    # gym env or custom env (MultiStockEnv Finance)
     Examples.ipynb      # run and learn the DEMO 1 ~ 3 in jupyter notebook (new version)
     ElegantRL-examples.ipynb  # run and learn the DEMO 1 ~ 3 in jupyter notebook (old version)
 
