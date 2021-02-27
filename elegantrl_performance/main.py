@@ -1,5 +1,7 @@
 import os
 import time
+from copy import deepcopy
+
 import torch
 import numpy as np
 import numpy.random as rd
@@ -67,9 +69,9 @@ class Arguments:
 
 
 def run__demo():
-    import elegantrl_performance.agent as agent
-    from elegantrl_performance.env import decorate_env
-    # from elegantrl_performance.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
+    import elegantrl2.agent as agent
+    from elegantrl2.env import decorate_env
+    # from elegantrl2.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
     import gym
 
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
@@ -106,7 +108,7 @@ def run__demo():
     args = Arguments(if_on_policy=True)
     args.agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
 
-    from elegantrl_performance.env import FinanceMultiStockEnv
+    from elegantrl2.env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv(if_train=True)  # a standard env for ElegantRL, not need decorate_env()
     args.env_eval = FinanceMultiStockEnv(if_train=False)
     args.break_step = int(2e6)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
@@ -122,7 +124,7 @@ def run__demo():
     train_and_evaluate__multiprocessing(args)
 
     def draw_cumulative_return_curve(cwd='FinanceStock-v2_1.61_3'):
-        from elegantrl_performance.env import FinanceMultiStockEnv
+        from elegantrl2.env import FinanceMultiStockEnv
         env = FinanceMultiStockEnv(if_train=False)
 
         agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
@@ -139,12 +141,8 @@ def run__demo():
         plt.show()
 
     '''DEMO 4: PyBullet(MuJoCo) Robot Env'''
-    if_on_policy = True
-    args = Arguments(if_on_policy=if_on_policy)  # on-policy has different hyper-parameters from off-policy
-    if if_on_policy:
-        args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
-    else:
-        args.agent_rl = agent.AgentModSAC  # off-policy: AgentSAC, AgentModPPO, AgentTD3, AgentDDPG
+    args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
+    args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
 
     env_name = 'AntBulletEnv-v0'
     assert env_name in {"AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
@@ -153,7 +151,6 @@ def run__demo():
     dir(pybullet_envs)
     args.env = decorate_env(gym.make('AntBulletEnv-v0'))
 
-    # args.break_step = int(2e5)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
     args.batch_size = 2 ** 8
@@ -585,8 +582,7 @@ def train_and_evaluate(args):
     eval_times = args.eval_times
     break_step = args.break_step
     if_break_early = args.if_break_early
-    from copy import deepcopy  # built-in library of Python
-    env_eval = args.env_eval if args.env_eval else deepcopy(env)
+    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
     del deepcopy
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
@@ -594,10 +590,7 @@ def train_and_evaluate(args):
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
-    if env_eval is None:
-        from copy import deepcopy
-        env_eval = deepcopy(env)
-        del deepcopy
+    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
 
     '''init: Agent, Evaluator, ReplayBuffer'''
     agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
@@ -644,8 +637,8 @@ def train_and_evaluate__multiprocessing(args):
     pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()
 
     process_train = mp.Process(target=mp__update_params, args=(args, pipe2_eva, pipe2_exp_list))
-    process_eval = mp.Process(target=mp_evaluate_agent, args=(args, pipe1_eva))
-    process = [process_train, process_eval]
+    process_evaluate = mp.Process(target=mp_evaluate_agent, args=(args, pipe1_eva))
+    process = [process_train, process_evaluate]
 
     for worker_id in range(act_workers):
         exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
@@ -653,8 +646,8 @@ def train_and_evaluate__multiprocessing(args):
         process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, worker_id)))
 
     [p.start() for p in process]
-    process_eval.join()
     process_train.join()
+    process_evaluate.join()
     [p.terminate() for p in process]
     print('\n')
 
@@ -686,6 +679,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
     pipe1_eva.send(agent.act)  # act = pipe2_eva.recv()
     if_on_policy = agent_rl.__name__ in {'AgentPPO', 'AgentGaePPO'}
+    print(';0')
 
     agent.state = [pipe.recv() for pipe in pipe1_exp_list]
     if if_on_policy:
@@ -711,27 +705,21 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     pipe1_eva.send((agent.act, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
 
     if_solve = False
-    # print(';;0')
     while not ((if_break_early and if_solve)
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
-        # print(';;1', max_step)
         with torch.no_grad():  # speed up running
-            # steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
             steps = agent.update_buffer__pipe(pipe1_exp_list, buffer_mp, max_step)
         total_step += steps
 
-        # print(';;2', total_step)
         obj_a, obj_c = agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)
 
-        # print(';;3')
         '''saves the agent with max reward'''
         pipe1_eva.send((agent.act, steps, obj_a, obj_c))  # pipe1_eva act_cpu
         if_solve = pipe1_eva.recv()
 
-        # print(';;4')
         if pipe1_eva.poll():
-            if_solve = pipe1_eva.recv()  # pipe1_eva if_solve
+            if_solve = pipe1_eva.recv()  # pipe2_eva.send(if_solve)
 
     buffer_mp.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
                                env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
@@ -756,9 +744,10 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
         action = pipe2_exp.recv()  # pipe1_exp.send(action)
         next_state, reward, done, _ = env.step(action)
 
+        reward_mask = np.array((reward * reward_scale, 0.0 if done else gamma), dtype=np.float32)
         if done:
             next_state = env.reset()
-        pipe2_exp.send((reward * reward_scale, 0.0 if done else gamma, next_state))
+        pipe2_exp.send((reward_mask, next_state))
 
 
 def mp_evaluate_agent(args, pipe2_eva):
@@ -769,16 +758,13 @@ def mp_evaluate_agent(args, pipe2_eva):
     show_gap = args.show_gap  # evaluate arguments
     eval_times = args.eval_times
 
-    from copy import deepcopy  # built-in library of Python
     env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
-    del deepcopy
 
     device = torch.device("cpu")
     evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=device, env=env_eval,
                           eval_times=eval_times, show_gap=show_gap)  # build Evaluator
 
     '''act_cpu without gradient for pipe1_eva'''
-    from copy import deepcopy  # built-in library of Python
     act = pipe2_eva.recv()  # pipe1_eva.send(agent.act)
     act_cpu = deepcopy(act).to(torch.device("cpu"))  # for pipe1_eva
     [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
@@ -801,7 +787,7 @@ def mp_evaluate_agent(args, pipe2_eva):
                 steps_sum += steps
             act_cpu.load_state_dict(act.state_dict())
             if_solve = evaluator.evaluate_act__save_checkpoint(act_cpu, steps_sum, obj_a, obj_c)
-            pipe2_eva.send(if_solve)
+            pipe2_eva.send(if_solve)  # if_solve = pipe1_eva.recv()
 
             evaluator.save_npy__draw_plot()
 
@@ -1114,9 +1100,8 @@ class ReplayBufferMP:
             buffer.empty_memories__before_explore()
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        pass  # bug
-        # for buffer in self.l_buffer:
-        #     buffer.print_state_norm(neg_avg, div_std)
+        for buffer in self.l_buffer:
+            buffer.print_state_norm(neg_avg, div_std)
 
 
 def _explore_before_train(env, buffer, target_step, reward_scale, gamma):

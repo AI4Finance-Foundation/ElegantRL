@@ -4,10 +4,10 @@ from copy import deepcopy  # deepcopy target_network
 import torch
 import numpy as np
 import numpy.random as rd
-from elegantrl_performance.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
-from elegantrl_performance.net import Actor, ActorSAC, ActorPPO
-from elegantrl_performance.net import Critic, CriticAdv, CriticTwin
-from elegantrl_performance.net import InterDPG, InterSPG, InterPPO
+from elegantrl2.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
+from elegantrl2.net import Actor, ActorSAC, ActorPPO
+from elegantrl2.net import Critic, CriticAdv, CriticTwin
+from elegantrl2.net import InterDPG, InterSPG, InterPPO
 
 """ElegantRL (Pytorch 3 files model-free DRL Library)
 GitHub.com: YonV1943, Zhihu.com: 曾伊言
@@ -205,20 +205,17 @@ class AgentBase:
 
         trajectory_list = [list() for _ in range(m)]
         for _i in range(max_step):
-            # '''two cpu clusters'''  # beta1 beta2
-            # for beg, end in ((0, n), (n, m)):
-            #     for i in range(beg, end):
-            #         reward_mask_action, next_state = pipes[i].recv()
-            #         trajectory_list[i].append((reward_mask_action, next_state))
-            #         self.state[i] = next_state
-            #     self.action[beg:end] = self.select_actions(self.state[beg:end])
-            #     for i in range(beg, end):
-            #         pipes[i].send(self.action[i])
-            '''two cpu clusters'''  # beta3
+            '''two cpu clusters'''
             for beg, end in ((0, n), (n, m)):
                 for i in range(beg, end):
+                    '''ceta1 3'''
                     reward, mask, next_state = pipes[i].recv()
-                    trajectory_list[i].append(((reward, mask, *self.action[i]), next_state))
+                    trajectory_list[i].append(((reward, mask, *self.action[i]),
+                                               self.state[i]))
+                    '''ceta2 4'''
+                    # reward_mask, next_state = pipes[i].recv()
+                    # trajectory_list[i].append((np.hstack((reward_mask, self.action[i])),
+                    #                            self.state[i]))
                     self.state[i] = next_state
                 self.action[beg:end] = self.select_actions(self.state[beg:end])
                 for i in range(beg, end):
@@ -236,8 +233,6 @@ class AgentBase:
         for i in range(m):
             trajectory = trajectory_list[i]
             steps += len(trajectory)
-            # buf_other = np.stack([item[0] for item in trajectory])
-            # buf_state = np.stack([item[1] for item in trajectory])
             buf_other = [item[0] for item in trajectory]
             buf_state = [item[1] for item in trajectory]
             buffer_mp.extend_memo_mp(buf_state, buf_other, i)
@@ -762,8 +757,9 @@ class AgentPPO(AgentBase):
             '''two cpu clusters'''  # beta1 next_state=tuple
             for beg, end in ((0, n), (n, m)):
                 for i in range(beg, end):
-                    reward, mask, next_state = pipes[i].recv()
-                    trajectory_list[i].append((np.hstack((reward, mask, *self.action[i], *self.noise[i])), next_state))
+                    reward_mask, next_state = pipes[i].recv()
+                    trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])),
+                                               self.state[i]))
                     self.state[i] = next_state
                 self.action[beg:end], self.noise[beg:end] = self.select_actions(self.state[beg:end])
                 for i in range(beg, end):
@@ -777,26 +773,26 @@ class AgentPPO(AgentBase):
             # for i in range(m):
             #     pipes[i].send(self.action[i])
 
-        # masks = [trajectory[-1][0][1] for trajectory in trajectory_list]
-        # while any(masks):  # todo wait for checking
-        #     for beg, end in ((0, n), (n, m)):
-        #         for i in range(beg, end):
-        #             if masks[i]:
-        #                 reward_mask, next_state = pipes[i].recv()
-        #                 trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])),
-        #                                            next_state))
-        #                 self.state[i] = next_state
-        #                 masks[i] = reward_mask[1]
-        #         self.action[beg:end], self.noise[beg:end] = self.select_actions(self.state[beg:end])
-        #         for i in range(beg, end):
-        #             if masks[i]:
-        #                 pipes[i].send(self.action[i])
+        masks = [trajectory[-1][0][1] for trajectory in trajectory_list]
+        while any(masks):
+            for beg, end in ((0, n), (n, m)):
+                for i in range(beg, end):
+                    if masks[i]:
+                        reward_mask, next_state = pipes[i].recv()
+                        trajectory_list[i].append((np.hstack((reward_mask, self.action[i], self.noise[i])),
+                                                   self.state[i]))
+                        self.state[i] = next_state
+                self.action[beg:end], self.noise[beg:end] = self.select_actions(self.state[beg:end])
+                for i in range(beg, end):
+                    if masks[i]:
+                        pipes[i].send(self.action[i])
+                        masks[i] = trajectory_list[i][-1][0][1]
 
         steps = 0
         for i in range(m):
             trajectory = trajectory_list[i]
-
             steps += len(trajectory)
+
             buf_other = [item[0] for item in trajectory]
             buf_state = [item[1] for item in trajectory]
             buffer_mp.extend_memo_mp(buf_state, buf_other, i)
