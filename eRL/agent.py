@@ -759,7 +759,8 @@ class AgentPPO(AgentBase):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
         buf_advantage = buf_r_sum - (buf_mask * buf_value.squeeze(1))
-        buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
+        # buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
+        buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 
 
@@ -768,8 +769,7 @@ class AgentGaePPO(AgentPPO):
         super().__init__(net_dim, state_dim, action_dim, learning_rate)
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.01  # could be 0.02
-        self.lambda_gae_adv = 0.98  # could be 0.95~0.99
-        # GAE (Generalized Advantage Estimation. ICLR.2016.)
+        self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
 
     def compute_reward(self, buffer, buf_reward, buf_mask, buf_value):
         max_memo = buffer.now_len
@@ -786,7 +786,8 @@ class AgentGaePPO(AgentPPO):
             buf_advantage[i] = buf_reward[i] + buf_mask[i] * pre_advantage - buf_value[i]
             pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_gae_adv
 
-        buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
+        # buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
+        buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 
 
@@ -834,7 +835,7 @@ class AgentInterPPO(AgentPPO):
                 buf_advantage[i] = buf_reward[i] + buf_mask[i] * pre_advantage - buf_value[i]
                 pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_adv
 
-            buf_advantage = buf_advantage / (buf_advantage.std() + 1e-5)
+            buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
             del buf_reward, buf_mask, buf_noise
 
         '''PPO: Clipped Surrogate objective of Trust Region'''

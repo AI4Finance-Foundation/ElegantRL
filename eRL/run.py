@@ -24,7 +24,7 @@ class Arguments:
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
         self.max_memo = 2 ** 17  # capacity of replay buffer
         if if_on_policy:  # (on-policy)
-            self.net_dim = 2 ** 9  # todo 8
+            self.net_dim = 2 ** 9
             self.batch_size = 2 ** 8
             self.repeat_times = 2 ** 4
             self.max_memo = 2 ** 12
@@ -38,7 +38,8 @@ class Arguments:
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.if_break_early = True  # break training after 'eval_reward > target reward'
         self.break_step = 2 ** 20  # break training after 'total_step > break_step'
-        self.eval_times1 = 2 ** 3  # evaluation times if 'eval_reward > target_reward'
+        self.eval_times1 = 2 ** 2  # evaluation times if 'eval_reward > old_max_reward'
+        self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > target_reward'
         self.show_gap = 2 ** 8  # show the Reward and Loss value per show_gap seconds
         self.random_seed = 0  # initialize random seed in self.init_before_training(
 
@@ -134,15 +135,13 @@ def run__demo():
     # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
     args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
 
-    args.break_step = int(5e4 * 8)  # (5e4) 1e5, UsedTime: (400s) 800s
-    args.repeat_times = 2 ** 3
-    args.batch_size = 2 ** 8
-    args.max_memo = 2 ** 12
-    args.show_gap = 2 ** 6
+    args.break_step = int(5e4 * 8)  # (5e4) 1e5, UsedTime: (300s) 800s
+    args.eval_times1 = 2 ** 2
     args.eval_times1 = 2 ** 4
 
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
+
 
     # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
     # args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
@@ -582,7 +581,8 @@ def train_and_evaluate(args):
     reward_scale = args.reward_scale
 
     show_gap = args.show_gap  # evaluate arguments
-    eval_times = args.eval_times1
+    eval_times1 = args.eval_times1
+    eval_times2 = args.eval_times2
     break_step = args.break_step
     if_break_early = args.if_break_early
     env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
@@ -599,7 +599,7 @@ def train_and_evaluate(args):
     agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
     agent.state = env.reset()
     evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=agent.device, env=env_eval,
-                          eval_times=eval_times, show_gap=show_gap)  # build Evaluator
+                          eval_times1=eval_times1, eval_times2=eval_times2, show_gap=show_gap)  # build Evaluator
 
     if_on_policy = agent_rl.__name__ in {'AgentPPO', 'AgentGaePPO'}
     buffer = ReplayBuffer(max_memo + max_step, state_dim, if_on_policy=if_on_policy,
@@ -782,13 +782,14 @@ def mp_evaluate_agent(args, pipe2_eva):
     cwd = args.cwd
     agent_id = args.gpu_id
     show_gap = args.show_gap  # evaluate arguments
-    eval_times = args.eval_times1
+    eval_times1 = args.eval_times1
+    eval_times2 = args.eval_times2
 
     env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
 
     device = torch.device("cpu")
     evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=device, env=env_eval,
-                          eval_times=eval_times, show_gap=show_gap)  # build Evaluator
+                          eval_times1=eval_times1,eval_times2=eval_times2, show_gap=show_gap)  # build Evaluator
 
     '''act_cpu without gradient for pipe1_eva'''
     act = pipe2_eva.recv()  # pipe1_eva.send(agent.act)
@@ -830,7 +831,7 @@ def mp_evaluate_agent(args, pipe2_eva):
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, eval_times, show_gap, env, device):
+    def __init__(self, cwd, agent_id, eval_times1, eval_times2, show_gap, env, device):
         self.recorder = [(0., -np.inf, 0., 0., 0.), ]  # total_step, r_avg, r_std, obj_a, obj_c
         self.r_max = -np.inf
         self.total_step = 0
@@ -840,7 +841,8 @@ class Evaluator:
         self.device = device
         self.agent_id = agent_id
         self.show_gap = show_gap
-        self.eva_times = eval_times
+        self.eva_times1 = eval_times1
+        self.eva_times2 = eval_times2
         self.env = env
         self.target_reward = env.target_reward
 
@@ -858,16 +860,25 @@ class Evaluator:
         fig, self.axs = plt.subplots(2)
 
     def evaluate_act__save_checkpoint(self, act, steps, obj_a, obj_c):
-        reward_list = [_get_episode_return(self.env, act, self.device) for _ in range(self.eva_times)]
+        reward_list = [_get_episode_return(self.env, act, self.device)
+                       for _ in range(self.eva_times1)]
         r_avg = np.average(reward_list)  # episode return average
         r_std = float(np.std(reward_list))  # episode return std
 
         if r_avg > self.r_max:  # save checkpoint with highest episode return
+            reward_list += [_get_episode_return(self.env, act, self.device)
+                            for _ in range(self.eva_times2 - self.eva_times1)]
+            r_avg = np.average(reward_list)  # episode return average
+            r_std = float(np.std(reward_list))  # episode return std
+        if r_avg > self.r_max:
+            '''update r_max: max reward'''
             self.r_max = r_avg
 
+            '''save actor.pth'''
             act_save_path = f'{self.cwd}/actor.pth'
             torch.save(act.state_dict(), act_save_path)
             print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |")
+
         self.total_step += steps  # update total training steps
         self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
 
