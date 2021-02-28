@@ -197,7 +197,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 1.4
+        self.target_reward = 1.25
         self.max_step = self.ary.shape[0]
 
     def reset(self):
