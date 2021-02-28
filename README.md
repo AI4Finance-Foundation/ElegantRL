@@ -88,11 +88,11 @@ The following steps:
 
 # Training pipeline
 
-+ Initialize the hyper-parameters using `args`.
-+ <span style="color:blue">Initialize `agent = AgentXXX()` : create the DRL agent based on the algorithm.</span>
-+ <span style="color:red">Initialize `buffer = ReplayBuffer()` : store the transitions.</span>
-+ <span style="color:green">Initialize `evaluator = Evaluator()` : evaluate and store the trained model.</span>
++ Initialize the parameters using `args`.
++ <span style="color:blue">Initialize `agent = agent.XXX()` : creates the DRL agent based on the algorithm.</span>
++ <span style="color:green">Initialize `evaluator = Evaluator()` : evaluates and stores the trained model.</span>
++ <span style="color:red">Initialize `buffer = ReplayBuffer()` : stores the transitions.</span>
 + Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
   + <span style="color:red">`agent.update_buffer(...)`</span> The agent explores the environment within target steps, generates transition data, and stores it in the ReplayBuffer. Run in parallel.
   + <span style="color:blue">`agent.update_policy(...)` </span> The agent uses a batch from the ReplayBuffer to update the network parameters. Run in parallel.
-  + <span style="color:green">`evaluator.evaluate_and_save(...)`</span> Evaluate the performance of the agent and keep the model with the highest score. Independent of the training process.
+  + <span style="color:green">`evaluator.evaluate_act__save_checkpoint(...)`</span> Evaluates the performance of the agent and keep the model with the highest score. Independent of the training process.
