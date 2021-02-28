@@ -168,7 +168,8 @@ class FinanceMultiStockEnv:  # 2021-02-02
     Modify: Github Yonv1943 ElegantRL
     """
 
-    def __init__(self, initial_account=1e6, max_stock=1e2, transaction_fee_percent=1e-3, if_train=True):
+    def __init__(self, initial_account=1e6, max_stock=1e2, transaction_fee_percent=1e-3, if_train=True,
+                 train_beg=0, train_len=1024):
         self.stock_dim = 30
         self.initial_account = initial_account
         self.transaction_fee_percent = transaction_fee_percent
@@ -176,7 +177,8 @@ class FinanceMultiStockEnv:  # 2021-02-02
 
         ary = self.load_training_data_for_multi_stock()
         assert ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
-        train_len = 1024
+        assert train_beg < train_len
+        assert train_len < ary.shape[0]  # ary.shape[0] == 1699
         self.ary_train = ary[:train_len]
         self.ary_valid = ary[train_len:]
         self.ary = self.ary_train if if_train else self.ary_valid
@@ -197,7 +199,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 1.25
+        self.target_reward = 1.25  # convergence 1.5
         self.max_step = self.ary.shape[0]
 
     def reset(self):

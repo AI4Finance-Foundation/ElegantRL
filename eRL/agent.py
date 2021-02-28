@@ -1004,9 +1004,11 @@ class ReplayBufferMP:
 
     def random_sample(self, batch_size):
         _batch_size = batch_size // self.rollout_num
+        rd_batch_sizes = rd.rand(self.rollout_num)
+        rd_batch_sizes = (rd_batch_sizes * (_batch_size / rd_batch_sizes.sum())).astype(np.int)
 
-        l__r_m_a_s_ns = [self.buffers[i].random_sample(_batch_size)
-                         for i in range(self.rollout_num)]
+        l__r_m_a_s_ns = [self.buffers[i].random_sample(rd_batch_sizes[i])
+                         for i in range(self.rollout_num) if rd_batch_sizes[i] > 1]
         return (torch.cat([item[0] for item in l__r_m_a_s_ns], dim=0),
                 torch.cat([item[1] for item in l__r_m_a_s_ns], dim=0),
                 torch.cat([item[2] for item in l__r_m_a_s_ns], dim=0),

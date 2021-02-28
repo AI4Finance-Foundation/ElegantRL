@@ -134,16 +134,16 @@ def run__demo():
     # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
     args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
 
-    args.break_step = int(4e5 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.break_step = int(5e4 * 8)  # (5e4) 1e5, UsedTime: (400s) 800s
     args.repeat_times = 2 ** 3
     args.batch_size = 2 ** 8
     args.max_memo = 2 ** 12
     args.show_gap = 2 ** 6
-    args.eval_times1 = 2 ** 2
+    args.eval_times1 = 2 ** 4
 
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
-    
+
     # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
     # args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
     #
