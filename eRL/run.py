@@ -135,13 +135,12 @@ def run__demo():
     # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
     args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
 
-    args.break_step = int(5e4 * 8)  # (5e4) 1e5, UsedTime: (300s) 800s
-    args.eval_times1 = 1
-    args.eval_times2 = 2
+    args.break_step = int(4e4 * 8)  # (4e4) 8e5, UsedTime: (300s) 700s
+    args.eval_times1 = 2 ** 2
+    args.eval_times1 = 2 ** 4
 
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
-
 
     # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
     # args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
@@ -789,7 +788,7 @@ def mp_evaluate_agent(args, pipe2_eva):
 
     device = torch.device("cpu")
     evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=device, env=env_eval,
-                          eval_times1=eval_times1,eval_times2=eval_times2, show_gap=show_gap)  # build Evaluator
+                          eval_times1=eval_times1, eval_times2=eval_times2, show_gap=show_gap)  # build Evaluator
 
     '''act_cpu without gradient for pipe1_eva'''
     act = pipe2_eva.recv()  # pipe1_eva.send(agent.act)
@@ -835,7 +834,6 @@ class Evaluator:
         self.recorder = [(0., -np.inf, 0., 0., 0.), ]  # total_step, r_avg, r_std, obj_a, obj_c
         self.r_max = -np.inf
         self.total_step = 0
-        self.save_path = ''
 
         self.cwd = cwd  # constant
         self.device = device
@@ -940,10 +938,7 @@ class Evaluator:
         plt.title(save_title, y=2.3)
 
         '''plot save'''
-        if self.save_path:  # remove old plot figure
-            os.remove(self.save_path)
-        self.save_path = f"{self.cwd}/{save_title}.jpg"
-        plt.savefig(self.save_path)
+        plt.savefig(f"{self.cwd}/plot_learning_curve.jpg")
         # plt.show()
         # plt.close()
         plt.clf()
