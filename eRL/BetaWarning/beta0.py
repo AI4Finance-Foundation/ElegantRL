@@ -144,7 +144,8 @@ def render_pybullet():
     net_dim = args.net_dim
     state_dim = args.env.state_dim
     action_dim = args.env.action_dim
-    cwd = args.cwd
+    # cwd = args.cwd
+    cwd = "ReacherBulletEnv-v0_2"
     env = args.env
     max_step = args.max_step
 
@@ -181,6 +182,7 @@ def render_pybullet():
         state = next_state
     print('end')
 
+render_pybullet()
 # demo1()
 # demo5()
 # render_pybullet()
