@@ -585,7 +585,6 @@ def train_and_evaluate(args):
     break_step = args.break_step
     if_break_early = args.if_break_early
     env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
-    del deepcopy
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     '''init: env'''
