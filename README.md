@@ -29,6 +29,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
+![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 # File Structure
     -----kernel file----
     eRL/net.py    # Neural networks.
