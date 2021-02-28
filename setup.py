@@ -6,7 +6,7 @@ setup(
     author="Xiaoyang Liu, Steven Li, Hongyang Yang, Jiahao Zheng",
     author_email="XL2427@columbia.edu",
     url="https://github.com/AI4Finance-LLC/ElegantRL",
-    license="MIT",
+    license="Apache 2.0",
     packages=find_packages(),
     install_requires=[
         'gym', 'matplotlib', 'numpy', 'pybullet', 'torch'],
