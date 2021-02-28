@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="erl",
+    name="elegantrl",
     version="0.3.0",
     author="Xiaoyang Liu, Steven Li, Hongyang Yang, Jiahao Zheng",
     author_email="XL2427@columbia.edu",
