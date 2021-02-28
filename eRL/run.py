@@ -136,8 +136,8 @@ def run__demo():
     args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
 
     args.break_step = int(5e4 * 8)  # (5e4) 1e5, UsedTime: (300s) 800s
-    args.eval_times1 = 2 ** 2
-    args.eval_times1 = 2 ** 4
+    args.eval_times1 = 1
+    args.eval_times2 = 2
 
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
