@@ -29,8 +29,8 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
 
-![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 # File Structure
+![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
     -----kernel file----
     eRL/net.py    # Neural networks.
     eRL/agent.py  # Model-free RL algorithms.
@@ -96,4 +96,4 @@ The following steps:
 + Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
   + <span style="color:red">`agent.update_buffer(...)`</span> The agent explores the environment within target steps, generates transition data, and stores it in the ReplayBuffer. Run in parallel.
   + <span style="color:blue">`agent.update_policy(...)` </span> The agent uses a batch from the ReplayBuffer to update the network parameters. Run in parallel.
-  + <span style="color:green">`evaluator.evaluate_act__save_checkpoint(...)`</span> Evaluates the performance of the agent and keep the model with the highest score. Independent of the training process.
+  + <span style="color:green">`evaluator.evaluate_act__save_checkpoint(...)`</span> Evaluates the performance of the agent and keeps the model with the highest score. Independent of the training process.
