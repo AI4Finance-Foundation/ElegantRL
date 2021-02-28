@@ -126,26 +126,44 @@ def run__demo():
     args.env_eval.draw_cumulative_return(args, torch)
 
     '''DEMO 4: PyBullet(MuJoCo) Robot Env'''
-    args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
-    args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
+    args = Arguments(if_on_policy=True)
+    args.agent_rl = agent.AgentGaePPO  # agent.AgentPPO
 
-    env_name = 'AntBulletEnv-v0'
-    assert env_name in {"AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
-                        "HumanoidBulletEnv-v0", "HumanoidFlagrunBulletEnv-v0", "HumanoidFlagrunHarderBulletEnv-v0"}
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
-    args.env = decorate_env(gym.make('AntBulletEnv-v0'))
+    # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
+    args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
 
-    args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
-    args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+    args.break_step = int(4e5 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.repeat_times = 2 ** 3
     args.batch_size = 2 ** 8
-    args.max_memo = 2 ** 20
-    args.eva_size = 2 ** 2  # for Recorder
-    args.show_gap = 2 ** 8  # for Recorder
+    args.max_memo = 2 ** 12
+    args.show_gap = 2 ** 6
+    args.eval_times1 = 2 ** 2
 
-    # train_and_evaluate(args)
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
+    
+    # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
+    # args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
+    #
+    # env_name = 'AntBulletEnv-v0'
+    # assert env_name in {"AntBulletEnv-v0", "Walker2DBulletEnv-v0", "HalfCheetahBulletEnv-v0",
+    #                     "HumanoidBulletEnv-v0", "HumanoidFlagrunBulletEnv-v0", "HumanoidFlagrunHarderBulletEnv-v0"}
+    # import pybullet_envs  # for python-bullet-gym
+    # dir(pybullet_envs)
+    # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
+    #
+    # args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    # args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+    # args.batch_size = 2 ** 8
+    # args.max_memo = 2 ** 20
+    # args.eva_size = 2 ** 2  # for Recorder
+    # args.show_gap = 2 ** 8  # for Recorder
+    #
+    # # train_and_evaluate(args)
+    # args.rollout_num = 4
+    # train_and_evaluate__multiprocessing(args)
 
 
 '''DEMO wait for updating'''
