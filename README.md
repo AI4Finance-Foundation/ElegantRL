@@ -34,7 +34,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 -----utils file----
 + elegantrl/env.py    # gym env or custom env, including MultiStockEnv Finance.
 + Examples.ipynb      # run DEMO 1 ~ 3 in jupyter notebooks
-+ ElegantRL-examples.ipynb  # run DEMO 1 ~ 3 in jupyter notebooks
++ ElegantRL-examples.ipynb  # run DEMO 1 ~ 3 in jupyter notebooks (need to update)
 
 # Experimental results
 
