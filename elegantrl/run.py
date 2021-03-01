@@ -607,7 +607,7 @@ def train_and_evaluate(args):
     else:
         with torch.no_grad():  # update replay buffer
             steps = _explore_before_train(env, buffer, max_step, reward_scale, gamma)
-        agent.update_policy(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
+        agent.update_net(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
 
@@ -620,7 +620,7 @@ def train_and_evaluate(args):
 
         total_step += steps
 
-        obj_a, obj_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        obj_a, obj_c = agent.update_net(buffer, max_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
             if_solve = evaluator.evaluate_act__save_checkpoint(agent.act, steps, obj_a, obj_c)
@@ -691,7 +691,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
         with torch.no_grad():  # update replay buffer
             for _buffer in buffer_mp.buffers:
                 steps += _explore_before_train(env, _buffer, max_step // rollout_num, reward_scale, gamma)
-        agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)  # pre-training and hard update
+        agent.update_net(buffer_mp, max_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
     pipe1_eva.send((agent.act, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
@@ -715,7 +715,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
             buffer_mp.extend_memo_mp(buf_state, buf_other, i)
         total_step += steps
 
-        obj_a, obj_c = agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)
+        obj_a, obj_c = agent.update_net(buffer_mp, max_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
         pipe1_eva.send((agent.act, steps, obj_a, obj_c))  # pipe1_eva act_cpu

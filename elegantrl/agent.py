@@ -71,7 +71,7 @@ class AgentDQN:
             self.state = env.reset() if done else next_s
         return max_step
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DQN (Deep Q Network)
         1. Q-table (discrete state space) --> Q-network (continuous state space)
         2. Use experiment replay buffer to train a neural network in RL
@@ -133,7 +133,7 @@ class AgentDoubleDQN(AgentDQN):
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DDQN (Double DQN)
         1. Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
         """
@@ -245,7 +245,7 @@ class AgentDDPG(AgentBase):
         actions = (actions + torch.randn_like(actions) * self.explore_noise).clamp(-1, 1)
         return actions.detach().cpu().numpy()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """ Contribution of DDPG (Deep Deterministic Policy Gradient)
         1. Policy Gradient with Deep network: DQN + DPG -> DDPG
            Q_value = reward + gamma * next_Q_value
@@ -323,7 +323,7 @@ class AgentTD3(AgentDDPG):
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of TD3 (Twin Delay DDPG)
         1. twin critics (DoubleDQN -> TwinCritic, good idea)
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
@@ -372,7 +372,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=learning_rate)
         self.criterion = torch.nn.SmoothL1Loss()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of InterAC (Integrated network for deterministic policy gradient)
         1. First try integrated network to share parameter between two **different input** network.
         1. First try Encoder-DenseNetLikeNet-Decoder network architecture.
@@ -455,7 +455,7 @@ class AgentSAC(AgentBase):
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of SAC (Soft Actor-Critic with maximum entropy)
         1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
@@ -517,7 +517,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         """ModSAC (Modified SAC using Reliable lambda)
         1. Reliable Lambda is calculated based on Critic's loss function value.
         2. Increasing batch_size and update_times
@@ -602,7 +602,7 @@ class AgentInterSAC(AgentBase):  # Integrated Soft Actor-Critic
         actions = self.act.get__noise_action(states)
         return actions.detach().cpu().numpy()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):  # 1111
+    def update_net(self, buffer, max_step, batch_size, repeat_times):  # 1111
         """Contribution of InterSAC (Integrated network for SAC)
         1. Encoder-DenseNetLikeNet-Decoder network architecture.
             share parameter between two **different input** network
@@ -706,7 +706,7 @@ class AgentPPO(AgentBase):
                 state = next_state
         return step_counter
 
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+    def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
@@ -811,7 +811,7 @@ class AgentInterPPO(AgentPPO):
             {'params': self.act.dec_q2.parameters(), },
         ], lr=learning_rate)
 
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):  # old version
+    def update_net(self, buffer, _max_step, batch_size, repeat_times=8):  # old version
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
