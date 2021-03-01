@@ -1,5 +1,10 @@
 ## Lightweight, Efficient and Stable DRL Implementation Using PyTorch 
 
+[![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
+[![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
+[![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
+[![PyPI](https://img.shields.io/pypi/v/elegantrl.svg)](https://pypi.org/project/elegantrl/)
+
 <br/>
 <a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
 	<div align="center">
