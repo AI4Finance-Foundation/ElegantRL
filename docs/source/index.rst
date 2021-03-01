@@ -7,8 +7,14 @@ Welcome to ElegantRL's documentation!
 =====================================
 
 .. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    Home <self>
+
+.. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Overview
 
    about/overview
    about/installation
@@ -21,8 +27,13 @@ Welcome to ElegantRL's documentation!
    
    algorithms/ddpg
    algorithms/td3
-
-
+   algorithms/sac
+   algorithms/a2c
+   algorithms/ppo
+   algorithms/dqn
+   algorithms/double_dqn
+   algorithms/d3qn
+   
 
 Indices and tables
 ==================
