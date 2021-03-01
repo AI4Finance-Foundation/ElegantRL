@@ -31,6 +31,7 @@ More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithm
 
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
+
 -----kernel file----
 + elegantrl/net.py    # Neural networks.
 + elegantrl/agent.py  # RL algorithms.
