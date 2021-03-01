@@ -36,6 +36,7 @@ More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithm
 + elegantrl/net.py    # Neural networks.
 + elegantrl/agent.py  # RL algorithms.
 + elegantrl/run.py    # run DEMO 1 ~ 4 in run__demo().
+
 -----utils file----
 + elegantrl/env.py    # gym env or custom env, including MultiStockEnv Finance.
 + Examples.ipynb      # run DEMO 1 ~ 3 in jupyter notebooks
@@ -68,6 +69,7 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
     Not necessary:
     | Numpy 1.19.0    | For ReplayBuffer. Numpy will be install when installing PyTorch
     | gym 0.17.2      | For RL training env. Gym provide some tutorial env for DRL training.
+    | pubullet 2.7    | For RL training env. We use PyBullet(free) as an alternative of MuJoCo(not free).
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots. Evaluate the agent performance.
 It is **lightweight**.
