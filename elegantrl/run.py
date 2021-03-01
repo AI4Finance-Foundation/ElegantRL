@@ -5,7 +5,7 @@ from copy import deepcopy
 import torch
 import numpy as np
 import numpy.random as rd
-from eRL.agent import ReplayBuffer, ReplayBufferMP
+from elegantrl.agent import ReplayBuffer, ReplayBufferMP
 
 '''DEMO'''
 
@@ -71,9 +71,9 @@ class Arguments:
 
 
 def run__demo():
-    import eRL.agent as agent
-    from eRL.env import decorate_env
-    # from eRL.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
+    import elegantrl.agent as agent
+    from elegantrl.env import prep_env
+    # from elegantrl.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
     import gym
 
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
@@ -82,7 +82,7 @@ def run__demo():
     args = Arguments(agent_rl=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
     args.agent_rl = agent.AgentD3QN  # choose an DRL algorithm
-    args.env = decorate_env(env=gym.make('CartPole-v0'))
+    args.env = prep_env(env=gym.make('CartPole-v0'))
     args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.env = decorate_env(env=gym.make('LunarLander-v2'))
     # args.net_dim = 2 ** 8  # change a default hyper-parameters
@@ -99,7 +99,7 @@ def run__demo():
 
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = decorate_env(env=env)
+    args.env = prep_env(env=env)
     args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
@@ -110,7 +110,7 @@ def run__demo():
     args = Arguments(if_on_policy=True)
     args.agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
 
-    from eRL.env import FinanceMultiStockEnv
+    from elegantrl.env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv(if_train=True)  # a standard env for ElegantRL, not need decorate_env()
     args.env_eval = FinanceMultiStockEnv(if_train=False)
     args.break_step = int(5e6)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
@@ -133,7 +133,7 @@ def run__demo():
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
-    args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
+    args.env = prep_env(gym.make('ReacherBulletEnv-v0'))
 
     args.break_step = int(4e4 * 8)  # (4e4) 8e5, UsedTime: (300s) 700s
     args.eval_times1 = 2 ** 2

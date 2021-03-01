@@ -4,10 +4,10 @@ from copy import deepcopy  # deepcopy target_network
 import torch
 import numpy as np
 import numpy.random as rd
-from eRL.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
-from eRL.net import Actor, ActorSAC, ActorPPO
-from eRL.net import Critic, CriticAdv, CriticTwin
-from eRL.net import InterDPG, InterSPG, InterPPO
+from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
+from elegantrl.net import Actor, ActorSAC, ActorPPO
+from elegantrl.net import Critic, CriticAdv, CriticTwin
+from elegantrl.net import InterDPG, InterSPG, InterPPO
 
 """ElegantRL (Pytorch 3 files model-free DRL Library)
 GitHub.com: YonV1943, Zhihu.com: 曾伊言

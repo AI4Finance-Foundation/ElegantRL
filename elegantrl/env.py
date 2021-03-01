@@ -3,7 +3,17 @@ import numpy as np
 import numpy.random as rd
 
 
-def decorate_env(env, data_type=np.float32, if_print=True):
+def prep_env(env, data_type=np.float32, if_print=True):  # preprocess environment
+    """preprocess environment
+    In OpenAI gym, it is class Wrapper(). In ElegantRL, it is a decorator
+
+    What preprocess environment do?
+    1.1 use get_gym_env_info() to get state_dim, action_dim ... from gym-env
+    1.2 assignment env.state_dim, env.action_dim ...,
+    1.3 then DRL agent can build network according to these information
+    2.1 let state = state.astype(float32), because sometimes state is float64
+    2.2 do normalization on state before training (no necessary). (Other people do running state while training)
+    """
     if not all([hasattr(env, attr) for attr in (
             'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
         (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = _get_gym_env_info(env, if_print)
@@ -28,7 +38,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
     setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() agent.py
     setattr(env, 'div_state_std', div_state_std)  # for def print_norm() agent.py
 
-    def decorator_step(env_step):
+    def decorate_step(env_step):
         if neg_state_avg is not None and action_max != 1:
             def new_env_step(action):
                 state, reward, done, info = env_step(action * action_max)
@@ -43,9 +53,9 @@ def decorate_env(env, data_type=np.float32, if_print=True):
                 return state.astype(data_type), reward, done, info
         return new_env_step
 
-    env.step = decorator_step(env.step)
+    env.step = decorate_step(env.step)
 
-    def decorator_reset(env_reset):
+    def decorate_reset(env_reset):
         if neg_state_avg is not None:
             def new_env_reset():
                 state = env_reset()
@@ -56,7 +66,7 @@ def decorate_env(env, data_type=np.float32, if_print=True):
                 return state.astype(data_type)
         return new_env_reset
 
-    env.reset = decorator_reset(env.reset)
+    env.reset = decorate_reset(env.reset)
     return env
 
 
@@ -85,7 +95,21 @@ def _get_avg_std__for_state_norm(env_name):
                         0.02433294, -0.09097818, 0.4405931, 0.10299437], dtype=np.float32)
         std = np.array([0.12277275, 0.1347579, 0.14567468, 0.14747661, 0.51311225,
                         0.5199606, 0.2710207, 0.48395795, 0.40876198], dtype=np.float32)
-    # elif env_name == 'AntBulletEnv-v0':
+    elif env_name == 'AntBulletEnv-v0':
+        avg = np.array([-2.2785307e-01, -4.1971792e-02, 9.2752278e-01, 8.3731368e-02,
+                        1.2131270e-03, -5.7878396e-03, 1.8127944e-02, -1.1823924e-02,
+                        1.5717462e-01, 1.2224792e-03, -1.9672018e-01, 6.4919023e-03,
+                        -2.0346987e-01, 5.1609759e-04, 1.6572942e-01, -6.0344036e-03,
+                        -1.6024958e-02, -1.3426526e-03, 3.8138664e-01, -5.6816568e-03,
+                        -1.8004493e-01, -3.2685725e-03, -1.5989083e-01, 7.0396746e-03,
+                        7.2912598e-01, 8.3666992e-01, 8.2824707e-01, 7.6196289e-01],
+                       dtype=np.float32)
+        std = np.array([0.09652393, 0.33918667, 0.23290202, 0.13423778, 0.10426794,
+                        0.11678293, 0.39058578, 0.28871638, 0.5447721, 0.36814892,
+                        0.73530555, 0.29377502, 0.5031936, 0.36130348, 0.71889997,
+                        0.2496559, 0.5484764, 0.39613277, 0.7103549, 0.25976712,
+                        0.56372136, 0.36917716, 0.7030704, 0.26312646, 0.30555955,
+                        0.2681793, 0.27192947, 0.29626447], dtype=np.float32)
     #     avg = np.array([
     #         0.4838, -0.047, 0.3500, 1.3028, -0.249, 0.0000, -0.281, 0.0573,
     #         -0.261, 0.0000, 0.0424, 0.0000, 0.2278, 0.0000, -0.072, 0.0000,
