@@ -8,11 +8,11 @@ Welcome to ElegantRL's documentation!
 
 ElegantRL is featured with lightweight, efficient and stable, for researchers and practitioners.
 
-   - Lightweight: The core codes <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
+   - #Lightweight#: The core codes <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
 
-   - Efficient: performance is comparable with Ray RLlib.
+   - #Efficient#: performance is comparable with Ray RLlib.
 
-   - Stable: as stable as Stable Baseline 3.
+   - #Stable#: as stable as Stable Baseline 3.
 
 Model-free deep reinforcement learning (DRL) algorithms:
 
