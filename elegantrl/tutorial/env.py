@@ -3,7 +3,17 @@ import numpy as np
 import numpy.random as rd
 
 
-def decorate_env(env, data_type=np.float32, if_print=True):
+def prep_env(env, data_type=np.float32, if_print=True):  # preprocess environment
+    """preprocess environment
+    In OpenAI gym, it is class Wrapper(). In ElegantRL, it is a decorator
+
+    What preprocess environment do?
+    1.1 use get_gym_env_info() to get state_dim, action_dim ... from gym-env
+    1.2 assignment env.state_dim, env.action_dim ...,
+    1.3 then DRL agent can build network according to these information
+    2.1 let state = state.astype(float32), because sometimes state is float64
+    2.2 do normalization on state before training (no necessary). (Other people do running state while training)
+    """
     if not all([hasattr(env, attr) for attr in (
             'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
         (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = get_gym_env_info(env, if_print)

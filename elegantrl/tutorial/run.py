@@ -59,9 +59,9 @@ class Arguments:
 
 
 def run__demo():
-    # from eRL.tutorial.run import Arguments, train_and_evaluate
-    from eRL.tutorial.env import decorate_env
-    import eRL.tutorial.agent as agent
+    # from elegantrl.tutorial.run import Arguments, train_and_evaluate
+    from elegantrl.tutorial.env import prep_env
+    import elegantrl.tutorial.agent as agent
     import gym
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
@@ -69,9 +69,9 @@ def run__demo():
 
     '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
     args.agent_rl = agent.AgentDoubleDQN  # choose an DRL algorithm
-    args.env = decorate_env(env=gym.make('CartPole-v0'))
+    args.env = prep_env(env=gym.make('CartPole-v0'))
     args.net_dim = 2 ** 7  # change a default hyper-parameters
-    args.env = decorate_env(env=gym.make('LunarLander-v2'))
+    args.env = prep_env(env=gym.make('LunarLander-v2'))
     args.net_dim = 2 ** 8  # change a default hyper-parameters
     train_and_evaluate(args)
     exit()
@@ -82,7 +82,7 @@ def run__demo():
     args.agent_rl = agent.AgentSAC  # off-policy
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = decorate_env(env=env)
+    args.env = prep_env(env=env)
     # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
     train_and_evaluate(args)
@@ -93,7 +93,7 @@ def run__demo():
     args.agent_rl = agent.AgentGaePPO  # on-policy
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = decorate_env(env=env)
+    args.env = prep_env(env=env)
     # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
     train_and_evaluate(args)
@@ -102,7 +102,7 @@ def run__demo():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     args = Arguments(if_on_policy=True)
     args.agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
-    from eRL.tutorial.env import FinanceMultiStockEnv
+    from elegantrl.tutorial.env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
 
     args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
