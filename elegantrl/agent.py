@@ -516,7 +516,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
         """ModSAC (Modified SAC using Reliable lambda)
         1. Reliable Lambda is calculated based on Critic's loss function value.
         2. Increasing batch_size and update_times
@@ -527,7 +527,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
-        train_steps = int(max_step * k * repeat_times)
+        train_steps = int(target_step * k * repeat_times)
 
         alpha = self.alpha_log.exp().detach()
         update_a = 0
@@ -559,7 +559,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
             '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
             reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
-            if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
+            if_update_a = (update_a / update_c) < (1 / (2 - reliable_lambda))
             if if_update_a:  # auto TTUR
                 update_a += 1
 
@@ -601,7 +601,7 @@ class AgentInterSAC(AgentBase):  # Integrated Soft Actor-Critic
         actions = self.act.get__noise_action(states)
         return actions.detach().cpu().numpy()
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):  # 1111
+    def update_net(self, buffer, target_step, batch_size, repeat_times):  # 1111
         """Contribution of InterSAC (Integrated network for SAC)
         1. Encoder-DenseNetLikeNet-Decoder network architecture.
             share parameter between two **different input** network
@@ -617,7 +617,7 @@ class AgentInterSAC(AgentBase):  # Integrated Soft Actor-Critic
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)  # increase batch_size
-        train_steps = int(max_step * k * repeat_times)  # increase training_step
+        train_steps = int(target_step * k * repeat_times)  # increase training_step
 
         update_a = 0
         for update_c in range(1, train_steps):

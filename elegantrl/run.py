@@ -117,7 +117,7 @@ def run__demo():
     args.break_step = int(5e6)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
     args.target_step = args.env.max_step
-    args.max_memo = (args.max_step - 1) * 8
+    args.max_memo = (args.target_step - 1) * 8
     args.batch_size = 2 ** 11
     args.repeat_times = 2 ** 4
     args.eval_times1 = 2 ** 4
@@ -776,8 +776,11 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
             agent.update_buffer(env, buffer, exp_step, reward_scale, gamma)
 
             buffer.update__now_len__before_sample()
+
             pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
             # buf_state, buf_other = pipe1_exp.recv()
+
+            buffer.empty_memories__before_explore()
 
 
 def mp_evaluate_agent(args, pipe2_eva):
