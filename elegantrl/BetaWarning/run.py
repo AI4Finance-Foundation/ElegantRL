@@ -5,7 +5,7 @@ from copy import deepcopy
 import torch
 import numpy as np
 import numpy.random as rd
-from eRL.agent import ReplayBuffer, ReplayBufferMP
+from elegantrl.agent import ReplayBuffer, ReplayBufferMP
 
 '''DEMO'''
 
@@ -22,13 +22,14 @@ class Arguments:
         self.net_dim = 2 ** 8  # the network width
         self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
+        self.target_step = 2 ** 10
         self.max_memo = 2 ** 17  # capacity of replay buffer
         if if_on_policy:  # (on-policy)
             self.net_dim = 2 ** 9
             self.batch_size = 2 ** 8
             self.repeat_times = 2 ** 4
-            self.max_memo = 2 ** 12
-        self.max_step = 2 ** 10  # max steps in one training episode
+            self.target_step = 2 ** 12
+            self.max_memo = self.target_step
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
         self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
@@ -71,9 +72,9 @@ class Arguments:
 
 
 def run__demo():
-    import eRL.agent as agent
-    from eRL.env import decorate_env
-    # from eRL.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
+    import elegantrl.agent as agent
+    from elegantrl.env import prep_env
+    # from elegantrl.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
     import gym
 
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
@@ -82,7 +83,7 @@ def run__demo():
     args = Arguments(agent_rl=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
     args.agent_rl = agent.AgentD3QN  # choose an DRL algorithm
-    args.env = decorate_env(env=gym.make('CartPole-v0'))
+    args.env = prep_env(env=gym.make('CartPole-v0'))
     args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.env = decorate_env(env=gym.make('LunarLander-v2'))
     # args.net_dim = 2 ** 8  # change a default hyper-parameters
@@ -99,7 +100,7 @@ def run__demo():
 
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = decorate_env(env=env)
+    args.env = prep_env(env=env)
     args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
     # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
@@ -110,12 +111,12 @@ def run__demo():
     args = Arguments(if_on_policy=True)
     args.agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
 
-    from eRL.env import FinanceMultiStockEnv
+    from elegantrl.env import FinanceMultiStockEnv
     args.env = FinanceMultiStockEnv(if_train=True)  # a standard env for ElegantRL, not need decorate_env()
     args.env_eval = FinanceMultiStockEnv(if_train=False)
     args.break_step = int(5e6)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
     args.net_dim = 2 ** 8
-    args.max_step = args.env.max_step
+    args.target_step = args.env.max_step
     args.max_memo = (args.max_step - 1) * 8
     args.batch_size = 2 ** 11
     args.repeat_times = 2 ** 4
@@ -133,7 +134,7 @@ def run__demo():
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
     # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
-    args.env = decorate_env(gym.make('ReacherBulletEnv-v0'))
+    args.env = prep_env(gym.make('ReacherBulletEnv-v0'))
 
     args.break_step = int(4e4 * 8)  # (4e4) 8e5, UsedTime: (300s) 700s
     args.eval_times1 = 2 ** 2
@@ -574,7 +575,7 @@ def train_and_evaluate(args):
     gamma = args.gamma  # training arguments
     net_dim = args.net_dim
     max_memo = args.max_memo
-    max_step = args.max_step
+    target_step = args.target_step
     batch_size = args.batch_size
     repeat_times = args.repeat_times
     reward_scale = args.reward_scale
@@ -591,6 +592,7 @@ def train_and_evaluate(args):
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
+    max_step = env.max_step
     env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
 
     '''init: Agent, Evaluator, ReplayBuffer'''
@@ -606,8 +608,9 @@ def train_and_evaluate(args):
         steps = 0
     else:
         with torch.no_grad():  # update replay buffer
-            steps = _explore_before_train(env, buffer, max_step, reward_scale, gamma)
-        agent.update_policy(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
+            steps = _explore_before_train(env, buffer, target_step, reward_scale, gamma)
+
+        agent.update_net(buffer, target_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
 
@@ -616,11 +619,11 @@ def train_and_evaluate(args):
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+            steps = agent.update_buffer(env, buffer, target_step, reward_scale, gamma)
 
         total_step += steps
 
-        obj_a, obj_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
             if_solve = evaluator.evaluate_act__save_checkpoint(agent.act, steps, obj_a, obj_c)
@@ -663,7 +666,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     gamma = args.gamma  # training arguments
     net_dim = args.net_dim
     max_memo = args.max_memo
-    max_step = args.max_step
+    target_step = args.target_step
     batch_size = args.batch_size
     repeat_times = args.repeat_times
     reward_scale = args.reward_scale
@@ -675,6 +678,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
+    max_step = env.max_step
 
     '''build agent'''
     agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
@@ -690,8 +694,8 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     if not if_on_policy:
         with torch.no_grad():  # update replay buffer
             for _buffer in buffer_mp.buffers:
-                steps += _explore_before_train(env, _buffer, max_step // rollout_num, reward_scale, gamma)
-        agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)  # pre-training and hard update
+                steps += _explore_before_train(env, _buffer, target_step // rollout_num, reward_scale, gamma)
+        agent.update_net(buffer_mp, target_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
     pipe1_eva.send((agent.act, steps, 0, 0.5))  # pipe1_eva (act, steps, obj_a, obj_c)
@@ -700,8 +704,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     while not ((if_break_early and if_solve)
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
-        # with torch.no_grad():  # speed up running
-        #     steps = agent.update_buffer__pipe(pipe1_exp_list, buffer_mp, max_step)
+        '''update ReplayBuffer'''
         for i in range(rollout_num):
             pipe1_exp = pipe1_exp_list[i]
 
@@ -712,10 +715,11 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
             buf_state, buf_other = pipe1_exp.recv()
 
             steps = len(buf_state)
+            total_step += steps
             buffer_mp.extend_memo_mp(buf_state, buf_other, i)
-        total_step += steps
 
-        obj_a, obj_c = agent.update_policy(buffer_mp, max_step, batch_size, repeat_times)
+        '''update network parameters'''
+        obj_a, obj_c = agent.update_net(buffer_mp, target_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
         pipe1_eva.send((agent.act, steps, obj_a, obj_c))  # pipe1_eva act_cpu
@@ -740,7 +744,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
     agent_rl = args.agent_rl
     net_dim = args.net_dim
     max_memo = args.max_memo
-    max_step = args.max_step
+    target_step = args.target_step
     rollout_num = args.rollout_num
     del args
 
@@ -751,6 +755,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
+    max_step = env.max_step
 
     '''build agent'''
     agent = agent_rl(state_dim, action_dim, net_dim)  # training agent
@@ -762,12 +767,13 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
     buffer = ReplayBuffer(max_memo // rollout_num + max_step, state_dim, if_on_policy=if_on_policy,
                           action_dim=1 if if_discrete else action_dim)  # build experience replay buffer
 
+    exp_step = target_step // rollout_num
     with torch.no_grad():
         while True:
             # pipe1_exp.send(agent.act)
             agent.act = pipe2_exp.recv()
 
-            _steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+            agent.update_buffer(env, buffer, exp_step, reward_scale, gamma)
 
             buffer.update__now_len__before_sample()
             pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
@@ -945,7 +951,7 @@ class Evaluator:
 
 def _get_episode_return(env, act, device) -> float:
     episode_return = 0.0  # sum of rewards in an episode
-    max_step = env.max_step if hasattr(env, 'max_step') else 2 ** 10
+    max_step = env.max_step
     if_discrete = env.if_discrete
 
     state = env.reset()
