@@ -15,13 +15,15 @@ def prep_env(env, data_type=np.float32, if_print=True):  # preprocess environmen
     2.2 do normalization on state before training (no necessary). (Other people do running state while training)
     """
     if not all([hasattr(env, attr) for attr in (
-            'env_name', 'state_dim', 'action_dim', 'target_reward', 'if_discrete')]):
-        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward) = _get_gym_env_info(env, if_print)
+            'env_name', 'state_dim', 'action_dim', 'if_discrete', 'target_reward', 'max_step',)]):
+        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
+         ) = _get_gym_env_info(env, if_print)
         setattr(env, 'env_name', env_name)
         setattr(env, 'state_dim', state_dim)
         setattr(env, 'action_dim', action_dim)
         setattr(env, 'if_discrete', if_discrete)
         setattr(env, 'target_reward', target_reward)
+        setattr(env, 'max_step', max_step)
     else:
         action_max = 1
 
@@ -148,7 +150,7 @@ def _get_avg_std__for_state_norm(env_name):
     return avg, std
 
 
-def _get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
+def _get_gym_env_info(env, if_print):
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
@@ -158,13 +160,17 @@ def _get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-    if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if env.spec.reward_threshold is None:
         target_reward = env.target_reward if hasattr(env, 'target_reward') else 2 ** 16
         print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
     else:
         target_reward = env.spec.reward_threshold
 
+    max_step = getattr(env, '_max_episode_steps', 2 ** 10)
+    if max_step is None or max_step == 2 ** 10:
+        print(f"| env._max_episode_steps is None, so I set max_step={max_step}")
+
+    if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if if_discrete:  # make sure it is discrete action space
         action_dim = env.action_space.n
         action_max = int(1)
@@ -178,7 +184,7 @@ def _get_gym_env_info(env, if_print) -> (str, int, int, float, bool, float):
         print("| env_name: {}, action space: {}".format(env_name, 'if_discrete' if if_discrete else 'Continuous'))
         print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
             state_dim, action_dim, action_max, target_reward))
-    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward
+    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
 
 
 """Custom environment: Finance RL, Github AI4Finance-LLC"""

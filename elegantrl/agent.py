@@ -61,15 +61,15 @@ class AgentDQN:
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
 
-    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        for _ in range(max_step):
+    def update_buffer(self, env, buffer, target_step, reward_scale, gamma):
+        for _ in range(target_step):
             action = self.select_actions((self.state,))[0]
             next_s, reward, done, _ = env.step(action)
 
             other = (reward * reward_scale, 0.0 if done else gamma, action)  # action is an int
             buffer.append_memo(self.state, other)
             self.state = env.reset() if done else next_s
-        return max_step
+        return target_step
 
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DQN (Deep Q Network)
@@ -180,7 +180,6 @@ class AgentBase:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.state = None  # set for self.update_buffer(), initialize before training
-        self.action = None  # set for self.update_buffer__pipe(), initialize before training
 
         self.act = None
         self.cri = None
@@ -188,14 +187,14 @@ class AgentBase:
     def select_actions(self, states):  # states = (state, ...)
         return (None,)  # -1 < action < +1
 
-    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        for _ in range(max_step):
+    def update_buffer(self, env, buffer, target_step, reward_scale, gamma):
+        for _ in range(target_step):
             action = self.select_actions((self.state,))[0]
             next_s, reward, done, _ = env.step(action)
             other = (reward * reward_scale, 0.0 if done else gamma, *action)
             buffer.append_memo(self.state, other)
             self.state = env.reset() if done else next_s
-        return max_step
+        return target_step
 
     def save_or_load_model(self, cwd, if_save):  # 2020-07-07
         act_save_path = '{}/actor.pth'.format(cwd)
@@ -668,9 +667,9 @@ class AgentInterSAC(AgentBase):  # Integrated Soft Actor-Critic
 class AgentPPO(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__()
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        self.clip = 0.3  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.01  # larger lambda_entropy means more exploration
-        self.action = self.noise = None
+        self.noise = None
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -684,12 +683,13 @@ class AgentPPO(AgentBase):
         a_noise, noise = self.act.get__action_noise(states)
         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
 
-    def update_buffer(self, env, buffer, max_step, reward_scale, gamma):
-        buffer.empty_memories__before_explore()  # NOTICE! necessary
+    def update_buffer(self, env, buffer, target_step, reward_scale, gamma):
+        buffer.empty_memories__before_explore()  # NOTICE! necessary for on-policy
+        max_step = env.max_step
+        # assert target_step == buffer.max_len - max_step
 
-        step_counter = 0
-        target_step = buffer.max_len - max_step
-        while step_counter < target_step:
+        actual_step = 0
+        while actual_step < target_step:
             state = env.reset()
             for _ in range(max_step):
                 action, noise = self.select_actions((state,))
@@ -697,14 +697,14 @@ class AgentPPO(AgentBase):
                 noise = noise[0]
 
                 next_state, reward, done, _ = env.step(np.tanh(action))
-                step_counter += 1
+                actual_step += 1
 
                 other = (reward * reward_scale, 0.0 if done else gamma, *action, *noise)
                 buffer.append_memo(state, other)
                 if done:
                     break
                 state = next_state
-        return step_counter
+        return actual_step
 
     def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
@@ -767,7 +767,7 @@ class AgentPPO(AgentBase):
 class AgentGaePPO(AgentPPO):
     def __init__(self, net_dim, state_dim, action_dim, learning_rate=1e-4):
         super().__init__(net_dim, state_dim, action_dim, learning_rate)
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        self.clip = 0.3  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.01  # could be 0.02
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
 

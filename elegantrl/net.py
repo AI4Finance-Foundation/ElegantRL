@@ -556,7 +556,7 @@ class NnnReshape(nn.Module):
 class DenseNet(nn.Module):  # plan to hyper-param: layer_number
     def __init__(self, mid_dim):
         super().__init__()
-        assert (mid_dim / (2 ** 3)) % 1 == 0
+        # assert (mid_dim / (2 ** 3)) % 1 == 0
 
         def set_dim(i):
             return int((3 / 2) ** i * mid_dim)
