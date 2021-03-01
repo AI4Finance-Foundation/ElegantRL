@@ -158,7 +158,7 @@ def train_and_evaluate(args):
     else:
         with torch.no_grad():  # update replay buffer
             steps = explore_before_train(env, buffer, max_step, reward_scale, gamma)
-        agent.update_policy(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
+        agent.update_net(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
     total_step = steps
 
@@ -170,7 +170,7 @@ def train_and_evaluate(args):
             steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
         total_step += steps
 
-        obj_a, obj_c = agent.update_policy(buffer, max_step, batch_size, repeat_times)
+        obj_a, obj_c = agent.update_net(buffer, max_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
             if_solve = evaluator.evaluate_act_and_save_checkpoint(agent.act, steps, obj_a, obj_c)

@@ -40,7 +40,7 @@ class AgentDQN:
             self.state = env.reset() if done else next_s
         return max_step
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
         next_q = obj_critic = None
@@ -82,7 +82,7 @@ class AgentDoubleDQN(AgentDQN):
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
         next_q = obj_critic = None
@@ -140,7 +140,7 @@ class AgentDDPG(AgentBase):
         actions = (actions + torch.randn_like(actions) * self.explore_noise).clamp(-1, 1)
         return actions.detach().cpu().numpy()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
         obj_critic = obj_actor = None  # just for print return
         for _ in range(int(max_step * repeat_times)):
@@ -177,7 +177,7 @@ class AgentTD3(AgentDDPG):
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': learning_rate},
                                            {'params': self.cri.parameters(), 'lr': learning_rate}])
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
         obj_critic = obj_actor = None
@@ -226,7 +226,7 @@ class AgentSAC(AgentBase):
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
 
-    def update_policy(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, max_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
         alpha = self.alpha_log.exp().detach()
@@ -299,7 +299,7 @@ class AgentPPO(AgentBase):
                 state = next_state
         return step_counter
 
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+    def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
@@ -355,7 +355,7 @@ class AgentGaePPO(AgentPPO):
         self.lambda_entropy = 0.01  # could be 0.02
         self.lambda_adv = 0.98  # could be 0.95~0.99
 
-    def update_policy(self, buffer, _max_step, batch_size, repeat_times=8):
+    def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
