@@ -23,12 +23,6 @@ Model-free deep reinforcement learning (DRL) algorithms:
 
 For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
-### Model-free DRL Algorithms
-
-![RL_survey_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/RL_survey_2020.png)
-
-More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
-
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
@@ -100,3 +94,10 @@ The following steps:
   + <span style="color:red">`agent.update_buffer(...)`</span> The agent explores the environment within target steps, generates transition data, and stores it in the ReplayBuffer. Run in parallel.
   + <span style="color:blue">`agent.update_policy(...)` </span> The agent uses a batch from the ReplayBuffer to update the network parameters. Run in parallel.
   + <span style="color:green">`evaluator.evaluate_act__save_checkpoint(...)`</span> Evaluates the performance of the agent and keeps the model with the highest score. Independent of the training process.
+
+### Model-free DRL Algorithms
+
+![RL_survey_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/RL_survey_2020.png)
+
+More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
+
