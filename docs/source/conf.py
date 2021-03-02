@@ -46,6 +46,29 @@ extensions = [
     'sphinx.ext.githubpages',
 ]
 
+autodoc_mock_imports = [
+    'cv2',
+    'hyperdash',
+    'gridfs',
+    'horovod',
+    'hyperdash',
+    'imageio',
+    'lxml',
+    'matplotlib',
+    'nltk',
+    # 'numpy',
+    'PIL',
+    'progressbar',
+    'pymongo',
+    'scipy',
+    'skimage',
+    'sklearn',
+    # 'tensorflow',
+    'tqdm',
+    'h5py',
+    # 'tensorlayer.third_party.roi_pooling.roi_pooling.roi_pooling_ops',  # TL C++ Packages
+]
+
 import sphinx_rtd_theme
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
