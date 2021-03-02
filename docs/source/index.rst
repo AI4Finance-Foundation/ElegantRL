@@ -8,17 +8,17 @@ Welcome to ElegantRL's documentation!
 
 ElegantRL is featured with lightweight, efficient and stable, for researchers and practitioners.
 
-   - #Lightweight#: The core codes <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
+   - **Lightweight**: The core codes <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
 
-   - #Efficient#: performance is comparable with Ray RLlib.
+   - **Efficient**: performance is comparable with Ray RLlib.
 
-   - #Stable#: as stable as Stable Baseline 3.
+   - **Stable**: as stable as Stable Baseline 3.
 
 Model-free deep reinforcement learning (DRL) algorithms:
 
-   - DDPG, TD3, SAC, A2C, PPO(GAE) for continuous actions
+   - **DDPG, TD3, SAC, A2C, PPO(GAE) for continuous actions**
    
-   - DQN, DoubleDQN, D3QN for discrete actions
+   - **DQN, DoubleDQN, D3QN for discrete actions**
 
 For algorithm details, please check out OpenAI Spinning Up.
 
