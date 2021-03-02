@@ -15,6 +15,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath(os.path.join("../..", "elegantrl")))  # Important
 
 
 # -- Project information -----------------------------------------------------
@@ -45,6 +46,7 @@ extensions = [
     'sphinx.ext.githubpages',
 ]
 
+import sphinx_rtd_theme
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -78,7 +80,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-import sphinx_rtd_theme
+
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
