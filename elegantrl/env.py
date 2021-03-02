@@ -3,73 +3,53 @@ import numpy as np
 import numpy.random as rd
 
 
-def prep_env(env, data_type=np.float32, if_print=True):  # preprocess environment
-    """preprocess environment
-    In OpenAI gym, it is class Wrapper(). In ElegantRL, it is a decorator
+class PreprocessEnv:  # env wrapper
+    def __init__(self, env, if_print=True, data_type=np.float32):
+        """preprocess environment
+        In OpenAI gym, it is class Wrapper().
 
-    What preprocess environment do?
-    1.1 use get_gym_env_info() to get state_dim, action_dim ... from gym-env
-    1.2 assignment env.state_dim, env.action_dim ...,
-    1.3 then DRL agent can build network according to these information
-    2.1 let state = state.astype(float32), because sometimes state is float64
-    2.2 do normalization on state before training (no necessary). (Other people do running state while training)
-    """
-    if not all([hasattr(env, attr) for attr in (
-            'env_name', 'state_dim', 'action_dim', 'if_discrete', 'target_reward', 'max_step',)]):
-        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
+        What preprocess environment do?
+        1.1 use get_gym_env_info() to get state_dim, action_dim ... from gym-env
+        1.2 assignment env.state_dim, env.action_dim ...,
+        1.3 then DRL agent can build network according to these information
+        2.1 let state = state.astype(float32), because sometimes state is float64
+        2.2 do normalization on state before training (no necessary). (Other people do running state while training)
+        """
+        self.env_reset = env.reset
+        self.env_step = env.step
+        self.data_type = data_type
+
+        (self.env_name, self.state_dim, self.action_dim, self.action_max,
+         self.if_discrete, self.target_reward, self.max_step
          ) = _get_gym_env_info(env, if_print)
-        setattr(env, 'env_name', env_name)
-        setattr(env, 'state_dim', state_dim)
-        setattr(env, 'action_dim', action_dim)
-        setattr(env, 'if_discrete', if_discrete)
-        setattr(env, 'target_reward', target_reward)
-        setattr(env, 'max_step', max_step)
-    else:
-        action_max = 1
 
-    '''state_norm is useful but non-necessary'''
-    state_avg, state_std = _get_avg_std__for_state_norm(env.env_name)
-    if state_avg is None:
-        neg_state_avg = 0
-        div_state_std = 1
-    else:
-        state_avg = state_avg.astype(np.float32)
-        state_std = state_std.astype(np.float32)
-        neg_state_avg = -state_avg
-        div_state_std = 1 / (state_std + 1e-4)
-    setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() agent.py
-    setattr(env, 'div_state_std', div_state_std)  # for def print_norm() agent.py
+        state_avg, state_std = _get_avg_std__for_state_norm(self.env_name)
+        if state_avg is not None:
+            state_avg = state_avg.astype(np.float32)
+            state_std = state_std.astype(np.float32)
+            self.neg_state_avg = -state_avg
+            self.div_state_std = 1 / (state_std + 1e-4)
 
-    def decorate_step(env_step):
-        if neg_state_avg is not None and action_max != 1:
-            def new_env_step(action):
-                state, reward, done, info = env_step(action * action_max)
-                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
-        elif neg_state_avg is not None:
-            def new_env_step(action):
-                state, reward, done, info = env_step(action)
-                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
-        else:
-            def new_env_step(action):
-                state, reward, done, info = env_step(action * action_max)
-                return state.astype(data_type), reward, done, info
-        return new_env_step
+            self.reset = self.reset_norm
+            self.step = self.step_norm
 
-    env.step = decorate_step(env.step)
+    def reset(self):
+        state = self.env_reset()
+        return state.astype(self.data_type)
 
-    def decorate_reset(env_reset):
-        if neg_state_avg is not None:
-            def new_env_reset():
-                state = env_reset()
-                return state.astype(data_type) + neg_state_avg
-        else:
-            def new_env_reset():
-                state = env_reset()
-                return state.astype(data_type)
-        return new_env_reset
+    def reset_norm(self):
+        state = self.env_reset()
+        (state.astype(self.data_type) + self.neg_state_avg) * self.div_state_std
+        return state
 
-    env.reset = decorate_reset(env.reset)
-    return env
+    def step(self, action):
+        state, reward, done, info = self.env_step(action * self.action_max)
+        return state.astype(self.data_type), reward, done, info
+
+    def step_norm(self, action):
+        state, reward, done, info = self.env_step(action * self.action_max)
+        state = (state.astype(self.data_type) + self.neg_state_avg) * self.div_state_std
+        return state, reward, done, info
 
 
 def _get_avg_std__for_state_norm(env_name):
@@ -160,15 +140,20 @@ def _get_gym_env_info(env, if_print):
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-    if env.spec.reward_threshold is None:
-        target_reward = env.target_reward if hasattr(env, 'target_reward') else 2 ** 16
-        print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
-    else:
-        target_reward = env.spec.reward_threshold
+    target_reward = getattr(env, 'target_reward', 2 ** 16)
+    if target_reward == 2 ** 16:
+        if env.spec.reward_threshold is None:
+            print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
+        else:
+            target_reward = env.spec.reward_threshold
 
-    max_step = getattr(env, '_max_episode_steps', 2 ** 10)
-    if max_step is None or max_step == 2 ** 10:
-        print(f"| env._max_episode_steps is None, so I set max_step={max_step}")
+    max_step = getattr(env, 'max_step', 2 ** 10)
+    if max_step == 2 ** 10:
+        env_max_episode_steps = getattr(env, '_max_episode_steps', None)
+        if env_max_episode_steps is None:
+            print(f"| env._max_episode_steps is None, so I set max_step={max_step}")
+        else:
+            max_step = env_max_episode_steps
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if if_discrete:  # make sure it is discrete action space
@@ -350,7 +335,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         state_dim = self.state_dim
         action_dim = self.action_dim
 
-        agent_rl = args.agent_rl
+        agent_rl = args.agent
         net_dim = args.net_dim
         cwd = args.cwd
 
