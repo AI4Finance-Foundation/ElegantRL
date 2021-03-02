@@ -1,1 +1,2 @@
-
+python:
+   setup_py_install: true
