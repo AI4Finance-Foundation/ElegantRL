@@ -65,22 +65,22 @@ This part describes DQN-series algorithms and DDPG-series algorithms, respective
 .. code-block:: python
    :linenos:
    
-  class AgentDQN:
-    def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-    def select_actions(states);  # for discrete action space
-    def update_buffer(env, buffer, target_step, reward_scale, gamma);
-    def update_net(buffer, max_step, batch_size, repeat_times);
-
-  class AgentDuelingDQN(AgentDQN):
-      def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-
-  class AgentDoubleDQN(AgentDQN):
+    class AgentDQN:
       def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
       def select_actions(states);  # for discrete action space
+      def update_buffer(env, buffer, target_step, reward_scale, gamma);
       def update_net(buffer, max_step, batch_size, repeat_times);
 
-  class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
-      def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
+    class AgentDuelingDQN(AgentDQN):
+        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
+
+    class AgentDoubleDQN(AgentDQN):
+        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
+        def select_actions(states);  # for discrete action space
+        def update_net(buffer, max_step, batch_size, repeat_times);
+
+    class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
+        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
    
    
 As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as follows: 
@@ -98,20 +98,20 @@ As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as
 .. code-block:: python
    :linenos:
    
-  class AgentBase:
-      def __init__(self);
-      def select_actions(states);  # states = (state, ...)
-      def update_buffer(env, buffer, target_step, reward_scale, gamma);
-      def save_or_load_model(cwd, if_save);
+    class AgentBase:
+        def __init__(self);
+        def select_actions(states);  # states = (state, ...)
+        def update_buffer(env, buffer, target_step, reward_scale, gamma);
+        def save_or_load_model(cwd, if_save);
 
-  class AgentDDPG(AgentBase):
-      def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-      def select_actions(states);  # states = (state, ...)
-      def update_net(buffer, max_step, batch_size, repeat_times);
+    class AgentDDPG(AgentBase):
+        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
+        def select_actions(states);  # states = (state, ...)
+        def update_net(buffer, max_step, batch_size, repeat_times);
 
-  class AgentTD3(AgentDDPG):
-      def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-      def update_net(buffer, max_step, batch_size, repeat_times);
+    class AgentTD3(AgentDDPG):
+        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
+        def update_net(buffer, max_step, batch_size, repeat_times);
   
  
 As shown in Fig. 3, the inheritance hierarchy of the DDPG-series algorithms is as follows:
