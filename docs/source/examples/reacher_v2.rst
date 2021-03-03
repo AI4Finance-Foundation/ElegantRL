@@ -1,4 +1,4 @@
-Testing Example: Reacher-v2
+Reacher-v2
 ===============================
 
 The goal of the Reacher-v2 task is simple: make a 2D robot arm to reach a randomly located target point.
@@ -10,7 +10,7 @@ Step 1: Install ElegantRL
 ------------------------------
 
 .. code:: python
-   :number-lines: 1
+   :number-lines
    
   # install elegantrl library
   !pip install git+https://github.com/AI4Finance-LLC/ElegantRL.git
