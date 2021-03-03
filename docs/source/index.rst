@@ -7,8 +7,9 @@ Welcome to ElegantRL's documentation!
 =====================================
 
 .. image:: ./images/logo.png
+   :target: https://github.com/AI4Finance-LLC/ElegantRL
 
-ElegantRL is featured with lightweight, efficient and stable, for researchers and practitioners.
+`ElegantRL<https://github.com/AI4Finance-LLC/ElegantRL>`_ is featured with lightweight, efficient and stable, for researchers and practitioners.
 
    - **Lightweight**: The core codes <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
 
