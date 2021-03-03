@@ -91,7 +91,7 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
-print('___version___==2021-03-03-2115')
+print('___version___==2021-03-03-2120')
 
 
 def demo1_discrete_action_space():
@@ -287,11 +287,12 @@ def train_and_evaluate__multiprocessing(args):
     '''Python.multiprocessing + PyTorch + CUDA --> semaphore_tracker:UserWarning
     https://discuss.pytorch.org/t/issue-with-multiprocessing-semaphore-tracking/22943/4
     '''
+    print("| multiprocessing, act_workers:", act_workers)
 
     import multiprocessing as mp  # Python built-in multiprocessing library
     # mp.set_start_method('spawn', force=True)  # force=True to solve "RuntimeError: context has already been set"
     # mp.set_start_method('fork', force=True)  # force=True to solve "RuntimeError: context has already been set"
-    mp.set_start_method('forkserver', force=True)  # force=True to solve "RuntimeError: context has already been set"
+    # mp.set_start_method('forkserver', force=True)  # force=True to solve "RuntimeError: context has already been set"
 
     pipe1_eva, pipe2_eva = mp.Pipe()  # Pipe() for Process mp_evaluate_agent()
     pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()
@@ -305,6 +306,7 @@ def train_and_evaluate__multiprocessing(args):
         pipe2_exp_list.append(exp_pipe1)
         process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, worker_id)))
 
+    print("| multiprocessing, None:")
     [p.start() for p in process]
     process_evaluate.join()
     process_train.join()
