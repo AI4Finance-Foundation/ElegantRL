@@ -55,6 +55,8 @@ autodoc_mock_imports = [
     'opencv-python'
 ]
 
+pygments_style = 'sphinx'
+
 import sphinx_rtd_theme
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
