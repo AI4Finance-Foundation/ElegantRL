@@ -30,7 +30,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 # Table of Contents
 
-###+ [File Structure](#File-Structure)
++ [###File Structure](#File-Structure)
 + [Training Pipeline](#Training-Pipeline)
 + [Experimental Results](#Experiment-Results)
 + [Requirements](#Requirements)
