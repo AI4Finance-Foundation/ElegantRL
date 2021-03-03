@@ -465,14 +465,14 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of InterAC (Integrated network for deterministic policy gradient)
         
-        1. First try integrated network to share parameter between two **different input** network.
-        1. First try Encoder-DenseNetLikeNet-Decoder network architecture.
-        1. First try Reliable Lambda in bi-level optimization problems. (such as Policy Gradient and GANs)
-        2. Try TTUR in RL. TTUR (Two-Time-Scale Update Rule) is useful in bi-level optimization problems.
-        2. Try actor_term to stabilize training in parameter-sharing network. (different learning rate is more useful)
-        3. Try Spectral Normalization and found it conflict with soft target update.
-        3. Try increasing batch_size and update_times
-        3. Dropout layer is useless in RL.
+        1.1 First try integrated network to share parameter between two **different input** network.
+        1.2 First try Encoder-DenseNetLikeNet-Decoder network architecture.
+        1.3 First try Reliable Lambda in bi-level optimization problems. (such as Policy Gradient and GANs)
+        2.1 Try TTUR in RL. TTUR (Two-Time-Scale Update Rule) is useful in bi-level optimization problems.
+        2.2 Try actor_term to stabilize training in parameter-sharing network. (different learning rate is more useful)
+        3.1 Try Spectral Normalization and found it conflict with soft target update.
+        3.2 Try increasing batch_size and update_times
+        3.3 Dropout layer is useless in RL.
 
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
         
@@ -858,7 +858,7 @@ class AgentPPO(AgentBase):
         :param logprob:
         :param ratio:
         :param obj_actor:
-        :param obj_united
+        :param obj_united:
         
         :return:
         '''
