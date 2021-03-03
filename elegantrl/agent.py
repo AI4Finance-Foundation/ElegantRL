@@ -799,11 +799,24 @@ class AgentPPO(AgentBase):
                                            {'params': self.cri.parameters(), 'lr': self.learning_rate}])
 
     def select_actions(self, states):  # states = (state, ...)
+        '''
+        :param a_noise:
+        :param noise:
+        
+        :return:
+        '''
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         a_noise, noise = self.act.get_action_noise(states)
         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
 
     def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+        '''
+        :param max_step:
+        :param next_state:
+        :param env:
+        
+        :return actual_step:
+        '''
         buffer.empty_memories__before_explore()  # NOTICE! necessary for on-policy
         max_step = env.max_step
         # assert target_step == buffer.max_len - max_step
@@ -827,6 +840,21 @@ class AgentPPO(AgentBase):
         return actual_step
 
     def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
+        '''
+        :param max_memo:
+        :param buf_value:
+        :param buf_logprob:
+        :param buf_r_sum:
+        :param buf_advantage:
+        :param obj_critic:
+        :param indices:
+        :param logprob:
+        :param ratio:
+        :param obj_actor:
+        :param obj_united
+        
+        :return:
+        '''
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
@@ -871,6 +899,12 @@ class AgentPPO(AgentBase):
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
     def compute_reward(self, buffer, buf_reward, buf_mask, buf_value):
+        '''
+        :param pre_f_sum:
+        
+        :return buf_r_sum:
+        :return buf_advantage:
+        '''
         max_memo = buffer.now_len
 
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
