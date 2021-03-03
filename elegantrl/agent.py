@@ -630,7 +630,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
                 update_a += 1
 
                 q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
-                obj_actor = -(q_value_pg + logprob * alpha).mean()
+                obj_actor = -(q_value_pg + logprob * alpha.detach()).mean()
 
                 obj_united = obj_critic + obj_alpha + obj_actor * reliable_lambda
             else:

@@ -91,6 +91,9 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
+print('___version___==2021-03-03-2050')
+
+
 def demo1_discrete_action_space():
     import elegantrl.agent as agent
 
@@ -137,7 +140,7 @@ def demo2_continuous_action_space_off_policy():
 
     '''train and evaluate'''
     # train_and_evaluate(args)
-    args.rollout_num = 2
+    args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
 
 
@@ -189,8 +192,9 @@ def demo3_custom_env_fin_rl():
     args.eval_times1 = 2 ** 2
     args.eval_times2 = 2 ** 4
     args.if_break_early = False
-    "TotalStep: 2e5, TargetReward: 1.25, UsedTime: 200s"
-    "TotalStep: 4e5, TargetReward: 1.50, UsedTime: 400s"
+    "TotalStep:  2e5, TargetReward: 1.25, UsedTime:  200s"
+    "TotalStep:  4e5, TargetReward: 1.50, UsedTime:  400s"
+    "TotalStep: 10e5, TargetReward: 1.62, UsedTime: 1000s"
 
     # train_and_evaluate(args)
     args.rollout_num = 8
