@@ -87,25 +87,8 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
     | pubullet 2.7    | For RL training env. We use PyBullet(free) as an alternative of MuJoCo(not free).
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots. Evaluate the agent performance.
-It is **lightweight**.
 
-# Run
-    python3 Main.py
-    # You can see run__demo(gpu_id=0, cwd='AC_BasicAC') in Main.py.
-+ In default, it will train a stable-DDPG in LunarLanderContinuous-v2 for 2000 second.
-+ It would choose CPU or GPU automatically. Don't worry, I never use `.cuda()`.
-+ It would save the log and model parameters file in Current Working Directory `cwd='AC_BasicAC'`. 
-+ It would print the total reward while training. Maybe I should use TensorBoardX?
-+ There are many comment in the code. I believe these comments can answer some of your questions.
-
-### Use other DRL algorithms?
-The following steps:
-1. See `run__xxx()` in `Main.py`.
-2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
-3. Choose a DRL algorithm: `from Agent import AgentXXX`.
-4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
-
-### Model-free DRL Algorithms
+# Model-free DRL Algorithms
 
 ![RL_survey_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/RL_survey_2020.png)
 
