@@ -3,7 +3,7 @@ Reacher-v2
 
 The goal of the Reacher-v2 task is simple: make a 2D robot arm to reach a randomly located target point.
 
-.. images:: ../images/reacher_v2_1.gif
+.. image:: ../images/reacher_v2_1.gif
 
 
 Step 1: Install ElegantRL
