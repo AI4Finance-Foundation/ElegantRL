@@ -30,7 +30,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 # Table of Contents
 
-+ [File Structure](#File-Structure)
++ ###[File Structure](#File-Structure)
 + [Training Pipeline](#Training-Pipeline)
 + [Experiment Results](#Experiment-Results)
 + [Requirements](#Requirements)
@@ -73,7 +73,7 @@ As a high-level overview, the relations among the files are as follows. Initiali
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
 
-# Experimental results
+# Experimental Results
 
 Results using ElegantRL 
 
