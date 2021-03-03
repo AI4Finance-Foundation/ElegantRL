@@ -34,7 +34,7 @@ For algorithm details, please check out OpenAI Spinning Up.
     Home <self>
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Overview
 
    about/overview
@@ -43,7 +43,7 @@ For algorithm details, please check out OpenAI Spinning Up.
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Algorithms
    
    algorithms/ddpg
@@ -60,7 +60,7 @@ For algorithm details, please check out OpenAI Spinning Up.
    algorithms/d3qn
    
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Examples
    
    examples/reacher_v2
