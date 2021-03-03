@@ -131,8 +131,8 @@ def demo2_continuous_action_space_off_policy():
     # "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
 
     args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
-    args.reward_scale = 2 ** -1  # RewardRange: -200 < -150 < 300 < 334
-    args.gamma = 0.95
+    args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
+    args.gamma = 0.99
     "TotalStep: 2e5, TargetReward: 300, UsedTime: 3500s"
 
     '''train and evaluate'''
@@ -286,6 +286,8 @@ def train_and_evaluate__multiprocessing(args):
 
     import multiprocessing as mp  # Python built-in multiprocessing library
     mp.set_start_method('spawn', force=True)  # force=True to solve "RuntimeError: context has already been set"
+    # mp.set_start_method('fork', force=True)  # force=True to solve "RuntimeError: context has already been set"
+    # mp.set_start_method('forkserver', force=True)  # force=True to solve "RuntimeError: context has already been set"
 
     pipe1_eva, pipe2_eva = mp.Pipe()  # Pipe() for Process mp_evaluate_agent()
     pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()

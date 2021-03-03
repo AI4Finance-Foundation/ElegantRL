@@ -47,15 +47,62 @@ SAC https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master
 DUEL https://github.com/gouxiangchen/dueling-DQN-pytorch good
 """
 
+
+class AgentBase:
+    def __init__(self):
+        self.device = None
+        self.state = None  # set for self.update_buffer(), initialize before training
+        self.learning_rate = 1e-4
+
+        self.act = self.act_target = None
+        self.cri = self.cri_target = None
+        self.criterion = None
+        self.optimizer = None
+
+    def select_actions(self, states):  # states = (state, ...)
+        return (None,)  # -1 < action < +1
+
+    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+        for _ in range(target_step):
+            action = self.select_actions((self.state,))[0]
+            next_s, reward, done, _ = env.step(action)
+            other = (reward * reward_scale, 0.0 if done else gamma, *action)
+            buffer.append_buffer(self.state, other)
+            self.state = env.reset() if done else next_s
+        return target_step
+
+    def save_load_model(self, cwd, if_save):  # 2020-07-07
+        act_save_path = '{}/actor.pth'.format(cwd)
+        cri_save_path = '{}/critic.pth'.format(cwd)
+
+        def load_torch_file(network, save_path):
+            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
+            network.load_state_dict(network_dict)
+
+        if if_save:
+            if self.act is not None:
+                torch.save(self.act.state_dict(), act_save_path)
+            if self.cri is not None:
+                torch.save(self.cri.state_dict(), cri_save_path)
+        elif (self.act is not None) and os.path.exists(act_save_path):
+            load_torch_file(self.act, act_save_path)
+            print("Loaded act:", cwd)
+        elif (self.cri is not None) and os.path.exists(cri_save_path):
+            load_torch_file(self.cri, cri_save_path)
+            print("Loaded cri:", cwd)
+        else:
+            print("FileNotFound when load_model: {}".format(cwd))
+
+
 '''Value-based Methods (DQN variance)'''
 
 
-class AgentDQN:
+class AgentDQN(AgentBase):
     def __init__(self):
+        super().__init__()
         self.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy
         self.action_dim = None  # chose discrete action randomly in epsilon-greedy
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.state = None  # set for self.update_buffer(), initialize before training
         self.learning_rate = 1e-4
 
@@ -66,6 +113,7 @@ class AgentDQN:
 
     def init(self, net_dim, state_dim, action_dim):
         self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.cri = QNet(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
@@ -114,9 +162,9 @@ class AgentDQN:
             obj_critic.backward()
             self.optimizer.step()
             soft_target_update(self.cri_target, self.cri, tau=5e-3)
-        return next_q.mean().item(), obj_critic.item()  #
+        return next_q.mean().item(), obj_critic.item()
 
-    def save_or_load_model(self, cwd, if_save):  # 2020-07-07
+    def save_load_model(self, cwd, if_save):
         save_path = '{}/q_net.pth'.format(cwd)
 
         if if_save:
@@ -136,6 +184,7 @@ class AgentDuelingDQN(AgentDQN):
 
     def init(self, net_dim, state_dim, action_dim):
         self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.cri = QNetDuel(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
@@ -156,6 +205,7 @@ class AgentDoubleDQN(AgentDQN):
 
     def init(self, net_dim, state_dim, action_dim):
         self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.cri = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
@@ -203,6 +253,7 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 
     def init(self, net_dim, state_dim, action_dim):
         self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.cri = QNetTwinDuel(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
@@ -220,52 +271,6 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 '''Actor-Critic Methods (Policy Gradient)'''
 
 
-class AgentBase:
-    def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.state = None  # set for self.update_buffer(), initialize before training
-        self.learning_rate = 1e-4
-
-        self.act = self.act_target = None
-        self.cri = self.cri_target = None
-        self.criterion = None
-        self.optimizer = None
-
-    def select_actions(self, states):  # states = (state, ...)
-        return (None,)  # -1 < action < +1
-
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
-        for _ in range(target_step):
-            action = self.select_actions((self.state,))[0]
-            next_s, reward, done, _ = env.step(action)
-            other = (reward * reward_scale, 0.0 if done else gamma, *action)
-            buffer.append_buffer(self.state, other)
-            self.state = env.reset() if done else next_s
-        return target_step
-
-    def save_or_load_model(self, cwd, if_save):  # 2020-07-07
-        act_save_path = '{}/actor.pth'.format(cwd)
-        cri_save_path = '{}/critic.pth'.format(cwd)
-
-        def load_torch_file(network, save_path):
-            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
-            network.load_state_dict(network_dict)
-
-        if if_save:
-            if self.act is not None:
-                torch.save(self.act.state_dict(), act_save_path)
-            if self.cri is not None:
-                torch.save(self.cri.state_dict(), cri_save_path)
-        elif (self.act is not None) and os.path.exists(act_save_path):
-            load_torch_file(self.act, act_save_path)
-            print("Loaded act:", cwd)
-        elif (self.cri is not None) and os.path.exists(cri_save_path):
-            load_torch_file(self.cri, cri_save_path)
-            print("Loaded cri:", cwd)
-        else:
-            print("FileNotFound when load_model: {}".format(cwd))
-
-
 class AgentDDPG(AgentBase):
     def __init__(self):
         super().__init__()
@@ -275,6 +280,7 @@ class AgentDDPG(AgentBase):
     def init(self, net_dim, state_dim, action_dim):
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.ou_explore_noise)
         # I don't recommend OU-Noise
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
@@ -364,6 +370,8 @@ class AgentTD3(AgentBase):
         self.update_freq = 2  # delay update frequency, for soft target update
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.cri = CriticTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
 
@@ -421,6 +429,8 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         self.avg_loss_c = (-np.log(0.5)) ** 0.5  # old version reliable_lambda
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.act = InterDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target = deepcopy(self.act)
 
@@ -495,6 +505,7 @@ class AgentSAC(AgentBase):
         self.alpha_log = None
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
@@ -563,6 +574,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
@@ -640,6 +652,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.target_entropy = np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
@@ -731,6 +744,8 @@ class AgentPPO(AgentBase):
         self.noise = None
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
 
@@ -860,6 +875,8 @@ class AgentInterPPO(AgentPPO):
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.act = InterPPO(state_dim, action_dim, net_dim).to(self.device)
 
         self.criterion = torch.nn.SmoothL1Loss()
