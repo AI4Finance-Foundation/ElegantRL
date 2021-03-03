@@ -143,9 +143,16 @@ class AgentDQN(AgentBase):
 
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DQN (Deep Q Network)
+        
         1. Q-table (discrete state space) --> Q-network (continuous state space)
         2. Use experiment replay buffer to train a neural network in RL
         3. Use soft target update to stablize training in RL
+        
+        :param next_q:
+        :param q_label:
+        :param q_eval:
+        :param obj_critic:
+        :param soft_target_update:        
         """
         buffer.update__now_len__before_sample()
 
