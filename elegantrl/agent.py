@@ -457,6 +457,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
 
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of InterAC (Integrated network for deterministic policy gradient)
+        
         1. First try integrated network to share parameter between two **different input** network.
         1. First try Encoder-DenseNetLikeNet-Decoder network architecture.
         1. First try Reliable Lambda in bi-level optimization problems. (such as Policy Gradient and GANs)
@@ -467,6 +468,19 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         3. Dropout layer is useless in RL.
 
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
+        
+        :param actor_obj:
+        :param batch_size_:
+        :param update_times:
+        :param next_q_label:
+        :param next_action:
+        :param q_label:
+        :param q_eval:
+        :param critic_obj:
+        :param actor_term:
+        :param action_pg:
+        :param actor_obj:
+        :param united_loss:
         """
         buffer.update__now_len__before_sample()
 
