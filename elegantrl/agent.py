@@ -272,6 +272,7 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 
 
 class AgentDDPG(AgentBase):
+    '''Deep Deterministic Policy Gradient'''
     def __init__(self):
         super().__init__()
         self.ou_explore_noise = 0.3  # explore noise of action
@@ -299,12 +300,20 @@ class AgentDDPG(AgentBase):
 
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """ Contribution of DDPG (Deep Deterministic Policy Gradient)
+        
         1. Policy Gradient with Deep network: DQN + DPG -> DDPG
            Q_value = reward + gamma * next_Q_value
            Q-learning -> DQN (Deep Q-learning): (discrete state space Q-table -> continuous state space Q-net)
            DQN + DPG -> DDPG: (discrete action space Q-net -> continuous action space Policy Gradient)
         2. experiment replay buffer for stabilizing training
         3. soft target update for stabilizing training
+        
+        :param obj_critic:
+        :param obj_actor
+        :param q_lable:
+        :param q_value:
+        :param q_value_pg: policy gradient
+        :param obj_united: objective
         """
         buffer.update__now_len__before_sample()
 
