@@ -54,6 +54,7 @@ As a high-level overview, the relations among the files are as follows. Initiali
 + `agent.store_transition(…)`: the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
 + `agent.update_net(…)`: the agent uses a batch from the ReplayBuffer to update the network parameters.
 + `evaluator.evaluate_save(…)`: evaluates the agent's performance and keeps the trained model with the highest score.
+
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
 
 # Experimental results
