@@ -1,4 +1,4 @@
-PPO(GAE)
+PPO
 ==========
 
 .. autoclass:: elegantrl.agent.AgentPPO
