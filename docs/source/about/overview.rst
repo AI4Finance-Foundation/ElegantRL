@@ -63,7 +63,7 @@ This part describes DQN-series algorithms and DDPG-series algorithms, respective
 .. image:: ../images/overview_2.png
 
 .. code:: python
-   :number-lines:
+   :linenos:
    
   class AgentDQN:
     def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
@@ -96,9 +96,8 @@ As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as
 .. image:: ../images/overview_3.png
 
 .. code:: python
-   :number-lines:
+   :linenos:
    
-
   class AgentBase:
       def __init__(self);
       def select_actions(states);  # states = (state, ...)
