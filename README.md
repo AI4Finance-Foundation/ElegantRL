@@ -31,8 +31,6 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-An agent in **Agent.py** uses networks in **Net.py**, and it is trained in **Run.py** by interacting with an environment in **Env.py**.
-
 -----kernel file----
 + elegantrl/net.py    # Neural networks.
 + elegantrl/agent.py  # RL algorithms.
@@ -40,8 +38,9 @@ An agent in **Agent.py** uses networks in **Net.py**, and it is trained in **Run
 
 -----utils file----
 + elegantrl/env.py    # gym env or custom env, including MultiStockEnv Finance.
-+ Examples.ipynb      # run DEMO 1 ~ 3 in jupyter notebooks
-+ ElegantRL-examples.ipynb  # run DEMO 1 ~ 3 in jupyter notebooks (need to update)
++ BipedalWalker_Example.ipynb      # BipedalWalker-v2 in jupyter notebooks
+
+As a high-level overview, the relations among the files are as follows. Initialize an environment in Env.py and an agent in Agent.py. The agent is constructed with Actor and Critic networks in Net.py. In each training step in Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
 
 # Experimental results
 
