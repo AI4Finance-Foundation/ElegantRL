@@ -6,7 +6,7 @@
 Welcome to ElegantRL's documentation!
 =====================================
 
-.. image:: ./images/logo.jpg
+.. image:: ./images/logo.png
 
 ElegantRL is featured with lightweight, efficient and stable, for researchers and practitioners.
 
