@@ -28,6 +28,14 @@ Model-free deep reinforcement learning (DRL) algorithms:
 
 For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
+# Table of Contents
+
++ File Structure
++ Training Pipeline
++ Experiment Results
++ Requirements
++ Model-free DRL Algorithms
+
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
@@ -50,7 +58,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 As a high-level overview, the relations among the files are as follows. Initialize an environment in **Env.py** and an agent in **Agent.py**. The agent is constructed with Actor and Critic networks in **Net.py**. In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
 
-# Training pipeline
+# Training Pipeline
 
 ### Initialization:
 + hyper-parameters `args`.
