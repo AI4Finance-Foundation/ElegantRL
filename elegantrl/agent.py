@@ -545,9 +545,22 @@ class AgentSAC(AgentBase):
 
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of SAC (Soft Actor-Critic with maximum entropy)
+        
         1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
         3. SAC use TD3's TwinCritics too
+        
+        :param obj_critic:
+        :param next_a:
+        :param next_logprob:
+        :param next_q:
+        :param q_label:
+        :param obj_critic:
+        :param action_pg:
+        :param logprob:
+        :param obj_alpha:
+        :param obj_actor:
+        :param obj_united:
         """
         buffer.update__now_len__before_sample()
 
