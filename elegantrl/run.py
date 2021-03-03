@@ -250,7 +250,7 @@ def train_and_evaluate__multiprocessing(args):
     import warnings
     warnings.simplefilter('ignore', UserWarning)
     # semaphore_tracker: There appear to be 1 leaked semaphores to clean up at shutdown
-    print("[W CudaIPCTypes.cpp:22]←↑↓ Don't worry about this warning.")
+    print("[W CudaIPCTypes.cpp:22]← Don't worry about this warning.")
     [p.terminate() for p in process]
 
 
