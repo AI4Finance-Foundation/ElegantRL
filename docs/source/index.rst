@@ -46,8 +46,12 @@ For algorithm details, please check out OpenAI Spinning Up.
    algorithms/ddpg
    algorithms/td3
    algorithms/sac
+   algorithms/intersac
+   algorithms/modsac
    algorithms/a2c
    algorithms/ppo
+   algorithms/interppo
+   algorithms/gaeppo
    algorithms/dqn
    algorithms/double_dqn
    algorithms/d3qn
