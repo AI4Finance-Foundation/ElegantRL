@@ -8,6 +8,9 @@ import numpy.random as rd
 
 from elegantrl.agent import ReplayBuffer, ReplayBufferMP
 from elegantrl.env import PreprocessEnv
+import gym
+
+gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
 '''DEMO'''
 
@@ -87,11 +90,9 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
-def demo1__discrete_action_space():
+def demo1_discrete_action_space():
     import elegantrl.agent as agent
-    import gym
 
-    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     """DEMO 1: Discrete action env of gym"""
     args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
@@ -111,34 +112,87 @@ def demo1__discrete_action_space():
     train_and_evaluate__multiprocessing(args)
 
 
-def demo2__continuous_action_space():
+def demo2_continuous_action_space_off_policy():
     import elegantrl.agent as agent
-    import gym
-
-    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
-    """DEMO 2: Continuous action env, gym.Box2D"""
-
-    '''DEMO 2.1: choose an DRL algorithm (off-policy)'''
+    """DEMO 2.1: Continuous action env (off-policy)"""
     args = Arguments(if_on_policy=False)
-    args.agent_rl = agent.AgentModSAC()  # AgentSAC()
-    # args.agent_rl = agent.AgentTD3()  # AgentDDPG()
+    args.agent = agent.AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
 
-    '''DEMO 2.2: choose an DRL algorithm (on-policy)'''
+    '''choose environment'''
+    # env = gym.make('Pendulum-v0')
+    # env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
+    # args.env = PreprocessEnv(env=env)
+    # args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+    # "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
+    #
+    # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+    # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
+    # "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
+
+    args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+    args.reward_scale = 2 ** -1  # RewardRange: -200 < -150 < 300 < 334
+    args.gamma = 0.95
+    "TotalStep: 2e5, TargetReward: 300, UsedTime: 3500s"
+
+    '''train and evaluate'''
+    # train_and_evaluate(args)
+    args.rollout_num = 2
+    train_and_evaluate__multiprocessing(args)
+
+
+def demo2_continuous_action_space_on_policy():
+    import elegantrl.agent as agent
+    """DEMO 2.1: Continuous action env (on-policy)"""
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = agent.AgentGaePPO()  # AgentPPO()
 
     '''choose environment'''
-    env = gym.make('Pendulum-v0')
-    env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = PreprocessEnv(env=env)
+    # env = gym.make('Pendulum-v0')
+    # env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
+    # args.env = PreprocessEnv(env=env)
+    # args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+    # # TotalStep: 4e5, TargetReward: -200, UsedTime: 400s
 
-    # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+    args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+    args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
+    "TotalStep: 8e5, TargetReward: 200, UsedTime: 1500s"
+
     # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+    # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
     # args.gamma = 0.96
+    # "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
 
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
+    train_and_evaluate__multiprocessing(args)
+
+
+def demo3_custom_env_fin_rl():
+    import elegantrl.agent as agent
+
+    """DEMO 3: Custom Continuous action env: FinanceStock-v1"""
+    args = Arguments(if_on_policy=True)
+    args.agent = agent.AgentGaePPO()  # PPO+GAE (on-policy)
+
+    from elegantrl.env import FinanceMultiStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
+    args.env = FinanceMultiStockEnv(if_train=True, train_beg=0, train_len=1024)
+    args.env_eval = FinanceMultiStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
+    args.reward_scale = 2 ** 0  # RewardRange: 0 < 1.0 < 1.25 <
+    args.break_step = int(5e6)
+    args.net_dim = 2 ** 8
+    args.max_step = args.env.max_step
+    args.max_memo = (args.max_step - 1) * 8
+    args.batch_size = 2 ** 11
+    args.repeat_times = 2 ** 4
+    args.eval_times1 = 2 ** 2
+    args.eval_times2 = 2 ** 4
+    args.if_break_early = False
+    "TotalStep: 2e5, TargetReward: 1.25, UsedTime: 200s"
+    "TotalStep: 4e5, TargetReward: 1.50, UsedTime: 400s"
+
+    # train_and_evaluate(args)
+    args.rollout_num = 8
     train_and_evaluate__multiprocessing(args)
 
 
@@ -209,14 +263,14 @@ def train_and_evaluate(args):
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.update_buffer(env, buffer, target_step, reward_scale, gamma)
+            steps = agent.store_transition(env, buffer, target_step, reward_scale, gamma)
 
         total_step += steps
 
         obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
-            if_solve = evaluator.evaluate_act__save_checkpoint(agent.act, steps, obj_a, obj_c)
+            if_solve = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
 
 
 '''multiprocessing training'''
@@ -307,8 +361,9 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
                 buffer_mp.extend_buffer(buf_state, buf_other, i)
 
         agent.update_net(buffer_mp, target_step, batch_size, repeat_times)  # pre-training and hard update
-        agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
-        agent.cri_target.load_state_dict(agent.cri.state_dict()) if 'cri_target' in dir(agent) else None
+        agent.act_target.load_state_dict(agent.act.state_dict()) if getattr(env, 'act_target', None) else None
+        agent.cri_target.load_state_dict(agent.cri.state_dict()) if getattr(env, 'cri_target', None) in dir(
+            agent) else None
     total_step = steps
     '''send'''
     pipe1_eva.send((agent.act, steps, 0, 0.5))  # send
@@ -406,7 +461,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
             buffer.empty_memories__before_explore()
 
         while True:
-            agent.update_buffer(env, buffer, exp_step, reward_scale, gamma)
+            agent.store_transition(env, buffer, exp_step, reward_scale, gamma)
 
             buffer.update__now_len__before_sample()
 
@@ -468,12 +523,12 @@ def mp_evaluate_agent(args, pipe2_eva):
                 act, steps, obj_a, obj_c = q_i_eva_get
                 steps_sum += steps
             act_cpu.load_state_dict(act.state_dict())
-            if_solve = evaluator.evaluate_act__save_checkpoint(act_cpu, steps_sum, obj_a, obj_c)
+            if_solve = evaluator.evaluate_save(act_cpu, steps_sum, obj_a, obj_c)
             '''send'''
             pipe2_eva.send(if_solve)
             # if_solve = pipe1_eva.recv()
 
-            evaluator.save_npy__draw_plot()
+            evaluator.save_npy_draw_plot()
 
     '''save the model, rename the directory'''
     print(f'| SavedDir: {cwd}\n'
@@ -515,7 +570,7 @@ class Evaluator:
         fig, self.axs = plt.subplots(2)
         self.ax12 = self.axs[1].twinx()
 
-    def evaluate_act__save_checkpoint(self, act, steps, obj_a, obj_c):
+    def evaluate_save(self, act, steps, obj_a, obj_c):
         reward_list = [_get_episode_return(self.env, act, self.device)
                        for _ in range(self.eva_times1)]
         r_avg = np.average(reward_list)  # episode return average
@@ -552,9 +607,9 @@ class Evaluator:
                   f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f}")
         return if_solve
 
-    def save_npy__draw_plot(self):
+    def save_npy_draw_plot(self):
         if len(self.recorder) == 0:
-            print("| save_npy__draw_plot() WARNNING: len(self.recorder)==0")
+            print("| save_npy_draw_plot() WARNNING: len(self.recorder)==0")
             return None
 
         '''save recorder as npy'''

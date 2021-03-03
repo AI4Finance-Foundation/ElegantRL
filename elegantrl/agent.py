@@ -59,7 +59,7 @@ class AgentDQN:
         self.state = None  # set for self.update_buffer(), initialize before training
         self.learning_rate = 1e-4
 
-        self.act = self.act_target = None
+        self.act = None
         self.cri = self.cri_target = None
         self.criterion = None
         self.optimizer = None
@@ -83,7 +83,7 @@ class AgentDQN:
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
 
-    def update_buffer(self, env, buffer, target_step, reward_scale, gamma):
+    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
         for _ in range(target_step):
             action = self.select_actions((self.state,))[0]
             next_s, reward, done, _ = env.step(action)
@@ -187,7 +187,7 @@ class AgentDoubleDQN(AgentDQN):
                 next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
                 q_label = reward + mask * next_q
             act_int = action.type(torch.long)
-            q1, q2 = [qs.gather(1, act_int) for qs in self.act.get__q1_q2(state)]
+            q1, q2 = [qs.gather(1, act_int) for qs in self.act.get_q1_q2(state)]
             obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
 
             self.optimizer.zero_grad()
@@ -234,7 +234,7 @@ class AgentBase:
     def select_actions(self, states):  # states = (state, ...)
         return (None,)  # -1 < action < +1
 
-    def update_buffer(self, env, buffer, target_step, reward_scale, gamma):
+    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
         for _ in range(target_step):
             action = self.select_actions((self.state,))[0]
             next_s, reward, done, _ = env.step(action)
@@ -391,9 +391,9 @@ class AgentTD3(AgentBase):
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
                 next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
-                next_q = torch.min(*self.cri_target.get__q1_q2(next_s, next_a))  # twin critics
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
                 q_label = reward + mask * next_q
-            q1, q2 = self.cri.get__q1_q2(state, action)
+            q1, q2 = self.cri.get_q1_q2(state, action)
             obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
 
             '''objective of actor'''
@@ -452,7 +452,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
             with torch.no_grad():
                 reward, mask, action, state, next_state = buffer.sample_batch(batch_size_)
 
-                next_q_label, next_action = self.act_target.next__q_a(state, next_state, self.policy_noise)
+                next_q_label, next_action = self.act_target.next_q_action(state, next_state, self.policy_noise)
                 q_label = reward + mask * next_q_label
 
             """critic_obj"""
@@ -528,21 +528,21 @@ class AgentSAC(AgentBase):
             '''objective of critic (loss function of critic)'''
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-                next_a, next_log_prob = self.act_target.get__action__log_prob(next_s)
-                next_q = torch.min(*self.cri_target.get__q1_q2(next_s, next_a))
-                q_label = reward + mask * (next_q + next_log_prob * alpha)
-            q1, q2 = self.cri.get__q1_q2(state, action)
+                next_a, next_logprob = self.act_target.get_action_logprob(next_s)
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
+                q_label = reward + mask * (next_q + next_logprob * alpha)
+            q1, q2 = self.cri.get_q1_q2(state, action)
             obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
 
             '''objective of alpha (temperature parameter automatic adjustment)'''
-            action_pg, log_prob = self.act.get__action__log_prob(state)  # policy gradient
-            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
+            obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
 
             '''objective of actor'''
             alpha = self.alpha_log.exp().detach()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
-            obj_actor = -(torch.min(*self.cri_target.get__q1_q2(state, action_pg)) + log_prob * alpha).mean()
+            obj_actor = -(torch.min(*self.cri_target.get_q1_q2(state, action_pg)) + logprob * alpha).mean()
 
             '''united objective'''
             obj_united = obj_critic + obj_alpha + obj_actor
@@ -597,16 +597,16 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size_)
 
-                next_a, next_log_prob = self.act_target.get__action__log_prob(next_s)
-                next_q = torch.min(*self.cri_target.get__q1_q2(next_s, next_a))
-                q_label = reward + mask * (next_q + next_log_prob * alpha)
-            q1, q2 = self.cri.get__q1_q2(state, action)
+                next_a, next_logprob = self.act_target.get_action_logprob(next_s)
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
+                q_label = reward + mask * (next_q + next_logprob * alpha)
+            q1, q2 = self.cri.get_q1_q2(state, action)
             obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
             self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
 
-            a_noise_pg, log_prob = self.act.get__action__log_prob(state)  # policy gradient
+            a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
             '''objective of alpha (temperature parameter automatic adjustment)'''
-            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
             alpha = self.alpha_log.exp().detach()
@@ -617,8 +617,8 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
             if if_update_a:  # auto TTUR
                 update_a += 1
 
-                q_value_pg = torch.min(*self.cri.get__q1_q2(state, a_noise_pg))
-                obj_actor = -(q_value_pg + log_prob * alpha).mean()
+                q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
+                obj_actor = -(q_value_pg + logprob * alpha).mean()
 
                 obj_united = obj_critic + obj_alpha + obj_actor * reliable_lambda
             else:
@@ -660,7 +660,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
     def select_actions(self, states):
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act.get__noise_action(states)
+        actions = self.act.get_noise_action(states)
         return actions.detach().cpu().numpy()
 
     def update_net(self, buffer, target_step, batch_size, repeat_times):  # 1111
@@ -674,7 +674,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
         """
         buffer.update__now_len__before_sample()
 
-        log_prob = None  # just for print return
+        logprob = None  # just for print return
         alpha = self.alpha_log.exp().detach()  # auto temperature parameter
 
         k = 1.0 + buffer.now_len / buffer.max_len
@@ -686,20 +686,20 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size_)
 
-                next_q_label, next_log_prob = self.act_target.get__q__log_prob(next_s)
-                q_label = reward + mask * (next_q_label + next_log_prob * alpha)  # auto temperature parameter
+                next_q_label, next_logprob = self.act_target.get_q_logprob(next_s)
+                q_label = reward + mask * (next_q_label + next_logprob * alpha)  # auto temperature parameter
 
             """obj_critic"""
-            q1_value, q2_value = self.act.get__q1_q2(state, action)  # CriticTwin
+            q1_value, q2_value = self.act.get_q1_q2(state, action)  # CriticTwin
             obj_critic = self.criterion(q1_value, q_label) + self.criterion(q2_value, q_label)
             '''auto reliable lambda'''
             self.obj_c = 0.995 * self.obj_c + 0.005 * obj_critic.item() / 2  # soft update, twin critics
             reliable_lambda = np.exp(-self.obj_c ** 2)
 
-            action_pg, log_prob = self.act.get__a__log_prob(state)
+            action_pg, logprob = self.act.get_a_logprob(state)
 
             '''auto temperature parameter: alpha'''
-            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach() * reliable_lambda).mean()
+            obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach() * reliable_lambda).mean()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
                 alpha = self.alpha_log.exp()  # .detach()
@@ -707,8 +707,8 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
             if update_a / update_c < 1 / (2 - reliable_lambda):  # auto TTUR
                 update_a += 1
                 """obj_actor"""
-                q_value_pg = torch.min(*self.act_target.get__q1_q2(state, action_pg)).mean()  # twin critics
-                obj_actor = -(q_value_pg + log_prob * alpha).mean()  # policy gradient
+                q_value_pg = torch.min(*self.act_target.get_q1_q2(state, action_pg)).mean()  # twin critics
+                obj_actor = -(q_value_pg + logprob * alpha).mean()  # policy gradient
 
                 obj_united = obj_critic + obj_alpha + obj_actor * reliable_lambda
             else:
@@ -720,7 +720,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
             soft_target_update(self.act_target, self.act)
 
-        return log_prob.mean().item(), self.obj_c
+        return logprob.mean().item(), self.obj_c
 
 
 class AgentPPO(AgentBase):
@@ -740,10 +740,10 @@ class AgentPPO(AgentBase):
 
     def select_actions(self, states):  # states = (state, ...)
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        a_noise, noise = self.act.get__action_noise(states)
+        a_noise, noise = self.act.get_action_noise(states)
         return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
 
-    def update_buffer(self, env, buffer, target_step, reward_scale, gamma):
+    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
         buffer.empty_memories__before_explore()  # NOTICE! necessary for on-policy
         max_step = env.max_step
         # assert target_step == buffer.max_len - max_step
@@ -776,7 +776,7 @@ class AgentPPO(AgentBase):
 
             bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
-            buf_log_prob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
+            buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
             buf_r_sum, buf_advantage = self.compute_reward(buffer, buf_reward, buf_mask, buf_value)
             del buf_reward, buf_mask, buf_noise
@@ -789,15 +789,15 @@ class AgentPPO(AgentBase):
             state = buf_state[indices]
             action = buf_action[indices]
             r_sum = buf_r_sum[indices]
-            log_prob = buf_log_prob[indices]
+            logprob = buf_logprob[indices]
             advantage = buf_advantage[indices]
 
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is obj_actor
-            ratio = (new_log_prob - log_prob).exp()
+            new_logprob = self.act.compute_logprob(state, action)  # it is obj_actor
+            ratio = (new_logprob - logprob).exp()
             obj_surrogate1 = advantage * ratio
             obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
             obj_surrogate = -torch.min(obj_surrogate1, obj_surrogate2).mean()
-            obj_entropy = (new_log_prob.exp() * new_log_prob).mean()  # policy entropy
+            obj_entropy = (new_logprob.exp() * new_logprob).mean()  # policy entropy
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
@@ -881,7 +881,7 @@ class AgentInterPPO(AgentPPO):
 
             bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
-            buf_log_prob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
+            buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
             buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
             buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
@@ -906,14 +906,14 @@ class AgentInterPPO(AgentPPO):
             action = buf_action[indices]
             advantage = buf_advantage[indices]
             old_value = buf_r_sum[indices]
-            old_log_prob = buf_log_prob[indices]
+            old_logprob = buf_logprob[indices]
 
-            new_log_prob = self.act.compute__log_prob(state, action)  # it is obj_actor
-            ratio = (new_log_prob - old_log_prob).exp()
+            new_logprob = self.act.compute_logprob(state, action)  # it is obj_actor
+            ratio = (new_logprob - old_logprob).exp()
             obj_surrogate1 = advantage * ratio
             obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
             obj_surrogate = -torch.min(obj_surrogate1, obj_surrogate2).mean()
-            obj_entropy = (new_log_prob.exp() * new_log_prob).mean()  # policy entropy
+            obj_entropy = (new_logprob.exp() * new_logprob).mean()  # policy entropy
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
 
             new_value = self.cri(state).squeeze(1)
