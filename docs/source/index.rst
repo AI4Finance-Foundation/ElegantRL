@@ -7,6 +7,8 @@ Welcome to ElegantRL's documentation!
 =====================================
 
 .. image:: ./images/logo.png
+   :width: 100%
+   :align: center
    :target: https://github.com/AI4Finance-LLC/ElegantRL
 
 `ElegantRL <https://github.com/AI4Finance-LLC/ElegantRL>`_ is featured with lightweight, efficient and stable, for researchers and practitioners.
