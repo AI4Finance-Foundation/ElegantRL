@@ -62,7 +62,7 @@ This part describes DQN-series algorithms and DDPG-series algorithms, respective
 
 .. image:: ../images/overview_2.png
 
-.. code:: python
+.. code-block:: python
    :linenos:
    
   class AgentDQN:
@@ -95,7 +95,7 @@ As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as
   
 .. image:: ../images/overview_3.png
 
-.. code:: python
+.. code-block:: python
    :linenos:
    
   class AgentBase:
