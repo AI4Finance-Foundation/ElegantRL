@@ -309,7 +309,7 @@ class AgentDDPG(AgentBase):
         3. soft target update for stabilizing training
         
         :param obj_critic:
-        :param obj_actor
+        :param obj_actor:
         :param q_lable:
         :param q_value:
         :param q_value_pg: policy gradient
