@@ -27,7 +27,7 @@ class Arguments:
         self.net_dim = 2 ** 8  # the network width
         self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
-        self.target_step = 2 ** 10
+        self.target_step = 2 ** 10  # collect target_step, then update network
         self.max_memo = 2 ** 17  # capacity of replay buffer
         if if_on_policy:  # (on-policy)
             self.net_dim = 2 ** 9
@@ -59,7 +59,7 @@ class Arguments:
         if not hasattr(self.env, 'env_name'):
             raise RuntimeError('\n| What is env.env_name? use env=PreprocessEnv(env)')
 
-        '''set gpu_id and cwd automatically'''
+        '''set gpu_id automatically'''
         if self.gpu_id is None:  # set gpu_id automatically
             import sys
             self.gpu_id = sys.argv[-1][-4]
@@ -68,6 +68,7 @@ class Arguments:
         if not self.gpu_id.isdigit():  # set gpu_id as '0' in default
             self.gpu_id = '0'
 
+        '''set cwd automatically'''
         if self.cwd is None:
             agent_name = self.agent.__class__.__name__
             self.cwd = f'./{agent_name}/{self.env.env_name}_{self.gpu_id}'
