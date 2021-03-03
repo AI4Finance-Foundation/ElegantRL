@@ -9,7 +9,7 @@ The goal of the Reacher-v2 task is simple: make a 2D robot arm to reach a random
 Step 1: Install ElegantRL
 ------------------------------
 
-.. code:: python
+.. code-block:: python
    :linenos:
    
   # install elegantrl library
@@ -18,7 +18,7 @@ Step 1: Install ElegantRL
 Step 2: Import Packages
 -------------------------------
 
-.. code:: python
+.. code-block:: python
    :linenos:
    
   from elegantrl.run import *
@@ -32,7 +32,7 @@ Step 2: Import Packages
 Step 3: Specify Agent and Environment
 ---------------------------------------------
 
-.. code:: python
+.. code-block:: python
    :linenos:
    
   args = Arguments(if_on_policy=True)
@@ -47,7 +47,7 @@ Step 3: Specify Agent and Environment
 Step 4: Train and Evaluate the Agent
 ----------------------------------------
 
-.. code:: python
+.. code-block:: python
    :linenos:
    
   train_and_evaluate__multiprocessing(args) # the training process will terminate once it reaches the target reward.
