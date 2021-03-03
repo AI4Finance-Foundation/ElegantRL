@@ -33,9 +33,9 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 -----kernel file----
 + elegantrl/net.py    # Neural networks.
-++ Q-Net,
-++ Actor Network,
-++ Critic Network,
+   + Q-Net,
+   + Actor Network,
+   + Critic Network,
 + elegantrl/agent.py  # RL algorithms.
 + elegantrl/run.py    # run DEMO 1 ~ 4 in run__demo().
 
