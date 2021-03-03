@@ -32,18 +32,18 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
 -----kernel file----
-+ elegantrl/net.py    # Neural networks.
++ **elegantrl/net.py**    # Neural networks.
    + Q-Net,
    + Actor Network,
    + Critic Network,
-+ elegantrl/agent.py  # RL algorithms. 
-+ elegantrl/run.py    # run DEMO 1 ~ 4 in run__demo().
++ **elegantrl/agent.py**  # RL algorithms. 
++ **elegantrl/run.py**    # run DEMO 1 ~ 4 in run__demo().
    + Parameter initialization,
    + Training loop,
    + Evaluator.
 
 -----utils file----
-+ elegantrl/env.py    # gym env or custom env, including MultiStockEnv Finance.
++ **elegantrl/env.py**    # gym env or custom env, including MultiStockEnv Finance.
    + A PreprocessEnv class for gym-environment modification.
    + A self-created stock trading environment as an example for user customization.
 + BipedalWalker_Example.ipynb      # BipedalWalker-v2 in jupyter notebooks
