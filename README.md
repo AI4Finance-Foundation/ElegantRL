@@ -42,6 +42,20 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 As a high-level overview, the relations among the files are as follows. Initialize an environment in Env.py and an agent in Agent.py. The agent is constructed with Actor and Critic networks in Net.py. In each training step in Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
 
+# Training pipeline
+
+### Initialization:
++ hyper-parameters `args`.
++ `env = PreprocessEnv()` : creates an environment (in the OpenAI gym format).
++ `agent = agent.XXX()` : creates an agent for a DRL algorithm.
++ `evaluator = Evaluator()` : evaluates and stores the trained model.
++ `buffer = ReplayBuffer()` : stores the transitions.
+### Then, the training process is controlled by a while-loop:
++ `agent.store_transition(…)`: the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
++ `agent.update_net(…)`: the agent uses a batch from the ReplayBuffer to update the network parameters.
++ `evaluator.evaluate_save(…)`: evaluates the agent's performance and keeps the trained model with the highest score.
+The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
+
 # Experimental results
 
 Results using ElegantRL 
@@ -89,17 +103,6 @@ The following steps:
 2. Use `run__zoo()` to run an off-policy algorithm. Use `run__ppo()` to run on-policy such as PPO.
 3. Choose a DRL algorithm: `from Agent import AgentXXX`.
 4. Choose a gym environment: `args.env_name = "LunarLanderContinuous-v2"`
-
-# Training pipeline
-
-+ Initialize the parameters using `args`.
-+ <span style="color:blue">Initialize `agent = agent.XXX()` : creates the DRL agent based on the algorithm.</span>
-+ <span style="color:green">Initialize `evaluator = Evaluator()` : evaluates and stores the trained model.</span>
-+ <span style="color:red">Initialize `buffer = ReplayBuffer()` : stores the transitions.</span>
-+ Ater the training starts, the while-loop will break when the conditions are met (conditions: achieving the target score, maximum steps, or manually breaks).
-  + <span style="color:red">`agent.update_buffer(...)`</span> The agent explores the environment within target steps, generates transition data, and stores it in the ReplayBuffer. Run in parallel.
-  + <span style="color:blue">`agent.update_policy(...)` </span> The agent uses a batch from the ReplayBuffer to update the network parameters. Run in parallel.
-  + <span style="color:green">`evaluator.evaluate_act__save_checkpoint(...)`</span> Evaluates the performance of the agent and keeps the model with the highest score. Independent of the training process.
 
 ### Model-free DRL Algorithms
 
