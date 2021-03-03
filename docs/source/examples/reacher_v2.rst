@@ -10,7 +10,7 @@ Step 1: Install ElegantRL
 ------------------------------
 
 .. code:: python
-   :number-lines
+   :linenos:
    
   # install elegantrl library
   !pip install git+https://github.com/AI4Finance-LLC/ElegantRL.git
@@ -19,7 +19,7 @@ Step 2: Import Packages
 -------------------------------
 
 .. code:: python
-   :number-lines: 1
+   :linenos:
    
   from elegantrl.run import *
   from elegantrl.env import prep_env
@@ -33,7 +33,7 @@ Step 3: Specify Agent and Environment
 ---------------------------------------------
 
 .. code:: python
-   :number-lines: 1
+   :linenos:
    
   args = Arguments(if_on_policy=True)
   args.agent_rl = agent.AgentGaePPO  # choose an DRL algorithm
@@ -48,7 +48,7 @@ Step 4: Train and Evaluate the Agent
 ----------------------------------------
 
 .. code:: python
-   :number-lines: 1
+   :linenos:
    
   train_and_evaluate__multiprocessing(args) # the training process will terminate once it reaches the target reward.
 
