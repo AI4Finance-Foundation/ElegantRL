@@ -57,6 +57,7 @@ For algorithm details, please check out OpenAI Spinning Up.
    :caption: Examples
    
    examples/reacher_v2
+   examples/LunarLanderContinuous-v2
 
 
 Indices and tables
