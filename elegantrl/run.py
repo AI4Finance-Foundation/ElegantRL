@@ -87,6 +87,61 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
+def demo1__discrete_action_space():
+    import elegantrl.agent as agent
+    import gym
+
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    """DEMO 1: Discrete action env of gym"""
+    args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
+
+    '''choose an DRL algorithm'''
+    # args.agent_rl = agent.AgentDuelingDQN()  # AgentDQN()
+    args.agent = agent.AgentD3QN()  # AgentDoubleDQN()
+
+    '''choose environment'''
+    args.env = PreprocessEnv(env=gym.make('CartPole-v0'))
+    args.net_dim = 2 ** 7  # change a default hyper-parameters
+    # args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
+    # args.net_dim = 2 ** 8
+
+    '''train and evaluate'''
+    # train_and_evaluate(args)
+    args.rollout_num = 4
+    train_and_evaluate__multiprocessing(args)
+
+
+def demo2__continuous_action_space():
+    import elegantrl.agent as agent
+    import gym
+
+    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    """DEMO 2: Continuous action env, gym.Box2D"""
+
+    '''DEMO 2.1: choose an DRL algorithm (off-policy)'''
+    args = Arguments(if_on_policy=False)
+    args.agent_rl = agent.AgentModSAC()  # AgentSAC()
+    # args.agent_rl = agent.AgentTD3()  # AgentDDPG()
+
+    '''DEMO 2.2: choose an DRL algorithm (on-policy)'''
+    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args.agent = agent.AgentGaePPO()  # AgentPPO()
+
+    '''choose environment'''
+    env = gym.make('Pendulum-v0')
+    env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
+    args.env = PreprocessEnv(env=env)
+
+    # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+    # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+    # args.gamma = 0.96
+
+    '''train and evaluate'''
+    # train_and_evaluate(args)
+    args.rollout_num = 4
+    train_and_evaluate__multiprocessing(args)
+
+
 '''single process training'''
 
 
@@ -161,7 +216,7 @@ def train_and_evaluate(args):
         obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
-            if_solve = evaluator.evaluate_act__save_checkpoint(agent.cri, steps, obj_a, obj_c)
+            if_solve = evaluator.evaluate_act__save_checkpoint(agent.act, steps, obj_a, obj_c)
 
 
 '''multiprocessing training'''
@@ -169,6 +224,10 @@ def train_and_evaluate(args):
 
 def train_and_evaluate__multiprocessing(args):
     act_workers = args.rollout_num
+    os.environ['PYTHONWARNINGS'] = 'ignore:semaphore_tracker:UserWarning'
+    '''Python.multiprocessing + PyTorch + CUDA --> semaphore_tracker:UserWarning
+    https://discuss.pytorch.org/t/issue-with-multiprocessing-semaphore-tracking/22943/4
+    '''
 
     import multiprocessing as mp  # Python built-in multiprocessing library
     mp.set_start_method('spawn', force=True)  # force=True to solve "RuntimeError: context has already been set"
@@ -252,7 +311,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
         agent.cri_target.load_state_dict(agent.cri.state_dict()) if 'cri_target' in dir(agent) else None
     total_step = steps
     '''send'''
-    pipe1_eva.send((agent.cri, steps, 0, 0.5))  # send
+    pipe1_eva.send((agent.act, steps, 0, 0.5))  # send
     # act, steps, obj_a, obj_c = pipe2_eva.recv()  # recv
 
     '''start training'''
@@ -261,6 +320,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         '''update ReplayBuffer'''
+        steps = 0  # send by pipe1_eva
         for i in range(rollout_num):
             pipe1_exp = pipe1_exp_list[i]
             '''send'''
@@ -270,23 +330,31 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
             # pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
             buf_state, buf_other = pipe1_exp.recv()
 
-            total_step += len(buf_state)  # steps
+            steps += len(buf_state)
             buffer_mp.extend_buffer(buf_state, buf_other, i)
+        total_step += steps
 
         '''update network parameters'''
         obj_a, obj_c = agent.update_net(buffer_mp, target_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
-        pipe1_eva.send((agent.act, steps, obj_a, obj_c))  # pipe1_eva act_cpu
+        '''send'''
+        pipe1_eva.send((agent.act, steps, obj_a, obj_c))
+        # q_i_eva_get = pipe2_eva.recv()
+
         if_solve = pipe1_eva.recv()
 
         if pipe1_eva.poll():
-            if_solve = pipe1_eva.recv()
+            '''recv'''
             # pipe2_eva.send(if_solve)
+            if_solve = pipe1_eva.recv()
 
     buffer_mp.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
                                env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
-    pipe1_eva.send('stop')  # eva_pipe stop  # send to mp_evaluate_agent
+
+    '''send'''
+    pipe1_eva.send('stop')
+    # q_i_eva_get = pipe2_eva.recv()
     time.sleep(4)
 
 
@@ -389,7 +457,11 @@ def mp_evaluate_agent(args, pipe2_eva):
                 time.sleep(1)
             steps_sum = 0
             while pipe2_eva.poll():  # receive the latest object from pipe
-                q_i_eva_get = pipe2_eva.recv()  # pipe2_eva act
+                '''recv'''
+                # pipe1_eva.send((agent.act, steps, obj_a, obj_c))
+                # pipe1_eva.send('stop')
+                q_i_eva_get = pipe2_eva.recv()
+
                 if q_i_eva_get == 'stop':
                     if_loop = False
                     break
@@ -397,7 +469,9 @@ def mp_evaluate_agent(args, pipe2_eva):
                 steps_sum += steps
             act_cpu.load_state_dict(act.state_dict())
             if_solve = evaluator.evaluate_act__save_checkpoint(act_cpu, steps_sum, obj_a, obj_c)
-            pipe2_eva.send(if_solve)  # if_solve = pipe1_eva.recv()
+            '''send'''
+            pipe2_eva.send(if_solve)
+            # if_solve = pipe1_eva.recv()
 
             evaluator.save_npy__draw_plot()
 
@@ -439,6 +513,7 @@ class Evaluator:
 
         self.plt = plt
         fig, self.axs = plt.subplots(2)
+        self.ax12 = self.axs[1].twinx()
 
     def evaluate_act__save_checkpoint(self, act, steps, obj_a, obj_c):
         reward_list = [_get_episode_return(self.env, act, self.device)
@@ -497,22 +572,30 @@ class Evaluator:
         obj_c = recorder[:, 4]
 
         axs0 = axs[0]
+        axs0.cla()
         color0 = 'lightcoral'
         axs0.plot(steps, r_avg, label='Episode Return', color=color0)
         axs0.fill_between(steps, r_avg - r_std, r_avg + r_std, facecolor=color0, alpha=0.3)
 
-        axs11 = axs[1]
+        ax11 = axs[1]
+        ax11.cla()
         color11 = 'royalblue'
         label = 'objA'
-        axs11.set_ylabel(label, color=color11)
-        axs11.plot(steps, obj_a, label=label, color=color11)
-        axs11.tick_params(axis='y', labelcolor=color11)
+        ax11.set_ylabel(label, color=color11)
+        ax11.plot(steps, obj_a, label=label, color=color11)
+        ax11.tick_params(axis='y', labelcolor=color11)
 
-        ax12 = axs[1].twinx()
+        self.ax12.cla()  # self.ax12 = axs[1].twinx()
         color12 = 'darkcyan'
-        ax12.set_ylabel('objC', color=color12)
-        ax12.fill_between(steps, obj_c, facecolor=color12, alpha=0.2, )
-        ax12.tick_params(axis='y', labelcolor=color12)
+        self.ax12.set_ylabel('objC', color=color12)
+        self.ax12.fill_between(steps, obj_c, facecolor=color12, alpha=0.2, )
+        self.ax12.tick_params(axis='y', labelcolor=color12)
+
+        self.ax12.relim()
+        self.ax12.autoscale_view()
+        '''Dynamically update multiple axis in matplotlib
+        https://stackoverflow.com/a/43786789/9293137
+        '''
 
         '''plot title'''
         train_time = int(time.time() - self.start_time)
@@ -523,8 +606,6 @@ class Evaluator:
         '''plot save'''
         plt.savefig(f"{self.cwd}/plot_learning_curve.jpg")
         # plt.show()
-        # plt.close()
-        plt.clf()
 
 
 def _get_episode_return(env, act, device) -> float:
@@ -539,7 +620,6 @@ def _get_episode_return(env, act, device) -> float:
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
         action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
-
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:

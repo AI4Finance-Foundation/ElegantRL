@@ -25,8 +25,6 @@ class PreprocessEnv:  # env wrapper
 
         state_avg, state_std = _get_avg_std__for_state_norm(self.env_name)
         if state_avg is not None:
-            state_avg = state_avg.astype(np.float32)
-            state_std = state_std.astype(np.float32)
             self.neg_state_avg = -state_avg
             self.div_state_std = 1 / (state_std + 1e-4)
 
@@ -39,8 +37,8 @@ class PreprocessEnv:  # env wrapper
 
     def reset_norm(self):
         state = self.env_reset()
-        (state.astype(self.data_type) + self.neg_state_avg) * self.div_state_std
-        return state
+        (state + self.neg_state_avg) * self.div_state_std
+        return state.astype(self.data_type)
 
     def step(self, action):
         state, reward, done, info = self.env_step(action * self.action_max)
@@ -48,8 +46,8 @@ class PreprocessEnv:  # env wrapper
 
     def step_norm(self, action):
         state, reward, done, info = self.env_step(action * self.action_max)
-        state = (state.astype(self.data_type) + self.neg_state_avg) * self.div_state_std
-        return state, reward, done, info
+        state = (state + self.neg_state_avg) * self.div_state_std
+        return state.astype(self.data_type), reward, done, info
 
 
 def _get_avg_std__for_state_norm(env_name):
