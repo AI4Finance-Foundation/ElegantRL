@@ -34,14 +34,4 @@ Actor-Critic
 .. autoclass:: elegantrl.agent.AgentDDPG
    :members:
    :undoc-members:
-   
-   
-   
-Default Hyper-parameters
---------------------------
-
-.. automodule:: elegantrl.agent.default
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
