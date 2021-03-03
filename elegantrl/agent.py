@@ -396,9 +396,18 @@ class AgentTD3(AgentBase):
 
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of TD3 (Twin Delay DDPG)
+        
         1. twin critics (DoubleDQN -> TwinCritic, good idea)
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
         3. delay update (I think it is not very useful)
+        
+        :param obj_critic:
+        :param obj_actor:
+        :param next_a:
+        :param next_q:
+        :param q_lable:
+        :param q_value_pg:
+        :param obj_united:
         """
         buffer.update__now_len__before_sample()
 
