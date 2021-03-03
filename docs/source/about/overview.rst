@@ -27,25 +27,24 @@ Overview: File Structure and Functions
 
 The file structure of ElegantRL is shown in Fig. 1:
 
-  1 Env.py: it contains the environments, with which the agent interacts. 
+  1. **Env.py**: it contains the environments, with which the agent interacts. 
   
       - A prep_env() function for gym-environment modification.
       
       - A self-created stock trading environment as an example for user customization.
       
-  2 Net.py: There are three types of networks:
-  
+  2. **Net.py**: There are three types of networks:(*Each includes a base network for inheritance and a set of variations for different algorithms.*)
+
       - Q-Net
       
       - Actor Network
       
       - Critic Network
 
-*Each includes a base network for inheritance and a set of variations for different algorithms.*
 
-  3 Agent.py: it contains agents for different DRL algorithms.
+  3. **Agent.py**: it contains agents for different DRL algorithms.
 
-  4 Run.py: it provides basic functions for the training and evaluating process:
+  4. **Run.py**: it provides basic functions for the training and evaluating process:
   
       - Parameter initialization
       
@@ -53,7 +52,8 @@ The file structure of ElegantRL is shown in Fig. 1:
       
       - Evaluator
       
-As a high-level overview, the relations among the files are as follows. Initialize an environment in Env.py and an agent in Agent.py. The agent is constructed with Actor and Critic networks in Net.py. In each training step in Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good.   
+As a high-level overview, the relations among the files are as follows. Initialize an environment in Env.py and an agent in Agent.py. The agent is constructed with Actor and Critic networks in Net.py. In each training step in Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good. 
+
       
 Implementations of DRL Algorithms
 ------------------------------------
@@ -137,12 +137,13 @@ Basically, an agent has two fundamental functions, and the data flow is shown in
   - **update_net()**: it first fetches a batch of transitions from the Replay Buffer, and then train the network with backpropagation.
   
 
+
 Training Pipeline
 --------------------
 
 Two major steps to train an agent:
 
-  1 Initialization:
+  1. Initialization:
   
       - hyper-parameters args.
       
@@ -155,7 +156,7 @@ Two major steps to train an agent:
       - buffer = ReplayBuffer() : stores the transitions.
 
 
-  2 Then, the training process is controlled by a while-loop:
+  2. Then, the training process is controlled by a while-loop:
   
       - agent.store_transition(…): the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
       
