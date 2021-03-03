@@ -50,6 +50,12 @@ For algorithm details, please check out OpenAI Spinning Up.
    algorithms/double_dqn
    algorithms/d3qn
    
+.. toctree::
+   :maxdepth: 2
+   :caption: Examples
+   
+   examples/reacher_v2
+
 
 Indices and tables
 ==================
