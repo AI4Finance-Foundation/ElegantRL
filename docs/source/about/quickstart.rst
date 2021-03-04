@@ -29,7 +29,7 @@ Run the example:
 
   python run.py
   
-You can see run__demo(gpu_id=0, cwd='AC_BasicAC') in Main.py.
+You can see ``run__demo(gpu_id=0, cwd='AC_BasicAC')`` in Main.py.
 
 .. tip::
     - In default, it will train a stable-DDPG in LunarLanderContinuous-v2 for 2000 second.
