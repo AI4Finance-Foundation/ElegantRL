@@ -17,19 +17,19 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 class QNetTwin(nn.Module):  # Double DQN
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net__s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU())  # state
+        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                       nn.Linear(mid_dim, mid_dim), nn.ReLU())
         self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                     nn.Linear(mid_dim, action_dim))  # q1 value
         self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                     nn.Linear(mid_dim, action_dim))  # q2 value
 
     def forward(self, state):
-        tmp = self.net__s(state)
+        tmp = self.net_state(state)
         return self.net_q1(tmp)  # single q value
 
-    def get__q1_q2(self, state):
-        tmp = self.net__s(state)
+    def get_q1_q2(self, state):
+        tmp = self.net_state(state)
         q1 = self.net_q1(tmp)
         q2 = self.net_q2(tmp)
         return q1, q2  # twin q value
@@ -65,7 +65,7 @@ class ActorPPO(nn.Module):
     def forward(self, state):
         return self.net(state).tanh()  # action
 
-    def get__action_noise(self, state):
+    def get_action_noise(self, state):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
@@ -73,47 +73,49 @@ class ActorPPO(nn.Module):
         action = a_avg + noise * a_std
         return action, noise
 
-    def compute__log_prob(self, state, action):
+    def compute_logprob(self, state, action):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
         delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)  # __mul__(0.5) is * 0.5
-        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)
-        return log_prob.sum(1)
+        logprob = -(self.a_std_log + self.sqrt_2pi_log + delta)
+        return logprob.sum(1)
 
 
 class ActorSAC(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net__state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net__a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim))  # the average of action
-        self.net__a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                        nn.Linear(mid_dim, action_dim))  # the log_std of action
+        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                       nn.Linear(mid_dim, mid_dim), nn.ReLU())
+        self.net_a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                       nn.Linear(mid_dim, action_dim))  # the average of action
+        self.net_a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                       nn.Linear(mid_dim, action_dim))  # the log_std of action
         self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
-        tmp = self.net__state(state)
-        return self.net__a_avg(tmp).tanh()  # action
+        tmp = self.net_state(state)
+        return self.net_a_avg(tmp).tanh()  # action
 
     def get_action(self, state):
-        t_tmp = self.net__state(state)
-        a_avg = self.net__a_avg(t_tmp)
-        a_std = self.net__a_std(t_tmp).clamp(-16, 2).exp()
+        t_tmp = self.net_state(state)
+        a_avg = self.net_a_avg(t_tmp)
+        a_std = self.net_a_std(t_tmp).clamp(-16, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
-    def get__action__log_prob(self, state):
-        t_tmp = self.net__state(state)
-        a_avg = self.net__a_avg(t_tmp)
-        a_std_log = self.net__a_std(t_tmp).clamp(-16, 2)
+    def get_action_logprob(self, state):
+        t_tmp = self.net_state(state)
+        a_avg = self.net_a_avg(t_tmp)
+        a_std_log = self.net_a_std(t_tmp).clamp(-16, 2)
         a_std = a_std_log.exp()
 
         noise = torch.randn_like(a_avg, requires_grad=True)
-        a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
+        action = a_avg + a_std * noise
+        a_tan = action.tanh()
 
-        log_prob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
-        log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
-        return a_tan, log_prob.sum(1, keepdim=True)
+        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)
+        logprob = a_std_log + self.sqrt_2pi_log + delta
+        logprob = logprob + (-a_tan.pow(2) + 1.000001).log()  # fix logprob using the derivative of action.tanh()
+        return a_tan, logprob.sum(1, keepdim=True)
 
 
 class Critic(nn.Module):
@@ -153,6 +155,6 @@ class CriticTwin(nn.Module):  # shared parameter
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp)
 
-    def get__q1_q2(self, state, action):
+    def get_q1_q2(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp), self.net_q2(tmp)  # q1, q2 value

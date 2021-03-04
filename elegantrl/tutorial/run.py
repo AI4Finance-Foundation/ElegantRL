@@ -3,44 +3,45 @@ import time
 import torch
 import numpy as np
 import numpy.random as rd
+from copy import deepcopy
+from elegantrl.tutorial.agent import ReplayBuffer
 
 
 class Arguments:
-    def __init__(self, agent_rl=None, env=None, gpu_id=None, if_on_policy=False):
-        self.agent_rl = agent_rl  # Deep Reinforcement Learning algorithm
-        self.gpu_id = gpu_id  # choose the GPU for running. gpu_id is None means set it automatically
+    def __init__(self, agent=None, env=None, gpu_id=None, if_on_policy=False):
+        self.agent = agent  # Deep Reinforcement Learning algorithm
         self.cwd = None  # current work directory. cwd is None means set it automatically
         self.env = env  # the environment for training
+        self.env_eval = None  # the environment for evaluating
+        self.gpu_id = gpu_id  # choose the GPU for running. gpu_id is None means set it automatically
 
         '''Arguments for training (off-policy)'''
         self.net_dim = 2 ** 8  # the network width
-        self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
+        self.batch_size = 2 ** 8  # num of transitions sampled from replay buffer.
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
+        self.target_step = 2 ** 10  # collect target_step, then update network
         self.max_memo = 2 ** 17  # capacity of replay buffer
         if if_on_policy:  # (on-policy)
             self.net_dim = 2 ** 9
             self.batch_size = 2 ** 8
             self.repeat_times = 2 ** 4
-            self.max_memo = 2 ** 12
-        self.max_step = 2 ** 10  # max steps in one training episode
+            self.target_step = 2 ** 12
+            self.max_memo = self.target_step
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
-        self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
         self.num_threads = 4  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for evaluate'''
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
-        self.if_break_early = True  # break training after 'eval_reward > target reward'
+        self.if_allow_break = True  # allow break training when reach goal (early termination)
         self.break_step = 2 ** 20  # break training after 'total_step > break_step'
         self.eval_times = 2 ** 1  # evaluation times if 'eval_reward > target_reward'
         self.show_gap = 2 ** 8  # show the Reward and Loss value per show_gap seconds
         self.random_seed = 0  # initialize random seed in self.init_before_training(
 
     def init_before_training(self):
-        import sys
-        self.gpu_id = sys.argv[-1][-4] if self.gpu_id is None else str(self.gpu_id)
-        self.gpu_id = self.gpu_id if self.gpu_id.isdigit() else '0'
-        self.cwd = f'./{self.agent_rl.__name__}/{self.env.env_name}_{self.gpu_id}' if self.cwd is None else self.cwd
+        self.gpu_id = '0' if self.gpu_id is None else str(self.gpu_id)
+        self.cwd = f'./{self.env.env_name}_{self.gpu_id}' if self.cwd is None else self.cwd
         print(f'| GPU id: {self.gpu_id}, cwd: {self.cwd}')
 
         import shutil  # remove history according to bool(if_remove)
@@ -60,210 +61,164 @@ class Arguments:
 
 def run__demo():
     # from elegantrl.tutorial.run import Arguments, train_and_evaluate
-    from elegantrl.tutorial.env import prep_env
-    import elegantrl.tutorial.agent as agent
+    from elegantrl.tutorial.env import PreprocessEnv
+
     import gym
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
-    args = Arguments(agent_rl=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
+    """DEMO 1: Discrete action env of gym"""
+    # args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
+    #
+    # '''choose an DRL algorithm'''
+    # from elegantrl.tutorial.agent import AgentDQN  # AgentDoubleDQN
+    # args.agent = AgentDQN()
+    #
+    # '''choose environment'''
+    # args.env = PreprocessEnv(env=gym.make('CartPole-v0'))
+    # args.net_dim = 2 ** 7  # change a default hyper-parameters
+    # args.batch_size = 2 ** 7
+    # "TotalStep: 2e3, TargetReward: , UsedTime: 10s"
+    # # args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
+    # # args.net_dim = 2 ** 8
+    # # args.batch_size = 2 ** 8
+    # "TotalStep: , TargetReward: , UsedTime: "
+    #
+    # '''train and evaluate'''
+    # train_and_evaluate(args)
+    # exit()
 
-    '''DEMO 1: Discrete action env: CartPole-v0 of gym'''
-    args.agent_rl = agent.AgentDoubleDQN  # choose an DRL algorithm
-    args.env = prep_env(env=gym.make('CartPole-v0'))
-    args.net_dim = 2 ** 7  # change a default hyper-parameters
-    args.env = prep_env(env=gym.make('LunarLander-v2'))
-    args.net_dim = 2 ** 8  # change a default hyper-parameters
-    train_and_evaluate(args)
-    exit()
+    '''DEMO 2: Continuous action env if gym'''
+    '''DEMO 2.1: choose an off-policy DRL algorithm'''
+    from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    args = Arguments(if_on_policy=False)
+    args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
+    '''DEMO 2.2: choose an on-policy DRL algorithm'''
+    '''choose an DRL algorithm'''
+    from elegantrl.agent import AgentGaePPO  # AgentPPO
+    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args.agent = AgentGaePPO()
 
-    '''DEMO 2: Continuous action env: gym.box2D'''
-    '''DEMO 2.1: off-policy'''
-    args = Arguments()  # if_on_policy=False in default
-    args.agent_rl = agent.AgentSAC  # off-policy
+    '''choose environment'''
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = prep_env(env=env)
-    # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
-    # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
-    train_and_evaluate(args)
-    exit()
+    args.env = PreprocessEnv(env=env)
+    args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+    "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
+    # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+    # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
+    "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
+    # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+    # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
+    # args.net_dim = 2 ** 8
+    # args.break_step = int(2e5)
+    # args.if_allow_break = False
+    "TotalStep: 2e5, TargetReward: 300, UsedTime: 5000s"
 
-    '''DEMO 2.2: on-policy'''
-    args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
-    args.agent_rl = agent.AgentGaePPO  # on-policy
-    env = gym.make('Pendulum-v0')
-    env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = prep_env(env=env)
-    # args.env = decorate_env(env=gym.make('LunarLanderContinuous-v2'))
-    # args.env = decorate_env(env=gym.make('BipedalWalker-v3'))  # recommend args.gamma = 0.95
+    '''train and evaluate'''
     train_and_evaluate(args)
+    # train_and_evaluate__multiprocessing(args)  # try multiprocessing in complete version
     exit()
 
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     args = Arguments(if_on_policy=True)
-    args.agent_rl = agent.AgentGaePPO  # PPO+GAE (on-policy)
-    from elegantrl.tutorial.env import FinanceMultiStockEnv
-    args.env = FinanceMultiStockEnv()  # a standard env for ElegantRL, not need decorate_env()
+    '''choose an DRL algorithm'''
+    from elegantrl.agent import AgentGaePPO
+    args.agent = AgentGaePPO()  # PPO+GAE (on-policy)
 
-    args.break_step = int(5e6 * 4)  # 5e6 (15e6) UsedTime 3,000s (9,000s)
-    args.net_dim = 2 ** 8
-    args.max_step = 1699
-    args.max_memo = (args.max_step - 1) * 16
+    from elegantrl.env import FinanceMultiStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
+    args.env = FinanceMultiStockEnv(if_train=True, train_beg=0, train_len=1024)
+    args.env_eval = FinanceMultiStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
+    args.reward_scale = 2 ** 0  # RewardRange: 0 < 1.0 < 1.25 <
+    args.break_step = int(5e6)
+    args.max_step = args.env.max_step
+    args.max_memo = (args.max_step - 1) * 8
     args.batch_size = 2 ** 11
-    args.repeat_times = 2 ** 4
+    args.if_allow_break = False
+    "TotalStep:  2e5, TargetReward: 1.25, UsedTime:  200s"
+    "TotalStep:  4e5, TargetReward: 1.50, UsedTime:  400s"
+    "TotalStep: 10e5, TargetReward: 1.62, UsedTime: 1000s"
+
+    '''train and evaluate'''
     train_and_evaluate(args)
+    # args.rollout_num = 8
+    # train_and_evaluate__multiprocessing(args)  # try multiprocessing in complete version
     exit()
 
 
 def train_and_evaluate(args):
     args.init_before_training()
 
-    agent_rl = args.agent_rl  # basic arguments
-    agent_id = args.gpu_id
-    env = args.env
+    '''basic arguments'''
     cwd = args.cwd
+    env = args.env
+    agent = args.agent
+    gpu_id = args.gpu_id  # necessary for Evaluator?
+    env_eval = args.env_eval
 
-    gamma = args.gamma  # training arguments
+    '''training arguments'''
     net_dim = args.net_dim
     max_memo = args.max_memo
-    max_step = args.max_step
+    break_step = args.break_step
     batch_size = args.batch_size
+    target_step = args.target_step
     repeat_times = args.repeat_times
+    if_break_early = args.if_allow_break
+    gamma = args.gamma
     reward_scale = args.reward_scale
 
-    show_gap = args.show_gap  # evaluate arguments
-    eval_times = args.eval_times1
-    break_step = args.break_step
-    if_break_early = args.if_break_early
+    '''evaluating arguments'''
+    show_gap = args.show_gap
+    eval_times = args.eval_times
+    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
-    '''init: env'''
+    '''init: environment'''
+    max_step = env.max_step
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
-    from copy import deepcopy  # built-in library of Python
-    env_eval = deepcopy(env)
-    del deepcopy
+    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
 
-    agent = agent_rl(net_dim, state_dim, action_dim)  # build AgentRL
-    agent.state = env.reset()
-    evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=agent.device, env=env_eval,
+    '''init: Agent, ReplayBuffer, Evaluator'''
+    agent.init(net_dim, state_dim, action_dim)
+    if_on_policy = getattr(agent, 'if_on_policy', False)
+
+    buffer = ReplayBuffer(max_len=max_memo + max_step, if_on_policy=if_on_policy, if_gpu=True,
+                          state_dim=state_dim, action_dim=1 if if_discrete else action_dim)
+
+    evaluator = Evaluator(cwd=cwd, agent_id=gpu_id, device=agent.device, env=env_eval,
                           eval_times=eval_times, show_gap=show_gap)  # build Evaluator
 
-    if_on_policy = agent_rl.__name__ in {'AgentPPO', 'AgentGaePPO'}
-    buffer = ReplayBuffer(max_memo, state_dim, if_on_policy=if_on_policy,
-                          action_dim=1 if if_discrete else action_dim)  # build experience replay buffer
+    '''prepare for training'''
+    agent.state = env.reset()
     if if_on_policy:
         steps = 0
-    else:
+    else:  # explore_before_training for off-policy
         with torch.no_grad():  # update replay buffer
-            steps = explore_before_train(env, buffer, max_step, reward_scale, gamma)
-        agent.update_net(buffer, max_step, batch_size, repeat_times)  # pre-training and hard update
+            steps = explore_before_training(env, buffer, target_step, reward_scale, gamma)
+
+        agent.update_net(buffer, target_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
+        agent.cri_target.load_state_dict(agent.cri.state_dict()) if 'cri_target' in dir(agent) else None
     total_step = steps
 
-    if_solve = False
-    while not ((if_break_early and if_solve)
+    '''start training'''
+    if_reach_goal = False
+    while not ((if_break_early and if_reach_goal)
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.update_buffer(env, buffer, max_step, reward_scale, gamma)
+            steps = agent.store_transition(env, buffer, target_step, reward_scale, gamma)
+
         total_step += steps
 
-        obj_a, obj_c = agent.update_net(buffer, max_step, batch_size, repeat_times)
+        obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
-            if_solve = evaluator.evaluate_act_and_save_checkpoint(agent.act, steps, obj_a, obj_c)
+            if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
 
 
 '''utils'''
-
-
-def explore_before_train(env, buffer, target_step, reward_scale, gamma):
-    # just for off-policy. Because on-policy don't explore before training.
-    if_discrete = env.if_discrete
-    action_dim = env.action_dim
-
-    state = env.reset()
-    steps = 0
-
-    while steps < target_step:
-        action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
-        next_state, reward, done, _ = env.step(action)
-        steps += 1
-
-        scaled_reward = reward * reward_scale
-        mask = 0.0 if done else gamma
-        other = (scaled_reward, mask, action) if if_discrete else (scaled_reward, mask, *action)
-        buffer.append_memo(state, other)
-
-        state = env.reset() if done else next_state
-    return steps
-
-
-class ReplayBuffer:
-
-    def __init__(self, max_len, state_dim, action_dim, if_on_policy):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.max_len = max_len
-        self.now_len = 0
-        self.next_idx = 0
-        self.if_full = False
-        self.action_dim = action_dim  # for self.sample_for_ppo(
-
-        if if_on_policy:
-            other_dim = 1 + 1 + action_dim * 2
-            self.all_other = np.empty((max_len, other_dim), dtype=np.float32)
-            self.all_state = np.empty((max_len, state_dim), dtype=np.float32)
-            self.append_memo = self.append_memo__on_policy
-        else:
-            other_dim = 1 + 1 + action_dim
-            self.all_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
-            self.all_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
-            self.append_memo = self.append_memo__off_policy
-
-    def append_memo__off_policy(self, state, other):
-        self.all_state[self.next_idx, :] = torch.as_tensor(state, device=self.device)
-        self.all_other[self.next_idx] = torch.as_tensor(other, device=self.device)
-
-        self.next_idx += 1
-        if self.next_idx >= self.max_len:
-            self.if_full = True
-            self.next_idx = 0
-
-    def append_memo__on_policy(self, state, other):  # for AgentPPO.update_buffer(
-        self.all_state[self.next_idx] = state
-        self.all_other[self.next_idx] = other
-
-        self.next_idx += 1
-        if self.next_idx >= self.max_len:
-            self.if_full = True
-            self.next_idx = 0
-
-    def random_sample(self, batch_size):
-        indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
-        r_m_a = self.all_other[indices]
-        return (r_m_a[:, 0:1],  # reward
-                r_m_a[:, 1:2],  # mask = 0.0 if done else gamma
-                r_m_a[:, 2:],  # action
-                self.all_state[indices],  # state
-                self.all_state[indices + 1])  # next_state
-
-    def sample_for_ppo(self):
-        all_other = torch.as_tensor(self.all_other[:self.now_len], device=self.device)
-        return (all_other[:, 0:1],  # reward
-                all_other[:, 1:2],  # mask = 0.0 if done else gamma
-                all_other[:, 2:2 + self.action_dim],  # action
-                all_other[:, 2 + self.action_dim:],  # noise
-                torch.as_tensor(self.all_state[:self.now_len], device=self.device))  # state
-
-    def update__now_len__before_sample(self):
-        self.now_len = self.max_len if self.if_full else self.next_idx
-
-    def empty_memories__before_explore(self):
-        self.next_idx = 0
-        self.now_len = 0
-        self.if_full = False
 
 
 class Evaluator:
@@ -285,17 +240,19 @@ class Evaluator:
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-    def evaluate_act_and_save_checkpoint(self, act, steps, obj_a, obj_c):
-        reward_list = [get_episode_return(self.env, act, self.device) for _ in range(self.eva_times)]
+    def evaluate_save(self, act, steps, obj_a, obj_c):
+        reward_list = [get_episode_return(self.env, act, self.device)
+                       for _ in range(self.eva_times)]
         r_avg = np.average(reward_list)  # episode return average
         r_std = float(np.std(reward_list))  # episode return std
 
         if r_avg > self.r_max:  # save checkpoint with highest episode return
-            self.r_max = r_avg
+            self.r_max = r_avg  # update max reward (episode return)
 
             act_save_path = f'{self.cwd}/actor.pth'
             torch.save(act.state_dict(), act_save_path)
             print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |")
+
         self.total_step += steps  # update total training steps
         self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
 
@@ -316,7 +273,7 @@ class Evaluator:
 
 def get_episode_return(env, act, device) -> float:
     episode_return = 0.0  # sum of rewards in an episode
-    max_step = env.max_step if hasattr(env, 'max_step') else 2 ** 10
+    max_step = env.max_step
     if_discrete = env.if_discrete
 
     state = env.reset()
@@ -326,12 +283,33 @@ def get_episode_return(env, act, device) -> float:
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
         action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
-
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
             break
     return env.episode_return if hasattr(env, 'episode_return') else episode_return
+
+
+def explore_before_training(env, buffer, target_step, reward_scale, gamma):
+    # just for off-policy. Because on-policy don't explore before training.
+    if_discrete = env.if_discrete
+    action_dim = env.action_dim
+
+    state = env.reset()
+    steps = 0
+
+    while steps < target_step:
+        action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
+        next_state, reward, done, _ = env.step(action)
+        steps += 1
+
+        scaled_reward = reward * reward_scale
+        mask = 0.0 if done else gamma
+        other = (scaled_reward, mask, action) if if_discrete else (scaled_reward, mask, *action)
+        buffer.append_buffer(state, other)
+
+        state = env.reset() if done else next_state
+    return steps
 
 
 if __name__ == '__main__':
