@@ -101,4 +101,6 @@ After reaching the target reward, we generate the frame for each state and compo
               state = next_state
 
 .. image:: ../images/BipedalWalker-v3_1.gif
+   :scale: 60%
 .. image:: ../images/BipedalWalker-v3_2.gif
+   :scale: 60%
