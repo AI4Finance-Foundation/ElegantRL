@@ -320,6 +320,7 @@ class AgentPPO(AgentBase):
         self.lambda_entropy = 0.01  # larger lambda_entropy means more exploration
         self.noise = None
         self.optimizer = None
+        self.if_on_policy = True
 
     def init(self, net_dim, state_dim, action_dim):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

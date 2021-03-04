@@ -67,49 +67,49 @@ def run__demo():
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
     """DEMO 1: Discrete action env of gym"""
-    # args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
-    #
-    # '''choose an DRL algorithm'''
-    # from elegantrl.tutorial.agent import AgentDQN  # AgentDoubleDQN
-    # args.agent = AgentDQN()
-    #
-    # '''choose environment'''
+    args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
+
+    '''choose an DRL algorithm'''
+    from elegantrl.tutorial.agent import AgentDoubleDQN  # AgentDQN
+    args.agent = AgentDoubleDQN()
+
+    '''choose environment'''
     # args.env = PreprocessEnv(env=gym.make('CartPole-v0'))
     # args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.batch_size = 2 ** 7
-    # "TotalStep: 2e3, TargetReward: , UsedTime: 10s"
-    # # args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
-    # # args.net_dim = 2 ** 8
-    # # args.batch_size = 2 ** 8
-    # "TotalStep: , TargetReward: , UsedTime: "
-    #
-    # '''train and evaluate'''
-    # train_and_evaluate(args)
-    # exit()
+    "TotalStep: 2e3, TargetReward: , UsedTime: 10s"
+    args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
+    args.net_dim = 2 ** 8
+    args.batch_size = 2 ** 8
+    "TotalStep: , TargetReward: , UsedTime: "
+
+    '''train and evaluate'''
+    train_and_evaluate(args)
+    exit()
 
     '''DEMO 2: Continuous action env if gym'''
     '''DEMO 2.1: choose an off-policy DRL algorithm'''
-    from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    from elegantrl.tutorial.agent import AgentSAC  # AgentTD3, AgentDDPG
     args = Arguments(if_on_policy=False)
-    args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
+    args.agent = AgentSAC()
     '''DEMO 2.2: choose an on-policy DRL algorithm'''
-    '''choose an DRL algorithm'''
-    from elegantrl.agent import AgentGaePPO  # AgentPPO
+    from elegantrl.tutorial.agent import AgentPPO  # AgentGaePPO
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
-    args.agent = AgentGaePPO()
+    args.agent = AgentPPO()
 
     '''choose environment'''
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     args.env = PreprocessEnv(env=env)
     args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+    args.net_dim = 2 ** 7
+    args.batch_size = 2 ** 7
     "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
     # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
     # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
     "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
     # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
     # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
-    # args.net_dim = 2 ** 8
     # args.break_step = int(2e5)
     # args.if_allow_break = False
     "TotalStep: 2e5, TargetReward: 300, UsedTime: 5000s"
@@ -122,8 +122,8 @@ def run__demo():
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
     args = Arguments(if_on_policy=True)
     '''choose an DRL algorithm'''
-    from elegantrl.agent import AgentGaePPO
-    args.agent = AgentGaePPO()  # PPO+GAE (on-policy)
+    from elegantrl.tutorial.agent import AgentPPO
+    args.agent = AgentPPO()
 
     from elegantrl.env import FinanceMultiStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
     args.env = FinanceMultiStockEnv(if_train=True, train_beg=0, train_len=1024)
