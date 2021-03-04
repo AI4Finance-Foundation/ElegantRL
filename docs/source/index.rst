@@ -64,7 +64,7 @@ For algorithm details, please check out OpenAI Spinning Up.
    :maxdepth: 1
    :caption: Examples
    
-   examples/reacher_v2
+   examples/BipedalWalker-v3
    examples/LunarLanderContinuous-v2
 
 
