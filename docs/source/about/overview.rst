@@ -5,11 +5,13 @@ Overview
 Advantages of ElegantRL
 ----------------------------
 
+One sentence summary of reinforcement learning (RL): in RL, an agent learns by continuously interacting with an environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
+
 Deep reinforcement learning (DRL) has great potential to solve real-world problems that are challenging to humans, such as self-driving cars, gaming, natural language processing (NLP), and financial trading. Starting from the success of AlphaGo, various DRL algorithms and applications are emerging in a disruptive manner. The ElegantRL library enables researchers and practitioners to pipeline the disruptive “design, development and deployment” of DRL technology.
 
 The library to be presented is featured with “elegant” in the following aspects:
 
-  - **Lightweight**: core codes have less than 1,000 lines, e.g., tutorial.
+  - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial <https://github.com/AI4Finance-LLC/ElegantRL/tree/master/elegantrl/tutorial>`_.
 
   - **Efficient**: the performance is comparable with Ray RLlib.
 
@@ -24,6 +26,7 @@ Overview: File Structure and Functions
 ------------------------------------------
 
 .. image:: ../images/overview.jpg
+   :alt: Fig. 1
 
 The file structure of ElegantRL is shown in Fig. 1:
 
@@ -61,7 +64,18 @@ Implementations of DRL Algorithms
 This part describes DQN-series algorithms and DDPG-series algorithms, respectively. Each DRL algorithm agent follows a hierarchy from its base class.
 
 .. image:: ../images/overview_2.png
+   :alt: Fig. 2
 
+As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as follows: 
+  
+  - **AgentDQN**: a standard DQN agent.
+  
+  - **AgentDoubleDQN**: a Double-DQN agent with two Q-Nets for reducing overestimation, inheriting from AgentDQN.
+  
+  - **AgentDuelingDQN**: a DQN agent with a different Q-value calculation, inheriting from AgentDQN.
+  
+  - **AgentD3QN**: a combination of AgentDoubleDQN and AgentDuelingDQN, inheriting from AgentDoubleDQN.
+  
 .. code-block:: python
    :linenos:
    
@@ -83,17 +97,15 @@ This part describes DQN-series algorithms and DDPG-series algorithms, respective
         def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
    
    
-As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as follows: 
-  
-  - **AgentDQN**: a standard DQN agent.
-  
-  - **AgentDoubleDQN**: a Double-DQN agent with two Q-Nets for reducing overestimation, inheriting from AgentDQN.
-  
-  - **AgentDuelingDQN**: a DQN agent with a different Q-value calculation, inheriting from AgentDQN.
-  
-  - **AgentD3QN**: a combination of AgentDoubleDQN and AgentDuelingDQN, inheriting from AgentDoubleDQN.
-  
 .. image:: ../images/overview_3.png
+ 
+As shown in Fig. 3, the inheritance hierarchy of the DDPG-series algorithms is as follows:
+
+  - **AgentBase**: a base class for all Actor-Critic agents.
+  
+  - **AgentDDPG**: a DDPG agent, inheriting from AgentBase.
+  
+  - **AgentTD3**: a TD3 agent with a new updating method, inheriting from AgentDDPG. 
 
 .. code-block:: python
    :linenos:
@@ -113,21 +125,11 @@ As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as
         def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
         def update_net(buffer, max_step, batch_size, repeat_times);
   
- 
-As shown in Fig. 3, the inheritance hierarchy of the DDPG-series algorithms is as follows:
-
-  - **AgentBase**: a base class for all Actor-Critic agents.
-  
-  - **AgentDDPG**: a DDPG agent, inheriting from AgentBase.
-  
-  - **AgentTD3**: a TD3 agent with a new updating method, inheriting from AgentDDPG. 
-  
-  
 
 Applying such a hierarchy in building DRL agents effectively improves lightweightness and effectiveness. Users can easily design and implement new agents in a similar flow.
   
 .. image:: ../images/overview_4.png
-
+   :alt: Fig. 4
 
 Basically, an agent has two fundamental functions, and the data flow is shown in Fig. 4:
 
