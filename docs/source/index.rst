@@ -56,8 +56,9 @@ For algorithm details, please check out OpenAI Spinning Up.
    algorithms/interppo
    algorithms/gaeppo
    algorithms/dqn
-   algorithms/double_dqn
    algorithms/d3qn
+   algorithms/double_dqn
+   algorithms/dueling_dqn
    
 .. toctree::
    :maxdepth: 1
