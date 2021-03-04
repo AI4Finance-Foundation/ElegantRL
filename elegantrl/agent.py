@@ -148,7 +148,7 @@ class AgentDQN(AgentBase):
         2. Use experiment replay buffer to train a neural network in RL
         3. Use soft target update to stablize training in RL
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on        
@@ -234,7 +234,7 @@ class AgentDoubleDQN(AgentDQN):
         """Contribution of DDQN (Double DQN)
         1. Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -319,7 +319,7 @@ class AgentDDPG(AgentBase):
         2. experiment replay buffer for stabilizing training
         3. soft target update for stabilizing training
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -410,7 +410,7 @@ class AgentTD3(AgentBase):
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
         3. delay update (I think it is not very useful)
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -475,7 +475,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
 
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on  
@@ -562,7 +562,7 @@ class AgentSAC(AgentBase):
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
         3. SAC use TD3's TwinCritics too
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -633,7 +633,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         3. Auto-TTUR updates parameter in non-integer times.
         4. net_dim of critic is slightly larger than actor.
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -728,7 +728,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
         3. Auto-TTUR updates parameter in non-integer times.
         4. Different learning rate is better than actor_term in parameter-sharing network training.
         
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param target_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -812,7 +812,7 @@ class AgentPPO(AgentBase):
     def store_transition(self, env, buffer, target_step, reward_scale, gamma):
         '''
         :param env: (Gym Environment) The environment for learning a policy
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param target_step:
         :param reward_scale:
         :param gamma: (float) discount factor
@@ -841,7 +841,7 @@ class AgentPPO(AgentBase):
 
     def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
         '''
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on 
@@ -891,7 +891,7 @@ class AgentPPO(AgentBase):
 
     def compute_reward(self, buffer, buf_reward, buf_mask, buf_value):
         '''
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param buf_reward:
         :param buf_mask:
         :param buf_value:
@@ -960,7 +960,7 @@ class AgentInterPPO(AgentPPO):
 
     def update_net(self, buffer, _max_step, batch_size, repeat_times=8):  # old version
         '''
-        :param buffer: replay buffer
+        :param buffer: stores the transitions
         :param max_step: the maximum steps of training
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times: the times of model training on
