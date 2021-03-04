@@ -148,11 +148,10 @@ class AgentDQN(AgentBase):
         2. Use experiment replay buffer to train a neural network in RL
         3. Use soft target update to stablize training in RL
         
-        :param next_q:
-        :param q_label:
-        :param q_eval:
-        :param obj_critic:
-        :param soft_target_update:        
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:        
         """
         buffer.update__now_len__before_sample()
 
@@ -234,6 +233,11 @@ class AgentDoubleDQN(AgentDQN):
     def update_net(self, buffer, max_step, batch_size, repeat_times):
         """Contribution of DDQN (Double DQN)
         1. Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
+        
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -315,12 +319,10 @@ class AgentDDPG(AgentBase):
         2. experiment replay buffer for stabilizing training
         3. soft target update for stabilizing training
         
-        :param obj_critic:
-        :param obj_actor:
-        :param q_lable:
-        :param q_value:
-        :param q_value_pg: policy gradient
-        :param obj_united: objective
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -408,13 +410,10 @@ class AgentTD3(AgentBase):
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
         3. delay update (I think it is not very useful)
         
-        :param obj_critic:
-        :param obj_actor:
-        :param next_a:
-        :param next_q:
-        :param q_lable:
-        :param q_value_pg:
-        :param obj_united:
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -476,18 +475,10 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
 
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
         
-        :param actor_obj:
-        :param batch_size_:
-        :param update_times:
-        :param next_q_label:
-        :param next_action:
-        :param q_label:
-        :param q_eval:
-        :param critic_obj:
-        :param actor_term:
-        :param action_pg:
-        :param actor_obj:
-        :param united_loss:
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -571,17 +562,10 @@ class AgentSAC(AgentBase):
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
         3. SAC use TD3's TwinCritics too
         
-        :param obj_critic:
-        :param next_a:
-        :param next_logprob:
-        :param next_q:
-        :param q_label:
-        :param obj_critic:
-        :param action_pg:
-        :param logprob:
-        :param obj_alpha:
-        :param obj_actor:
-        :param obj_united:
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -647,6 +631,11 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         2. Increasing batch_size and update_times
         3. Auto-TTUR updates parameter in non-integer times.
         4. net_dim of critic is slightly larger than actor.
+        
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -730,12 +719,18 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
     def update_net(self, buffer, target_step, batch_size, repeat_times):  # 1111
         """Contribution of InterSAC (Integrated network for SAC)
+        
         1. Encoder-DenseNetLikeNet-Decoder network architecture.
             share parameter between two **different input** network
             DenseNetLikeNet with deep and shallow network is a good approximate function suitable for RL
         2. Reliable Lambda is calculated based on Critic's loss function value.
         3. Auto-TTUR updates parameter in non-integer times.
         4. Different learning rate is better than actor_term in parameter-sharing network training.
+        
+        :param buffer:
+        :param _step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         """
         buffer.update__now_len__before_sample()
 
@@ -807,10 +802,7 @@ class AgentPPO(AgentBase):
 
     def select_actions(self, states):  # states = (state, ...)
         '''
-        :param a_noise:
-        :param noise:
-        
-        :return:
+        :param states:
         '''
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         a_noise, noise = self.act.get_action_noise(states)
@@ -818,11 +810,11 @@ class AgentPPO(AgentBase):
 
     def store_transition(self, env, buffer, target_step, reward_scale, gamma):
         '''
-        :param max_step:
-        :param next_state:
-        :param env:
-        
-        :return actual_step:
+        :param env: (Gym Environment) The environment for learning a policy
+        :param buffer:
+        :param target_step:
+        :param reward_scale:
+        :param gamma: (float) discount factor
         '''
         buffer.empty_memories__before_explore()  # NOTICE! necessary for on-policy
         max_step = env.max_step
@@ -848,19 +840,10 @@ class AgentPPO(AgentBase):
 
     def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
         '''
-        :param max_memo:
-        :param buf_value:
-        :param buf_logprob:
-        :param buf_r_sum:
-        :param buf_advantage:
-        :param obj_critic:
-        :param indices:
-        :param logprob:
-        :param ratio:
-        :param obj_actor:
-        :param obj_united:
-        
-        :return:
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
         '''
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
@@ -907,10 +890,10 @@ class AgentPPO(AgentBase):
 
     def compute_reward(self, buffer, buf_reward, buf_mask, buf_value):
         '''
-        :param pre_f_sum:
-        
-        :return buf_r_sum:
-        :return buf_advantage:
+        :param buffer:
+        :param buf_reward:
+        :param buf_mask:
+        :param buf_value:
         '''
         max_memo = buffer.now_len
 
@@ -975,6 +958,12 @@ class AgentInterPPO(AgentPPO):
         ], lr=self.learning_rate)
 
     def update_net(self, buffer, _max_step, batch_size, repeat_times=8):  # old version
+        '''
+        :param buffer:
+        :param max_step:
+        :param batch_size: size of a batched sampled from replay buffer for training
+        :param repeat_times:  
+        '''
         buffer.update__now_len__before_sample()
         max_memo = buffer.now_len
 
