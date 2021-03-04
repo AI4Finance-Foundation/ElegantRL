@@ -32,7 +32,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 + [File Structure](#File-Structure)
 + [Training Pipeline](#Training-Pipeline)
-+ [Experimental Results](#Experiment-Results)
++ [Experimental Results](#Experimental-Results)
 + [Requirements](#Requirements)
 + [Model-free DRL Algorithms](#Model-free-DRL-Algorithms)
 
