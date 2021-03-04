@@ -5,6 +5,7 @@ The goal of the Reacher-v2 task is simple: make a 2D robot arm to reach a random
 
 .. image:: ../images/reacher_v2_1.gif
 
+Check out a **video** on bilibili: `Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC <https://www.bilibili.com/video/BV1wi4y187tC>`_.
 
 Step 1: Install ElegantRL
 ------------------------------
