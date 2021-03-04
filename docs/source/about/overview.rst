@@ -23,7 +23,7 @@ The ElegantRL implements DRL algorithms under the Actor-Critic framework, where 
 Overview: File Structure and Functions
 ------------------------------------------
 
-.. image:: ../images/overview_1.png
+.. image:: ../images/overview_1.jpg
 
 The file structure of ElegantRL is shown in Fig. 1:
 
