@@ -25,7 +25,7 @@ class Arguments:
 
         '''Arguments for training (off-policy)'''
         self.net_dim = 2 ** 8  # the network width
-        self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
+        self.batch_size = 2 ** 8  # num of transitions sampled from replay buffer.
         self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
         self.target_step = 2 ** 10  # collect target_step, then update network
         self.max_memo = 2 ** 17  # capacity of replay buffer
@@ -42,22 +42,22 @@ class Arguments:
 
         '''Arguments for evaluate'''
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
-        self.if_break_early = True  # break training after 'eval_reward > target reward'
+        self.if_allow_break = True  # allow break training when reach goal (early termination)
         self.break_step = 2 ** 20  # break training after 'total_step > break_step'
         self.eval_times1 = 2 ** 2  # evaluation times
         self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > max_reward'
         self.show_gap = 2 ** 8  # show the Reward and Loss value per show_gap seconds
-        self.random_seed = 0  # initialize random seed in self.init_before_training(
+        self.random_seed = 0  # initialize random seed in self.init_before_training()
 
     def init_before_training(self, if_main=True):
         if self.agent is None:
-            raise RuntimeError('\n| Why agent=None?')
+            raise RuntimeError('\n| Why agent=None? Assignment args.agent = AgentXXX please.')
         if not hasattr(self.agent, 'init'):
             raise RuntimeError('\n| There should be agent=AgentXXX() instead of agent=AgentXXX')
         if self.env is None:
-            raise RuntimeError('\n| Why env=None?')
+            raise RuntimeError('\n| Why env=None? Assignment args.env = XxxEnv() please.')
         if not hasattr(self.env, 'env_name'):
-            raise RuntimeError('\n| What is env.env_name? use env=PreprocessEnv(env)')
+            raise RuntimeError('\n| What is env.env_name? use env=PreprocessEnv(env). It is a Wrapper.')
 
         '''set gpu_id automatically'''
         if self.gpu_id is None:  # set gpu_id automatically
@@ -91,24 +91,20 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
-print('___version___==2021-03-03-2120')
-
-
 def demo1_discrete_action_space():
-    import elegantrl.agent as agent
-
-    """DEMO 1: Discrete action env of gym"""
     args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
     '''choose an DRL algorithm'''
-    # args.agent_rl = agent.AgentDuelingDQN()  # AgentDQN()
-    args.agent = agent.AgentD3QN()  # AgentDoubleDQN()
+    from elegantrl.agent import AgentD3QN  # AgentDQN,AgentDuelDQN, AgentDoubleDQN,
+    args.agent = AgentD3QN()
 
     '''choose environment'''
     args.env = PreprocessEnv(env=gym.make('CartPole-v0'))
     args.net_dim = 2 ** 7  # change a default hyper-parameters
+    "TotalStep: 2e3, TargetReward: , UsedTime: 10s"
     # args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
     # args.net_dim = 2 ** 8
+    "TotalStep: , TargetReward: , UsedTime: "
 
     '''train and evaluate'''
     # train_and_evaluate(args)
@@ -117,26 +113,27 @@ def demo1_discrete_action_space():
 
 
 def demo2_continuous_action_space_off_policy():
-    import elegantrl.agent as agent
-    """DEMO 2.1: Continuous action env (off-policy)"""
     args = Arguments(if_on_policy=False)
-    args.agent = agent.AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
+
+    '''choose an DRL algorithm'''
+    from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
 
     '''choose environment'''
-    # env = gym.make('Pendulum-v0')
-    # env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    # args.env = PreprocessEnv(env=env)
-    # args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
-    # "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
-    #
+    env = gym.make('Pendulum-v0')
+    env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
+    args.env = PreprocessEnv(env=env)
+    args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+    "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
     # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
     # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
-    # "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
-
-    args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
-    args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
-    args.gamma = 0.99
-    "TotalStep: 2e5, TargetReward: 300, UsedTime: 3500s"
+    "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
+    # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+    # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
+    # args.net_dim = 2 ** 8
+    # args.break_step = int(2e5)
+    # args.if_allow_break = False
+    "TotalStep: 2e5, TargetReward: 300, UsedTime: 5000s"
 
     '''train and evaluate'''
     # train_and_evaluate(args)
@@ -145,26 +142,25 @@ def demo2_continuous_action_space_off_policy():
 
 
 def demo2_continuous_action_space_on_policy():
-    import elegantrl.agent as agent
-    """DEMO 2.1: Continuous action env (on-policy)"""
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
-    args.agent = agent.AgentGaePPO()  # AgentPPO()
+
+    '''choose an DRL algorithm'''
+    from elegantrl.agent import AgentGaePPO  # AgentPPO
+    args.agent = AgentGaePPO()
 
     '''choose environment'''
     # env = gym.make('Pendulum-v0')
     # env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     # args.env = PreprocessEnv(env=env)
     # args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
-    # # TotalStep: 4e5, TargetReward: -200, UsedTime: 400s
-
+    "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
     args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
     args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
     "TotalStep: 8e5, TargetReward: 200, UsedTime: 1500s"
-
     # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
     # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
     # args.gamma = 0.96
-    # "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
+    "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
 
     '''train and evaluate'''
     # train_and_evaluate(args)
@@ -173,11 +169,11 @@ def demo2_continuous_action_space_on_policy():
 
 
 def demo3_custom_env_fin_rl():
-    import elegantrl.agent as agent
+    from elegantrl.agent import AgentGaePPO
 
-    """DEMO 3: Custom Continuous action env: FinanceStock-v1"""
+    '''choose an DRL algorithm'''
     args = Arguments(if_on_policy=True)
-    args.agent = agent.AgentGaePPO()  # PPO+GAE (on-policy)
+    args.agent = AgentGaePPO()  # PPO+GAE (on-policy)
 
     from elegantrl.env import FinanceMultiStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
     args.env = FinanceMultiStockEnv(if_train=True, train_beg=0, train_len=1024)
@@ -191,11 +187,12 @@ def demo3_custom_env_fin_rl():
     args.repeat_times = 2 ** 4
     args.eval_times1 = 2 ** 2
     args.eval_times2 = 2 ** 4
-    args.if_break_early = False
+    args.if_allow_break = False
     "TotalStep:  2e5, TargetReward: 1.25, UsedTime:  200s"
     "TotalStep:  4e5, TargetReward: 1.50, UsedTime:  400s"
     "TotalStep: 10e5, TargetReward: 1.62, UsedTime: 1000s"
 
+    '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 8
     train_and_evaluate__multiprocessing(args)
@@ -221,7 +218,7 @@ def train_and_evaluate(args):
     batch_size = args.batch_size
     target_step = args.target_step
     repeat_times = args.repeat_times
-    if_break_early = args.if_break_early
+    if_break_early = args.if_allow_break
     gamma = args.gamma
     reward_scale = args.reward_scale
 
@@ -241,7 +238,7 @@ def train_and_evaluate(args):
 
     '''init: Agent, ReplayBuffer, Evaluator'''
     agent.init(net_dim, state_dim, action_dim)
-    if_on_policy = agent.__class__.__name__ in {'AgentPPO', 'AgentGaePPO', 'AgentInterPPO'}
+    if_on_policy = getattr(agent, 'if_on_policy', False)
 
     buffer = ReplayBuffer(max_len=max_memo + max_step, if_on_policy=if_on_policy, if_gpu=True,
                           state_dim=state_dim, action_dim=1 if if_discrete else action_dim)
@@ -255,7 +252,7 @@ def train_and_evaluate(args):
         steps = 0
     else:  # explore_before_training for off-policy
         with torch.no_grad():  # update replay buffer
-            steps = _explore_before_training(env, buffer, target_step, reward_scale, gamma)
+            steps = explore_before_training(env, buffer, target_step, reward_scale, gamma)
 
         agent.update_net(buffer, target_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
@@ -263,8 +260,8 @@ def train_and_evaluate(args):
     total_step = steps
 
     '''start training'''
-    if_solve = False
-    while not ((if_break_early and if_solve)
+    if_reach_goal = False
+    while not ((if_break_early and if_reach_goal)
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
@@ -275,7 +272,7 @@ def train_and_evaluate(args):
         obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
         with torch.no_grad():  # speed up running
-            if_solve = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
+            if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
 
 
 '''multiprocessing training'''
@@ -333,7 +330,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     batch_size = args.batch_size
     target_step = args.target_step
     repeat_times = args.repeat_times
-    if_break_early = args.if_break_early
+    if_break_early = args.if_allow_break
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     '''init: environment'''
@@ -460,7 +457,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
     exp_step = target_step // rollout_num
     with torch.no_grad():
         if not if_on_policy:
-            _explore_before_training(env, buffer, exp_step, reward_scale, gamma)
+            explore_before_training(env, buffer, exp_step, reward_scale, gamma)
 
             buffer.update__now_len__before_sample()
 
@@ -580,19 +577,18 @@ class Evaluator:
         self.ax12 = self.axs[1].twinx()
 
     def evaluate_save(self, act, steps, obj_a, obj_c):
-        reward_list = [_get_episode_return(self.env, act, self.device)
+        reward_list = [get_episode_return(self.env, act, self.device)
                        for _ in range(self.eva_times1)]
         r_avg = np.average(reward_list)  # episode return average
         r_std = float(np.std(reward_list))  # episode return std
 
-        if r_avg > self.r_max:  # save checkpoint with highest episode return
-            reward_list += [_get_episode_return(self.env, act, self.device)
+        if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
+            reward_list += [get_episode_return(self.env, act, self.device)
                             for _ in range(self.eva_times2 - self.eva_times1)]
             r_avg = np.average(reward_list)  # episode return average
             r_std = float(np.std(reward_list))  # episode return std
-        if r_avg > self.r_max:
-            '''update r_max: max reward'''
-            self.r_max = r_avg
+        if r_avg > self.r_max:  # save checkpoint with highest episode return
+            self.r_max = r_avg # update max reward (episode return)
 
             '''save actor.pth'''
             act_save_path = f'{self.cwd}/actor.pth'
@@ -672,7 +668,7 @@ class Evaluator:
         # plt.show()
 
 
-def _get_episode_return(env, act, device) -> float:
+def get_episode_return(env, act, device) -> float:
     episode_return = 0.0  # sum of rewards in an episode
     max_step = env.max_step
     if_discrete = env.if_discrete
@@ -691,7 +687,7 @@ def _get_episode_return(env, act, device) -> float:
     return env.episode_return if hasattr(env, 'episode_return') else episode_return
 
 
-def _explore_before_training(env, buffer, target_step, reward_scale, gamma):
+def explore_before_training(env, buffer, target_step, reward_scale, gamma):
     # just for off-policy. Because on-policy don't explore before training.
     if_discrete = env.if_discrete
     action_dim = env.action_dim

@@ -168,7 +168,8 @@ class ActorSAC(nn.Module):
             lay_dim = mid_dim
             self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                            nn.Linear(mid_dim, lay_dim), nn.ReLU(),
-                                           nn.Linear(mid_dim, lay_dim), nn.Hardswish(), )
+                                           # nn.Linear(mid_dim, lay_dim), nn.ReLU(),
+                                           )
         self.net_a_avg = nn.Linear(lay_dim, action_dim)  # the average of action
         self.net_a_std = nn.Linear(lay_dim, action_dim)  # the log_std of action
 
@@ -193,13 +194,17 @@ class ActorSAC(nn.Module):
 
         """add noise to action in stochastic policy"""
         noise = torch.randn_like(a_avg, requires_grad=True)
-        a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
+        action = a_avg + a_std * noise
+        a_tan = action.tanh()  # action.tanh()
         # Can only use above code instead of below, because the tensor need gradients here.
         # a_noise = torch.normal(a_avg, a_std, requires_grad=True)
 
         '''compute logprob according to mean and std of action (stochastic policy)'''
-        # self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
-        logprob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
+        # # self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
+        # logprob = a_std_log + self.sqrt_2pi_log + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
+        # different from above (gradient)
+        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)
+        logprob = a_std_log + self.sqrt_2pi_log + delta
         # same as below:
         # from torch.distributions.normal import Normal
         # logprob_noise = Normal(a_avg, a_std).logprob(a_noise)
@@ -276,7 +281,8 @@ class CriticTwin(nn.Module):  # 2020-06-18
             lay_dim = mid_dim
             self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
                                         nn.Linear(mid_dim, lay_dim), nn.ReLU(),
-                                        nn.Linear(mid_dim, lay_dim), nn.Hardswish())
+                                        # nn.Linear(mid_dim, lay_dim), nn.ReLU(),
+                                        )
 
         self.net_q1 = nn.Linear(lay_dim, 1)
         self.net_q2 = nn.Linear(lay_dim, 1)

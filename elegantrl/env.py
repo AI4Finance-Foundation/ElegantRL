@@ -1,56 +1,50 @@
 import os
 import numpy as np
 import numpy.random as rd
+import gym
 
 
-class PreprocessEnv:  # env wrapper
+class PreprocessEnv(gym.Wrapper):  # env wrapper
     def __init__(self, env, if_print=True, data_type=np.float32):
-        """preprocess environment
-        In OpenAI gym, it is class Wrapper().
-
-        What preprocess environment do?
-        1.1 use get_gym_env_info() to get state_dim, action_dim ... from gym-env
-        1.2 assignment env.state_dim, env.action_dim ...,
-        1.3 then DRL agent can build network according to these information
-        2.1 let state = state.astype(float32), because sometimes state is float64
-        2.2 do normalization on state before training (no necessary). (Other people do running state while training)
-        """
-        self.env_reset = env.reset
-        self.env_step = env.step
+        super(PreprocessEnv, self).__init__(env)
+        self.env = env
         self.data_type = data_type
 
         (self.env_name, self.state_dim, self.action_dim, self.action_max,
          self.if_discrete, self.target_reward, self.max_step
-         ) = _get_gym_env_info(env, if_print)
+         ) = get_gym_env_info(env, if_print)
 
-        state_avg, state_std = _get_avg_std__for_state_norm(self.env_name)
+        state_avg, state_std = get_avg_std__for_state_norm(self.env_name)
         if state_avg is not None:
             self.neg_state_avg = -state_avg
             self.div_state_std = 1 / (state_std + 1e-4)
 
             self.reset = self.reset_norm
             self.step = self.step_norm
+        else:
+            self.reset = self.reset_type
+            self.step = self.step_type
 
-    def reset(self):
-        state = self.env_reset()
+    def reset_type(self):
+        state = self.env.reset()
         return state.astype(self.data_type)
 
     def reset_norm(self):
-        state = self.env_reset()
+        state = self.env.reset()
         (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type)
 
-    def step(self, action):
-        state, reward, done, info = self.env_step(action * self.action_max)
+    def step_type(self, action):
+        state, reward, done, info = self.env.step(action * self.action_max)
         return state.astype(self.data_type), reward, done, info
 
     def step_norm(self, action):
-        state, reward, done, info = self.env_step(action * self.action_max)
+        state, reward, done, info = self.env.step(action * self.action_max)
         state = (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type), reward, done, info
 
 
-def _get_avg_std__for_state_norm(env_name):
+def get_avg_std__for_state_norm(env_name):
     avg = None
     std = None
     if env_name == 'LunarLanderContinuous-v2':
@@ -128,7 +122,7 @@ def _get_avg_std__for_state_norm(env_name):
     return avg, std
 
 
-def _get_gym_env_info(env, if_print):
+def get_gym_env_info(env, if_print):
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
@@ -138,20 +132,19 @@ def _get_gym_env_info(env, if_print):
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-    target_reward = getattr(env, 'target_reward', 2 ** 16)
-    if target_reward == 2 ** 16:
-        if env.spec.reward_threshold is None:
-            print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
-        else:
-            target_reward = env.spec.reward_threshold
+    target_reward = getattr(env, 'target_reward', None)
+    target_reward_default = getattr(env.spec, 'reward_threshold', None)
+    if target_reward is None:
+        target_reward = target_reward_default
+    if target_reward is None:
+        target_reward = 2 ** 16
 
-    max_step = getattr(env, 'max_step', 2 ** 10)
-    if max_step == 2 ** 10:
-        env_max_episode_steps = getattr(env, '_max_episode_steps', None)
-        if env_max_episode_steps is None:
-            print(f"| env._max_episode_steps is None, so I set max_step={max_step}")
-        else:
-            max_step = env_max_episode_steps
+    max_step = getattr(env, 'max_step', None)
+    max_step_default = getattr(env, '_max_episode_steps', None)
+    if max_step is None:
+        max_step = max_step_default
+    if max_step is None:
+        max_step = 2 ** 10
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if if_discrete:  # make sure it is discrete action space
@@ -163,10 +156,10 @@ def _get_gym_env_info(env, if_print):
     else:
         raise RuntimeError('| Please set these value manually: if_discrete=bool, action_dim=int, action_max=1.0')
 
-    if if_print:
-        print("| env_name: {}, action space: {}".format(env_name, 'if_discrete' if if_discrete else 'Continuous'))
-        print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
-            state_dim, action_dim, action_max, target_reward))
+    print(f"\n| env_name: {env_name}, action space if_discrete: {if_discrete}"
+          f"\n| state_dim: {state_dim}, action_dim: {action_dim}, action_max: {action_max}"
+          f"\n| max_step: {max_step} (default: {max_step_default})"
+          f"\n| target_reward: {target_reward} (default: {target_reward_default})") if if_print else None
     return env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
 
 
@@ -470,3 +463,65 @@ def render__car_racing():
         if done:
             break
         # env.render()
+
+
+"""Utils"""
+
+
+def get_video_to_watch_gym_render():
+    import cv2  # pip3 install opencv-python
+    import gym  # pip3 install gym==0.17 pyglet==1.5.0  # env.render() bug in gym==0.18, pyglet==1.6
+    import torch
+
+    '''choose env'''
+    # from elegantrl.env import PreprocessEnv
+    env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+
+    '''choose algorithm'''
+    from elegantrl.agent import AgentGaePPO
+    agent = AgentGaePPO()
+    net_dim = 2 ** 8
+    cwd = 'AgentGaePPO/BipedalWalker-v3_2/'
+    # from elegantrl.agent import AgentModSAC
+    # agent = AgentModSAC()
+    # net_dim = 2 ** 7
+    # cwd = 'AgentModSAC/BipedalWalker-v3_2/'
+
+    '''initialize agent'''
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+    agent.init(net_dim, state_dim, action_dim)
+    agent.save_load_model(cwd=cwd, if_save=False)
+
+    '''initialize evaluete and env.render()'''
+    act = agent.act
+    device = agent.device
+    save_frame_dir = 'frames'
+    save_video = 'gym_render.mp4'
+
+    os.makedirs(save_frame_dir, exist_ok=True)
+
+    state = env.reset()
+    for i in range(1024):
+        frame = env.render('rgb_array')
+        cv2.imwrite(f'{save_frame_dir}/{i:06}.png', frame)
+        # cv2.imshow('', frame)
+        # cv2.waitKey(1)
+
+        s_tensor = torch.as_tensor((state,), dtype=torch.float32, device=device)
+        a_tensor = agent.act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()[0]  # if use 'with torch.no_grad()', then '.detach()' not need.
+        # action = gym_env.action_space.sample()
+
+        next_state, reward, done, _ = env.step(action)
+
+        if done:
+            state = env.reset()
+        else:
+            state = next_state
+    env.close()
+
+    '''convert frames png/jpg to video mp4/avi using ffmpeg'''
+    os.system(f"| Convert frames to video using ffmpeg. Save in {save_video}")
+    os.system(f'ffmpeg -r 60 -f image2 -s 600x400 -i {save_frame_dir}/%06d.png '
+              f'-crf 25 -vb 20M -pix_fmt yuv420p {save_video}')
