@@ -627,6 +627,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
     def update_net(self, buffer, target_step, batch_size, repeat_times):
         """ModSAC (Modified SAC using Reliable lambda)
+        
         1. Reliable Lambda is calculated based on Critic's loss function value.
         2. Increasing batch_size and update_times
         3. Auto-TTUR updates parameter in non-integer times.
@@ -720,7 +721,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
     def update_net(self, buffer, target_step, batch_size, repeat_times):  # 1111
         """Contribution of InterSAC (Integrated network for SAC)
         
-        1. Encoder-DenseNetLikeNet-Decoder network architecture.
+        1. Encoder-DenseNetLikeNet-Decoder network architecture. 
             share parameter between two **different input** network
             DenseNetLikeNet with deep and shallow network is a good approximate function suitable for RL
         2. Reliable Lambda is calculated based on Critic's loss function value.
@@ -728,7 +729,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
         4. Different learning rate is better than actor_term in parameter-sharing network training.
         
         :param buffer:
-        :param _step:
+        :param target_step:
         :param batch_size: size of a batched sampled from replay buffer for training
         :param repeat_times:  
         """
