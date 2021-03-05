@@ -81,7 +81,7 @@ def run__demo():
     args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
     args.net_dim = 2 ** 8
     args.batch_size = 2 ** 8
-    "TotalStep: , TargetReward: , UsedTime: "
+    "TotalStep: 6e4, TargetReward: 200, UsedTime: 600s"
 
     '''train and evaluate'''
     train_and_evaluate(args)

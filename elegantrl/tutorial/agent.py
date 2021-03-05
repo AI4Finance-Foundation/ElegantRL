@@ -13,14 +13,16 @@ class AgentDQN:
         self.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy
         self.action_dim = None  # chose discrete action randomly in epsilon-greedy
 
-        self.state = None  # set for self.update_buffer(), initialize before training
         self.learning_rate = 1e-4
+        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
+
+        self.state = None  # set for self.update_buffer(), initialize before training
+        self.device = None
 
         self.cri = self.cri_target = None
         self.act = self.cri  # to keep the same from Actor-Critic framework
         self.criterion = None
         self.optimizer = None
-        self.device = None
 
     def init(self, net_dim, state_dim, action_dim):  # explict call self.init() for multiprocessing
         self.action_dim = action_dim
@@ -67,8 +69,12 @@ class AgentDQN:
             self.optimizer.zero_grad()
             obj_critic.backward()
             self.optimizer.step()
-            soft_target_update(self.cri_target, self.cri, tau=5e-3)
+            self.soft_update(self.cri_target, self.cri)
         return next_q.mean().item(), obj_critic.item()
+
+    def soft_update(self, target_net, current_net):
+        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+            tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
 
 
 class AgentDoubleDQN(AgentDQN):
@@ -114,21 +120,22 @@ class AgentDoubleDQN(AgentDQN):
             self.optimizer.zero_grad()
             obj_critic.backward()
             self.optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
         return next_q.mean().item(), obj_critic.item() / 2
 
 
 class AgentBase:
     def __init__(self):
-        self.state = None  # set for self.update_buffer(), initialize before training
         self.learning_rate = 1e-4
+        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
+        self.state = None  # set for self.update_buffer(), initialize before training
+        self.device = None
 
         self.act = self.act_target = None
         self.cri = self.cri_target = None
         self.criterion = None
         self.act_optimizer = None
         self.cri_optimizer = None
-        self.device = None
 
     def init(self, net_dim, state_dim, action_dim):  # explict call self.init() for multiprocessing
         pass
@@ -144,6 +151,10 @@ class AgentBase:
             buffer.append_buffer(self.state, other)
             self.state = env.reset() if done else next_s
         return target_step
+
+    def soft_update(self, target_net, current_net):
+        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+            tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
 
 
 class AgentDDPG(AgentBase):
@@ -184,7 +195,7 @@ class AgentDDPG(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
 
             q_value_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri_target(state, q_value_pg).mean()
@@ -192,7 +203,7 @@ class AgentDDPG(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-            soft_target_update(self.act_target, self.act)
+            self.soft_update(self.act_target, self.act)
         return obj_actor.item(), obj_critic.item()
 
 
@@ -236,7 +247,7 @@ class AgentTD3(AgentBase):
             obj_critic.backward()
             self.cri_optimizer.step()
             if i % self.update_freq == 0:  # delay update
-                soft_target_update(self.cri_target, self.cri)
+                self.soft_update(self.cri_target, self.cri)
 
             q_value_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri_target(state, q_value_pg).mean()
@@ -245,7 +256,7 @@ class AgentTD3(AgentBase):
             obj_actor.backward()
             self.act_optimizer.step()
             if i % self.update_freq == 0:  # delay update
-                soft_target_update(self.act_target, self.act)
+                self.soft_update(self.act_target, self.act)
 
         return obj_actor.item(), obj_critic.item() / 2
 
@@ -294,7 +305,7 @@ class AgentSAC(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
 
             action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
             obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
@@ -308,7 +319,7 @@ class AgentSAC(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-            soft_target_update(self.act_target, self.act)
+            self.soft_update(self.act_target, self.act)
 
         return alpha.item(), obj_critic.item()
 
@@ -520,8 +531,3 @@ class ReplayBuffer:
         self.next_idx = 0
         self.now_len = 0
         self.if_full = False
-
-
-def soft_target_update(target, current, tau=2 ** -8):  # 5e-3 ~= 2 ** -8
-    for target_param, param in zip(target.parameters(), current.parameters()):
-        target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
