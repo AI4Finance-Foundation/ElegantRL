@@ -58,6 +58,7 @@ class AgentDQN:
 
         self.state = None  # set for self.update_buffer(), initialize before training
         self.learning_rate = 1e-4
+        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
 
         self.cri = self.cri_target = None
         self.act = self.cri  # to keep the same from Actor-Critic framework
@@ -115,7 +116,7 @@ class AgentDQN:
             self.optimizer.zero_grad()
             obj_critic.backward()
             self.optimizer.step()
-            soft_target_update(self.cri_target, self.cri, tau=5e-3)
+            self.soft_update(self.cri_target, self.cri)
         return next_q.mean().item(), obj_critic.item()
 
     def save_load_model(self, cwd, if_save):
@@ -129,6 +130,11 @@ class AgentDQN:
             print("Loaded cri:", cwd)
         else:
             print("FileNotFound when load_model: {}".format(cwd))
+
+    def soft_update(self, target_net, current_net):
+        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+            tar.data.copy_(cur.data.__mul__(self.soft_update_tau) + tar.data.__mul__(1 - self.soft_update_tau))
+            # tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
 
 
 class AgentDuelingDQN(AgentDQN):
@@ -197,7 +203,7 @@ class AgentDoubleDQN(AgentDQN):
             self.optimizer.zero_grad()
             obj_critic.backward()
             self.optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
         return next_q.mean().item(), obj_critic.item() / 2
 
 
@@ -229,6 +235,7 @@ class AgentBase:
     def __init__(self):
         self.state = None  # set for self.update_buffer(), initialize before training
         self.learning_rate = 1e-4
+        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
 
         self.act = self.act_target = None
         self.cri = self.cri_target = None
@@ -274,6 +281,11 @@ class AgentBase:
         else:
             print("FileNotFound when load_model: {}".format(cwd))
 
+    def soft_update(self, target_net, current_net):
+        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+            tar.data.copy_(cur.data.__mul__(self.soft_update_tau) + tar.data.__mul__(1 - self.soft_update_tau))
+            # tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
+
 
 class AgentDDPG(AgentBase):
     def __init__(self):
@@ -316,7 +328,7 @@ class AgentDDPG(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
 
             q_value_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri_target(state, q_value_pg).mean()
@@ -324,7 +336,7 @@ class AgentDDPG(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-            soft_target_update(self.act_target, self.act)
+            self.soft_update(self.act_target, self.act)
         return obj_actor.item(), obj_critic.item()
 
 
@@ -374,7 +386,7 @@ class AgentTD3(AgentBase):
             obj_critic.backward()
             self.cri_optimizer.step()
             if i % self.update_freq == 0:  # delay update
-                soft_target_update(self.cri_target, self.cri)
+                self.soft_update(self.cri_target, self.cri)
 
             '''objective of actor'''
             q_value_pg = self.act(state)  # policy gradient
@@ -384,7 +396,7 @@ class AgentTD3(AgentBase):
             obj_actor.backward()
             self.act_optimizer.step()
             if i % self.update_freq == 0:  # delay update
-                soft_target_update(self.act_target, self.act)
+                self.soft_update(self.act_target, self.act)
 
         return obj_actor.item(), obj_critic.item() / 2
 
@@ -518,7 +530,7 @@ class AgentSAC(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
 
             '''objective of alpha (temperature parameter automatic adjustment)'''
             action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
@@ -534,7 +546,7 @@ class AgentSAC(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-            soft_target_update(self.act_target, self.act)
+            self.soft_update(self.act_target, self.act)
 
         return alpha.item(), obj_critic.item()
 
@@ -592,7 +604,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            soft_target_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri)
 
             a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
 
@@ -619,7 +631,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
                 self.act_optimizer.zero_grad()
                 obj_actor.backward()
                 self.act_optimizer.step()
-                soft_target_update(self.act_target, self.act)
+                self.soft_update(self.act_target, self.act)
 
         return alpha.item(), self.obj_c
 
@@ -711,7 +723,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
             obj_united.backward()
             self.optimizer.step()
 
-            soft_target_update(self.act_target, self.act)
+            self.soft_update(self.act_target, self.act)
 
         return logprob.mean().item(), self.obj_c
 
@@ -774,7 +786,7 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            buf_r_sum, buf_advantage = self.compute_reward(buffer,max_memo, buf_reward, buf_mask, buf_value)
+            buf_r_sum, buf_advantage = self.compute_reward(buffer, max_memo, buf_reward, buf_mask, buf_value)
             del buf_reward, buf_mask, buf_noise
 
         '''PPO: Surrogate objective of Trust Region'''
@@ -806,7 +818,7 @@ class AgentPPO(AgentBase):
 
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
-    def compute_reward(self, buffer,max_memo, buf_reward, buf_mask, buf_value):
+    def compute_reward(self, buffer, max_memo, buf_reward, buf_mask, buf_value):
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
         pre_r_sum = 0  # reward sum of previous step
         for i in range(max_memo - 1, -1, -1):
@@ -824,7 +836,7 @@ class AgentGaePPO(AgentPPO):
         self.lambda_entropy = 0.01  # could be 0.02
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
 
-    def compute_reward(self, buffer,max_memo, buf_reward, buf_mask, buf_value):
+    def compute_reward(self, buffer, max_memo, buf_reward, buf_mask, buf_value):
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
         buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -1100,11 +1112,6 @@ class ReplayBufferMP:
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         # for buffer in self.l_buffer:
         self.buffers[0].print_state_norm(neg_avg, div_std)
-
-
-def soft_target_update(target, current, tau=2 ** -8):  # 5e-3 ~= 2 ** -8
-    for target_param, param in zip(target.parameters(), current.parameters()):
-        target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
 
 
 class OrnsteinUhlenbeckNoise:
