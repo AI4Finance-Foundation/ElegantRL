@@ -26,13 +26,13 @@ class QNetTwin(nn.Module):  # Double DQN
 
     def forward(self, state):
         tmp = self.net_state(state)
-        return self.net_q1(tmp)  # single q value
+        return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state):
         tmp = self.net_state(state)
         q1 = self.net_q1(tmp)
         q2 = self.net_q2(tmp)
-        return q1, q2  # twin q value
+        return q1, q2  # two Q values
 
 
 class Actor(nn.Module):  # DPG: Deterministic Policy Gradient
@@ -153,8 +153,8 @@ class CriticTwin(nn.Module):  # shared parameter
 
     def forward(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))
-        return self.net_q1(tmp)
+        return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))
-        return self.net_q1(tmp), self.net_q2(tmp)  # q1, q2 value
+        return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
