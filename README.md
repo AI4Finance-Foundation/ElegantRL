@@ -103,10 +103,3 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
     | pubullet 2.7    | For RL training env. We use PyBullet(free) as an alternative of MuJoCo(not free).
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots. Evaluate the agent performance.
-
-# Model-free DRL Algorithms
-
-![RL_survey_2020](https://github.com/Yonv1943/ElegantRL/blob/master/figs/RL_survey_2020.png)
-
-More policy gradient algorithms (Actor-Critic style): [Policy gradient algorithms](https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html)
-
