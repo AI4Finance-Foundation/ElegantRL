@@ -12,6 +12,11 @@ import gym
 
 gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
+"""Plan to
+Arguments(), let Arguments ask AgentXXX to get if_on_policy
+Mega PPO and GaePPO into AgentPPO(..., if_gae)
+"""
+
 '''DEMO'''
 
 
@@ -197,6 +202,65 @@ def demo3_custom_env_fin_rl():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 8
+    train_and_evaluate__multiprocessing(args)
+
+
+def demo4_bullet_mujoco_off_policy():
+    args = Arguments(if_on_policy=False)
+    args.random_seed = 10086
+
+    from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
+    args.agent.if_use_dn = True
+    args.net_dim = 2 ** 7  # default is 2 ** 8, but is too large for if_use_dn = True
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env = PreprocessEnv(env=gym.make('AntBulletEnv-v0'))
+    args.env.max_step = 2 ** 10  # important, default env.max_step=1800?
+
+    args.break_step = int(1e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.reward_scale = 2 ** -2  # RewardRange: -50 < 0 < 2500 < 3340
+    args.max_memo = 2 ** 20
+    args.batch_size = 2 ** 9
+    args.show_gap = 2 ** 8  # for Recorder
+    args.eva_size1 = 2 ** 1  # for Recorder
+    args.eva_size2 = 2 ** 3  # for Recorder
+    "TotalStep: 3e5, TargetReward: 1500, UsedTime: "
+    "TotalStep: 6e5, TargetReward: 2500, UsedTime: 20ks"
+
+    # train_and_evaluate(args)
+    args.rollout_num = 4
+    train_and_evaluate__multiprocessing(args)
+
+
+def demo4_bullet_mujoco_on_policy():
+    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+
+    from elegantrl.agent import AgentGaePPO  # AgentPPO
+    args.agent = AgentGaePPO()  # AgentPPO()
+    args.agent.lambda_entropy = 0.02
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+    args.env = PreprocessEnv(env=gym.make('AntBulletEnv-v0'))
+    args.env.max_step = 2 ** 10
+
+    args.break_step = int(2e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+    args.max_memo = 2 ** 13
+    args.batch_size = 2 ** 10
+    args.net_dim = 2 ** 9
+    args.show_gap = 2 ** 8  # for Recorder
+    args.eva_size1 = 2 ** 1  # for Recorder
+    args.eva_size2 = 2 ** 3  # for Recorder
+    "# 8e6, 1949, 13ks"
+    "TotalStep: 3e6, TargetReward: 1500, UsedTime: 5ks"
+    "TotalStep: 8e6, TargetReward: 1949, UsedTime: 13ks"
+
+    '''train and evaluate'''
+    # train_and_evaluate(args)
+    args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
 
 
@@ -590,7 +654,7 @@ class Evaluator:
             r_avg = np.average(reward_list)  # episode return average
             r_std = float(np.std(reward_list))  # episode return std
         if r_avg > self.r_max:  # save checkpoint with highest episode return
-            self.r_max = r_avg # update max reward (episode return)
+            self.r_max = r_avg  # update max reward (episode return)
 
             '''save actor.pth'''
             act_save_path = f'{self.cwd}/actor.pth'

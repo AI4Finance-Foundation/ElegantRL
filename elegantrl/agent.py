@@ -9,18 +9,6 @@ from elegantrl.net import Actor, ActorSAC, ActorPPO
 from elegantrl.net import Critic, CriticAdv, CriticTwin
 from elegantrl.net import InterDPG, InterSPG, InterPPO
 
-"""update log
-2021-03-01 update_policy() --> update_net(), max_step and target_step
-2021-03-02 
-DQN self.act --> self.cri, self.cri = QNet(), self.act = self.cri
-update_policy() --> update_net()
-update_buffer() --> store_transition()
-extend_memo() --> extend_buffer()
-append_memo() --> append_buffer()
-log_prob --> logprob, __ --> _  # don't use double underline
-class agent_rl --> instance agent_rl(...)
-"""
-
 """ElegantRL (Pytorch 3 files model-free DRL Library)
 GitHub.com: YonV1943, Zhihu.com: 曾伊言
 
@@ -47,26 +35,79 @@ SAC https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master
 DUEL https://github.com/gouxiangchen/dueling-DQN-pytorch good
 """
 
+
+class AgentBase:
+    def __init__(self):
+        self.state = None  # set for self.update_buffer(), initialize before training
+        self.learning_rate = 1e-4
+        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
+
+        self.act = self.act_target = None
+        self.cri = self.cri_target = None
+        self.criterion = None
+        self.act_optimizer = None
+        self.cri_optimizer = None
+        self.device = None
+
+    def init(self, net_dim, state_dim, action_dim):  # explict call self.init() for multiprocessing
+        pass  # replace by different DRL algorithms
+
+    def select_actions(self, states):  # states = (state, ...)
+        return (None,)  # -1 < action < +1
+
+    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+        for _ in range(target_step):
+            action = self.select_actions((self.state,))[0]
+            next_s, reward, done, _ = env.step(action)
+            other = (reward * reward_scale, 0.0 if done else gamma, *action)
+            buffer.append_buffer(self.state, other)
+            self.state = env.reset() if done else next_s
+        return target_step
+
+    def save_load_model(self, cwd, if_save):  # 2020-07-07
+        act_save_path = '{}/actor.pth'.format(cwd)
+        cri_save_path = '{}/critic.pth'.format(cwd)
+
+        def load_torch_file(network, save_path):
+            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
+            network.load_state_dict(network_dict)
+
+        if if_save:
+            if self.act is not None:
+                torch.save(self.act.state_dict(), act_save_path)
+            if self.cri is not None:
+                torch.save(self.cri.state_dict(), cri_save_path)
+        elif (self.act is not None) and os.path.exists(act_save_path):
+            load_torch_file(self.act, act_save_path)
+            print("Loaded act:", cwd)
+        elif (self.cri is not None) and os.path.exists(cri_save_path):
+            load_torch_file(self.cri, cri_save_path)
+            print("Loaded cri:", cwd)
+        else:
+            print("FileNotFound when load_model: {}".format(cwd))
+
+    def soft_update(self, target_net, current_net):
+        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+            tar.data.copy_(cur.data.__mul__(self.soft_update_tau) + tar.data.__mul__(1 - self.soft_update_tau))
+            # tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
+
+
 '''Value-based Methods (DQN variance)'''
 
 
-class AgentDQN:
+class AgentDQN(AgentBase):
     def __init__(self):
         super().__init__()
         self.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy
         self.action_dim = None  # chose discrete action randomly in epsilon-greedy
 
-        self.state = None  # set for self.update_buffer(), initialize before training
-        self.learning_rate = 1e-4
-        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
+    def init(self, net_dim, state_dim, action_dim):
+        """explict call self.init() for multiprocessing
 
-        self.cri = self.cri_target = None
-        self.act = self.cri  # to keep the same from Actor-Critic framework
-        self.criterion = None
-        self.optimizer = None
-        self.device = None
-
-    def init(self, net_dim, state_dim, action_dim):  # explict call self.init() for multiprocessing
+        :param net_dim: the dimension of networks (the width of neural networks)
+        :param state_dim: the dimension of state (the number of state vector)
+        :param action_dim: the dimension of action (the number of discrete action)
+        """
         self.action_dim = action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -75,9 +116,13 @@ class AgentDQN:
         self.act = self.cri  # to keep the same from Actor-Critic framework
 
         self.criterion = torch.torch.nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
     def select_actions(self, states):  # for discrete action space
+        """Select actions for exploration
+
+        :param states: (state, ) or (state, state, ...) or state.shape==(n, *state_dim)
+        """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_int = rd.randint(self.action_dim, size=(len(states),))  # choosing action randomly
         else:
@@ -87,6 +132,14 @@ class AgentDQN:
         return a_int
 
     def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+        """actor explores in env, then stores the env transition to ReplayBuffer
+
+        :param env: RL training environment. env.reset() env.step()
+        :param buffer: Experience Replay Buffer. buffer.append_buffer() buffer.extend_buffer()
+        :param target_step: explore target_step number of step in env
+        :param reward_scale: scale reward, 'reward * reward_scale'
+        :param gamma: discount factor, 'mask = 0.0 if done else gamma'
+        """
         for _ in range(target_step):
             action = self.select_actions((self.state,))[0]
             next_s, reward, done, _ = env.step(action)
@@ -96,16 +149,18 @@ class AgentDQN:
             self.state = env.reset() if done else next_s
         return target_step
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
-        """Contribution of DQN (Deep Q Network)
-        1. Q-table (discrete state space) --> Q-network (continuous state space)
-        2. Use experiment replay buffer to train a neural network in RL
-        3. Use soft target update to stablize training in RL
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
+        """update the neural network by sampling batch data from ReplayBuffer
+
+        :param buffer: Experience replay buffer. buffer.append_buffer() buffer.extend_buffer()
+        :param target_step: explore target_step number of step in env
+        :param batch_size: sample batch_size of data for Stochastic Gradient Descent
+        :param repeat_times: the times of sample batch = int(target_step * repeat_times) in off-policy
         """
         buffer.update__now_len__before_sample()
 
         next_q = obj_critic = None
-        for _ in range(int(max_step * repeat_times)):
+        for _ in range(int(target_step * repeat_times)):
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)  # next_state
                 next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
@@ -113,28 +168,11 @@ class AgentDQN:
             q_eval = self.cri(state).gather(1, action.type(torch.long))
             obj_critic = self.criterion(q_eval, q_label)
 
-            self.optimizer.zero_grad()
+            self.cri_optimizer.zero_grad()
             obj_critic.backward()
-            self.optimizer.step()
+            self.cri_optimizer.step()
             self.soft_update(self.cri_target, self.cri)
         return next_q.mean().item(), obj_critic.item()
-
-    def save_load_model(self, cwd, if_save):
-        save_path = '{}/q_net.pth'.format(cwd)
-
-        if if_save:
-            torch.save(self.cri.state_dict(), save_path)
-        elif os.path.exists(save_path):  # if_load
-            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
-            self.cri.load_state_dict(network_dict)
-            print("Loaded cri:", cwd)
-        else:
-            print("FileNotFound when load_model: {}".format(cwd))
-
-    def soft_update(self, target_net, current_net):
-        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
-            tar.data.copy_(cur.data.__mul__(self.soft_update_tau) + tar.data.__mul__(1 - self.soft_update_tau))
-            # tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
 
 
 class AgentDuelingDQN(AgentDQN):
@@ -184,14 +222,14 @@ class AgentDoubleDQN(AgentDQN):
             a_int = actions.argmax(dim=1).detach().cpu().numpy()
         return a_int
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
         """Contribution of DDQN (Double DQN)
         1. Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
         """
         buffer.update__now_len__before_sample()
 
         next_q = obj_critic = None
-        for _ in range(int(max_step * repeat_times)):
+        for _ in range(int(target_step * repeat_times)):
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
                 next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
@@ -231,62 +269,6 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 '''Actor-Critic Methods (Policy Gradient)'''
 
 
-class AgentBase:
-    def __init__(self):
-        self.state = None  # set for self.update_buffer(), initialize before training
-        self.learning_rate = 1e-4
-        self.soft_update_tau = 2 ** -8  # 5e-3 ~= 2 ** -8
-
-        self.act = self.act_target = None
-        self.cri = self.cri_target = None
-        self.criterion = None
-        self.act_optimizer = None
-        self.cri_optimizer = None
-        self.device = None
-
-    def init(self, net_dim, state_dim, action_dim):  # explict call self.init() for multiprocessing
-        pass
-
-    def select_actions(self, states):  # states = (state, ...)
-        return (None,)  # -1 < action < +1
-
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
-        for _ in range(target_step):
-            action = self.select_actions((self.state,))[0]
-            next_s, reward, done, _ = env.step(action)
-            other = (reward * reward_scale, 0.0 if done else gamma, *action)
-            buffer.append_buffer(self.state, other)
-            self.state = env.reset() if done else next_s
-        return target_step
-
-    def save_load_model(self, cwd, if_save):  # 2020-07-07
-        act_save_path = '{}/actor.pth'.format(cwd)
-        cri_save_path = '{}/critic.pth'.format(cwd)
-
-        def load_torch_file(network, save_path):
-            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
-            network.load_state_dict(network_dict)
-
-        if if_save:
-            if self.act is not None:
-                torch.save(self.act.state_dict(), act_save_path)
-            if self.cri is not None:
-                torch.save(self.cri.state_dict(), cri_save_path)
-        elif (self.act is not None) and os.path.exists(act_save_path):
-            load_torch_file(self.act, act_save_path)
-            print("Loaded act:", cwd)
-        elif (self.cri is not None) and os.path.exists(cri_save_path):
-            load_torch_file(self.cri, cri_save_path)
-            print("Loaded cri:", cwd)
-        else:
-            print("FileNotFound when load_model: {}".format(cwd))
-
-    def soft_update(self, target_net, current_net):
-        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
-            tar.data.copy_(cur.data.__mul__(self.soft_update_tau) + tar.data.__mul__(1 - self.soft_update_tau))
-            # tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
-
-
 class AgentDDPG(AgentBase):
     def __init__(self):
         super().__init__()
@@ -313,11 +295,11 @@ class AgentDDPG(AgentBase):
         actions = actions.detach().cpu().numpy()
         return (actions + self.ou_noise()).clip(-1, 1)
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
         buffer.update__now_len__before_sample()
 
         obj_critic = obj_actor = None  # just for print return
-        for _ in range(int(max_step * repeat_times)):
+        for _ in range(int(target_step * repeat_times)):
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
                 next_q = self.cri_target(next_s, self.act_target(next_s))
@@ -350,6 +332,8 @@ class AgentTD3(AgentBase):
     def init(self, net_dim, state_dim, action_dim):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
         self.cri = CriticTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
 
@@ -363,7 +347,7 @@ class AgentTD3(AgentBase):
         actions = (actions + torch.randn_like(actions) * self.explore_noise).clamp(-1, 1)
         return actions.detach().cpu().numpy()
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
         """Contribution of TD3 (Twin Delay DDPG)
         1. twin critics (DoubleDQN -> TwinCritic, good idea)
         2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
@@ -372,7 +356,7 @@ class AgentTD3(AgentBase):
         buffer.update__now_len__before_sample()
 
         obj_critic = obj_actor = None
-        for i in range(int(max_step * repeat_times)):
+        for i in range(int(target_step * repeat_times)):
             '''objective of critic (loss function of critic)'''
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
@@ -419,7 +403,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
         """Contribution of InterAC (Integrated network for deterministic policy gradient)
         1. First try integrated network to share parameter between two **different input** network.
         1. First try Encoder-DenseNetLikeNet-Decoder network architecture.
@@ -438,7 +422,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
 
         k = 1.0 + buffer.now_len / buffer.max_len
         batch_size_ = int(batch_size * k)
-        update_times = int(max_step * k)
+        update_times = int(target_step * k)
 
         for i in range(update_times * repeat_times):
             with torch.no_grad():
@@ -508,7 +492,7 @@ class AgentSAC(AgentBase):
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
 
-    def update_net(self, buffer, max_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
         """Contribution of SAC (Soft Actor-Critic with maximum entropy)
         1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
         2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
@@ -518,7 +502,7 @@ class AgentSAC(AgentBase):
 
         alpha = self.alpha_log.exp().detach()
         obj_critic = None
-        for _ in range(int(max_step * repeat_times)):
+        for _ in range(int(target_step * repeat_times)):
             '''objective of critic (loss function of critic)'''
             with torch.no_grad():
                 reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
@@ -626,12 +610,182 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
                 q_value_pg = torch.min(*self.cri_target.get_q1_q2(state, a_noise_pg))  # ceta3
                 obj_actor = -(q_value_pg + logprob * alpha.detach()).mean()
-                obj_actor = obj_actor * reliable_lambda
+                obj_actor = obj_actor * max(0.1, reliable_lambda)  # todo ceta0
 
                 self.act_optimizer.zero_grad()
                 obj_actor.backward()
                 self.act_optimizer.step()
                 self.soft_update(self.act_target, self.act)
+
+        return alpha.item(), self.obj_c
+
+
+class AgentModSAC2(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+    def __init__(self):
+        super().__init__()
+        self.if_use_dn = True
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
+    def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.target_entropy = np.log(action_dim)
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
+                                      requires_grad=True, device=self.device)  # trainable parameter
+
+        self.act = ActorSAC(net_dim, state_dim, action_dim, self.if_use_dn).to(self.device)
+        # self.act_target = deepcopy(self.act) #  todo act_target
+        self.cri = CriticTwin(int(net_dim * 1.25), state_dim, action_dim, self.if_use_dn).to(self.device)
+        self.cri_target = deepcopy(self.cri)
+
+        self.criterion = torch.nn.SmoothL1Loss()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
+
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
+        """ModSAC (Modified SAC using Reliable lambda)
+        1. Reliable Lambda is calculated based on Critic's loss function value.
+        2. Increasing batch_size and update_times
+        3. Auto-TTUR updates parameter in non-integer times.
+        4. net_dim of critic is slightly larger than actor.
+        """
+        buffer.update__now_len__before_sample()
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        train_steps = int(target_step * k * repeat_times)
+
+        alpha = self.alpha_log.exp().detach()
+        update_a = 0
+        for update_c in range(1, train_steps):
+            '''objective of critic (loss function of critic)'''
+            with torch.no_grad():
+                reward, mask, action, state, next_s = buffer.sample_batch(batch_size_)
+
+                # next_a, next_logprob = self.act_target.get_action_logprob(next_s)  # todo act_target
+                next_a, next_logprob = self.act.get_action_logprob(next_s)  # todo act_target
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
+                q_label = reward + mask * (next_q + next_logprob * alpha)
+            q1, q2 = self.cri.get_q1_q2(state, action)
+            obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+            self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
+
+            self.cri_optimizer.zero_grad()
+            obj_critic.backward()
+            self.cri_optimizer.step()
+            self.soft_update(self.cri_target, self.cri)
+
+            a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
+
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
+
+            self.alpha_optimizer.zero_grad()
+            obj_alpha.backward()
+            self.alpha_optimizer.step()
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+            alpha = self.alpha_log.exp().detach()
+
+            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
+            reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
+            if_update_a = (update_a / update_c) < (1 / (2 - reliable_lambda))
+            if if_update_a:  # auto TTUR
+                update_a += 1
+
+                q_value_pg = torch.min(*self.cri_target.get_q1_q2(state, a_noise_pg))  # ceta3
+                obj_actor = -(q_value_pg + logprob * alpha.detach()).mean()
+                obj_actor = obj_actor * max(0.1, reliable_lambda)
+
+                self.act_optimizer.zero_grad()
+                obj_actor.backward()
+                self.act_optimizer.step()
+                # self.soft_update(self.act_target, self.act)  # todo
+
+        return alpha.item(), self.obj_c
+
+
+class AgentModSAC3(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+    def __init__(self):
+        super().__init__()
+        self.if_use_dn = True
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
+    def init(self, net_dim, state_dim, action_dim):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.target_entropy = np.log(action_dim)
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
+                                      requires_grad=True, device=self.device)  # trainable parameter
+
+        self.act = ActorSAC(net_dim, state_dim, action_dim, self.if_use_dn).to(self.device)
+        # self.act_target = deepcopy(self.act) #  todo act_target
+        self.cri = CriticTwin(int(net_dim * 1.25), state_dim, action_dim, self.if_use_dn).to(self.device)
+        self.cri_target = deepcopy(self.cri)
+
+        self.criterion = torch.nn.SmoothL1Loss()
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
+
+    def update_net(self, buffer, target_step, batch_size, repeat_times):
+        """ModSAC (Modified SAC using Reliable lambda)
+        1. Reliable Lambda is calculated based on Critic's loss function value.
+        2. Increasing batch_size and update_times
+        3. Auto-TTUR updates parameter in non-integer times.
+        4. net_dim of critic is slightly larger than actor.
+        """
+        buffer.update__now_len__before_sample()
+
+        k = 1.0 + buffer.now_len / buffer.max_len
+        batch_size_ = int(batch_size * k)
+        train_steps = int(target_step * k * repeat_times)
+
+        alpha = self.alpha_log.exp().detach()
+        update_a = 0
+        for update_c in range(1, train_steps):
+            '''objective of critic (loss function of critic)'''
+            with torch.no_grad():
+                reward, mask, action, state, next_s = buffer.sample_batch(batch_size_)
+
+                # next_a, next_logprob = self.act_target.get_action_logprob(next_s)  # todo act_target
+                next_a, next_logprob = self.act.get_action_logprob(next_s)  # todo act_target
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
+                q_label = reward + mask * (next_q + next_logprob * alpha)
+            q1, q2 = self.cri.get_q1_q2(state, action)
+            obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+            self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
+
+            self.cri_optimizer.zero_grad()
+            obj_critic.backward()
+            self.cri_optimizer.step()
+            self.soft_update(self.cri_target, self.cri)
+
+            a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
+
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
+
+            self.alpha_optimizer.zero_grad()
+            obj_alpha.backward()
+            self.alpha_optimizer.step()
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+            alpha = self.alpha_log.exp().detach()
+
+            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
+            reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
+            if_update_a = (update_a / update_c) < (1 / (2 - reliable_lambda))
+            if if_update_a:  # auto TTUR
+                update_a += 1
+
+                q_value_pg = torch.min(*self.cri_target.get_q1_q2(state, a_noise_pg))  # ceta3
+                obj_actor = -(q_value_pg + logprob * alpha.detach()).mean()
+                obj_actor = obj_actor * reliable_lambda  # todo max(0.1, reliable_lambda)
+
+                self.act_optimizer.zero_grad()
+                obj_actor.backward()
+                self.act_optimizer.step()
+                # self.soft_update(self.act_target, self.act)  # todo
 
         return alpha.item(), self.obj_c
 
@@ -774,9 +928,9 @@ class AgentPPO(AgentBase):
                 state = next_state
         return actual_step
 
-    def update_net(self, buffer, _max_step, batch_size, repeat_times=8):
+    def update_net(self, buffer, _target_step, batch_size, repeat_times=8):
         buffer.update__now_len__before_sample()
-        max_memo = buffer.now_len
+        max_memo = buffer.now_len  # assert max_memo >= _target_step
 
         '''Trajectory using reverse reward'''
         with torch.no_grad():
@@ -829,7 +983,7 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_advantage
 
 
-class AgentGaePPO(AgentPPO):
+class AgentGaePPO(AgentPPO):  # I plan to merge AgentGaePPO AgentPPO to 'AgentPPO with if_gae'
     def __init__(self):
         super().__init__()
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -875,9 +1029,9 @@ class AgentInterPPO(AgentPPO):
             {'params': self.act.dec_q2.parameters(), },
         ], lr=self.learning_rate)
 
-    def update_net(self, buffer, _max_step, batch_size, repeat_times=8):  # old version
+    def update_net(self, buffer, _target_step, batch_size, repeat_times=8):  # old version
         buffer.update__now_len__before_sample()
-        max_memo = buffer.now_len
+        max_memo = buffer.now_len  # assert max_memo >= _target_step
 
         '''Trajectory using Generalized Advantage Estimation (GAE)'''
         with torch.no_grad():
