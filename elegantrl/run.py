@@ -131,7 +131,8 @@ def demo2_continuous_action_space_off_policy():
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     args.env = PreprocessEnv(env=env)
     args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
-    "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
+    "TD3 TotalStep: 3e4, TargetReward: -200, UsedTime: 300s"
+    "SAC TotalStep: 4e4, TargetReward: -200, UsedTime: 400s"
     # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
     # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
     "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
@@ -1263,4 +1264,9 @@ def explore_before_training(env, buffer, target_step, reward_scale, gamma):
 
 
 if __name__ == '__main__':
-    pass
+    demo1_discrete_action_space()
+    # demo2_continuous_action_space_off_policy()
+    # demo2_continuous_action_space_on_policy()
+    # demo3_custom_env_fin_rl()
+    # demo4_bullet_mujoco_off_policy()
+    # demo4_bullet_mujoco_on_policy()
