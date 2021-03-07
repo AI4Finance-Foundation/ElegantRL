@@ -79,6 +79,7 @@ def run__demo():
 
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
+
     """DEMO 1: Discrete action env: CartPole-v0 of gym"""
     args = Arguments(agent_rl=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
