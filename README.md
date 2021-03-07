@@ -45,7 +45,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
    + Actor Network,
    + Critic Network,
 + **elegantrl/agent.py**  # RL algorithms. 
-+ **elegantrl/run.py**    # run DEMO 1 ~ 4 in run__demo().
++ **elegantrl/run.py**    # run DEMO 1 ~ 4
    + Parameter initialization,
    + Training loop,
    + Evaluator.
