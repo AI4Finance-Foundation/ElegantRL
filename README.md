@@ -56,7 +56,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
    + A self-created stock trading environment as an example for user customization.
 + **BipedalWalker_Example.ipynb**      # BipedalWalker-v2 in jupyter notebooks
 + **ElegantRL_examples.ipynb**       # Demo 1~ 4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
-+ **ElegantRL__single_file_train_ppo.py**  # Use single file to train PPO, more simple than tutorial version
++ **ElegantRL_single_file_train_ppo.py**  # Use single file to train PPO, more simple than tutorial version
 
 As a high-level overview, the relations among the files are as follows. Initialize an environment in **Env.py** and an agent in **Agent.py**. The agent is constructed with Actor and Critic networks in **Net.py**. In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
 
