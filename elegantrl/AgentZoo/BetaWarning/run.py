@@ -660,8 +660,8 @@ class Evaluator:
         self.total_step += steps  # update total training steps
         self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
 
-        if_solve = bool(self.r_max > self.target_reward)  # check if_solve
-        if if_solve and self.used_time is None:
+        if_reach_goal = bool(self.r_max > self.target_reward)  # check if_reach_goal
+        if if_reach_goal and self.used_time is None:
             self.used_time = int(time.time() - self.start_time)
             print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
                   f"{'avgR':>8}  {'stdR':>8}   {'UsedTime':>8}  ########\n"
@@ -672,7 +672,7 @@ class Evaluator:
             self.print_time = time.time()
             print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |"
                   f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f}")
-        return if_solve
+        return if_reach_goal
 
     def save_npy_draw_plot(self):
         if len(self.recorder) == 0:
@@ -688,6 +688,25 @@ class Evaluator:
         save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{self.r_max:.3f}"
 
         save_learning_curve(self.recorder, self.cwd, save_title)
+
+
+def get_episode_return(env, act, device) -> float:
+    episode_return = 0.0  # sum of rewards in an episode
+    max_step = env.max_step
+    if_discrete = env.if_discrete
+
+    state = env.reset()
+    for _ in range(max_step):
+        s_tensor = torch.as_tensor((state,), device=device)
+        a_tensor = act(s_tensor)
+        if if_discrete:
+            a_tensor = a_tensor.argmax(dim=1)
+        action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        state, reward, done, _ = env.step(action)
+        episode_return += reward
+        if done:
+            break
+    return env.episode_return if hasattr(env, 'episode_return') else episode_return
 
 
 def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
@@ -733,25 +752,6 @@ def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
     plt.savefig(f"{cwd}/plot_learning_curve.jpg")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
-
-
-def get_episode_return(env, act, device) -> float:
-    episode_return = 0.0  # sum of rewards in an episode
-    max_step = env.max_step
-    if_discrete = env.if_discrete
-
-    state = env.reset()
-    for _ in range(max_step):
-        s_tensor = torch.as_tensor((state,), device=device)
-        a_tensor = act(s_tensor)
-        if if_discrete:
-            a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
-        state, reward, done, _ = env.step(action)
-        episode_return += reward
-        if done:
-            break
-    return env.episode_return if hasattr(env, 'episode_return') else episode_return
 
 
 def explore_before_training(env, buffer, target_step, reward_scale, gamma):

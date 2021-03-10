@@ -9,8 +9,8 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         super(PreprocessEnv, self).__init__(env)
         self.env = env
 
-        (self.env_name, self.state_dim, self.action_dim, self.action_max,
-         self.if_discrete, self.target_reward, self.max_step
+        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
+         self.if_discrete, self.target_reward
          ) = get_gym_env_info(env, if_print)
 
     def reset(self):
@@ -59,7 +59,7 @@ def get_gym_env_info(env, if_print):
     print(f"\n| env_name: {env_name}, action space if_discrete: {if_discrete}"
           f"\n| state_dim: {state_dim}, action_dim: {action_dim}, action_max: {action_max}"
           f"\n| max_step: {max_step} target_reward: {target_reward}") if if_print else None
-    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
+    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_reward
 
 
 class FinanceMultiStockEnv:  # custom env
