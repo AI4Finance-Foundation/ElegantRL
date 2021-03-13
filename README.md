@@ -100,9 +100,9 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
     | PyTorch 1.6+    | pip3 install torch   
 
     Not necessary:
-    | Numpy 1.18+     | For ReplayBuffer. Numpy will be installed when installing PyTorch.
-    | gym 0.17.0      | For RL training env. Gym provide tutorial env for DRL training. (env.render() bug in gym==1.18 pyglet==1.6. Change to gym==1.17.0, pyglet==1.5)
-    | pybullet 2.7+   | For RL training env. We use PyBullet(free) as an alternative of MuJoCo(not free).
+    | Numpy 1.18+     | For ReplayBuffer. Numpy will be installed along with PyTorch.
+    | gym 0.17.0      | For RL training env. Gym provides tutorial env for DRL training. (env.render() bug in gym==1.18 pyglet==1.6. Change to gym==1.17.0, pyglet==1.5)
+    | pybullet 2.7+   | For RL training env. We use PyBullet (free) as an alternative of MuJoCo (not free).
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots. Evaluate the agent performance.
     
