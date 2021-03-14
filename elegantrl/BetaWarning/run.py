@@ -5,8 +5,7 @@ from copy import deepcopy
 import torch
 import numpy as np
 import numpy.random as rd
-from elegantrl.BetaWarning.agent import ReplayBuffer, ReplayBufferMP
-
+from elegantrl.agent import ReplayBuffer, ReplayBufferMP
 
 '''DEMO'''
 
@@ -31,8 +30,6 @@ class Arguments:
             self.repeat_times = 2 ** 4
             self.target_step = 2 ** 12
             self.max_memo = self.target_step
-        else:
-            self.if_per = False
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
         self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
@@ -75,8 +72,8 @@ class Arguments:
 
 
 def run__demo():
-    import elegantrl.BetaWarning.agent as agent
-    from elegantrl.BetaWarning.env import prep_env
+    import elegantrl.agent as agent
+    from elegantrl.env import prep_env
     # from elegantrl.main import Arguments, train_and_evaluate, train_and_evaluate__multiprocessing
     import gym
 
@@ -145,18 +142,6 @@ def run__demo():
 
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
-
-    """DEMO 5: Discrete action env: CartPole-v0 of gym"""
-    import pybullet_envs  # for python-bullet-gym
-    args = Arguments(agent_rl=None, env=None, gpu_id=1)  # see Arguments() to see hyper-parameters
-    args.agent_rl = agent.AgentTD3  # choose an DRL algorithm
-    args.env = prep_env(env=gym.make('ReacherBulletEnv-v0'))
-    args.net_dim = 2 ** 7  # change a default hyper-parameters
-    args.if_per = True
-    args.break_step = int(2e20)  # (4e4) 8e5, UsedTime: (300s) 700s
-
-    train_and_evaluate(args)
-    exit(0)
 
     # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
     # args.agent_rl = agent.AgentGaePPO  # on-policy: AgentPPO, AgentGaePPO
@@ -594,7 +579,6 @@ def train_and_evaluate(args):
     batch_size = args.batch_size
     repeat_times = args.repeat_times
     reward_scale = args.reward_scale
-    if_per = args.if_per
 
     show_gap = args.show_gap  # evaluate arguments
     eval_times1 = args.eval_times1
@@ -618,7 +602,7 @@ def train_and_evaluate(args):
                           eval_times1=eval_times1, eval_times2=eval_times2, show_gap=show_gap)  # build Evaluator
 
     if_on_policy = agent_rl.__name__ in {'AgentPPO', 'AgentGaePPO'}
-    buffer = ReplayBuffer(max_memo + max_step, state_dim, if_on_policy=if_on_policy, if_per=if_per,
+    buffer = ReplayBuffer(max_memo + max_step, state_dim, if_on_policy=if_on_policy,
                           action_dim=1 if if_discrete else action_dim)  # build experience replay buffer
     if if_on_policy:
         steps = 0

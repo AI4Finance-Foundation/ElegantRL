@@ -4,10 +4,10 @@ from copy import deepcopy  # deepcopy target_network
 import torch
 import numpy as np
 import numpy.random as rd
-from elegantrl.BetaWarning.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
-from elegantrl.BetaWarning.net import Actor, ActorSAC, ActorPPO
-from elegantrl.BetaWarning.net import Critic, CriticAdv, CriticTwin
-from elegantrl.BetaWarning.net import InterDPG, InterSPG, InterPPO
+from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
+from elegantrl.net import Actor, ActorSAC, ActorPPO
+from elegantrl.net import Critic, CriticAdv, CriticTwin
+from elegantrl.net import InterDPG, InterSPG, InterPPO
 
 """ElegantRL (Pytorch 3 files model-free DRL Library)
 GitHub.com: YonV1943, Zhihu.com: 曾伊言
@@ -82,21 +82,11 @@ class AgentDQN:
         next_q = obj_critic = None
         for _ in range(int(max_step * repeat_times)):
             with torch.no_grad():
-                if buffer.if_per:
-                    reward, mask, action, state, next_s, indices, ISws = buffer.random_sample(batch_size)  # next_state
-                else:
-                    reward, mask, action, state, next_s = buffer.random_sample(batch_size)  # next_state
+                reward, mask, action, state, next_s = buffer.random_sample(batch_size)  # next_state
                 next_q = self.act_target(next_s).max(dim=1, keepdim=True)[0]
                 q_label = reward + mask * next_q
             q_eval = self.act(state).gather(1, action.type(torch.long))
-
-            if buffer.if_per:
-                with torch.no_grad():
-                    td_error_abs = torch.abs(q_label - q_eval)
-                obj_critic = (ISws * (q_eval - q_label) ** 2).mean()
-                buffer.batch_update(indices, td_error_abs)
-            else:
-                obj_critic = self.criterion(q_eval, q_label)
+            obj_critic = self.criterion(q_eval, q_label)
 
             self.optimizer.zero_grad()
             obj_critic.backward()
@@ -344,22 +334,12 @@ class AgentTD3(AgentDDPG):
         for i in range(int(max_step * repeat_times)):
             '''objective of critic (loss function of critic)'''
             with torch.no_grad():
-                if buffer.if_per:
-                    reward, mask, action, state, next_s, indices, ISws = buffer.random_sample(batch_size)  # next_state
-                else:
-                    reward, mask, action, state, next_s = buffer.random_sample(batch_size)  # next_state
+                reward, mask, action, state, next_s = buffer.random_sample(batch_size)
                 next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
                 next_q = torch.min(*self.cri_target.get__q1_q2(next_s, next_a))  # twin critics
                 q_label = reward + mask * next_q
             q1, q2 = self.cri.get__q1_q2(state, action)
-
-            if buffer.if_per:
-                with torch.no_grad():
-                    td_error_abs = torch.abs(q_label - (q1 + q2) / 2)
-                obj_critic = (ISws * ((q1 - q_label) ** 2 + (q2 - q_label) ** 2)).mean()
-                buffer.batch_update(indices, td_error_abs)
-            else:
-                obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
+            obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
 
             '''objective of actor'''
             q_value_pg = self.act(state)  # policy gradient
@@ -891,77 +871,9 @@ class AgentInterPPO(AgentPPO):
 
 '''Utils'''
 
-'''
-PER reference:
-https://zhuanlan.zhihu.com/p/160186240
-https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
-https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
-'''
-
-class SumTree(object):
-
-    def __init__(self, capacity):
-        self.capacity = capacity  # for all priority values
-        self.ps_tree = np.empty(2 * capacity - 1)
-        # [--------------Parent nodes-------------][-------leaves to recode priority-------]
-        #             size: capacity - 1                       size: capacity
-
-    def update(self, data_idx, p):
-        tree_idx = data_idx + self.capacity - 1
-        delta = p - self.ps_tree[tree_idx]
-        self.ps_tree[tree_idx] = p
-        # then propagate the change through tree
-        while tree_idx != 0:  # this method is faster than the recursive loop in the reference code
-            tree_idx = (tree_idx - 1) // 2
-            self.ps_tree[tree_idx] += delta
-
-    def get_leaf(self, v, new_max_tree_idx):
-        """
-        Tree structure and array storage:
-        Tree index:
-             0         -> storing priority sum
-            / \
-          1     2
-         / \   / \
-        3   4 5   6    -> storing priority for transitions
-        Array type for storing:
-        [0,1,2,3,4,5,6]
-        """
-        parent_idx = 0
-        while True:  # the while loop is faster than the method in the reference code
-            nl_idx = 2 * parent_idx + 1  # the leaf's left node
-            nr_idx = nl_idx + 1  # the leaf's right node
-            if nl_idx >= (len(self.ps_tree)):  # reach bottom, end search
-                leaf_idx = parent_idx
-                break
-            else:  # downward search, always search for a higher priority node
-                if v <= self.ps_tree[nl_idx]:
-                    parent_idx = nl_idx
-                else:
-                    v -= self.ps_tree[nl_idx]
-                    parent_idx = nr_idx
-
-        if leaf_idx>new_max_tree_idx: # for self.buf_state[indices + 1]
-            leaf_idx=new_max_tree_idx
-        data_idx = leaf_idx - self.capacity + 1
-        return self.ps_tree[leaf_idx], data_idx
-
-    def get_leafs(self, vs, now_len):
-        new_max_tree_idx = now_len - 1 + self.capacity - 1 -1
-        return [np.array(results) for results in zip(*[self.get_leaf(v, new_max_tree_idx) for v in vs])]
-
-    # todo: add per for mp
-    # !!!efficience
-    # def extend_tree(self, new_capacity, now_memo_len):
-    #     for i in range(self.capacity - 1, self.capacity - 1 + now_memo_len):
-    #         self.new_ps_tree = np.empty(2 * capacity - 1)
-
-    @property
-    def total_p(self):
-        return self.ps_tree[0]  # the top of tree
 
 class ReplayBuffer:
-    def __init__(self, max_len, state_dim, action_dim, if_on_policy,if_per=False):
+    def __init__(self, max_len, state_dim, action_dim, if_on_policy):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_len = max_len
         self.now_len = 0
@@ -975,14 +887,6 @@ class ReplayBuffer:
             self.buf_other = np.empty((max_len, other_dim), dtype=np.float32)
             self.buf_state = np.empty((max_len, state_dim), dtype=np.float32)
         else:
-            self.if_per = if_per
-            if self.if_per:
-                self.tree = SumTree(max_len)
-                self.per_alpha = 0.6
-                self.per_beta = 0.4
-                self.per_beta_increment_per_sampling = 0.001
-                self.per_max_prob = 1
-                self.per_min_prob_epsilon = 1E-2 / self.max_len
             other_dim = 1 + 1 + action_dim
             self.buf_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
             self.buf_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
@@ -994,18 +898,11 @@ class ReplayBuffer:
         self.buf_state[self.next_idx] = state
         self.buf_other[self.next_idx] = other
 
-        if self.if_per:
-            max_p = np.max(self.tree.ps_tree[-self.tree.capacity:])
-            if max_p == 0:
-                max_p = self.per_max_prob
-            self.tree.update(self.next_idx, max_p)
-
         self.next_idx += 1
         if self.next_idx >= self.max_len:
             self.if_full = True
             self.next_idx = 0
 
-    # todo: add per for mp
     def extend_memo(self, state, other):  # CPU array to CPU array
         if not self.if_on_policy:
             state = torch.as_tensor(state, dtype=torch.float32, device=self.device)
@@ -1028,31 +925,6 @@ class ReplayBuffer:
         self.next_idx = next_idx
 
     def random_sample(self, batch_size):
-        if self.if_per:
-            self.per_beta = np.min([1., self.per_beta + self.per_beta_increment_per_sampling])  # max = 1
-
-            segment = self.tree.total_p / batch_size
-            # get random values for sumtree searching indices with proportional prioritization
-            values = rd.uniform(segment * np.arange(0, batch_size, 1), segment * np.arange(1, batch_size + 1, 1),
-                                batch_size)
-            # get proportional prioritization, indices by sumtree
-            ps, indices = self.tree.get_leafs(values,self.now_len)
-            # caculate importance-sampling weight
-            probs = ps / self.tree.total_p
-            if self.now_len < self.max_len:
-                min_prob = np.min(self.tree.ps_tree[-self.max_len:-(self.max_len - self.now_len)]) / self.tree.total_p
-            else:
-                min_prob = np.min(self.tree.ps_tree[-self.max_len:]) / self.tree.total_p
-            ISws = np.power(probs / min_prob, -self.per_beta)
-
-            r_m_a = self.buf_other[indices]
-            return (r_m_a[:, 0:1],  # reward
-                    r_m_a[:, 1:2],  # mask = 0.0 if done else gamma
-                    r_m_a[:, 2:],  # action
-                    self.buf_state[indices],  # state
-                    self.buf_state[indices + 1],  # next_state
-                    indices, torch.as_tensor(ISws, dtype=torch.float32, device=self.device))
-
         indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
         r_m_a = self.buf_other[indices]
         return (r_m_a[:, 0:1],  # reward
@@ -1060,12 +932,6 @@ class ReplayBuffer:
                 r_m_a[:, 2:],  # action
                 self.buf_state[indices],  # state
                 self.buf_state[indices + 1])  # next_state
-
-    # per update
-    def batch_update(self, data_idxs, td_error_abs):
-        td_error_abs = td_error_abs.cpu().numpy() + self.per_min_prob_epsilon  # convert to abs and avoid 0
-        ps = np.power(np.minimum(td_error_abs, self.per_max_prob), self.per_alpha)
-        [self.tree.update(data_idx, p) for data_idx, p in zip(data_idxs, ps)]
 
     def sample_for_ppo(self):
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
