@@ -138,24 +138,29 @@ def run__demo():
     dir(pybullet_envs)
     # args.env = decorate_env(gym.make('AntBulletEnv-v0'))
     args.env = prep_env(gym.make('ReacherBulletEnv-v0'))
+    # args.repeat_times=8
+    # args.max_memo=args.target_step =4096
 
-    args.break_step = int(4e4 * 8)  # (4e4) 8e5, UsedTime: (300s) 700s
+    args.break_step = int(4e8)  # (4e4) 8e5, UsedTime: (300s) 700s
+    args.if_break_early = False
     args.eval_times1 = 2 ** 2
     args.eval_times1 = 2 ** 4
 
     args.rollout_num = 4
     train_and_evaluate__multiprocessing(args)
 
-    """DEMO 5: Discrete action env: CartPole-v0 of gym"""
+
+    # """DEMO 5: Discrete action env: CartPole-v0 of gym"""
     import pybullet_envs  # for python-bullet-gym
-    args = Arguments(agent_rl=None, env=None, gpu_id=1)  # see Arguments() to see hyper-parameters
+    args = Arguments(agent_rl=None, env=None, gpu_id=0)  # see Arguments() to see hyper-parameters
     args.agent_rl = agent.AgentTD3  # choose an DRL algorithm
     args.env = prep_env(env=gym.make('ReacherBulletEnv-v0'))
     args.net_dim = 2 ** 7  # change a default hyper-parameters
     args.if_per = True
     args.break_step = int(2e20)  # (4e4) 8e5, UsedTime: (300s) 700s
 
-    train_and_evaluate(args)
+    # train_and_evaluate(args)
+    train_and_evaluate__multiprocessing(args)
     exit(0)
 
     # args = Arguments(if_on_policy=True)  # on-policy has different hyper-parameters from off-policy
@@ -688,6 +693,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     reward_scale = args.reward_scale
     break_step = args.break_step
     if_break_early = args.if_break_early
+    if_per=args.if_per
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     '''init: env'''
@@ -703,6 +709,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
 
     buffer_mp = ReplayBufferMP(max_memo + max_step * rollout_num, state_dim,
                                if_on_policy=if_on_policy,
+                               if_per=if_per,
                                action_dim=1 if if_discrete else action_dim,
                                rollout_num=rollout_num)  # build experience replay buffer
 
