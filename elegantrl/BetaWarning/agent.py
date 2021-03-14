@@ -83,7 +83,7 @@ class AgentDQN:
         for _ in range(int(max_step * repeat_times)):
             with torch.no_grad():
                 if buffer.if_per:
-                    reward, mask, action, state, next_s, indices, ISws = buffer.random_sample(batch_size)  # next_state
+                    reward, mask, action, state, next_s, ISws = buffer.random_sample(batch_size)  # next_state
                 else:
                     reward, mask, action, state, next_s = buffer.random_sample(batch_size)  # next_state
                 next_q = self.act_target(next_s).max(dim=1, keepdim=True)[0]
@@ -94,7 +94,7 @@ class AgentDQN:
                 with torch.no_grad():
                     td_error_abs = torch.abs(q_label - q_eval)
                 obj_critic = (ISws * (q_eval - q_label) ** 2).mean()
-                buffer.batch_update(indices, td_error_abs)
+                buffer.batch_update(td_error_abs)
             else:
                 obj_critic = self.criterion(q_eval, q_label)
 
@@ -345,7 +345,7 @@ class AgentTD3(AgentDDPG):
             '''objective of critic (loss function of critic)'''
             with torch.no_grad():
                 if buffer.if_per:
-                    reward, mask, action, state, next_s, indices, ISws = buffer.random_sample(batch_size)  # next_state
+                    reward, mask, action, state, next_s, ISws = buffer.random_sample(batch_size)  # next_state
                 else:
                     reward, mask, action, state, next_s = buffer.random_sample(batch_size)  # next_state
                 next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
@@ -357,7 +357,7 @@ class AgentTD3(AgentDDPG):
                 with torch.no_grad():
                     td_error_abs = torch.abs(q_label - (q1 + q2) / 2)
                 obj_critic = (ISws * ((q1 - q_label) ** 2 + (q2 - q_label) ** 2)).mean()
-                buffer.batch_update(indices, td_error_abs)
+                buffer.batch_update(td_error_abs)
             else:
                 obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
 
@@ -898,16 +898,23 @@ https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
 https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
 '''
 
+'''
+PER 的实现按照优先级采样，但buffer满后，添加数据依照遵循先进先出的原则
+SumTree的叶子结点idx与buffer的idx一一对应，因此可以buffer专注存数据，Sumtree专注存优先级信息。
+SumTree是完全二叉树，大小是2*buffer_len倍，idx的前 buffer_len-1个是父节点，后buffer_len个是叶子结点。
+'''
 class SumTree(object):
 
-    def __init__(self, capacity):
-        self.capacity = capacity  # for all priority values
-        self.ps_tree = np.empty(2 * capacity - 1)
-        # [--------------Parent nodes-------------][-------leaves to recode priority-------]
-        #             size: capacity - 1                       size: capacity
+    def __init__(self, memo_len):
+        self.memo_len = memo_len  # replaybuffer len
+        # SumTree size is 2 * buffer_len - 1, parent nodes is buffer_len-1, and leaves node is buffer_len.
+        self.ps_tree = np.zeros(2 * memo_len - 1)
+        self.now_max_tree_len = self.memo_len - 1
 
     def update(self, data_idx, p):
-        tree_idx = data_idx + self.capacity - 1
+        tree_idx = data_idx + self.memo_len - 1
+        self.now_max_tree_len = (
+                self.now_max_tree_len + 1) if self.now_max_tree_len == tree_idx else self.now_max_tree_len
         delta = p - self.ps_tree[tree_idx]
         self.ps_tree[tree_idx] = p
         # then propagate the change through tree
@@ -915,7 +922,7 @@ class SumTree(object):
             tree_idx = (tree_idx - 1) // 2
             self.ps_tree[tree_idx] += delta
 
-    def get_leaf(self, v, new_max_tree_idx):
+    def get_leaf(self, v):
         """
         Tree structure and array storage:
         Tree index:
@@ -929,39 +936,33 @@ class SumTree(object):
         """
         parent_idx = 0
         while True:  # the while loop is faster than the method in the reference code
-            nl_idx = 2 * parent_idx + 1  # the leaf's left node
-            nr_idx = nl_idx + 1  # the leaf's right node
-            if nl_idx >= (len(self.ps_tree)):  # reach bottom, end search
+            l_idx = 2 * parent_idx + 1  # the leaf's left node
+            r_idx = l_idx + 1  # the leaf's right node
+            if l_idx >= (len(self.ps_tree)):  # reach bottom, end search
                 leaf_idx = parent_idx
                 break
             else:  # downward search, always search for a higher priority node
-                if v <= self.ps_tree[nl_idx]:
-                    parent_idx = nl_idx
+                if v <= self.ps_tree[l_idx]:
+                    parent_idx = l_idx
                 else:
-                    v -= self.ps_tree[nl_idx]
-                    parent_idx = nr_idx
+                    v -= self.ps_tree[l_idx]
+                    parent_idx = r_idx
 
-        if leaf_idx>new_max_tree_idx: # for self.buf_state[indices + 1]
-            leaf_idx=new_max_tree_idx
-        data_idx = leaf_idx - self.capacity + 1
+        if leaf_idx > (self.now_max_tree_len - 2):  # for self.buf_state[indices + 1]
+            leaf_idx = self.now_max_tree_len - 2
+        data_idx = leaf_idx - self.memo_len + 1
         return self.ps_tree[leaf_idx], data_idx
 
-    def get_leafs(self, vs, now_len):
-        new_max_tree_idx = now_len - 1 + self.capacity - 1 -1
-        return [np.array(results) for results in zip(*[self.get_leaf(v, new_max_tree_idx) for v in vs])]
-
-    # todo: add per for mp
-    # !!!efficience
-    # def extend_tree(self, new_capacity, now_memo_len):
-    #     for i in range(self.capacity - 1, self.capacity - 1 + now_memo_len):
-    #         self.new_ps_tree = np.empty(2 * capacity - 1)
+    def get_leafs(self, vs):
+        return [np.array(results) for results in zip(*[self.get_leaf(v) for v in vs])]
 
     @property
     def total_p(self):
         return self.ps_tree[0]  # the top of tree
 
+
 class ReplayBuffer:
-    def __init__(self, max_len, state_dim, action_dim, if_on_policy,if_per=False):
+    def __init__(self, max_len, state_dim, action_dim, if_on_policy, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_len = max_len
         self.now_len = 0
@@ -969,7 +970,7 @@ class ReplayBuffer:
         self.if_full = False
         self.action_dim = action_dim  # for self.sample_for_ppo(
         self.if_on_policy = if_on_policy
-
+        self.if_per = False
         if if_on_policy:
             other_dim = 1 + 1 + action_dim * 2
             self.buf_other = np.empty((max_len, other_dim), dtype=np.float32)
@@ -981,8 +982,9 @@ class ReplayBuffer:
                 self.per_alpha = 0.6
                 self.per_beta = 0.4
                 self.per_beta_increment_per_sampling = 0.001
-                self.per_max_prob = 1
-                self.per_min_prob_epsilon = 1E-2 / self.max_len
+                self.per_max_prob = 10
+                self.per_min_prob_epsilon = 1E-8
+                self.indices = None
             other_dim = 1 + 1 + action_dim
             self.buf_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
             self.buf_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
@@ -995,9 +997,7 @@ class ReplayBuffer:
         self.buf_other[self.next_idx] = other
 
         if self.if_per:
-            max_p = np.max(self.tree.ps_tree[-self.tree.capacity:])
-            if max_p == 0:
-                max_p = self.per_max_prob
+            max_p = self.per_max_prob
             self.tree.update(self.next_idx, max_p)
 
         self.next_idx += 1
@@ -1005,7 +1005,6 @@ class ReplayBuffer:
             self.if_full = True
             self.next_idx = 0
 
-    # todo: add per for mp
     def extend_memo(self, state, other):  # CPU array to CPU array
         if not self.if_on_policy:
             state = torch.as_tensor(state, dtype=torch.float32, device=self.device)
@@ -1014,17 +1013,23 @@ class ReplayBuffer:
         size = len(other)
         next_idx = self.next_idx + size
         if next_idx > self.max_len:
-            if next_idx > self.max_len:
-                self.buf_state[self.next_idx:self.max_len] = state[:self.max_len - self.next_idx]
-                self.buf_other[self.next_idx:self.max_len] = other[:self.max_len - self.next_idx]
+            self.buf_state[self.next_idx:self.max_len] = state[:self.max_len - self.next_idx]
+            self.buf_other[self.next_idx:self.max_len] = other[:self.max_len - self.next_idx]
             self.if_full = True
             next_idx = next_idx - self.max_len
 
             self.buf_state[0:next_idx] = state[-next_idx:]
             self.buf_other[0:next_idx] = other[-next_idx:]
+            if self.if_per:
+                max_p = self.per_max_prob
+                [self.tree.update(data_idx, max_p) for data_idx in range(self.next_idx, self.max_len)]
+                [self.tree.update(data_idx, max_p) for data_idx in range(0, next_idx)]
         else:
             self.buf_state[self.next_idx:next_idx] = state
             self.buf_other[self.next_idx:next_idx] = other
+            if self.if_per:
+                max_p = self.per_max_prob
+                [self.tree.update(data_idx, max_p) for data_idx in range(self.next_idx, next_idx)]
         self.next_idx = next_idx
 
     def random_sample(self, batch_size):
@@ -1036,7 +1041,7 @@ class ReplayBuffer:
             values = rd.uniform(segment * np.arange(0, batch_size, 1), segment * np.arange(1, batch_size + 1, 1),
                                 batch_size)
             # get proportional prioritization, indices by sumtree
-            ps, indices = self.tree.get_leafs(values,self.now_len)
+            ps, self.indices = self.tree.get_leafs(values)
             # caculate importance-sampling weight
             probs = ps / self.tree.total_p
             if self.now_len < self.max_len:
@@ -1045,13 +1050,13 @@ class ReplayBuffer:
                 min_prob = np.min(self.tree.ps_tree[-self.max_len:]) / self.tree.total_p
             ISws = np.power(probs / min_prob, -self.per_beta)
 
-            r_m_a = self.buf_other[indices]
+            r_m_a = self.buf_other[self.indices]
             return (r_m_a[:, 0:1],  # reward
                     r_m_a[:, 1:2],  # mask = 0.0 if done else gamma
                     r_m_a[:, 2:],  # action
-                    self.buf_state[indices],  # state
-                    self.buf_state[indices + 1],  # next_state
-                    indices, torch.as_tensor(ISws, dtype=torch.float32, device=self.device))
+                    self.buf_state[self.indices],  # state
+                    self.buf_state[self.indices + 1],  # next_state
+                    torch.as_tensor(ISws, dtype=torch.float32, device=self.device))
 
         indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
         r_m_a = self.buf_other[indices]
@@ -1061,11 +1066,11 @@ class ReplayBuffer:
                 self.buf_state[indices],  # state
                 self.buf_state[indices + 1])  # next_state
 
-    # per update
-    def batch_update(self, data_idxs, td_error_abs):
+    # PER专用，buffer需要获得training期间的TD-error来更新优先级，更新需要记住idx，因此我使用了self.indices，这要求randomsample和batch_update交替使用。
+    def batch_update(self, td_error_abs):
         td_error_abs = td_error_abs.cpu().numpy() + self.per_min_prob_epsilon  # convert to abs and avoid 0
         ps = np.power(np.minimum(td_error_abs, self.per_max_prob), self.per_alpha)
-        [self.tree.update(data_idx, p) for data_idx, p in zip(data_idxs, ps)]
+        [self.tree.update(data_idx, p) for data_idx, p in zip(self.indices, ps)]
 
     def sample_for_ppo(self):
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
@@ -1125,25 +1130,34 @@ class ReplayBuffer:
 
 
 class ReplayBufferMP:
-    def __init__(self, max_len, state_dim, action_dim, if_on_policy, rollout_num):
+    def __init__(self, max_len, state_dim, action_dim, if_on_policy, rollout_num, if_per=False):
         self.now_len = 0
         self.max_len = max_len
         self.rollout_num = rollout_num
+        self.if_per = if_per
 
         _max_len = max_len // rollout_num
-        self.buffers = [ReplayBuffer(_max_len, state_dim, action_dim, if_on_policy)
+        self.buffers = [ReplayBuffer(_max_len, state_dim, action_dim, if_on_policy, if_per=self.if_per)
                         for _ in range(rollout_num)]
 
     def extend_memo_mp(self, state, other, i):
         self.buffers[i].extend_memo(state, other)
 
     def random_sample(self, batch_size):
-        _batch_size = batch_size // self.rollout_num
+        # _batch_size = batch_size // self.rollout_num
         rd_batch_sizes = rd.rand(self.rollout_num)
-        rd_batch_sizes = (rd_batch_sizes * (_batch_size / rd_batch_sizes.sum())).astype(np.int)
+        rd_batch_sizes = (rd_batch_sizes * ((batch_size + 1) / rd_batch_sizes.sum())).astype(np.int)
 
         l__r_m_a_s_ns = [self.buffers[i].random_sample(rd_batch_sizes[i])
                          for i in range(self.rollout_num) if rd_batch_sizes[i] > 1]
+        if self.if_per:
+            return (torch.cat([item[0] for item in l__r_m_a_s_ns], dim=0),
+                    torch.cat([item[1] for item in l__r_m_a_s_ns], dim=0),
+                    torch.cat([item[2] for item in l__r_m_a_s_ns], dim=0),
+                    torch.cat([item[3] for item in l__r_m_a_s_ns], dim=0),
+                    torch.cat([item[4] for item in l__r_m_a_s_ns], dim=0),
+                    torch.cat([item[5] for item in l__r_m_a_s_ns], dim=0),)
+
         return (torch.cat([item[0] for item in l__r_m_a_s_ns], dim=0),
                 torch.cat([item[1] for item in l__r_m_a_s_ns], dim=0),
                 torch.cat([item[2] for item in l__r_m_a_s_ns], dim=0),
@@ -1158,6 +1172,12 @@ class ReplayBufferMP:
                 torch.cat([item[2] for item in l__r_m_a_n_s], dim=0),
                 torch.cat([item[3] for item in l__r_m_a_n_s], dim=0),
                 torch.cat([item[4] for item in l__r_m_a_n_s], dim=0))
+
+    def batch_update(self, td_error_abs):
+        idx = 0
+        for buffer in self.buffers:
+            buffer.batch_update(td_error_abs[idx:buffer.indices.shape[0]])
+            idx += buffer.indices.shape[0]
 
     def update__now_len__before_sample(self):
         self.now_len = 0
