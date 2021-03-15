@@ -114,9 +114,9 @@ def demo1_discrete_action_space():
     "TotalStep: 6e4, TargetReward: 200, UsedTime: 600s"
 
     '''train and evaluate'''
-    # train_and_evaluate(args)
-    args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate(args)
+    # args.rollout_num = 4
+    # train_and_evaluate__multiprocessing(args)
 
 
 def demo2_continuous_action_space_off_policy():
@@ -530,22 +530,22 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
         if not if_on_policy:
             explore_before_training(env, buffer, exp_step, reward_scale, gamma)
 
-            buffer.update__now_len__before_sample()
+            buffer.update_now_len_before_sample()
 
             pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
             # buf_state, buf_other = pipe1_exp.recv()
 
-            buffer.empty_memories__before_explore()
+            buffer.empty_buffer_before_explore()
 
         while True:
             agent.store_transition(env, buffer, exp_step, reward_scale, gamma)
 
-            buffer.update__now_len__before_sample()
+            buffer.update_now_len_before_sample()
 
             pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
             # buf_state, buf_other = pipe1_exp.recv()
 
-            buffer.empty_memories__before_explore()
+            buffer.empty_buffer_before_explore()
 
             # pipe1_exp.send(agent.act)
             agent.act = pipe2_exp.recv()
@@ -1264,8 +1264,8 @@ def explore_before_training(env, buffer, target_step, reward_scale, gamma):
 
 
 if __name__ == '__main__':
-    demo1_discrete_action_space()
-    # demo2_continuous_action_space_off_policy()
+    # demo1_discrete_action_space()
+    demo2_continuous_action_space_off_policy()
     # demo2_continuous_action_space_on_policy()
     # demo3_custom_env_fin_rl()
     # demo4_bullet_mujoco_off_policy()
