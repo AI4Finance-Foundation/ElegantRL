@@ -43,7 +43,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 + **elegantrl/net.py**    # Neural networks.
    + Q-Net,
    + Actor Network,
-   + Critic Network, Feizai
+   + Critic Network, 
 + **elegantrl/agent.py**  # RL algorithms. 
    + AgentBase 
 + **elegantrl/run.py**    # run DEMO 1 ~ 4
