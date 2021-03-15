@@ -52,7 +52,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
    + Evaluator.
 
 -----utils file----
-+ **elegantrl/env.py**    # gym env or custom env, including FinanceMultiStockEnv.
++ **elegantrl/env.py**    # gym env or custom env, including FinanceStockEnv.
    + A PreprocessEnv class for gym-environment modification.
    + A self-created stock trading environment as an example for user customization.
 + **Example_BipedalWalker.ipynb**      # BipedalWalker-v2 in jupyter notebooks
