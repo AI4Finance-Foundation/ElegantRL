@@ -842,12 +842,6 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_advantage
 
 
-class AgentGaePPO(AgentPPO):  # plan to merge AgentGaePPO and AgentPPO
-    def __init__(self):
-        super().__init__()
-        self.if_gae = True
-
-
 class AgentInterPPO(AgentPPO):
     def __init__(self):
         super().__init__()

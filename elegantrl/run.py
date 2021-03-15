@@ -43,7 +43,7 @@ class Arguments:
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.gamma = 0.99  # discount factor of future rewards
         self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
-        self.num_threads = 4  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.num_threads = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for evaluate'''
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
@@ -181,11 +181,12 @@ def demo2_continuous_action_space_on_policy():
 
 
 def demo3_custom_env_fin_rl():
-    from elegantrl.agent import AgentGaePPO
+    from elegantrl.agent import AgentPPO
 
     '''choose an DRL algorithm'''
     args = Arguments(if_on_policy=True)
-    args.agent = AgentGaePPO()  # PPO+GAE (on-policy)
+    args.agent = AgentPPO()
+    args.agent.if_use_gae = False  # 
 
     from elegantrl.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
     args.env = FinanceStockEnv(if_train=True, train_beg=0, train_len=1024)
@@ -1265,8 +1266,8 @@ def explore_before_training(env, buffer, target_step, reward_scale, gamma):
 
 if __name__ == '__main__':
     # demo1_discrete_action_space()
-    demo2_continuous_action_space_off_policy()
+    # demo2_continuous_action_space_off_policy()
     # demo2_continuous_action_space_on_policy()
-    # demo3_custom_env_fin_rl()
+    demo3_custom_env_fin_rl()
     # demo4_bullet_mujoco_off_policy()
     # demo4_bullet_mujoco_on_policy()
