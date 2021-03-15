@@ -35,7 +35,7 @@ class QNetTwin(nn.Module):  # Double DQN
         return q1, q2  # two Q values
 
 
-class Actor(nn.Module):  # DPG: Deterministic Policy Gradient
+class Actor(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -76,7 +76,7 @@ class ActorPPO(nn.Module):
     def compute_logprob(self, state, action):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
-        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)  # __mul__(0.5) is * 0.5
+        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)  # '__mul__(0.5)' is '* 0.5'
         logprob = -(self.a_std_log + self.sqrt_2pi_log + delta)
         return logprob.sum(1)
 

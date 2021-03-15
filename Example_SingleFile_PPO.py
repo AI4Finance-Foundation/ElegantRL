@@ -61,10 +61,11 @@ class AgentPPO:
     def __init__(self):
         super().__init__()
         self.learning_rate = 1e-4
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
+        self.ratio_clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.01  # could be 0.02
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
-        self.if_gae = True
+        self.if_use_gae = True
+        self.compute_reward = None
 
         self.state = None  # set for self.update_buffer(), initialize before training
         self.noise = None
@@ -76,6 +77,7 @@ class AgentPPO:
 
     def init(self, net_dim, state_dim, action_dim):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.compute_reward = self.compute_reward_gae if self.if_use_gae else self.compute_reward_adv
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(state_dim, net_dim).to(self.device)
@@ -84,22 +86,19 @@ class AgentPPO:
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': self.learning_rate},
                                            {'params': self.cri.parameters(), 'lr': self.learning_rate}])
 
-    def select_actions(self, states):  # states = (state, ...)
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        a_noise, noise = self.act.get_action_noise(states)
-        return a_noise.detach().cpu().numpy(), noise.detach().cpu().numpy()
+    def select_action(self, state):
+        states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach()
+        actions, noises = self.act.get_action_noise(states)
+        return actions[0].cpu().numpy(), noises[0].cpu().numpy()
 
     def store_transition(self, env, buffer, target_step, reward_scale, gamma):
-        buffer.empty_memories__before_explore()  # NOTICE! necessary for on-policy
-        # assert target_step == buffer.max_len - max_step
+        buffer.empty_buffer_before_explore()  # NOTICE! necessary for on-policy
 
         actual_step = 0
         while actual_step < target_step:
             state = env.reset()
             for _ in range(env.max_step):
-                action, noise = self.select_actions((state,))
-                action = action[0]
-                noise = noise[0]
+                action, noise = self.select_action(state)
 
                 next_state, reward, done, _ = env.step(np.tanh(action))
                 actual_step += 1
@@ -112,26 +111,21 @@ class AgentPPO:
         return actual_step
 
     def update_net(self, buffer, _target_step, batch_size, repeat_times=8):
-        buffer.update__now_len__before_sample()
+        buffer.update_now_len_before_sample()
         max_memo = buffer.now_len  # assert max_memo >= _target_step
 
-        '''Trajectory using reverse reward'''
-        with torch.no_grad():
+        with torch.no_grad():  # Trajectory using reverse reward
             buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_for_ppo()
 
             bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            if self.if_gae:
-                buf_r_sum, buf_advantage = self.compute_reward_gae(max_memo, buf_reward, buf_mask, buf_value)
-            else:
-                buf_r_sum, buf_advantage = self.compute_reward(max_memo, buf_reward, buf_mask, buf_value)
+            buf_r_sum, buf_advantage = self.compute_reward(max_memo, buf_reward, buf_mask, buf_value)
             del buf_reward, buf_mask, buf_noise
 
-        '''PPO: Surrogate objective of Trust Region'''
         obj_critic = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):
+        for _ in range(int(repeat_times * max_memo / batch_size)):  # PPO: Surrogate objective of Trust Region
             indices = torch.randint(max_memo, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
@@ -143,7 +137,7 @@ class AgentPPO:
             new_logprob = self.act.compute_logprob(state, action)  # it is obj_actor
             ratio = (new_logprob - logprob).exp()
             obj_surrogate1 = advantage * ratio
-            obj_surrogate2 = advantage * ratio.clamp(1 - self.clip, 1 + self.clip)
+            obj_surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
             obj_surrogate = -torch.min(obj_surrogate1, obj_surrogate2).mean()
             obj_entropy = (new_logprob.exp() * new_logprob).mean()  # policy entropy
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
@@ -155,9 +149,10 @@ class AgentPPO:
             self.optimizer.zero_grad()
             obj_united.backward()
             self.optimizer.step()
+
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
-    def compute_reward(self, max_memo, buf_reward, buf_mask, buf_value):
+    def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value):
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
         pre_r_sum = 0  # reward sum of previous step
         for i in range(max_memo - 1, -1, -1):
@@ -241,10 +236,10 @@ class ReplayBuffer:
                 all_other[:, 2 + self.action_dim:],  # noise
                 torch.as_tensor(self.buf_state[:self.now_len], device=self.device))  # state
 
-    def update__now_len__before_sample(self):
+    def update_now_len_before_sample(self):
         self.now_len = self.max_len if self.if_full else self.next_idx
 
-    def empty_memories__before_explore(self):
+    def empty_buffer_before_explore(self):
         self.next_idx = 0
         self.now_len = 0
         self.if_full = False
@@ -477,7 +472,6 @@ def train_and_evaluate(args):
 
     '''init: Agent, ReplayBuffer, Evaluator'''
     agent.init(net_dim, state_dim, action_dim)
-    if_on_policy = getattr(agent, 'if_on_policy', False)
 
     buffer = ReplayBuffer(max_len=max_memo + max_step, state_dim=state_dim, action_dim=1 if if_discrete else action_dim)
 

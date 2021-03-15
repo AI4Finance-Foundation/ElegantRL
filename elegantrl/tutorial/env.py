@@ -1,26 +1,27 @@
-import os
 import gym
 import numpy as np
 import numpy.random as rd
 
 
-class PreprocessEnv(gym.Wrapper):  # env wrapper
-    def __init__(self, env, if_print=True, data_type=np.float32):
+class PreprocessEnv(gym.Wrapper):  # environment wrapper
+    def __init__(self, env, if_print=True):
         super(PreprocessEnv, self).__init__(env)
         self.env = env
-        self.data_type = data_type
 
-        (self.env_name, self.state_dim, self.action_dim, self.action_max,
-         self.if_discrete, self.target_reward, self.max_step
+        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
+         self.if_discrete, self.target_reward
          ) = get_gym_env_info(env, if_print)
 
-    def reset(self):
-        state = self.env.reset()
-        return state.astype(self.data_type)
+        self.reset = self.reset_type
+        self.step = self.step_type
 
-    def step(self, action):
+    def reset_type(self):
+        state = self.env.reset()
+        return state.astype(np.float32)
+
+    def step_type(self, action):
         state, reward, done, info = self.env.step(action * self.action_max)
-        return state.astype(self.data_type), reward, done, info
+        return state.astype(np.float32), reward, done, info
 
 
 def get_gym_env_info(env, if_print):
@@ -60,20 +61,20 @@ def get_gym_env_info(env, if_print):
     print(f"\n| env_name: {env_name}, action space if_discrete: {if_discrete}"
           f"\n| state_dim: {state_dim}, action_dim: {action_dim}, action_max: {action_max}"
           f"\n| max_step: {max_step} target_reward: {target_reward}") if if_print else None
-    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
+    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_reward
 
 
-class FinanceMultiStockEnv:  # custom env
+class FinanceStockEnv:  # custom env
     def __init__(self, initial_account=1e6, max_stock=1e2, transaction_fee_percent=1e-3, if_train=True, ):
         self.stock_dim = 30
         self.initial_account = initial_account
         self.transaction_fee_percent = transaction_fee_percent
         self.max_stock = max_stock
 
-        ary = self.load_training_data_for_multi_stock()
-        assert ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
-        self.ary_train = ary[:1024]
-        self.ary_valid = ary[1024:]
+        data_ary = np.load('./FinanceStock.npy').astype(np.float32)
+        assert data_ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
+        self.ary_train = data_ary[:1024]
+        self.ary_valid = data_ary[1024:]
         self.ary = self.ary_train if if_train else self.ary_valid
 
         # reset
@@ -92,7 +93,7 @@ class FinanceMultiStockEnv:  # custom env
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 1.25  # convergence 1.5
+        self.target_reward = 1.25  # denotes 1.25 times the initial_account. convergence to 1.5
         self.max_step = self.ary.shape[0]
 
     def reset(self):
@@ -130,30 +131,16 @@ class FinanceMultiStockEnv:  # custom env
         self.day_npy = self.ary[self.day]
         self.day += 1
         done = self.day == self.max_step  # 2020-12-21
-
-        state = np.hstack((self.account * 2 ** -16,
-                           self.day_npy * 2 ** -8,
-                           self.stocks * 2 ** -12,), ).astype(np.float32)
+        state = np.hstack((self.account * 2 ** -16, self.day_npy * 2 ** -8, self.stocks * 2 ** -12,)).astype(np.float32)
 
         next_total_asset = self.account + (self.day_npy[:self.stock_dim] * self.stocks).sum()
         reward = (next_total_asset - self.total_asset) * 2 ** -16  # notice scaling!
         self.total_asset = next_total_asset
 
-        self.gamma_return = self.gamma_return * 0.99 + reward  # notice: gamma_r seems good? Yes
+        self.gamma_return = self.gamma_return * 0.99 + reward  # for infinite horizon case
         if done:
             reward += self.gamma_return
             self.gamma_return = 0.0  # env.reset()
             self.episode_return = next_total_asset / self.initial_account  # cumulative_return_rate
 
         return state, reward, done, None
-
-    @staticmethod
-    def load_training_data_for_multi_stock(if_load=True):  # need more independent
-        npy_path = './FinanceMultiStock.npy'
-        if if_load and os.path.exists(npy_path):
-            data_ary = np.load(npy_path).astype(np.float32)
-            assert data_ary.shape[1] == 5 * 30
-            return data_ary
-        else:
-            raise RuntimeError(f'| Download and put it into: {npy_path}\n for FinanceMultiStockEnv()'
-                               f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy')

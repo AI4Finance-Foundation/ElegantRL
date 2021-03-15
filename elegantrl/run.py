@@ -131,11 +131,15 @@ def demo2_continuous_action_space_off_policy():
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     args.env = PreprocessEnv(env=env)
     args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
-    "TD3 TotalStep: 3e4, TargetReward: -200, UsedTime: 300s"
-    "SAC TotalStep: 4e4, TargetReward: -200, UsedTime: 400s"
+    # args.eval_times2 = 2 ** 4  # set a large eval_times to get a precise learning curve
+    "TD3    TotalStep: 3e4, TargetReward: -200, UsedTime: 300s"
+    "ModSAC TotalStep: 4e4, TargetReward: -200, UsedTime: 400s"
     # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
     # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
-    "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s"
+    "TD3    TotalStep:  9e4, TargetReward: 100, UsedTime: 3ks"
+    "TD3    TotalStep: 20e4, TargetReward: 200, UsedTime: 5ks"
+    "SAC    TotalStep:  9e4, TargetReward: 200, UsedTime: 3ks"
+    "ModSAC TotalStep:  5e4, TargetReward: 200, UsedTime: 1ks"
     # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
     # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
     # args.net_dim = 2 ** 8
@@ -183,9 +187,9 @@ def demo3_custom_env_fin_rl():
     args = Arguments(if_on_policy=True)
     args.agent = AgentGaePPO()  # PPO+GAE (on-policy)
 
-    from elegantrl.env import FinanceMultiStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
-    args.env = FinanceMultiStockEnv(if_train=True, train_beg=0, train_len=1024)
-    args.env_eval = FinanceMultiStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
+    from elegantrl.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
+    args.env = FinanceStockEnv(if_train=True, train_beg=0, train_len=1024)
+    args.env_eval = FinanceStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
     args.reward_scale = 2 ** 0  # RewardRange: 0 < 1.0 < 1.25 <
     args.break_step = int(5e6)
     args.net_dim = 2 ** 8
@@ -213,7 +217,7 @@ def demo4_bullet_mujoco_off_policy():
     from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
     args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
     args.agent.if_use_dn = True
-    args.net_dim = 2 ** 7  # default is 2 ** 8, but is too large for if_use_dn = True
+    args.net_dim = 2 ** 7  # default is 2 ** 8 is too large for if_use_dn = True
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
@@ -227,7 +231,7 @@ def demo4_bullet_mujoco_off_policy():
     args.show_gap = 2 ** 8  # for Recorder
     args.eva_size1 = 2 ** 1  # for Recorder
     args.eva_size2 = 2 ** 3  # for Recorder
-    "TotalStep: 3e5, TargetReward: 1500, UsedTime: "
+    "TotalStep: 3e5, TargetReward: 1500, UsedTime:  8ks"
     "TotalStep: 6e5, TargetReward: 2500, UsedTime: 20ks"
 
     # train_and_evaluate(args)
@@ -238,9 +242,9 @@ def demo4_bullet_mujoco_off_policy():
 def demo4_bullet_mujoco_on_policy():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
 
-    from elegantrl.agent import AgentGaePPO  # AgentPPO
-    args.agent = AgentGaePPO()  # AgentPPO()
-    args.agent.lambda_entropy = 0.02
+    from elegantrl.agent import AgentPPO
+    args.agent = AgentPPO()
+    args.agent.if_use_gae = True
 
     import pybullet_envs  # for python-bullet-gym
     dir(pybullet_envs)
@@ -249,15 +253,15 @@ def demo4_bullet_mujoco_on_policy():
 
     args.break_step = int(2e6 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
-    args.max_memo = 2 ** 13
+    args.max_memo = 2 ** 11
+    args.repeat_times = 2 ** 3
     args.batch_size = 2 ** 10
     args.net_dim = 2 ** 9
     args.show_gap = 2 ** 8  # for Recorder
     args.eva_size1 = 2 ** 1  # for Recorder
     args.eva_size2 = 2 ** 3  # for Recorder
-    "# 8e6, 1949, 13ks"
-    "TotalStep: 3e6, TargetReward: 1500, UsedTime: 5ks"
-    "TotalStep: 8e6, TargetReward: 1949, UsedTime: 13ks"
+    "TotalStep:  2e6, TargetReward: 1500, UsedTime:  3ks"
+    "TotalStep: 13e6, TargetReward: 2400, UsedTime: 21ks"
 
     '''train and evaluate'''
     # train_and_evaluate(args)
@@ -322,8 +326,8 @@ def train_and_evaluate(args):
             steps = explore_before_training(env, buffer, target_step, reward_scale, gamma)
 
         agent.update_net(buffer, target_step, batch_size, repeat_times)  # pre-training and hard update
-        agent.act_target.load_state_dict(agent.act.state_dict()) if 'act_target' in dir(agent) else None
-        agent.cri_target.load_state_dict(agent.cri.state_dict()) if 'cri_target' in dir(agent) else None
+        agent.act_target.load_state_dict(agent.act.state_dict()) if getattr(agent, 'act_target', None) else None
+        agent.cri_target.load_state_dict(agent.cri.state_dict()) if getattr(agent, 'cri_target', None) else None
     total_step = steps
 
     '''start training'''
@@ -377,7 +381,7 @@ def train_and_evaluate__multiprocessing(args):
     import warnings
     warnings.simplefilter('ignore', UserWarning)
     # semaphore_tracker: There appear to be 1 leaked semaphores to clean up at shutdown
-    print("[W CudaIPCTypes.cpp:22]← Don't worry about this warning.")
+    # print("[W CudaIPCTypes.cpp:22]← Don't worry about this warning.")
     [p.terminate() for p in process]
 
 
@@ -634,15 +638,6 @@ class Evaluator:
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-        import matplotlib as mpl  # draw figure in Terminal
-        mpl.use('Agg')
-        import matplotlib.pyplot as plt
-        # plt.style.use('ggplot')
-
-        self.plt = plt
-        fig, self.axs = plt.subplots(2)
-        self.ax12 = self.axs[1].twinx()
-
     def evaluate_save(self, act, steps, obj_a, obj_c):
         reward_list = [get_episode_return(self.env, act, self.device)
                        for _ in range(self.eva_times1)]
@@ -665,8 +660,8 @@ class Evaluator:
         self.total_step += steps  # update total training steps
         self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
 
-        if_solve = bool(self.r_max > self.target_reward)  # check if_solve
-        if if_solve and self.used_time is None:
+        if_reach_goal = bool(self.r_max > self.target_reward)  # check if_reach_goal
+        if if_reach_goal and self.used_time is None:
             self.used_time = int(time.time() - self.start_time)
             print(f"{'ID':>2}  {'Step':>8}  {'TargetR':>8} |"
                   f"{'avgR':>8}  {'stdR':>8}   {'UsedTime':>8}  ########\n"
@@ -677,62 +672,22 @@ class Evaluator:
             self.print_time = time.time()
             print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |"
                   f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f}")
-        return if_solve
+        return if_reach_goal
 
     def save_npy_draw_plot(self):
         if len(self.recorder) == 0:
             print("| save_npy_draw_plot() WARNNING: len(self.recorder)==0")
             return None
 
-        '''save recorder as npy'''
+        '''convert to array and save as npy'''
         np.save('%s/recorder.npy' % self.cwd, self.recorder)
 
-        '''plot subplots'''
-        plt = self.plt
-        axs = self.axs
-
-        recorder = np.array(self.recorder)  # recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))
-        steps = recorder[:, 0]  # x-axis is training steps
-        r_avg = recorder[:, 1]
-        r_std = recorder[:, 2]
-        obj_a = recorder[:, 3]
-        obj_c = recorder[:, 4]
-
-        axs0 = axs[0]
-        axs0.cla()
-        color0 = 'lightcoral'
-        axs0.plot(steps, r_avg, label='Episode Return', color=color0)
-        axs0.fill_between(steps, r_avg - r_std, r_avg + r_std, facecolor=color0, alpha=0.3)
-
-        ax11 = axs[1]
-        ax11.cla()
-        color11 = 'royalblue'
-        label = 'objA'
-        ax11.set_ylabel(label, color=color11)
-        ax11.plot(steps, obj_a, label=label, color=color11)
-        ax11.tick_params(axis='y', labelcolor=color11)
-
-        self.ax12.cla()  # self.ax12 = axs[1].twinx()
-        color12 = 'darkcyan'
-        self.ax12.set_ylabel('objC', color=color12)
-        self.ax12.fill_between(steps, obj_c, facecolor=color12, alpha=0.2, )
-        self.ax12.tick_params(axis='y', labelcolor=color12)
-
-        self.ax12.relim()
-        self.ax12.autoscale_view()
-        '''Dynamically update multiple axis in matplotlib
-        https://stackoverflow.com/a/43786789/9293137
-        '''
-
-        '''plot title'''
+        '''draw plot and save as png'''
         train_time = int(time.time() - self.start_time)
         total_step = int(self.recorder[-1][0])
         save_title = f"plot_step_time_maxR_{int(total_step)}_{int(train_time)}_{self.r_max:.3f}"
-        plt.title(save_title, y=2.3)
 
-        '''plot save'''
-        plt.savefig(f"{self.cwd}/plot_learning_curve.jpg")
-        # plt.show()
+        save_learning_curve(self.recorder, self.cwd, save_title)
 
 
 def get_episode_return(env, act, device) -> float:
@@ -752,6 +707,51 @@ def get_episode_return(env, act, device) -> float:
         if done:
             break
     return env.episode_return if hasattr(env, 'episode_return') else episode_return
+
+
+def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
+    recorder = np.array(recorder)  # recorder_ary.append((self.total_step, r_avg, r_std, obj_a, obj_c))
+    steps = recorder[:, 0]  # x-axis is training steps
+    r_avg = recorder[:, 1]
+    r_std = recorder[:, 2]
+    obj_a = recorder[:, 3]
+    obj_c = recorder[:, 4]
+
+    '''plot subplots'''
+    import matplotlib as mpl
+    mpl.use('Agg')
+    """Generating matplotlib graphs without a running X server [duplicate]
+    write `mpl.use('Agg')` before `import matplotlib.pyplot as plt`
+    https://stackoverflow.com/a/4935945/9293137
+    """
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(2)
+
+    axs0 = axs[0]
+    axs0.cla()
+    color0 = 'lightcoral'
+    axs0.plot(steps, r_avg, label='Episode Return', color=color0)
+    axs0.fill_between(steps, r_avg - r_std, r_avg + r_std, facecolor=color0, alpha=0.3)
+
+    ax11 = axs[1]
+    ax11.cla()
+    color11 = 'royalblue'
+    label = 'objA'
+    ax11.set_ylabel(label, color=color11)
+    ax11.plot(steps, obj_a, label=label, color=color11)
+    ax11.tick_params(axis='y', labelcolor=color11)
+
+    ax12 = axs[1].twinx()
+    color12 = 'darkcyan'
+    ax12.set_ylabel('objC', color=color12)
+    ax12.fill_between(steps, obj_c, facecolor=color12, alpha=0.2, )
+    ax12.tick_params(axis='y', labelcolor=color12)
+
+    '''plot save'''
+    plt.title(save_title, y=2.3)
+    plt.savefig(f"{cwd}/plot_learning_curve.jpg")
+    plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
+    # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
 
 
 def explore_before_training(env, buffer, target_step, reward_scale, gamma):

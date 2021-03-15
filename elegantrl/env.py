@@ -6,12 +6,18 @@ import gym
 
 class PreprocessEnv(gym.Wrapper):  # env wrapper
     def __init__(self, env, if_print=True, data_type=np.float32):
+        """Preprocess a standard OpenAI gym environment for RL training.
+
+        :param env: a standard OpenAI gym environment, it has env.reset() and env.step()
+        :param if_print: print the information of environment. Such as env_name, state_dim ...
+        :param data_type: convert state (sometimes float64) to data_type (float32).
+        """
         super(PreprocessEnv, self).__init__(env)
         self.env = env
         self.data_type = data_type
 
-        (self.env_name, self.state_dim, self.action_dim, self.action_max,
-         self.if_discrete, self.target_reward, self.max_step
+        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
+         self.if_discrete, self.target_reward
          ) = get_gym_env_info(env, if_print)
 
         state_avg, state_std = get_avg_std__for_state_norm(self.env_name)
@@ -123,7 +129,20 @@ def get_avg_std__for_state_norm(env_name):
 
 
 def get_gym_env_info(env, if_print):
-    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+    """get information of a standard OpenAI gym env.
+
+    The DRL algorithm AgentXXX need these env information for building networks and training.
+    env_name: the environment name, such as XxxXxx-v0
+    state_dim: the dimension of state
+    action_dim: the dimension of continuous action; Or the number of discrete action
+    action_max: the max action of continuous action; action_max == 1 when it is discrete action space
+    if_discrete: Is this env a discrete action space?
+    target_reward: the target episode return, if agent reach this score, then it pass this game (env).
+    max_step: the steps in an episode. (from env.reset to done). It breaks an episode when it reach max_step
+
+    :param env: a standard OpenAI gym environment, it has env.reset() and env.step()
+    :param if_print: print the information of environment. Such as env_name, state_dim ...
+    """
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
 
@@ -156,17 +175,16 @@ def get_gym_env_info(env, if_print):
     else:
         raise RuntimeError('| Please set these value manually: if_discrete=bool, action_dim=int, action_max=1.0')
 
-    print(f"\n| env_name: {env_name}, action space if_discrete: {if_discrete}"
-          f"\n| state_dim: {state_dim}, action_dim: {action_dim}, action_max: {action_max}"
-          f"\n| max_step: {max_step} (default: {max_step_default})"
-          f"\n| target_reward: {target_reward} (default: {target_reward_default})") if if_print else None
-    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
+    print(f"\n| env_name:  {env_name}, action space if_discrete: {if_discrete}"
+          f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}, action_max: {action_max}"
+          f"\n| max_step:  {max_step:4}, target_reward: {target_reward}") if if_print else None
+    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_reward
 
 
 """Custom environment: Finance RL, Github AI4Finance-LLC"""
 
 
-class FinanceMultiStockEnv:  # 2021-02-02
+class FinanceStockEnv:  # 2021-02-02
     """FinRL
     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
            https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
@@ -181,7 +199,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         self.transaction_fee_percent = transaction_fee_percent
         self.max_stock = max_stock
 
-        ary = self.load_training_data_for_multi_stock()
+        ary = self.load_training_data_for_multi_stock(data_path='./FinanceStock.npy')
         assert ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
         assert train_beg < train_len
         assert train_len < ary.shape[0]  # ary.shape[0] == 1699
@@ -265,15 +283,14 @@ class FinanceMultiStockEnv:  # 2021-02-02
         return state, reward, done, None
 
     @staticmethod
-    def load_training_data_for_multi_stock(if_load=True):  # need more independent
-        npy_path = './FinanceMultiStock.npy'
-        if if_load and os.path.exists(npy_path):
-            data_ary = np.load(npy_path).astype(np.float32)
+    def load_training_data_for_multi_stock(data_path='./FinanceStock.npy'):  # need more independent
+        if os.path.exists(data_path):
+            data_ary = np.load(data_path).astype(np.float32)
             assert data_ary.shape[1] == 5 * 30
             return data_ary
         else:
             raise RuntimeError(
-                f'| Download and put it into: {npy_path}\n for FinanceMultiStockEnv()'
+                f'| Download and put it into: {data_path}\n for FinanceStockEnv()'
                 f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy'
                 f'| Or you can use the following code to generate it from a csv file.')
 
@@ -317,9 +334,9 @@ class FinanceMultiStockEnv:  # 2021-02-02
         #
         # data_ary = data_ary.reshape((-1, 5 * 30))
         #
-        # os.makedirs(npy_path[:npy_path.rfind('/')])
-        # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
-        # print('| FinanceMultiStockEnv(): save in:', npy_path)
+        # os.makedirs(data_path[:data_path.rfind('/')])
+        # np.save(data_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
+        # print('| FinanceStockEnv(): save in:', data_path)
         # return data_ary
 
     def draw_cumulative_return(self, args, torch):

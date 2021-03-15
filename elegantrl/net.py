@@ -113,7 +113,7 @@ class ActorPPO(nn.Module):
         super().__init__()
         if isinstance(state_dim, int):
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                     nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                     nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                      nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                      nn.Linear(mid_dim, action_dim), )
         else:
@@ -237,7 +237,7 @@ class CriticAdv(nn.Module):
         super().__init__()
         if isinstance(state_dim, int):
             self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                     nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                     nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                      nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                      nn.Linear(mid_dim, 1))
         else:
