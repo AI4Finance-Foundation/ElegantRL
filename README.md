@@ -30,14 +30,14 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 # Table of Contents
 
-+ [Media](#Media)
++ [News](#News)
 + [File Structure](#File-Structure)
 + [Training Pipeline](#Training-Pipeline)
 + [Experimental Results](#Experimental-Results)
 + [Requirements](#Requirements)
 + [Model-free DRL Algorithms](#Model-free-DRL-Algorithms)
 
-# Media
+# News
 
 + [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b)
 # File Structure
