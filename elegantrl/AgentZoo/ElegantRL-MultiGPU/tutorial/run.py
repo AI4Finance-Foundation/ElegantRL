@@ -207,13 +207,12 @@ def train_and_evaluate(args):
             if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
 
 
-def explore_before_training(env, buffer, target_step, reward_scale, gamma):  # just for off-policy
+def explore_before_training(env, buffer, target_step, reward_scale, gamma) -> int:  # just for off-policy
     if_discrete = env.if_discrete
     action_dim = env.action_dim
 
     state = env.reset()
     steps = 0
-
     while steps < target_step:
         action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action)
@@ -247,7 +246,7 @@ class Evaluator:
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-    def evaluate_save(self, act, steps, obj_a, obj_c):
+    def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
         reward_list = [get_episode_return(self.env, act, self.device) for _ in range(self.eva_times)]
         r_avg = np.average(reward_list)  # episode return average
         r_std = float(np.std(reward_list))  # episode return std
@@ -277,7 +276,7 @@ class Evaluator:
         return if_reach_goal
 
 
-def get_episode_return(env, act, device):
+def get_episode_return(env, act, device) -> float:
     max_step = env.max_step
     if_discrete = env.if_discrete
 

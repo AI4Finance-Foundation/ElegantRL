@@ -4,7 +4,7 @@ import numpy.random as rd
 import gym
 
 
-class PreprocessEnv(gym.Wrapper):  # env wrapper
+class PreprocessEnv(gym.Wrapper):  # environment wrapper # todo 2021-03-17
     def __init__(self, env, if_print=True, data_type=np.float32):
         """Preprocess a standard OpenAI gym environment for RL training.
 
@@ -31,26 +31,26 @@ class PreprocessEnv(gym.Wrapper):  # env wrapper
             self.reset = self.reset_type
             self.step = self.step_type
 
-    def reset_type(self):
+    def reset_type(self) -> np.ndarray:
         state = self.env.reset()
         return state.astype(self.data_type)
 
-    def reset_norm(self):
+    def reset_norm(self) -> np.ndarray:
         state = self.env.reset()
         (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type)
 
-    def step_type(self, action):
+    def step_type(self, action) -> (np.ndarray, float, bool, dict):
         state, reward, done, info = self.env.step(action * self.action_max)
         return state.astype(self.data_type), reward, done, info
 
-    def step_norm(self, action):
+    def step_norm(self, action) -> (np.ndarray, float, bool, dict):
         state, reward, done, info = self.env.step(action * self.action_max)
         state = (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type), reward, done, info
 
 
-def get_avg_std__for_state_norm(env_name):
+def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):
     avg = None
     std = None
     if env_name == 'LunarLanderContinuous-v2':
@@ -128,7 +128,7 @@ def get_avg_std__for_state_norm(env_name):
     return avg, std
 
 
-def get_gym_env_info(env, if_print):
+def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     """get information of a standard OpenAI gym env.
 
     The DRL algorithm AgentXXX need these env information for building networks and training.
@@ -226,7 +226,7 @@ class FinanceStockEnv:  # 2021-02-02
         self.target_reward = 1.25  # convergence 1.5
         self.max_step = self.ary.shape[0]
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         self.initial_account__reset = self.initial_account * rd.uniform(0.9, 1.1)  # reset()
         self.account = self.initial_account__reset
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
@@ -242,7 +242,7 @@ class FinanceStockEnv:  # 2021-02-02
                            self.stocks * 2 ** -12,), ).astype(np.float32)
         return state
 
-    def step(self, action):
+    def step(self, action) -> (np.ndarray, float, bool, None):
         action = action * self.max_stock
 
         """bug or sell stock"""
@@ -339,7 +339,7 @@ class FinanceStockEnv:  # 2021-02-02
         # print('| FinanceStockEnv(): save in:', data_path)
         # return data_ary
 
-    def draw_cumulative_return(self, args, torch):
+    def draw_cumulative_return(self, args, torch) -> list:
         state_dim = self.state_dim
         action_dim = self.action_dim
 
@@ -379,7 +379,7 @@ class FinanceStockEnv:  # 2021-02-02
 """Custom environment: Fix Env CarRacing-v0 - Box2D"""
 
 
-def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
+def fix_car_racing_env(env, frame_num=3, action_num=3) -> gym.Wrapper:  # 2020-12-12
     setattr(env, 'old_step', env.step)  # env.old_step = env.step
     setattr(env, 'env_name', 'CarRacing-Fix')
     setattr(env, 'state_dim', (frame_num, 96, 96))
@@ -495,10 +495,10 @@ def get_video_to_watch_gym_render():
     env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
 
     '''choose algorithm'''
-    from elegantrl.agent import AgentGaePPO
-    agent = AgentGaePPO()
+    from elegantrl.agent import AgentPPO
+    agent = AgentPPO()
     net_dim = 2 ** 8
-    cwd = 'AgentGaePPO/BipedalWalker-v3_2/'
+    cwd = 'AgentPPO/BipedalWalker-v3_2/'
     # from elegantrl.agent import AgentModSAC
     # agent = AgentModSAC()
     # net_dim = 2 ** 7
@@ -511,7 +511,6 @@ def get_video_to_watch_gym_render():
     agent.save_load_model(cwd=cwd, if_save=False)
 
     '''initialize evaluete and env.render()'''
-    act = agent.act
     device = agent.device
     save_frame_dir = 'frames'
     save_video = 'gym_render.mp4'

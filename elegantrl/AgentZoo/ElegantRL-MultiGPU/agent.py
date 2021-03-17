@@ -66,7 +66,6 @@ class AgentBase:
         """Select actions for exploration
 
         :array state: state.shape==(state_dim, )
-
         :return array action: action.shape==(action_dim, ), (action.min(), action.max())==(-1, +1)
         """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
@@ -77,7 +76,6 @@ class AgentBase:
         """Select actions for exploration
 
         :array states: (state, ) or (state, state, ...) or state.shape==(n, *state_dim)
-
         :return array action: action.shape==(-1, action_dim), (action.min(), action.max())==(-1, +1)
         """
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device).detach_()
@@ -87,12 +85,11 @@ class AgentBase:
     def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         """actor explores in env, then stores the env transition to ReplayBuffer
 
-        :param env: RL training environment. env.reset() env.step()
-        :param buffer: Experience Replay Buffer. buffer.append_buffer() buffer.extend_buffer()
-        :param target_step: explored target_step number of step in env
-        :param reward_scale: scale reward, 'reward * reward_scale'
-        :param gamma: discount factor, 'mask = 0.0 if done else gamma'
-
+        :env: RL training environment. env.reset() env.step()
+        :buffer: Experience Replay Buffer. buffer.append_buffer() buffer.extend_buffer()
+        :int target_step: explored target_step number of step in env
+        :float reward_scale: scale reward, 'reward * reward_scale'
+        :float gamma: discount factor, 'mask = 0.0 if done else gamma'
         :return int target_step: collected target_step number of step in env
         """
         for _ in range(target_step):
@@ -109,11 +106,10 @@ class AgentBase:
         replace by different DRL algorithms.
         return the objective value as training information to help fine-tuning
 
-        :param buffer: Experience replay buffer. buffer.append_buffer() buffer.extend_buffer()
-        :param target_step: explore target_step number of step in env
-        :param batch_size: sample batch_size of data for Stochastic Gradient Descent
-        :param repeat_times: the times of sample batch = int(target_step * repeat_times) in off-policy
-
+        :buffer: Experience replay buffer. buffer.append_buffer() buffer.extend_buffer()
+        :int target_step: explore target_step number of step in env
+        :int batch_size: sample batch_size of data for Stochastic Gradient Descent
+        :float repeat_times: the times of sample batch = int(target_step * repeat_times) in off-policy
         :return float obj_a: the objective value of actor
         :return float obj_c: the objective value of critic
         """
@@ -322,7 +318,7 @@ class AgentDDPG(AgentBase):
 
     def init(self, net_dim, state_dim, action_dim):
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.ou_explore_noise)
-        # I don't recommend OU-Noise
+        # I don't recommend to use OU-Noise
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
@@ -459,7 +455,6 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         3. Try Spectral Normalization and found it conflict with soft target update.
         3. Try increasing batch_size and update_times
         3. Dropout layer is useless in RL.
-
         -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
         """
         buffer.update_now_len_before_sample()
@@ -816,7 +811,7 @@ class AgentPPO(AgentBase):
 
     def update_net(self, buffer, _target_step, batch_size, repeat_times=4) -> (float, float):
         buffer.update_now_len_before_sample()
-        max_memo = buffer.now_len  # assert max_memo >= _target_step
+        buf_len = buffer.now_len  # assert buf_len >= _target_step
 
         '''Trajectory using reverse reward'''
         with torch.no_grad():
@@ -826,13 +821,13 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            buf_r_sum, buf_advantage = self.compute_reward(max_memo, buf_reward, buf_mask, buf_value)
+            buf_r_sum, buf_advantage = self.compute_reward(buf_len, buf_reward, buf_mask, buf_value)
             del buf_reward, buf_mask, buf_noise
 
         '''PPO: Surrogate objective of Trust Region'''
         obj_critic = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):
-            indices = torch.randint(max_memo, size=(batch_size,), requires_grad=False, device=self.device)
+        for _ in range(int(repeat_times * buf_len / batch_size)):
+            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
             action = buf_action[indices]
@@ -858,23 +853,41 @@ class AgentPPO(AgentBase):
 
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
-    def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
-        buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
+    def compute_reward_adv(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        """compute the excepted discounted episode return
+
+        :int buf_len: the length of ReplayBuffer
+        :torch.Tensor buf_reward: buf_reward.shape==(buf_len, 1)
+        :torch.Tensor buf_mask:   buf_mask.shape  ==(buf_len, 1)
+        :torch.Tensor buf_value:  buf_value.shape ==(buf_len, 1)
+        :return torch.Tensor buf_r_sum:      buf_r_sum.shape     ==(buf_len, 1)
+        :return torch.Tensor buf_advantage:  buf_advantage.shape ==(buf_len, 1)
+        """
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
         pre_r_sum = 0  # reward sum of previous step
-        for i in range(max_memo - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
         buf_advantage = buf_r_sum - (buf_mask * buf_value.squeeze(1))
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 
-    def compute_reward_gae(self, max_memo, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
-        buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-        buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+    def compute_reward_gae(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        """compute the excepted discounted episode return
+
+        :int buf_len: the length of ReplayBuffer
+        :torch.Tensor buf_reward: buf_reward.shape==(buf_len, 1)
+        :torch.Tensor buf_mask:   buf_mask.shape  ==(buf_len, 1)
+        :torch.Tensor buf_value:  buf_value.shape ==(buf_len, 1)
+        :return torch.Tensor buf_r_sum:      buf_r_sum.shape     ==(buf_len, 1)
+        :return torch.Tensor buf_advantage:  buf_advantage.shape ==(buf_len, 1)
+        """
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
+        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
         pre_r_sum = 0  # reward sum of previous step
         pre_advantage = 0  # advantage value of previous step
-        for i in range(max_memo - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
@@ -909,7 +922,7 @@ class AgentInterPPO(AgentPPO):
 
     def update_net(self, buffer, _target_step, batch_size, repeat_times=4) -> (float, float):  # old version
         buffer.update_now_len_before_sample()
-        max_memo = buffer.now_len  # assert max_memo >= _target_step
+        buf_len = buffer.now_len  # assert buf_len >= _target_step
 
         '''Trajectory using Generalized Advantage Estimation (GAE)'''
         with torch.no_grad():
@@ -919,12 +932,12 @@ class AgentInterPPO(AgentPPO):
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-            buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+            buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
+            buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
             pre_r_sum = 0  # reward sum of previous step
             pre_advantage = 0  # advantage value of previous step
-            for i in range(max_memo - 1, -1, -1):
+            for i in range(buf_len - 1, -1, -1):
                 buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
                 pre_r_sum = buf_r_sum[i]
 
@@ -935,8 +948,8 @@ class AgentInterPPO(AgentPPO):
             del buf_reward, buf_mask, buf_noise
 
         '''PPO: Clipped Surrogate objective of Trust Region'''
-        for _ in range(int(repeat_times * max_memo / batch_size)):
-            indices = torch.randint(max_memo, size=(batch_size,), device=self.device)
+        for _ in range(int(repeat_times * buf_len / batch_size)):
+            indices = torch.randint(buf_len, size=(batch_size,), device=self.device)
 
             state = buf_state[indices]
             action = buf_action[indices]
@@ -973,14 +986,13 @@ class ReplayBuffer:
         """Experience Replay Buffer
 
         save environment transition in a continuous RAM for high performance training
-        we save trajectory in order
-        we save state and other (action, reward, mask, ...) separately.
+        we save trajectory in order and save state and other (action, reward, mask, ...) separately.
 
         :int max_len: the maximum capacity of ReplayBuffer. First In First Out
         :int state_dim: the dimension of state
         :int action_dim: the dimension of action (action_dim==1 for discrete action)
         :bool if_on_policy: on-policy or off-policy
-        :bool if_gpu: creat memory space on CPU RAM or GPU
+        :bool if_gpu: create buffer space on CPU RAM or GPU
         """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_len = max_len
@@ -1038,34 +1050,64 @@ class ReplayBuffer:
         self.next_idx = next_idx
 
     def sample_batch(self, batch_size) -> tuple:
-        if self.if_gpu:
-            indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
-        else:
-            indices = rd.randint(self.now_len - 1, size=batch_size)
+        """randomly sample a batch of data for training
+
+        :int batch_size: the number of data in a batch for Stochastic Gradient Descent
+        :return torch.Tensor reward: reward.shape==(now_len, 1)
+        :return torch.Tensor mask:   mask.shape  ==(now_len, 1), mask = 0.0 if done else gamma
+        :return torch.Tensor action: action.shape==(now_len, action_dim)
+        :return torch.Tensor state:  state.shape ==(now_len, state_dim)
+        :return torch.Tensor state:  state.shape ==(now_len, state_dim), next state
+        """
+        indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device) if self.if_gpu \
+            else rd.randint(self.now_len - 1, size=batch_size)
         r_m_a = self.buf_other[indices]
-        return (r_m_a[:, 0:1],  # reward
-                r_m_a[:, 1:2],  # mask = 0.0 if done else gamma
-                r_m_a[:, 2:],  # action
-                self.buf_state[indices],  # state
-                self.buf_state[indices + 1])  # next_state
+        return (r_m_a[:, 0:1],
+                r_m_a[:, 1:2],
+                r_m_a[:, 2:],
+                self.buf_state[indices],
+                self.buf_state[indices + 1])
 
     def sample_all(self) -> tuple:
+        """sample all the data in ReplayBuffer (for on-policy)
+
+        :return torch.Tensor reward: reward.shape==(now_len, 1)
+        :return torch.Tensor mask:   mask.shape  ==(now_len, 1), mask = 0.0 if done else gamma
+        :return torch.Tensor action: action.shape==(now_len, action_dim)
+        :return torch.Tensor noise:  noise.shape ==(now_len, action_dim)
+        :return torch.Tensor state:  state.shape ==(now_len, state_dim)
+        """
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
-        return (all_other[:, 0],  # reward
-                all_other[:, 1],  # mask = 0.0 if done else gamma
-                all_other[:, 2:2 + self.action_dim],  # action
-                all_other[:, 2 + self.action_dim:],  # noise
-                torch.as_tensor(self.buf_state[:self.now_len], device=self.device))  # state
+        return (all_other[:, 0],
+                all_other[:, 1],
+                all_other[:, 2:2 + self.action_dim],
+                all_other[:, 2 + self.action_dim:],
+                torch.as_tensor(self.buf_state[:self.now_len], device=self.device))
 
     def update_now_len_before_sample(self):
+        """update the a pointer `now_len`, which is the current data number of ReplayBuffer
+        """
         self.now_len = self.max_len if self.if_full else self.next_idx
 
     def empty_buffer_before_explore(self):
+        """we empty the buffer by set now_len=0. On-policy need to empty buffer before exploration
+        """
         self.next_idx = 0
         self.now_len = 0
         self.if_full = False
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
+        """print the state norm information: state_avg, state_std
+
+        We don't suggest to use running stat state.
+        We directly do normalization on state using the historical avg and std
+        eg. `state = (state + self.neg_state_avg) * self.div_state_std` in `PreprocessEnv.step_norm()`
+        neg_avg = -states.mean()
+        div_std = 1/(states.std()+1e-5) or 6/(states.max()-states.min())
+
+        :array neg_avg: neg_avg.shape=(state_dim)
+        :array div_std: div_std.shape=(state_dim)
+        """
         max_sample_size = 2 ** 14
 
         '''check if pass'''
@@ -1107,7 +1149,16 @@ class ReplayBuffer:
 
 
 class ReplayBufferMP:
-    def __init__(self, max_len, state_dim, action_dim, if_on_policy, rollout_num, if_gpu):
+    def __init__(self, max_len, state_dim, action_dim, rollout_num, if_on_policy, if_gpu):
+        """Experience Replay Buffer for Multiple Processing
+
+        :int max_len: the maximum capacity of ReplayBuffer. First In First Out
+        :int state_dim: the dimension of state
+        :int action_dim: the dimension of action (action_dim==1 for discrete action)
+        :int rollout_num: the rollout workers number
+        :bool if_on_policy: on-policy or off-policy
+        :bool if_gpu: create buffer space on CPU RAM or GPU
+        """
         self.now_len = 0
         self.max_len = max_len
         self.rollout_num = rollout_num
@@ -1180,6 +1231,10 @@ class OrnsteinUhlenbeckNoise:
         self.size = size
 
     def __call__(self) -> float:
+        """output a OU-noise
+
+        :return array ou_noise: a noise generated by Ornstein-Uhlenbeck Process
+        """
         noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
         self.ou_noise -= self.theta * self.ou_noise * self.dt + noise
         return self.ou_noise

@@ -307,7 +307,6 @@ class AgentSAC(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-
         return alpha.item(), obj_critic.item() / 2
 
 
@@ -360,7 +359,7 @@ class AgentPPO(AgentBase):
 
     def update_net(self, buffer, _target_step, batch_size, repeat_times=4) -> (float, float):
         buffer.update_now_len_before_sample()
-        max_memo = buffer.now_len  # assert max_memo >= _target_step
+        buf_len = buffer.now_len  # assert buf_len >= _target_step
 
         with torch.no_grad():  # Trajectory using reverse reward
             buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_all()
@@ -369,13 +368,12 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            buf_r_sum, buf_advantage = self.compute_reward(max_memo, buf_reward, buf_mask, buf_value)
+            buf_r_sum, buf_advantage = self.compute_reward(buf_len, buf_reward, buf_mask, buf_value)
             del buf_reward, buf_mask, buf_noise
 
         obj_critic = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):  # PPO: Surrogate objective of Trust Region
-            indices = torch.randint(max_memo, size=(batch_size,), requires_grad=False, device=self.device)
-
+        for _ in range(int(repeat_times * buf_len / batch_size)):  # PPO: Surrogate objective of Trust Region
+            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
             state = buf_state[indices]
             action = buf_action[indices]
             r_sum = buf_r_sum[indices]
@@ -397,26 +395,25 @@ class AgentPPO(AgentBase):
             self.optimizer.zero_grad()
             obj_united.backward()
             self.optimizer.step()
-
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
-    def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
-        buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
+    def compute_reward_adv(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
         pre_r_sum = 0  # reward sum of previous step
-        for i in range(max_memo - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
         buf_advantage = buf_r_sum - (buf_mask * buf_value.squeeze(1))
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 
-    def compute_reward_gae(self, max_memo, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
-        buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-        buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+    def compute_reward_gae(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
+        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
         pre_r_sum = 0  # reward sum of previous step
         pre_advantage = 0  # advantage value of previous step
-        for i in range(max_memo - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
@@ -485,10 +482,8 @@ class ReplayBuffer:
         self.next_idx = next_idx
 
     def sample_batch(self, batch_size) -> tuple:
-        if self.if_gpu:
-            indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
-        else:
-            indices = rd.randint(self.now_len - 1, size=batch_size)
+        indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device) if self.if_gpu \
+            else rd.randint(self.now_len - 1, size=batch_size)
         r_m_a = self.buf_other[indices]
         return (r_m_a[:, 0:1],  # reward
                 r_m_a[:, 1:2],  # mask = 0.0 if done else gamma

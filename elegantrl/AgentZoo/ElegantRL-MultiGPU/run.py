@@ -640,7 +640,7 @@ class Evaluator:
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-    def evaluate_save(self, act, steps, obj_a, obj_c):
+    def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
         reward_list = [get_episode_return(self.env, act, self.device)
                        for _ in range(self.eva_times1)]
         r_avg = np.average(reward_list)  # episode return average
@@ -756,7 +756,7 @@ def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
 
 
-def explore_before_training(env, buffer, target_step, reward_scale, gamma):
+def explore_before_training(env, buffer, target_step, reward_scale, gamma) -> int:
     # just for off-policy. Because on-policy don't explore before training.
     if_discrete = env.if_discrete
     action_dim = env.action_dim
