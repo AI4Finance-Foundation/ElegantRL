@@ -39,6 +39,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 # Media
 
++ [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b)
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
