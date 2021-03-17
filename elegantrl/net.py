@@ -48,7 +48,7 @@ class QNetTwin(nn.Module):  # Double DQN
         tmp = self.net_state(state)
         return self.net_q1(tmp)  # one Q value
 
-    def get__q1_q2(self, state):
+    def get_q1_q2(self, state):
         tmp = self.net_state(state)
         q1 = self.net_q1(tmp)
         q2 = self.net_q2(tmp)
@@ -130,8 +130,9 @@ class ActorPPO(nn.Module):
                                      NnnReshape(-1),
                                      nn.Linear(set_dim(5), mid_dim), nn.ReLU(),
                                      nn.Linear(mid_dim, action_dim), )
+
         self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)  # trainable parameter
-        self.sqrt_2pi_log = 0.9189385332046727  # =np.log(np.sqrt(2 * np.pi))
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
         layer_norm(self.net[-1], std=0.1)  # output layer for action
 
@@ -280,15 +281,6 @@ class CriticTwin(nn.Module):
         layer_norm(self.net_q1, std=0.1)
         layer_norm(self.net_q2, std=0.1)
 
-        '''Not need to use both SpectralNorm and TwinCritic
-        I choose TwinCritc instead of SpectralNorm, 
-        because SpectralNorm is conflict with soft target update,
-
-        if is_spectral_norm:
-            self.net1[1] = nn.utils.spectral_norm(self.dec_q1[1])
-            self.net2[1] = nn.utils.spectral_norm(self.dec_q2[1])
-        '''
-
     def forward(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp)  # one Q value
@@ -318,9 +310,8 @@ class InterDPG(nn.Module):  # DPG means deterministic policy gradient
                                    nn.utils.spectral_norm(nn.Linear(mid_dim, 1)))
 
     @staticmethod
-    def add_noise(a, noise_std):  # 2020-03-03
+    def add_noise(a, noise_std):
         a_temp = torch.normal(a, noise_std)
-        # mask = ((a_temp < -1.0) + (a_temp > 1.0)).type(torch.float32)  # 2019-12-30
         mask = torch.tensor((a_temp < -1.0) + (a_temp > 1.0), dtype=torch.float32).cuda()
 
         noise_uniform = torch.rand_like(a)
@@ -546,7 +537,7 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number
         def set_dim(i):
             return int((3 / 2) ** i * mid_dim)
 
-        self.dense1 = nn.Sequential(nn.Linear(set_dim(0), set_dim(0) // 2), nn.ReLU())
+        self.dense1 = nn.Sequential(nn.Linear(set_dim(0), set_dim(0) // 2), nn.Hardswish())
         self.dense2 = nn.Sequential(nn.Linear(set_dim(1), set_dim(1) // 2), nn.Hardswish())
         self.out_dim = set_dim(2)
 

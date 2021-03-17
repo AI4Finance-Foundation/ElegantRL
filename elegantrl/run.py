@@ -1,14 +1,13 @@
 import os
+import gym
 import time
-from copy import deepcopy
-
 import torch
 import numpy as np
 import numpy.random as rd
 
+from copy import deepcopy
 from elegantrl.agent import ReplayBuffer, ReplayBufferMP
 from elegantrl.env import PreprocessEnv
-import gym
 
 gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
 
@@ -150,15 +149,16 @@ def demo2_continuous_action_space_off_policy():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo2_continuous_action_space_on_policy():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
 
     '''choose an DRL algorithm'''
-    from elegantrl.agent import AgentGaePPO  # AgentPPO
-    args.agent = AgentGaePPO()
+    from elegantrl.agent import AgentPPO
+    args.agent = AgentPPO()
+    args.agent.if_use_gae = True
 
     '''choose environment'''
     # env = gym.make('Pendulum-v0')
@@ -177,7 +177,7 @@ def demo2_continuous_action_space_on_policy():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo3_custom_env_fin_rl():
@@ -186,7 +186,7 @@ def demo3_custom_env_fin_rl():
     '''choose an DRL algorithm'''
     args = Arguments(if_on_policy=True)
     args.agent = AgentPPO()
-    args.agent.if_use_gae = False  # 
+    args.agent.if_use_gae = False
 
     from elegantrl.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
     args.env = FinanceStockEnv(if_train=True, train_beg=0, train_len=1024)
@@ -200,15 +200,14 @@ def demo3_custom_env_fin_rl():
     args.repeat_times = 2 ** 4
     args.eval_times1 = 2 ** 2
     args.eval_times2 = 2 ** 4
-    args.if_allow_break = False
-    "TotalStep:  2e5, TargetReward: 1.25, UsedTime:  200s"
-    "TotalStep:  4e5, TargetReward: 1.50, UsedTime:  400s"
-    "TotalStep: 10e5, TargetReward: 1.62, UsedTime: 1000s"
+    args.if_allow_break = True
+    "TotalStep:  5e4, TargetReward: 1.25, UsedTime:  20s"
+    "TotalStep: 20e4, TargetReward: 1.50, UsedTime:  80s"
 
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 8
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo4_bullet_mujoco_off_policy():
@@ -237,7 +236,7 @@ def demo4_bullet_mujoco_off_policy():
 
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo4_bullet_mujoco_on_policy():
@@ -267,7 +266,7 @@ def demo4_bullet_mujoco_on_policy():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 '''single process training'''
@@ -337,7 +336,7 @@ def train_and_evaluate(args):
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.store_transition(env, buffer, target_step, reward_scale, gamma)
+            steps = agent.explore_env(env, buffer, target_step, reward_scale, gamma)
 
         total_step += steps
 
@@ -350,7 +349,7 @@ def train_and_evaluate(args):
 '''multiprocessing training'''
 
 
-def train_and_evaluate__multiprocessing(args):
+def train_and_evaluate_mp(args):
     act_workers = args.rollout_num
     os.environ['PYTHONWARNINGS'] = 'ignore:semaphore_tracker:UserWarning'
     '''Python.multiprocessing + PyTorch + CUDA --> semaphore_tracker:UserWarning
@@ -366,14 +365,14 @@ def train_and_evaluate__multiprocessing(args):
     pipe1_eva, pipe2_eva = mp.Pipe()  # Pipe() for Process mp_evaluate_agent()
     pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()
 
-    process_train = mp.Process(target=mp__update_params, args=(args, pipe2_eva, pipe2_exp_list))
-    process_evaluate = mp.Process(target=mp_evaluate_agent, args=(args, pipe1_eva))
+    process_train = mp.Process(target=mp_train, args=(args, pipe2_eva, pipe2_exp_list))
+    process_evaluate = mp.Process(target=mp_evaluate, args=(args, pipe1_eva))
     process = [process_train, process_evaluate]
 
     for worker_id in range(act_workers):
         exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
         pipe2_exp_list.append(exp_pipe1)
-        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, worker_id)))
+        process.append(mp.Process(target=mp_explore, args=(args, exp_pipe2, worker_id)))
 
     print("| multiprocessing, None:")
     [p.start() for p in process]
@@ -386,7 +385,7 @@ def train_and_evaluate__multiprocessing(args):
     [p.terminate() for p in process]
 
 
-def mp__update_params(args, pipe1_eva, pipe1_exp_list):
+def mp_train(args, pipe1_eva, pipe1_exp_list):
     args.init_before_training(if_main=False)
 
     '''basic arguments'''
@@ -413,7 +412,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
 
     '''init: Agent, ReplayBuffer'''
     agent.init(net_dim, state_dim, action_dim)
-    if_on_policy = agent.__class__.__name__ in {'AgentPPO', 'AgentGaePPO', 'AgentInterPPO'}
+    if_on_policy = getattr(agent, 'if_on_policy', False)
 
     '''send'''
     pipe1_eva.send(agent.act)  # send
@@ -491,7 +490,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     time.sleep(4)
 
 
-def mp_explore_in_env(args, pipe2_exp, worker_id):
+def mp_explore(args, pipe2_exp, worker_id):
     args.init_before_training(if_main=False)
 
     '''basic arguments'''
@@ -521,7 +520,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
     agent.init(net_dim, state_dim, action_dim)
     agent.state = env.reset()
 
-    if_on_policy = agent.__class__.__name__ in {'AgentPPO', 'AgentGaePPO', 'AgentInterPPO'}
+    if_on_policy = getattr(agent, 'if_on_policy', False)
     buffer = ReplayBuffer(max_len=max_memo // rollout_num + max_step, if_on_policy=if_on_policy,
                           state_dim=state_dim, action_dim=1 if if_discrete else action_dim, if_gpu=False)
 
@@ -539,7 +538,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
             buffer.empty_buffer_before_explore()
 
         while True:
-            agent.store_transition(env, buffer, exp_step, reward_scale, gamma)
+            agent.explore_env(env, buffer, exp_step, reward_scale, gamma)
 
             buffer.update_now_len_before_sample()
 
@@ -552,7 +551,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
             agent.act = pipe2_exp.recv()
 
 
-def mp_evaluate_agent(args, pipe2_eva):
+def mp_evaluate(args, pipe2_eva):
     args.init_before_training(if_main=True)
 
     '''basic arguments'''
@@ -606,7 +605,7 @@ def mp_evaluate_agent(args, pipe2_eva):
             pipe2_eva.send(if_solve)
             # if_solve = pipe1_eva.recv()
 
-            evaluator.save_npy_draw_plot()
+            evaluator.draw_plot()
 
     '''save the model, rename the directory'''
     print(f'| SavedDir: {cwd}\n'
@@ -639,7 +638,7 @@ class Evaluator:
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-    def evaluate_save(self, act, steps, obj_a, obj_c):
+    def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
         reward_list = [get_episode_return(self.env, act, self.device)
                        for _ in range(self.eva_times1)]
         r_avg = np.average(reward_list)  # episode return average
@@ -675,7 +674,7 @@ class Evaluator:
                   f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f}")
         return if_reach_goal
 
-    def save_npy_draw_plot(self):
+    def draw_plot(self):
         if len(self.recorder) == 0:
             print("| save_npy_draw_plot() WARNNING: len(self.recorder)==0")
             return None
@@ -755,7 +754,7 @@ def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
 
 
-def explore_before_training(env, buffer, target_step, reward_scale, gamma):
+def explore_before_training(env, buffer, target_step, reward_scale, gamma) -> int:
     # just for off-policy. Because on-policy don't explore before training.
     if_discrete = env.if_discrete
     action_dim = env.action_dim

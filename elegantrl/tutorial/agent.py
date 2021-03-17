@@ -23,11 +23,10 @@ class AgentBase:
     def init(self, net_dim, state_dim, action_dim):
         pass
 
-    def select_action(self, state):
-        states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
-        return self.act(states)[0].cpu().numpy()  # -1 < action < +1
+    def select_action(self, state) -> np.ndarray:
+        pass  # return action
 
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+    def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         for _ in range(target_step):
             action = self.select_action(self.state)
             next_s, reward, done, _ = env.step(action)
@@ -36,9 +35,10 @@ class AgentBase:
             self.state = env.reset() if done else next_s
         return target_step
 
-    def soft_update(self, target_net, current_net):
+    @staticmethod
+    def soft_update(target_net, current_net, tau):
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
-            tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
+            tar.data.copy_(cur.data * tau + tar.data * (1 - tau))
 
 
 class AgentDQN(AgentBase):
@@ -58,7 +58,7 @@ class AgentDQN(AgentBase):
         self.criterion = torch.torch.nn.MSELoss()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):  # for discrete action space
+    def select_action(self, state) -> int:  # for discrete action space
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_int = rd.randint(self.action_dim)
         else:
@@ -67,7 +67,7 @@ class AgentDQN(AgentBase):
             a_int = action.argmax().cpu().numpy()
         return a_int
 
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+    def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         for _ in range(target_step):
             action = self.select_action(self.state)
             next_s, reward, done, _ = env.step(action)
@@ -77,7 +77,7 @@ class AgentDQN(AgentBase):
             self.state = env.reset() if done else next_s
         return target_step
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         next_q = obj_critic = None
@@ -92,12 +92,8 @@ class AgentDQN(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            self.soft_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
         return next_q.mean().item(), obj_critic.item()
-
-    def soft_update(self, target_net, current_net):
-        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
-            tar.data.copy_(cur.data * self.soft_update_tau + tar.data * (1 - self.soft_update_tau))
 
 
 class AgentDoubleDQN(AgentDQN):
@@ -117,7 +113,7 @@ class AgentDoubleDQN(AgentDQN):
         self.criterion = torch.nn.SmoothL1Loss()
         self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):  # for discrete action space
+    def select_action(self, state) -> np.ndarray:  # for discrete action space
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         actions = self.act(states)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
@@ -129,7 +125,7 @@ class AgentDoubleDQN(AgentDQN):
             a_int = action.argmax(dim=0).cpu().numpy()
         return a_int
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         next_q = obj_critic = None
@@ -146,7 +142,7 @@ class AgentDoubleDQN(AgentDQN):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            self.soft_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
         return next_q.mean().item(), obj_critic.item() / 2
 
 
@@ -167,13 +163,13 @@ class AgentDDPG(AgentBase):
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act(states)[0]
         action = action + torch.randn_like(action) * self.explore_noise
         return action.cpu().numpy()
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         obj_critic = obj_actor = None
@@ -188,7 +184,7 @@ class AgentDDPG(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            self.soft_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
             q_value_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri_target(state, q_value_pg).mean()
@@ -196,7 +192,7 @@ class AgentDDPG(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-            self.soft_update(self.act_target, self.act)
+            self.soft_update(self.act_target, self.act, self.soft_update_tau)
         return obj_actor.item(), obj_critic.item()
 
 
@@ -217,13 +213,13 @@ class AgentTD3(AgentBase):
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act(states)[0]
         action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.cpu().numpy()
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         obj_critic = obj_actor = None
@@ -247,8 +243,8 @@ class AgentTD3(AgentBase):
             obj_actor.backward()
             self.act_optimizer.step()
             if i % self.update_freq == 0:  # delay update
-                self.soft_update(self.cri_target, self.cri)
-                self.soft_update(self.act_target, self.act)
+                self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+                self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
         return obj_actor.item(), obj_critic.item() / 2
 
@@ -275,12 +271,12 @@ class AgentSAC(AgentBase):
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
 
-    def select_action(self, state):
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act.get_action(states)[0]
         return action.cpu().numpy()
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         alpha = self.alpha_log.exp().detach()
@@ -297,7 +293,7 @@ class AgentSAC(AgentBase):
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
-            self.soft_update(self.cri_target, self.cri)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
             action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
             obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
@@ -311,8 +307,7 @@ class AgentSAC(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-
-        return alpha.item(), obj_critic.item()
+        return alpha.item(), obj_critic.item() / 2
 
 
 class AgentPPO(AgentBase):
@@ -339,12 +334,12 @@ class AgentPPO(AgentBase):
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': self.learning_rate},
                                            {'params': self.cri.parameters(), 'lr': self.learning_rate}])
 
-    def select_action(self, state):
+    def select_action(self, state) -> tuple:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach()
         actions, noises = self.act.get_action_noise(states)
         return actions[0].cpu().numpy(), noises[0].cpu().numpy()
 
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+    def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         buffer.empty_buffer_before_explore()  # NOTICE! necessary for on-policy
 
         actual_step = 0
@@ -352,7 +347,6 @@ class AgentPPO(AgentBase):
             state = env.reset()
             for _ in range(env.max_step):
                 action, noise = self.select_action(state)
-
                 next_state, reward, done, _ = env.step(np.tanh(action))
                 actual_step += 1
 
@@ -363,24 +357,23 @@ class AgentPPO(AgentBase):
                 state = next_state
         return actual_step
 
-    def update_net(self, buffer, _target_step, batch_size, repeat_times=8):
+    def update_net(self, buffer, _target_step, batch_size, repeat_times=4) -> (float, float):
         buffer.update_now_len_before_sample()
-        max_memo = buffer.now_len  # assert max_memo >= _target_step
+        buf_len = buffer.now_len  # assert buf_len >= _target_step
 
         with torch.no_grad():  # Trajectory using reverse reward
-            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_for_ppo()
+            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_all()
 
             bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
             buf_logprob = -(buf_noise.pow(2).__mul__(0.5) + self.act.a_std_log + self.act.sqrt_2pi_log).sum(1)
 
-            buf_r_sum, buf_advantage = self.compute_reward(max_memo, buf_reward, buf_mask, buf_value)
+            buf_r_sum, buf_advantage = self.compute_reward(buf_len, buf_reward, buf_mask, buf_value)
             del buf_reward, buf_mask, buf_noise
 
         obj_critic = None
-        for _ in range(int(repeat_times * max_memo / batch_size)):  # PPO: Surrogate objective of Trust Region
-            indices = torch.randint(max_memo, size=(batch_size,), requires_grad=False, device=self.device)
-
+        for _ in range(int(repeat_times * buf_len / batch_size)):  # PPO: Surrogate objective of Trust Region
+            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
             state = buf_state[indices]
             action = buf_action[indices]
             r_sum = buf_r_sum[indices]
@@ -402,26 +395,25 @@ class AgentPPO(AgentBase):
             self.optimizer.zero_grad()
             obj_united.backward()
             self.optimizer.step()
-
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
-    def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value):
-        buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
+    def compute_reward_adv(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
         pre_r_sum = 0  # reward sum of previous step
-        for i in range(max_memo - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
         buf_advantage = buf_r_sum - (buf_mask * buf_value.squeeze(1))
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 
-    def compute_reward_gae(self, max_memo, buf_reward, buf_mask, buf_value):
-        buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
-        buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
+    def compute_reward_gae(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
+        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
         pre_r_sum = 0  # reward sum of previous step
         pre_advantage = 0  # advantage value of previous step
-        for i in range(max_memo - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
@@ -439,7 +431,7 @@ class ReplayBuffer:
         self.now_len = 0
         self.next_idx = 0
         self.if_full = False
-        self.action_dim = action_dim  # for self.sample_for_ppo(
+        self.action_dim = action_dim  # for self.sample_all(
         self.if_on_policy = if_on_policy
         self.if_gpu = if_gpu
 
@@ -489,11 +481,9 @@ class ReplayBuffer:
             self.buf_other[self.next_idx:next_idx] = other
         self.next_idx = next_idx
 
-    def sample_batch(self, batch_size):
-        if self.if_gpu:
-            indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
-        else:
-            indices = rd.randint(self.now_len - 1, size=batch_size)
+    def sample_batch(self, batch_size) -> tuple:
+        indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device) if self.if_gpu \
+            else rd.randint(self.now_len - 1, size=batch_size)
         r_m_a = self.buf_other[indices]
         return (r_m_a[:, 0:1],  # reward
                 r_m_a[:, 1:2],  # mask = 0.0 if done else gamma
@@ -501,7 +491,7 @@ class ReplayBuffer:
                 self.buf_state[indices],  # state
                 self.buf_state[indices + 1])  # next_state
 
-    def sample_for_ppo(self):
+    def sample_all(self) -> tuple:
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
         return (all_other[:, 0],  # reward
                 all_other[:, 1],  # mask = 0.0 if done else gamma

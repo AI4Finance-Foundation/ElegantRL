@@ -68,22 +68,18 @@ def run__demo():
 
     """DEMO 1: Discrete action env of gym"""
     args = Arguments(agent=None, env=None, gpu_id=None)  # hyperparameters
-
     '''choose an DRL algorithm'''
     from elegantrl.tutorial.agent import AgentDoubleDQN  # AgentDQN
     args.agent = AgentDoubleDQN()
-
     '''choose environment'''
     # "TotalStep: 2e3, TargetReward: 195, UsedTime: 10s, CartPole-v0"
     # args.env = PreprocessEnv(env=gym.make('CartPole-v0'))
     # args.net_dim = 2 ** 7  # change a default hyper-parameters
     # args.batch_size = 2 ** 7
-
     "TotalStep: 6e4, TargetReward: 200, UsedTime: 600s, LunarLander-v2"
     args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
     args.net_dim = 2 ** 8
     args.batch_size = 2 ** 8
-
     '''train and evaluate'''
     train_and_evaluate(args)
     exit()
@@ -98,53 +94,44 @@ def run__demo():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
 
-    '''choose environment'''
-    # "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s, Pendulum-v0"
+    "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s, Pendulum-v0"
     env = gym.make('Pendulum-v0')
     env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     args.env = PreprocessEnv(env=env)
     args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
     args.batch_size = 2 ** 7
     args.net_dim = 2 ** 7
-
-    # "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s, LunarLanderContinuous-v2"
+    "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s, LunarLanderContinuous-v2"
     # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
     # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
-
-    # "TotalStep: 2e5, TargetReward: 300, UsedTime: 5000s, BipedalWalker-v3"
+    "TotalStep: 2e5, TargetReward: 300, UsedTime: 5000s, BipedalWalker-v3"
     # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
     # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
     # args.break_step = int(2e5)  # break training when reach break_step (force termination)
     # args.if_allow_break = False  # allow break training when reach goal (early termination)
 
-    '''train and evaluate'''
     train_and_evaluate(args)  # tutorial version
-    # train_and_evaluate_mp(args)  # try multiprocessing in advanced version
     exit()
 
     '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
-
-    '''choose an DRL algorithm'''
     from elegantrl.tutorial.agent import AgentPPO
     args = Arguments(if_on_policy=True)
     args.agent = AgentPPO()
-    args.agent.if_use_gae = True
+    args.agent.if_use_gae = False
 
+    "TotalStep:  5e4, TargetReward: 1.25, UsedTime:   30s, FinanceStock-v2"
+    "TotalStep: 16e4, TargetReward: 1.50, UsedTime:  160s, FinanceStock-v2"
     from elegantrl.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
     args.env = FinanceStockEnv(if_train=True, train_beg=0, train_len=1024)
     args.env_eval = FinanceStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
     args.env_eval.target_reward = 1.25  # denotes 1.25 times the initial_account. convergence to 1.5
-    "TotalStep:  5e4, TargetReward: 1.25, UsedTime:   30s, FinanceStock-v2"
-    "TotalStep: 16e4, TargetReward: 1.50, UsedTime:  160s, FinanceStock-v2"
 
     args.break_step = int(5e6)  # break training when reach break_step (force termination)
-    args.if_allow_break = False  # allow break training when reach goal (early termination)
-
+    args.if_allow_break = True  # allow break training when reach goal (early termination)
     args.batch_size = 2 ** 11
     args.max_step = args.env.max_step
     args.max_memo = (args.max_step - 1) * 8
 
-    '''train and evaluate'''
     train_and_evaluate(args)  # tutorial version
     # train_and_evaluate_mp(args)  # try multiprocessing in advanced version
     exit()
@@ -212,7 +199,7 @@ def train_and_evaluate(args):
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.store_transition(env, buffer, target_step, reward_scale, gamma)
+            steps = agent.explore_env(env, buffer, target_step, reward_scale, gamma)
         total_step += steps
 
         obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
@@ -220,13 +207,12 @@ def train_and_evaluate(args):
             if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
 
 
-def explore_before_training(env, buffer, target_step, reward_scale, gamma):  # just for off-policy
+def explore_before_training(env, buffer, target_step, reward_scale, gamma) -> int:  # just for off-policy
     if_discrete = env.if_discrete
     action_dim = env.action_dim
 
     state = env.reset()
     steps = 0
-
     while steps < target_step:
         action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action)
@@ -260,7 +246,7 @@ class Evaluator:
         self.print_time = time.time()
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8}")
 
-    def evaluate_save(self, act, steps, obj_a, obj_c):
+    def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
         reward_list = [get_episode_return(self.env, act, self.device) for _ in range(self.eva_times)]
         r_avg = np.average(reward_list)  # episode return average
         r_std = float(np.std(reward_list))  # episode return std
@@ -290,7 +276,7 @@ class Evaluator:
         return if_reach_goal
 
 
-def get_episode_return(env, act, device):
+def get_episode_return(env, act, device) -> float:
     max_step = env.max_step
     if_discrete = env.if_discrete
 

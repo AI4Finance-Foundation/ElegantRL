@@ -15,16 +15,16 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         self.reset = self.reset_type
         self.step = self.step_type
 
-    def reset_type(self):
+    def reset_type(self) -> np.ndarray:
         state = self.env.reset()
         return state.astype(np.float32)
 
-    def step_type(self, action):
+    def step_type(self, action) -> (np.ndarray, float, bool, dict):
         state, reward, done, info = self.env.step(action * self.action_max)
         return state.astype(np.float32), reward, done, info
 
 
-def get_gym_env_info(env, if_print):
+def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
@@ -96,7 +96,7 @@ class FinanceStockEnv:  # custom env
         self.target_reward = 1.25  # denotes 1.25 times the initial_account. convergence to 1.5
         self.max_step = self.ary.shape[0]
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         self.initial_account__reset = self.initial_account * rd.uniform(0.9, 1.1)  # reset()
         self.account = self.initial_account__reset
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
@@ -110,7 +110,7 @@ class FinanceStockEnv:  # custom env
         state = np.hstack((self.account * 2 ** -16, self.day_npy * 2 ** -8, self.stocks * 2 ** -12,)).astype(np.float32)
         return state
 
-    def step(self, action):
+    def step(self, action) -> (np.ndarray, float, bool, None):
         action = action * self.max_stock
 
         """bug or sell stock"""
