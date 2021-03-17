@@ -62,29 +62,29 @@ class AgentBase:
         :int action_dim: the dimension of action (the number of discrete action)
         """
 
-    def select_action(self, state):
+    def select_action(self, state) -> np.ndarray:
         """Select actions for exploration
 
         :array state: state.shape==(state_dim, )
 
-        :return array action: action.shape==(action_dim, ), action.min()n==-1, action.max()==+1
+        :return array action: action.shape==(action_dim, ), (action.min(), action.max())==(-1, +1)
         """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act(states)[0]
         return action.cpu().numpy()
 
-    def select_actions(self, states):  # states = (state, ...)
+    def select_actions(self, states) -> np.ndarray:
         """Select actions for exploration
 
         :array states: (state, ) or (state, state, ...) or state.shape==(n, *state_dim)
 
-        :return array action: action.shape==(-1, action_dim)
+        :return array action: action.shape==(-1, action_dim), (action.min(), action.max())==(-1, +1)
         """
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device).detach_()
-        actions = self.act(states)[0]
+        actions = self.act(states)
         return actions.cpu().numpy()  # -1 < action < +1
 
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+    def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         """actor explores in env, then stores the env transition to ReplayBuffer
 
         :param env: RL training environment. env.reset() env.step()
@@ -103,7 +103,7 @@ class AgentBase:
             self.state = env.reset() if done else next_s
         return target_step
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         """update the neural network by sampling batch data from ReplayBuffer
 
         replace by different DRL algorithms.
@@ -176,7 +176,7 @@ class AgentDQN(AgentBase):
         self.criterion = torch.torch.nn.MSELoss()
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):  # for discrete action space
+    def select_action(self, state) -> int:  # for discrete action space
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_int = rd.randint(self.action_dim)  # choosing action randomly
         else:
@@ -185,7 +185,7 @@ class AgentDQN(AgentBase):
             a_int = action.argmax(dim=0).cpu().numpy()
         return a_int
 
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+    def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         for _ in range(target_step):
             action = self.select_action(self.state)
             next_s, reward, done, _ = env.step(action)
@@ -195,7 +195,7 @@ class AgentDQN(AgentBase):
             self.state = env.reset() if done else next_s
         return target_step
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         next_q = obj_critic = None
@@ -252,7 +252,7 @@ class AgentDoubleDQN(AgentDQN):
         self.criterion = torch.nn.SmoothL1Loss()
         self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):  # for discrete action space
+    def select_action(self, state) -> int:  # for discrete action space
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         actions = self.act(states)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
@@ -264,7 +264,7 @@ class AgentDoubleDQN(AgentDQN):
             a_int = action.argmax(dim=0).cpu().numpy()
         return a_int
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         """Contribution of DDQN (Double DQN)
 
         Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
@@ -334,12 +334,12 @@ class AgentDDPG(AgentBase):
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):  # states = (state, ...)
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act(states)[0].cpu().numpy()
         return (action + self.ou_noise()).ratio_clip(-1, 1)
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
         obj_critic = obj_actor = None  # just for print return
@@ -385,13 +385,13 @@ class AgentTD3(AgentBase):
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
-    def select_action(self, state):  # states = (state, ...)
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act(states)[0]
         action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.cpu().numpy()
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         """Contribution of TD3 (Twin Delay DDPG)
 
         1. twin critics (DoubleDQN -> TwinCritic, good idea)
@@ -448,7 +448,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         self.criterion = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         """Contribution of InterAC (Integrated network for deterministic policy gradient)
 
         1. First try integrated network to share parameter between two **different input** network.
@@ -533,12 +533,12 @@ class AgentSAC(AgentBase):
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
 
-    def select_action(self, state):  # states = (state, ...)
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act.get_action(states)[0]
         return action.cpu().numpy()
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         """Contribution of SAC (Soft Actor-Critic with maximum entropy)
 
         1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
@@ -603,7 +603,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         """ModSAC (Modified SAC using Reliable lambda)
 
         1. Reliable Lambda is calculated based on Critic's loss function value.
@@ -691,12 +691,12 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
              {'params': self.act.dec_q2.parameters(), },
              {'params': (self.alpha_log,)}], lr=self.learning_rate)
 
-    def select_action(self, state):
+    def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act.get_noise_action(states)[0]
         return action.cpu().numpy()
 
-    def update_net(self, buffer, target_step, batch_size, repeat_times):  # 1111
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):  # 1111
         """Contribution of InterSAC (Integrated network for SAC)
 
         1. Encoder-DenseNetLikeNet-Decoder network architecture.
@@ -782,12 +782,19 @@ class AgentPPO(AgentBase):
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': self.learning_rate},
                                            {'params': self.cri.parameters(), 'lr': self.learning_rate}])
 
-    def select_action(self, state):
+    def select_action(self, state) -> tuple:
+        """select action for PPO
+
+        :array state: state.shape==(state_dim, )
+
+        :return array action: state.shape==(action_dim, )
+        :return array noise: noise.shape==(action_dim, ), the noise
+        """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach()
         actions, noises = self.act.get_action_noise(states)
         return actions[0].cpu().numpy(), noises[0].cpu().numpy()
 
-    def store_transition(self, env, buffer, target_step, reward_scale, gamma):
+    def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         buffer.empty_buffer_before_explore()  # NOTICE! necessary for on-policy
         # assert target_step == buffer.max_len - max_step
 
@@ -807,13 +814,13 @@ class AgentPPO(AgentBase):
                 state = next_state
         return actual_step
 
-    def update_net(self, buffer, _target_step, batch_size, repeat_times=8):
+    def update_net(self, buffer, _target_step, batch_size, repeat_times=4) -> (float, float):
         buffer.update_now_len_before_sample()
         max_memo = buffer.now_len  # assert max_memo >= _target_step
 
         '''Trajectory using reverse reward'''
         with torch.no_grad():
-            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_for_ppo()
+            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_all()
 
             bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
@@ -851,7 +858,7 @@ class AgentPPO(AgentBase):
 
         return self.act.a_std_log.mean().item(), obj_critic.item()
 
-    def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value):
+    def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
         pre_r_sum = 0  # reward sum of previous step
         for i in range(max_memo - 1, -1, -1):
@@ -861,7 +868,7 @@ class AgentPPO(AgentBase):
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
 
-    def compute_reward_gae(self, max_memo, buf_reward, buf_mask, buf_value):
+    def compute_reward_gae(self, max_memo, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # old policy value
         buf_advantage = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -900,13 +907,13 @@ class AgentInterPPO(AgentPPO):
             {'params': self.act.dec_q2.parameters(), },
         ], lr=self.learning_rate)
 
-    def update_net(self, buffer, _target_step, batch_size, repeat_times=8):  # old version
+    def update_net(self, buffer, _target_step, batch_size, repeat_times=4) -> (float, float):  # old version
         buffer.update_now_len_before_sample()
         max_memo = buffer.now_len  # assert max_memo >= _target_step
 
         '''Trajectory using Generalized Advantage Estimation (GAE)'''
         with torch.no_grad():
-            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_for_ppo()
+            buf_reward, buf_mask, buf_action, buf_noise, buf_state = buffer.sample_all()
 
             bs = 2 ** 10  # set a smaller 'bs: batch size' when out of GPU memory.
             buf_value = torch.cat([self.cri(buf_state[i:i + bs]) for i in range(0, buf_state.size(0), bs)], dim=0)
@@ -966,16 +973,21 @@ class ReplayBuffer:
         """Experience Replay Buffer
 
         save environment transition in a continuous RAM for high performance training
+        we save trajectory in order
+        we save state and other (action, reward, mask, ...) separately.
 
         :int max_len: the maximum capacity of ReplayBuffer. First In First Out
-        :
+        :int state_dim: the dimension of state
+        :int action_dim: the dimension of action (action_dim==1 for discrete action)
+        :bool if_on_policy: on-policy or off-policy
+        :bool if_gpu: creat memory space on CPU RAM or GPU
         """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.max_len = max_len
         self.now_len = 0
         self.next_idx = 0
         self.if_full = False
-        self.action_dim = action_dim  # for self.sample_for_ppo(
+        self.action_dim = action_dim  # for self.sample_all(
         self.if_on_policy = if_on_policy
         self.if_gpu = if_gpu
 
@@ -1025,7 +1037,7 @@ class ReplayBuffer:
             self.buf_other[self.next_idx:next_idx] = other
         self.next_idx = next_idx
 
-    def sample_batch(self, batch_size):
+    def sample_batch(self, batch_size) -> tuple:
         if self.if_gpu:
             indices = torch.randint(self.now_len - 1, size=(batch_size,), device=self.device)
         else:
@@ -1037,7 +1049,7 @@ class ReplayBuffer:
                 self.buf_state[indices],  # state
                 self.buf_state[indices + 1])  # next_state
 
-    def sample_for_ppo(self):
+    def sample_all(self) -> tuple:
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
         return (all_other[:, 0],  # reward
                 all_other[:, 1],  # mask = 0.0 if done else gamma
@@ -1111,7 +1123,7 @@ class ReplayBufferMP:
     def extend_buffer(self, state, other, i):
         self.buffers[i].extend_buffer(state, other)
 
-    def sample_batch(self, batch_size):
+    def sample_batch(self, batch_size) -> tuple:
         rd_batch_sizes = rd.rand(self.rollout_num)
         rd_batch_sizes = (rd_batch_sizes * (batch_size / rd_batch_sizes.sum())).astype(np.int)
         l__r_m_a_s_ns = [self.buffers[i].sample_batch(rd_batch_sizes[i])
@@ -1122,8 +1134,8 @@ class ReplayBufferMP:
                 torch.cat([item[3] for item in l__r_m_a_s_ns], dim=0),
                 torch.cat([item[4] for item in l__r_m_a_s_ns], dim=0))
 
-    def sample_for_ppo(self):
-        l__r_m_a_n_s = [self.buffers[i].sample_for_ppo()
+    def sample_all(self) -> tuple:
+        l__r_m_a_n_s = [self.buffers[i].sample_all()
                         for i in range(self.rollout_num)]
         return (torch.cat([item[0] for item in l__r_m_a_n_s], dim=0),
                 torch.cat([item[1] for item in l__r_m_a_n_s], dim=0),
@@ -1147,11 +1159,6 @@ class ReplayBufferMP:
 
 
 class OrnsteinUhlenbeckNoise:
-    """ Don't abuse OU Process
-
-    Over fine-tuning is meaningless.
-    """
-
     def __init__(self, size, theta=0.15, sigma=0.3, ou_noise=0.0, dt=1e-2):
         """The noise of Ornstein-Uhlenbeck Process
 
@@ -1172,7 +1179,7 @@ class OrnsteinUhlenbeckNoise:
         self.dt = dt
         self.size = size
 
-    def __call__(self):
+    def __call__(self) -> float:
         noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
         self.ou_noise -= self.theta * self.ou_noise * self.dt + noise
         return self.ou_noise

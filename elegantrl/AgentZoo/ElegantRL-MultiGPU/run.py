@@ -150,7 +150,7 @@ def demo2_continuous_action_space_off_policy():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo2_continuous_action_space_on_policy():
@@ -178,7 +178,7 @@ def demo2_continuous_action_space_on_policy():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo3_custom_env_fin_rl():
@@ -209,7 +209,7 @@ def demo3_custom_env_fin_rl():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 8
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo4_bullet_mujoco_off_policy():
@@ -238,7 +238,7 @@ def demo4_bullet_mujoco_off_policy():
 
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 def demo4_bullet_mujoco_on_policy():
@@ -268,7 +268,7 @@ def demo4_bullet_mujoco_on_policy():
     '''train and evaluate'''
     # train_and_evaluate(args)
     args.rollout_num = 4
-    train_and_evaluate__multiprocessing(args)
+    train_and_evaluate_mp(args)
 
 
 '''single process training'''
@@ -338,7 +338,7 @@ def train_and_evaluate(args):
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
         with torch.no_grad():  # speed up running
-            steps = agent.store_transition(env, buffer, target_step, reward_scale, gamma)
+            steps = agent.explore_env(env, buffer, target_step, reward_scale, gamma)
 
         total_step += steps
 
@@ -351,7 +351,7 @@ def train_and_evaluate(args):
 '''multiprocessing training'''
 
 
-def train_and_evaluate__multiprocessing(args):
+def train_and_evaluate_mp(args):
     act_workers = args.rollout_num
     os.environ['PYTHONWARNINGS'] = 'ignore:semaphore_tracker:UserWarning'
     '''Python.multiprocessing + PyTorch + CUDA --> semaphore_tracker:UserWarning
@@ -367,14 +367,14 @@ def train_and_evaluate__multiprocessing(args):
     pipe1_eva, pipe2_eva = mp.Pipe()  # Pipe() for Process mp_evaluate_agent()
     pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()
 
-    process_train = mp.Process(target=mp__update_params, args=(args, pipe2_eva, pipe2_exp_list))
-    process_evaluate = mp.Process(target=mp_evaluate_agent, args=(args, pipe1_eva))
+    process_train = mp.Process(target=mp_train, args=(args, pipe2_eva, pipe2_exp_list))
+    process_evaluate = mp.Process(target=mp_evaluate, args=(args, pipe1_eva))
     process = [process_train, process_evaluate]
 
     for worker_id in range(act_workers):
         exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
         pipe2_exp_list.append(exp_pipe1)
-        process.append(mp.Process(target=mp_explore_in_env, args=(args, exp_pipe2, worker_id)))
+        process.append(mp.Process(target=mp_explore, args=(args, exp_pipe2, worker_id)))
 
     print("| multiprocessing, None:")
     [p.start() for p in process]
@@ -387,7 +387,7 @@ def train_and_evaluate__multiprocessing(args):
     [p.terminate() for p in process]
 
 
-def mp__update_params(args, pipe1_eva, pipe1_exp_list):
+def mp_train(args, pipe1_eva, pipe1_exp_list):
     args.init_before_training(if_main=False)
 
     '''basic arguments'''
@@ -492,7 +492,7 @@ def mp__update_params(args, pipe1_eva, pipe1_exp_list):
     time.sleep(4)
 
 
-def mp_explore_in_env(args, pipe2_exp, worker_id):
+def mp_explore(args, pipe2_exp, worker_id):
     args.init_before_training(if_main=False)
 
     '''basic arguments'''
@@ -540,7 +540,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
             buffer.empty_buffer_before_explore()
 
         while True:
-            agent.store_transition(env, buffer, exp_step, reward_scale, gamma)
+            agent.explore_env(env, buffer, exp_step, reward_scale, gamma)
 
             buffer.update_now_len_before_sample()
 
@@ -553,7 +553,7 @@ def mp_explore_in_env(args, pipe2_exp, worker_id):
             agent.act = pipe2_exp.recv()
 
 
-def mp_evaluate_agent(args, pipe2_eva):
+def mp_evaluate(args, pipe2_eva):
     args.init_before_training(if_main=True)
 
     '''basic arguments'''
