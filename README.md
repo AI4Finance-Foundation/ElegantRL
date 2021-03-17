@@ -30,11 +30,14 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 
 # Table of Contents
 
++ [Media](#Media)
 + [File Structure](#File-Structure)
 + [Training Pipeline](#Training-Pipeline)
 + [Experimental Results](#Experimental-Results)
 + [Requirements](#Requirements)
 + [Model-free DRL Algorithms](#Model-free-DRL-Algorithms)
+
+# Media
 
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
