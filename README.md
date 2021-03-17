@@ -23,7 +23,7 @@ ElegantRL is featured with **lightweight, efficient and stable**, for researcher
   + **Stable**: as stable as [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
 
 Model-free deep reinforcement learning (DRL) algorithms: 
-+ **DDPG, TD3, SAC, A2C, PPO(GAE)** for continuous actions
++ **DDPG, TD3, SAC, A2C, PPO, PPO(GAE)** for continuous actions
 + **DQN, DoubleDQN, D3QN** for discrete actions
 
 For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
