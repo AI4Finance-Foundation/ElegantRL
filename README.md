@@ -16,7 +16,7 @@
 
 ElegantRL is featured with **lightweight, efficient and stable**, for researchers and practitioners.
   
-  + **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch, OpenAI Gym, and NumPy.
+  + **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
   
   + **Efficient**: performance is comparable with [Ray RLlib](https://github.com/ray-project/ray).
   
