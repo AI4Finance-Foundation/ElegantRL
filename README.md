@@ -74,7 +74,7 @@ As a high-level overview, the relations among the files are as follows. Initiali
 + `evaluator = Evaluator()` : evaluates and stores the trained model.
 + `buffer = ReplayBuffer()` : stores the transitions.
 ### Then, the training process is controlled by a while-loop:
-+ `agent.store_transition(…)`: the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
++ `agent.explore_env(…)`: the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
 + `agent.update_net(…)`: the agent uses a batch from the ReplayBuffer to update the network parameters.
 + `evaluator.evaluate_save(…)`: evaluates the agent's performance and keeps the trained model with the highest score.
 
