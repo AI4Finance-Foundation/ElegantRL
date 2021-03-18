@@ -5,7 +5,7 @@ from copy import deepcopy
 import torch
 import numpy as np
 import numpy.random as rd
-from elegantrl.BetaWarning.agent import ReplayBuffer, ReplayBufferMP
+from agent import ReplayBuffer, ReplayBufferMP
 
 
 '''DEMO'''
