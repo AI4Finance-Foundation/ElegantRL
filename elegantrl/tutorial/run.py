@@ -3,8 +3,8 @@ import time
 import torch
 import numpy as np
 import numpy.random as rd
-from copy import deepcopy
 from elegantrl.tutorial.agent import ReplayBuffer
+from elegantrl.tutorial.env import PreprocessEnv
 
 
 class Arguments:
@@ -59,32 +59,30 @@ class Arguments:
         np.random.seed(self.random_seed)
 
 
-def run__demo():
+def demo1_discrete_action_space():
     # from elegantrl.tutorial.run import Arguments, train_and_evaluate
-    from elegantrl.tutorial.env import PreprocessEnv
-
-    import gym
-    gym.logger.set_level(40)  # Block warning
-
-    """DEMO 1: Discrete action env of gym"""
     args = Arguments(agent=None, env=None, gpu_id=None)  # hyperparameters
+
     '''choose an DRL algorithm'''
     from elegantrl.tutorial.agent import AgentDoubleDQN  # AgentDQN
     args.agent = AgentDoubleDQN()
+
     '''choose environment'''
-    # "TotalStep: 2e3, TargetReward: 195, UsedTime: 10s, CartPole-v0"
-    # args.env = PreprocessEnv(env=gym.make('CartPole-v0'))
-    # args.net_dim = 2 ** 7  # change a default hyper-parameters
-    # args.batch_size = 2 ** 7
+    "TotalStep: 2e3, TargetReward: 195, UsedTime: 10s, CartPole-v0"
+    args.env = PreprocessEnv('CartPole-v0')  # or PreprocessEnv(gym.make('CartPole-v0'))
+    args.net_dim = 2 ** 7  # change a default hyper-parameters
+    args.batch_size = 2 ** 7
     "TotalStep: 6e4, TargetReward: 200, UsedTime: 600s, LunarLander-v2"
-    args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
-    args.net_dim = 2 ** 8
-    args.batch_size = 2 ** 8
+    # args.env = PreprocessEnv('LunarLander-v2')
+    # args.net_dim = 2 ** 8
+    # args.batch_size = 2 ** 8
     '''train and evaluate'''
     train_and_evaluate(args)
-    exit()
 
-    '''DEMO 2: Continuous action env if gym'''
+
+def demo2_continuous_action_space():
+    # from elegantrl.tutorial.run import Arguments, train_and_evaluate
+    pass
     '''DEMO 2.1: choose an off-policy DRL algorithm'''
     from elegantrl.tutorial.agent import AgentSAC  # AgentTD3, AgentDDPG
     args = Arguments(if_on_policy=False)
@@ -93,38 +91,39 @@ def run__demo():
     from elegantrl.tutorial.agent import AgentPPO  # AgentGaePPO
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
+    args.agent.if_use_gae = False
 
     "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s, Pendulum-v0"
-    env = gym.make('Pendulum-v0')
-    env.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
-    args.env = PreprocessEnv(env=env)
+    args.env = PreprocessEnv('Pendulum-v0')
+    args.env_eval = PreprocessEnv('Pendulum-v0', if_print=False)
+    args.env_eval.target_reward = -200  # set target_reward manually for env 'Pendulum-v0'
     args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
     args.batch_size = 2 ** 7
     args.net_dim = 2 ** 7
     "TotalStep: 9e4, TargetReward: 200, UsedTime: 2500s, LunarLanderContinuous-v2"
-    # args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+    # args.env = PreprocessEnv('LunarLanderContinuous-v2')
     # args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
     "TotalStep: 2e5, TargetReward: 300, UsedTime: 5000s, BipedalWalker-v3"
-    # args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+    # args.env = PreprocessEnv('BipedalWalker-v3')
     # args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
     # args.break_step = int(2e5)  # break training when reach break_step (force termination)
     # args.if_allow_break = False  # allow break training when reach goal (early termination)
 
     train_and_evaluate(args)  # tutorial version
-    exit()
 
-    '''DEMO 3: Custom Continuous action env: FinanceStock-v1'''
-    from elegantrl.tutorial.agent import AgentPPO
+
+def demo3_custom_env():  # continuous action env: FinanceStock-v1
+    # from elegantrl.tutorial.run import Arguments, train_and_evaluate
     args = Arguments(if_on_policy=True)
+    from elegantrl.tutorial.agent import AgentPPO
     args.agent = AgentPPO()
-    args.agent.if_use_gae = False
 
     "TotalStep:  5e4, TargetReward: 1.25, UsedTime:   30s, FinanceStock-v2"
     "TotalStep: 16e4, TargetReward: 1.50, UsedTime:  160s, FinanceStock-v2"
-    from elegantrl.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
-    args.env = FinanceStockEnv(if_train=True, train_beg=0, train_len=1024)
-    args.env_eval = FinanceStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
-    args.env_eval.target_reward = 1.25  # denotes 1.25 times the initial_account. convergence to 1.5
+    from elegantrl.tutorial.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
+    args.env = FinanceStockEnv(if_train=True)  # train_len = 1024
+    args.env_eval = FinanceStockEnv(if_train=False)  # eval_len = 1699 - train_len
+    args.env_eval.target_reward = 1.3  # denotes 1.3 times the initial_account. convergence to 1.5
 
     args.break_step = int(5e6)  # break training when reach break_step (force termination)
     args.if_allow_break = True  # allow break training when reach goal (early termination)
@@ -134,7 +133,6 @@ def run__demo():
 
     train_and_evaluate(args)  # tutorial version
     # train_and_evaluate_mp(args)  # try multiprocessing in advanced version
-    exit()
 
 
 def train_and_evaluate(args):
@@ -145,7 +143,6 @@ def train_and_evaluate(args):
     env = args.env
     agent = args.agent
     gpu_id = args.gpu_id
-    env_eval = args.env_eval
 
     '''training arguments'''
     net_dim = args.net_dim
@@ -161,7 +158,7 @@ def train_and_evaluate(args):
     '''evaluating arguments'''
     show_gap = args.show_gap
     eval_times = args.eval_times
-    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
+    env_eval = PreprocessEnv(env.env_name, if_print=False) if args.env_eval is None else args.env_eval
     del args  # In order to show these hyper-parameters clearly, I put them above.
 
     '''init: environment'''
@@ -169,7 +166,6 @@ def train_and_evaluate(args):
     state_dim = env.state_dim
     action_dim = env.action_dim
     if_discrete = env.if_discrete
-    env_eval = deepcopy(env) if env_eval is None else deepcopy(env_eval)
 
     '''init: Agent, ReplayBuffer, Evaluator'''
     agent.init(net_dim, state_dim, action_dim)
@@ -296,4 +292,6 @@ def get_episode_return(env, act, device) -> float:
 
 
 if __name__ == '__main__':
-    run__demo()
+    demo1_discrete_action_space()
+    demo2_continuous_action_space()
+    demo3_custom_env()
