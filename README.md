@@ -59,7 +59,7 @@ For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.
 + **elegantrl/env.py**    # gym env or custom env, including FinanceStockEnv.
    + A PreprocessEnv class for gym-environment modification.
    + A self-created stock trading environment as an example for user customization.
-+ **Example_BipedalWalker.ipynb**      # BipedalWalker-v2 in jupyter notebooks
++ **BipedalWalker_Example.ipynb**      # BipedalWalker-v2 in jupyter notebooks
 + **ElegantRL_Demo.ipynb**       # Demo 1~ 4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
 + **ElegantRL_SingleFilePPO.py**  # Use single file to train PPO, more simple than tutorial version
 
