@@ -213,8 +213,6 @@ class ActorSAC(nn.Module):
         # logprob = logprob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
 
         logprob = logprob + (-a_tan.pow(2) + 1.000001).log()  # fix logprob using the derivative of action.tanh()
-        # same as below:
-        # epsilon = 1e-6
         # logprob = logprob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
         return a_tan, logprob.sum(1, keepdim=True)
 
@@ -515,9 +513,6 @@ class InterPPO(nn.Module):  # Pixel-level state version
         a_std = self.a_std_log.exp()
         logprob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
         return q1, q2, logprob
-
-
-"""utils"""
 
 
 class NnnReshape(nn.Module):
