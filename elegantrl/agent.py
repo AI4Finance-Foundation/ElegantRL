@@ -24,19 +24,14 @@ class AgentBase:
         self.criterion = None
 
     def init(self, net_dim, state_dim, action_dim):
-        """initialize the self.object in `__init__()`
-
-        replace by different DRL algorithms
-        explict call self.init() for multiprocessing.
-
-        :int net_dim: the dimension of networks (the width of neural networks)
-        :int state_dim: the dimension of state (the number of state vector)
-        :int action_dim: the dimension of action (the number of discrete action)
+        """
+        :int net_dim: net width
+        :int state_dim
+        :int action_dim
         """
 
     def select_action(self, state) -> np.ndarray:
-        """Select actions for exploration
-
+        """
         :array state: state.shape==(state_dim, )
         :return array action: action.shape==(action_dim, ), (action.min(), action.max())==(-1, +1)
         """
@@ -45,8 +40,7 @@ class AgentBase:
         return action.cpu().numpy()
 
     def select_actions(self, states) -> np.ndarray:
-        """Select actions for exploration
-
+        """
         :array states: (state, ) or (state, state, ...) or state.shape==(n, *state_dim)
         :return array action: action.shape==(-1, action_dim), (action.min(), action.max())==(-1, +1)
         """
@@ -55,8 +49,7 @@ class AgentBase:
         return actions.cpu().numpy()  # -1 < action < +1
 
     def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
-        """actor explores in env, then stores the env transition to ReplayBuffer
-
+        """
         :env: RL training environment. env.reset() env.step()
         :buffer: Experience Replay Buffer. buffer.append_buffer() buffer.extend_buffer()
         :int target_step: explored target_step number of step in env
@@ -73,11 +66,7 @@ class AgentBase:
         return target_step
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
-        """update the neural network by sampling batch data from ReplayBuffer
-
-        replace by different DRL algorithms.
-        return the objective value as training information to help fine-tuning
-
+        """
         :buffer: Experience replay buffer. buffer.append_buffer() buffer.extend_buffer()
         :int target_step: explore target_step number of step in env
         :int batch_size: sample batch_size of data for Stochastic Gradient Descent
@@ -87,8 +76,7 @@ class AgentBase:
         """
 
     def save_load_model(self, cwd, if_save):
-        """save or load model files
-
+        """
         :str cwd: current working directory, we save model file here
         :bool if_save: save model or load model
         """
@@ -115,16 +103,12 @@ class AgentBase:
 
     @staticmethod
     def soft_update(target_net, current_net, tau):
-        """soft update a target network via current network
-
+        """
         :nn.Module target_net: target network update via a current network, it is more stable
         :nn.Module current_net: current network update via an optimizer
         """
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data.__mul__(tau) + tar.data.__mul__(1 - tau))
-
-
-'''Value-based Methods (DQN variances)'''
 
 
 class AgentDQN(AgentBase):
@@ -188,8 +172,7 @@ class AgentDuelingDQN(AgentDQN):
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
     def init(self, net_dim, state_dim, action_dim):
-        """Contribution of Dueling DQN
-
+        """
         Advantage function --> Dueling Q value = val_q + adv_q - adv_q.mean()
         """
         self.action_dim = action_dim
@@ -233,8 +216,7 @@ class AgentDoubleDQN(AgentDQN):
         return a_int
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
-        """Contribution of DDQN (Double DQN)
-
+        """
         Twin Q-Network. Use min(q1, q2) to reduce over-estimation.
         """
         buffer.update_now_len_before_sample()
@@ -262,12 +244,6 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
         super().__init__()
 
     def init(self, net_dim, state_dim, action_dim):
-        """Contribution of D3QN (Dueling Double DQN)
-
-        There are not contribution of D3QN.
-        Obviously, DoubleDQN is compatible with DuelingDQN.
-        Any beginner can come up with this idea (D3QN) independently.
-        """
         self.action_dim = action_dim
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -277,9 +253,6 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 
         self.criterion = torch.nn.SmoothL1Loss()
         self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-
-
-'''Actor-Critic Methods (Policy Gradient)'''
 
 
 class AgentDDPG(AgentBase):
@@ -360,12 +333,6 @@ class AgentTD3(AgentBase):
         return action.cpu().numpy()
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
-        """Contribution of TD3 (Twin Delay DDPG)
-
-        1. twin critics (DoubleDQN -> TwinCritic, good idea)
-        2. policy noise ('Deterministic Policy Gradient + policy noise' looks like Stochastic PG)
-        3. delay update (I think it is not very useful)
-        """
         buffer.update_now_len_before_sample()
 
         obj_critic = obj_actor = None
@@ -417,18 +384,6 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
         self.optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
-        """Contribution of InterAC (Integrated network for deterministic policy gradient)
-
-        1. First try integrated network to share parameter between two **different input** network.
-        1. First try Encoder-DenseNetLikeNet-Decoder network architecture.
-        1. First try Reliable Lambda in bi-level optimization problems. (such as Policy Gradient and GANs)
-        2. Try TTUR in RL. TTUR (Two-Time-Scale Update Rule) is useful in bi-level optimization problems.
-        2. Try actor_term to stabilize training in parameter-sharing network. (different learning rate is more useful)
-        3. Try Spectral Normalization and found it conflict with soft target update.
-        3. Try increasing batch_size and update_times
-        3. Dropout layer is useless in RL.
-        -1. InterAC is a semi-finished algorithms. InterSAC is a finished algorithm.
-        """
         buffer.update_now_len_before_sample()
 
         actor_obj = None  # just for print return
@@ -506,12 +461,6 @@ class AgentSAC(AgentBase):
         return action.cpu().numpy()
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
-        """Contribution of SAC (Soft Actor-Critic with maximum entropy)
-
-        1. maximum entropy (Soft Q-learning -> Soft Actor-Critic, good idea)
-        2. auto alpha (automating entropy adjustment on temperature parameter alpha for maximum entropy)
-        3. SAC use TD3's TwinCritics too
-        """
         buffer.update_now_len_before_sample()
 
         alpha = self.alpha_log.exp().detach()
@@ -571,13 +520,6 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
-        """ModSAC (Modified SAC using Reliable lambda)
-
-        1. Reliable Lambda is calculated based on Critic's loss function value.
-        2. Increasing batch_size and update_times
-        3. Auto-TTUR updates parameter in non-integer times.
-        4. net_dim of critic is slightly larger than actor.
-        """
         buffer.update_now_len_before_sample()
 
         k = 1.0 + buffer.now_len / buffer.max_len
@@ -845,15 +787,6 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_advantage
 
     def compute_reward_gae(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
-        """compute the excepted discounted episode return
-
-        :int buf_len: the length of ReplayBuffer
-        :torch.Tensor buf_reward: buf_reward.shape==(buf_len, 1)
-        :torch.Tensor buf_mask:   buf_mask.shape  ==(buf_len, 1)
-        :torch.Tensor buf_value:  buf_value.shape ==(buf_len, 1)
-        :return torch.Tensor buf_r_sum:      buf_r_sum.shape     ==(buf_len, 1)
-        :return torch.Tensor buf_advantage:  buf_advantage.shape ==(buf_len, 1)
-        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
         buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -948,9 +881,6 @@ class AgentInterPPO(AgentPPO):
             self.optimizer.step()
 
         return self.act.a_std_log.mean().item(), self.obj_c
-
-
-'''Utils'''
 
 
 class ReplayBuffer:
@@ -1069,17 +999,6 @@ class ReplayBuffer:
         self.if_full = False
 
     def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
-        """print the state norm information: state_avg, state_std
-
-        We don't suggest to use running stat state.
-        We directly do normalization on state using the historical avg and std
-        eg. `state = (state + self.neg_state_avg) * self.div_state_std` in `PreprocessEnv.step_norm()`
-        neg_avg = -states.mean()
-        div_std = 1/(states.std()+1e-5) or 6/(states.max()-states.min())
-
-        :array neg_avg: neg_avg.shape=(state_dim)
-        :array div_std: div_std.shape=(state_dim)
-        """
         max_sample_size = 2 ** 14
 
         '''check if pass'''
