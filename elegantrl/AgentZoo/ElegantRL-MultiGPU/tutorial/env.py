@@ -5,17 +5,14 @@ import numpy.random as rd
 
 class PreprocessEnv(gym.Wrapper):  # environment wrapper
     def __init__(self, env, if_print=True):
-        super(PreprocessEnv, self).__init__(env)
-        self.env = env
-
-        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
-         self.if_discrete, self.target_reward
-         ) = get_gym_env_info(env, if_print)
-
-        self.reset = self.reset_type
+        self.env = gym.make(env) if isinstance(env, str) else env
+        super(PreprocessEnv, self).__init__(self.env)
         self.step = self.step_type
 
-    def reset_type(self) -> np.ndarray:
+        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
+         self.if_discrete, self.target_reward) = get_gym_env_info(self.env, if_print)
+
+    def reset(self) -> np.ndarray:
         state = self.env.reset()
         return state.astype(np.float32)
 
@@ -93,7 +90,7 @@ class FinanceStockEnv:  # custom env
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 1.25  # denotes 1.25 times the initial_account. convergence to 1.5
+        self.target_reward = 1.3  # denotes 1.3 times the initial_account. convergence to 1.5+
         self.max_step = self.ary.shape[0]
 
     def reset(self) -> np.ndarray:
