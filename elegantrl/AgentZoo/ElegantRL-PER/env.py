@@ -1,78 +1,103 @@
 import os
 import numpy as np
 import numpy.random as rd
+import gym
 
 
-def prep_env(env, data_type=np.float32, if_print=True):  # preprocess environment
-    """preprocess environment
-    In OpenAI gym, it is class Wrapper(). In ElegantRL, it is a decorator
+class PreprocessEnv(gym.Wrapper):  # environment wrapper # todo 2021-03-17
+    def __init__(self, env, if_print=True, data_type=np.float32):
+        """Preprocess a standard OpenAI gym environment for RL training.
 
-    What preprocess environment do?
-    1.1 use get_gym_env_info() to get state_dim, action_dim ... from gym-env
-    1.2 assignment env.state_dim, env.action_dim ...,
-    1.3 then DRL agent can build network according to these information
-    2.1 let state = state.astype(float32), because sometimes state is float64
-    2.2 do normalization on state before training (no necessary). (Other people do running state while training)
+        :param env: a standard OpenAI gym environment, it has env.reset() and env.step()
+        :param if_print: print the information of environment. Such as env_name, state_dim ...
+        :param data_type: convert state (sometimes float64) to data_type (float32).
+        """
+        self.env = gym.make(env) if isinstance(env, str) else env
+        super(PreprocessEnv, self).__init__(self.env)
+        self.data_type = data_type
+
+        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
+         self.if_discrete, self.target_reward
+         ) = get_gym_env_info(self.env, if_print)
+
+        state_avg, state_std = get_avg_std__for_state_norm(self.env_name)
+        if state_avg is not None:
+            self.neg_state_avg = -state_avg
+            self.div_state_std = 1 / (state_std + 1e-4)
+
+            self.reset = self.reset_norm
+            self.step = self.step_norm
+        else:
+            self.reset = self.reset_type
+            self.step = self.step_type
+
+    def reset_type(self) -> np.ndarray:
+        """ state = env.reset()
+
+        convert the data type of state from float64 to float32
+
+        :return array state: state.shape==(state_dim, )
+        """
+        state = self.env.reset()
+        return state.astype(self.data_type)
+
+    def reset_norm(self) -> np.ndarray:
+        """ state = env.reset()
+
+        convert the data type of state from float64 to float32
+        do normalization on state
+
+        :return array state: state.shape==(state_dim, )
+        """
+        state = self.env.reset()
+        (state + self.neg_state_avg) * self.div_state_std
+        return state.astype(self.data_type)
+
+    def step_type(self, action) -> (np.ndarray, float, bool, dict):
+        """ next_state, reward, done = env.step(action)
+
+        convert the data type of state from float64 to float32,
+        adjust action range to (-action_max, +action_max)
+
+        :return array state:  state.shape==(state_dim, )
+        :return float reward: reward of one step
+        :return bool  done  : the terminal of an training episode
+        :return dict  info  : the information save in a dict. OpenAI gym standard. Send a `None` is OK
+        """
+        state, reward, done, info = self.env.step(action * self.action_max)
+        return state.astype(self.data_type), reward, done, info
+
+    def step_norm(self, action) -> (np.ndarray, float, bool, dict):
+        """ next_state, reward, done = env.step(action)
+
+        convert the data type of state from float64 to float32,
+        adjust action range to (-action_max, +action_max)
+        do normalization on state
+
+        :return array state:  state.shape==(state_dim, )
+        :return float reward: reward of one step
+        :return bool  done  : the terminal of an training episode
+        :return dict  info  : the information save in a dict. OpenAI gym standard. Send a `None` is OK
+        """
+        state, reward, done, info = self.env.step(action * self.action_max)
+        state = (state + self.neg_state_avg) * self.div_state_std
+        return state.astype(self.data_type), reward, done, info
+
+
+def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):
+    """return the state normalization data: neg_avg and div_std
+
+    ReplayBuffer.print_state_norm() will print `neg_avg` and `div_std`
+    You can save these array to here. And PreprocessEnv will load them automatically.
+    eg. `state = (state + self.neg_state_avg) * self.div_state_std` in `PreprocessEnv.step_norm()`
+    neg_avg = -states.mean()
+    div_std = 1/(states.std()+1e-5) or 6/(states.max()-states.min())
+
+
+    :str env_name: the name of environment that helps to find neg_avg and div_std
+    :return array avg: neg_avg.shape=(state_dim)
+    :return array std: div_std.shape=(state_dim)
     """
-    if not all([hasattr(env, attr) for attr in (
-            'env_name', 'state_dim', 'action_dim', 'if_discrete', 'target_reward', 'max_step',)]):
-        (env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
-         ) = _get_gym_env_info(env, if_print)
-        setattr(env, 'env_name', env_name)
-        setattr(env, 'state_dim', state_dim)
-        setattr(env, 'action_dim', action_dim)
-        setattr(env, 'if_discrete', if_discrete)
-        setattr(env, 'target_reward', target_reward)
-        setattr(env, 'max_step', max_step)
-    else:
-        action_max = 1
-
-    '''state_norm is useful but non-necessary'''
-    state_avg, state_std = _get_avg_std__for_state_norm(env.env_name)
-    if state_avg is None:
-        neg_state_avg = 0
-        div_state_std = 1
-    else:
-        state_avg = state_avg.astype(np.float32)
-        state_std = state_std.astype(np.float32)
-        neg_state_avg = -state_avg
-        div_state_std = 1 / (state_std + 1e-4)
-    setattr(env, 'neg_state_avg', neg_state_avg)  # for def print_norm() agent.py
-    setattr(env, 'div_state_std', div_state_std)  # for def print_norm() agent.py
-
-    def decorate_step(env_step):
-        if neg_state_avg is not None and action_max != 1:
-            def new_env_step(action):
-                state, reward, done, info = env_step(action * action_max)
-                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
-        elif neg_state_avg is not None:
-            def new_env_step(action):
-                state, reward, done, info = env_step(action)
-                return (state.astype(data_type) + neg_state_avg) * div_state_std, reward, done, info
-        else:
-            def new_env_step(action):
-                state, reward, done, info = env_step(action * action_max)
-                return state.astype(data_type), reward, done, info
-        return new_env_step
-
-    env.step = decorate_step(env.step)
-
-    def decorate_reset(env_reset):
-        if neg_state_avg is not None:
-            def new_env_reset():
-                state = env_reset()
-                return state.astype(data_type) + neg_state_avg
-        else:
-            def new_env_reset():
-                state = env_reset()
-                return state.astype(data_type)
-        return new_env_reset
-
-    env.reset = decorate_reset(env.reset)
-    return env
-
-
-def _get_avg_std__for_state_norm(env_name):
     avg = None
     std = None
     if env_name == 'LunarLanderContinuous-v2':
@@ -150,8 +175,21 @@ def _get_avg_std__for_state_norm(env_name):
     return avg, std
 
 
-def _get_gym_env_info(env, if_print):
-    import gym  # gym of OpenAI is not necessary for ElegantRL (even RL)
+def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
+    """get information of a standard OpenAI gym env.
+
+    The DRL algorithm AgentXXX need these env information for building networks and training.
+    env_name: the environment name, such as XxxXxx-v0
+    state_dim: the dimension of state
+    action_dim: the dimension of continuous action; Or the number of discrete action
+    action_max: the max action of continuous action; action_max == 1 when it is discrete action space
+    if_discrete: Is this env a discrete action space?
+    target_reward: the target episode return, if agent reach this score, then it pass this game (env).
+    max_step: the steps in an episode. (from env.reset to done). It breaks an episode when it reach max_step
+
+    :env: a standard OpenAI gym environment, it has env.reset() and env.step()
+    :bool if_print: print the information of environment. Such as env_name, state_dim ...
+    """
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
 
@@ -160,15 +198,19 @@ def _get_gym_env_info(env, if_print):
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-    if env.spec.reward_threshold is None:
-        target_reward = env.target_reward if hasattr(env, 'target_reward') else 2 ** 16
-        print(f"| env.spec.reward_threshold is None, so I set target_reward={target_reward}")
-    else:
-        target_reward = env.spec.reward_threshold
+    target_reward = getattr(env, 'target_reward', None)
+    target_reward_default = getattr(env.spec, 'reward_threshold', None)
+    if target_reward is None:
+        target_reward = target_reward_default
+    if target_reward is None:
+        target_reward = 2 ** 16
 
-    max_step = getattr(env, '_max_episode_steps', 2 ** 10)
-    if max_step is None or max_step == 2 ** 10:
-        print(f"| env._max_episode_steps is None, so I set max_step={max_step}")
+    max_step = getattr(env, 'max_step', None)
+    max_step_default = getattr(env, '_max_episode_steps', None)
+    if max_step is None:
+        max_step = max_step_default
+    if max_step is None:
+        max_step = 2 ** 10
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
     if if_discrete:  # make sure it is discrete action space
@@ -180,17 +222,16 @@ def _get_gym_env_info(env, if_print):
     else:
         raise RuntimeError('| Please set these value manually: if_discrete=bool, action_dim=int, action_max=1.0')
 
-    if if_print:
-        print("| env_name: {}, action space: {}".format(env_name, 'if_discrete' if if_discrete else 'Continuous'))
-        print("| state_dim: {}, action_dim: {}, action_max: {}, target_reward: {}".format(
-            state_dim, action_dim, action_max, target_reward))
-    return env_name, state_dim, action_dim, action_max, if_discrete, target_reward, max_step
+    print(f"\n| env_name:  {env_name}, action space if_discrete: {if_discrete}"
+          f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}, action_max: {action_max}"
+          f"\n| max_step:  {max_step:4}, target_reward: {target_reward}") if if_print else None
+    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_reward
 
 
 """Custom environment: Finance RL, Github AI4Finance-LLC"""
 
 
-class FinanceMultiStockEnv:  # 2021-02-02
+class FinanceStockEnv:  # 2021-02-02
     """FinRL
     Paper: A Deep Reinforcement Learning Library for Automated Stock Trading in Quantitative Finance
            https://arxiv.org/abs/2011.09607 NeurIPS 2020: Deep RL Workshop.
@@ -205,7 +246,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         self.transaction_fee_percent = transaction_fee_percent
         self.max_stock = max_stock
 
-        ary = self.load_training_data_for_multi_stock()
+        ary = self.load_training_data_for_multi_stock(data_path='./FinanceStock.npy')
         assert ary.shape == (1699, 5 * 30)  # ary: (date, item*stock_dim), item: (adjcp, macd, rsi, cci, adx)
         assert train_beg < train_len
         assert train_len < ary.shape[0]  # ary.shape[0] == 1699
@@ -232,7 +273,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
         self.target_reward = 1.25  # convergence 1.5
         self.max_step = self.ary.shape[0]
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         self.initial_account__reset = self.initial_account * rd.uniform(0.9, 1.1)  # reset()
         self.account = self.initial_account__reset
         self.stocks = np.zeros(self.stock_dim, dtype=np.float32)
@@ -248,7 +289,7 @@ class FinanceMultiStockEnv:  # 2021-02-02
                            self.stocks * 2 ** -12,), ).astype(np.float32)
         return state
 
-    def step(self, action):
+    def step(self, action) -> (np.ndarray, float, bool, None):
         action = action * self.max_stock
 
         """bug or sell stock"""
@@ -289,15 +330,14 @@ class FinanceMultiStockEnv:  # 2021-02-02
         return state, reward, done, None
 
     @staticmethod
-    def load_training_data_for_multi_stock(if_load=True):  # need more independent
-        npy_path = './FinanceMultiStock.npy'
-        if if_load and os.path.exists(npy_path):
-            data_ary = np.load(npy_path).astype(np.float32)
+    def load_training_data_for_multi_stock(data_path='./FinanceStock.npy'):  # need more independent
+        if os.path.exists(data_path):
+            data_ary = np.load(data_path).astype(np.float32)
             assert data_ary.shape[1] == 5 * 30
             return data_ary
         else:
             raise RuntimeError(
-                f'| Download and put it into: {npy_path}\n for FinanceMultiStockEnv()'
+                f'| Download and put it into: {data_path}\n for FinanceStockEnv()'
                 f'| https://github.com/Yonv1943/ElegantRL/blob/master/FinanceMultiStock.npy'
                 f'| Or you can use the following code to generate it from a csv file.')
 
@@ -341,16 +381,16 @@ class FinanceMultiStockEnv:  # 2021-02-02
         #
         # data_ary = data_ary.reshape((-1, 5 * 30))
         #
-        # os.makedirs(npy_path[:npy_path.rfind('/')])
-        # np.save(npy_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
-        # print('| FinanceMultiStockEnv(): save in:', npy_path)
+        # os.makedirs(data_path[:data_path.rfind('/')])
+        # np.save(data_path, data_ary.astype(np.float16))  # save as float16 (0.5 MB), float32 (1.0 MB)
+        # print('| FinanceStockEnv(): save in:', data_path)
         # return data_ary
 
-    def draw_cumulative_return(self, args, torch):
+    def draw_cumulative_return(self, args, torch) -> list:
         state_dim = self.state_dim
         action_dim = self.action_dim
 
-        agent_rl = args.agent_rl
+        agent_rl = args.agent
         net_dim = args.net_dim
         cwd = args.cwd
 
@@ -383,10 +423,41 @@ class FinanceMultiStockEnv:  # 2021-02-02
         return episode_returns
 
 
-"""Custom environment: Fix Env CarRacing-v0 - Box2D"""
+"""Custom environment: Fix Env"""
 
 
-def fix_car_racing_env(env, frame_num=3, action_num=3):  # 2020-12-12
+class KukaBulletEnv(gym.Wrapper):
+    def __init__(self):
+        self.env = gym.make('KukaBulletEnv-v0')
+        super(KukaBulletEnv, self).__init__(self.env)
+
+        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
+         self.if_discrete, self.target_reward
+         ) = get_gym_env_info(self.env, if_print=False)
+        self.env_name = 'KukaBulletEnv-v1'
+
+        self.episode_return = 0
+
+    def reset(self):
+        self.episode_return = 0
+        return self.env.reset().astype(np.float32)
+
+    def step(self, action):
+        state, episode_return, done, _ = self.env.step(action)
+
+        if done:
+            if episode_return > 0:
+                reward = 100
+            else:
+                reward = -1
+            self.episode_return = self.episode_return + reward
+        else:
+            reward = episode_return - self.episode_return
+            self.episode_return = episode_return
+        return state.astype(np.float32), reward, done, None
+
+
+def fix_car_racing_env(env, frame_num=3, action_num=3) -> gym.Wrapper:  # 2020-12-12
     setattr(env, 'old_step', env.step)  # env.old_step = env.step
     setattr(env, 'env_name', 'CarRacing-Fix')
     setattr(env, 'state_dim', (frame_num, 96, 96))
@@ -487,3 +558,64 @@ def render__car_racing():
         if done:
             break
         # env.render()
+
+
+"""Utils"""
+
+
+def get_video_to_watch_gym_render():
+    import cv2  # pip3 install opencv-python
+    import gym  # pip3 install gym==0.17 pyglet==1.5.0  # env.render() bug in gym==0.18, pyglet==1.6
+    import torch
+
+    '''choose env'''
+    # from elegantrl.env import PreprocessEnv
+    env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+
+    '''choose algorithm'''
+    from elegantrl.agent import AgentPPO
+    agent = AgentPPO()
+    net_dim = 2 ** 8
+    cwd = 'AgentPPO/BipedalWalker-v3_2/'
+    # from elegantrl.agent import AgentModSAC
+    # agent = AgentModSAC()
+    # net_dim = 2 ** 7
+    # cwd = 'AgentModSAC/BipedalWalker-v3_2/'
+
+    '''initialize agent'''
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+    agent.init(net_dim, state_dim, action_dim)
+    agent.save_load_model(cwd=cwd, if_save=False)
+
+    '''initialize evaluete and env.render()'''
+    device = agent.device
+    save_frame_dir = 'frames'
+    save_video = 'gym_render.mp4'
+
+    os.makedirs(save_frame_dir, exist_ok=True)
+
+    state = env.reset()
+    for i in range(1024):
+        frame = env.render('rgb_array')
+        cv2.imwrite(f'{save_frame_dir}/{i:06}.png', frame)
+        # cv2.imshow('', frame)
+        # cv2.waitKey(1)
+
+        s_tensor = torch.as_tensor((state,), dtype=torch.float32, device=device)
+        a_tensor = agent.act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()[0]  # if use 'with torch.no_grad()', then '.detach()' not need.
+        # action = gym_env.action_space.sample()
+
+        next_state, reward, done, _ = env.step(action)
+
+        if done:
+            state = env.reset()
+        else:
+            state = next_state
+    env.close()
+
+    '''convert frames png/jpg to video mp4/avi using ffmpeg'''
+    os.system(f"| Convert frames to video using ffmpeg. Save in {save_video}")
+    os.system(f'ffmpeg -r 60 -f image2 -s 600x400 -i {save_frame_dir}/%06d.png '
+              f'-crf 25 -vb 20M -pix_fmt yuv420p {save_video}')
