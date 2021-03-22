@@ -9,34 +9,6 @@ from elegantrl.net import Actor, ActorSAC, ActorPPO
 from elegantrl.net import Critic, CriticAdv, CriticTwin
 from elegantrl.net import InterDPG, InterSPG, InterPPO
 
-"""ElegantRL (Pytorch 3 files model-free DRL Library)
-GitHub.com: YonV1943, Zhihu.com: 曾伊言
-
-reference:
-TD3 https://github.com/sfujim/TD3 good++
-TD3 https://github.com/nikhilbarhate99/TD3-PyTorch-BipedalWalker-v2 good
-PPO https://github.com/zhangchuheng123/Reinforcement-Implementation/blob/master/code/ppo.py good+
-PPO https://github.com/xtma/pytorch_car_caring good
-PPO https://github.com/openai/baselines/tree/master/baselines/ppo2 normal-
-SAC https://github.com/TianhongDai/reinforcement-learning-algorithms/tree/master/rl_algorithms/sac normal -
-DUEL https://github.com/gouxiangchen/dueling-DQN-pytorch good
-
-I consider that Reinforcement Learning Algorithms before 2020 have not consciousness
-They feel more like a Cerebellum (Little Brain) for Machines.
-In my opinion, before 2020, the policy gradient algorithm agent didn't learn s policy.
-Actually, they "learn game feel" or "get a soft touch". In Chinese "shǒu gǎn 手感". 
-Learn more about policy gradient algorithms in:
-
-Policy Gradient Algorithm summary
-https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
-How to choose DRL algorithms? MuZero/SAC/PPO/TD3/DDPG/DQN etc.
-如何选择深度强化学习算法？MuZero/SAC/PPO/TD3/DDPG/DQN/等 
-https://zhuanlan.zhihu.com/p/342919579
-DRL fine-tuning skills(not trick): take D3QN, TD3, PPO and SAC as examples.
-深度强化学习调参技巧：以D3QN、TD3、PPO、SAC算法为例
-https://zhuanlan.zhihu.com/p/345353294
-"""
-
 
 class AgentBase:
     def __init__(self):
