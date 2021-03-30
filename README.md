@@ -28,6 +28,8 @@ Model-free deep reinforcement learning (DRL) algorithms:
 
 For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
+Check out the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/algorithms/intersac.html).
+
 # Table of Contents
 
 + [News](#News)
