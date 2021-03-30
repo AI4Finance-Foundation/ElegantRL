@@ -47,16 +47,6 @@ class AgentBase:
         action = self.act(states)[0]
         return action.cpu().numpy()
 
-    def select_actions(self, states) -> np.ndarray:
-        """Select actions for exploration
-
-        :array states: (state, ) or (state, state, ...) or state.shape==(n, *state_dim)
-        :return array action: action.shape==(-1, action_dim), (action.min(), action.max())==(-1, +1)
-        """
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device).detach_()
-        actions = self.act(states)
-        return actions.cpu().numpy()  # -1 < action < +1
-
     def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         """actor explores in env, then stores the env transition to ReplayBuffer
 
@@ -81,9 +71,9 @@ class AgentBase:
         replace by different DRL algorithms.
         return the objective value as training information to help fine-tuning
 
-        :buffer: Experience replay buffer. buffer.append_buffer() buffer.extend_buffer()
+        `buffer` Experience replay buffer. buffer.append_buffer() buffer.extend_buffer()
         :int target_step: explore target_step number of step in env
-        :int batch_size: sample batch_size of data for Stochastic Gradient Descent
+        `int batch_size` sample batch_size of data for Stochastic Gradient Descent
         :float repeat_times: the times of sample batch = int(target_step * repeat_times) in off-policy
         :return float obj_a: the objective value of actor
         :return float obj_c: the objective value of critic
@@ -142,15 +132,14 @@ class AgentDQN(AgentBase):
 
         self.cri = QNet(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
         self.act = self.cri  # to keep the same from Actor-Critic framework
 
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+        self.criterion = torch.nn.MSELoss(reduction='none' if if_per else 'mean')
         if if_per:
             self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.MSELoss(reduction='none')
         else:
             self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.MSELoss()
 
     def select_action(self, state) -> int:  # for discrete action space
         if rd.rand() < self.explore_rate:  # epsilon-greedy
@@ -219,12 +208,8 @@ class AgentDuelingDQN(AgentDQN):
         self.act = self.cri
 
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
-        if if_per:
-            self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.MSELoss(reduction='none')
-        else:
-            self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.MSELoss(reduction='none' if if_per else 'mean')
+        self.get_obj_critic = self.get_obj_critic_per if if_per else self.get_obj_critic_raw
 
 
 class AgentDoubleDQN(AgentDQN):
@@ -239,15 +224,11 @@ class AgentDoubleDQN(AgentDQN):
 
         self.cri = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
-        self.act = self.cri
-
         self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-        if if_per:
-            self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
-        else:
-            self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.SmoothL1Loss()
+
+        self.act = self.cri
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
+        self.get_obj_critic = self.get_obj_critic_per if if_per else self.get_obj_critic_raw
 
     def select_action(self, state) -> int:  # for discrete action space
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
@@ -298,12 +279,8 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
 
         self.criterion = torch.nn.SmoothL1Loss(reduction='none') if if_per else torch.nn.SmoothL1Loss()
         self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-        if if_per:
-            self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
-        else:
-            self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.SmoothL1Loss()
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
+        self.get_obj_critic = self.get_obj_critic_per if if_per else self.get_obj_critic_raw
 
 
 '''Actor-Critic Methods (Policy Gradient)'''
@@ -320,19 +297,19 @@ class AgentDDPG(AgentBase):
         # I don't recommend to use OU-Noise
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = deepcopy(self.act)
         self.cri = Critic(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
-
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
         if if_per:
             self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.MSELoss(reduction='none')
         else:
             self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.MSELoss()
 
     def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
@@ -390,19 +367,19 @@ class AgentTD3(AgentDDPG):
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = deepcopy(self.act)
         self.cri = CriticTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
-
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.act = Actor(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
         if if_per:
             self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.MSELoss(reduction='none')
         else:
             self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.MSELoss()
 
     def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
@@ -534,27 +511,27 @@ class AgentSAC(AgentBase):
         self.target_entropy = None
         self.alpha_log = None
         self.alpha_optimizer = None
+        self.target_entropy = 1.0  # * np.log(action_dim)
 
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.target_entropy = np.log(action_dim)
+        self.target_entropy *= np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
+
+        self.cri = CriticTwin(net_dim, state_dim, action_dim).to(self.device)
+        self.cri_target = deepcopy(self.cri)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
         self.act = ActorSAC(net_dim, state_dim, action_dim).to(self.device)
-        self.act_target = deepcopy(self.act)
-        self.cri = CriticTwin(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
-        self.cri_target = deepcopy(self.cri)
-
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
-        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
+
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
         if if_per:
             self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
         else:
             self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.SmoothL1Loss()
 
     def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
@@ -589,7 +566,6 @@ class AgentSAC(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-            self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
         return alpha.item(), obj_critic.item()
 
@@ -625,23 +601,23 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.target_entropy = np.log(action_dim)
+        self.target_entropy *= np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
+        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
+
+        self.cri = CriticTwin(net_dim, state_dim, action_dim, self.if_use_dn).to(self.device)
+        self.cri_target = deepcopy(self.cri)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate)
 
         self.act = ActorSAC(net_dim, state_dim, action_dim, self.if_use_dn).to(self.device)
-        self.cri = CriticTwin(int(net_dim * 1.25), state_dim, action_dim, self.if_use_dn).to(self.device)
-        self.cri_target = deepcopy(self.cri)
-
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate)
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
-        self.alpha_optimizer = torch.optim.Adam((self.alpha_log,), self.learning_rate)
+
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
         if if_per:
             self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
         else:
             self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.SmoothL1Loss()
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
@@ -698,7 +674,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.target_entropy = np.log(action_dim)
+        self.target_entropy *= np.log(action_dim)
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
 
@@ -714,12 +690,11 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
              {'params': self.act.dec_q1.parameters(), },
              {'params': self.act.dec_q2.parameters(), },
              {'params': (self.alpha_log,)}], lr=self.learning_rate)
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
         if if_per:
             self.get_obj_critic = self.get_obj_critic_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
         else:
             self.get_obj_critic = self.get_obj_critic_raw
-            self.criterion = torch.nn.SmoothL1Loss()
 
     def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
@@ -773,10 +748,11 @@ class AgentPPO(AgentBase):
     def __init__(self):
         super().__init__()
         self.ratio_clip = 0.3  # could be 0.2 ~ 0.5, ratio.clamp(1 - clip, 1 + clip),
-        self.lambda_entropy = 0.01  # could be 0.01 ~ 0.05
-        self.lambda_gae_adv = 0.98  # could be 0.95 ~ 0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
+        self.lambda_entropy = 0.04  # could be 0.01 ~ 0.05
+        self.lambda_gae_adv = 0.97  # could be 0.95 ~ 0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.if_use_gae = False  # if use Generalized Advantage Estimation
         self.if_on_policy = True  # AgentPPO is an on policy DRL algorithm
+        self.if_use_dn = False
 
         self.noise = None
         self.optimizer = None
@@ -786,8 +762,8 @@ class AgentPPO(AgentBase):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.compute_reward = self.compute_reward_gae if self.if_use_gae else self.compute_reward_adv
 
-        self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
-        self.cri = CriticAdv(state_dim, net_dim).to(self.device)
+        self.cri = CriticAdv(state_dim, net_dim, self.if_use_dn).to(self.device)
+        self.act = ActorPPO(net_dim, state_dim, action_dim, self.if_use_dn).to(self.device)
 
         self.optimizer = torch.optim.Adam([{'params': self.act.parameters(), 'lr': self.learning_rate},
                                            {'params': self.cri.parameters(), 'lr': self.learning_rate}])
@@ -1047,7 +1023,7 @@ class ReplayBuffer:
         self.buf_other[self.next_idx] = other
 
         if self.if_per:
-            self.tree.update(self.next_idx)
+            self.tree.update_id(self.next_idx)
 
         self.next_idx += 1
         if self.next_idx >= self.max_len:
@@ -1063,8 +1039,8 @@ class ReplayBuffer:
         next_idx = self.next_idx + size
 
         if self.if_per:
-            for data_idx in (np.arange(self.next_idx, next_idx) % self.max_len):
-                self.tree.update(data_idx)
+            for data_id in (np.arange(self.next_idx, next_idx) % self.max_len):
+                self.tree.update_ids(data_id)
 
         if next_idx > self.max_len:
             if next_idx > self.max_len:
@@ -1093,6 +1069,7 @@ class ReplayBuffer:
         if self.if_per:
             beg = -self.max_len
             end = (self.now_len - self.max_len) if (self.now_len < self.max_len) else None
+
             indices, is_weights = self.tree.get_indices_is_weights(batch_size, beg, end)
 
             r_m_a = self.buf_other[indices]
@@ -1188,9 +1165,9 @@ class ReplayBuffer:
             ary_avg = ary_avg - neg_avg / div_std
             ary_std = fix_std / div_std
 
-        print(f"| print_norm: state_avg, state_fix_std")
-        print(f"| avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
-        print(f"| std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
+        print(f"print_state_norm: state_avg, state_std (fixed)")
+        print(f"avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
+        print(f"std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 
     def td_error_update(self, td_error):
         self.tree.td_error_update(td_error)
@@ -1255,84 +1232,100 @@ class ReplayBufferMP:
 
 
 class BinarySearchTree:
-    """Binary Tree for PER
+    """Binary Search Tree for PER
 
-    Contributor: Github GyChou
-
-    Reference:
-    https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
-    https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
+    Contributor: Github GyChou, Github mississippiu
+    Reference: https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
+    Reference: https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
     """
 
     def __init__(self, memo_len):
         self.memo_len = memo_len  # replay buffer len
-        # SumTree size is 2 * buffer_len - 1, parent nodes is buffer_len-1, and leaves node is buffer_len.
-        self.ps_tree = np.zeros(2 * memo_len - 1)
-        self.now_max_tree_len = self.memo_len - 1
+        self.prob_ary = np.zeros((memo_len - 1) + memo_len)  # parent_nodes_num + leaf_nodes_num
+        self.max_len = len(self.prob_ary)
+        self.now_len = self.memo_len - 1  # pointer
         self.indices = None
+        self.depth = int(np.log2(self.max_len))
 
-        self.per_alpha = 0.6
-        self.per_beta = 0.4
-        self.per_beta_increment_per_sampling = 0.001
+        # PER.  Prioritized Experience Replay. Section 4
+        # alpha, beta = 0.7, 0.5 for rank-based variant
+        # alpha, beta = 0.6, 0.4 for proportional variant
+        self.per_alpha = 0.6  # alpha = (Uniform:0, Greedy:1)
+        self.per_beta = 0.4  # beta = (PER:0, NotPER:1)
 
-    def update(self, data_idx, prob=10):  # 10 is max_prob
-        tree_idx = data_idx + self.memo_len - 1
-        if self.now_max_tree_len == tree_idx:
-            self.now_max_tree_len += 1
+    def update_id(self, data_id, prob=10):  # 10 is max_prob
+        tree_id = data_id + self.memo_len - 1
+        if self.now_len == tree_id:
+            self.now_len += 1
 
-        delta = prob - self.ps_tree[tree_idx]
-        self.ps_tree[tree_idx] = prob
+        delta = prob - self.prob_ary[tree_id]
+        self.prob_ary[tree_id] = prob
 
-        while tree_idx != 0:  # propagate the change through tree
-            tree_idx = (tree_idx - 1) // 2  # faster than the recursive loop
-            self.ps_tree[tree_idx] += delta
+        while tree_id != 0:  # propagate the change through tree
+            tree_id = (tree_id - 1) // 2  # faster than the recursive loop
+            self.prob_ary[tree_id] += delta
+
+    def update_ids(self, data_ids, prob=10):  # 10 is max_prob
+        ids = data_ids + self.memo_len - 1
+        self.now_len += (ids >= self.now_len).sum()
+
+        upper_step = self.depth - 1
+        self.prob_ary[ids] = prob  # here, ids means the indices of given children (maybe the right ones or left ones)
+        p_ids = (ids - 1) // 2
+
+        while upper_step:  # propagate the change through tree
+            ids = p_ids * 2 + 1  # in this while loop, ids means the indices of the left children
+            self.prob_ary[p_ids] = self.prob_ary[ids] + self.prob_ary[ids + 1]
+            p_ids = (p_ids - 1) // 2
+            upper_step -= 1
+
+        self.prob_ary[0] = self.prob_ary[1] + self.prob_ary[2]
+        # because we take depth-1 upper steps, ps_tree[0] need to be updated alone
 
     def get_leaf_id(self, v):
-        """
-        Tree structure and array storage:
+        """Tree structure and array storage:
+
         Tree index:
               0       -> storing priority sum
             |  |
           1     2
          | |   | |
         3  4  5  6    -> storing priority for transitions
-        Array type for storing:
-        [0,1,2,3,4,5,6]
+        Array type for storing: [0, 1, 2, 3, 4, 5, 6]
         """
         parent_idx = 0
-        while True:  # the while loop is faster than the method in the reference code
+        while True:
             l_idx = 2 * parent_idx + 1  # the leaf's left node
             r_idx = l_idx + 1  # the leaf's right node
-            if l_idx >= (len(self.ps_tree)):  # reach bottom, end search
+            if l_idx >= (len(self.prob_ary)):  # reach bottom, end search
                 leaf_idx = parent_idx
                 break
             else:  # downward search, always search for a higher priority node
-                if v <= self.ps_tree[l_idx]:
+                if v <= self.prob_ary[l_idx]:
                     parent_idx = l_idx
                 else:
-                    v -= self.ps_tree[l_idx]
+                    v -= self.prob_ary[l_idx]
                     parent_idx = r_idx
-        return min(leaf_idx, self.now_max_tree_len - 2)  # leaf_idx
+        return min(leaf_idx, self.now_len - 2)  # leaf_idx
 
     def get_indices_is_weights(self, batch_size, beg, end):
-        self.per_beta = np.min([1., self.per_beta + self.per_beta_increment_per_sampling])  # max = 1
+        self.per_beta = min(1., self.per_beta + 0.001)
 
         # get random values for searching indices with proportional prioritization
-        values = (rd.rand(batch_size) + np.arange(batch_size)) * (self.ps_tree[0] / batch_size)
+        values = (rd.rand(batch_size) + np.arange(batch_size)) * (self.prob_ary[0] / batch_size)
 
         # get proportional prioritization
         leaf_ids = np.array([self.get_leaf_id(v) for v in values])
         self.indices = leaf_ids - (self.memo_len - 1)
 
-        probs = self.ps_tree[leaf_ids] / self.ps_tree[beg:end].min()
-        is_weights = np.power(probs, -self.per_beta)  # important sampling weights
+        prob_ary = self.prob_ary[leaf_ids] / self.prob_ary[beg:end].min()
+        is_weights = np.power(prob_ary, -self.per_beta)  # important sampling weights
         return self.indices, is_weights
 
     def td_error_update(self, td_error):  # td_error = (q-q).detach_().abs()
-        prob = td_error.clamp(1e-6, 10).pow(self.per_alpha)
+        prob = td_error.squeeze().clamp(1e-6, 10).pow(self.per_alpha)
         prob = prob.cpu().numpy()
-        for data_idx, p in zip(self.indices, prob):
-            self.update(data_idx, p)
+        self.update_ids(self.indices, prob)
 
 
 class OrnsteinUhlenbeckNoise:
