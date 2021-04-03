@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
+class QNet(nn.Module):  # nn.Module is a standard network in PyTorch
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -11,7 +11,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
                                  nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
-        return self.net(state)  # q value
+        return self.net(state)  # Q value
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -20,9 +20,9 @@ class QNetTwin(nn.Module):  # Double DQN
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
         self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, action_dim))  # q1 value
+                                    nn.Linear(mid_dim, action_dim))  # Q1 value
         self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, action_dim))  # q2 value
+                                    nn.Linear(mid_dim, action_dim))  # Q2 value
 
     def forward(self, state):
         tmp = self.net_state(state)
@@ -138,7 +138,7 @@ class CriticAdv(nn.Module):
                                  nn.Linear(mid_dim, 1))
 
     def forward(self, state):
-        return self.net(state)  # q value
+        return self.net(state)  # Q value
 
 
 class CriticTwin(nn.Module):  # shared parameter
