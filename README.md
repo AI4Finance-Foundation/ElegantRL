@@ -26,7 +26,7 @@ Currently, model-free deep reinforcement learning (DRL) algorithms:
 + **DDPG, TD3, SAC, A2C, PPO, PPO(GAE)** for continuous actions
 + **DQN, DoubleDQN, D3QN** for discrete actions
 
-For algorithm details, please check out [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
+For DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
 Check out the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/algorithms/intersac.html).
 
