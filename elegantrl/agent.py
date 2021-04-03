@@ -1105,8 +1105,7 @@ class OrnsteinUhlenbeckNoise:
         """The noise of Ornstein-Uhlenbeck Process
 
         Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py
-        It makes Zero-mean Gaussian Noise more stable.
-        It helps agent explore better in a inertial system.
+        It makes Zero-mean Gaussian Noise more stable. It helps agent explore better in a inertial system.
         Don't abuse OU Process. OU process has too much hyper-parameters and over fine-tuning make no sense.
 
         :int size: the size of noise, noise.shape==(-1, action_dim)
