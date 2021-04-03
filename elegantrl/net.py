@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-'''Q Network'''
+'''Q networks'''
 
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
