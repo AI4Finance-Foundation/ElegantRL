@@ -3,6 +3,10 @@ import numpy as np
 import numpy.random as rd
 import gym
 
+gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+
+"""[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
+
 
 class PreprocessEnv(gym.Wrapper):  # environment wrapper # todo 2021-03-17
     def __init__(self, env, if_print=True, data_type=np.float32):
@@ -12,13 +16,13 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper # todo 2021-03-17
         :param if_print: print the information of environment. Such as env_name, state_dim ...
         :param data_type: convert state (sometimes float64) to data_type (float32).
         """
-        super(PreprocessEnv, self).__init__(env)
-        self.env = env
+        self.env = gym.make(env) if isinstance(env, str) else env
+        super(PreprocessEnv, self).__init__(self.env)
         self.data_type = data_type
 
         (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
-         self.if_discrete, self.target_reward
-         ) = get_gym_env_info(env, if_print)
+         self.if_discrete, self.target_return
+         ) = get_gym_env_info(self.env, if_print)
 
         state_avg, state_std = get_avg_std__for_state_norm(self.env_name)
         if state_avg is not None:
@@ -32,25 +36,72 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper # todo 2021-03-17
             self.step = self.step_type
 
     def reset_type(self) -> np.ndarray:
+        """ state = env.reset()
+
+        convert the data type of state from float64 to float32
+
+        :return array state: state.shape==(state_dim, )
+        """
         state = self.env.reset()
         return state.astype(self.data_type)
 
     def reset_norm(self) -> np.ndarray:
+        """ state = env.reset()
+
+        convert the data type of state from float64 to float32
+        do normalization on state
+
+        :return array state: state.shape==(state_dim, )
+        """
         state = self.env.reset()
         (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type)
 
     def step_type(self, action) -> (np.ndarray, float, bool, dict):
+        """ next_state, reward, done = env.step(action)
+
+        convert the data type of state from float64 to float32,
+        adjust action range to (-action_max, +action_max)
+
+        :return array state:  state.shape==(state_dim, )
+        :return float reward: reward of one step
+        :return bool  done  : the terminal of an training episode
+        :return dict  info  : the information save in a dict. OpenAI gym standard. Send a `None` is OK
+        """
         state, reward, done, info = self.env.step(action * self.action_max)
         return state.astype(self.data_type), reward, done, info
 
     def step_norm(self, action) -> (np.ndarray, float, bool, dict):
+        """ next_state, reward, done = env.step(action)
+
+        convert the data type of state from float64 to float32,
+        adjust action range to (-action_max, +action_max)
+        do normalization on state
+
+        :return array state:  state.shape==(state_dim, )
+        :return float reward: reward of one step
+        :return bool  done  : the terminal of an training episode
+        :return dict  info  : the information save in a dict. OpenAI gym standard. Send a `None` is OK
+        """
         state, reward, done, info = self.env.step(action * self.action_max)
         state = (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type), reward, done, info
 
 
 def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):
+    """return the state normalization data: neg_avg and div_std
+
+    ReplayBuffer.print_state_norm() will print `neg_avg` and `div_std`
+    You can save these array to here. And PreprocessEnv will load them automatically.
+    eg. `state = (state + self.neg_state_avg) * self.div_state_std` in `PreprocessEnv.step_norm()`
+    neg_avg = -states.mean()
+    div_std = 1/(states.std()+1e-5) or 6/(states.max()-states.min())
+
+
+    :str env_name: the name of environment that helps to find neg_avg and div_std
+    :return array avg: neg_avg.shape=(state_dim)
+    :return array std: div_std.shape=(state_dim)
+    """
     avg = None
     std = None
     if env_name == 'LunarLanderContinuous-v2':
@@ -76,30 +127,34 @@ def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):
         std = np.array([0.12277275, 0.1347579, 0.14567468, 0.14747661, 0.51311225,
                         0.5199606, 0.2710207, 0.48395795, 0.40876198], dtype=np.float32)
     elif env_name == 'AntBulletEnv-v0':
-        avg = np.array([-2.2785307e-01, -4.1971792e-02, 9.2752278e-01, 8.3731368e-02,
-                        1.2131270e-03, -5.7878396e-03, 1.8127944e-02, -1.1823924e-02,
-                        1.5717462e-01, 1.2224792e-03, -1.9672018e-01, 6.4919023e-03,
-                        -2.0346987e-01, 5.1609759e-04, 1.6572942e-01, -6.0344036e-03,
-                        -1.6024958e-02, -1.3426526e-03, 3.8138664e-01, -5.6816568e-03,
-                        -1.8004493e-01, -3.2685725e-03, -1.5989083e-01, 7.0396746e-03,
-                        7.2912598e-01, 8.3666992e-01, 8.2824707e-01, 7.6196289e-01],
+        avg = np.array([-1.4400886e-01, -4.5074993e-01, 8.5741436e-01, 4.4249415e-01,
+                        -3.1593361e-01, -3.4174921e-03, -6.1666980e-02, -4.3752361e-03,
+                        -8.9226037e-02, 2.5108769e-03, -4.8667483e-02, 7.4835382e-03,
+                        3.6160579e-01, 2.6877613e-03, 4.7474738e-02, -5.0628246e-03,
+                        -2.5761038e-01, 5.9789192e-04, -2.1119279e-01, -6.6801407e-03,
+                        2.5196713e-01, 1.6556121e-03, 1.0365561e-01, 1.0219718e-02,
+                        5.8209229e-01, 7.7563477e-01, 4.8815918e-01, 4.2498779e-01],
                        dtype=np.float32)
-        std = np.array([0.09652393, 0.33918667, 0.23290202, 0.13423778, 0.10426794,
-                        0.11678293, 0.39058578, 0.28871638, 0.5447721, 0.36814892,
-                        0.73530555, 0.29377502, 0.5031936, 0.36130348, 0.71889997,
-                        0.2496559, 0.5484764, 0.39613277, 0.7103549, 0.25976712,
-                        0.56372136, 0.36917716, 0.7030704, 0.26312646, 0.30555955,
-                        0.2681793, 0.27192947, 0.29626447], dtype=np.float32)
-    #     avg = np.array([
-    #         0.4838, -0.047, 0.3500, 1.3028, -0.249, 0.0000, -0.281, 0.0573,
-    #         -0.261, 0.0000, 0.0424, 0.0000, 0.2278, 0.0000, -0.072, 0.0000,
-    #         0.0000, 0.0000, -0.175, 0.0000, -0.319, 0.0000, 0.1387, 0.0000,
-    #         0.1949, 0.0000, -0.136, -0.060])
-    #     std = np.array([
-    #         0.0601, 0.2267, 0.0838, 0.2680, 0.1161, 0.0757, 0.1495, 0.1235,
-    #         0.6733, 0.4326, 0.6723, 0.3422, 0.7444, 0.5129, 0.6561, 0.2732,
-    #         0.6805, 0.4793, 0.5637, 0.2586, 0.5928, 0.3876, 0.6005, 0.2369,
-    #         0.4858, 0.4227, 0.4428, 0.4831])
+        std = np.array([0.04128463, 0.19463477, 0.15422264, 0.16463493, 0.16640785,
+                        0.08266512, 0.10606721, 0.07636797, 0.7229637, 0.52585346,
+                        0.42947173, 0.20228386, 0.44787514, 0.33257666, 0.6440182,
+                        0.38659114, 0.6644085, 0.5352245, 0.45194066, 0.20750992,
+                        0.4599643, 0.3846344, 0.651452, 0.39733195, 0.49320385,
+                        0.41713253, 0.49984455, 0.4943505], dtype=np.float32)
+        # avg = np.array([-1.2465270e+00, 1.6526607e+00, 8.9330405e-01, 8.6516702e-01,
+        #                 1.7622092e+00, -2.2156630e-05, 1.3117403e+00, -1.2255957e+00,
+        #                 2.5950080e-01, -1.1043715e-03, 9.4134696e-02, -6.7133047e-03,
+        #                 -7.0309144e-01, 4.1770935e-03, 3.5757923e-01, 1.4586982e-03,
+        #                 3.1125790e-01, 8.2521178e-03, 2.0271661e+00, 1.8584693e-02,
+        #                 -2.3951921e+00, -1.6658248e-02, -1.0823953e+00, -5.2950722e-03,
+        #                 -8.7895006e-02, 5.6363422e-01, 8.7978387e-01, 3.5967064e-01],
+        #                dtype=np.float32)
+        # std = np.array([0.03222311, 0.1730885, 0.028473, 0.14430642, 0.13061693,
+        #                 0.1009054, 0.05283826, 0.07036829, 0.42880467, 0.4119299,
+        #                 0.51939434, 0.35789543, 0.5511668, 0.5827042, 0.49089542,
+        #                 0.3377249, 0.47647843, 0.45176378, 0.24511576, 0.23504572,
+        #                 0.18073596, 0.27574706, 0.35603306, 0.31347728, 0.3278562,
+        #                 0.2481189, 0.28089434, 0.33321112], dtype=np.float32)
     # elif env_name == 'MinitaurBulletEnv-v0': # need check
     #     # avg = np.array([0.90172989, 1.54730119, 1.24560906, 1.97365306, 1.9413892,
     #     #                 1.03866835, 1.69646277, 1.18655352, -0.45842347, 0.17845232,
@@ -137,11 +192,11 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     action_dim: the dimension of continuous action; Or the number of discrete action
     action_max: the max action of continuous action; action_max == 1 when it is discrete action space
     if_discrete: Is this env a discrete action space?
-    target_reward: the target episode return, if agent reach this score, then it pass this game (env).
+    target_return: the target episode return, if agent reach this score, then it pass this game (env).
     max_step: the steps in an episode. (from env.reset to done). It breaks an episode when it reach max_step
 
-    :param env: a standard OpenAI gym environment, it has env.reset() and env.step()
-    :param if_print: print the information of environment. Such as env_name, state_dim ...
+    :env: a standard OpenAI gym environment, it has env.reset() and env.step()
+    :bool if_print: print the information of environment. Such as env_name, state_dim ...
     """
     gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
@@ -151,12 +206,12 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-    target_reward = getattr(env, 'target_reward', None)
-    target_reward_default = getattr(env.spec, 'reward_threshold', None)
-    if target_reward is None:
-        target_reward = target_reward_default
-    if target_reward is None:
-        target_reward = 2 ** 16
+    target_return = getattr(env, 'target_return', None)
+    target_return_default = getattr(env.spec, 'reward_threshold', None)
+    if target_return is None:
+        target_return = target_return_default
+    if target_return is None:
+        target_return = 2 ** 16
 
     max_step = getattr(env, 'max_step', None)
     max_step_default = getattr(env, '_max_episode_steps', None)
@@ -172,13 +227,14 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
         action_dim = env.action_space.shape[0]
         action_max = float(env.action_space.high[0])
+        assert not any(env.action_space.high + env.action_space.low)
     else:
         raise RuntimeError('| Please set these value manually: if_discrete=bool, action_dim=int, action_max=1.0')
 
     print(f"\n| env_name:  {env_name}, action space if_discrete: {if_discrete}"
           f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}, action_max: {action_max}"
-          f"\n| max_step:  {max_step:4}, target_reward: {target_reward}") if if_print else None
-    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_reward
+          f"\n| max_step:  {max_step:4}, target_return: {target_return}") if if_print else None
+    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_return
 
 
 """Custom environment: Finance RL, Github AI4Finance-LLC"""
@@ -223,7 +279,7 @@ class FinanceStockEnv:  # 2021-02-02
         self.state_dim = 1 + (5 + 1) * self.stock_dim
         self.action_dim = self.stock_dim
         self.if_discrete = False
-        self.target_reward = 1.25  # convergence 1.5
+        self.target_return = 1.25  # convergence 1.5
         self.max_step = self.ary.shape[0]
 
     def reset(self) -> np.ndarray:
@@ -376,7 +432,7 @@ class FinanceStockEnv:  # 2021-02-02
         return episode_returns
 
 
-"""Custom environment: Fix Env CarRacing-v0 - Box2D"""
+"""Custom environment: Fix Env"""
 
 
 def fix_car_racing_env(env, frame_num=3, action_num=3) -> gym.Wrapper:  # 2020-12-12
@@ -385,7 +441,7 @@ def fix_car_racing_env(env, frame_num=3, action_num=3) -> gym.Wrapper:  # 2020-1
     setattr(env, 'state_dim', (frame_num, 96, 96))
     setattr(env, 'action_dim', 3)
     setattr(env, 'if_discrete', False)
-    setattr(env, 'target_reward', 700)  # 900 in default
+    setattr(env, 'target_return', 700)  # 900 in default
 
     setattr(env, 'state_stack', None)  # env.state_stack = None
     setattr(env, 'avg_reward', 0)  # env.avg_reward = 0
