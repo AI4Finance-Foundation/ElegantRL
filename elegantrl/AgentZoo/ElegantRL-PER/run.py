@@ -5,8 +5,9 @@ import torch
 import numpy as np
 import numpy.random as rd
 from copy import deepcopy
-from elegantrl.agent import ReplayBuffer, ReplayBufferMP
-from elegantrl.env import PreprocessEnv
+from agent import ReplayBuffer, ReplayBufferMP
+from env import PreprocessEnv
+from tensorboardX import SummaryWriter
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -163,9 +164,9 @@ def train_and_evaluate(args):
         steps = agent.explore_env(env, buffer, target_step, reward_scale, gamma)
         total_step += steps
 
-        obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
+        train_record = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
-        if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
+        if_reach_goal = evaluator.evaluate_save(agent.act, steps, train_record)
         evaluator.draw_plot()
 
     print(f'| SavedDir: {cwd}\n| UsedTime: {time.time() - evaluator.start_time:.0f}')
@@ -255,8 +256,8 @@ def mp_train(args, pipe1_eva, pipe1_exp_list):
             agent) else None
     total_step = steps
     '''send'''
-    pipe1_eva.send((agent.act, steps, 0, 0.5))  # send
-    # act, steps, obj_a, obj_c = pipe2_eva.recv()  # recv
+    pipe1_eva.send((agent.act, steps, agent.train_record))  # send
+    # act, steps, train_record = pipe2_eva.recv()  # recv
 
     '''start training'''
     if_solve = False
@@ -279,11 +280,11 @@ def mp_train(args, pipe1_eva, pipe1_exp_list):
         total_step += steps
 
         '''update network parameters'''
-        obj_a, obj_c = agent.update_net(buffer_mp, target_step, batch_size, repeat_times)
+        train_record = agent.update_net(buffer_mp, target_step, batch_size, repeat_times)
 
         '''saves the agent with max reward'''
         '''send'''
-        pipe1_eva.send((agent.act, steps, obj_a, obj_c))
+        pipe1_eva.send((agent.act, steps, train_record))
         # q_i_eva_get = pipe2_eva.recv()
 
         if_solve = pipe1_eva.recv()
@@ -393,7 +394,7 @@ def mp_evaluate(args, pipe2_eva):
 
     '''start evaluating'''
     with torch.no_grad():  # speed up running
-        act, steps, obj_a, obj_c = pipe2_eva.recv()  # pipe2_eva (act, steps, obj_a, obj_c)
+        act, steps, train_record = pipe2_eva.recv()  # pipe2_eva (act, steps, train_record)
 
         if_loop = True
         while if_loop:
@@ -403,17 +404,17 @@ def mp_evaluate(args, pipe2_eva):
             steps_sum = 0
             while pipe2_eva.poll():  # receive the latest object from pipe
                 '''recv'''
-                # pipe1_eva.send((agent.act, steps, obj_a, obj_c))
+                # pipe1_eva.send((agent.act, steps, train_record))
                 # pipe1_eva.send('stop')
                 q_i_eva_get = pipe2_eva.recv()
 
                 if q_i_eva_get == 'stop':
                     if_loop = False
                     break
-                act, steps, obj_a, obj_c = q_i_eva_get
+                act, steps, train_record = q_i_eva_get
                 steps_sum += steps
             act_cpu.load_state_dict(act.state_dict())
-            if_solve = evaluator.evaluate_save(act_cpu, steps_sum, obj_a, obj_c)
+            if_solve = evaluator.evaluate_save(act_cpu, steps_sum, train_record)
             '''send'''
             pipe2_eva.send(if_solve)
             # if_solve = pipe1_eva.recv()
@@ -429,9 +430,20 @@ def mp_evaluate(args, pipe2_eva):
 '''utils'''
 
 
+class TensorBoard:
+    _writer = None
+
+    @classmethod
+    def get_writer(cls, load_path=None):
+        if cls._writer:
+            return cls._writer
+        cls._writer = SummaryWriter(load_path)
+        return cls._writer
+
+
 class Evaluator:
     def __init__(self, cwd, agent_id, eval_times1, eval_times2, eval_gap, env, device):
-        self.recorder = [(0., -np.inf, 0., 0., 0.), ]  # total_step, r_avg, r_std, obj_a, obj_c
+        self.recorder = [(0., -np.inf, 0., 0., 0.), ]  # total_step, r_avg, r_std, train_record
         self.r_max = -np.inf
         self.total_step = 0
 
@@ -447,12 +459,11 @@ class Evaluator:
         self.used_time = None
         self.start_time = time.time()
         self.eval_time = time.time()
-        print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
-              f"{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8} |"
-              f"{'avgS':>6}  {'stdS':>4}")
+        self.writer = TensorBoard.get_writer(load_path=self.cwd)
+        self.is_first = True
 
-    def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
-        if time.time() - self.eval_time < self.eval_gap:
+    def evaluate_save(self, act, steps, train_record) -> bool:
+        if (time.time() - self.eval_time) < self.eval_gap:
             return False  # if_reach_goal
 
         self.eval_time = time.time()
@@ -473,7 +484,8 @@ class Evaluator:
             print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |")
 
         self.total_step += steps  # update total training steps
-        self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
+        self.recorder.append(
+            (self.total_step, r_avg, r_std, train_record['obj_a'], train_record['obj_c']))  # update recorder
 
         if_reach_goal = bool(self.r_max > self.target_reward)  # check if_reach_goal
         if if_reach_goal and self.used_time is None:
@@ -483,9 +495,27 @@ class Evaluator:
                   f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.target_reward:8.2f} |"
                   f"{r_avg:8.2f}  {r_std:8.2f}   {self.used_time:>8}  ########")
 
-        print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |"
-              f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f} |"
-              f"{s_avg:6.0f}  {s_std:4.0f}")
+        if self.is_first:
+            if len(train_record) > 0:
+                print_info = f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |" + \
+                             f"{'avgR':>8}  {'stdR':>8}"
+                for key in train_record.keys():
+                    print_info += f"   {key:>8}"
+                print_info += f" |{'avgS':>6}  {'stdS':>4}"
+                print(print_info)
+                self.is_first = False
+        if len(train_record) > 0:  # train_record is {} before update_net
+            print_info = f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |" + \
+                         f"{r_avg:8.2f}  {r_std:8.2f}"
+            for key, value in train_record.items():
+                self.writer.add_scalar(f'algorithm/{key}', value, self.total_step)
+                print_info += f"   {value:>8.2f}"
+            self.writer.add_scalar(f'total/avgR', r_avg, self.total_step)
+            self.writer.add_scalar(f'total/stdR', r_std, self.total_step)
+            self.writer.add_scalar(f'total/avgS', s_avg, self.total_step)
+            self.writer.add_scalar(f'total/stdS', s_std, self.total_step)
+            print_info += f" |{s_avg:6.0f}  {s_std:4.0f}"
+            print(print_info)
         return if_reach_goal
 
     def draw_plot(self):
@@ -533,7 +563,7 @@ def get_episode_return(env, act, device) -> (float, int):
 
 
 def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
-    recorder = np.array(recorder)  # recorder_ary.append((self.total_step, r_avg, r_std, obj_a, obj_c))
+    recorder = np.array(recorder)  # recorder_ary.append((self.total_step, r_avg, r_std, train_record))
     steps = recorder[:, 0]  # x-axis is training steps
     r_avg = recorder[:, 1]
     r_std = recorder[:, 2]

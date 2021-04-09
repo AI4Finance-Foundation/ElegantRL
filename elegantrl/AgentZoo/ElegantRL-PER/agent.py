@@ -3,10 +3,12 @@ import torch
 import numpy as np
 import numpy.random as rd
 from copy import deepcopy
-from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
-from elegantrl.net import Actor, ActorSAC, ActorPPO
-from elegantrl.net import Critic, CriticAdv, CriticTwin
-from elegantrl.net import InterDPG, InterSPG, InterPPO
+from net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
+from net import Actor, ActorSAC, ActorPPO, ActorMPO
+from net import Critic, CriticAdv, CriticTwin
+from net import InterDPG, InterSPG, InterPPO
+from scipy.optimize import minimize
+from IPython import embed
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -24,6 +26,7 @@ class AgentBase:
         self.cri_optimizer = None
         self.criterion = None
         self.get_obj_critic = None
+        self.train_record = {}
 
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         """initialize the self.object in `__init__()`
@@ -116,6 +119,13 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data.__mul__(tau) + tar.data.__mul__(1 - tau))
 
+    def update_record(self, **kwargs):
+        """update the self.train_record for recording the metrics in training process
+        :**kwargs :named arguments is the metrics name, arguments value is the metrics value.
+        both of them will be prined and showed in tensorboard
+        """
+        self.train_record.update(kwargs)
+
 
 '''Value-based Methods (DQN variances)'''
 
@@ -171,7 +181,8 @@ class AgentDQN(AgentBase):
             obj_critic.backward()
             self.cri_optimizer.step()
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-        return q_value.mean().item(), obj_critic.item()
+        self.update_record(obj_a=q_value.mean().item(), obj_c=obj_critic.item())
+        return self.train_record
 
     def get_obj_critic_raw(self, buffer, batch_size):
         with torch.no_grad():
@@ -333,7 +344,8 @@ class AgentDDPG(AgentBase):
             obj_actor.backward()
             self.act_optimizer.step()
             self.soft_update(self.act_target, self.act, self.soft_update_tau)
-        return obj_actor.item(), obj_critic.item()
+        self.update_record(obj_a=obj_actor.item(), obj_c=obj_critic.item())
+        return self.train_record
 
     def get_obj_critic_raw(self, buffer, batch_size):
         with torch.no_grad():
@@ -407,7 +419,8 @@ class AgentTD3(AgentDDPG):
             if i % self.update_freq == 0:  # delay update
                 self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
-        return obj_actor.item(), obj_critic.item() / 2
+        self.update_record(obj_a=obj_actor.item(), obj_c=obj_critic.item() / 2)
+        return self.train_record
 
     def get_obj_critic_raw(self, buffer, batch_size):
         with torch.no_grad():
@@ -502,7 +515,8 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
             if i % self.update_freq == self.update_freq and lamb > 0.1:
                 self.act_target.load_state_dict(self.act.state_dict())  # Hard Target Update
 
-        return actor_obj.item(), self.avg_loss_c
+        self.update_record(obj_a=obj_actor.item(), obj_c=self.avg_loss_c)
+        return self.train_record
 
 
 class AgentSAC(AgentBase):
@@ -536,7 +550,7 @@ class AgentSAC(AgentBase):
     def select_action(self, state) -> np.ndarray:
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
         action = self.act.get_action(states)[0]
-        return action.cpu().numpy()
+        return action.detach().cpu().numpy()
 
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
@@ -567,7 +581,8 @@ class AgentSAC(AgentBase):
             obj_actor.backward()
             self.act_optimizer.step()
 
-        return alpha.item(), obj_critic.item()
+        self.update_record(obj_a=alpha.item(), obj_c=obj_critic.item())
+        return self.train_record
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
         with torch.no_grad():
@@ -663,7 +678,8 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
                 obj_actor.backward()
                 self.act_optimizer.step()
 
-        return alpha.item(), self.obj_c
+        self.update_record(obj_a=alpha.item(), obj_c=self.obj_c)
+        return self.train_record
 
 
 class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
@@ -741,7 +757,8 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
             self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
-        return alpha.item(), self.obj_c
+        self.update_record(obj_a=alpha.item(), obj_c=self.obj_c)
+        return self.train_record
 
 
 class AgentPPO(AgentBase):
@@ -844,7 +861,11 @@ class AgentPPO(AgentBase):
             obj_united.backward()
             self.optimizer.step()
 
-        return self.act.a_std_log.mean().item(), obj_critic.item()
+        self.update_record(obj_a=obj_surrogate.item(),
+                           obj_c=obj_critic.item(),
+                           a_std=self.act.a_std_log.mean().item(),
+                           entropy=obj_entropy.item())
+        return self.train_record
 
     def compute_reward_adv(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
         """compute the excepted discounted episode return
@@ -969,10 +990,174 @@ class AgentInterPPO(AgentPPO):
             obj_united.backward()
             self.optimizer.step()
 
-        return self.act.a_std_log.mean().item(), self.obj_c
+        self.update_record(obj_a=obj_surrogate.item(),
+                           obj_c=obj_critic.item(),
+                           a_std=self.act.a_std_log.mean().item(),
+                           entropy=obj_entropy.item())
+        return self.train_record
+
+
+class AgentMPO(AgentBase):
+    def __init__(self):
+        super().__init__()
+        self.epsilon_dual = 0.1
+        self.epsilon_kl_mu = 0.01
+        self.epsilon_kl_sigma = 0.01
+        self.epsilon_kl = 0.01
+        self.alpha = 10
+        self.sample_a_num = 64
+        self.lagrange_iteration_num = 5
+
+    def init(self, net_dim, state_dim, action_dim, if_per):
+        self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.act = ActorMPO(net_dim, state_dim, action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.cri = Critic(net_dim, state_dim, action_dim).to(self.device)
+        self.cri_target = deepcopy(self.cri)
+
+        self.criterion = torch.nn.SmoothL1Loss()
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+
+        self.eta = np.random.rand()
+        self.eta_kl_mu = 0.
+        self.eta_kl_sigma = 0.
+        self.eta_kl_mu = 0.
+
+    def select_action(self, state) -> np.ndarray:
+        states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()
+        action = self.act.get_action(states)[0]
+        return action.cpu().numpy()
+
+    def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
+        buffer.update_now_len_before_sample()
+        t_a = torch.empty([256, 64, 3], dtype=torch.float32, device=self.device)
+        t_s = torch.empty([256, 64, 15], dtype=torch.float32, device=self.device)
+        obj_critic = None
+        for _ in range(int(target_step * repeat_times)):
+            # Policy Evaluation
+            with torch.no_grad():
+                reward, mask, a, state, next_s = buffer.sample_batch(batch_size)
+                pi_next_s = self.act_target.get_distribution(next_s)
+                sampled_next_a = pi_next_s.sample((self.sample_a_num,)).transpose(0, 1)
+                expanded_next_s = next_s[:, None, :].expand(-1, self.sample_a_num, -1)
+                expected_next_q = self.cri_target(
+                    expanded_next_s.reshape(-1, state.shape[1]),
+                    sampled_next_a.reshape(-1, a.shape[1])
+                )
+                expected_next_q = expected_next_q.reshape(batch_size, self.sample_a_num)
+                expected_next_q = expected_next_q.mean(dim=1)
+                expected_next_q = expected_next_q.unsqueeze(dim=1)
+                q_label = reward + mask * expected_next_q
+            q = self.cri(state, a)
+            obj_critic = self.criterion(q, q_label)
+            self.cri_optimizer.zero_grad()
+            obj_critic.backward()
+            self.cri_optimizer.step()
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+
+            # Policy Improvation
+            # Sample M additional action for each state
+            with torch.no_grad():
+                pi_b = self.act_target.get_distribution(state)
+                sampled_a = pi_b.sample((self.sample_a_num,))
+                expanded_s = state[None, ...].expand(self.sample_a_num, -1, -1)
+                target_q = self.cri_target.forward(
+                    expanded_s.reshape(-1, state.shape[1]),  # (M * B, ds)
+                    sampled_a.reshape(-1, a.shape[1])  # (M * B, da)
+                ).reshape(self.sample_a_num, batch_size)
+                target_q_np = target_q.cpu().numpy()
+
+            # E step
+            def dual(eta):
+                max_q = np.max(target_q_np, 0)
+                return eta * self.epsilon_dual + np.mean(max_q) \
+                       + eta * np.mean(np.log(np.mean(np.exp((target_q_np - max_q) / eta), axis=0)))
+
+            bounds = [(1e-6, None)]
+            res = minimize(dual, np.array([self.eta]), method='SLSQP', bounds=bounds)
+            self.eta = res.x[0]
+
+            qij = torch.softmax(target_q / self.eta, dim=0)  # (M, B) or (da, B)
+
+            # M step
+            pi = self.act.get_distribution(state)
+            loss_p = torch.mean(
+                qij * (
+                        pi.expand((self.sample_a_num, batch_size)).log_prob(sampled_a)  # (M, B)
+                        + pi_b.expand((self.sample_a_num, batch_size)).log_prob(sampled_a)  # (M, B)
+                )
+            )
+            # mean_loss_p.append((-loss_p).item())
+            kl_mu, kl_sigma = gaussian_kl(mu_i=pi_b.loc, mu=pi.loc, A_i=pi_b.scale_tril, A=pi.scale_tril)
+            if np.isnan(kl_mu.item()):
+                print('kl_μ is nan')
+                embed()
+            if np.isnan(kl_sigma.item()):
+                print('kl_Σ is nan')
+                embed()
+
+            self.eta_kl_mu -= self.alpha * (self.epsilon_kl_mu - kl_mu).detach().item()
+            self.eta_kl_sigma -= self.alpha * (self.epsilon_kl_sigma - kl_sigma).detach().item()
+            self.eta_kl_mu = 0.0 if self.eta_kl_mu < 0.0 else self.eta_kl_mu
+            self.eta_kl_sigma = 0.0 if self.eta_kl_sigma < 0.0 else self.eta_kl_sigma
+            self.act_optimizer.zero_grad()
+            obj_actor = -(
+                    loss_p
+                    + self.eta_kl_mu * (self.epsilon_kl_mu - kl_mu)
+                    + self.eta_kl_sigma * (self.epsilon_kl_sigma - kl_sigma)
+            )
+            self.act_optimizer.zero_grad()
+            obj_actor.backward()
+            self.act_optimizer.step()
+            self.soft_update(self.act_target, self.act, self.soft_update_tau)
+
+        self.update_record(obj_a=obj_actor.item(),
+                           obj_c=obj_critic.item(),
+                           loss_pi=loss_p.item(),
+                           est_q=q_label.mean().item(),
+                           max_kl_mu=kl_mu.item(),
+                           max_kl_sigma=kl_sigma.item(),
+                           eta=self.eta)
+        return self.train_record
 
 
 '''Utils'''
+
+
+def bt(m):
+    return m.transpose(dim0=-2, dim1=-1)
+
+
+def btr(m):
+    return m.diagonal(dim1=-2, dim2=-1).sum(-1)
+
+
+def gaussian_kl(mu_i, mu, A_i, A):
+    """
+    decoupled KL between two multivariate gaussian distribution
+    C_μ = KL(f(x|μi,Σi)||f(x|μ,Σi))
+    C_Σ = KL(f(x|μi,Σi)||f(x|μi,Σ))
+    :param μi: (B, n)
+    :param μ: (B, n)
+    :param Ai: (B, n, n)
+    :param A: (B, n, n)
+    :return: C_μ, C_Σ: mean and covariance terms of the KL
+    """
+    n = A.size(-1)
+    mu_i = mu_i.unsqueeze(-1)  # (B, n, 1)
+    mu = mu.unsqueeze(-1)  # (B, n, 1)
+    sigma_i = A_i @ bt(A_i)  # (B, n, n)
+    sigma = A @ bt(A)  # (B, n, n)
+    sigma_i_inv = sigma_i.inverse()  # (B, n, n)
+    sigma_inv = sigma.inverse()  # (B, n, n)
+    inner_mu = ((mu - mu_i).transpose(-2, -1) @ sigma_i_inv @ (mu - mu_i)).squeeze()  # (B,)
+    inner_sigma = torch.log(sigma_inv.det() / sigma_i_inv.det()) - n + btr(sigma_i_inv @ sigma_inv)  # (B,)
+    C_mu = 0.5 * torch.mean(inner_mu)
+    C_sigma = 0.5 * torch.mean(inner_sigma)
+    return C_mu, C_sigma
 
 
 class ReplayBuffer:

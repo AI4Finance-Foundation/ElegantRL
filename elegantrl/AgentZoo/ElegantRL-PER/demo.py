@@ -1,6 +1,6 @@
 import gym
-from elegantrl.env import PreprocessEnv
-from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
+from env import PreprocessEnv
+from run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -11,7 +11,7 @@ def demo1_discrete_action_space():
     args = Arguments(agent=None, env=None, gpu_id=None)  # see Arguments() to see hyper-parameters
 
     '''choose an DRL algorithm'''
-    from elegantrl.agent import AgentD3QN  # AgentDQN,AgentDuelDQN, AgentDoubleDQN,
+    from agent import AgentD3QN  # AgentDQN,AgentDuelDQN, AgentDoubleDQN,
     args.agent = AgentD3QN()
 
     '''choose environment'''
@@ -35,7 +35,7 @@ def demo2_continuous_action_space_off_policy():
     args = Arguments(if_on_policy=False)
 
     '''choose an DRL algorithm'''
-    from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    from agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
     args.agent = AgentModSAC()
 
     '''choose environment'''
@@ -72,7 +72,7 @@ def demo2_continuous_action_space_on_policy():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
 
     '''choose an DRL algorithm'''
-    from elegantrl.agent import AgentPPO
+    from agent import AgentPPO
     args.agent = AgentPPO()
     args.agent.if_use_gae = True
 
@@ -99,7 +99,7 @@ def demo2_continuous_action_space_on_policy():
 
 
 def demo3_custom_env_fin_rl():
-    from elegantrl.agent import AgentPPO
+    from agent import AgentPPO
 
     '''choose an DRL algorithm'''
     args = Arguments(if_on_policy=True)
@@ -108,7 +108,7 @@ def demo3_custom_env_fin_rl():
 
     "TotalStep:  5e4, TargetReward: 1.25, UsedTime:  20s, FinanceStock-v2"
     "TotalStep: 20e4, TargetReward: 1.50, UsedTime:  80s, FinanceStock-v2"
-    from elegantrl.env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
+    from env import FinanceStockEnv  # a standard env for ElegantRL, not need PreprocessEnv()
     args.env = FinanceStockEnv(if_train=True, train_beg=0, train_len=1024)
     args.env_eval = FinanceStockEnv(if_train=False, train_beg=0, train_len=1024)  # eva_len = 1699 - train_len
     args.reward_scale = 2 ** 0  # RewardRange: 0 < 1.0 < 1.25 < 1.5 < 1.6
@@ -132,7 +132,50 @@ def demo4_bullet_mujoco_off_policy():
     args = Arguments(if_on_policy=False)
     args.random_seed = 10086
 
-    from elegantrl.agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    from agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
+    args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
+    args.agent.if_use_dn = True
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+
+    "TotalStep:  5e4, TargetReward: 18, UsedTime: 1100s, ReacherBulletEnv-v0"
+    "TotalStep: 30e4, TargetReward: 25, UsedTime:     s, ReacherBulletEnv-v0"
+    # args.env = PreprocessEnv(gym.make('ReacherBulletEnv-v0'))
+    # args.env.max_step = 2 ** 10  # important, default env.max_step=150
+    # args.reward_scale = 2 ** 0  # -80 < -30 < 18 < 28
+    # args.gamma = 0.96
+    # args.break_step = int(6e4 * 8)  # (4e4) 8e5, UsedTime: (300s) 700s
+    # args.eval_times1 = 2 ** 2
+    # args.eval_times1 = 2 ** 5
+    # args.if_per = True
+    #
+    # train_and_evaluate(args)
+
+    "TotalStep:  3e5, TargetReward: 1500, UsedTime:  8ks, AntBulletEnv-v0"
+    "TotalStep:  6e5, TargetReward: 2500, UsedTime: 18ks, AntBulletEnv-v0"
+    "TotalStep: 20e5, TargetReward: 3000, UsedTime: 80ks, AntBulletEnv-v0"
+    "TotalStep: 48e5, TargetReward: 3186, UsedTime:175ks, AntBulletEnv-v0"
+    args.env = PreprocessEnv(env=gym.make('AntBulletEnv-v0'))
+    args.break_step = int(6e5 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
+    args.if_allow_break = False
+    args.reward_scale = 2 ** -2  # RewardRange: -50 < 0 < 2500 < 3340
+    args.max_memo = 2 ** 20
+    args.batch_size = 2 ** 9
+    args.show_gap = 2 ** 8  # for Recorder
+    args.eva_size1 = 2 ** 1  # for Recorder
+    args.eva_size2 = 2 ** 3  # for Recorder
+
+    # train_and_evaluate(args)
+    args.rollout_num = 4
+    train_and_evaluate_mp(args)
+
+
+def demo4_bullet_mujoco_off_policy_per():
+    args = Arguments(if_on_policy=False)
+    args.random_seed = 10086
+
+    from agent import AgentModSAC  # AgentSAC, AgentTD3, AgentDDPG
     args.agent = AgentModSAC()  # AgentSAC(), AgentTD3(), AgentDDPG()
     args.agent.if_use_dn = True
 
@@ -149,17 +192,25 @@ def demo4_bullet_mujoco_off_policy():
     args.eval_times1 = 2 ** 2
     args.eval_times1 = 2 ** 5
     args.if_per = True
+    args.rollout_num = 2
+    train_and_evaluate_mp(args)
 
-    train_and_evaluate(args)
 
-    "TotalStep:  3e5, TargetReward: 1500, UsedTime:  8ks, AntBulletEnv-v0"
-    "TotalStep:  6e5, TargetReward: 2500, UsedTime: 18ks, AntBulletEnv-v0"
-    "TotalStep: 20e5, TargetReward: 3000, UsedTime: 80ks, AntBulletEnv-v0"
-    "TotalStep: 48e5, TargetReward: 3186, UsedTime:175ks, AntBulletEnv-v0"
+
+def demo4_bullet_mujoco_mpo():
+    args = Arguments(if_on_policy=False)
+    args.random_seed = 10086
+
+    from agent import AgentMPO  # AgentSAC, AgentTD3, AgentDDPG
+    args.agent = AgentMPO()  # AgentSAC(), AgentTD3(), AgentDDPG()
+
+    import pybullet_envs  # for python-bullet-gym
+    dir(pybullet_envs)
+
     args.env = PreprocessEnv(env=gym.make('AntBulletEnv-v0'))
     args.break_step = int(6e5 * 8)  # (5e5) 1e6, UsedTime: (15,000s) 30,000s
     args.if_allow_break = False
-    args.reward_scale = 2 ** -2  # RewardRange: -50 < 0 < 2500 < 3340
+    args.reward_scale = 2 ** 0  # RewardRange: -50 < 0 < 2500 < 3340
     args.max_memo = 2 ** 20
     args.batch_size = 2 ** 9
     args.show_gap = 2 ** 8  # for Recorder
@@ -181,7 +232,7 @@ def demo4_bullet_mujoco_on_policy():
     "TotalStep: 1e6, TargetReward: 18, UsedTime: 30ks, ReacherBulletEnv-v0"
     args.env = PreprocessEnv(gym.make('ReacherBulletEnv-v0'))
 
-    from elegantrl.agent import AgentPPO
+    from agent import AgentPPO
     args.agent = AgentPPO()
     args.agent.if_use_gae = True
 
@@ -199,7 +250,7 @@ def demo4_bullet_mujoco_on_policy():
     "TotalStep: 75e5, TargetReward: 2500, UsedTime: 14ks, AntBulletEnv-v0"
     args.env = PreprocessEnv(env=gym.make('AntBulletEnv-v0'))
 
-    from elegantrl.agent import AgentPPO
+    from agent import AgentPPO
     args.agent = AgentPPO()
     args.agent.if_use_gae = True
     args.agent.lambda_entropy = 0.05  # 0.02
@@ -370,6 +421,8 @@ if __name__ == '__main__':
     # demo1_discrete_action_space()
     # demo2_continuous_action_space_off_policy()
     # demo2_continuous_action_space_on_policy()
-    demo3_custom_env_fin_rl()
+    # demo3_custom_env_fin_rl()
     # demo4_bullet_mujoco_off_policy()
+    # demo4_bullet_mujoco_off_policy_per()
+    demo4_bullet_mujoco_mpo()
     # demo4_bullet_mujoco_on_policy()

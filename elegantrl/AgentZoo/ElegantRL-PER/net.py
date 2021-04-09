@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
+from torch.distributions import MultivariateNormal
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -195,13 +197,13 @@ class ActorSAC(nn.Module):
     def get_action(self, state):
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
-        a_std = self.net_a_std(t_tmp).clamp(-4, 2).exp()  # todo
+        a_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()  # todo
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get_action_logprob(self, state):
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it needs a_avg.tanh()
-        a_std_log = self.net_a_std(t_tmp).clamp(-3, 2)  # todo (-20, 2)
+        a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)  # todo (-20, 2)
         a_std = a_std_log.exp()
 
         """add noise to action in stochastic policy"""
@@ -231,6 +233,58 @@ class ActorSAC(nn.Module):
         # epsilon = 1e-6
         # logprob = logprob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
         return a_tan, logprob.sum(1, keepdim=True)
+
+
+class ActorMPO(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
+        super().__init__()
+        self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if if_use_dn:  # use a DenseNet (DenseNet has both shallow and deep linear layer)
+            nn_dense_net = DenseNet(mid_dim)
+            self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                           nn_dense_net, )
+            lay_dim = nn_dense_net.out_dim
+        else:  # use a simple network. Deeper network does not mean better performance in RL.
+            lay_dim = mid_dim
+            self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                           nn.Linear(mid_dim, lay_dim), nn.Hardswish(), )
+            # nn.Linear(mid_dim, lay_dim), nn.Hardswish())
+        self.net_a_avg = nn.Linear(lay_dim, action_dim)  # the average of action
+        self.cholesky_layer = nn.Linear(lay_dim, (action_dim * (action_dim + 1)) // 2)
+
+        layer_norm(self.net_a_avg, std=0.01)  # output layer for action, it is no necessary.
+
+    def forward(self, state):
+        return self.net_a_avg(self.net_state(state)).tanh()  # action
+
+    def compute_logprob(self, state, action):
+        a_avg = self.net(state)
+        a_std = self.a_std_log.exp()
+        delta = ((a_avg - action) / a_std).pow(2).__mul__(0.5)  # __mul__(0.5) is * 0.5
+        logprob = -(self.a_std_log + self.sqrt_2pi_log + delta)
+        return logprob.sum(1)
+
+    def get_distribution(self, state):
+        t_tmp = self.net_state(state)
+        a_avg = self.net_a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
+        cholesky_vector = self.cholesky_layer(t_tmp)
+        cholesky_diag_index = torch.arange(self.action_dim, dtype=torch.long) + 1
+        cholesky_diag_index = (cholesky_diag_index * (cholesky_diag_index + 1)) // 2 - 1
+        cholesky_vector[:, cholesky_diag_index] = F.softplus(cholesky_vector[:, cholesky_diag_index])
+        tril_indices = torch.tril_indices(row=self.action_dim, col=self.action_dim, offset=0)
+        cholesky = torch.zeros(size=(a_avg.shape[0], self.action_dim, self.action_dim), dtype=torch.float32).to(
+            self.device)
+        cholesky[:, tril_indices[0], tril_indices[1]] = cholesky_vector
+        return MultivariateNormal(loc=a_avg, scale_tril=cholesky)
+
+    def get_action(self, state):
+        pi_action = self.get_distribution(state)
+        return pi_action.sample().tanh()  # re-parameterize
+
+    def get_actions(self, state, sampled_actions_num):
+        pi_action = self.get_distribution(state)
+        return pi_action.sample((sampled_actions_num,)).tanh()
 
 
 '''Value Network (Critic)'''
