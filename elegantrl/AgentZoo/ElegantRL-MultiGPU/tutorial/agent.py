@@ -113,7 +113,7 @@ class AgentDoubleDQN(AgentDQN):
         self.cri_target = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
         self.act = self.cri
 
-        self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
     def select_action(self, state) -> np.ndarray:  # for discrete action space
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach_()

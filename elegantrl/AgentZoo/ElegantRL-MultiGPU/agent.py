@@ -6,7 +6,7 @@ from copy import deepcopy
 from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
 from elegantrl.net import Actor, ActorSAC, ActorPPO
 from elegantrl.net import Critic, CriticAdv, CriticTwin
-from elegantrl.net import InterDPG, InterSPG, InterPPO
+from elegantrl.net import SharedDPG, SharedSPG, SharedPPO
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -224,7 +224,7 @@ class AgentDoubleDQN(AgentDQN):
 
         self.cri = QNetTwin(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target = deepcopy(self.cri)
-        self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
 
         self.act = self.cri
         self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
@@ -278,7 +278,7 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
         self.act = self.cri
 
         self.criterion = torch.nn.SmoothL1Loss(reduction='none') if if_per else torch.nn.SmoothL1Loss()
-        self.cri_optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
         self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per else 'mean')
         self.get_obj_critic = self.get_obj_critic_per if if_per else self.get_obj_critic_raw
 
@@ -438,7 +438,7 @@ class AgentTD3(AgentDDPG):
         return obj_critic, state
 
 
-class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth. wrong with this code, need to check
+class AgentSharedAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth. wrong with this code, need to check
     def __init__(self):
         super().__init__()
         self.explore_noise = 0.2  # standard deviation of explore noise
@@ -450,7 +450,7 @@ class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth.
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.act = InterDPG(state_dim, action_dim, net_dim).to(self.device)
+        self.act = SharedDPG(state_dim, action_dim, net_dim).to(self.device)
         self.act_target = deepcopy(self.act)
 
         self.criterion = torch.nn.MSELoss(reduction='none') if if_per else torch.nn.MSELoss()
@@ -622,51 +622,45 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
     def update_net(self, buffer, target_step, batch_size, repeat_times) -> (float, float):
         buffer.update_now_len_before_sample()
 
-        train_steps = int(buffer.now_len / batch_size * repeat_times)
-        batch_size_ = int(batch_size)  # todo * (1.0 + buffer.now_len / buffer.max_len))
-
         alpha = self.alpha_log.exp().detach()
         update_a = 0
-        for update_c in range(1, train_steps):
+        for update_c in range(1, int(buffer.now_len / batch_size * repeat_times)):
             '''objective of critic (loss function of critic)'''
-            obj_critic, state = self.get_obj_critic(buffer, batch_size_, alpha)
+            obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
             self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
             self.cri_optimizer.zero_grad()
             obj_critic.backward()
             self.cri_optimizer.step()
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
-            '''objective of alpha (temperature parameter automatic adjustment)'''
-            action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-
-            obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
-            self.alpha_optimizer.zero_grad()
-            obj_alpha.backward()
-            self.alpha_optimizer.step()
-
-            with torch.no_grad():
-                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
-            alpha = self.alpha_log.exp().detach()
-
             '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
             reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
             if_update_a = (update_a / update_c) < (1 / (2 - reliable_lambda))
-            # if_update_a = (update_a / update_c) < (1 / (3 - 2 * reliable_lambda))  # todo
             if if_update_a:  # auto TTUR
                 update_a += 1
 
-                q_value_pg = torch.min(*self.cri_target.get_q1_q2(state, action_pg))  # ceta3
-                obj_actor = -(q_value_pg + logprob * alpha.detach()).mean()
-                # obj_actor = obj_actor * reliable_lambda  # todo max(0.01, reliable_lambda)
+                '''objective of alpha (temperature parameter automatic adjustment)'''
+                action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
+
+                obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean() * reliable_lambda  # todo
+                self.alpha_optimizer.zero_grad()
+                obj_alpha.backward()
+                self.alpha_optimizer.step()
+
+                with torch.no_grad():
+                    self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+                alpha = self.alpha_log.exp().detach()
+
+                q_value_pg = torch.min(*self.cri_target.get_q1_q2(state, action_pg))
+                obj_actor = -(q_value_pg + logprob * alpha.detach()).mean() * reliable_lambda
 
                 self.act_optimizer.zero_grad()
                 obj_actor.backward()
                 self.act_optimizer.step()
-
         return alpha.item(), self.obj_c
 
 
-class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
+class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
     def __init__(self):
         super().__init__()
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
@@ -678,7 +672,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
 
-        self.act = InterSPG(net_dim, state_dim, action_dim).to(self.device)
+        self.act = SharedSPG(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
 
         self.optimizer = torch.optim.Adam(
@@ -891,7 +885,7 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_advantage
 
 
-class AgentInterPPO(AgentPPO):
+class AgentSharedPPO(AgentPPO):
     def __init__(self):
         super().__init__()
         self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
@@ -902,7 +896,7 @@ class AgentInterPPO(AgentPPO):
     def init(self, net_dim, state_dim, action_dim, if_per=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.act = InterPPO(state_dim, action_dim, net_dim).to(self.device)
+        self.act = SharedPPO(state_dim, action_dim, net_dim).to(self.device)
 
         self.optimizer = torch.optim.Adam([
             {'params': self.act.enc_s.parameters(), 'lr': self.learning_rate * 0.9},
