@@ -63,9 +63,9 @@ Check out the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/late
    + Evaluator.
 
 -----utils file----
-+ **elegantrl/env.py**    # gym env or custom env, including FinanceStockEnv.
-   + A PreprocessEnv class for gym-environment modification.
-   + A self-created stock trading environment as an example for user customization.
++ **elegantrl/envs/**    # gym env or custom env, including FinanceStockEnv.
+   + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
+   + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
 + **eRL_demo_BipedalWalker.ipynb**      # BipedalWalker-v2 in jupyter notebooks
 + **eRL_demos.ipynb**       # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
 + **eRL_demo_SingleFilePPO.py**  # Use single file to train PPO, more simple than tutorial version
