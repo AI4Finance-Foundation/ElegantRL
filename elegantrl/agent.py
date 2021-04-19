@@ -776,7 +776,7 @@ class AgentPPO(AgentBase):
         """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device).detach()
         actions, noises = self.act.get_action_noise(states)
-        return actions[0].detach().cpu().numpy(), noises[0].detach().cpu().numpy() # todo remove detach()
+        return actions[0].detach().cpu().numpy(), noises[0].detach().cpu().numpy()  # todo remove detach()
 
     def explore_env(self, env, buffer, target_step, reward_scale, gamma) -> int:
         buffer.empty_buffer_before_explore()  # NOTICE! necessary for on-policy

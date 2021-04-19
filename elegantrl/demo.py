@@ -1,5 +1,5 @@
 import gym
-from elegantrl.envs import PreprocessEnv
+from elegantrl.env import PreprocessEnv
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
@@ -235,10 +235,10 @@ def demo4_bullet_mujoco_on_policy():
     args.rollout_num = 4
     train_and_evaluate_mp(args)
 
-    "TotalStep:  6e6, TargetReward: 1500, UsedTime:  5ks, HumanoidBulletEnv-v0 PPO"
-    "TotalStep: 13e6, TargetReward: 2500, UsedTime: 10ks, HumanoidBulletEnv-v0 PPO"
-    "TotalStep: 32e6, TargetReward: 2956, UsedTime: 25ks, HumanoidBulletEnv-v0 PPO"
-    "TotalStep: 51e5, TargetReward: 3077, UsedTime: 40ks, HumanoidBulletEnv-v0 PPO"
+    "TotalStep:  3e6, TargetReward: 1500, UsedTime:  3ks, HumanoidBulletEnv-v0 PPO"
+    "TotalStep:  6e6, TargetReward: 2500, UsedTime:  5ks, HumanoidBulletEnv-v0 PPO"
+    "TotalStep: 23e6, TargetReward: 3000, UsedTime: 19ks, HumanoidBulletEnv-v0 PPO"
+    "TotalStep: 31e5, TargetReward: 3139, UsedTime: 25ks, HumanoidBulletEnv-v0 PPO"
     args.env = PreprocessEnv(env=gym.make('HumanoidBulletEnv-v0'))
     args.env.target_return = 2500
 
@@ -249,7 +249,7 @@ def demo4_bullet_mujoco_on_policy():
     args.agent.lambda_gae_adv = 0.97
 
     args.if_allow_break = False
-    args.break_step = int(4e6 * 8)
+    args.break_step = int(6e6 * 8)
     args.reward_scale = 2 ** -1
     args.max_memo = args.env.max_step * 4
     args.batch_size = 2 ** 11

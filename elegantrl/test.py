@@ -1,4 +1,4 @@
-from elegantrl.envs import *
+from elegantrl.env import *
 
 
 def get_video_to_watch_gym_render():

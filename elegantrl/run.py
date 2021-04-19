@@ -6,7 +6,7 @@ import numpy as np
 import numpy.random as rd
 from copy import deepcopy
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
-from elegantrl.envs import PreprocessEnv
+from elegantrl.env import PreprocessEnv
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
