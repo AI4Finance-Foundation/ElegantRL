@@ -4,13 +4,13 @@ import numpy as np
 import numpy.random as rd
 import torch
 
-
 class StockTradingEnv:
     def __init__(self, cwd='./envs/FinRL', gamma=0.99,
                  max_stock=1e2, initial_capital=1e6, buy_cost_pct=1e-3, sell_cost_pct=1e-3,
                  start_date='2008-03-19', end_date='2016-01-01', env_eval_date='2021-01-01',
                  ticker_list=None, tech_indicator_list=None, initial_stocks=None, if_eval=False):
 
+        self.num_stocks = len(ticker_list)
         self.price_ary, self.tech_ary = self.load_data(cwd, if_eval, ticker_list, tech_indicator_list,
                                                        start_date, end_date, env_eval_date, )
         stock_dim = self.price_ary.shape[1]
@@ -102,11 +102,6 @@ class StockTradingEnv:
             'macd', 'boll_ub', 'boll_lb', 'rsi_30', 'cci_30', 'dx_30', 'close_30_sma', 'close_60_sma'
         ] if tech_indicator_list is None else tech_indicator_list
 
-        # ticker_list = [
-        #     'AAPL', 'MSFT', 'JPM', 'V', 'RTX', 'PG', 'GS', 'NKE', 'DIS', 'AXP', 'HD',
-        #     'INTC', 'WMT', 'IBM', 'MRK', 'UNH', 'KO', 'CAT', 'TRV', 'JNJ', 'CVX', 'MCD',
-        #     'VZ', 'CSCO', 'XOM', 'BA', 'MMM', 'PFE', 'WBA', 'DD'
-        # ] if ticker_list is None else ticker_list  # finrl.config.DOW_30_TICKER
         ticker_list = [
             'AAPL', 'ADBE', 'ADI', 'ADP', 'ADSK', 'ALGN', 'ALXN', 'AMAT', 'AMD', 'AMGN',
             'AMZN', 'ASML', 'ATVI', 'BIIB', 'BKNG', 'BMRN', 'CDNS', 'CERN', 'CHKP', 'CMCSA',
@@ -117,22 +112,6 @@ class StockTradingEnv:
             'ROST', 'SBUX', 'SIRI', 'SNPS', 'SWKS', 'TTWO', 'TXN', 'VRSN', 'VRTX', 'WBA',
             'WDC', 'WLTW', 'XEL', 'XLNX'
         ] if ticker_list is None else ticker_list  # finrl.config.NAS_74_TICKER
-        # ticker_list = [
-        #     'AMGN', 'AAPL', 'AMAT', 'INTC', 'PCAR', 'PAYX', 'MSFT', 'ADBE', 'CSCO', 'XLNX',
-        #     'QCOM', 'COST', 'SBUX', 'FISV', 'CTXS', 'INTU', 'AMZN', 'EBAY', 'BIIB', 'CHKP',
-        #     'GILD', 'NLOK', 'CMCSA', 'FAST', 'ADSK', 'CTSH', 'NVDA', 'GOOGL', 'ISRG', 'VRTX',
-        #     'HSIC', 'BIDU', 'ATVI', 'ADP', 'ROST', 'ORLY', 'CERN', 'BKNG', 'MYL', 'MU',
-        #     'DLTR', 'ALXN', 'SIRI', 'MNST', 'AVGO', 'TXN', 'MDLZ', 'FB', 'ADI', 'WDC',
-        #     'REGN', 'LBTYK', 'VRSK', 'NFLX', 'TSLA', 'CHTR', 'MAR', 'ILMN', 'LRCX', 'EA',
-        #     'AAL', 'WBA', 'KHC', 'BMRN', 'JD', 'SWKS', 'INCY', 'PYPL', 'CDW', 'FOXA', 'MXIM',
-        #     'TMUS', 'EXPE', 'TCOM', 'ULTA', 'CSX', 'NTES', 'MCHP', 'CTAS', 'KLAC', 'HAS',
-        #     'JBHT', 'IDXX', 'WYNN', 'MELI', 'ALGN', 'CDNS', 'WDAY', 'SNPS', 'ASML', 'TTWO',
-        #     'PEP', 'NXPI', 'XEL', 'AMD', 'NTAP', 'VRSN', 'LULU', 'WLTW', 'UAL'
-        # ] if ticker_list is None else ticker_list  # finrl.config.NAS_100_TICKER
-        # print(raw_df.loc['2000-01-01'])
-        # j = 40000
-        # check_ticker_list = set(raw_df.loc.obj.tic[j:j + 200].tolist())
-        # print(len(check_ticker_list), check_ticker_list)
 
         '''get: train_price_ary, train_tech_ary, eval_price_ary, eval_tech_ary'''
         if os.path.exists(data_path_array):
@@ -173,6 +152,9 @@ class StockTradingEnv:
         else:
             price_ary = train_price_ary
             tech_ary = train_tech_ary
+        
+        if self.num_stocks == 1:
+            price_ary = price_ary.reshape(-1, 1)
         return price_ary, tech_ary
 
     def processed_raw_data(self, raw_data_path, processed_data_path,
@@ -214,14 +196,16 @@ class StockTradingEnv:
             print("| YahooDownloader: finish downloading data")
         return raw_df
 
-    @staticmethod
-    def convert_df_to_ary(df, tech_indicator_list):
+    def convert_df_to_ary(self, df, tech_indicator_list):
         tech_ary = list()
         price_ary = list()
         for day in range(len(df.index.unique())):
             item = df.loc[day]
 
-            tech_items = [item[tech].values.tolist() for tech in tech_indicator_list]
+            if self.num_stocks == 1:
+                tech_items = [[item[tech]] for tech in tech_indicator_list]
+            else:
+                tech_items = [item[tech].values.tolist() for tech in tech_indicator_list]
             tech_items_flatten = sum(tech_items, [])
             tech_ary.append(tech_items_flatten)
             price_ary.append(item.close)  # adjusted close price (adjcp)
