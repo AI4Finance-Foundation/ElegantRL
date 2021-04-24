@@ -136,8 +136,9 @@ def train_and_evaluate(args):
     agent.init(net_dim, state_dim, action_dim, if_per)
     if_on_policy = getattr(agent, 'if_on_policy', False)
 
+
     buffer = ReplayBuffer(max_len=max_memo + max_step, state_dim=state_dim, action_dim=1 if if_discrete else action_dim,
-                          if_on_policy=if_on_policy, if_per=if_per, if_gpu=True)
+                          if_on_policy=if_on_policy, if_per=if_per, if_gpu=False)
 
     evaluator = Evaluator(cwd=cwd, agent_id=gpu_id, device=agent.device, env=env_eval,
                           eval_gap=eval_gap, eval_times1=eval_times1, eval_times2=eval_times2, )
@@ -149,7 +150,7 @@ def train_and_evaluate(args):
     else:  # explore_before_training for off-policy
         with torch.no_grad():  # update replay buffer
             steps = explore_before_training(env, buffer, target_step, reward_scale, gamma)
-
+        print('Begin updating network before training')
         agent.update_net(buffer, target_step, batch_size, repeat_times)  # pre-training and hard update
         agent.act_target.load_state_dict(agent.act.state_dict()) if getattr(agent, 'act_target', None) else None
         agent.cri_target.load_state_dict(agent.cri.state_dict()) if getattr(agent, 'cri_target', None) else None
@@ -157,12 +158,14 @@ def train_and_evaluate(args):
 
     '''start training'''
     if_reach_goal = False
+    print('start training')
     while not ((if_break_early and if_reach_goal)
                or total_step > break_step
                or os.path.exists(f'{cwd}/stop')):
+        print('explore environment')
         steps = agent.explore_env(env, buffer, target_step, reward_scale, gamma)
         total_step += steps
-
+        print('update environment: total_steps={}'.format(total_step))
         obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
         if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
@@ -588,6 +591,7 @@ def explore_before_training(env, buffer, target_step, reward_scale, gamma) -> in
     state = env.reset()
     steps = 0
 
+    print('start exploring before training')
     while steps < target_step:
         action = rd.randint(action_dim) if if_discrete else rd.uniform(-1, 1, size=action_dim)
         next_state, reward, done, _ = env.step(action)

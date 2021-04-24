@@ -164,7 +164,7 @@ class AgentDQN(AgentBase):
         buffer.update_now_len_before_sample()
 
         q_value = obj_critic = None
-        for _ in range(int(target_step * repeat_times)):
+        for i in range(int(target_step * repeat_times)):
             obj_critic, q_value = self.get_obj_critic(buffer, batch_size)
 
             self.cri_optimizer.zero_grad()
@@ -186,6 +186,7 @@ class AgentDQN(AgentBase):
     def get_obj_critic_per(self, buffer, batch_size):
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            print(type(next_s))
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
             q_label = reward + mask * next_q
 

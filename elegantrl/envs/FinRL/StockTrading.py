@@ -5,22 +5,20 @@ import numpy.random as rd
 import torch
 
 class StockTradingEnv:
-    def __init__(self, cwd='./envs/FinRL', gamma=0.99,
-                 max_stock=1e2, initial_capital=1e6, buy_cost_pct=1e-3, sell_cost_pct=1e-3,
+    def __init__(self, cwd='./', gamma=0.99, max_stock=1.0,
+                 initial_capital=1e6, buy_cost_pct=1e-3, sell_cost_pct=1e-3,
                  start_date='2008-03-19', end_date='2016-01-01', env_eval_date='2021-01-01',
-                 ticker_list=None, tech_indicator_list=None, initial_stocks=None, if_eval=False):
+                 stock_name='AAPL', tech_indicator_list=None, initial_stocks=0, if_eval=False, if_save=False):
 
-        self.num_stocks = len(ticker_list)
-        self.price_ary, self.tech_ary = self.load_data(cwd, if_eval, ticker_list, tech_indicator_list,
-                                                       start_date, end_date, env_eval_date, )
-        stock_dim = self.price_ary.shape[1]
+        self.price_ary, self.tech_ary, self.turbulence_ary = self.load_data(cwd, if_eval, if_save, stock_name, tech_indicator_list,
+                                                                            start_date, end_date, env_eval_date)
 
         self.gamma = gamma
         self.max_stock = max_stock
         self.buy_cost_pct = buy_cost_pct
         self.sell_cost_pct = sell_cost_pct
         self.initial_capital = initial_capital
-        self.initial_stocks = np.zeros(stock_dim, dtype=np.float32) if initial_stocks is None else initial_stocks
+        self.initial_stocks = initial_stocks
 
         # reset()
         self.day = None
@@ -32,10 +30,10 @@ class StockTradingEnv:
 
         # environment information
         self.env_name = 'StockTradingEnv-v1'
-        self.state_dim = 1 + 2 * stock_dim + self.tech_ary.shape[1]
-        self.action_dim = stock_dim
+        self.state_dim = 3 + self.tech_ary.shape[1]
+        self.action_dim = 3
         self.max_step = len(self.price_ary) - 1
-        self.if_discrete = False
+        self.if_discrete = True
         self.target_return = 3.5
         self.episode_return = 0.0
 
@@ -43,10 +41,10 @@ class StockTradingEnv:
         self.day = 0
         price = self.price_ary[self.day]
 
-        self.stocks = self.initial_stocks + rd.randint(0, 64, size=self.initial_stocks.shape)
-        self.amount = self.initial_capital * rd.uniform(0.95, 1.05) - (self.stocks * price).sum()
+        self.stocks = self.initial_stocks + rd.randint(0, 64)
+        self.amount = self.initial_capital * rd.uniform(0.95, 1.05) - self.stocks * price
 
-        self.total_asset = self.amount + (self.stocks * price).sum()
+        self.total_asset = self.amount + self.stocks * price
         self.initial_total_asset = self.total_asset
         self.gamma_reward = 0.0
 
@@ -56,34 +54,28 @@ class StockTradingEnv:
                            self.tech_ary[self.day],)).astype(np.float32) * 2 ** -5
         return state
 
-    def step(self, actions):
-        actions = (actions * self.max_stock).astype(int)
+    def step(self, action):
 
         self.day += 1
         price = self.price_ary[self.day]
 
-        for index in np.where(actions < 0)[0]:  # sell_index:
-            if price[index] > 0:  # Sell only if current asset is > 0
-                sell_num_shares = min(self.stocks[index], -actions[index])
-                self.stocks[index] -= sell_num_shares
-                self.amount += price[index] * sell_num_shares * (1 - self.sell_cost_pct)
-
-        for index in np.where(actions > 0)[0]:  # buy_index:
-            if price[index] > 0:  # Buy only if the price is > 0 (no missing data in this particular date)
-                buy_num_shares = min(self.amount // price[index], actions[index])
-                self.stocks[index] += buy_num_shares
-                self.amount -= price[index] * buy_num_shares * (1 + self.buy_cost_pct)
+        if action == 0:
+            self.stocks -= 1
+            self.amount += price * (1 - self.sell_cost_pct)
+        elif action == 2:
+            self.stocks += 1
+            self.amount -= price * (1 - self.buy_cost_pct)
 
         state = np.hstack((self.amount * 2 ** -13,
                            price,
                            self.stocks,
                            self.tech_ary[self.day],)).astype(np.float32) * 2 ** -5
 
-        total_asset = self.amount + (self.stocks * price).sum()
+        total_asset = self.amount + self.stocks * price
         reward = (total_asset - self.total_asset) * 2 ** -14  # reward scaling
         self.total_asset = total_asset
 
-        self.gamma_reward = self.gamma_reward * self.gamma + reward
+        self.gamma_reward = self.gamma_reward * self.gamma + reward #!!!!!
         done = self.day == self.max_step
         if done:
             reward = self.gamma_reward
@@ -91,8 +83,8 @@ class StockTradingEnv:
 
         return state, reward, done, dict()
 
-    def load_data(self, cwd='./envs/FinRL', if_eval=None,
-                  ticker_list=None, tech_indicator_list=None,
+    def load_data(self, cwd='./', if_eval=None, if_save=False,
+                  stock_name='AAPL', tech_indicator_list=None,
                   start_date='2008-03-19', end_date='2016-01-01', env_eval_date='2021-01-01'):
         raw_data_path = f'{cwd}/StockTradingEnv_raw_data.df'
         processed_data_path = f'{cwd}/StockTradingEnv_processed_data.df'
@@ -102,63 +94,60 @@ class StockTradingEnv:
             'macd', 'boll_ub', 'boll_lb', 'rsi_30', 'cci_30', 'dx_30', 'close_30_sma', 'close_60_sma'
         ] if tech_indicator_list is None else tech_indicator_list
 
-        ticker_list = [
-            'AAPL', 'ADBE', 'ADI', 'ADP', 'ADSK', 'ALGN', 'ALXN', 'AMAT', 'AMD', 'AMGN',
-            'AMZN', 'ASML', 'ATVI', 'BIIB', 'BKNG', 'BMRN', 'CDNS', 'CERN', 'CHKP', 'CMCSA',
-            'COST', 'CSCO', 'CSX', 'CTAS', 'CTSH', 'CTXS', 'DLTR', 'EA', 'EBAY', 'FAST',
-            'FISV', 'GILD', 'HAS', 'HSIC', 'IDXX', 'ILMN', 'INCY', 'INTC', 'INTU', 'ISRG',
-            'JBHT', 'KLAC', 'LRCX', 'MAR', 'MCHP', 'MDLZ', 'MNST', 'MSFT', 'MU', 'MXIM',
-            'NLOK', 'NTAP', 'NTES', 'NVDA', 'ORLY', 'PAYX', 'PCAR', 'PEP', 'QCOM', 'REGN',
-            'ROST', 'SBUX', 'SIRI', 'SNPS', 'SWKS', 'TTWO', 'TXN', 'VRSN', 'VRTX', 'WBA',
-            'WDC', 'WLTW', 'XEL', 'XLNX'
-        ] if ticker_list is None else ticker_list  # finrl.config.NAS_74_TICKER
-
         '''get: train_price_ary, train_tech_ary, eval_price_ary, eval_tech_ary'''
         if os.path.exists(data_path_array):
             load_dict = np.load(data_path_array)
 
             train_price_ary = load_dict['train_price_ary'].astype(np.float32)
             train_tech_ary = load_dict['train_tech_ary'].astype(np.float32)
+            train_turbulence_ary = load_dict['train_turbulence_ary'].astype(np.float32)
             eval_price_ary = load_dict['eval_price_ary'].astype(np.float32)
             eval_tech_ary = load_dict['eval_tech_ary'].astype(np.float32)
+            eval_turbulence_ary = load_dict['eval_turbulence_ary'].astype(np.float32)
         else:
             processed_df = self.processed_raw_data(raw_data_path, processed_data_path,
-                                                   ticker_list, tech_indicator_list)
+                                                   stock_name, tech_indicator_list, if_save)
 
+            print('processed df length: {}'.format(len(processed_df)))
             def data_split(df, start, end):
                 data = df[(df.date >= start) & (df.date < end)]
                 data = data.sort_values(["date", "tic"], ignore_index=True)
+                print('split results {}'.format(len(data)))
                 data.index = data.date.factorize()[0]
                 return data
 
             train_df = data_split(processed_df, start_date, end_date)
             eval_df = data_split(processed_df, end_date, env_eval_date)
 
-            train_price_ary, train_tech_ary = self.convert_df_to_ary(train_df, tech_indicator_list)
-            eval_price_ary, eval_tech_ary = self.convert_df_to_ary(eval_df, tech_indicator_list)
+            train_price_ary, train_tech_ary, train_turbulence_ary = self.convert_df_to_ary(train_df, tech_indicator_list)
+            eval_price_ary, eval_tech_ary, eval_turbulence_ary = self.convert_df_to_ary(eval_df, tech_indicator_list)
 
-            np.savez_compressed(data_path_array,
-                                train_price_ary=train_price_ary.astype(np.float16),
-                                train_tech_ary=train_tech_ary.astype(np.float16),
-                                eval_price_ary=eval_price_ary.astype(np.float16),
-                                eval_tech_ary=eval_tech_ary.astype(np.float16), )
+            if if_save:
+                np.savez_compressed(data_path_array,
+                                    train_price_ary=train_price_ary.astype(np.float16),
+                                    train_tech_ary=train_tech_ary.astype(np.float16),
+                                    train_turbulence_ary=train_turbulence_ary.astype(np.float16),
+                                    eval_price_ary=eval_price_ary.astype(np.float16),
+                                    eval_tech_ary=eval_tech_ary.astype(np.float16), 
+                                    eval_turbulence_ary=eval_turbulence_ary.astype(np.float16), )
 
         if if_eval is None:
             price_ary = np.concatenate((train_price_ary, eval_price_ary), axis=0)
             tech_ary = np.concatenate((train_tech_ary, eval_tech_ary), axis=0)
+            turbulence_ary = np.concatenate((train_turbulence_ary, eval_turbulence_ary), axis=0)
         elif if_eval:
             price_ary = eval_price_ary
             tech_ary = eval_tech_ary
+            turbulence_ary = eval_turbulence_ary
         else:
             price_ary = train_price_ary
             tech_ary = train_tech_ary
+            turbulence_ary = train_turbulence_ary
         
-        if self.num_stocks == 1:
-            price_ary = price_ary.reshape(-1, 1)
-        return price_ary, tech_ary
+        return price_ary, tech_ary, turbulence_ary
 
     def processed_raw_data(self, raw_data_path, processed_data_path,
-                           ticker_list, tech_indicator_list):
+                           stock_name, tech_indicator_list, if_save):
         if os.path.exists(processed_data_path):
             processed_df = pd.read_pickle(processed_data_path)  # DataFrame of Pandas
             # print('| processed_df.columns.values:', processed_df.columns.values)
@@ -169,20 +158,17 @@ class StockTradingEnv:
                                  user_defined_feature=False,
                                  use_technical_indicator=True,
                                  tech_indicator_list=tech_indicator_list, )
-            raw_df = self.get_raw_data(raw_data_path, ticker_list)
+            raw_df = self.get_raw_data(raw_data_path, stock_name)
 
             processed_df = fe.preprocess_data(raw_df)
-            processed_df.to_pickle(processed_data_path)
+            if if_save:
+                processed_df.to_pickle(processed_data_path)
             print("| FeatureEngineer: finish processing data")
 
-        '''you can also load from csv'''
-        # processed_data_path = f'{cwd}/dow_30_daily_2000_2021.csv'
-        # if os.path.exists(processed_data_path):
-        #     processed_df = pd.read_csv(processed_data_path)
         return processed_df
 
     @staticmethod
-    def get_raw_data(raw_data_path, ticker_list):
+    def get_raw_data(raw_data_path, stock_name):
         if os.path.exists(raw_data_path):
             raw_df = pd.read_pickle(raw_data_path)  # DataFrame of Pandas
             # print('| raw_df.columns.values:', raw_df.columns.values)
@@ -191,7 +177,7 @@ class StockTradingEnv:
             print("| YahooDownloader: start downloading data (1 minute)")
             raw_df = YahooDownloader(start_date="2000-01-01",
                                      end_date="2021-01-01",
-                                     ticker_list=ticker_list, ).fetch_data()
+                                     stock_name=stock_name, ).fetch_data()
             raw_df.to_pickle(raw_data_path)
             print("| YahooDownloader: finish downloading data")
         return raw_df
@@ -199,21 +185,21 @@ class StockTradingEnv:
     def convert_df_to_ary(self, df, tech_indicator_list):
         tech_ary = list()
         price_ary = list()
+        turbulence_ary = list()
         for day in range(len(df.index.unique())):
             item = df.loc[day]
 
-            if self.num_stocks == 1:
-                tech_items = [[item[tech]] for tech in tech_indicator_list]
-            else:
-                tech_items = [item[tech].values.tolist() for tech in tech_indicator_list]
+            tech_items = [[item[tech]] for tech in tech_indicator_list]
             tech_items_flatten = sum(tech_items, [])
             tech_ary.append(tech_items_flatten)
             price_ary.append(item.close)  # adjusted close price (adjcp)
+            turbulence_ary.append(item.turbulence)
 
         price_ary = np.array(price_ary)
         tech_ary = np.array(tech_ary)
-        print(f'| price_ary.shape: {price_ary.shape}, tech_ary.shape: {tech_ary.shape}')
-        return price_ary, tech_ary
+        turbulence_ary = np.array(turbulence_ary)
+        print(f'| price_ary.shape: {price_ary.shape}, tech_ary.shape: {tech_ary.shape}, turbulence_ary.shape: {turbulence_ary.shape}')
+        return price_ary, tech_ary, turbulence_ary
 
     def draw_cumulative_return(self, args, _torch) -> list:
         state_dim = self.state_dim
@@ -237,7 +223,7 @@ class StockTradingEnv:
                 action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
                 state, reward, done, _ = self.step(action)
 
-                total_asset = self.amount + (self.price_ary[self.day] * self.stocks).sum()
+                total_asset = self.amount + self.price_ary[self.day] * self.stocks
                 episode_return = total_asset / self.initial_total_asset
                 episode_returns.append(episode_return)
                 if done:
@@ -305,8 +291,8 @@ class YahooDownloader:
             start date of the data (modified from config.py)
         end_date : str
             end date of the data (modified from config.py)
-        ticker_list : list
-            a list of stock tickers (modified from config.py)
+        stock_name : string
+            stock to be downloaded
 
     Methods
     -------
@@ -315,11 +301,11 @@ class YahooDownloader:
 
     """
 
-    def __init__(self, start_date: str, end_date: str, ticker_list: list):
+    def __init__(self, start_date: str, end_date: str, stock_name: list):
 
         self.start_date = start_date
         self.end_date = end_date
-        self.ticker_list = ticker_list
+        self.stock_name = stock_name
 
     def fetch_data(self) -> pd.DataFrame:
         import yfinance as yf  # Yahoo Finance
@@ -335,10 +321,9 @@ class YahooDownloader:
         """
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
-        for tic in self.ticker_list:
-            temp_df = yf.download(tic, start=self.start_date, end=self.end_date)
-            temp_df["tic"] = tic
-            data_df = data_df.append(temp_df)
+        temp_df = yf.download(stock_name, start=self.start_date, end=self.end_date)
+        temp_df["tic"] = stock_name
+        data_df = data_df.append(temp_df)
         # reset the index, we want to use numbers as index instead of dates
         data_df = data_df.reset_index()
         try:
