@@ -54,6 +54,11 @@ class StockTradingEnv:
                            self.tech_ary[self.day],)).astype(np.float32) * 2 ** -5
         return state
 
+    def get_episode_return(self):
+        price = self.price_ary[self.day]
+        total_asset = self.amount + self.stocks * price
+        return total_asset / self.initial_total_asset
+
     def step(self, action):
 
         self.day += 1
@@ -108,11 +113,9 @@ class StockTradingEnv:
             processed_df = self.processed_raw_data(raw_data_path, processed_data_path,
                                                    stock_name, tech_indicator_list, if_save)
 
-            print('processed df length: {}'.format(len(processed_df)))
             def data_split(df, start, end):
                 data = df[(df.date >= start) & (df.date < end)]
                 data = data.sort_values(["date", "tic"], ignore_index=True)
-                print('split results {}'.format(len(data)))
                 data.index = data.date.factorize()[0]
                 return data
 
@@ -220,7 +223,8 @@ class StockTradingEnv:
             for i in range(self.max_step):
                 s_tensor = _torch.as_tensor((state,), device=device)
                 a_tensor = act(s_tensor)
-                action = a_tensor.cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+                a_tensor = a_tensor.argmax(dim=1)
+                action = a_tensor.detach().cpu().numpy()[0]
                 state, reward, done, _ = self.step(action)
 
                 total_asset = self.amount + self.price_ary[self.day] * self.stocks

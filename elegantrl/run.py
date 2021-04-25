@@ -5,8 +5,7 @@ import torch
 import numpy as np
 import numpy.random as rd
 from copy import deepcopy
-from elegantrl.replay import ReplayBuffer, ReplayBufferMP
-from elegantrl.env import PreprocessEnv
+from elegantrl.replay import ReplayBuffer
 
 """[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -119,8 +118,6 @@ def train_and_evaluate(args):
     eval_times2 = args.eval_times2
     if args.env_eval is not None:
         env_eval = args.env_eval
-    elif args.env_eval in set(gym.envs.registry.env_specs.keys()):
-        env_eval = PreprocessEnv(gym.make(env.env_name))
     else:
         env_eval = deepcopy(env)
 
@@ -138,7 +135,7 @@ def train_and_evaluate(args):
 
 
     buffer = ReplayBuffer(max_len=max_memo + max_step, state_dim=state_dim, action_dim=1 if if_discrete else action_dim,
-                          if_on_policy=if_on_policy, if_per=if_per, if_gpu=False)
+                          if_on_policy=if_on_policy, if_per=if_per, if_gpu=True)
 
     evaluator = Evaluator(cwd=cwd, agent_id=gpu_id, device=agent.device, env=env_eval,
                           eval_gap=eval_gap, eval_times1=eval_times1, eval_times2=eval_times2, )
@@ -174,261 +171,6 @@ def train_and_evaluate(args):
     print(f'| SavedDir: {cwd}\n| UsedTime: {time.time() - evaluator.start_time:.0f}')
 
 
-'''multiprocessing training'''
-
-
-def train_and_evaluate_mp(args):
-    act_workers = args.rollout_num
-    import multiprocessing as mp  # Python built-in multiprocessing library
-
-    pipe1_eva, pipe2_eva = mp.Pipe()  # Pipe() for Process mp_evaluate_agent()
-    pipe2_exp_list = list()  # Pipe() for Process mp_explore_in_env()
-
-    process_train = mp.Process(target=mp_train, args=(args, pipe2_eva, pipe2_exp_list))
-    process_evaluate = mp.Process(target=mp_evaluate, args=(args, pipe1_eva))
-    process = [process_train, process_evaluate]
-
-    for worker_id in range(act_workers):
-        exp_pipe1, exp_pipe2 = mp.Pipe(duplex=True)
-        pipe2_exp_list.append(exp_pipe1)
-        process.append(mp.Process(target=mp_explore, args=(args, exp_pipe2, worker_id)))
-
-    [p.start() for p in process]
-    process_evaluate.join()
-    process_train.join()
-    [p.terminate() for p in process]
-
-
-def mp_train(args, pipe1_eva, pipe1_exp_list):
-    args.init_before_training(if_main=False)
-
-    '''basic arguments'''
-    env = args.env
-    cwd = args.cwd
-    agent = args.agent
-    rollout_num = args.rollout_num
-
-    '''training arguments'''
-    net_dim = args.net_dim
-    max_memo = args.max_memo
-    break_step = args.break_step
-    batch_size = args.batch_size
-    target_step = args.target_step
-    repeat_times = args.repeat_times
-    if_break_early = args.if_allow_break
-    if_per = args.if_per
-    del args  # In order to show these hyper-parameters clearly, I put them above.
-
-    '''init: environment'''
-    max_step = env.max_step
-    state_dim = env.state_dim
-    action_dim = env.action_dim
-    if_discrete = env.if_discrete
-
-    '''init: Agent, ReplayBuffer'''
-    agent.init(net_dim, state_dim, action_dim, if_per)
-    if_on_policy = getattr(agent, 'if_on_policy', False)
-
-    '''send'''
-    pipe1_eva.send(agent.act)  # send
-    # act = pipe2_eva.recv()  # recv
-
-    buffer_mp = ReplayBufferMP(max_len=max_memo + max_step * rollout_num, if_on_policy=if_on_policy,
-                               state_dim=state_dim, action_dim=1 if if_discrete else action_dim,
-                               rollout_num=rollout_num, if_gpu=True, if_per=if_per)
-
-    '''prepare for training'''
-    if if_on_policy:
-        steps = 0
-    else:  # explore_before_training for off-policy
-        with torch.no_grad():  # update replay buffer
-            steps = 0
-            for i in range(rollout_num):
-                pipe1_exp = pipe1_exp_list[i]
-
-                # pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
-                buf_state, buf_other = pipe1_exp.recv()
-
-                steps += len(buf_state)
-                buffer_mp.extend_buffer(buf_state, buf_other, i)
-
-        agent.update_net(buffer_mp, target_step, batch_size, repeat_times)  # pre-training and hard update
-        agent.act_target.load_state_dict(agent.act.state_dict()) if getattr(env, 'act_target', None) else None
-        agent.cri_target.load_state_dict(agent.cri.state_dict()) if getattr(env, 'cri_target', None) in dir(
-            agent) else None
-    total_step = steps
-    '''send'''
-    pipe1_eva.send((agent.act, steps, 0, 0.5))  # send
-    # act, steps, obj_a, obj_c = pipe2_eva.recv()  # recv
-
-    '''start training'''
-    if_solve = False
-    while not ((if_break_early and if_solve)
-               or total_step > break_step
-               or os.path.exists(f'{cwd}/stop')):
-        '''update ReplayBuffer'''
-        steps = 0  # send by pipe1_eva
-        for i in range(rollout_num):
-            pipe1_exp = pipe1_exp_list[i]
-            '''send'''
-            pipe1_exp.send(agent.act)
-            # agent.act = pipe2_exp.recv()
-            '''recv'''
-            # pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
-            buf_state, buf_other = pipe1_exp.recv()
-
-            steps += len(buf_state)
-            buffer_mp.extend_buffer(buf_state, buf_other, i)
-        total_step += steps
-
-        '''update network parameters'''
-        obj_a, obj_c = agent.update_net(buffer_mp, target_step, batch_size, repeat_times)
-
-        '''saves the agent with max reward'''
-        '''send'''
-        pipe1_eva.send((agent.act, steps, obj_a, obj_c))
-        # q_i_eva_get = pipe2_eva.recv()
-
-        if_solve = pipe1_eva.recv()
-
-        if pipe1_eva.poll():
-            '''recv'''
-            # pipe2_eva.send(if_solve)
-            if_solve = pipe1_eva.recv()
-
-    buffer_mp.print_state_norm(env.neg_state_avg if hasattr(env, 'neg_state_avg') else None,
-                               env.div_state_std if hasattr(env, 'div_state_std') else None)  # 2020-12-12
-
-    '''send'''
-    pipe1_eva.send('stop')
-    # q_i_eva_get = pipe2_eva.recv()
-    time.sleep(4)
-
-
-def mp_explore(args, pipe2_exp, worker_id):
-    args.init_before_training(if_main=False)
-
-    '''basic arguments'''
-    env = args.env
-    agent = args.agent
-    rollout_num = args.rollout_num
-
-    '''training arguments'''
-    net_dim = args.net_dim
-    max_memo = args.max_memo
-    target_step = args.target_step
-    gamma = args.gamma
-    if_per = args.if_per
-    reward_scale = args.reward_scale
-
-    random_seed = args.random_seed
-    torch.manual_seed(random_seed + worker_id)
-    np.random.seed(random_seed + worker_id)
-    del args  # In order to show these hyper-parameters clearly, I put them above.
-
-    '''init: environment'''
-    max_step = env.max_step
-    state_dim = env.state_dim
-    action_dim = env.action_dim
-    if_discrete = env.if_discrete
-
-    '''init: Agent, ReplayBuffer'''
-    agent.init(net_dim, state_dim, action_dim, if_per)
-    agent.state = env.reset()
-
-    if_on_policy = getattr(agent, 'if_on_policy', False)
-    buffer = ReplayBuffer(max_len=max_memo // rollout_num + max_step, if_on_policy=if_on_policy,
-                          state_dim=state_dim, action_dim=1 if if_discrete else action_dim,
-                          if_per=if_per, if_gpu=False)
-
-    '''start exploring'''
-    exp_step = target_step // rollout_num
-    with torch.no_grad():
-        if not if_on_policy:
-            explore_before_training(env, buffer, exp_step, reward_scale, gamma)
-
-            buffer.update_now_len_before_sample()
-
-            pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
-            # buf_state, buf_other = pipe1_exp.recv()
-
-            buffer.empty_buffer_before_explore()
-
-        while True:
-            agent.explore_env(env, buffer, exp_step, reward_scale, gamma)
-
-            buffer.update_now_len_before_sample()
-
-            pipe2_exp.send((buffer.buf_state[:buffer.now_len], buffer.buf_other[:buffer.now_len]))
-            # buf_state, buf_other = pipe1_exp.recv()
-
-            buffer.empty_buffer_before_explore()
-
-            # pipe1_exp.send(agent.act)
-            agent.act = pipe2_exp.recv()
-
-
-def mp_evaluate(args, pipe2_eva):
-    args.init_before_training(if_main=True)
-
-    '''basic arguments'''
-    cwd = args.cwd
-    env = args.env
-    env_eval = env if args.env_eval is None else args.env_eval
-    agent_id = args.gpu_id
-
-    '''evaluating arguments'''
-    eval_gap = args.eval_gap
-    eval_times1 = args.eval_times1
-    eval_times2 = args.eval_times2
-    del args  # In order to show these hyper-parameters clearly, I put them above.
-
-    '''init: Evaluator'''
-    evaluator = Evaluator(cwd=cwd, agent_id=agent_id, device=torch.device("cpu"), env=env_eval,
-                          eval_gap=eval_gap, eval_times1=eval_times1, eval_times2=eval_times2, )  # build Evaluator
-
-    '''act_cpu without gradient for pipe1_eva'''
-    # pipe1_eva.send(agent.act)
-    act = pipe2_eva.recv()
-
-    act_cpu = deepcopy(act).to(torch.device("cpu"))  # for pipe1_eva
-    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
-
-    '''start evaluating'''
-    with torch.no_grad():  # speed up running
-        act, steps, obj_a, obj_c = pipe2_eva.recv()  # pipe2_eva (act, steps, obj_a, obj_c)
-
-        if_loop = True
-        while if_loop:
-            '''update actor'''
-            while not pipe2_eva.poll():  # wait until pipe2_eva not empty
-                time.sleep(1)
-            steps_sum = 0
-            while pipe2_eva.poll():  # receive the latest object from pipe
-                '''recv'''
-                # pipe1_eva.send((agent.act, steps, obj_a, obj_c))
-                # pipe1_eva.send('stop')
-                q_i_eva_get = pipe2_eva.recv()
-
-                if q_i_eva_get == 'stop':
-                    if_loop = False
-                    break
-                act, steps, obj_a, obj_c = q_i_eva_get
-                steps_sum += steps
-            act_cpu.load_state_dict(act.state_dict())
-            if_solve = evaluator.evaluate_save(act_cpu, steps_sum, obj_a, obj_c)
-            '''send'''
-            pipe2_eva.send(if_solve)
-            # if_solve = pipe1_eva.recv()
-
-            evaluator.draw_plot()
-
-    print(f'| SavedDir: {cwd}\n| UsedTime: {time.time() - evaluator.start_time:.0f}')
-
-    while pipe2_eva.poll():  # empty the pipe
-        pipe2_eva.recv()
-
-
 '''utils'''
 
 
@@ -451,7 +193,7 @@ class Evaluator:
         self.start_time = time.time()
         self.eval_time = -1  # a early time
         print(f"{'ID':>2}  {'Step':>8}  {'MaxR':>8} |"
-              f"{'avgR':>8}  {'stdR':>8}   {'objA':>8}  {'objC':>8} |"
+              f"{'avgR':>8}  {'stdR':>8}   {'avgQ':>8}  {'avgL':>8} |"
               f"{'avgS':>6}  {'stdS':>4}")
 
     def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
@@ -486,7 +228,7 @@ class Evaluator:
                       f"{r_avg:8.2f}  {r_std:8.2f}   {self.used_time:>8}  ########")
 
             print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |"
-                  f"{r_avg:8.2f}  {r_std:8.2f}   {obj_a:8.2f}  {obj_c:8.2f} |"
+                  f"{r_avg:8.6f}  {r_std:8.6f}   {obj_a:8.6f}  {obj_c:8.6f} |"
                   f"{s_avg:6.0f}  {s_std:4.0f}")
         else:
             if_reach_goal = False
@@ -532,7 +274,8 @@ def get_episode_return(env, act, device) -> (float, int):
         episode_return += reward
         if done:
             break
-    episode_return = getattr(env, 'episode_return', episode_return)
+    #episode_return = getattr(env, 'episode_return', episode_return)
+    episode_return = env.get_episode_return()
     return episode_return, episode_step + 1
 
 
