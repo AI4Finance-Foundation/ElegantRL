@@ -4,6 +4,8 @@ import numpy as np
 import numpy.random as rd
 import torch
 
+from elegantrl.replay import ReplayBuffer
+
 class StockTradingEnv:
     def __init__(self, cwd='./', gamma=0.99, max_stock=1.0,
                  initial_capital=1e6, buy_cost_pct=1e-3, sell_cost_pct=1e-3,
@@ -19,6 +21,7 @@ class StockTradingEnv:
         self.sell_cost_pct = sell_cost_pct
         self.initial_capital = initial_capital
         self.initial_stocks = initial_stocks
+        self.if_eval = if_eval
 
         # reset()
         self.day = None
@@ -41,8 +44,12 @@ class StockTradingEnv:
         self.day = 0
         price = self.price_ary[self.day]
 
-        self.stocks = self.initial_stocks + rd.randint(0, 64)
-        self.amount = self.initial_capital * rd.uniform(0.95, 1.05) - self.stocks * price
+        if self.if_eval:
+            self.stocks = self.initial_stocks
+            self.amount = self.initial_capital
+        else:
+            self.stocks = self.initial_stocks + rd.randint(0, 64)
+            self.amount = self.initial_capital * rd.uniform(0.95, 1.05) - self.stocks * price
 
         self.total_asset = self.amount + self.stocks * price
         self.initial_total_asset = self.total_asset
@@ -161,7 +168,7 @@ class StockTradingEnv:
                                  user_defined_feature=False,
                                  use_technical_indicator=True,
                                  tech_indicator_list=tech_indicator_list, )
-            raw_df = self.get_raw_data(raw_data_path, stock_name)
+            raw_df = self.get_raw_data(raw_data_path, stock_name, if_save)
 
             processed_df = fe.preprocess_data(raw_df)
             if if_save:
@@ -171,7 +178,7 @@ class StockTradingEnv:
         return processed_df
 
     @staticmethod
-    def get_raw_data(raw_data_path, stock_name):
+    def get_raw_data(raw_data_path, stock_name, if_save=False):
         if os.path.exists(raw_data_path):
             raw_df = pd.read_pickle(raw_data_path)  # DataFrame of Pandas
             # print('| raw_df.columns.values:', raw_df.columns.values)
@@ -181,7 +188,8 @@ class StockTradingEnv:
             raw_df = YahooDownloader(start_date="2000-01-01",
                                      end_date="2021-01-01",
                                      stock_name=stock_name, ).fetch_data()
-            raw_df.to_pickle(raw_data_path)
+            if if_save:
+                raw_df.to_pickle(raw_data_path)
             print("| YahooDownloader: finish downloading data")
         return raw_df
 
@@ -219,19 +227,84 @@ class StockTradingEnv:
 
         state = self.reset()
         episode_returns = list()  # the cumulative_return / initial_account
+        action_choice = list()
+        print('The initial captial is {}'.format(self.initial_capital))
+        print('The initial number of stocks is {}'.format(self.initial_stocks))
         with _torch.no_grad():
             for i in range(self.max_step):
                 s_tensor = _torch.as_tensor((state,), device=device)
-                a_tensor = act(s_tensor)
-                a_tensor = a_tensor.argmax(dim=1)
-                action = a_tensor.detach().cpu().numpy()[0]
+                action = agent.get_best_act(s_tensor)
                 state, reward, done, _ = self.step(action)
 
                 total_asset = self.amount + self.price_ary[self.day] * self.stocks
                 episode_return = total_asset / self.initial_total_asset
                 episode_returns.append(episode_return)
+                action_choice.append(action)
                 if done:
                     break
+
+        import matplotlib.pyplot as plt
+        plt.plot(episode_returns)
+        plt.grid()
+        plt.title('cumulative return over time')
+        plt.xlabel('day')
+        plt.ylabel('fraction of initial asset')
+        plt.savefig(f'{cwd}/cumulative_return.jpg')
+
+        plt.figure()
+        plt.plot(self.price_ary)
+        plt.grid()
+        plt.title('stock price over time')
+        plt.xlabel('day')
+        plt.ylabel('price')
+        plt.savefig(f'{cwd}/price_over_time.jpg')
+
+        plt.figure()
+        plt.plot(action_choice)
+        plt.grid()
+        plt.title('action choice over time')
+        plt.xlabel('day')
+        plt.ylabel('action')
+        plt.savefig(f'{cwd}/action_over_time.jpg')
+
+        return episode_returns
+    
+    def draw_cumulative_return_while_learning(self, args, _torch) -> list:
+        state_dim = self.state_dim
+        action_dim = self.action_dim
+
+        agent = args.agent
+        net_dim = args.net_dim
+        cwd = args.cwd
+
+        agent.init(net_dim, state_dim, action_dim)
+        agent.save_load_model(cwd=cwd, if_save=False)
+        act = agent.act
+        device = agent.device
+
+        state = self.reset()
+        episode_returns = list()  # the cumulative_return / initial_account
+
+        buffer = ReplayBuffer(max_len=1000 + self.max_step, state_dim=state_dim, action_dim=1,
+                          if_on_policy=False, if_per=False, if_gpu=True)
+                          
+        for i in range(self.max_step):
+            action = agent.select_action(state)
+            new_state, reward, done, _ = self.step(action)
+
+            other = (reward * 1, 0.0 if done else self.gamma, action)
+            buffer.append_buffer(state, other)
+            state = new_state
+
+            if i%50 == 49: 
+                print('updating network: {}'.format(i))
+                agent.update_net(buffer, 50, 32, 1)
+
+            total_asset = self.amount + self.price_ary[self.day] * self.stocks
+            episode_return = total_asset / self.initial_total_asset
+            episode_returns.append(episode_return)
+            if done:
+                break
 
         import matplotlib.pyplot as plt
         plt.plot(episode_returns)
@@ -325,8 +398,8 @@ class YahooDownloader:
         """
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
-        temp_df = yf.download(stock_name, start=self.start_date, end=self.end_date)
-        temp_df["tic"] = stock_name
+        temp_df = yf.download(self.stock_name, start=self.start_date, end=self.end_date)
+        temp_df["tic"] = self.stock_name
         data_df = data_df.append(temp_df)
         # reset the index, we want to use numbers as index instead of dates
         data_df = data_df.reset_index()

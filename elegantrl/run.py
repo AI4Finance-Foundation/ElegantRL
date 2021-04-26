@@ -165,7 +165,7 @@ def train_and_evaluate(args):
         print('update environment: total_steps={}'.format(total_step))
         obj_a, obj_c = agent.update_net(buffer, target_step, batch_size, repeat_times)
 
-        if_reach_goal = evaluator.evaluate_save(agent.act, steps, obj_a, obj_c)
+        if_reach_goal = evaluator.evaluate_save(agent, steps, obj_a, obj_c)
         evaluator.draw_plot()
 
     print(f'| SavedDir: {cwd}\n| UsedTime: {time.time() - evaluator.start_time:.0f}')
@@ -196,17 +196,17 @@ class Evaluator:
               f"{'avgR':>8}  {'stdR':>8}   {'avgQ':>8}  {'avgL':>8} |"
               f"{'avgS':>6}  {'stdS':>4}")
 
-    def evaluate_save(self, act, steps, obj_a, obj_c) -> bool:
+    def evaluate_save(self, agent, steps, obj_a, obj_c) -> bool:
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time > self.eval_gap:
             self.eval_time = time.time()
 
-            rewards_steps_list = [get_episode_return(self.env, act, self.device) for _ in range(self.eval_times1)]
+            rewards_steps_list = [get_episode_return(self.env, agent, self.device) for _ in range(self.eval_times1)]
             r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
             if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-                rewards_steps_list += [get_episode_return(self.env, act, self.device)
+                rewards_steps_list += [get_episode_return(self.env, agent, self.device)
                                        for _ in range(self.eval_times2 - self.eval_times1)]
                 r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
             if r_avg > self.r_max:  # save checkpoint with highest episode return
@@ -214,7 +214,7 @@ class Evaluator:
 
                 '''save actor.pth'''
                 act_save_path = f'{self.cwd}/actor.pth'
-                torch.save(act.state_dict(), act_save_path)
+                torch.save(agent.act.state_dict(), act_save_path)
                 print(f"{self.agent_id:<2}  {self.total_step:8.2e}  {self.r_max:8.2f} |")  # save policy and print
 
             self.recorder.append((self.total_step, r_avg, r_std, obj_a, obj_c))  # update recorder
@@ -257,7 +257,7 @@ class Evaluator:
         return r_avg, r_std, s_avg, s_std
 
 
-def get_episode_return(env, act, device) -> (float, int):
+def get_episode_return(env, agent, device) -> (float, int):
     episode_return = 0.0  # sum of rewards in an episode
     episode_step = 1
     max_step = env.max_step
@@ -266,10 +266,7 @@ def get_episode_return(env, act, device) -> (float, int):
     state = env.reset()
     for episode_step in range(max_step):
         s_tensor = torch.as_tensor((state,), device=device)
-        a_tensor = act(s_tensor)
-        if if_discrete:
-            a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        action = agent.get_best_act(s_tensor)
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
@@ -295,7 +292,7 @@ def save_learning_curve(recorder, cwd='.', save_title='learning curve'):
     https://stackoverflow.com/a/4935945/9293137
     """
     import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(2)
+    fig, axs = plt.subplots(2, figsize=(20, 16))
 
     axs0 = axs[0]
     axs0.cla()
