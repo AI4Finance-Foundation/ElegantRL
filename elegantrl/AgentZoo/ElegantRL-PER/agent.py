@@ -446,7 +446,7 @@ class AgentTD3(AgentDDPG):
         q1, q2 = self.cri.get_q1_q2(state, action)
         obj_critic = ((self.criterion(q1, q_label) + self.criterion(q2, q_label)) * is_weights).mean()
 
-        td_error = (q_label - torch.min(q1, q1).detach()).abs()
+        td_error = (q_label - torch.min(q1, q2).detach()).abs()
         buffer.td_error_update(td_error)
         return obj_critic, state
 
@@ -581,7 +581,7 @@ class AgentSAC(AgentBase):
             obj_actor.backward()
             self.act_optimizer.step()
 
-        self.update_record(obj_a=alpha.item(), obj_c=obj_critic.item())
+        self.update_record(obj_a=obj_actor.item(), obj_c=obj_critic.item())
         return self.train_record
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
@@ -603,7 +603,7 @@ class AgentSAC(AgentBase):
         q1, q2 = self.cri.get_q1_q2(state, action)  # twin critics
         obj_critic = ((self.criterion(q1, q_label) + self.criterion(q2, q_label)) * is_weights).mean()
 
-        td_error = (q_label - torch.min(q1, q1).detach()).abs()
+        td_error = (q_label - torch.min(q1, q2).detach()).abs()
         buffer.td_error_update(td_error)
         return obj_critic, state
 
@@ -678,7 +678,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
                 obj_actor.backward()
                 self.act_optimizer.step()
 
-        self.update_record(obj_a=alpha.item(), obj_c=self.obj_c)
+        self.update_record(obj_a=obj_actor.item(), obj_c=self.obj_c)
         return self.train_record
 
 
@@ -757,7 +757,7 @@ class AgentInterSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
             self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
-        self.update_record(obj_a=alpha.item(), obj_c=self.obj_c)
+        self.update_record(obj_a=obj_actor.item(), obj_c=self.obj_c)
         return self.train_record
 
 
@@ -863,7 +863,7 @@ class AgentPPO(AgentBase):
 
         self.update_record(obj_a=obj_surrogate.item(),
                            obj_c=obj_critic.item(),
-                           a_std=self.act.a_std_log.mean().item(),
+                           a_std=obj_actor.item(),
                            entropy=obj_entropy.item())
         return self.train_record
 
@@ -905,7 +905,7 @@ class AgentPPO(AgentBase):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
-            buf_advantage[i] = buf_reward[i] + buf_mask[i] * pre_advantage - buf_value[i]
+            buf_advantage[i] = buf_reward[i] + buf_mask[i] * (pre_advantage - buf_value[i])
             pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_gae_adv
 
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
@@ -956,7 +956,7 @@ class AgentInterPPO(AgentPPO):
                 buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
                 pre_r_sum = buf_r_sum[i]
 
-                buf_advantage[i] = buf_reward[i] + buf_mask[i] * pre_advantage - buf_value[i]
+                buf_advantage[i] = buf_reward[i] + buf_mask[i] * (pre_advantage - buf_value[i])
                 pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_gae_adv
 
             buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
@@ -992,7 +992,7 @@ class AgentInterPPO(AgentPPO):
 
         self.update_record(obj_a=obj_surrogate.item(),
                            obj_c=obj_critic.item(),
-                           a_std=self.act.a_std_log.mean().item(),
+                           a_std=obj_actor.item(),
                            entropy=obj_entropy.item())
         return self.train_record
 

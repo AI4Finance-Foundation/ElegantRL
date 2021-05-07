@@ -293,7 +293,7 @@ class AgentSAC(AgentBase):
             self.act_optimizer.zero_grad()
             obj_actor.backward()
             self.act_optimizer.step()
-        return alpha.item(), obj_critic.item() / 2
+        return obj_actor.item(), obj_critic.item() / 2
 
     def get_obj_critic(self, buffer, batch_size, alpha) -> (torch.Tensor, torch.Tensor):
         with torch.no_grad():
@@ -390,7 +390,7 @@ class AgentPPO(AgentBase):
             self.optimizer.zero_grad()
             obj_united.backward()
             self.optimizer.step()
-        return self.act.a_std_log.mean().item(), obj_critic.item()
+        return obj_actor.item(), obj_critic.item()
 
     def compute_reward_adv(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
@@ -412,7 +412,7 @@ class AgentPPO(AgentBase):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
-            buf_advantage[i] = buf_reward[i] + buf_mask[i] * pre_advantage - buf_value[i]
+            buf_advantage[i] = buf_reward[i] + buf_mask[i] * (pre_advantage - buf_value[i])
             pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_gae_adv
 
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)

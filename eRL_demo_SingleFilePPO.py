@@ -150,7 +150,7 @@ class AgentPPO:
             obj_united.backward()
             self.optimizer.step()
 
-        return self.act.a_std_log.mean().item(), obj_critic.item()
+        return obj_actor.item(), obj_critic.item()
 
     def compute_reward_adv(self, max_memo, buf_reward, buf_mask, buf_value):
         buf_r_sum = torch.empty(max_memo, dtype=torch.float32, device=self.device)  # reward sum
@@ -172,7 +172,7 @@ class AgentPPO:
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
-            buf_advantage[i] = buf_reward[i] + buf_mask[i] * pre_advantage - buf_value[i]
+            buf_advantage[i] = buf_reward[i] + buf_mask[i] * (pre_advantage - buf_value[i])
             pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_gae_adv
 
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
