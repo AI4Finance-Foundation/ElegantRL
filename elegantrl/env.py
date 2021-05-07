@@ -54,7 +54,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper # todo 2021-03-17
         :return array state: state.shape==(state_dim, )
         """
         state = self.env.reset()
-        (state + self.neg_state_avg) * self.div_state_std
+        state = (state + self.neg_state_avg) * self.div_state_std
         return state.astype(self.data_type)
 
     def step_type(self, action) -> (np.ndarray, float, bool, dict):
