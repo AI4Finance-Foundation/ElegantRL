@@ -120,3 +120,17 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
     | matplotlib 3.2  | For plots. Evaluate the agent performance.
     
     pip3 install gym==1.17.0 pybullet Box2D matplotlib
+    
+
+## Citation:
+To cite this repository:
+```
+@misc{rlalgorithms,
+  author = {Xiao-Yang Liu, Zechu Li, Zhaoran Wang, Jiahao Zheng},
+  title = {ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Librarys},
+  year = {2021},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/AI4Finance-LLC/ElegantRL}},
+}
+```
