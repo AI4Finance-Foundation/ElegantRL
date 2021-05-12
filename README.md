@@ -127,7 +127,7 @@ To cite this repository:
 ```
 @misc{rlalgorithms,
   author = {Xiao-Yang Liu, Zechu Li, Zhaoran Wang, Jiahao Zheng},
-  title = {ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Librarys},
+  title = {ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},
