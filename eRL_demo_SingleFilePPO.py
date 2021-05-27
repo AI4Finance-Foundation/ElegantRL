@@ -124,9 +124,9 @@ class AgentPPO:
         self.act = self.act_optimizer = None
         self.cri = self.cri_optimizer = self.cri_target = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate, if_use_gae=False):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.get_reward_sum = self.get_reward_gae if if_use_gae else self.get_reward_raw
+        self.get_reward_sum = self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
         self.act = ActorPPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(net_dim, state_dim).to(self.device)
@@ -203,7 +203,7 @@ class AgentPPO:
         return state, action, r_sum, logprob, advantage
 
     @staticmethod
-    def get_reward_raw(self, buf_len, buf_reward, buf_mask, buf_value, pre_r_sum) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value, pre_r_sum) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
 
         for i in range(buf_len - 1, -1, -1):
@@ -214,7 +214,7 @@ class AgentPPO:
         return buf_r_sum, buf_advantage
 
     @staticmethod
-    def get_reward_gae(self, buf_len, buf_reward, buf_mask, buf_value, pre_r_sum) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_gae(self, buf_len, buf_reward, buf_mask, buf_value, pre_r_sum) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
         buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -239,11 +239,38 @@ class AgentPPO:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data.__mul__(tau) + tar.data.__mul__(1 - tau))
 
+    def save_load_model(self, cwd, if_save):
+        """save or load model files
+
+        :str cwd: current working directory, we save model file here
+        :bool if_save: save model or load model
+        """
+        act_save_path = '{}/actor.pth'.format(cwd)
+        cri_save_path = '{}/critic.pth'.format(cwd)
+
+        def load_torch_file(network, save_path):
+            network_dict = torch.load(save_path, map_location=lambda storage, loc: storage)
+            network.load_state_dict(network_dict)
+
+        if if_save:
+            if self.act is not None:
+                torch.save(self.act.state_dict(), act_save_path)
+            if self.cri is not None:
+                torch.save(self.cri.state_dict(), cri_save_path)
+        elif (self.act is not None) and os.path.exists(act_save_path):
+            load_torch_file(self.act, act_save_path)
+            print("Loaded act:", cwd)
+        elif (self.cri is not None) and os.path.exists(cri_save_path):
+            load_torch_file(self.cri, cri_save_path)
+            print("Loaded cri:", cwd)
+        else:
+            print("FileNotFound when load_model: {}".format(cwd))
+
 
 class AgentDiscretePPO(AgentPPO):
-    def init(self, net_dim, state_dim, action_dim, learning_rate, if_use_gae=False):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.compute_reward = self.get_reward_gae if if_use_gae else self.get_reward_raw
+        self.get_reward_sum = self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
         self.act = ActorDiscretePPO(net_dim, state_dim, action_dim).to(self.device)
         self.cri = CriticAdv(net_dim, state_dim).to(self.device)
@@ -512,102 +539,6 @@ class Arguments:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
 
 
-class Evaluator:
-    def __init__(self, cwd, agent_id, eval_times1, eval_times2, eval_gap, env, device):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
-        self.r_max = -np.inf
-        self.total_step = 0
-
-        self.cwd = cwd  # constant
-        self.device = device
-        self.agent_id = agent_id
-        self.eval_gap = eval_gap
-        self.eval_times1 = eval_times1
-        self.eval_times2 = eval_times2
-        self.env = env
-        self.target_return = env.target_return
-
-        self.used_time = None
-        self.start_time = time.time()
-        self.eval_time = -1  # a early time
-        print(f"{'ID':>2} {'Step':>8} {'MaxR':>8} |"
-              f"{'avgR':>8} {'stdR':>8} |{'avgS':>5} {'stdS':>4} |"
-              f"{'objC':>8} {'etc.':>8}")
-
-    def evaluate_save(self, act, steps, log_tuple) -> bool:
-        self.total_step += steps  # update total training steps
-
-        if time.time() - self.eval_time > self.eval_gap:
-            self.eval_time = time.time()
-
-            rewards_steps_list = [get_episode_return(self.env, act, self.device) for _ in range(self.eval_times1)]
-            r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
-
-            if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-                rewards_steps_list += [get_episode_return(self.env, act, self.device)
-                                       for _ in range(self.eval_times2 - self.eval_times1)]
-                r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
-            if r_avg > self.r_max:  # save checkpoint with highest episode return
-                self.r_max = r_avg  # update max reward (episode return)
-
-                '''save policy network in *.pth'''
-                act_save_path = f'{self.cwd}/actor.pth'
-                torch.save(act.state_dict(), act_save_path)
-                print(f"{self.agent_id:<2} {self.total_step:8.2e} {self.r_max:8.2f} |")  # save policy and print
-
-            self.recorder.append((self.total_step, r_avg, r_std, *log_tuple))  # update recorder
-
-            if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
-            if if_reach_goal and self.used_time is None:
-                self.used_time = int(time.time() - self.start_time)
-                print(f"{'ID':>2} {'Step':>8} {'TargetR':>8} |{'avgR':>8} {'stdR':>8} |"
-                      f"  {'UsedTime':>8}  ########\n"
-                      f"{self.agent_id:<2} {self.total_step:8.2e} {self.target_return:8.2f} |"
-                      f"{r_avg:8.2f} {r_std:8.2f} |"
-                      f"  {self.used_time:>8}  ########")
-
-            # plan to
-            # if time.time() - self.print_time > self.show_gap:
-            print(f"{self.agent_id:<2} {self.total_step:8.2e} {self.r_max:8.2f} |"
-                  f"{r_avg:8.2f} {r_std:8.2f} |{s_avg:5.0f} {s_std:4.0f} |"
-                  f"{' '.join(f'{n:8.2f}' for n in log_tuple)}")
-        else:
-            if_reach_goal = False
-
-        return if_reach_goal
-
-    @staticmethod
-    def get_r_avg_std_s_avg_std(rewards_steps_list):
-        rewards_steps_ary = np.array(rewards_steps_list)
-        r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
-        r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
-        return r_avg, r_std, s_avg, s_std
-
-
-def get_episode_return(env, act, device) -> (float, int):
-    episode_return = 0.0  # sum of rewards in an episode
-    episode_step = 1
-    max_step = env.max_step
-    if_discrete = env.if_discrete
-
-    state = env.reset()
-    for episode_step in range(max_step):
-        s_tensor = torch.as_tensor((state,), device=device)
-        a_tensor = act(s_tensor)
-        if if_discrete:
-            a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
-        state, reward, done, _ = env.step(action)
-        episode_return += reward
-        if done:
-            break
-    episode_return = getattr(env, 'episode_return', episode_return)
-    return episode_return, episode_step + 1
-
-
-'''DEMO'''
-
-
 def train_and_evaluate(args):
     args.init_before_training()
 
@@ -680,13 +611,110 @@ def train_and_evaluate(args):
     print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
 
 
+class Evaluator:
+    def __init__(self, cwd, agent_id, eval_times1, eval_times2, eval_gap, env, device):
+        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.r_max = -np.inf
+        self.total_step = 0
+
+        self.cwd = cwd  # constant
+        self.device = device
+        self.agent_id = agent_id
+        self.eval_gap = eval_gap
+        self.eval_times1 = eval_times1
+        self.eval_times2 = eval_times2
+        self.env = env
+        self.target_return = env.target_return
+
+        self.used_time = None
+        self.start_time = time.time()
+        self.eval_time = -1  # a early time
+        print(f"{'ID':>2} {'Step':>8} {'MaxR':>8} |"
+              f"{'avgR':>8} {'stdR':>8} |{'avgS':>5} {'stdS':>4} |"
+              f"{'objC':>8} {'etc.':>8}")
+
+    def evaluate_save(self, act, steps, log_tuple) -> bool:
+        self.total_step += steps  # update total training steps
+
+        if time.time() - self.eval_time > self.eval_gap:
+            self.eval_time = time.time()
+
+            rewards_steps_list = [get_episode_return_and_step(self.env, act, self.device) for _ in
+                                  range(self.eval_times1)]
+            r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
+
+            if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
+                rewards_steps_list += [get_episode_return_and_step(self.env, act, self.device)
+                                       for _ in range(self.eval_times2 - self.eval_times1)]
+                r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
+            if r_avg > self.r_max:  # save checkpoint with highest episode return
+                self.r_max = r_avg  # update max reward (episode return)
+
+                '''save policy network in *.pth'''
+                act_save_path = f'{self.cwd}/actor.pth'
+                torch.save(act.state_dict(), act_save_path)
+                print(f"{self.agent_id:<2} {self.total_step:8.2e} {self.r_max:8.2f} |")  # save policy and print
+
+            self.recorder.append((self.total_step, r_avg, r_std, *log_tuple))  # update recorder
+
+            if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
+            if if_reach_goal and self.used_time is None:
+                self.used_time = int(time.time() - self.start_time)
+                print(f"{'ID':>2} {'Step':>8} {'TargetR':>8} |{'avgR':>8} {'stdR':>8} |"
+                      f"  {'UsedTime':>8}  ########\n"
+                      f"{self.agent_id:<2} {self.total_step:8.2e} {self.target_return:8.2f} |"
+                      f"{r_avg:8.2f} {r_std:8.2f} |"
+                      f"  {self.used_time:>8}  ########")
+
+            # plan to
+            # if time.time() - self.print_time > self.show_gap:
+            print(f"{self.agent_id:<2} {self.total_step:8.2e} {self.r_max:8.2f} |"
+                  f"{r_avg:8.2f} {r_std:8.2f} |{s_avg:5.0f} {s_std:4.0f} |"
+                  f"{' '.join(f'{n:8.2f}' for n in log_tuple)}")
+        else:
+            if_reach_goal = False
+
+        return if_reach_goal
+
+    @staticmethod
+    def get_r_avg_std_s_avg_std(rewards_steps_list):
+        rewards_steps_ary = np.array(rewards_steps_list)
+        r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
+        r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
+        return r_avg, r_std, s_avg, s_std
+
+
+def get_episode_return_and_step(env, act, device) -> (float, int):
+    episode_return = 0.0  # sum of rewards in an episode
+    episode_step = 1
+    max_step = env.max_step
+    if_discrete = env.if_discrete
+
+    state = env.reset()
+    for episode_step in range(max_step):
+        s_tensor = torch.as_tensor((state,), device=device)
+        a_tensor = act(s_tensor)
+        if if_discrete:
+            a_tensor = a_tensor.argmax(dim=1)
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        state, reward, done, _ = env.step(action)
+        episode_return += reward
+        if done:
+            break
+    episode_return = getattr(env, 'episode_return', episode_return)
+    return episode_return, episode_step
+
+
+'''DEMO'''
+
+
 def demo_continuous_action():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.agent.cri_target = True  # True
 
     '''choose environment'''
-    if_train_pendulum = 1
+    if_train_pendulum = 0
     if if_train_pendulum:
         "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
         args.env = PreprocessEnv(env='Pendulum-v0')
@@ -703,7 +731,7 @@ def demo_continuous_action():
         args.eval_times1 = 2
         args.eval_times2 = 4
 
-    if_train_lunar_lander = 0
+    if_train_lunar_lander = 1
     if if_train_lunar_lander:
         "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
         args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
@@ -771,6 +799,85 @@ def demo_discrete_action():
     train_and_evaluate(args)
 
 
+def demo_get_video_to_watch_gym_render():
+    import cv2  # pip3 install opencv-python
+    import gym  # pip3 install gym==0.17 pyglet==1.5.0  # env.render() bug in gym==0.18, pyglet==1.6
+    import torch
+
+    """parameters"""
+    env_name = 'LunarLanderContinuous-v2'
+    env = PreprocessEnv(env=gym.make(env_name))
+
+    # agent = None  # means use random action
+    agent = AgentPPO()  # means use the policy network which saved in cwd
+    cwd = f'./{env_name}_{agent.__class__.__name__}/'  # current working directory path
+
+    save_frame_dir = ''  # means don't save video, just open the env.render()
+    # save_frame_dir = 'frames'  # means save video in this directory
+
+    '''initialize agent'''
+    if agent is None:  # use random action
+        device = None
+    else:
+        net_dim = 2 ** 9  # 2 ** 7
+        state_dim = env.state_dim
+        action_dim = env.action_dim
+
+        agent.init(net_dim, state_dim, action_dim)
+        agent.save_load_model(cwd=cwd, if_save=False)
+        device = agent.device
+
+    '''initialize evaluete and env.render()'''
+    if save_frame_dir:
+        os.makedirs(save_frame_dir, exist_ok=True)
+
+    state = env.reset()
+    episode_return = 0
+    step = 0
+    for i in range(2 ** 10):
+        print(i) if i % 128 == 0 else None
+        for j in range(1):
+            if agent is None:
+                action = env.action_space.sample()
+            else:
+                s_tensor = torch.as_tensor((state,), dtype=torch.float32, device=device)
+                a_tensor = agent.act(s_tensor)
+                action = a_tensor.detach().cpu().numpy()[0]  # if use 'with torch.no_grad()', then '.detach()' not need.
+            next_state, reward, done, _ = env.step(action)
+
+            episode_return += reward
+            step += 1
+
+            if done:
+                print(f'{i:>6}, {step:6.0f}, {episode_return:8.3f}, {reward:8.3f}')
+                state = env.reset()
+                episode_return = 0
+                step = 0
+            else:
+                state = next_state
+
+        if save_frame_dir:
+            frame = env.render('rgb_array')
+            cv2.imwrite(f'{save_frame_dir}/{i:06}.png', frame)
+            cv2.imshow('OpenCV Window', frame)
+            cv2.waitKey(1)
+        else:
+            env.render()
+    env.close()
+
+    '''convert frames png/jpg to video mp4/avi using ffmpeg'''
+    if save_frame_dir:
+        frame_shape = cv2.imread(f'{save_frame_dir}/{3:06}.png').shape
+        print(f"frame_shape: {frame_shape}")
+
+        save_video = 'gym_render.mp4'
+        os.system(f"| Convert frames to video using ffmpeg. Save in {save_video}")
+        os.system(f'ffmpeg -r 60 -f image2 -s {frame_shape[0]}x{frame_shape[1]} '
+                  f'-i ./{save_frame_dir}/%06d.png '
+                  f'-crf 25 -vb 20M -pix_fmt yuv420p {save_video}')
+
+
 if __name__ == '__main__':
     # demo_continuous_action()
-    demo_discrete_action()
+    # demo_discrete_action()
+    demo_get_video_to_watch_gym_render()
