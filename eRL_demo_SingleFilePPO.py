@@ -78,7 +78,7 @@ class ActorDiscretePPO(nn.Module):
         action = samples_2d.reshape(state.size(0))
         return action, a_prob
 
-    def get_new_logprob_entropy(self, state, action):
+    def get_logprob_entropy(self, state, action):
         a_prob = self.soft_max(self.net(state))
         dist = self.Categorical(a_prob)
         a_int = action.squeeze(1).long()
