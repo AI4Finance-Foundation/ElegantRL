@@ -14,7 +14,7 @@
 </a>
 <br/>
 
-ElegantRL is featured with **lightweight, efficient and stable**, for researchers and practitioners.
+ElegantRL is featured with **lightweight, scalable and stable**, for researchers and practitioners.
   
   + **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
   
