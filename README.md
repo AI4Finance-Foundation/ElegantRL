@@ -1,4 +1,4 @@
-## Lightweight, Efficient and Stable DRL Using PyTorch 
+## Lightweight and Scalable Deep Reinforcement Learning Using PyTorch 
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
