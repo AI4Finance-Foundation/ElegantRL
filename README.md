@@ -18,9 +18,9 @@ ElegantRL is featured with **lightweight, scalable and stable**, for researchers
   
   + **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
   
-  + **Efficient**: performance is comparable with [Ray RLlib](https://github.com/ray-project/ray).
+  + **Efficient**: better than [Ray RLlib](https://github.com/ray-project/ray) in many testing cases.
   
-  + **Stable**: as stable as [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
+  + **Stable**: much more stable than [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
 
 Currently, model-free deep reinforcement learning (DRL) algorithms: 
 + **DDPG, TD3, SAC, A2C, PPO, PPO(GAE)** for continuous actions
