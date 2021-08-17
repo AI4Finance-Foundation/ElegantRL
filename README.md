@@ -57,7 +57,7 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
    + Critic network, 
 + **elegantrl/agent.py**  &nbsp;&nbsp;# RL algorithms. 
    + AgentBase 
-+ **elegantrl/run.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
++ **elegantrl/run.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
    + Parameter initialization,
    + Training loop,
    + Evaluator.
