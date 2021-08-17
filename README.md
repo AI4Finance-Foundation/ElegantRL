@@ -50,7 +50,7 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
 
    An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
 
------kernel file----
+-----kernel files----
 + **elegantrl/net.py**    # Neural networks.
    + Q-Net,
    + Actor Network,
@@ -62,7 +62,7 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
    + Training loop,
    + Evaluator.
 
------utils file----
+-----utils files----
 + **elegantrl/envs/**    # gym env or custom env, including FinanceStockEnv.
    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
