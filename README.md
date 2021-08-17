@@ -48,7 +48,7 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
 # File Structure
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-   An agent in **agent.py** uses networks in **net.py** and is trained in **run.py** by interacting with an environment in **env.py**.
+   An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
 
 -----kernel file----
 + **elegantrl/net.py**    # Neural networks.
