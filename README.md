@@ -51,13 +51,13 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
    An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
 
 -----kernel files----
-+ **elegantrl/net.py**    &nbsp; # Neural networks.
++ **elegantrl/net.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Neural networks.
    + Q-Net,
    + Actor network,
    + Critic network, 
-+ **elegantrl/agent.py**  # RL algorithms. 
++ **elegantrl/agent.py**  &nbsp;&nbsp;# RL algorithms. 
    + AgentBase 
-+ **elegantrl/run.py**    # run DEMO 1 ~ 4
++ **elegantrl/run.py**    &nbsp;&nbsp;# run DEMO 1 ~ 4
    + Parameter initialization,
    + Training loop,
    + Evaluator.
