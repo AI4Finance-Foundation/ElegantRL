@@ -72,9 +72,9 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
 + **eRL_demo_StockTrading.py**  &nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
 From a high-level overview, 
-+ 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**. 
++ 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
 + 2). In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer; 
-+ 3). The agent fetches a batch of transitions from the Replay Buffer to train its networks. 
++ 3). The agent fetches a batch of transitions from the Replay Buffer to train its networks; 
 + 4). After each update, an evaluator evaluates the agent's performance (e.g., fitness score or cumulative return) and saves the agent if the performance is good.
 
 # Training Pipeline
