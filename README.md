@@ -83,8 +83,9 @@ From a high-level overview,
 + hyper-parameters `args`.
 + `env = PreprocessEnv()` : creates an environment (in the OpenAI gym format).
 + `agent = agent.XXX()` : creates an agent for a DRL algorithm.
-+ `evaluator = Evaluator()` : evaluates and stores the trained model.
 + `buffer = ReplayBuffer()` : stores the transitions.
++ `evaluator = Evaluator()` : evaluates and stores the trained model.
+
 ### Then, the training process is controlled by a while-loop:
 + `agent.explore_env(…)`: the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
 + `agent.update_net(…)`: the agent uses a batch from the ReplayBuffer to update the network parameters.
