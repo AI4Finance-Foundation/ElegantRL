@@ -56,20 +56,20 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
    + Actor network,
    + Critic network, 
 + **elegantrl/agent.py**  &nbsp;&nbsp;# RL algorithms. 
-   + AgentBase 
+   + AgentBase, 
 + **elegantrl/run.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
    + Parameter initialization,
    + Training loop,
    + Evaluator.
 
 -----utils files----
-+ **elegantrl/envs/**    # gym env or custom env, including FinanceStockEnv.
++ **elegantrl/envs/**    &nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
-+ **eRL_demo_BipedalWalker.ipynb**      # BipedalWalker-v2 in jupyter notebooks
-+ **eRL_demos.ipynb**       # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
-+ **eRL_demo_SingleFilePPO.py**  # Use single file to train PPO, more simple than tutorial version
-+ **eRL_demo_StockTrading.py**  # Stock Trading Application in jupyter notebooks
++ **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
++ **eRL_demos.ipynb**       &nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
++ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
++ **eRL_demo_StockTrading.py**  &nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
 As a high-level overview, the relations among the files are as follows. Initialize an environment in **Env.py** and an agent in **Agent.py**. The agent is constructed with Actor and Critic networks in **Net.py**. In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
 
