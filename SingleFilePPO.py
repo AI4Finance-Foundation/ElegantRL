@@ -370,7 +370,7 @@ def train_and_evaluate(args, agent_id=0):
                args.learning_rate, args.if_per_or_gae)
 
     '''init Evaluator'''
-    eval_env = deepcopy(env) if args.eval_env is None else args.eval_env
+    eval_env = deepcopy(env) if args.env_eval is None else args.env_eval
     evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
                           args.eval_times1, args.eval_times2, args.eval_gap)
 
@@ -395,7 +395,7 @@ def train_and_evaluate(args, agent_id=0):
     soft_update_tau = args.soft_update_tau
     del args
 
-    agent.state = env.reset()
+    agent.states = env.reset()
 
     if_train = True
     while if_train:
