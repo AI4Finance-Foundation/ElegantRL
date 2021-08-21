@@ -62,7 +62,7 @@ class ActorSAC(nn.Module):
                                        nn.Linear(mid_dim, action_dim))  # the log_std of action
         self.num_logprob = -np.log(action_dim)
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.log_alpha = nn.Parameter(torch.zeros((1, action_dim)) - np.log(action_dim), requires_grad=True)
+        self.log_alpha = nn.Parameter(torch.zeros((1, 1)) - np.log(action_dim), requires_grad=True)
 
     def forward(self, state):
         tmp = self.net_state(state)
