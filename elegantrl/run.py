@@ -16,12 +16,6 @@ class Arguments:
         self.env = env  # the environment for training
         self.agent = agent  # Deep Reinforcement Learning algorithm
 
-        '''Arguments for device'''
-        self.env_num = 1  # The Environment number for each worker. env_num == 1 means don't use VecEnv.
-        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
-        self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
-        self.visible_gpu = '0'  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
@@ -40,8 +34,14 @@ class Arguments:
             self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
             self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
             self.target_step = 2 ** 10  # collect target_step, then update network
-            self.max_memo = 2 ** 17  # capacity of replay buffer
+            self.max_memo = 2 ** 20  # capacity of replay buffer
             self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+
+        '''Arguments for device'''
+        self.env_num = 1  # The Environment number for each worker. env_num == 1 means don't use VecEnv.
+        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
+        self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.visible_gpu = '0'  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
 
         '''Arguments for evaluate and save'''
         self.cwd = None  # current work directory. None means set automatically
@@ -49,10 +49,10 @@ class Arguments:
         self.break_step = 2 ** 20  # break training after 'total_step > break_step'
         self.if_allow_break = True  # allow break training when reach goal (early termination)
 
-        self.env_eval = None  # the environment for evaluating. None means set automatically.
-        self.eval_gap = 2 ** 6  # evaluate the agent per eval_gap seconds
-        self.eval_times1 = 2 ** 4  # number of times that get episode return in first
-        self.eval_times2 = 2 ** 6  # number of times that get episode return in second
+        self.eval_env = None  # the environment for evaluating. None means set automatically.
+        self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
+        self.eval_times1 = 2 ** 3  # number of times that get episode return in first
+        self.eval_times2 = 2 ** 4  # number of times that get episode return in second
         self.random_seed = 0  # initialize random seed in self.init_before_training()
 
     def init_before_training(self, if_main):
@@ -94,19 +94,16 @@ class Arguments:
 def train_and_evaluate(args, agent_id=0):
     args.init_before_training(if_main=True)
 
-    '''init: Agent'''
     env = build_env(args.env, if_print=False)
+
+    '''init: Agent'''
     agent = args.agent
-    agent.init(args.net_dim, env.state_dim, env.action_dim,
-               args.learning_rate, args.if_per_or_gae, args.env_num)
+    agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate, args.if_per_or_gae, args.env_num)
     agent.save_or_load_agent(args.cwd, if_save=False)
-    if args.env_num > 1:
-        agent.explore_env = agent.explore_vec_env
 
     '''init Evaluator'''
-    env_eval = deepcopy(env) if args.env_eval is None else args.env_eval
-    evaluator = Evaluator(args.cwd, agent_id, agent.device, env_eval,
-                          args.eval_times1, args.eval_times2, args.eval_gap)
+    eval_env = deepcopy(env) if args.eval_env is None else args.eval_env
+    evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env, args.eval_times1, args.eval_times2, args.eval_gap)
     evaluator.save_or_load_recoder(if_save=False)
 
     '''init ReplayBuffer'''
@@ -118,7 +115,7 @@ def train_and_evaluate(args, agent_id=0):
                               if_use_per=args.if_per_or_gae)
         buffer.save_or_load_history(args.cwd, if_save=False)
 
-    '''start training'''
+    """start training"""
     cwd = args.cwd
     gamma = args.gamma
     break_step = args.break_step
@@ -130,6 +127,7 @@ def train_and_evaluate(args, agent_id=0):
     soft_update_tau = args.soft_update_tau
     del args
 
+    '''choose update_buffer()'''
     if agent.if_on_policy:
         assert isinstance(buffer, list)
 
@@ -137,45 +135,52 @@ def train_and_evaluate(args, agent_id=0):
             _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
             ary_state = np.array(_trajectory[0])
             ary_reward = np.array(_trajectory[1], dtype=np.float32) * reward_scale
-            ary_mask = (1 - np.array(_trajectory[2], dtype=np.float32)) * gamma
+            ary_mask = (1.0 - np.array(_trajectory[2], dtype=np.float32)) * gamma  # _trajectory[2] = list_done
             ary_action = np.array(_trajectory[3])
             ary_noise = np.array(_trajectory[4], dtype=np.float32)
 
+            buffer[:] = (ary_state, ary_action, ary_noise, ary_reward, ary_mask)
+
             _steps = ary_reward.shape[0]
             _r_exp = ary_reward.mean()
-
-            buffer[:] = (ary_state, ary_action, ary_noise, ary_reward, ary_mask)
             return _steps, _r_exp
     else:
         assert isinstance(buffer, ReplayBuffer)
 
-        def update_buffer(_trajectory):
-            ary_state = np.stack([item[0] for item in _trajectory])
-            ary_other = np.stack([item[1] for item in _trajectory])
-            ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
-            ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
+        def update_buffer(_trajectory_list):
+            _steps = 0
+            _r_exp = 0
+            for _trajectory in _trajectory_list:
+                ary_state = np.stack([item[0] for item in _trajectory])
+                ary_state = torch.as_tensor(ary_state, dtype=torch.float32)
+                ary_other = np.stack([item[1] for item in _trajectory])
+                ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
+                ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
+                ary_other = torch.as_tensor(ary_other, dtype=torch.float32)
 
-            _steps = ary_state.shape[0]
-            _r_exp = ary_other[:, 0].mean()  # other = (reward, mask, action)
+                buffer.extend_buffer(ary_state, ary_other)
 
-            buffer.extend_buffer(torch.as_tensor(ary_state),
-                                 torch.as_tensor(ary_other, dtype=torch.float32))
+                _steps += ary_state.shape[0]
+                _r_exp += ary_other[:, 0].mean()  # other = (reward, mask, action)
             return _steps, _r_exp
 
+    '''init ReplayBuffer after training start'''
+    agent.states = [env.reset(), ]
+    if not agent.if_on_policy:
         if_load = buffer.save_or_load_history(cwd, if_save=False)
 
         if not if_load:
             trajectory = explore_before_training(env, target_step)
+            trajectory = [trajectory, ]
             steps, r_exp = update_buffer(trajectory)
             evaluator.total_step += steps
 
-    agent.states = env.reset()
-
+    '''start training loop'''
     if_train = True
     while if_train:
         with torch.no_grad():
-            array_tuple = agent.explore_env(env, target_step)
-            steps, r_exp = update_buffer(array_tuple)
+            trajectory = agent.explore_env(env, target_step)
+            steps, r_exp = update_buffer(trajectory)
 
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
         with torch.no_grad():
@@ -263,6 +268,7 @@ def explore_before_training_vec_env(env, target_step) -> list:  # for off-policy
 
 class CommEvaluate:
     def __init__(self):
+        super().__init__()
         self.pipe = mp.Pipe()
 
     def evaluate_and_save0(self, act_cpu, evaluator, if_break_early, break_step, cwd):
@@ -292,43 +298,42 @@ class CommEvaluate:
         self.pipe[1].send((act_cpu_dict, steps, r_exp, logging_tuple))
         return if_train
 
+    def run(self, args, agent_id):
+        args.init_before_training(if_main=False)
 
-def mp_evaluator(args, comm_eva, agent_id=0):
-    args.init_before_training(if_main=False)
+        '''init: Agent'''
+        env = build_env(args.env, if_print=False)
+        agent = args.agent
+        agent.init(args.net_dim, env.state_dim, env.action_dim,
+                   args.learning_rate, args.if_per_or_gae, args.env_num)
+        agent.save_or_load_agent(args.cwd, if_save=False)
 
-    '''init: Agent'''
-    env = build_env(args.env, if_print=False)
-    agent = args.agent
-    agent.init(args.net_dim, env.state_dim, env.action_dim,
-               args.learning_rate, args.if_per_or_gae, args.env_num)
-    agent.save_or_load_agent(args.cwd, if_save=False)
+        device = torch.device("cpu")
+        act_cpu = agent.act.to(device)
+        act_cpu.eval()
+        [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
+        del agent
 
-    device = torch.device("cpu")
-    act_cpu = agent.act.to(device)
-    act_cpu.eval()
-    [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
-    del agent
+        '''init Evaluator'''
+        eval_env = deepcopy(env) if args.eval_env is None else args.eval_env
+        evaluator = Evaluator(args.cwd, agent_id, device, eval_env,
+                              args.eval_times1, args.eval_times2, args.eval_gap)
+        evaluator.save_or_load_recoder(if_save=False)
+        del env
 
-    '''init Evaluator'''
-    env_eval = deepcopy(env) if args.env_eval is None else args.env_eval
-    evaluator = Evaluator(args.cwd, agent_id, device, env_eval,
-                          args.eval_times1, args.eval_times2, args.eval_gap)
-    evaluator.save_or_load_recoder(if_save=False)
-    del env
+        '''start training'''
+        cwd = args.cwd
+        break_step = args.break_step
+        if_allow_break = args.if_allow_break
+        del args
 
-    '''start training'''
-    cwd = args.cwd
-    break_step = args.break_step
-    if_allow_break = args.if_allow_break
-    del args
+        if_train = True
+        with torch.no_grad():
+            while if_train:
+                if_train = self.evaluate_and_save0(act_cpu, evaluator, if_allow_break, break_step, cwd)
 
-    if_train = True
-    with torch.no_grad():
-        while if_train:
-            if_train = comm_eva.evaluate_and_save0(act_cpu, evaluator, if_allow_break, break_step, cwd)
-
-    print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
-    evaluator.save_or_load_recoder(if_save=True)
+        print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
+        evaluator.save_or_load_recoder(if_save=True)
 
 
 class CommVecEnv:
@@ -345,7 +350,7 @@ class CommVecEnv:
 
         self.process = list()
         for env_id in range(args.env_num):
-            self.process.append(mp.Process(target=self.mp_env, args=(args, env_id)))
+            self.process.append(mp.Process(target=self.run, args=(args, env_id)))
             args.random_seed += 1  # set different for each env
         # [p.start() for p in self.process]
 
@@ -358,7 +363,7 @@ class CommVecEnv:
             self.pipe0_list[i].send(vec_action[i])
         return [pipe0.recv() for pipe0 in self.pipe0_list]  # list of (state, reward, done)
 
-    def mp_env(self, args, env_id):
+    def run(self, args, env_id):
         np.random.seed(args.random_seed)
 
         env = build_env(args.env, if_print=False)
@@ -374,8 +379,6 @@ class CommVecEnv:
             state, reward, done, _ = env.step(action)
             pipe1.send((env.reset() if done else state, reward, done))
 
-    def close(self):
-        [p.kill() for p in self.process]
     # def check(self):
     #     vec_state = self.reset()
     #     ten_state = np.array(vec_state)
@@ -395,39 +398,6 @@ class CommVecEnv:
     #
     #     trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
     #     print('| shape of trajectory_list:', len(trajectory_list), len(trajectory_list[0]))
-
-
-def mp_worker(args, comm_exp, comm_env, worker_id, gpu_id=0):
-    args.random_seed += gpu_id * args.worker_num + gpu_id
-    args.init_before_training(if_main=False)
-
-    '''init: Agent'''
-    env = build_env(args.env, if_print=False)
-    agent = args.agent
-    agent.init(args.net_dim, env.state_dim, env.action_dim,
-               args.learning_rate, args.if_per_or_gae, args.env_num)
-
-    agent.save_or_load_agent(args.cwd, if_save=False)
-    if_on_policy = agent.if_on_policy
-    if args.env_num > 1:
-        agent.explore_env = agent.explore_vec_env
-
-    '''start training'''
-    gamma = args.gamma
-    target_step = args.target_step
-    reward_scale = args.reward_scale
-    del args
-
-    if comm_env:
-        env = comm_env
-    if if_on_policy:
-        agent.states = env.reset() if comm_env else [env.reset()]
-    else:
-        agent.states = comm_exp.pre_explore0(worker_id, env, target_step, reward_scale, gamma)
-
-    with torch.no_grad():
-        while True:
-            comm_exp.explore0(worker_id, agent, env, target_step, reward_scale, gamma)
 
 
 class CommExplore:
@@ -557,6 +527,37 @@ class CommExplore:
         ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
         return ary_state, ary_other
 
+    def run(self, args, comm_env, worker_id):
+        args.init_before_training(if_main=False)
+
+        '''init: Agent'''
+        env = build_env(args.env, if_print=False)
+        agent = args.agent
+        agent.init(args.net_dim, env.state_dim, env.action_dim,
+                   args.learning_rate, args.if_per_or_gae, args.env_num)
+
+        agent.save_or_load_agent(args.cwd, if_save=False)
+        if_on_policy = agent.if_on_policy
+        if args.env_num > 1:
+            agent.explore_env = agent.explore_vec_env
+
+        '''start training'''
+        gamma = args.gamma
+        target_step = args.target_step
+        reward_scale = args.reward_scale
+        del args
+
+        if comm_env:
+            env = comm_env
+        if if_on_policy:
+            agent.states = env.reset() if comm_env else [env.reset()]
+        else:
+            agent.states = self.pre_explore0(worker_id, env, target_step, reward_scale, gamma)
+
+        with torch.no_grad():
+            while True:
+                self.explore0(worker_id, agent, env, target_step, reward_scale, gamma)
+
 
 def mp_learner(args, comm_eva, comm_exp):
     args.init_before_training(if_main=True)
@@ -606,15 +607,19 @@ def mp_learner(args, comm_eva, comm_exp):
 def train_and_evaluate_mp(args):
     process = list()
 
+    agent_id = 0
+
     comm_eva = CommEvaluate()
-    process.append(mp.Process(target=mp_evaluator, args=(args, comm_eva)))
+    process.append(mp.Process(target=comm_eva.run, args=(args, agent_id)))
 
     comm_exp = CommExplore(args.env_num, args.worker_num, args.agent.if_on_policy)
     for worker_id in range(args.worker_num):
-        comm_env = CommVecEnv(args) if args.env_num > 1 else None
-        process.extend(comm_env.process if args.env_num > 1 else list())
-        process.append(mp.Process(target=mp_worker, args=(args, comm_exp, comm_env, worker_id,)))
-
+        if args.env_num == 1:
+            comm_env = None
+        else:
+            comm_env = CommVecEnv(args)
+            process.extend(comm_env.process)
+        process.append(mp.Process(target=comm_exp.run, args=(args, comm_env, worker_id,)))
     process.append(mp.Process(target=mp_learner, args=(args, comm_eva, comm_exp)))
 
     [(p.start(), time.sleep(0.1)) for p in process]

@@ -109,7 +109,7 @@ class Actor(nn.Module):
 
 
 class ActorSAC(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=True):
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
         if if_use_dn:
             nn_middle = DenseNet(mid_dim // 2)
@@ -127,51 +127,47 @@ class ActorSAC(nn.Module):
                                        nn.Linear(mid_dim, action_dim))  # the average of action
         self.net_a_std = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
                                        nn.Linear(mid_dim, action_dim))  # the log_std of action
-
-        self.num_logprob = -np.log(action_dim)
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
-        self.log_alpha = nn.Parameter(torch.zeros((1, 1)) - np.log(action_dim), requires_grad=True)
 
     def forward(self, state):
         tmp = self.net_state(state)
-        return self.net_a_avg(tmp).tanh()  # action.tanh()
+        return self.net_a_avg(tmp).tanh()  # action
 
     def get_action(self, state):
         t_tmp = self.net_state(state)
-        a_avg = self.net_a_avg(t_tmp)
-        a_std = self.net_a_std(t_tmp).clamp(-16, 2).exp()
+        a_avg = self.net_a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
+        a_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get_action_logprob(self, state):
         t_tmp = self.net_state(state)
-        a_avg = self.net_a_avg(t_tmp)
-        a_std_log = self.net_a_std(t_tmp).clamp(-16, 2)
+        a_avg = self.net_a_avg(t_tmp)  # NOTICE! it needs a_avg.tanh()
+        a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
         a_std = a_std_log.exp()
 
         """add noise to action in stochastic policy"""
         noise = torch.randn_like(a_avg, requires_grad=True)
-        action = a_avg + a_std * noise
-        a_tan = action.tanh()
+        a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
         # Can only use above code instead of below, because the tensor need gradients here.
         # a_noise = torch.normal(a_avg, a_std, requires_grad=True)
 
-        '''compute logprob according to mean and std of action (stochastic policy)'''
-        logprob = -(a_std_log + self.log_sqrt_2pi + ((a_avg - action) / a_std).pow(2) * 0.5)
+        '''compute log_prob according to mean and std of action (stochastic policy)'''
+        # self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
+        log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
         # same as below:
         # from torch.distributions.normal import Normal
-        # logprob = Normal(a_avg, a_std).log_prob(a_noise)
-
-        logprob = logprob - (-a_tan.pow(2) + 1.000001).log()  # fix logprob using the derivative of action.tanh()
+        # log_prob_noise = Normal(a_avg, a_std).log_prob(a_noise)
+        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
         # same as below:
-        # logprob = logprob - ((1 - a_noise_tanh.pow(2)) + 1e-6).log()
-        return a_tan, logprob.sum(1, keepdim=True)
+        # a_delta = (a_avg - a_noise).pow(2) /(2*a_std.pow(2))
+        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
+        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
 
-    def get_obj_alpha(self, logprob):
-        return -(self.log_alpha * (logprob - self.num_logprob).detach()).mean()
-
-    def get_a_std_log(self, t_tmp):
-        a_std_log = self.net_a_std(t_tmp)
-        return a_std_log.clamp(self.min_std_log, self.max_std_log)
+        log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
+        # same as below:
+        # epsilon = 1e-6
+        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
+        return a_tan, log_prob.sum(1, keepdim=True)
 
 
 class ActorPPO(nn.Module):

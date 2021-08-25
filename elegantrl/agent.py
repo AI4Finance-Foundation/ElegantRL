@@ -17,15 +17,21 @@ class AgentBase:
         self.action_dim = None
         self.if_on_policy = None
         self.explore_noise = None
-        self.get_obj_critic = None
         self.trajectory_list = None
         # self.amp_scale = None
+
+        self.get_obj_critic = None
+        self.get_obj_critic_per = None  # off-policy
+        self.get_reward_sum = None
+        self.get_reward_sum_raw = None  # on-policy
+        self.get_reward_sum_gae = None  # on-policy
+        self.explore_env = None
 
         self.criterion = torch.nn.SmoothL1Loss()
         self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
         self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """initialize the self.object in `__init__()`
 
         replace by different DRL algorithms
@@ -43,7 +49,7 @@ class AgentBase:
         self.trajectory_list = [list() for _ in range(env_num)]
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
-        self.cri = self.ClassCri(net_dim, state_dim, action_dim).to(self.device)
+        self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
         self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
         self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
         self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
@@ -51,6 +57,11 @@ class AgentBase:
         self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
         del self.ClassCri, self.ClassAct
+
+        if env_num > 1:  # VectorEnv
+            self.explore_env = self.explore_vec_env
+        else:
+            self.explore_env = self.explore_one_env
 
     def select_action(self, state) -> np.ndarray:
         """Select continuous action for exploration
@@ -74,7 +85,7 @@ class AgentBase:
         actions = (actions + torch.randn_like(actions) * self.explore_noise).clamp(-1, 1)
         return actions.detach().cpu().numpy()
 
-    def explore_env(self, env, target_step):
+    def explore_one_env(self, env, target_step):
         """actor explores in env, then returns the trajectory (env transition)
 
         `object env` RL training environment. env.reset() env.step()
@@ -428,12 +439,22 @@ class AgentTD3(AgentBase):
 class AgentSAC(AgentBase):
     def __init__(self):
         super().__init__()
-        self.ClassAct = ActorSAC
         self.ClassCri = CriticTwin
+        self.ClassAct = ActorSAC
         self.if_use_cri_target = True
+        self.if_use_act_target = False
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, gpu_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, gpu_id)
+        self.alpha_log = None
+        self.alpha_optim = None
+        self.target_entropy = None
+
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, gpu_id=0, env_num=1):
+        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, gpu_id)
+
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
+                                      requires_grad=True, device=self.device)  # trainable parameter
+        self.alpha_optim = torch.optim.Adam((self.alpha_log,), lr=learning_rate)
+        self.target_entropy = np.log(action_dim)
 
         if if_use_per:
             self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
@@ -442,49 +463,66 @@ class AgentSAC(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_action(self, state) -> np.ndarray:
+    def select_action(self, state):
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
-        action = self.act.get_action(states)[0]
-        return action.detach().cpu().numpy()
+        actions = self.act.get_action(states)
+        return actions.detach().cpu().numpy()[0]
 
-    def select_actions(self, states) -> np.ndarray:
+    def select_actions(self, states):
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         buffer.update_now_len()
-        log_alpha = self.act.log_alpha
-        obj_critic = obj_actor = None
-        for update_c in range(int(buffer.now_len / batch_size * repeat_times)):
-            obj_critic, state = self.get_obj_critic(buffer, batch_size, log_alpha.exp())
-            self.optim_update(self.cri_optim, obj_critic)
 
-            action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-            obj_actor = (-torch.min(*self.cri_target.get_q1_q2(state, action_pg)).mean()
-                         + logprob.mean() * log_alpha.exp().detach()
-                         + self.act.get_obj_alpha(logprob))
-            self.optim_update(self.act_optim, obj_actor)
+        obj_critic = obj_actor = None
+        for _ in range(int(buffer.now_len * repeat_times / batch_size)):
+            alpha = self.alpha_log.exp()
+
+            '''objective of critic (loss function of critic)'''
+            obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
+            self.optim_update(self.cri_optim, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
-        return obj_critic.item() / 2, obj_actor.item(), log_alpha.item()
+
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            action_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            self.optim_update(self.alpha_optim, obj_alpha)
+
+            '''objective of actor'''
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+            obj_actor = -(torch.min(*self.cri_target.get_q1_q2(state, action_pg)) + log_prob * alpha).mean()
+            self.optim_update(self.act_optim, obj_actor)
+
+            self.soft_update(self.act_target, self.act, soft_update_tau)
+
+        alpha = self.alpha_log.exp().detach()
+        return obj_critic.item(), obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_a, next_logprob = self.act_target.get_action_logprob(next_s)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
-            q_label = reward + mask * (next_q + next_logprob * alpha)
-        q1, q2 = self.cri.get_q1_q2(state, action)  # twin critics
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        q1, q2 = self.cri.get_q1_q2(state, action)
         obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size, alpha):
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            next_a, next_logprob = self.act.get_action_logprob(next_s)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
-            q_label = reward + mask * (next_q + next_logprob * alpha)
-        q1, q2 = self.cri.get_q1_q2(state, action)  # twin critics
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+
+        q1, q2 = self.cri.get_q1_q2(state, action)
         obj_critic = ((self.criterion(q1, q_label) + self.criterion(q2, q_label)) * is_weights).mean()
 
         td_error = (q_label - torch.min(q1, q2).detach()).abs()
@@ -497,41 +535,41 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         super().__init__()
         self.if_use_act_target = True
         self.if_use_cri_target = True
-
-        self.if_use_dn = True  # plan to do
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         buffer.update_now_len()
 
-        log_alpha = self.act.log_alpha
-
-        obj_actor = None
         update_a = 0
-        for update_c in range(1, int(buffer.now_len / batch_size * repeat_times)):
-            alpha_log_clip = (log_alpha / 4).tanh() * 4 - 2  # keep alpha_log_clip in (-14, 2)
+        obj_actor = None
+        for update_c in range(1, int(buffer.now_len * repeat_times / batch_size)):
+            alpha = self.alpha_log.exp()
 
             '''objective of critic (loss function of critic)'''
-            obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha_log_clip.exp().detach())
+            obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
             self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
             self.optim_update(self.cri_optim, obj_critic)
-            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.if_use_cri_target else None
+            self.soft_update(self.cri_target, self.cri, soft_update_tau)
+
+            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            self.optim_update(self.alpha_optim, obj_alpha)
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
 
             '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
             reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
-            if_update_a = (update_a / update_c) < (1 / (2 - reliable_lambda))
+            if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
             if if_update_a:  # auto TTUR
                 update_a += 1
 
-                action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-                obj_actor = (-torch.min(*self.cri_target.get_q1_q2(state, action_pg)).mean()
-                             + logprob.mean() * log_alpha.exp().detach()
-                             + self.act.get_obj_alpha(logprob))
-
+                q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
+                obj_actor = -(q_value_pg + log_prob * alpha).mean()
                 self.optim_update(self.act_optim, obj_actor)
-                self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.if_use_act_target else None
-
-        return self.obj_c, obj_actor.item(), log_alpha.item()
+                self.soft_update(self.act_target, self.act, soft_update_tau)
+        alpha = self.alpha_log.exp().detach()
+        return self.obj_c, obj_actor.item(), alpha.item()
 
 
 class AgentPPO(AgentBase):
@@ -549,10 +587,6 @@ class AgentPPO(AgentBase):
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0, ):
         super().init(net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         self.trajectory_list = [list() for _ in range(env_num)]
-        if if_per_or_gae:
-            self.get_reward_sum = self.get_reward_sum_gae
-        else:
-            self.get_reward_sum = self.get_reward_sum_raw
 
     def select_action(self, state):
         """
@@ -821,13 +855,6 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
              {'params': self.act.dec_q1.parameters(), },
              {'params': self.act.dec_q2.parameters(), },
              {'params': (self.alpha_log,)}], lr=learning_rate)
-
-        if if_use_per:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
-            self.get_obj_critic = self.get_obj_critic_per
-        else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
-            self.get_obj_critic = self.get_obj_critic_raw
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:  # 1111
         buffer.update_now_len()

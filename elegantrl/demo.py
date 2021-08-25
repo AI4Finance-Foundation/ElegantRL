@@ -10,7 +10,9 @@ gym.logger.set_level(40)  # Block warning
 
 def demo_continuous_action_off_policy():
     args = Arguments(if_on_policy=False)
-    args.agent = AgentModSAC()  # AgentTD3()  # AgentSAC AgentTD3 AgentDDPG
+    args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
+    args.agent.if_use_act_target = True
+    args.agent.if_use_cri_target = True
     args.visible_gpu = sys.argv[-1]
 
     if_train_pendulum = 0
@@ -27,25 +29,33 @@ def demo_continuous_action_off_policy():
         args.target_step = args.env.max_step * 4 // (args.env_num * args.worker_num)
         train_and_evaluate_mp(args)
 
-    if_train_lunar_lander = 0
+    if_train_lunar_lander = 1
     if if_train_lunar_lander:
         "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
         args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
-        args.target_step = args.env.max_step * 4
-        args.if_per_or_gae = True
-        args.gamma = 0.98
-
-    if_train_bipedal_walker = 1
-    if if_train_bipedal_walker:
-        "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
-        args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
         args.gamma = 0.99
+        args.break_step = int(4e6)
 
         # train_and_evaluate(args)
         args.env_num = 2
         args.worker_num = 4
-        args.target_step = args.env.max_step * 8 // (args.env_num * args.worker_num)
+        args.target_step = args.env.max_step * 2 // (args.env_num * args.worker_num)
         train_and_evaluate_mp(args)
+
+    if_train_bipedal_walker = 1
+    if if_train_bipedal_walker:
+        "TotalStep: 08e5, TargetReward: 300, UsedTime: 1800s TD3"
+        "TotalStep: 11e5, TargetReward: 329, UsedTime: 3000s TD3"
+        args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+        args.gamma = 0.98
+        args.break_step = int(4e6)
+        args.max_memo = 2 ** 20
+
+        train_and_evaluate(args)
+        # args.env_num = 2
+        # args.worker_num = 4
+        # args.target_step = args.env.max_step * 2 // (args.env_num * args.worker_num)
+        # train_and_evaluate_mp(args)
 
 
 def demo_continuous_action_on_policy():
@@ -78,11 +88,16 @@ def demo_continuous_action_on_policy():
 
     if_train_lunar_lander = 0
     if if_train_lunar_lander:
-        "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
+        "TotalStep: 4e5, TargetReward: 200, UsedTime: 2000s, TD3"
         args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
-        args.target_step = args.env.max_step * 4
-        args.if_per_or_gae = True
-        args.gamma = 0.98
+        args.gamma = 0.99
+        args.break_step = int(4e6)
+
+        # train_and_evaluate(args)
+        args.env_num = 2
+        args.worker_num = 4
+        args.target_step = args.env.max_step * 2 // (args.env_num * args.worker_num)
+        train_and_evaluate_mp(args)
 
     if_train_bipedal_walker = 1
     if if_train_bipedal_walker:
@@ -99,7 +114,7 @@ def demo_continuous_action_on_policy():
         # train_and_evaluate(args)
         args.env_num = 2
         args.worker_num = 4
-        args.target_step = args.env.max_step * 32 // (args.env_num * args.worker_num)
+        args.target_step = args.env.max_step * 16 // (args.env_num * args.worker_num)
         train_and_evaluate_mp(args)
 
 

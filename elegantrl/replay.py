@@ -170,7 +170,12 @@ class ReplayBuffer:
             self.update_now_len()
             state_dim = self.buf_state.shape[1]
             other_dim = self.buf_other.shape[1]
-            buf_state = np.empty((self.max_len, state_dim), dtype=np.float16)  # sometimes np.uint8
+
+            buf_state_data_type = np.float16 \
+                if self.buf_state.dtype in {np.float, np.float64, np.float32} \
+                else np.uint8
+
+            buf_state = np.empty((self.max_len, state_dim), dtype=buf_state_data_type)
             buf_other = np.empty((self.max_len, other_dim), dtype=np.float16)
 
             temp_len = self.max_len - self.now_len
