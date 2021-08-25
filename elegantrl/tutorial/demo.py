@@ -5,7 +5,7 @@ gym.logger.set_level(40)  # Block warning
 
 def demo_continuous_action_off_policy():
     args = Arguments(if_on_policy=False)
-    args.agent = AgentSAC()  # AgentTD3()  # AgentSAC AgentTD3 AgentDDPG
+    args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
     args.visible_gpu = '0'
 
     if_train_pendulum = 1
@@ -115,7 +115,7 @@ def demo_discrete_action_on_policy():
 
 
 if __name__ == '__main__':
-    # demo_continuous_action_off_policy()
-    demo_continuous_action_on_policy()
+    demo_continuous_action_off_policy()
+    # demo_continuous_action_on_policy()
     # demo_discrete_action_off_policy()
     # demo_discrete_action_on_policy()

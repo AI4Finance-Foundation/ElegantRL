@@ -37,13 +37,13 @@ class Arguments:
             self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
             self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
             self.target_step = 2 ** 10  # collect target_step, then update network
-            self.max_memo = 2 ** 17  # capacity of replay buffer
+            self.max_memo = 2 ** 20  # capacity of replay buffer
             self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
 
         '''Arguments for evaluate'''
         self.eval_env = None  # the environment for evaluating. None means set automatically.
         self.eval_gap = 2 ** 6  # evaluate the agent per eval_gap seconds
-        self.eval_times1 = 2  # number of times that get episode return in first
+        self.eval_times = 2  # number of times that get episode return in first
         self.random_seed = 0  # initialize random seed in self.init_before_training()
 
     def init_before_training(self, if_main):
@@ -80,7 +80,7 @@ def train_and_evaluate(args, agent_id=0):
     '''init Evaluator'''
     eval_env = deepcopy(env) if args.eval_env is None else args.eval_env
     evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
-                          args.eval_times1, args.eval_times2, args.eval_gap)
+                          args.eval_times, args.eval_gap)
 
     '''init ReplayBuffer'''
     if agent.if_on_policy:
@@ -96,13 +96,13 @@ def train_and_evaluate(args, agent_id=0):
                               action_dim=1 if env.if_discrete else env.action_dim)
         buffer.save_or_load_history(args.cwd, if_save=False)
 
-        def update_buffer(state_other):
-            _state = torch.as_tensor(state_other[0], dtype=torch.float32)
-            _other = torch.as_tensor(state_other[1], dtype=torch.float32)
-            buffer.extend_buffer(_state, _other)
+        def update_buffer(_trajectory):
+            state = torch.as_tensor([state_other[0] for state_other in _trajectory], device=agent.device)
+            other = torch.as_tensor([state_other[1] for state_other in _trajectory], device=agent.device)
+            buffer.extend_buffer(state, other)
 
-            _steps = _other.size()[0]
-            _r_exp = _other[:, 0].mean().item()  # other = (reward, mask, ...)
+            _steps = other.size()[0]
+            _r_exp = other[:, 0].mean().item()
             return _steps, _r_exp
 
     '''start training'''
@@ -118,13 +118,18 @@ def train_and_evaluate(args, agent_id=0):
     del args
 
     agent.state = env.reset()
+    if not agent.if_on_policy:
+        trajectory = agent.explore_env(env, target_step, reward_scale, gamma)
+        update_buffer(trajectory)
 
     if_train = True
     while if_train:
         with torch.no_grad():
-            array_tuple = agent.explore_env(env, target_step, reward_scale, gamma)
-            steps, r_exp = update_buffer(array_tuple)
+            trajectory = agent.explore_env(env, target_step, reward_scale, gamma)
+            steps, r_exp = update_buffer(trajectory)
+
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
+
         with torch.no_grad():
             if_reach_goal = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)
             if_train = not ((if_allow_break and if_reach_goal)
@@ -136,7 +141,7 @@ def train_and_evaluate(args, agent_id=0):
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, device, env, eval_times1, eval_times2, eval_gap, ):
+    def __init__(self, cwd, agent_id, device, env, eval_times, eval_gap, ):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
         self.r_max = -np.inf
@@ -147,8 +152,7 @@ class Evaluator:
         self.device = device
         self.agent_id = agent_id
         self.eval_gap = eval_gap
-        self.eval_times1 = eval_times1
-        self.eval_times2 = eval_times2
+        self.eval_times = eval_times
         self.target_return = env.target_return
 
         self.used_time = None
@@ -167,7 +171,7 @@ class Evaluator:
 
         self.eval_time = time.time()
         rewards_steps_list = [get_episode_return_and_step(self.env, act, self.device) for _ in
-                              range(self.eval_times1)]
+                              range(self.eval_times)]
         r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
         if r_avg > self.r_max:  # save checkpoint with highest episode return
@@ -244,7 +248,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     assert isinstance(env, gym.Env)
 
     env_name = getattr(env, 'env_name', None)
-    env_name = env.unwrapped.spec.id if env_name is None else None
+    env_name = env.unwrapped.spec.id if env_name is None else env_name
 
     state_shape = env.observation_space.shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list

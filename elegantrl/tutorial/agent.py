@@ -242,40 +242,121 @@ class AgentTD3(AgentBase):
 class AgentSAC(AgentBase):
     def __init__(self):
         super().__init__()
-        self.if_use_cri_target = True
         self.ClassCri = CriticTwin
         self.ClassAct = ActorSAC
+        self.if_use_cri_target = True
+        self.if_use_act_target = False
 
-    def select_action(self, state) -> np.ndarray:
+        self.alpha_log = None
+        self.alpha_optim = None
+        self.target_entropy = None
+
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_use_per=False, gpu_id=0, env_num=1):
+        super().init(net_dim, state_dim, action_dim, learning_rate, _if_use_per, gpu_id)
+
+        self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
+                                      requires_grad=True, device=self.device)  # trainable parameter
+        self.alpha_optim = torch.optim.Adam((self.alpha_log,), lr=learning_rate)
+        self.target_entropy = np.log(action_dim)
+
+    def select_action(self, state):
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
-        action = self.act.get_action(states)[0]
-        return action.detach().cpu().numpy()
+        actions = self.act.get_action(states)
+        return actions.detach().cpu().numpy()[0]
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+    def explore_env(self, env, target_step, reward_scale, gamma):
+        trajectory = list()
+
+        state = self.state
+        for _ in range(target_step):
+            action = self.select_action(state)
+            next_state, reward, done, _ = env.step(action)
+
+            trajectory.append((state, (reward * reward_scale, 0.0 if done else gamma, *action)))
+            state = env.reset() if done else next_state
+        self.state = state
+        return trajectory
+
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         buffer.update_now_len()
-        log_alpha = self.act.log_alpha
+
+        alpha = self.alpha_log.exp().detach()
         obj_critic = obj_actor = None
-        for update_c in range(int(buffer.now_len / batch_size * repeat_times)):
-            obj_critic, state = self.get_obj_critic(buffer, batch_size, log_alpha.exp())
+        for _ in range(int(buffer.now_len * repeat_times / batch_size)):
+            '''objective of critic (loss function of critic)'''
+            with torch.no_grad():
+                reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+                next_a, next_log_prob = self.act_target.get_action_logprob(next_s)
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
+                q_label = reward + mask * (next_q + next_log_prob * alpha)
+            q1, q2 = self.cri.get_q1_q2(state, action)
+            obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
             self.optim_update(self.cri_optim, obj_critic)
-
-            action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-            obj_actor = (-torch.min(*self.cri_target.get_q1_q2(state, action_pg)).mean()
-                         + logprob.mean() * log_alpha.exp().detach()
-                         + self.act.get_obj_alpha(logprob))
-            self.optim_update(self.act_optim, obj_actor)
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
-        return obj_critic.item() / 2, obj_actor.item(), log_alpha.item()
 
-    def get_obj_critic(self, buffer, batch_size, alpha) -> (torch.Tensor, torch.Tensor):
-        with torch.no_grad():
-            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_a, next_logprob = self.act.get_action_logprob(next_s)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
-            q_label = reward + mask * (next_q + next_logprob * alpha)
-        q1, q2 = self.cri.get_q1_q2(state, action)  # twin critics
-        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
-        return obj_critic, state
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            action_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            self.optim_update(self.alpha_optim, obj_alpha)
+
+            '''objective of actor'''
+            alpha = self.alpha_log.exp().detach()
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+            obj_actor = -(torch.min(*self.cri_target.get_q1_q2(state, action_pg)) + log_prob * alpha).mean()
+            self.optim_update(self.act_optim, obj_actor)
+
+            self.soft_update(self.act_target, self.act, soft_update_tau)
+
+        return obj_critic.item(), obj_actor.item(), alpha.item()
+
+
+class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+    def __init__(self):
+        super().__init__()
+        self.if_use_act_target = True
+        self.if_use_cri_target = True
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        buffer.update_now_len()
+
+        alpha = self.alpha_log.exp().detach()
+        update_a = 0
+        obj_actor = None
+        for update_c in range(1, int(buffer.now_len * repeat_times / batch_size)):
+            '''objective of critic (loss function of critic)'''
+            with torch.no_grad():
+                reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+
+                next_a, next_log_prob = self.act_target.get_action_logprob(next_s)
+                next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))
+                q_label = reward + mask * (next_q + next_log_prob * alpha)
+            q1, q2 = self.cri.get_q1_q2(state, action)
+            obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+            self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
+            self.optim_update(self.cri_optim, obj_critic)
+            self.soft_update(self.cri_target, self.cri, soft_update_tau)
+
+            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            self.optim_update(self.alpha_optim, obj_alpha)
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
+            alpha = self.alpha_log.exp().detach()
+
+            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
+            reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
+            if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
+            if if_update_a:  # auto TTUR
+                update_a += 1
+
+                q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
+                obj_actor = -(q_value_pg + log_prob * alpha).mean()
+                self.optim_update(self.act_optim, obj_actor)
+                self.soft_update(self.act_target, self.act, soft_update_tau)
+        return self.obj_c, obj_actor.item(), alpha.item()
 
 
 class AgentPPO(AgentBase):
