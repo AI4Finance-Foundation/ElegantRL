@@ -11,21 +11,21 @@ Welcome to ElegantRL's documentation!
    :align: center
    :target: https://github.com/AI4Finance-LLC/ElegantRL
 
-`ElegantRL <https://github.com/AI4Finance-LLC/ElegantRL>`_ is featured with lightweight, efficient and stable, for researchers and practitioners.
+`ElegantRL <https://github.com/AI4Finance-LLC/ElegantRL>`_ is developped for researchers and practitioners with the following advantages:.
 
-   - **Lightweight**: The core codes <1,000 lines, using PyTorch, OpenAI Gym, and NumPy.
+   - **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
 
-   - **Efficient**: performance is comparable with Ray RLlib.
+   - **Efficient**: more efficient than [Ray RLlib](https://github.com/ray-project/ray) in many testing cases.
 
-   - **Stable**: as stable as Stable Baseline 3.
+   - **Stable**: much more stable than [Stable Baseline 3](https://github.com/DLR-RM/stable-baselines3).
 
-Model-free deep reinforcement learning (DRL) algorithms:
+ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
    - **DDPG, TD3, SAC, A2C, PPO(GAE) for continuous actions**
    
    - **DQN, DoubleDQN, D3QN for discrete actions**
 
-For algorithm details, please check out OpenAI Spinning Up.
+For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
 .. toctree::
     :maxdepth: 1
