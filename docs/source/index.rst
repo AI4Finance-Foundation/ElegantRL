@@ -17,7 +17,7 @@ Welcome to ElegantRL's documentation!
 
    - **Efficient**: more efficient than `Ray RLlib <https://github.com/ray-project/ray>`_ in many testing cases.
 
-   - **Stable**: much more stable than [Stable Baseline 3]<https://github.com/DLR-RM/stable-baselines3>.
+   - **Stable**: much more stable than `Stable Baseline 3 <https://github.com/DLR-RM/stable-baselines3>`_.
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
