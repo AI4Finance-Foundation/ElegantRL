@@ -15,7 +15,7 @@ Welcome to ElegantRL's documentation!
 
    - **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
 
-   - **Efficient**: more efficient than _`Ray RLlib <https://github.com/ray-project/ray>`_ in many testing cases.
+   - **Efficient**: more efficient than `Ray RLlib <https://github.com/ray-project/ray>`_ in many testing cases.
 
    - **Stable**: much more stable than [Stable Baseline 3]<https://github.com/DLR-RM/stable-baselines3>.
 
