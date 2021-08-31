@@ -25,7 +25,7 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
    
    - **DQN, DoubleDQN, D3QN for discrete actions**
 
-For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
+For the details of DRL algorithms, please check out the educational webpage `OpenAI Spinning Up <https://spinningup.openai.com/en/latest/>`_. 
 
 .. toctree::
     :maxdepth: 1
