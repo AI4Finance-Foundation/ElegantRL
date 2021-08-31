@@ -41,6 +41,9 @@ For the details of DRL algorithms, please check out the educational webpage `Ope
    about/installation
    about/quickstart
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Intro
 
 .. toctree::
    :maxdepth: 1
