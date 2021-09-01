@@ -9,13 +9,7 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 
-"""
-cancel prepare_buffer
-move env.last_state to buffer.last_state
-"""
-
 """net.py"""
-
 
 class ActorPPO(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
@@ -24,14 +18,14 @@ class ActorPPO(nn.Module):
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                  nn.Linear(mid_dim, action_dim), )
-        layer_norm(self.net[-1], std=0.1)  # output layer for action
+        layer_norm(self.net[-1], std=0.1)                                   # output for action
 
-        # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
+        # logstd of action is a trainable parameter
         self.a_logstd = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
-        return self.net(state).tanh()  # action.tanh()
+        return self.net(state).tanh()                                       # action.tanh()
 
     def get_action(self, state):
         a_avg = self.net(state)
@@ -46,14 +40,14 @@ class ActorPPO(nn.Module):
         a_std = self.a_logstd.exp()
 
         delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        logprob = -(self.a_logstd + self.sqrt_2pi_log + delta).sum(1)  # new_logprob
+        logprob = -(self.a_logstd + self.sqrt_2pi_log + delta).sum(1)       # new_logprob
 
-        dist_entropy = (logprob.exp() * logprob).mean()  # policy entropy
+        dist_entropy = (logprob.exp() * logprob).mean()                     # policy entropy
         return logprob, dist_entropy
 
-    def get_old_logprob(self, _action, noise):  # noise = action - a_noise
+    def get_old_logprob(self, _action, noise):                              # noise = action - a_noise
         delta = noise.pow(2) * 0.5
-        return -(self.a_logstd + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
+        return -(self.a_logstd + self.sqrt_2pi_log + delta).sum(1)          # old_logprob
 
 
 class ActorDiscretePPO(nn.Module):
@@ -68,12 +62,10 @@ class ActorDiscretePPO(nn.Module):
         self.Categorical = torch.distributions.Categorical
 
     def forward(self, state):
-        return self.net(state)  # action_prob without softmax
+        return self.net(state)                                              # action_prob without softmax
 
     def get_action(self, state):
         a_prob = self.soft_max(self.net(state))
-        # dist = Categorical(a_prob)
-        # action = dist.sample()
         samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
         action = samples_2d.reshape(state.size(0))
         return action, a_prob
@@ -96,10 +88,10 @@ class CriticAdv(nn.Module):
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                  nn.Linear(mid_dim, 1))
-        layer_norm(self.net[-1], std=0.5)  # output layer for Q value
+        layer_norm(self.net[-1], std=0.5)                                   # output for Q value
 
     def forward(self, state):
-        return self.net(state)  # Q value
+        return self.net(state)                                              # Q value
 
 
 def layer_norm(layer, std=1.0, bias_const=1e-6):
@@ -109,13 +101,12 @@ def layer_norm(layer, std=1.0, bias_const=1e-6):
 
 """agent.py"""
 
-
 class AgentPPO:
     def __init__(self):
         super().__init__()
-        self.ratio_clip = 0.2  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_entropy = 0.02  # could be 0.02
-        self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
+        self.ratio_clip = 0.2               # ratio.clamp(1 - clip, 1 + clip)
+        self.lambda_entropy = 0.02          # could be 0.02
+        self.lambda_gae_adv = 0.98          # could be 0.95~0.99, GAE (High-Dimensional Continuous Control Using Generalized Advantage Estimation, ICLR 2016)
         self.get_reward_sum = None
 
         self.state = None
@@ -138,7 +129,7 @@ class AgentPPO:
 
     def select_action(self, state):
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
-        actions, noises = self.act.get_action(states)  # plan to be get_action_a_noise
+        actions, noises = self.act.get_action(states)                                             # plan to be get_action_a_noise
         return actions[0].detach().cpu().numpy(), noises[0].detach().cpu().numpy()
 
     def explore_env(self, env, target_step, reward_scale, gamma):
@@ -172,7 +163,7 @@ class AgentPPO:
             logprob = buf_logprob[indices]
             advantage = buf_advantage[indices]
 
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)              # it is obj_actor
             ratio = (new_logprob - logprob.detach()).exp()
             surrogate1 = advantage * ratio
             surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
@@ -180,17 +171,17 @@ class AgentPPO:
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
             self.optim_update(self.act_optimizer, obj_actor)
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state).squeeze(1)                                                  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
             self.optim_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
 
-        return obj_critic.item(), obj_actor.item(), logprob.mean().item()  # logging_tuple
+        return obj_critic.item(), obj_actor.item(), logprob.mean().item()                       # logging_tuple
 
     def prepare_buffer(self, buffer):
         buf_len = buffer.now_len
 
-        with torch.no_grad():  # compute reverse reward
+        with torch.no_grad():                                                                   # compute reverse reward
             reward, mask, action, a_noise, state = buffer.sample_all()
 
             bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
@@ -204,7 +195,7 @@ class AgentPPO:
 
     @staticmethod
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value, pre_r_sum) -> (torch.Tensor, torch.Tensor):
-        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)               # reward sum
 
         for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
@@ -215,15 +206,15 @@ class AgentPPO:
 
     @staticmethod
     def get_reward_sum_gae(self, buf_len, buf_reward, buf_mask, buf_value, pre_r_sum) -> (torch.Tensor, torch.Tensor):
-        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
-        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)               # old policy value
+        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)           # advantage value
 
         pre_advantage = 0  # advantage value of previous step
         for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
 
-            buf_advantage[i] = buf_reward[i] + buf_mask[i] * (pre_advantage - buf_value[i])  # fix a bug here
+            buf_advantage[i] = buf_reward[i] + buf_mask[i] * (pre_advantage - buf_value[i])     # fix a bug here
             pre_advantage = buf_value[i] + buf_advantage[i] * self.lambda_gae_adv
         buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
         return buf_r_sum, buf_advantage
@@ -305,7 +296,7 @@ class ReplayBuffer:
         self.now_len = 0
         self.next_idx = 0
         self.if_full = False
-        self.action_dim = 1 if if_discrete else action_dim  # for self.sample_all(
+        self.action_dim = 1 if if_discrete else action_dim                                  # for self.sample_all(
         self.tuple = None
         self.np_torch = torch
 
@@ -348,19 +339,19 @@ class ReplayBuffer:
     def sample_batch(self, batch_size):
         indices = rd.randint(self.now_len - 1, size=batch_size)
         r_m_a = self.buf_other[indices]
-        return (r_m_a[:, 0:1],  # reward
-                r_m_a[:, 1:2],  # mask = 0.0 if done else gamma
-                r_m_a[:, 2:],  # action
-                self.buf_state[indices],  # state
-                self.buf_state[indices + 1])  # next_state
+        return (r_m_a[:, 0:1],                                                              # reward
+                r_m_a[:, 1:2],                                                              # mask = 0.0 if done else gamma
+                r_m_a[:, 2:],                                                               # action
+                self.buf_state[indices],                                                    # state
+                self.buf_state[indices + 1])                                                # next_state
 
     def sample_all(self):
         all_other = torch.as_tensor(self.buf_other[:self.now_len], device=self.device)
-        return (all_other[:, 0],  # reward
-                all_other[:, 1],  # mask = 0.0 if done else gamma
-                all_other[:, 2:2 + self.action_dim],  # action
-                all_other[:, 2 + self.action_dim:],  # action_noise or action_prob
-                torch.as_tensor(self.buf_state[:self.now_len], device=self.device))  # state
+        return (all_other[:, 0],                                                            # reward
+                all_other[:, 1],                                                            # mask = 0.0 if done else gamma
+                all_other[:, 2:2 + self.action_dim],                                        # action
+                all_other[:, 2 + self.action_dim:],                                         # action_noise or action_prob
+                torch.as_tensor(self.buf_state[:self.now_len], device=self.device))         # state
 
     def update_now_len(self):
         self.now_len = self.max_len if self.if_full else self.next_idx
@@ -373,8 +364,7 @@ class ReplayBuffer:
 
 '''env.py'''
 
-
-class PreprocessEnv(gym.Wrapper):  # environment wrapper
+class PreprocessEnv(gym.Wrapper):                                                           # environment wrapper
     def __init__(self, env, if_print=True):
         self.env = gym.make(env) if isinstance(env, str) else env
         super(PreprocessEnv, self).__init__(self.env)
@@ -397,25 +387,25 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
 def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     """get information of a standard OpenAI gym env.
 
-    The DRL algorithm AgentXXX need these env information for building networks and training.
-    env_name: the environment name, such as XxxXxx-v0
-    state_dim: the dimension of state
-    action_dim: the dimension of continuous action; Or the number of discrete action
-    action_max: the max action of continuous action; action_max == 1 when it is discrete action space
-    if_discrete: Is this env a discrete action space?
-    target_return: the target episode return, if agent reach this score, then it pass this game (env).
-    max_step: the steps in an episode. (from env.reset to done). It breaks an episode when it reach max_step
+    AgentXXX needs the env information for networks and training.
+    env_name: such as XxxXxx-v0
+    state_dim:  dimension of state
+    action_dim: dimension of continuous action; Or number of discrete actions
+    action_max: max action of continuous action; action_max == 1 for discrete action space
+    if_discrete: Is it a discrete action space?
+    target_return: target episode return, if agent reach this score, then it pass this game (env).
+    max_step: an episode breaks when reaching max_step
 
-    :env: a standard OpenAI gym environment, it has env.reset() and env.step()
-    :bool if_print: print the information of environment. Such as env_name, state_dim ...
+    :env: a standard OpenAI gym environment has env.reset() and env.step()
+    :bool if_print: print the information of env. such as env_name, state_dim ...
     """
-    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
+    gym.logger.set_level(40)                                                 # Block warning: 'WARN: Box bound precision lowered by casting to float32'
     assert isinstance(env, gym.Env)
 
     env_name = env.unwrapped.spec.id
 
     state_shape = env.observation_space.shape
-    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
+    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape     # sometimes state_dim is a list
 
     target_return = getattr(env, 'target_return', None)
     target_return_default = getattr(env.spec, 'reward_threshold', None)
@@ -432,10 +422,10 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
         max_step = 2 ** 10
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if if_discrete:  # make sure it is discrete action space
+    if if_discrete:                                                         # for discrete action space
         action_dim = env.action_space.n
         action_max = int(1)
-    elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
+    elif isinstance(env.action_space, gym.spaces.Box):                      # for continuous action space
         action_dim = env.action_space.shape[0]
         action_max = float(env.action_space.high[0])
         assert not any(env.action_space.high + env.action_space.low)
@@ -462,44 +452,44 @@ def deepcopy_or_rebuild_env(env):
 
 class Arguments:
     def __init__(self, agent=None, env=None, gpu_id=None, if_on_policy=False):
-        self.agent = agent  # Deep Reinforcement Learning algorithm
-        self.cwd = None  # current work directory. cwd is None means set it automatically
-        self.env = env  # the environment for training
-        self.env_eval = None  # the environment for evaluating
-        self.gpu_id = gpu_id  # choose the GPU for running. gpu_id is None means set it automatically
-        self.rollout_num = 2  # the number of rollout workers (larger is not always faster)
-        self.num_threads = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.agent = agent                              # DRL algorithm
+        self.cwd = None                                 # current work directory. None means set it automatically
+        self.env = env                                  # env for training
+        self.env_eval = None                            # env for evaluating
+        self.gpu_id = gpu_id                            # choose the GPU. gpu_id is None means set it automatically
+        self.rollout_num = 2                            # number of rollout workers
+        self.num_threads = 8                            # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for training (off-policy)'''
         self.learning_rate = 1e-4
-        self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
-        self.gamma = 0.99  # discount factor of future rewards
-        self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
+        self.soft_update_tau = 2 ** -8                  # 2 ** -8 ~= 5e-3
+        self.gamma = 0.99                               # discount factor
+        self.reward_scale = 2 ** 0                      # an approximate target reward usually is close to 256
 
-        if if_on_policy:  # (on-policy)
-            self.net_dim = 2 ** 9  # the network width
-            self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 4  # collect target_step, then update network
-            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
-            self.max_memo = self.target_step  # capacity of replay buffer
-            self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
+        if if_on_policy:                                # (on-policy)
+            self.net_dim = 2 ** 9                       # network width
+            self.batch_size = self.net_dim              # num of transitions.
+            self.repeat_times = 2 ** 4                  # collect target_step, then update network
+            self.target_step = 2 ** 12                  # repeatedly update network to keep critic's loss small
+            self.max_memo = self.target_step            # capacity of replay buffer
+            self.if_per_or_gae = False                  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
         else:
-            self.net_dim = 2 ** 8  # the network width
-            self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
-            self.target_step = 2 ** 10  # collect target_step, then update network
-            self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
-            self.max_memo = 2 ** 17  # capacity of replay buffer
-            self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+            self.net_dim = 2 ** 8                       # network width
+            self.batch_size = self.net_dim              # num of transitions.
+            self.target_step = 2 ** 10                  # collect target_step, then update network
+            self.repeat_times = 2 ** 0                  # repeatedly update network to keep critic's loss small
+            self.max_memo = 2 ** 17                     # capacity of replay buffer
+            self.if_per_or_gae = False                  # PER for off-policy sparse reward: Prioritized Experience Replay.
 
         '''Arguments for evaluate'''
-        self.eval_gap = 2 ** 5  # evaluate the agent per eval_gap seconds
-        self.eval_times1 = 2 ** 2  # evaluation times
-        self.eval_times2 = 2 ** 4  # evaluation times if 'eval_reward > max_reward'
-        self.random_seed = 0  # initialize random seed in self.init_before_training()
+        self.eval_gap = 2 ** 5                          # evaluate the agent per eval_gap seconds
+        self.eval_times1 = 2 ** 2                       # evaluation times
+        self.eval_times2 = 2 ** 4                       # evaluation times if 'eval_reward > max_reward'
+        self.random_seed = 0                            # initialize random seed in self.init_before_training()
 
-        self.break_step = 2 ** 20  # break training after 'total_step > break_step'
-        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
-        self.if_allow_break = True  # allow break training when reach goal (early termination)
+        self.break_step = 2 ** 20                       # break training after 'total_step > break_step'
+        self.if_remove = True                           # remove the cwd folder? (True, False, None:ask me)
+        self.if_allow_break = True                      # allow break training when reach goal (early termination)
 
     def init_before_training(self, process_id=0):
         if self.agent is None:
@@ -512,7 +502,7 @@ class Arguments:
             raise RuntimeError('\n| What is env.env_name? use env=PreprocessEnv(env). It is a Wrapper.')
 
         '''set None value automatically'''
-        if self.gpu_id is None:  # set gpu_id as '0' in default
+        if self.gpu_id is None:                         # set gpu_id as '0' in default
             self.gpu_id = '0'
 
         if self.cwd is None:
@@ -522,7 +512,7 @@ class Arguments:
         if process_id == 0:
             print(f'| GPU id: {self.gpu_id}, cwd: {self.cwd}')
 
-            import shutil  # remove history according to bool(if_remove)
+            import shutil                               # remove history according to bool(if_remove)
             if self.if_remove is None:
                 self.if_remove = bool(input("PRESS 'y' to REMOVE: {}? ".format(self.cwd)) == 'y')
             if self.if_remove:
@@ -551,7 +541,6 @@ def train_and_evaluate(args):
 
     '''training arguments'''
     net_dim = args.net_dim
-    # max_memo = args.max_memo
     break_step = args.break_step
     batch_size = args.batch_size
     target_step = args.target_step
@@ -568,7 +557,7 @@ def train_and_evaluate(args):
     show_gap = args.eval_gap
     eval_times1 = args.eval_times1
     eval_times2 = args.eval_times2
-    del args  # In order to show these hyper-parameters clearly, I put them above.
+    del args                                            # to show these hyper-parameters clearly, I put them above.
 
     '''init: environment'''
     max_step = env.max_step
@@ -585,7 +574,7 @@ def train_and_evaluate(args):
                           if_discrete=if_discrete)
 
     evaluator = Evaluator(cwd=cwd, agent_id=gpu_id, device=agent.device, env=env_eval,
-                          eval_times1=eval_times1, eval_times2=eval_times2, eval_gap=show_gap)  # build Evaluator
+                          eval_times1=eval_times1, eval_times2=eval_times2, eval_gap=show_gap)          # build Evaluator
 
     '''prepare for training'''
     agent.state = env.reset()
@@ -643,21 +632,21 @@ class Evaluator:
                                   range(self.eval_times1)]
             r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
-            if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
+            if r_avg > self.r_max:                                  # evaluate actor twice to save CPU Usage and keep precision
                 rewards_steps_list += [get_episode_return_and_step(self.env, act, self.device)
                                        for _ in range(self.eval_times2 - self.eval_times1)]
                 r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
-            if r_avg > self.r_max:  # save checkpoint with highest episode return
-                self.r_max = r_avg  # update max reward (episode return)
+            if r_avg > self.r_max:                                  # save checkpoint with highest episode return
+                self.r_max = r_avg                                  # update max reward (episode return)
 
                 '''save policy network in *.pth'''
                 act_save_path = f'{self.cwd}/actor.pth'
                 torch.save(act.state_dict(), act_save_path)
                 print(f"{self.agent_id:<2} {self.total_step:8.2e} {self.r_max:8.2f} |")  # save policy and print
 
-            self.recorder.append((self.total_step, r_avg, r_std, *log_tuple))  # update recorder
+            self.recorder.append((self.total_step, r_avg, r_std, *log_tuple))            # update recorder
 
-            if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
+            if_reach_goal = bool(self.r_max > self.target_return)                        # check if_reach_goal
             if if_reach_goal and self.used_time is None:
                 self.used_time = int(time.time() - self.start_time)
                 print(f"{'ID':>2} {'Step':>8} {'TargetR':>8} |{'avgR':>8} {'stdR':>8} |"
@@ -679,13 +668,13 @@ class Evaluator:
     @staticmethod
     def get_r_avg_std_s_avg_std(rewards_steps_list):
         rewards_steps_ary = np.array(rewards_steps_list)
-        r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
-        r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
+        r_avg, s_avg = rewards_steps_ary.mean(axis=0)                                   # average of episode return and episode step
+        r_std, s_std = rewards_steps_ary.std(axis=0)                                    # standard dev. of episode return and episode step
         return r_avg, r_std, s_avg, s_std
 
 
 def get_episode_return_and_step(env, act, device) -> (float, int):
-    episode_return = 0.0  # sum of rewards in an episode
+    episode_return = 0.0                                                                # cumulative rewards in an episode
     episode_step = 1
     max_step = env.max_step
     if_discrete = env.if_discrete
@@ -695,8 +684,8 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
         s_tensor = torch.as_tensor((state,), device=device)
         a_tensor = act(s_tensor)
         if if_discrete:
-            a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+            a_tensor = a_tensor.argmax(dim=1
+        action = a_tensor.detach().cpu().numpy()[0]                                    # not need detach(), because using torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
@@ -707,19 +696,18 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
 
 '''DEMO'''
 
-
 def demo_continuous_action():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_on_policy=True)                                               # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
-    args.agent.cri_target = True  # True
+    args.agent.cri_target = True
 
     '''choose environment'''
     if_train_pendulum = 0
     if if_train_pendulum:
         "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
         args.env = PreprocessEnv(env='Pendulum-v0')
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
-        args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+        args.env.target_return = -200                                                # set target_reward manually for env 'Pendulum-v0'
+        args.reward_scale = 2 ** -3                                                  # RewardRange: -1800 < -200 < -50 < 0
         args.net_dim = 2 ** 7
         args.batch_size = args.net_dim * 2
         args.target_step = args.env.max_step * 16
@@ -735,22 +723,21 @@ def demo_continuous_action():
     if if_train_lunar_lander:
         "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
         args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
-        args.reward_scale = 2 ** 0  # RewardRange: -800 < -200 < 200 < 302
+        args.reward_scale = 2 ** 0                                                   # RewardRange: -800 < -200 < 200 < 302
 
     if_train_bipedal_walker = 0
     if if_train_bipedal_walker:
         "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
         args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
-        args.reward_scale = 2 ** 0  # RewardRange: -200 < -150 < 300 < 334
+        args.reward_scale = 2 ** 0                                                   # RewardRange: -200 < -150 < 300 < 334
         args.gamma = 0.97
         args.if_per_or_gae = True
 
-    '''train and evaluate'''
     train_and_evaluate(args)
 
 
 def demo_discrete_action():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_on_policy=True)                                              # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentDiscretePPO()
 
     '''choose environment'''
@@ -795,28 +782,27 @@ def demo_discrete_action():
         args.eval_times1 = 2
         args.eval_times2 = 3
 
-    '''train and evaluate'''
     train_and_evaluate(args)
 
 
 def demo_get_video_to_watch_gym_render():
-    import cv2  # pip3 install opencv-python
-    import gym  # pip3 install gym==0.17 pyglet==1.5.0  # env.render() bug in gym==0.18, pyglet==1.6
+    import cv2                                              # pip3 install opencv-python
+    import gym                                              # pip3 install gym==0.17 pyglet==1.5.0  # env.render() bug in gym==0.18, pyglet==1.6
     import torch
 
     """parameters"""
     env_name = 'LunarLanderContinuous-v2'
     env = PreprocessEnv(env=gym.make(env_name))
 
-    # agent = None  # means use random action
-    agent = AgentPPO()  # means use the policy network which saved in cwd
-    cwd = f'./{env_name}_{agent.__class__.__name__}/'  # current working directory path
+    # agent = None                                          # use random action
+    agent = AgentPPO()                                      # use the policy network saved in cwd
+    cwd = f'./{env_name}_{agent.__class__.__name__}/'       # current working directory
 
-    save_frame_dir = ''  # means don't save video, just open the env.render()
-    # save_frame_dir = 'frames'  # means save video in this directory
+    save_frame_dir = ''                                     # don't save video; open the env.render()
+    # save_frame_dir = 'frames'                             # save video
 
     '''initialize agent'''
-    if agent is None:  # use random action
+    if agent is None:                                       # use random action
         device = None
     else:
         net_dim = 2 ** 9  # 2 ** 7
@@ -827,7 +813,7 @@ def demo_get_video_to_watch_gym_render():
         agent.save_load_model(cwd=cwd, if_save=False)
         device = agent.device
 
-    '''initialize evaluete and env.render()'''
+    '''initialize evaluate and env.render()'''
     if save_frame_dir:
         os.makedirs(save_frame_dir, exist_ok=True)
 
