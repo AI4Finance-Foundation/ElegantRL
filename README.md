@@ -14,7 +14,7 @@
 </a>
 <br/>
 
-ElegantRL is developped for researchers and practitioners with the following advantages:
+[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developped for researchers and practitioners with the following advantages:
   
   + **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
   
@@ -28,7 +28,6 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
-Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/index.html).
 
 # Table of Contents
 
