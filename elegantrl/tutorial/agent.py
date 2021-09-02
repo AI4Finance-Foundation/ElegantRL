@@ -50,11 +50,11 @@ class AgentBase:
         self.state = state
 
         '''convert list to array'''
-        trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
+        trajectory_list = list(map(list, zip(*trajectory_list)))        # 2D-list transpose
         ary_state = np.stack(trajectory_list[0])
         ary_other = np.stack(trajectory_list[1])
-        ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
-        ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
+        ary_other[:, 0] = ary_other[:, 0] * reward_scale                # ary_reward
+        ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma               # ary_mask = (1.0 - ary_done) * gamma
         return ary_state, ary_other
 
     @staticmethod
@@ -89,13 +89,13 @@ class AgentBase:
 class AgentDQN(AgentBase):
     def __init__(self):
         super().__init__()
-        self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
+        self.explore_rate = 0.25                    # the probability of choosing action randomly in epsilon-greedy
         self.if_use_cri_target = True
         self.ClassCri = QNet
 
-    def select_action(self, state) -> int:  # for discrete action space
-        if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_int = rd.randint(self.action_dim)  # choosing action randomly
+    def select_action(self, state) -> int:          # for discrete action space
+        if rd.rand() < self.explore_rate:           # epsilon-greedy
+            a_int = rd.randint(self.action_dim)     # choosing action randomly
         else:
             states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
             action = self.act(states)[0]
@@ -107,7 +107,7 @@ class AgentDQN(AgentBase):
 
         trajectory_list = list()
         for _ in range(target_step):
-            action = self.select_action(state)  # assert isinstance(action, int)
+            action = self.select_action(state)      # assert isinstance(action, int)
             next_s, reward, done, _ = env.step(action)
             trajectory_list.append((state, (reward, done, action)))
 
@@ -115,11 +115,11 @@ class AgentDQN(AgentBase):
         self.state = state
 
         '''convert list to array'''
-        trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
+        trajectory_list = list(map(list, zip(*trajectory_list)))    # 2D-list transpose
         ary_state = np.stack(trajectory_list[0])
         ary_other = np.stack(trajectory_list[1])
-        ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
-        ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
+        ary_other[:, 0] = ary_other[:, 0] * reward_scale            # ary_reward
+        ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma           # ary_mask = (1.0 - ary_done) * gamma
         return ary_state, ary_other
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
@@ -148,12 +148,12 @@ class AgentDoubleDQN(AgentDQN):
         self.softMax = torch.nn.Softmax(dim=1)
         self.ClassCri = QNetTwin
 
-    def select_action(self, state) -> int:  # for discrete action space
+    def select_action(self, state) -> int:                          # for discrete action space
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
         actions = self.act(states)
-        if rd.rand() < self.explore_rate:  # epsilon-greedy
+        if rd.rand() < self.explore_rate:                           # epsilon-greedy
             a_prob = self.softMax(actions)[0].detach().cpu().numpy()
-            a_int = rd.choice(self.action_dim, p=a_prob)  # choose action according to Q value
+            a_int = rd.choice(self.action_dim, p=a_prob)            # choose action according to Q value
         else:
             action = actions[0]
             a_int = action.argmax(dim=0).detach().cpu().numpy()
@@ -186,7 +186,7 @@ class AgentDDPG(AgentBase):
             self.optim_update(self.cri_optim, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-            action_pg = self.act(state)  # policy gradient
+            action_pg = self.act(state)                             # policy gradient
             obj_actor = -self.cri(state, action_pg).mean()
             self.optim_update(self.act_optim, obj_actor)
             self.soft_update(self.act_target, self.act, soft_update_tau)
@@ -205,9 +205,9 @@ class AgentDDPG(AgentBase):
 class AgentTD3(AgentBase):
     def __init__(self):
         super().__init__()
-        self.explore_noise = 0.1  # standard deviation of exploration noise
-        self.policy_noise = 0.2  # standard deviation of policy noise
-        self.update_freq = 2  # delay update frequency
+        self.explore_noise = 0.1                                    # standard deviation of exploration noise
+        self.policy_noise = 0.2                                     # standard deviation of policy noise
+        self.update_freq = 2                                        # delay update frequency
         self.if_use_cri_target = self.if_use_act_target = True
         self.ClassCri = CriticTwin
         self.ClassAct = Actor
@@ -219,8 +219,8 @@ class AgentTD3(AgentBase):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
             self.optim_update(self.cri_optim, obj_critic)
 
-            action_pg = self.act(state)  # policy gradient
-            obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target instead of cri for stable training
+            action_pg = self.act(state)                             # policy gradient
+            obj_actor = -self.cri_target(state, action_pg).mean()   # use cri_target instead of cri for stable training
             self.optim_update(self.act_optim, obj_actor)
             if update_c % self.update_freq == 0:  # delay update
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
@@ -230,12 +230,12 @@ class AgentTD3(AgentBase):
     def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+            next_a = self.act_target.get_action(next_s, self.policy_noise)          # policy noise
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))          # twin critics
             q_label = reward + mask * next_q
 
         q1, q2 = self.cri.get_q1_q2(state, action)
-        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
+        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)      # twin critics
         return obj_critic, state
 
 
@@ -255,7 +255,7 @@ class AgentSAC(AgentBase):
         super().init(net_dim, state_dim, action_dim, learning_rate, _if_use_per, gpu_id)
 
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
-                                      requires_grad=True, device=self.device)  # trainable parameter
+                                      requires_grad=True, device=self.device)       # trainable parameter
         self.alpha_optim = torch.optim.Adam((self.alpha_log,), lr=learning_rate)
         self.target_entropy = np.log(action_dim)
 
@@ -334,11 +334,11 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
                 q_label = reward + mask * (next_q + next_log_prob * alpha)
             q1, q2 = self.cri.get_q1_q2(state, action)
             obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
-            self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()  # for reliable_lambda
+            self.obj_c = 0.995 * self.obj_c + 0.0025 * obj_critic.item()                # for reliable_lambda
             self.optim_update(self.cri_optim, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            a_noise_pg, log_prob = self.act.get_action_logprob(state)                   # policy gradient
             '''objective of alpha (temperature parameter automatic adjustment)'''
             obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
             self.optim_update(self.alpha_optim, obj_alpha)
