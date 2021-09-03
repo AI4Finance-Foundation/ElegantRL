@@ -52,7 +52,7 @@ class Arguments:
             self.cwd = f'./{agent_name}_{self.env.env_name}_{self.visible_gpu}'
 
         if if_main:
-            import shutil  # remove history according to bool(if_remove)
+            import shutil                   # remove history according to bool(if_remove)
             if self.if_remove is None:
                 self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
             elif self.if_remove:
@@ -87,9 +87,9 @@ def train_and_evaluate(args, agent_id=0):
         buffer = list()
 
         def update_buffer(s_a_n_r_m):
-            buffer[:] = s_a_n_r_m  # (state, action, noise, reward, mask)
+            buffer[:] = s_a_n_r_m           # (state, action, noise, reward, mask)
             _steps = s_a_n_r_m[3].shape[0]  # buffer[3] = r_sum
-            _r_exp = s_a_n_r_m[3].mean()  # buffer[3] = r_sum
+            _r_exp = s_a_n_r_m[3].mean()    # buffer[3] = r_sum
             return _steps, _r_exp
     else:
         buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
@@ -142,7 +142,7 @@ def train_and_evaluate(args, agent_id=0):
 
 class Evaluator:
     def __init__(self, cwd, agent_id, device, env, eval_times, eval_gap, ):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = list()                      # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
         self.r_max = -np.inf
         self.total_step = 0
@@ -164,26 +164,26 @@ class Evaluator:
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
     def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> bool:
-        self.total_step += steps  # update total training steps
+        self.total_step += steps                    # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
-            return False  # if_reach_goal
+            return False                            # if_reach_goal
 
         self.eval_time = time.time()
         rewards_steps_list = [get_episode_return_and_step(self.env, act, self.device) for _ in
                               range(self.eval_times)]
         r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
-        if r_avg > self.r_max:  # save checkpoint with highest episode return
-            self.r_max = r_avg  # update max reward (episode return)
+        if r_avg > self.r_max:                      # save checkpoint with highest episode return
+            self.r_max = r_avg                      # update max reward (episode return)
 
             act_save_path = f'{self.cwd}/actor.pth'
-            torch.save(act.state_dict(), act_save_path)  # save policy network in *.pth
-            print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
+            torch.save(act.state_dict(), act_save_path)                             # save policy network in *.pth
+            print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")   # save policy and print
 
-        self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
+        self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))    # update recorder
 
-        if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
+        if_reach_goal = bool(self.r_max > self.target_return)                       # check if_reach_goal
         if if_reach_goal and self.used_time is None:
             self.used_time = int(time.time() - self.start_time)
             print(f"{'ID':<3}{'Step':>8}{'TargetR':>8} |"
@@ -201,8 +201,8 @@ class Evaluator:
     @staticmethod
     def get_r_avg_std_s_avg_std(rewards_steps_list):
         rewards_steps_ary = np.array(rewards_steps_list, dtype=np.float32)
-        r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
-        r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
+        r_avg, s_avg = rewards_steps_ary.mean(axis=0)                               # average of episode return and episode step
+        r_std, s_std = rewards_steps_ary.std(axis=0)                                # standard dev. of episode return and episode step
         return r_avg, r_std, s_avg, s_std
 
 
@@ -218,7 +218,7 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]                                 # not need detach(), because with torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
@@ -227,7 +227,7 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
     return episode_return, episode_step
 
 
-class PreprocessEnv(gym.Wrapper):  # environment wrapper
+class PreprocessEnv(gym.Wrapper):                                                   # environment wrapper
     def __init__(self, env, if_print=True):
         self.env = gym.make(env) if isinstance(env, str) else env
         super().__init__(self.env)
@@ -251,7 +251,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     env_name = env.unwrapped.spec.id if env_name is None else env_name
 
     state_shape = env.observation_space.shape
-    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
+    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape            # sometimes state_dim is a list
 
     target_return = getattr(env.spec, 'reward_threshold', 2 ** 16)
 
@@ -263,10 +263,10 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
         max_step = 2 ** 10
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if if_discrete:  # make sure it is discrete action space
+    if if_discrete:                                                                 # make sure it is discrete action space
         action_dim = env.action_space.n
         action_max = int(1)
-    elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
+    elif isinstance(env.action_space, gym.spaces.Box):                              # make sure it is continuous action space
         action_dim = env.action_space.shape[0]
         action_max = float(env.action_space.high[0])
         assert not any(env.action_space.high + env.action_space.low)
