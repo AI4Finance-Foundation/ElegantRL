@@ -1,50 +1,50 @@
-import gym  # not necessary
+import gym
 import time
 from elegantrl.tutorial.agent import *
 
-gym.logger.set_level(40)                    # Block warning
+gym.logger.set_level(40)                            # Block warning
 
 
 class Arguments:
     def __init__(self, agent=None, env=None, if_on_policy=False):
-        self.agent = agent                  # Deep Reinforcement Learning algorithm
-        self.env = env                      # the environment for training
+        self.agent = agent                          # DRL algorithm
+        self.env = env                              # env for training
 
-        self.cwd = None                     # current work directory. None means set automatically
-        self.if_remove = True               # remove the cwd folder? (True, False, None:ask me)
-        self.break_step = 2 ** 20           # break training after 'total_step > break_step'
-        self.if_allow_break = True          # allow break training when reach goal (early termination)
+        self.cwd = None                             # current work directory. None means set automatically
+        self.if_remove = True                       # remove the cwd folder? (True, False, None)
+        self.break_step = 2 ** 20                   # terminate training after 'total_step > break_step'
+        self.if_allow_break = True                  # terminate training when reaching a target reward
 
-        self.visible_gpu = '0'              # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-        self.worker_num = 2                 # rollout workers number pre GPU (adjust it to get high GPU usage)
-        self.num_threads = 8                # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.visible_gpu = '0'                      # e.g., os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
+        self.worker_num = 2                         # #rollout workers per GPU
+        self.num_threads = 8                        # cpu_num to evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for training'''
-        self.gamma = 0.99                   # discount factor of future rewards
-        self.reward_scale = 2 ** 0          # an approximate target reward usually be closed to 256
-        self.learning_rate = 2 ** -14       # 2 ** -14 ~= 6e-5
-        self.soft_update_tau = 2 ** -8      # 2 ** -8 ~= 5e-3
+        self.gamma = 0.99                           # discount factor
+        self.reward_scale = 2 ** 0                  # an approximate target reward usually be closed to 256
+        self.learning_rate = 2 ** -14               # 2 ** -14 ~= 6e-5
+        self.soft_update_tau = 2 ** -8              # 2 ** -8 ~= 5e-3
 
-        if if_on_policy:                    # (on-policy)
-            self.net_dim = 2 ** 9           # the network width
-            self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 3      # collect target_step, then update network
-            self.target_step = 2 ** 12      # repeatedly update network to keep critic's loss small
-            self.max_memo = self.target_step  # capacity of replay buffer
-            self.if_per_or_gae = False      # GAE for on-policy sparse reward: Generalized Advantage Estimation.
+        if if_on_policy:                            # (on-policy)
+            self.net_dim = 2 ** 9                   # the network width
+            self.batch_size = self.net_dim * 2      # num of transitions sampled from replay buffer.
+            self.repeat_times = 2 ** 3              # collect target_step, then update network
+            self.target_step = 2 ** 12              # repeatedly update network to keep critic's loss small
+            self.max_memo = self.target_step        # capacity of replay buffer
+            self.if_per_or_gae = False              # GAE for on-policy sparse reward: Generalized Advantage Estimation.
         else:
-            self.net_dim = 2 ** 8           # the network width
-            self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 0      # repeatedly update network to keep critic's loss small
-            self.target_step = 2 ** 10      # collect target_step, then update network
-            self.max_memo = 2 ** 20         # capacity of replay buffer
-            self.if_per_or_gae = False      # PER for off-policy sparse reward: Prioritized Experience Replay.
+            self.net_dim = 2 ** 8                   # the network width
+            self.batch_size = self.net_dim          # num of transitions sampled from replay buffer.
+            self.repeat_times = 2 ** 0              # repeatedly update network to keep critic's loss small
+            self.target_step = 2 ** 10              # collect target_step, then update network
+            self.max_memo = 2 ** 20                 # capacity of replay buffer
+            self.if_per_or_gae = False              # PER for off-policy sparse reward: Prioritized Experience Replay.
 
         '''Arguments for evaluate'''
-        self.eval_env = None                # the environment for evaluating. None means set automatically.
-        self.eval_gap = 2 ** 6              # evaluate the agent per eval_gap seconds
-        self.eval_times = 2                 # number of times that get episode return in first
-        self.random_seed = 0                # initialize random seed in self.init_before_training()
+        self.eval_env = None                        # the environment for evaluating. None means set automatically.
+        self.eval_gap = 2 ** 6                      # evaluate the agent per eval_gap seconds
+        self.eval_times = 2                         # number of times that get episode return in first
+        self.random_seed = 0                        # initialize random seed in self.init_before_training()
 
     def init_before_training(self, if_main):
         if self.cwd is None:
@@ -52,7 +52,7 @@ class Arguments:
             self.cwd = f'./{agent_name}_{self.env.env_name}_{self.visible_gpu}'
 
         if if_main:
-            import shutil                   # remove history according to bool(if_remove)
+            import shutil                           # remove history according to bool(if_remove)
             if self.if_remove is None:
                 self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
             elif self.if_remove:
@@ -87,9 +87,9 @@ def train_and_evaluate(args, agent_id=0):
         buffer = list()
 
         def update_buffer(s_a_n_r_m):
-            buffer[:] = s_a_n_r_m           # (state, action, noise, reward, mask)
-            _steps = s_a_n_r_m[3].shape[0]  # buffer[3] = r_sum
-            _r_exp = s_a_n_r_m[3].mean()    # buffer[3] = r_sum
+            buffer[:] = s_a_n_r_m                   # (state, action, noise, reward, mask)
+            _steps = s_a_n_r_m[3].shape[0]          # buffer[3] = r_sum
+            _r_exp = s_a_n_r_m[3].mean()            # buffer[3] = r_sum
             return _steps, _r_exp
     else:
         buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
@@ -142,7 +142,7 @@ def train_and_evaluate(args, agent_id=0):
 
 class Evaluator:
     def __init__(self, cwd, agent_id, device, env, eval_times, eval_gap, ):
-        self.recorder = list()                      # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = list()                                                      # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
         self.r_max = -np.inf
         self.total_step = 0
@@ -164,18 +164,18 @@ class Evaluator:
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
     def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> bool:
-        self.total_step += steps                    # update total training steps
+        self.total_step += steps                                                    # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
-            return False                            # if_reach_goal
+            return False                                                            # if_reach_goal
 
         self.eval_time = time.time()
         rewards_steps_list = [get_episode_return_and_step(self.env, act, self.device) for _ in
                               range(self.eval_times)]
         r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
-        if r_avg > self.r_max:                      # save checkpoint with highest episode return
-            self.r_max = r_avg                      # update max reward (episode return)
+        if r_avg > self.r_max:                                                      # save checkpoint with highest episode return
+            self.r_max = r_avg                                                      # update max reward (episode return)
 
             act_save_path = f'{self.cwd}/actor.pth'
             torch.save(act.state_dict(), act_save_path)                             # save policy network in *.pth
@@ -218,7 +218,7 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]                                 # not need detach(), because with torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]                                 # not need detach(), because using torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
@@ -263,10 +263,10 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
         max_step = 2 ** 10
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if if_discrete:                                                                 # make sure it is discrete action space
+    if if_discrete:                                                                 # for discrete action space
         action_dim = env.action_space.n
         action_max = int(1)
-    elif isinstance(env.action_space, gym.spaces.Box):                              # make sure it is continuous action space
+    elif isinstance(env.action_space, gym.spaces.Box):                              # for continuous action space
         action_dim = env.action_space.shape[0]
         action_max = float(env.action_space.high[0])
         assert not any(env.action_space.high + env.action_space.low)
