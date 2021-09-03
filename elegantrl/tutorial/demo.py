@@ -5,15 +5,15 @@ gym.logger.set_level(40)  # Block warning
 
 def demo_continuous_action_off_policy():
     args = Arguments(if_on_policy=False)
-    args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
+    args.agent = AgentModSAC()                                          # AgentSAC AgentTD3 AgentDDPG
     args.visible_gpu = '0'
 
     if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 2e5, TargetReward: -200, UsedTime: 200s"
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
-        args.reward_scale = 2 ** -2  # RewardRange: -1800 < -200 < -50 < 0
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))           # env='Pendulum-v0' is OK.
+        args.env.target_return = -200                                   # set target_reward manually for env 'Pendulum-v0'
+        args.reward_scale = 2 ** -2                                     # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.target_step = args.env.max_step * 8
 
@@ -36,7 +36,7 @@ def demo_continuous_action_off_policy():
 
 
 def demo_continuous_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_on_policy=True)                                 # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.agent.cri_target = True
     args.visible_gpu = '0'
@@ -44,9 +44,9 @@ def demo_continuous_action_on_policy():
     if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
-        args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))           # env='Pendulum-v0' is OK.
+        args.env.target_return = -200                                   # set target_reward manually for env 'Pendulum-v0'
+        args.reward_scale = 2 ** -3                                     # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.net_dim = 2 ** 7
         args.batch_size = args.net_dim * 2
@@ -72,7 +72,7 @@ def demo_continuous_action_on_policy():
 
 def demo_discrete_action_off_policy():
     args = Arguments(if_on_policy=False)
-    args.agent = AgentDoubleDQN()  # AgentDQN()
+    args.agent = AgentDoubleDQN()                                       # or AgentDQN()
     args.visible_gpu = '0'
 
     if_train_cart_pole = 0
@@ -93,7 +93,7 @@ def demo_discrete_action_off_policy():
 
 
 def demo_discrete_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_on_policy=True)                                 # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentDiscretePPO()
     args.visible_gpu = '0'
 
