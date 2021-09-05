@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import numpy.random as rd
 
-"""[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class ReplayBuffer:
@@ -205,7 +205,7 @@ class ReplayBuffer:
 
 
 class ReplayBufferMP:
-    def __init__(self, state_dim, action_dim, max_len, if_use_per, worker_num, gpu_id):
+    def __init__(self, state_dim, action_dim, max_len, if_use_per, buffer_num, gpu_id):
         """Experience Replay Buffer for Multiple Processing
 
         `int max_len` the max_len of ReplayBuffer, not the total len of ReplayBufferMP
@@ -213,11 +213,11 @@ class ReplayBufferMP:
         """
         self.now_len = 0
         self.max_len = max_len
-        self.worker_num = worker_num
+        self.worker_num = buffer_num
 
-        buf_max_len = max_len // worker_num
+        buf_max_len = max_len // buffer_num
         self.buffers = [ReplayBuffer(buf_max_len, state_dim, action_dim, if_use_per, gpu_id)
-                        for _ in range(worker_num)]
+                        for _ in range(buffer_num)]
 
     def sample_batch(self, batch_size) -> list:
         bs = batch_size // self.worker_num
