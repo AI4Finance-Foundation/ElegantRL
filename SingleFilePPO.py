@@ -138,16 +138,15 @@ class AgentPPO:
         actions, noises = self.act.get_action(states)
         return actions[0].detach().cpu().numpy(), noises[0].detach().cpu().numpy()
 
-    def explore_env(self, env, target_step, reward_scale, gamma):
-        state = self.state
-
+    def explore_env(self, env, target_step):
         trajectory_temp = list()
+
+        state = self.state
         last_done = 0
         for i in range(target_step):
             action, noise = self.select_action(state)
             next_state, reward, done, _ = env.step(np.tanh(action))
             trajectory_temp.append((state, reward, done, action, noise))
-
             if done:
                 state = env.reset()
                 last_done = i
@@ -158,21 +157,13 @@ class AgentPPO:
         '''splice list'''
         trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
         self.trajectory_list[0] = trajectory_temp[last_done:]
-
-        '''convert list to array'''
-        trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
-        ary_state = np.array(trajectory_list[0])
-        ary_reward = np.array(trajectory_list[1], dtype=np.float32) * reward_scale
-        ary_mask = (1 - np.array(trajectory_list[2], dtype=np.float32)) * gamma
-        ary_action = np.array(trajectory_list[3], dtype=np.float32)
-        ary_noise = np.array(trajectory_list[4], dtype=np.float32)
-        return ary_state, ary_action, ary_noise, ary_reward, ary_mask
+        return trajectory_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
-            buf_state, buf_action, buf_noise = [torch.as_tensor(ary, device=self.device) for ary in buffer[:3]]
-            # (ary_state, ary_action, ary_noise, ary_reward, ary_mask) = buffer
+            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [ten.to(self.device) for ten in buffer]
+            # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
 
             '''get buf_r_sum, buf_logprob'''
             bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
@@ -180,17 +171,12 @@ class AgentPPO:
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            ary_r_sum, ary_advantage = self.get_reward_sum(buf_len,
-                                                           ary_reward=buffer[3],
-                                                           ary_mask=buffer[4],
-                                                           ary_value=buf_value.cpu().numpy())  # detach()
-            buf_r_sum, buf_advantage = [torch.as_tensor(ary, device=self.device)
-                                        for ary in (ary_r_sum, ary_advantage)]
+            buf_r_sum, buf_advantage = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
             buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
-            del buf_noise, buffer[:], ary_r_sum, ary_advantage
+            del buf_noise, buffer[:]
 
         '''PPO: Surrogate objective of Trust Region'''
-        obj_critic = obj_actor = logprob = None
+        obj_critic = obj_actor = None
         for _ in range(int(buf_len / batch_size * repeat_times)):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
@@ -213,33 +199,31 @@ class AgentPPO:
             self.optim_update(self.cri_optim, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
 
-        return obj_critic.item(), obj_actor.item(), logprob.mean().item()  # logging_tuple
+        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1))
+        return obj_critic.item(), obj_actor.item(), a_std_log.mean().item()  # logging_tuple
 
-    @staticmethod
-    def get_reward_sum_raw(buf_len, ary_reward, ary_mask, ary_value) -> (torch.Tensor, torch.Tensor):
-        ary_r_sum = np.empty(buf_len, dtype=np.float32)  # reward sum
+    def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
 
         pre_r_sum = 0
         for i in range(buf_len - 1, -1, -1):
-            ary_r_sum[i] = ary_reward[i] + ary_mask[i] * pre_r_sum
-            pre_r_sum = ary_r_sum[i]
+            buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
+            pre_r_sum = buf_r_sum[i]
+        buf_advantage = buf_r_sum - (buf_mask * buf_value[:, 0])
+        return buf_r_sum, buf_advantage
 
-        ary_advantage = ary_r_sum - (ary_mask * ary_value[:, 0])
-        return ary_r_sum, ary_advantage
-
-    def get_reward_sum_gae(self, buf_len, ary_reward, ary_mask, ary_value) -> (torch.Tensor, torch.Tensor):
-        ary_r_sum = np.empty(buf_len, dtype=np.float32)  # old policy value
-        ary_advantage = np.empty(buf_len, dtype=np.float32)  # advantage value
+    def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
+        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
         pre_r_sum = 0
         pre_advantage = 0  # advantage value of previous step
         for i in range(buf_len - 1, -1, -1):
-            ary_r_sum[i] = ary_reward[i] + ary_mask[i] * pre_r_sum
-            pre_r_sum = ary_r_sum[i]
-
-            ary_advantage[i] = ary_reward[i] + ary_mask[i] * (pre_advantage - ary_value[i])  # fix a bug here
-            pre_advantage = ary_value[i] + ary_advantage[i] * self.lambda_gae_adv
-        return ary_r_sum, ary_advantage
+            buf_r_sum[i] = ten_reward[i] + ten_mask[i] * pre_r_sum
+            pre_r_sum = buf_r_sum[i]
+            buf_advantage[i] = ten_reward[i] + ten_mask[i] * (pre_advantage - ten_value[i])  # fix a bug here
+            pre_advantage = ten_value[i] + buf_advantage[i] * self.lambda_gae_adv
+        return buf_r_sum, buf_advantage
 
     @staticmethod
     def optim_update(optimizer, objective):
@@ -258,39 +242,28 @@ class AgentDiscretePPO(AgentPPO):
         super().__init__()
         self.ClassAct = ActorDiscretePPO
 
-    def explore_env(self, env, target_step, reward_scale, gamma):
-        state = self.state
+    def explore_env(self, env, target_step):
+        trajectory_temp = list()
 
-        srdan_temp = list()
+        state = self.state
         last_done = 0
         for i in range(target_step):
-            # action, noise = self.select_action(state)
-            # next_state, reward, done, _ = env.step(np.tanh(action))
-            action, a_prob = self.select_action(state)  # different from `action, noise`
+            action, a_prob = self.select_action(state)  # different
             a_int = int(action)  # different
-            next_state, reward, done, _ = env.step(a_int)  # different from `np.tanh(action)`
-            srdan_temp.append((state, reward, done, a_int, a_prob))
+            next_state, reward, done, _ = env.step(a_int)  # different
+            trajectory_temp.append((state, reward, done, a_int, a_prob))  # different
 
             if done:
                 state = env.reset()
                 last_done = i
             else:
                 state = next_state
-
         self.state = state
 
         '''splice list'''
-        srdan_list = self.trajectory_list[0] + srdan_temp[:last_done + 1]
-        self.trajectory_list[0] = srdan_temp[last_done:]
-
-        '''convert list to array'''
-        srdan_list = list(map(list, zip(*srdan_list)))  # 2D-list transpose
-        ary_state = np.array(srdan_list[0])
-        ary_reward = np.array(srdan_list[1], dtype=np.float32) * reward_scale
-        ary_mask = (1.0 - np.array(srdan_list[2], dtype=np.float32)) * gamma
-        ary_action = np.array(srdan_list[3], dtype=np.uint8)  # different from `np.float32`
-        ary_noise = np.array(srdan_list[4], dtype=np.float32)
-        return ary_state, ary_action, ary_noise, ary_reward, ary_mask
+        trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
+        self.trajectory_list[0] = trajectory_temp[last_done:]
+        return trajectory_list
 
 
 '''run.py'''
@@ -332,7 +305,6 @@ class Arguments:
             self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
 
         '''Arguments for evaluate'''
-        self.eval_env = None  # the environment for evaluating. None means set automatically.
         self.eval_gap = 2 ** 6  # evaluate the agent per eval_gap seconds
         self.eval_times1 = 2  # number of times that get episode return in first
         self.eval_times2 = 4  # number of times that get episode return in second
@@ -370,17 +342,25 @@ def train_and_evaluate(args, agent_id=0):
                args.learning_rate, args.if_per_or_gae)
 
     '''init Evaluator'''
-    eval_env = deepcopy(env) if args.env_eval is None else args.env_eval
+    eval_env = deepcopy(env)
     evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
                           args.eval_times1, args.eval_times2, args.eval_gap)
 
     '''init ReplayBuffer'''
     buffer = list()
 
-    def update_buffer(s_a_n_r_m):
-        buffer[:] = s_a_n_r_m  # (state, action, noise, reward, mask)
-        _steps = s_a_n_r_m[3].shape[0]  # buffer[3] = r_sum
-        _r_exp = s_a_n_r_m[3].mean()  # buffer[3] = r_sum
+    def update_buffer(_trajectory):
+        _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
+        ten_state = torch.as_tensor(_trajectory[0])
+        ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
+        ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
+        ten_action = torch.as_tensor(_trajectory[3])
+        ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
+
+        buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
+
+        _steps = ten_reward.shape[0]
+        _r_exp = ten_reward.mean()
         return _steps, _r_exp
 
     '''start training'''
@@ -395,12 +375,12 @@ def train_and_evaluate(args, agent_id=0):
     soft_update_tau = args.soft_update_tau
     del args
 
-    agent.states = env.reset()
+    agent.state = env.reset()
 
     if_train = True
     while if_train:
         with torch.no_grad():
-            trajectory_list = agent.explore_env(env, target_step, reward_scale, gamma)
+            trajectory_list = agent.explore_env(env, target_step)
             steps, r_exp = update_buffer(trajectory_list)
 
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
@@ -606,14 +586,14 @@ def demo_discrete_action():
     args.agent = AgentDiscretePPO()
     args.visible_gpu = '0'
 
-    if_train_cart_pole = 0
+    if_train_cart_pole = 1
     if if_train_cart_pole:
         "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
         args.env = PreprocessEnv(env='CartPole-v0')
         args.reward_scale = 2 ** -1
         args.target_step = args.env.max_step * 8
 
-    if_train_lunar_lander = 1
+    if_train_lunar_lander = 0
     if if_train_lunar_lander:
         "TotalStep: 6e5, TargetReturn: 200, UsedTime: 1500s, LunarLander-v2, PPO"
         args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
