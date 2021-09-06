@@ -12,7 +12,7 @@ from elegantrl.env import build_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class Arguments:
