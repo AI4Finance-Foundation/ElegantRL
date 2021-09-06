@@ -130,7 +130,7 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
 To cite this repository:
 ```
 @misc{erl,
-  author = {Xiao-Yang Liu, Zechu Li, Jiahao Zheng, Zhaoran Wang},
+  author = {Xiao-Yang Liu, Zechu Li, Zhaoran Wang, Jiahao Zheng},
   title = {ElegantRL: A Lightweight and Scalable Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
