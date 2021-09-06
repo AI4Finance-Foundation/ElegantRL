@@ -62,13 +62,13 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
    + Evaluator.
 
 -----utils files----
-+ **elegantrl/envs/**    &nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
++ **elegantrl/envs/**    &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
-+ **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
-+ **eRL_demos.ipynb**       &nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
-+ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
-+ **eRL_demo_StockTrading.py**  &nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
++ **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
++ **eRL_demos.ipynb**       &nbsp;&nbsp;&nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
++ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
++ **eRL_demo_StockTrading.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
 From a high-level overview, 
 + 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
