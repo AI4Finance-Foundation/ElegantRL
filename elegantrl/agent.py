@@ -741,7 +741,8 @@ class AgentPPO(AgentBase):
             self.optim_update(self.cri_optim, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
 
-        return obj_critic.item(), obj_actor.item(), self.act.a_std_log.mean().item()  # logging_tuple
+        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1))
+        return obj_critic.item(), obj_actor.item(), a_std_log.mean().item()  # logging_tuple
 
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
