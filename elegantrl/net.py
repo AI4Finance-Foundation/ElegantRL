@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 '''Q Network'''
 
