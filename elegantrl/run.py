@@ -150,16 +150,16 @@ def train_and_evaluate(args, agent_id=0):
 
         def update_buffer(_trajectory):
             _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
-            ary_state = np.array(_trajectory[0])
-            ary_reward = np.array(_trajectory[1], dtype=np.float32) * reward_scale
-            ary_mask = (1.0 - np.array(_trajectory[2], dtype=np.float32)) * gamma  # _trajectory[2] = list_done
-            ary_action = np.array(_trajectory[3])
-            ary_noise = np.array(_trajectory[4], dtype=np.float32)
+            ten_state = torch.as_tensor(_trajectory[0])
+            ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
+            ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
+            ten_action = torch.as_tensor(_trajectory[3])
+            ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
 
-            buffer[:] = (ary_state, ary_action, ary_noise, ary_reward, ary_mask)
+            buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
 
-            _steps = ary_reward.shape[0]
-            _r_exp = ary_reward.mean()
+            _steps = ten_reward.shape[0]
+            _r_exp = ten_reward.mean()
             return _steps, _r_exp
     else:
         assert isinstance(buffer, ReplayBuffer)
@@ -168,16 +168,14 @@ def train_and_evaluate(args, agent_id=0):
             _steps = 0
             _r_exp = 0
             for _trajectory in _trajectory_list:
-                ary_state = np.stack([item[0] for item in _trajectory])
-                ary_state = torch.as_tensor(ary_state, dtype=torch.float32)
-                ary_other = np.stack([item[1] for item in _trajectory])
-                ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
-                ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
-                ary_other = torch.as_tensor(ary_other, dtype=torch.float32)
+                ten_state = torch.as_tensor([item[0] for item in _trajectory], dtype=torch.float32)
+                ary_other = torch.as_tensor([item[1] for item in _trajectory])
+                ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ten_reward
+                ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ten_mask = (1.0 - ary_done) * gamma
 
-                buffer.extend_buffer(ary_state, ary_other)
+                buffer.extend_buffer(ten_state, ary_other)
 
-                _steps += ary_state.shape[0]
+                _steps += ten_state.shape[0]
                 _r_exp += ary_other[:, 0].mean()  # other = (reward, mask, action)
             return _steps, _r_exp
 
