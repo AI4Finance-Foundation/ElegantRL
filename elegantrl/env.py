@@ -3,7 +3,7 @@ import gym  # not necessary
 import numpy as np
 from copy import deepcopy
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 gym.logger.set_level(40)  # Block warning
 
@@ -129,7 +129,7 @@ def build_env(env, if_print=False):
     env_name = getattr(env, 'env_name', env)
     assert isinstance(env_name, str)
 
-    if env_name in {'LunarLanderContinuous-v2', 'BipedalWalker-v3',
+    if env_name in {'LunarLanderContinuous-v2', 'BipedalWalker-v3', 'BipedalWalkerHardcore-v3',
                     'CartPole-v0', 'LunarLander-v2', }:
         env = gym.make(env_name)
         env = PreprocessEnv(env, if_print=if_print)
@@ -141,6 +141,7 @@ def build_env(env, if_print=False):
         from elegantrl.envs.CarRacingFix import CarRacingFix
         env = CarRacingFix()
     else:
+        assert not isinstance(env, str)
         env = deepcopy(env)
         # raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
     return env

@@ -3,12 +3,12 @@ from elegantrl.agent import *
 from elegantrl.env import PreprocessEnv, build_env
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 '''train'''
 
 
-def demo_continuous_action_off_policy():
+def demo_continuous_action_off_policy():  # 2021-09-07
     args = Arguments(if_on_policy=False)
     args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
 
@@ -50,9 +50,32 @@ def demo_continuous_action_off_policy():
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
 
+    if_train_bipedal_walker_hard_core = 0
+    if if_train_bipedal_walker_hard_core:
+        "TotalStep: 10e5, TargetReward:   0, UsedTime: 10ks ModSAC"
+        "TotalStep: 25e5, TargetReward: 150, UsedTime: 20ks ModSAC"
+        "TotalStep: 35e5, TargetReward: 295, UsedTime: 40ks ModSAC"
+        "TotalStep: 40e5, TargetReward: 300, UsedTime: 50ks ModSAC"
+        args.env = build_env(env='BipedalWalkerHardcore-v3')
+        args.target_step = args.env.max_step
+        args.gamma = 0.98
+        args.net_dim = 2 ** 8
+        args.batch_size = args.net_dim * 2
+        args.learning_rate = 2 ** -15
+        args.repeat_times = 1.5
+
+        args.max_memo = 2 ** 22
+        args.break_step = 2 ** 24
+
+        args.eval_gap = 2 ** 8
+        args.eval_times1 = 2 ** 2
+        args.eval_times2 = 2 ** 5
+
+        args.target_step = args.env.max_step * 1
+
     # train_and_evaluate(args)  # single process
-    args.worker_num = 2
-    args.visible_gpu = '0'
+    args.worker_num = 4
+    args.visible_gpu = sys.argv[-1]
     train_and_evaluate_mp(args)  # multiple process
     # args.worker_num = 4
     # args.visible_gpu = '0,1'
@@ -151,7 +174,7 @@ def demo_discrete_action_on_policy():
     train_and_evaluate(args)
 
 
-def demo_car_racing():  # 2021-09-05
+def demo_pixel_level_task():  # 2021-09-07
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.agent.cri_target = True
@@ -159,9 +182,11 @@ def demo_car_racing():  # 2021-09-05
 
     if_train_car_racing = 1
     if if_train_car_racing:
-        "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
+        "TotalStep: 12e5, TargetReward: 300, UsedTime: 10ks PPO"
+        "TotalStep: 20e5, TargetReward: 700, UsedTime: 25ks PPO"
+        "TotalStep: 40e5, TargetReward: 800, UsedTime: 50ks PPO"
         from elegantrl.env import build_env
-        env_name = 'CarRacingFix2'
+        env_name = 'CarRacingFix'
         args.env = build_env(env=env_name)  # register this environment in `env.py build_env()`
         args.agent.explore_rate = 0.75
         args.agent.ratio_clip = 0.5
@@ -175,7 +200,6 @@ def demo_car_racing():  # 2021-09-05
         args.if_per_or_gae = True
         args.agent.lambda_gae_adv = 0.96
 
-        args.eval_env = build_env(env=env_name)
         args.eval_gap = 2 ** 9
         args.eval_times1 = 2 ** 2
         args.eval_times1 = 2 ** 4
@@ -186,7 +210,7 @@ def demo_car_racing():  # 2021-09-05
         # train_and_evaluate(args)
 
         args.worker_num = 6
-        args.target_step = int(args.env.max_step * 12 / args.env_num / args.worker_num)
+        args.target_step = args.env.max_step * 2
         train_and_evaluate_mp(args)
 
 
@@ -197,3 +221,4 @@ if __name__ == '__main__':
     demo_continuous_action_on_policy()
     # demo_discrete_action_off_policy()
     # demo_discrete_action_on_policy()
+    # demo_pixel_level_task()

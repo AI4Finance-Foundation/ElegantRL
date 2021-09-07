@@ -3,7 +3,7 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class Evaluator:
