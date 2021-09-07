@@ -77,7 +77,7 @@ def demo_continuous_action_off_policy():  # 2021-09-07
     args.worker_num = 4
     args.visible_gpu = sys.argv[-1]
     train_and_evaluate_mp(args)  # multiple process
-    # args.worker_num = 4
+    # args.worker_num = 6
     # args.visible_gpu = '0,1'
     # train_and_evaluate_mp(args)  # multiple GPU
 

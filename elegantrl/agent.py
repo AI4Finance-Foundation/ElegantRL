@@ -20,8 +20,8 @@ class AgentBase:
         self.if_on_policy = False
         self.explore_rate = 1.0
         self.explore_noise = None
-        self.trajectory_list = None
-        # self.amp_scale = None
+        self.traj_list = None  # trajectory_list
+        # self.amp_scale = None  # automatic mixed precision
 
         '''attribute'''
         self.explore_env = None
@@ -48,7 +48,7 @@ class AgentBase:
         """
         self.action_dim = action_dim
         # self.amp_scale = torch.cuda.amp.GradScaler()
-        self.trajectory_list = [list() for _ in range(env_num)]
+        self.traj_list = [list() for _ in range(env_num)]
         self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
 
         self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
@@ -78,40 +78,36 @@ class AgentBase:
         return actions.detach().cpu().numpy()
 
     def explore_one_env(self, env, target_step):
-        """actor explores in one env, then returns the trajectory (env transition)
+        """actor explores in one env, then returns the traj (env transition)
 
         `object env` RL training environment. env.reset() env.step()
         `int target_step` explored target_step number of step in env
-        `float reward_scale` scale reward, 'reward * reward_scale'
-        `float gamma` discount factor, 'mask = 0.0 if done else gamma'
-        return `[trajectory, ...]` for off-policy ReplayBuffer, `trajectory = [(state, other), ...]`
+        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
         """
-        trajectory = list()
+        traj = list()
         state = self.states[0]
         for _ in range(target_step):
             action = self.select_actions((state,))[0]
             next_s, reward, done, _ = env.step(action)
-            trajectory.append((state, (reward, done, *action)))
+            traj.append((state, (reward, done, *action)))
 
             state = env.reset() if done else next_s
         self.states[0] = state
 
-        trajectory_list = [trajectory, ]
-        return trajectory_list  # [trajectory_env_0, ]
+        traj_list = [traj, ]
+        return traj_list  # [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step):
         """actor explores in VectorEnv, then returns the trajectory (env transition)
 
         `object env` RL training environment. env.reset() env.step()
         `int target_step` explored target_step number of step in env
-        `float reward_scale` scale reward, 'reward * reward_scale'
-        `float gamma` discount factor, 'mask = 0.0 if done else gamma'
-        return `[trajectory, ...]` for off-policy ReplayBuffer, `trajectory = [(state, other), ...]`
+        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
         """
-        env_num = len(self.trajectory_list)
+        env_num = len(self.traj_list)
         states = self.states
 
-        trajectory_list = [list() for _ in range(env_num)]
+        traj_list = [list() for _ in range(env_num)]
         for _ in range(target_step):
             actions = self.select_actions(states)
             s_r_d_list = env.step(actions)
@@ -119,14 +115,14 @@ class AgentBase:
             next_states = list()
             for env_i in range(env_num):
                 next_state, reward, done = s_r_d_list[env_i]
-                trajectory_list[env_i].append(
+                traj_list[env_i].append(
                     (states[env_i], (reward, done, *actions[env_i]))
                 )
                 next_states.append(next_state)
             states = next_states
 
         self.states = states
-        return trajectory_list  # (trajectory_env_0, ..., trajectory_env_i)
+        return traj_list  # (traj_env_0, ..., traj_env_i)
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
         """update the neural network by sampling batch data from ReplayBuffer
@@ -226,23 +222,23 @@ class AgentDQN(AgentBase):
         return a_ints
 
     def explore_one_env(self, env, target_step) -> list:
-        trajectory_temp = list()
+        traj_temp = list()
         state = self.states[0]
         for _ in range(target_step):
             action = self.select_actions((state,))[0]  # assert isinstance(action, int)
             next_s, reward, done, _ = env.step(action)
-            trajectory_temp.append((state, (reward, done, action)))
+            traj_temp.append((state, (reward, done, action)))
 
             state = env.reset() if done else next_s
         self.states[0] = state
-        trajectory_list = [trajectory_temp, ]
-        return trajectory_list
+        traj_list = [traj_temp, ]
+        return traj_list
 
     def explore_vec_env(self, env, target_step) -> list:
-        env_num = len(self.trajectory_list)
+        env_num = len(self.traj_list)
         states = self.states
 
-        trajectory_list = [list() for _ in range(env_num)]
+        traj_list = [list() for _ in range(env_num)]
         for _ in range(target_step):
             actions = self.select_actions(states)
             s_r_d_list = env.step(actions)
@@ -250,14 +246,14 @@ class AgentDQN(AgentBase):
             next_states = list()
             for env_i in range(env_num):
                 next_state, reward, done = s_r_d_list[env_i]
-                trajectory_list[env_i].append(
+                traj_list[env_i].append(
                     (states[env_i], (reward, done, actions[env_i]))  # different
                 )
                 next_states.append(next_state)
             states = next_states
 
         self.states = states
-        return trajectory_list  # (trajectory_env_0, ..., trajectory_env_i)
+        return traj_list  # (traj_env_0, ..., traj_env_i)
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
         buffer.update_now_len()
@@ -621,7 +617,7 @@ class AgentPPO(AgentBase):
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False, env_num=1, agent_id=0):
         super().init(net_dim, state_dim, action_dim, learning_rate, if_use_gae, env_num, agent_id)
-        self.trajectory_list = [list() for _ in range(env_num)]
+        self.traj_list = [list() for _ in range(env_num)]
 
         if if_use_gae:
             self.get_reward_sum = self.get_reward_sum_gae
@@ -646,14 +642,14 @@ class AgentPPO(AgentBase):
         return actions, noises
 
     def explore_one_env(self, env, target_step):
-        trajectory_temp = list()
+        traj_temp = list()
 
         state = self.states[0]
         last_done = 0
         for i in range(target_step):
             action, noise = [ary[0] for ary in self.select_actions((state,))]
             next_state, reward, done, _ = env.step(np.tanh(action))
-            trajectory_temp.append((state, reward, done, action, noise))
+            traj_temp.append((state, reward, done, action, noise))
             if done:
                 state = env.reset()
                 last_done = i
@@ -662,15 +658,15 @@ class AgentPPO(AgentBase):
         self.states[0] = state
 
         '''splice list'''
-        trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
-        self.trajectory_list[0] = trajectory_temp[last_done:]
-        return trajectory_list
+        traj_list = self.traj_list[0] + traj_temp[:last_done + 1]
+        self.traj_list[0] = traj_temp[last_done:]
+        return traj_list
 
     def explore_vec_env(self, env, target_step):
-        env_num = len(self.trajectory_list)
+        env_num = len(self.traj_list)
         states = self.states
 
-        trajectory_temps = [list() for _ in range(env_num)]
+        traj_temps = [list() for _ in range(env_num)]
         last_done_list = [0 for _ in range(env_num)]
         for i in range(target_step):
             actions, noises = self.select_actions(states)
@@ -679,7 +675,7 @@ class AgentPPO(AgentBase):
             next_states = list()
             for env_i in range(env_num):
                 next_state, reward, done = s_r_d_list[env_i]
-                trajectory_temps[env_i].append(
+                traj_temps[env_i].append(
                     (states[env_i], reward, done, actions[env_i], noises[env_i]))
                 if done:
                     last_done_list[env_i] = i
@@ -688,16 +684,16 @@ class AgentPPO(AgentBase):
         self.states = states
 
         '''splice list'''
-        trajectory_list = list()
+        traj_list = list()
         for env_i in range(env_num):
             last_done = last_done_list[env_i]
-            trajectory_temp = trajectory_temps[env_i]
+            traj_temp = traj_temps[env_i]
 
-            trajectory_list.extend(self.trajectory_list[env_i])
-            trajectory_list.extend(trajectory_temp[:last_done + 1])
+            traj_list.extend(self.traj_list[env_i])
+            traj_list.extend(traj_temp[:last_done + 1])
 
-            self.trajectory_list[env_i] = trajectory_temp[last_done:]
-        return trajectory_list
+            self.traj_list[env_i] = traj_temp[last_done:]
+        return traj_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
@@ -773,7 +769,7 @@ class AgentDiscretePPO(AgentPPO):
         self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step):
-        trajectory_temp = list()
+        traj_temp = list()
 
         state = self.states[0]
         last_done = 0
@@ -783,7 +779,7 @@ class AgentDiscretePPO(AgentPPO):
             action, a_prob = [ary[0] for ary in self.select_actions((state,))]  # different
             a_int = int(action)  # different
             next_state, reward, done, _ = env.step(a_int)  # different
-            trajectory_temp.append((state, reward, done, a_int, a_prob))  # different
+            traj_temp.append((state, reward, done, a_int, a_prob))  # different
 
             if done:
                 state = env.reset()
@@ -793,15 +789,15 @@ class AgentDiscretePPO(AgentPPO):
         self.states[0] = state
 
         '''splice list'''
-        trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
-        self.trajectory_list[0] = trajectory_temp[last_done:]
-        return trajectory_list
+        traj_list = self.traj_list[0] + traj_temp[:last_done + 1]
+        self.traj_list[0] = traj_temp[last_done:]
+        return traj_list
 
     def explore_vec_env(self, env, target_step):
-        env_num = len(self.trajectory_list)
+        env_num = len(self.traj_list)
         states = self.states
 
-        trajectory_temps = [list() for _ in range(env_num)]
+        traj_temps = [list() for _ in range(env_num)]
         last_done_list = [0 for _ in range(env_num)]
         for i in range(target_step):
             actions, a_probs = self.select_actions(states)  # different
@@ -811,7 +807,7 @@ class AgentDiscretePPO(AgentPPO):
             next_states = list()
             for env_i in range(env_num):
                 next_state, reward, done = s_r_d_list[env_i]
-                trajectory_temps[env_i].append(
+                traj_temps[env_i].append(
                     # (states[env_i], reward, done, actions[env_i], noises[env_i]))
                     (states[env_i], reward, done, a_ints[env_i], a_probs[env_i]))  # different
                 if done:
@@ -821,16 +817,16 @@ class AgentDiscretePPO(AgentPPO):
         self.states = states
 
         '''splice list'''
-        trajectory_list = list()
+        traj_list = list()
         for env_i in range(env_num):
             last_done = last_done_list[env_i]
-            trajectory_temp = trajectory_temps[env_i]
+            traj_temp = traj_temps[env_i]
 
-            trajectory_list.extend(self.trajectory_list[env_i])
-            trajectory_list.extend(trajectory_temp[:last_done + 1])
+            traj_list.extend(self.traj_list[env_i])
+            traj_list.extend(traj_temp[:last_done + 1])
 
-            self.trajectory_list[env_i] = trajectory_temp[last_done:]
-        return trajectory_list
+            self.traj_list[env_i] = traj_temp[last_done:]
+        return traj_list
 
 
 '''Actor-Critic Methods (Parameter Sharing)'''
