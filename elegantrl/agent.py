@@ -310,8 +310,7 @@ class AgentDoubleDQN(AgentDQN):
         actions = self.act(states)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_probs = self.softMax(actions).detach().cpu().numpy()
-            a_ints = [rd.choice(self.action_dim, p=a_prob)
-                      for a_prob in a_probs]  # choose action according to Q value
+            a_ints = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_probs]  # choose action according to Q value
         else:
             action = actions[0]
             a_ints = action.argmax(dim=1).detach().cpu().numpy()
