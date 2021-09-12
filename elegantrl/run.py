@@ -1,13 +1,12 @@
 import os
 import time
+import shutil
 
-import gym
 import torch
 import numpy as np
 import numpy.random as rd
 import multiprocessing as mp
 
-from copy import deepcopy
 from elegantrl.env import build_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
@@ -23,7 +22,7 @@ class Arguments:
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
-        self.learning_rate = 2 ** -14  # 2 ** -14 ~= 6e-5
+        self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
         self.if_on_policy = if_on_policy
@@ -95,7 +94,7 @@ class Arguments:
             env_name = getattr(self.env, 'env_name', self.env)
             self.cwd = f'./{agent_name}_{env_name}_{self.visible_gpu}'
         if if_main:
-            import shutil  # remove history according to bool(if_remove)
+            # remove history according to bool(if_remove)
             if self.if_remove is None:
                 self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
             elif self.if_remove:
@@ -281,7 +280,7 @@ def explore_before_training_vec_env(env, target_step) -> list:  # for off-policy
 '''multiple processing training'''
 
 
-class WorkerPipe:
+class PipeWorker:
     def __init__(self, env_num, worker_num):
         self.env_num = env_num
         self.worker_num = worker_num
@@ -349,7 +348,7 @@ class WorkerPipe:
                 self.pipes[worker_id][0].send(trajectory)
 
 
-class LearnerPipe:
+class PipeLearner:
     def __init__(self, learner_num):
         self.learner_num = learner_num
         self.round_num = int(np.log2(learner_num))
@@ -498,7 +497,7 @@ class LearnerPipe:
             buffer.save_or_load_history(cwd, if_save=True)
 
 
-class EvaluatorPipe:
+class PipeEvaluator:
     def __init__(self):
         super().__init__()
         self.pipe0, self.pipe1 = mp.Pipe()
@@ -564,7 +563,7 @@ class EvaluatorPipe:
         evaluator.save_or_load_recoder(if_save=True)
 
 
-class VectorEnvPipe:
+class PipeVectorEnv:
     def __init__(self, args):
         self.env_num = args.env_num
         self.pipes = [mp.Pipe() for _ in range(self.env_num)]
@@ -636,22 +635,22 @@ def train_and_evaluate_mp(args, agent_id=0):
 
     '''learner'''
     learner_num = get_num_learner(args.visible_gpu)
-    learner_pipe = LearnerPipe(learner_num)
+    learner_pipe = PipeLearner(learner_num)
     for learner_id in range(learner_num):
         '''evaluator'''
         if learner_id == learner_num - 1:
-            evaluator_pipe = EvaluatorPipe()
+            evaluator_pipe = PipeEvaluator()
             process.append(mp.Process(target=evaluator_pipe.run, args=(args, agent_id)))
         else:
             evaluator_pipe = None
 
         '''explorer'''
-        worker_pipe = WorkerPipe(args.env_num, args.worker_num)
+        worker_pipe = PipeWorker(args.env_num, args.worker_num)
         for worker_id in range(args.worker_num):
             if args.env_num == 1:
                 env_pipe = None
             else:
-                env_pipe = VectorEnvPipe(args)
+                env_pipe = PipeVectorEnv(args)
                 process.extend(env_pipe.process)
             process.append(mp.Process(target=worker_pipe.run, args=(args, env_pipe, worker_id, learner_id)))
 

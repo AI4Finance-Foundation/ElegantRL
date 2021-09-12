@@ -133,11 +133,17 @@ def build_env(env, if_print=False):
                     'CartPole-v0', 'LunarLander-v2', }:
         env = gym.make(env_name)
         env = PreprocessEnv(env, if_print=if_print)
+    elif env_name in {'ReacherBulletEnv-v0', 'AntBulletEnv-v0',
+                      'HumanoidBulletEnv-v0', 'MinitaurBulletEnv-v0'}:
+        import pybullet_envs
+        dir(pybullet_envs)
+        env = gym.make(env_name)
+        env = PreprocessEnv(env, if_print=if_print)
     elif env_name == 'Pendulum-v0':
         env = gym.make('Pendulum-v0')
         env.target_return = -200
         env = PreprocessEnv(env=env, if_print=if_print)
-    elif env_name == 'CarRacingFix':  # plan to
+    elif env_name == 'CarRacingFix':  # Box2D
         from elegantrl.envs.CarRacingFix import CarRacingFix
         env = CarRacingFix()
     else:
