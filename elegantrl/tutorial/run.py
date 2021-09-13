@@ -1,4 +1,4 @@
-import gym  # not necessary
+import gym
 import time
 from elegantrl.tutorial.agent import *
 
@@ -7,20 +7,20 @@ gym.logger.set_level(40)  # Block warning
 
 class Arguments:
     def __init__(self, agent=None, env=None, if_on_policy=False):
-        self.agent = agent  # Deep Reinforcement Learning algorithm
-        self.env = env  # the environment for training
+        self.agent = agent  # DRL algorithm
+        self.env = env  # env for training
 
         self.cwd = None  # current work directory. None means set automatically
-        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
-        self.break_step = 2 ** 20  # break training after 'total_step > break_step'
-        self.if_allow_break = True  # allow break training when reach goal (early termination)
+        self.if_remove = True  # remove the cwd folder? (True, False, None)
+        self.break_step = 2 ** 20  # terminate training after 'total_step > break_step'
+        self.if_allow_break = True  # terminate training when reaching a target reward
 
-        self.visible_gpu = '0'  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
-        self.num_threads = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.visible_gpu = '0'  # e.g., os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
+        self.worker_num = 2  # #rollout workers per GPU
+        self.num_threads = 8  # cpu_num to evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for training'''
-        self.gamma = 0.99  # discount factor of future rewards
+        self.gamma = 0.99  # discount factor
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.learning_rate = 2 ** -14  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
@@ -86,10 +86,18 @@ def train_and_evaluate(args, agent_id=0):
     if agent.if_on_policy:
         buffer = list()
 
-        def update_buffer(s_a_n_r_m):
-            buffer[:] = s_a_n_r_m  # (state, action, noise, reward, mask)
-            _steps = s_a_n_r_m[3].shape[0]  # buffer[3] = r_sum
-            _r_exp = s_a_n_r_m[3].mean()  # buffer[3] = r_sum
+        def update_buffer(_trajectory):
+            _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
+            ten_state = torch.as_tensor(_trajectory[0])
+            ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
+            ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
+            ten_action = torch.as_tensor(_trajectory[3])
+            ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
+
+            buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
+
+            _steps = ten_reward.shape[0]
+            _r_exp = ten_reward.mean()
             return _steps, _r_exp
     else:
         buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
@@ -97,12 +105,15 @@ def train_and_evaluate(args, agent_id=0):
         buffer.save_or_load_history(args.cwd, if_save=False)
 
         def update_buffer(_trajectory):
-            state = torch.as_tensor([state_other[0] for state_other in _trajectory], device=agent.device)
-            other = torch.as_tensor([state_other[1] for state_other in _trajectory], device=agent.device)
-            buffer.extend_buffer(state, other)
+            ten_state = torch.as_tensor([item[0] for item in _trajectory], dtype=torch.float32)
+            ary_other = torch.as_tensor([item[1] for item in _trajectory])
+            ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ten_reward
+            ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ten_mask = (1.0 - ary_done) * gamma
 
-            _steps = other.size()[0]
-            _r_exp = other[:, 0].mean().item()
+            buffer.extend_buffer(ten_state, ary_other)
+
+            _steps = ten_state.shape[0]
+            _r_exp = ary_other[:, 0].mean()  # other = (reward, mask, action)
             return _steps, _r_exp
 
     '''start training'''
@@ -119,13 +130,13 @@ def train_and_evaluate(args, agent_id=0):
 
     agent.state = env.reset()
     if not agent.if_on_policy:
-        trajectory = agent.explore_env(env, target_step, reward_scale, gamma)
+        trajectory = agent.explore_env(env, target_step)
         update_buffer(trajectory)
 
     if_train = True
     while if_train:
         with torch.no_grad():
-            trajectory = agent.explore_env(env, target_step, reward_scale, gamma)
+            trajectory = agent.explore_env(env, target_step)
             steps, r_exp = update_buffer(trajectory)
 
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
@@ -137,7 +148,7 @@ def train_and_evaluate(args, agent_id=0):
                             or os.path.exists(f'{cwd}/stop'))
     print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
     agent.save_or_load_agent(cwd, if_save=True)
-    buffer.save_or_load_history(cwd, if_save=True)
+    buffer.save_or_load_history(cwd, if_save=True) if not agent.if_on_policy else None
 
 
 class Evaluator:
@@ -218,7 +229,7 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:
@@ -263,10 +274,10 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
         max_step = 2 ** 10
 
     if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if if_discrete:  # make sure it is discrete action space
+    if if_discrete:  # for discrete action space
         action_dim = env.action_space.n
         action_max = int(1)
-    elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
+    elif isinstance(env.action_space, gym.spaces.Box):  # for continuous action space
         action_dim = env.action_space.shape[0]
         action_max = float(env.action_space.high[0])
         assert not any(env.action_space.high + env.action_space.low)

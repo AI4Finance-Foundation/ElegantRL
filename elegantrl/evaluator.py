@@ -3,28 +3,28 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, device, env, eval_times1, eval_times2, eval_gap, ):
+    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, ):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
-        self.env = env
         self.cwd = cwd
         self.device = device
         self.agent_id = agent_id
+        self.eval_env = eval_env
         self.eval_gap = eval_gap
         self.eval_times1 = eval_times1
         self.eval_times2 = eval_times2
-        self.target_return = env.target_return
+        self.target_return = eval_env.target_return
 
-        self.used_time = None
-        self.start_time = time.time()
-        self.eval_time = 0
-        self.total_step = 0
         self.r_max = -np.inf
+        self.eval_time = 0
+        self.used_time = 0
+        self.total_step = 0
+        self.start_time = time.time()
         print(f"{'#' * 80}\n"
               f"{'ID':<3}{'Step':>8}{'maxR':>8} |"
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
@@ -38,13 +38,13 @@ class Evaluator:
         self.eval_time = time.time()
 
         '''evaluate first time'''
-        rewards_steps_list = [get_episode_return_and_step(self.env, act, self.device) for _ in
+        rewards_steps_list = [get_episode_return_and_step(self.eval_env, act, self.device) for _ in
                               range(self.eval_times1)]
         r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
         '''evaluate second time'''
         if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-            rewards_steps_list += [get_episode_return_and_step(self.env, act, self.device)
+            rewards_steps_list += [get_episode_return_and_step(self.eval_env, act, self.device)
                                    for _ in range(self.eval_times2 - self.eval_times1)]
             r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
@@ -107,8 +107,9 @@ class Evaluator:
 
 
 def get_episode_return_and_step(env, act, device) -> (float, int):
-    episode_return = 0.0  # sum of rewards in an episode
     episode_step = 1
+    episode_return = 0.0  # sum of rewards in an episode
+
     max_step = env.max_step
     if_discrete = env.if_discrete
 
@@ -191,12 +192,3 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
-
-
-def check_save_learning_curve():
-    cwd = './AgentPPO_Pendulum-v0_0'
-    save_learning_curve(recorder=None, cwd=cwd)
-
-
-if __name__ == '__main__':
-    check_save_learning_curve()

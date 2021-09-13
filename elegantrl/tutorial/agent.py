@@ -37,7 +37,7 @@ class AgentBase:
         action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.detach().cpu().numpy()
 
-    def explore_env(self, env, target_step, reward_scale, gamma) -> tuple:
+    def explore_env(self, env, target_step) -> list:
         state = self.state
 
         trajectory_list = list()
@@ -48,14 +48,7 @@ class AgentBase:
 
             state = env.reset() if done else next_s
         self.state = state
-
-        '''convert list to array'''
-        trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
-        ary_state = np.stack(trajectory_list[0])
-        ary_other = np.stack(trajectory_list[1])
-        ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
-        ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
-        return ary_state, ary_other
+        return trajectory_list
 
     @staticmethod
     def optim_update(optimizer, objective):
@@ -102,7 +95,7 @@ class AgentDQN(AgentBase):
             a_int = action.argmax(dim=0).detach().cpu().numpy()
         return a_int
 
-    def explore_env(self, env, target_step, reward_scale, gamma) -> tuple:
+    def explore_env(self, env, target_step) -> list:
         state = self.state
 
         trajectory_list = list()
@@ -113,14 +106,7 @@ class AgentDQN(AgentBase):
 
             state = env.reset() if done else next_s
         self.state = state
-
-        '''convert list to array'''
-        trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
-        ary_state = np.stack(trajectory_list[0])
-        ary_other = np.stack(trajectory_list[1])
-        ary_other[:, 0] = ary_other[:, 0] * reward_scale  # ary_reward
-        ary_other[:, 1] = (1.0 - ary_other[:, 1]) * gamma  # ary_mask = (1.0 - ary_done) * gamma
-        return ary_state, ary_other
+        return trajectory_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
         buffer.update_now_len()
@@ -264,7 +250,7 @@ class AgentSAC(AgentBase):
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()[0]
 
-    def explore_env(self, env, target_step, reward_scale, gamma):
+    def explore_env(self, env, target_step):
         trajectory = list()
 
         state = self.state
@@ -272,7 +258,7 @@ class AgentSAC(AgentBase):
             action = self.select_action(state)
             next_state, reward, done, _ = env.step(action)
 
-            trajectory.append((state, (reward * reward_scale, 0.0 if done else gamma, *action)))
+            trajectory.append((state, (reward, done, *action)))
             state = env.reset() if done else next_state
         self.state = state
         return trajectory
@@ -373,7 +359,7 @@ class AgentPPO(AgentBase):
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False, gpu_id=0, env_num=1):
         super().init(net_dim, state_dim, action_dim, learning_rate, if_use_gae, gpu_id)
-        self.trajectory_list = [list() for _ in range(env_num)]
+        self.trajectory_list = list()
         self.get_reward_sum = self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
     def select_action(self, state):
@@ -381,7 +367,7 @@ class AgentPPO(AgentBase):
         actions, noises = self.act.get_action(states)
         return actions[0].detach().cpu().numpy(), noises[0].detach().cpu().numpy()
 
-    def explore_env(self, env, target_step, reward_scale, gamma):
+    def explore_env(self, env, target_step):
         state = self.state
 
         trajectory_temp = list()
@@ -398,23 +384,15 @@ class AgentPPO(AgentBase):
         self.state = state
 
         '''splice list'''
-        trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
-        self.trajectory_list[0] = trajectory_temp[last_done:]
-
-        '''convert list to array'''
-        trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
-        ary_state = np.array(trajectory_list[0])
-        ary_reward = np.array(trajectory_list[1], dtype=np.float32) * reward_scale
-        ary_mask = (1 - np.array(trajectory_list[2], dtype=np.float32)) * gamma
-        ary_action = np.array(trajectory_list[3], dtype=np.float32)
-        ary_noise = np.array(trajectory_list[4], dtype=np.float32)
-        return ary_state, ary_action, ary_noise, ary_reward, ary_mask
+        trajectory_list = self.trajectory_list + trajectory_temp[:last_done + 1]
+        self.trajectory_list = trajectory_temp[last_done:]
+        return trajectory_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
-            buf_state, buf_action, buf_noise = [torch.as_tensor(ary, device=self.device) for ary in buffer[:3]]
-            # (ary_state, ary_action, ary_noise, ary_reward, ary_mask) = buffer
+            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [ten.to(self.device) for ten in buffer]
+            # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
 
             '''get buf_r_sum, buf_logprob'''
             bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
@@ -422,17 +400,12 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            ary_r_sum, ary_advantage = self.get_reward_sum(buf_len,
-                                                           ary_reward=buffer[3],
-                                                           ary_mask=buffer[4],
-                                                           ary_value=buf_value.cpu().numpy())  # detach()
-            buf_r_sum, buf_advantage = [torch.as_tensor(ary, device=self.device)
-                                        for ary in (ary_r_sum, ary_advantage)]
+            buf_r_sum, buf_advantage = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
             buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
-            del buf_noise, buffer[:], ary_r_sum, ary_advantage
+            del buf_noise, buffer[:]
 
         '''PPO: Surrogate objective of Trust Region'''
-        obj_critic = obj_actor = logprob = None
+        obj_critic = obj_actor = None
         for _ in range(int(buf_len / batch_size * repeat_times)):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
@@ -455,29 +428,31 @@ class AgentPPO(AgentBase):
             self.optim_update(self.cri_optim, obj_critic)
             self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
 
-        return obj_critic.item(), obj_actor.item(), logprob.mean().item()  # logging_tuple
+        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1))
+        return obj_critic.item(), obj_actor.item(), a_std_log.mean().item()  # logging_tuple
 
-    @staticmethod
-    def get_reward_sum_raw(buf_len, ary_reward, ary_mask, ary_value) -> (torch.Tensor, torch.Tensor):
-        ary_r_sum = np.empty(buf_len, dtype=np.float32)  # reward sum
+    def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
+
         pre_r_sum = 0
         for i in range(buf_len - 1, -1, -1):
-            ary_r_sum[i] = ary_reward[i] + ary_mask[i] * pre_r_sum
-            pre_r_sum = ary_r_sum[i]
-        ary_advantage = ary_r_sum - (ary_mask * ary_value[:, 0])
-        return ary_r_sum, ary_advantage
+            buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
+            pre_r_sum = buf_r_sum[i]
+        buf_advantage = buf_r_sum - (buf_mask * buf_value[:, 0])
+        return buf_r_sum, buf_advantage
 
-    def get_reward_sum_gae(self, buf_len, ary_reward, ary_mask, ary_value) -> (torch.Tensor, torch.Tensor):
-        ary_r_sum = np.empty(buf_len, dtype=np.float32)  # old policy value
-        ary_advantage = np.empty(buf_len, dtype=np.float32)  # advantage value
+    def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
+        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
+
         pre_r_sum = 0
         pre_advantage = 0  # advantage value of previous step
         for i in range(buf_len - 1, -1, -1):
-            ary_r_sum[i] = ary_reward[i] + ary_mask[i] * pre_r_sum
-            pre_r_sum = ary_r_sum[i]
-            ary_advantage[i] = ary_reward[i] + ary_mask[i] * (pre_advantage - ary_value[i])  # fix a bug here
-            pre_advantage = ary_value[i] + ary_advantage[i] * self.lambda_gae_adv
-        return ary_r_sum, ary_advantage
+            buf_r_sum[i] = ten_reward[i] + ten_mask[i] * pre_r_sum
+            pre_r_sum = buf_r_sum[i]
+            buf_advantage[i] = ten_reward[i] + ten_mask[i] * (pre_advantage - ten_value[i])  # fix a bug here
+            pre_advantage = ten_value[i] + buf_advantage[i] * self.lambda_gae_adv
+        return buf_r_sum, buf_advantage
 
 
 class AgentDiscretePPO(AgentPPO):
@@ -485,7 +460,7 @@ class AgentDiscretePPO(AgentPPO):
         super().__init__()
         self.ClassAct = ActorDiscretePPO
 
-    def explore_env(self, env, target_step, reward_scale, gamma):
+    def explore_env(self, env, target_step):
         state = self.state
 
         trajectory_temp = list()
@@ -505,17 +480,9 @@ class AgentDiscretePPO(AgentPPO):
         self.state = state
 
         '''splice list'''
-        srdan_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
-        self.trajectory_list[0] = trajectory_temp[last_done:]
-
-        '''convert list to array'''
-        srdan_list = list(map(list, zip(*srdan_list)))  # 2D-list transpose
-        ary_state = np.array(srdan_list[0])
-        ary_reward = np.array(srdan_list[1], dtype=np.float32) * reward_scale
-        ary_mask = (1.0 - np.array(srdan_list[2], dtype=np.float32)) * gamma
-        ary_action = np.array(srdan_list[3], dtype=np.uint8)  # different from `np.float32`
-        ary_noise = np.array(srdan_list[4], dtype=np.float32)
-        return ary_state, ary_action, ary_noise, ary_reward, ary_mask
+        trajectory_list = self.trajectory_list + trajectory_temp[:last_done + 1]
+        self.trajectory_list = trajectory_temp[last_done:]
+        return trajectory_list
 
 
 class ReplayBuffer:

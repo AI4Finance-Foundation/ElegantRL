@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-"""[ElegantRL.2021.08.08](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 '''Q Network'''
 
@@ -177,7 +177,7 @@ class ActorPPO(nn.Module):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0]),
+            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle,
                                  nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
@@ -185,7 +185,7 @@ class ActorPPO(nn.Module):
         layer_norm(self.net[-1], std=0.1)  # output layer for action
 
         # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
-        self.a_logstd = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
+        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
@@ -193,7 +193,7 @@ class ActorPPO(nn.Module):
 
     def get_action(self, state):
         a_avg = self.net(state)
-        a_std = self.a_logstd.exp()
+        a_std = self.a_std_log.exp()
 
         noise = torch.randn_like(a_avg)
         action = a_avg + noise * a_std
@@ -201,17 +201,17 @@ class ActorPPO(nn.Module):
 
     def get_logprob_entropy(self, state, action):
         a_avg = self.net(state)
-        a_std = self.a_logstd.exp()
+        a_std = self.a_std_log.exp()
 
         delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        logprob = -(self.a_logstd + self.sqrt_2pi_log + delta).sum(1)  # new_logprob
+        logprob = -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # new_logprob
 
         dist_entropy = (logprob.exp() * logprob).mean()  # policy entropy
         return logprob, dist_entropy
 
     def get_old_logprob(self, _action, noise):  # noise = action - a_noise
         delta = noise.pow(2) * 0.5
-        return -(self.a_logstd + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
+        return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
 
 
 class ActorDiscretePPO(nn.Module):
@@ -220,7 +220,7 @@ class ActorDiscretePPO(nn.Module):
         if isinstance(state_dim, int):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0]),
+            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle,
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -303,7 +303,7 @@ class CriticAdv(nn.Module):
         if isinstance(state_dim, int):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0]),
+            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle,
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -322,7 +322,7 @@ class CriticAdvTwin(nn.Module):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0]),
+            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle, )
         self.net_v1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
@@ -607,7 +607,6 @@ class ConcatNet(nn.Module):  # concatenate
         x2 = self.dense2(x0)
         x3 = self.dense3(x0)
         x4 = self.dense4(x0)
-
         return torch.cat((x1, x2, x3, x4), dim=1)
 
 
@@ -616,20 +615,20 @@ class Conv2dNet(nn.Module):  # pixel-level state encoder
         super().__init__()
         if image_size == 224:
             self.net = nn.Sequential(  # size==(batch_size, inp_dim, 224, 224)
-                nn.Conv2d(inp_dim, 64, (5, 5), stride=(2, 2), bias=False), nn.ReLU(inplace=True),  # size=110
-                nn.Conv2d(64, 64, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=54
-                nn.Conv2d(64, 128, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=26
-                nn.Conv2d(128, 256, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=12
-                nn.Conv2d(256, 512, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=5
-                nn.Conv2d(512, 1024, (5, 5), stride=(1, 1)), nn.ReLU(inplace=True),  # size=1
+                nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False), nn.ReLU(inplace=True),  # size=110
+                nn.Conv2d(32, 48, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=54
+                nn.Conv2d(48, 64, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=26
+                nn.Conv2d(64, 96, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=12
+                nn.Conv2d(96, 128, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=5
+                nn.Conv2d(128, 192, (5, 5), stride=(1, 1)), nn.ReLU(inplace=True),  # size=1
                 NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
-                nn.Linear(1024, out_dim),  # size==(batch_size, out_dim)
+                nn.Linear(192, out_dim),  # size==(batch_size, out_dim)
             )
         elif image_size == 112:
             self.net = nn.Sequential(  # size==(batch_size, inp_dim, 112, 112)
-                nn.Conv2d(inp_dim, 24, (5, 5), stride=(2, 2), bias=False), nn.ReLU(inplace=True),  # size=54
-                nn.Conv2d(24, 32, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=26
-                nn.Conv2d(32, 64, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=12
+                nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False), nn.ReLU(inplace=True),  # size=54
+                nn.Conv2d(32, 48, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=26
+                nn.Conv2d(48, 64, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=12
                 nn.Conv2d(64, 96, (3, 3), stride=(2, 2)), nn.ReLU(inplace=True),  # size=5
                 nn.Conv2d(96, 128, (5, 5), stride=(1, 1)), nn.ReLU(inplace=True),  # size=1
                 NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
@@ -662,3 +661,36 @@ class Conv2dNet(nn.Module):  # pixel-level state encoder
 def layer_norm(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
+
+
+"""check"""
+
+
+def check_actor_network():
+    batch_size = 3
+    mid_dim = 2 ** 8
+    state_dim = 24
+    action_dim = 4
+
+    if_check_actor_net = 0
+    if if_check_actor_net:
+        net = ActorPPO(mid_dim, state_dim, action_dim)
+
+        inp = torch.ones((batch_size, state_dim), dtype=torch.float32)
+        out = net(inp)
+        print(out.shape)
+
+    if_check_pixel_level = 1
+    if if_check_pixel_level:
+        img_channel = 6
+        img_size = 112  # {112, 224}
+
+        mid_dim = 2 ** 8
+        state_dim = (img_size, img_size, img_channel)
+        action_dim = 4
+
+        net = ActorPPO(mid_dim, state_dim, action_dim)
+
+        inp = torch.ones((batch_size, img_size, img_size, img_channel), dtype=torch.int8)
+        out = net(inp)
+        print(out.shape)

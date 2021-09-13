@@ -14,7 +14,7 @@
 </a>
 <br/>
 
-ElegantRL is developped for researchers and practitioners with the following advantages:
+[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developped for researchers and practitioners with the following advantages:
   
   + **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
   
@@ -28,7 +28,6 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
-Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/index.html).
 
 # Table of Contents
 
@@ -42,7 +41,7 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
 # News
 
 + [Towardsdatascience] [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b)
-+ [ElegantRL: Mastering PPO Algorithms (Part I)](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791)
++ [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f)
 # File Structure
@@ -63,13 +62,13 @@ Also the [ElegantRL documentation](https://elegantrl.readthedocs.io/en/latest/in
    + Evaluator.
 
 -----utils files----
-+ **elegantrl/envs/**    &nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
++ **elegantrl/envs/**    &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
-+ **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
-+ **eRL_demos.ipynb**       &nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
-+ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
-+ **eRL_demo_StockTrading.py**  &nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
++ **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
++ **eRL_demos.ipynb**       &nbsp;&nbsp;&nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
++ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
++ **eRL_demo_StockTrading.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
 From a high-level overview, 
 + 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
@@ -131,11 +130,11 @@ Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total re
 To cite this repository:
 ```
 @misc{erl,
-  author = {Xiao-Yang Liu, Zechu Li, Jiahao Zheng, Zhaoran Wang},
+  author = {Xiao-Yang Liu, Zechu Li, Zhaoran Wang, Jiahao Zheng},
   title = {ElegantRL: A Lightweight and Scalable Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/AI4Finance-LLC/ElegantRL}},
+  howpublished = {\url{https://github.com/AI4Finance-Foundation/ElegantRL}},
 }
 ```
