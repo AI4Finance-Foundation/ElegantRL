@@ -43,7 +43,12 @@ For the details of DRL algorithms, please check out the educational webpage `Ope
 
 .. toctree::
    :maxdepth: 1
-   :caption: Intro
+   :caption: API
+
+   api/net
+   api/agent
+   api/envs
+   api/run
 
 .. toctree::
    :maxdepth: 1
