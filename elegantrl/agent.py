@@ -308,8 +308,7 @@ class AgentDoubleDQN(AgentDQN):
             a_probs = self.softMax(actions).detach().cpu().numpy()
             a_ints = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_probs]  # choose action according to Q value
         else:
-            action = actions[0]
-            a_ints = action.argmax(dim=1).detach().cpu().numpy()
+            a_ints = actions.argmax(dim=1).detach().cpu().numpy()
         return a_ints
 
     def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):

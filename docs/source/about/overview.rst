@@ -5,13 +5,13 @@ Overview
 Advantages of ElegantRL
 ----------------------------
 
-One sentence summary of reinforcement learning (RL): in RL, an agent learns by continuously interacting with an environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
+One sentence summary: in reinforcement learning (RL), an agent learns by continuously interacting with an environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
 
 Deep reinforcement learning (DRL) has great potential to solve real-world problems that are challenging to humans, such as self-driving cars, gaming, natural language processing (NLP), and financial trading. Starting from the success of AlphaGo, various DRL algorithms and applications are emerging in a disruptive manner. The ElegantRL library enables researchers and practitioners to pipeline the disruptive “design, development and deployment” of DRL technology.
 
 The library to be presented is featured with “elegant” in the following aspects:
 
-  - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial <https://github.com/AI4Finance-LLC/ElegantRL/tree/master/elegantrl/tutorial>`_.
+  - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/tutorial>`_.
 
   - **Efficient**: the performance is comparable with Ray RLlib.
 
