@@ -45,7 +45,6 @@ For the details of DRL algorithms, please check out the educational webpage `Ope
    :maxdepth: 2
    :caption: API
 
-   api/net
    api/tutorial
    api/server
    api/cloud
