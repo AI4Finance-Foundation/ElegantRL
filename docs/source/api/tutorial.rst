@@ -23,7 +23,7 @@ class QNet(*nn.Module*)
 
 - __init__(*self, mid_dim, state_dim, action_dim*)
 
-The network has four layers with ReLU activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU activation functions.
+The network has four layers with ReLU activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``.
 
 - forward(*self, state*)
 
