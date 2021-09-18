@@ -23,19 +23,18 @@ class QNet(*nn.Module*)
 
 - __init__(*self, mid_dim, state_dim, action_dim*)
 
-The network has four layers with ReLU activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``.
-
-nn.ReLU() is used as the activation function.
+The network has four layers with ReLU activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU activation functions.
 
 - forward(*self, state*)
 
 Take ``state`` as the input and output Q values.
 
-class QNetTwin(*nn.Module*)
+class QNetTwin(*nn.Module*) 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
    :linenos:
+
     class QNetTwin(nn.Module):  # Double DQN
         def __init__(self, mid_dim, state_dim, action_dim):
             super().__init__()
@@ -56,21 +55,21 @@ class QNetTwin(*nn.Module*)
 
 - __init__(*self, mid_dim, state_dim, action_dim*)
 
-Create three three-layer neural networks:
+There are three networks:
 
-The first has ``state_dim`` amount of nodes in input layer, ``mid_dim`` amount of nodes in hidden layer and output layer.
+The **net_state** network has two layers,  where the input size is ``state_dim`` and the output size is ``mid_dim``.
 
-The second and third both have ``mid_dim`` amount of nodes in input layer, ``state_dim`` amount of nodes in hidden layer and output layer.
+The **net_q1** and **net_q2** network has two layers,  where the input size is mid_dim and the output size is action_dim.
 
-nn.ReLU() is used as the activation function.
+The **net_state** network is connected to both the **net_q1** network and **net_q2** network, with ReLU activation functions.
 
 - forward(*self, state*)
 
-Take ``state`` as the input, and connect the first neural network with the second in series. Return the ouputs of the second network, which is one Q value.
+Take ``state`` as the input and output one Q value.
 
 - get_q1_q2(*self, state*)
 
-Take ``state`` as the input. Then separately connect the first neural network with the second and third in series. Return the ouputs of the second and third networks, which are two Q values.
+Take ``state`` as the input and output two Q values.
 
 Agents: *agent.py*
 ------------------
