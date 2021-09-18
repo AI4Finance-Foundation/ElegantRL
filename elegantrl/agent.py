@@ -9,7 +9,7 @@ from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
 from elegantrl.net import Critic, CriticAdv, CriticTwin
 from elegantrl.net import SharedDPG, SharedSPG, SharedPPO
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.09](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class AgentBase:
@@ -611,6 +611,7 @@ class AgentPPO(AgentBase):
         self.if_on_policy = True
         self.ratio_clip = 0.2  # could be 0.00 ~ 0.50 ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.02  # could be 0.00~0.10
+        self.lambda_a_value = 1.00  # could be 0.25~8.00, the lambda of advantage value
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
@@ -631,13 +632,12 @@ class AgentPPO(AgentBase):
         """
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            actions, noises = self.act.get_action(states)
-            actions = actions.detach().cpu().numpy()
-            noises = noises.detach().cpu().numpy()
+            noise_k = 1
         else:
-            actions = self.act.net(states)  # notice: actions_tanh = self.act(states)
-            actions = actions.detach().cpu().numpy()
-            noises = np.zeros_like(actions)
+            noise_k = 0.0625
+        actions, noises = self.act.get_action(states, noise_k)
+        actions = actions.detach().cpu().numpy()
+        noises = noises.detach().cpu().numpy()
         return actions, noises
 
     def explore_one_env(self, env, target_step):
@@ -706,8 +706,9 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_advantage = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
+            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / (buf_adv_v.std() + 1e-5))
+            # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
         '''PPO: Surrogate objective of Trust Region'''
@@ -717,15 +718,15 @@ class AgentPPO(AgentBase):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
-            action = buf_action[indices]
             r_sum = buf_r_sum[indices]
+            adv_v = buf_adv_v[indices]
+            action = buf_action[indices]
             logprob = buf_logprob[indices]
-            advantage = buf_advantage[indices]
 
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             ratio = (new_logprob - logprob.detach()).exp()
-            surrogate1 = advantage * ratio
-            surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+            surrogate1 = adv_v * ratio
+            surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
             obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
             self.optim_update(self.act_optim, obj_actor)
@@ -745,21 +746,21 @@ class AgentPPO(AgentBase):
         for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
-        buf_advantage = buf_r_sum - (buf_mask * buf_value[:, 0])
-        return buf_r_sum, buf_advantage
+        buf_adv_v = buf_r_sum - (buf_mask * buf_value[:, 0])  # buf_advantage_value
+        return buf_r_sum, buf_adv_v
 
     def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
-        buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
+        buf_adv_v = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
         pre_r_sum = 0
-        pre_advantage = 0  # advantage value of previous step
+        pre_adv_v = 0  # advantage value of previous step
         for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = ten_reward[i] + ten_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
-            buf_advantage[i] = ten_reward[i] + ten_mask[i] * (pre_advantage - ten_value[i])  # fix a bug here
-            pre_advantage = ten_value[i] + buf_advantage[i] * self.lambda_gae_adv
-        return buf_r_sum, buf_advantage
+            buf_adv_v[i] = ten_reward[i] + ten_mask[i] * (pre_adv_v - ten_value[i])  # fix a bug here
+            pre_adv_v = ten_value[i] + buf_adv_v[i] * self.lambda_gae_adv
+        return buf_r_sum, buf_adv_v
 
 
 class AgentDiscretePPO(AgentPPO):
@@ -967,9 +968,6 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
 class AgentSharedPPO(AgentPPO):
     def __init__(self):
         super().__init__()
-        self.clip = 0.25  # ratio.clamp(1 - clip, 1 + clip)
-        self.lambda_entropy = 0.01  # could be 0.02
-        self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False, env_num=1, agent_id=0):
@@ -1002,8 +1000,9 @@ class AgentSharedPPO(AgentPPO):
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_advantage = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_advantage = (buf_advantage - buf_advantage.mean()) / (buf_advantage.std() + 1e-5)
+            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / buf_adv_v.std() + 1e-5)
+            # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
         '''PPO: Surrogate objective of Trust Region'''
@@ -1012,15 +1011,15 @@ class AgentSharedPPO(AgentPPO):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
-            action = buf_action[indices]
             r_sum = buf_r_sum[indices]
+            adv_v = buf_adv_v[indices]  # advantage value
+            action = buf_action[indices]
             logprob = buf_logprob[indices]
-            advantage = buf_advantage[indices]
 
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             ratio = (new_logprob - logprob.detach()).exp()
-            surrogate1 = advantage * ratio
-            surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+            surrogate1 = adv_v * ratio
+            surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
             obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
 

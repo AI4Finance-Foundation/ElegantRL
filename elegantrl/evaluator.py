@@ -3,7 +3,7 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class Evaluator:
@@ -30,51 +30,54 @@ class Evaluator:
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> bool:
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
-            return False  # if_reach_goal
-        self.eval_time = time.time()
+            if_reach_goal = False
+            if_save = False
+        else:
+            self.eval_time = time.time()
 
-        '''evaluate first time'''
-        rewards_steps_list = [get_episode_return_and_step(self.eval_env, act, self.device) for _ in
-                              range(self.eval_times1)]
-        r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
-
-        '''evaluate second time'''
-        if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-            rewards_steps_list += [get_episode_return_and_step(self.eval_env, act, self.device)
-                                   for _ in range(self.eval_times2 - self.eval_times1)]
+            '''evaluate first time'''
+            rewards_steps_list = [get_episode_return_and_step(self.eval_env, act, self.device) for _ in
+                                  range(self.eval_times1)]
             r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
-        '''save the policy network'''
-        if r_avg > self.r_max:  # save checkpoint with highest episode return
-            self.r_max = r_avg  # update max reward (episode return)
+            '''evaluate second time'''
+            if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
+                rewards_steps_list += [get_episode_return_and_step(self.eval_env, act, self.device)
+                                       for _ in range(self.eval_times2 - self.eval_times1)]
+                r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
-            act_save_path = f'{self.cwd}/actor.pth'
-            torch.save(act.state_dict(), act_save_path)  # save policy network in *.pth
+            '''save the policy network'''
+            if_save = r_avg > self.r_max
+            if if_save:  # save checkpoint with highest episode return
+                self.r_max = r_avg  # update max reward (episode return)
 
-            print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
+                act_save_path = f'{self.cwd}/actor.pth'
+                torch.save(act.state_dict(), act_save_path)  # save policy network in *.pth
 
-        self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
+                print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
 
-        '''print some information to Terminal'''
-        if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
-        if if_reach_goal and self.used_time is None:
-            self.used_time = int(time.time() - self.start_time)
-            print(f"{'ID':<3}{'Step':>8}{'TargetR':>8} |"
-                  f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
-                  f"{'UsedTime':>8}  ########\n"
-                  f"{self.agent_id:<3}{self.total_step:8.2e}{self.target_return:8.2f} |"
+            self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
+
+            '''print some information to Terminal'''
+            if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
+            if if_reach_goal and self.used_time is None:
+                self.used_time = int(time.time() - self.start_time)
+                print(f"{'ID':<3}{'Step':>8}{'TargetR':>8} |"
+                      f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
+                      f"{'UsedTime':>8}  ########\n"
+                      f"{self.agent_id:<3}{self.total_step:8.2e}{self.target_return:8.2f} |"
+                      f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
+                      f"{self.used_time:>8}  ########")
+
+            print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |"
                   f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
-                  f"{self.used_time:>8}  ########")
-
-        print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |"
-              f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
-              f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
-        self.draw_plot()
-        return if_reach_goal
+                  f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
+            self.draw_plot()
+        return if_reach_goal, if_save
 
     @staticmethod
     def get_r_avg_std_s_avg_std(rewards_steps_list):

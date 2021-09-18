@@ -11,7 +11,7 @@ from elegantrl.env import build_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.09](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class Arguments:
@@ -198,12 +198,13 @@ def train_and_evaluate(args, agent_id=0):
 
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
         with torch.no_grad():
-            if_reach_goal = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)
+            temp = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)
+            if_reach_goal, if_save = temp
             if_train = not ((if_allow_break and if_reach_goal)
                             or evaluator.total_step > break_step
                             or os.path.exists(f'{cwd}/stop'))
 
-    print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
+    print(f'| UsedTime: {time.time() - evaluator.start_time:>8.0f} | SavedDir: {cwd}')
 
     env.close()
     agent.save_or_load_agent(cwd, if_save=True)
@@ -348,6 +349,22 @@ class PipeWorker:
                 self.pipes[worker_id][0].send(trajectory)
 
 
+def get_comm_data(agent):
+    act = list(agent.act.parameters())
+    cri_optim = get_optim_parameters(agent.cri_optim)
+
+    if agent.cri is agent.act:
+        cri = None
+        act_optim = None
+    else:
+        cri = list(agent.cri.parameters())
+        act_optim = get_optim_parameters(agent.act_optim)
+
+    act_target = list(agent.act_target.parameters()) if agent.if_use_act_target else None
+    cri_target = list(agent.cri_target.parameters()) if agent.if_use_cri_target else None
+    return act, act_optim, cri, cri_optim, act_target, cri_target  # data
+
+
 class PipeLearner:
     def __init__(self, learner_num):
         self.learner_num = learner_num
@@ -389,28 +406,15 @@ class PipeLearner:
         device = self.device_list[learner_id]
 
         for round_id in range(self.round_num):
-            act = list(agent.act.parameters())
-            act_optim = get_optim_parameters(agent.act_optim)
-
-            if agent.cri is agent.act:
-                cri = None
-                cri_optim = None
-            else:
-                cri = list(agent.cri.parameters())
-                cri_optim = get_optim_parameters(agent.cri_optim)
-
-            act_target = list(agent.act_target.parameters()) if agent.if_use_act_target else None
-            cri_target = list(agent.cri_target.parameters()) if agent.if_use_cri_target else None
-
-            data = (act, act_optim, cri, cri_optim, act_target, cri_target)
+            data = get_comm_data(agent)
             data = self.comm_data(data, learner_id, round_id)
 
             if data:
                 avg_update_net(agent.act, data[0], device)
-                avg_update_optim(agent.act_optim, data[1], device)
+                avg_update_optim(agent.act_optim, data[1], device) if data[1] else None
 
                 avg_update_net(agent.cri, data[2], device) if data[2] else None
-                avg_update_optim(agent.cri_optim, data[3], device) if data[3] else None
+                avg_update_optim(agent.cri_optim, data[3], device)
 
                 avg_update_net(agent.act_target, data[4], device) if agent.if_use_act_target else None
                 avg_update_net(agent.cri_target, data[5], device) if agent.if_use_cri_target else None
@@ -489,7 +493,7 @@ class PipeLearner:
                 self.comm_network_optim(agent, learner_id)
 
             if comm_eva:
-                if_train = comm_eva.evaluate_and_save(agent.act, steps, r_exp, logging_tuple, if_train)
+                if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
 
         agent.save_or_load_agent(cwd, if_save=True)
         if not if_on_policy:
@@ -502,16 +506,16 @@ class PipeEvaluator:
         super().__init__()
         self.pipe0, self.pipe1 = mp.Pipe()
 
-    def evaluate_and_save(self, agent_act, steps, r_exp, logging_tuple, if_train):
+    def evaluate_and_save_mp(self, agent_act, steps, r_exp, logging_tuple):
         if self.pipe1.poll():  # if_evaluator_idle
-            if_train = self.pipe1.recv()
-
+            if_train, if_save = self.pipe1.recv()
             act_cpu_dict = {k: v.cpu() for k, v in agent_act.state_dict().items()}
         else:
+            if_train, if_save = True, False
             act_cpu_dict = None
 
         self.pipe1.send((act_cpu_dict, steps, r_exp, logging_tuple))
-        return if_train
+        return if_train, if_save
 
     def run(self, args, agent_id):
         # print(f'| os.getpid()={os.getpid()} PipeEvaluate.run {agent_id}')
@@ -542,6 +546,7 @@ class PipeEvaluator:
         if_allow_break = args.if_allow_break
         del args
 
+        if_save = False
         if_train = True
         if_reach_goal = False
         with torch.no_grad():
@@ -550,16 +555,16 @@ class PipeEvaluator:
 
                 if act_cpu_dict:
                     act_cpu.load_state_dict(act_cpu_dict)
-                    if_reach_goal = evaluator.evaluate_and_save(act_cpu, steps, r_exp, logging_tuple)
+                    if_reach_goal, if_save = evaluator.evaluate_and_save(act_cpu, steps, r_exp, logging_tuple)
                 else:
                     evaluator.total_step += steps
 
                 if_train = not ((if_allow_break and if_reach_goal)
                                 or evaluator.total_step > break_step
                                 or os.path.exists(f'{cwd}/stop'))
-                self.pipe0.send(if_train)
+                self.pipe0.send((if_train, if_save))
 
-        print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
+        print(f'| UsedTime: {time.time() - evaluator.start_time:>8.0f} | SavedDir: {cwd}')
         evaluator.save_or_load_recoder(if_save=True)
 
 

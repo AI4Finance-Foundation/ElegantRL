@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 """[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
@@ -191,11 +191,11 @@ class ActorPPO(nn.Module):
     def forward(self, state):
         return self.net(state).tanh()  # action.tanh()
 
-    def get_action(self, state):
+    def get_action(self, state, noise_k=1):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
-        noise = torch.randn_like(a_avg)
+        noise = torch.randn_like(a_avg) * noise_k
         action = a_avg + noise * a_std
         return action, noise
 
