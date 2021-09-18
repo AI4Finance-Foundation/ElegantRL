@@ -276,6 +276,82 @@ Agents: *agent.py*
 class AgentBase
 ^^^^^^^^^^^^^^^
 
+.. code-block:: python
+   :linenos:
+
+   class AgentBase:
+       def __init__(self):
+           self.state = None
+           self.device = None
+           self.action_dim = None
+           self.if_on_policy = None
+           self.explore_noise = None
+           self.trajectory_list = None
+
+           self.criterion = torch.nn.SmoothL1Loss()
+           self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
+           self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
+
+       def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_per_or_gae=False, gpu_id=0):
+           # explict call self.init() for multiprocessing
+           self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+           self.action_dim = action_dim
+
+           self.cri = self.ClassCri(net_dim, state_dim, action_dim).to(self.device)
+           self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
+           self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
+           self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
+
+           self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
+           self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
+           del self.ClassCri, self.ClassAct
+
+       def select_action(self, state) -> np.ndarray:
+           states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
+           action = self.act(states)[0]
+           action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
+           return action.detach().cpu().numpy()
+
+       def explore_env(self, env, target_step) -> list:
+           state = self.state
+
+           trajectory_list = list()
+           for _ in range(target_step):
+               action = self.select_action(state)
+               next_s, reward, done, _ = env.step(action)
+               trajectory_list.append((state, (reward, done, *action)))
+
+               state = env.reset() if done else next_s
+           self.state = state
+           return trajectory_list
+
+       @staticmethod
+       def optim_update(optimizer, objective):
+           optimizer.zero_grad()
+           objective.backward()
+           optimizer.step()
+
+       @staticmethod
+       def soft_update(target_net, current_net, tau):
+           for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+               tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
+
+       def save_or_load_agent(self, cwd, if_save):
+           def load_torch_file(model_or_optim, _path):
+               state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
+               model_or_optim.load_state_dict(state_dict)
+
+           name_obj_list = [('actor', self.act), ('act_target', self.act_target), ('act_optim', self.act_optim),
+                            ('critic', self.cri), ('cri_target', self.cri_target), ('cri_optim', self.cri_optim), ]
+           name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
+           if if_save:
+               for name, obj in name_obj_list:
+                   save_path = f"{cwd}/{name}.pth"
+                   torch.save(obj.state_dict(), save_path)
+           else:
+               for name, obj in name_obj_list:
+                   save_path = f"{cwd}/{name}.pth"
+                   load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
 
 
 Environment: *env.py*
