@@ -59,7 +59,7 @@ There are three networks:
 
 The **net_state** network has two layers,  where the input size is ``state_dim`` and the output size is ``mid_dim``.
 
-The **net_q1** and **net_q2** network has two layers,  where the input size is mid_dim and the output size is action_dim.
+The **net_q1** and **net_q2** network has two layers,  where the input size is ``mid_dim`` and the output size is ``action_dim``.
 
 The **net_state** network is connected to both the **net_q1** network and **net_q2** network, with ReLU activation functions.
 
