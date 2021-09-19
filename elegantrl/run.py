@@ -204,7 +204,7 @@ def train_and_evaluate(args, agent_id=0):
                             or evaluator.total_step > break_step
                             or os.path.exists(f'{cwd}/stop'))
 
-    print(f'| UsedTime: {time.time() - evaluator.start_time:>8.0f} | SavedDir: {cwd}')
+    print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
     env.close()
     agent.save_or_load_agent(cwd, if_save=True)
@@ -564,7 +564,7 @@ class PipeEvaluator:
                                 or os.path.exists(f'{cwd}/stop'))
                 self.pipe0.send((if_train, if_save))
 
-        print(f'| UsedTime: {time.time() - evaluator.start_time:>8.0f} | SavedDir: {cwd}')
+        print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
         evaluator.save_or_load_recoder(if_save=True)
 
 
