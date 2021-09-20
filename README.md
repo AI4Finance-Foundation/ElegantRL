@@ -1,4 +1,4 @@
-## Lightweight and Scalable Deep Reinforcement Learning Using PyTorch 
+## ElegantRL: Lightweight and Scalable Deep Reinforcement Learning 
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
@@ -8,7 +8,7 @@
 <br/>
 <a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
 	<div align="center">
-		<img src="figs/icon.jpg" width="40%"/>
+		<img src="figs/icon.jpg" width="20%"/>
 	</div>
 <!-- 	<div align="center"><caption>Slack Invitation Link</caption></div> -->
 </a>
@@ -29,12 +29,12 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
 
-# Table of Contents
+# Contents
 
 + [News](#News)
 + [File Structure](#File-Structure)
 + [Training Pipeline](#Training-Pipeline)
-+ [Experimental Results](#Experimental-Results)
++ [Experimental Results](#Experimental-Demos)
 + [Requirements](#Requirements)
 + [Model-free DRL Algorithms](#Model-free-DRL-Algorithms)
 
@@ -44,12 +44,20 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 + [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f)
-# File Structure
+
+# Framework
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
    An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
+   
+From a high-level overview, 
++ 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
++ 2). In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer; 
++ 3). The agent fetches a batch of transitions from the Replay Buffer to train its networks; 
++ 4). After each update, an evaluator evaluates the agent's performance (e.g., fitness score or cumulative return) and saves the agent if the performance is good.
 
------kernel files----
+## Code Structure
+### Core Codes
 + **elegantrl/net.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Neural networks.
    + Q-Net,
    + Actor network,
@@ -61,7 +69,7 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
    + Training loop,
    + Evaluator.
 
------utils files----
+### Until Codes
 + **elegantrl/envs/**    &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
@@ -70,13 +78,7 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 + **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
 + **eRL_demo_StockTrading.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
-From a high-level overview, 
-+ 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
-+ 2). In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer; 
-+ 3). The agent fetches a batch of transitions from the Replay Buffer to train its networks; 
-+ 4). After each update, an evaluator evaluates the agent's performance (e.g., fitness score or cumulative return) and saves the agent if the performance is good.
-
-# Training Pipeline
+# Start to Train
 
 ### Initialization:
 + hyper-parameters `args`.
@@ -85,16 +87,14 @@ From a high-level overview,
 + `buffer = ReplayBuffer()` : stores the transitions.
 + `evaluator = Evaluator()` : evaluates and stores the trained model.
 
-### Then, the training process is controlled by a while-loop:
+### Training (a while-loop):
 + `agent.explore_env(…)`: the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
 + `agent.update_net(…)`: the agent uses a batch from the ReplayBuffer to update the network parameters.
 + `evaluator.evaluate_save(…)`: evaluates the agent's performance and keeps the trained model with the highest score.
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
 
-# Experimental Results
-
-Results using ElegantRL 
+# Experimental Demos 
 
 [LunarLanderContinuous-v2](https://gym.openai.com/envs/LunarLanderContinuous-v2/)
 
