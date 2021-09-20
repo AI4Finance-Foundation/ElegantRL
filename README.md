@@ -29,7 +29,7 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
 
-# Contents
+## Contents
 
 + [News](#News)
 + [File Structure](#File-Structure)
@@ -38,14 +38,14 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 + [Requirements](#Requirements)
 + [Model-free DRL Algorithms](#Model-free-DRL-Algorithms)
 
-# News
+## News
 
 + [Towardsdatascience] [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b)
 + [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f)
 
-# Framework
+## Framework
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
    An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
@@ -78,7 +78,7 @@ A high-level overview:
 + **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
 + **eRL_demo_StockTrading.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
-# Start to Train
+## Start to Train
 
 ### Initialization:
 + hyper-parameters `args`.
@@ -94,7 +94,7 @@ A high-level overview:
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
 
-# Experimental Demos 
+## Experimental Demos 
 
 [LunarLanderContinuous-v2](https://gym.openai.com/envs/LunarLanderContinuous-v2/)
 
@@ -110,7 +110,7 @@ BipedalWalkerHardcore is a difficult task in continuous action space. There are 
 
 Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
 
-# Requirements
+## Requirements
 
     Necessary:
     | Python 3.6+     |           
