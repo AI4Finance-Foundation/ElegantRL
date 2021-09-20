@@ -1,4 +1,4 @@
-## ElegantRL: Lightweight and Scalable Deep Reinforcement Learning 
+## ElegantRL: Lightweight and Scalable Deep Reinforcement Learning
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
@@ -27,7 +27,6 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 + **DQN, DoubleDQN, D3QN** for discrete actions
 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
-
 
 ## Contents
 
@@ -102,13 +101,9 @@ The while-loop will terminate when the conditions are met, e.g., achieving a tar
 
 [BipedalWalkerHardcore-v2](https://gym.openai.com/envs/BipedalWalkerHardcore-v2/)
 
-
 <img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="100"/>
 
-
-BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward.
-
-Check out a video on bilibili: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
+Note: BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward. Check out a experiment video: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
 
 ## Requirements
 
