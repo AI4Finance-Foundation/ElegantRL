@@ -50,7 +50,7 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 
    An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
    
-From a high-level overview, 
+A high-level overview:
 + 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
 + 2). In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer; 
 + 3). The agent fetches a batch of transitions from the Replay Buffer to train its networks; 
