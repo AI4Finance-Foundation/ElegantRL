@@ -93,6 +93,17 @@ A high-level overview:
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
 
+## Experiment
+
+### Experiment 5.1 Comparisons with benchmark algorithms
+
+
+
+### Experiment 5.2 Self-comparisons
+
+It is easy to run the 
+
+
 ## Experimental Demos 
 
 [LunarLanderContinuous-v2](https://gym.openai.com/envs/LunarLanderContinuous-v2/)
