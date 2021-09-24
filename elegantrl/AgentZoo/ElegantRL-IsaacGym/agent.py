@@ -64,10 +64,10 @@ class AgentBase:
         del self.ClassCri, self.ClassAct
 
         assert isinstance(if_per_or_gae, bool)
-        if env_num > 1:  # VectorEnv
-            self.explore_env = self.explore_vec_env
-        else:
+        if env_num == 1:
             self.explore_env = self.explore_one_env
+        else:
+            self.explore_env = self.explore_vec_env
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         """Select continuous actions for exploration
@@ -659,6 +659,10 @@ class AgentPPO(AgentBase):
             self.get_reward_sum = self.get_reward_sum_gae
         else:
             self.get_reward_sum = self.get_reward_sum_raw
+        if env_num == 1:
+            self.explore_env = self.explore_one_env
+        else:
+            self.explore_env = self.explore_vec_env
 
     def select_actions(self, state: torch.Tensor) -> tuple:
         """

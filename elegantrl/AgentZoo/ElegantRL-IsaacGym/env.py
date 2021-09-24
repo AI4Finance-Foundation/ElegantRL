@@ -1,7 +1,6 @@
 import os
 import gym  # not necessary
 import numpy as np
-import torch
 from copy import deepcopy
 
 """[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
@@ -171,21 +170,22 @@ def build_env(env, if_print=False):
     return env
 
 
-def build_isaac_gym_env(env, if_print=False, device_id=1):  # todo isaac 2021-09-24
+def build_isaac_gym_env(env, if_print=False, device_id=2):  # todo isaac 2021-09-24
     env_name = getattr(env, 'env_name', env)
     assert isinstance(env_name, str)
 
     env_last_name = env_name[11:]
     assert env_last_name in {'Ant', 'Humanoid'}
     target_return = {'Ant': 4000, 'Humanoid': 7000}[env_last_name]
-    from beta0 import PreprocessIsaacEnv, PreprocessIsaacVecEnv
+    env_num = 16
 
+    from envs.IsaacGym import PreprocessIsaacEnv, PreprocessIsaacVecEnv
     if env_name.find('IsaacOneEnv') != -1:
         env = PreprocessIsaacEnv(env_last_name, target_return=target_return, if_print=if_print,
                                  env_num=1, device_id=device_id)
     elif env_name.find('IsaacVecEnv') != -1:
         env = PreprocessIsaacVecEnv(env_last_name, target_return=target_return, if_print=if_print,
-                                    env_num=32, device_id=device_id)
+                                    env_num=env_num, device_id=device_id)
     else:
         raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
     return env

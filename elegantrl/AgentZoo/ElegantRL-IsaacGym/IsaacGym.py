@@ -1,5 +1,6 @@
 from utils.config import set_seed, get_args, parse_sim_params, load_cfg
 from utils.parse_task import parse_task
+import numpy as np
 import torch  # import torch after isaacgym modules
 import multiprocessing as mp
 
@@ -70,10 +71,10 @@ class PreprocessIsaacVecEnv:  # environment wrapper
               f"\n| state_dim: {self.state_dim:4}, action_dim: {self.action_dim}, action_max: {self.action_max}"
               f"\n| max_step:  {self.max_step:4}, target_return: {self.target_return}") if if_print else None
 
-    def reset(self):
+    def reset(self) -> torch.Tensor:
         return self.env.reset()
 
-    def step(self, actions):
+    def step(self, actions: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, None):
         return self.env.step(actions)
 
 
@@ -89,14 +90,18 @@ class PreprocessIsaacEnv(PreprocessIsaacVecEnv):  # environment wrapper
                          env_num=1,
                          device_id=device_id)
 
-    def reset(self):
+    def reset(self) -> torch.Tensor:
         state = self.env.reset()
-        return state[0]
+        return state[0].detach().numpy()
 
-    def step(self, action):
-        actions = action.unsqueeze(0)
-        state, reward, done, info_dict = self.env.step(actions)
-        return state[0], reward[0], done[0], info_dict
+    def step(self, action: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray, None):
+        ten_action = torch.as_tensor(action, dtype=torch.float32).unsqueeze(0)
+        ten_state, ten_reward, ten_done, info_dict = self.env.step(ten_action)
+
+        state = ten_state[0].detach().numpy()
+        reward = ten_reward[0].detach().numpy()
+        done = ten_done[0].detach().numpy()
+        return state, reward, done, info_dict
 
 
 def build_isaac_gym_env(env, if_print=False, device_id=0):
@@ -120,7 +125,7 @@ def build_isaac_gym_env(env, if_print=False, device_id=0):
 
 
 def run_isaac_env(env_name, device_id):
-    env = build_isaac_gym_env(env_name, if_print=False, device_id=device_id)
+    env = build_isaac_gym_env(env_name, if_print=True, device_id=device_id)
 
     if env.env_num == 1:
         def get_random_action():
@@ -129,7 +134,9 @@ def run_isaac_env(env_name, device_id):
         def get_random_action():
             return torch.rand((env.env_num, env.action_dim), dtype=torch.float32) * 2 - 1
 
-    for step_i in range(2 ** 9):
+    total_step = 2 ** 4
+    print("| total_step", total_step)
+    for step_i in range(total_step):
         action = get_random_action()
         state, reward, done, info_dict = env.step(action)
         print('|', device_id, step_i, state.dtype)
@@ -151,5 +158,5 @@ def run_multiple_process():
 
 
 if __name__ == '__main__':
-    # run_isaac_env(env_name='IsaacVecEnvAnt', device_id=3)
-    run_multiple_process()
+    run_isaac_env(env_name='IsaacVecEnvAnt', device_id=3)
+    # run_multiple_process()

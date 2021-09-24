@@ -325,13 +325,15 @@ class PipeLearner:
         # print(f'| os.getpid()={os.getpid()} PipeLearn.run, {learner_id}')
         args.init_before_training(if_main=learner_id == 0)
 
-        env = build_env(args.env, if_print=False)
+        # env = build_env(args.env, if_print=False)
         if_on_policy = args.if_on_policy
 
         '''init Agent'''
         agent = args.agent
-        agent.init(args.net_dim, env.state_dim, env.action_dim,
-                   args.learning_rate, args.if_per_or_gae, args.env_num, learner_id)
+        # agent.init(args.net_dim, env.state_dim, env.action_dim,
+        #            args.learning_rate, args.if_per_or_gae, args.env_num, learner_id)
+        agent.init(args.net_dim, args.state_dim, args.action_dim,
+                   args.learning_rate, args.if_per_or_gae, args.env_num, learner_id)  # todo isaac
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init ReplayBuffer'''
@@ -350,10 +352,14 @@ class PipeLearner:
             if self.learner_num > 1:
                 buffer_num *= 2
 
-            buffer = ReplayBufferMP(max_len=args.max_memo, state_dim=env.state_dim,
-                                    action_dim=1 if env.if_discrete else env.action_dim,
+            # buffer = ReplayBufferMP(max_len=args.max_memo, state_dim=env.state_dim,
+            #                         action_dim=1 if env.if_discrete else env.action_dim,
+            #                         if_use_per=args.if_per_or_gae,
+            #                         buffer_num=buffer_num, gpu_id=learner_id)
+            buffer = ReplayBufferMP(max_len=args.max_memo, state_dim=args.state_dim,
+                                    action_dim=1 if args.if_discrete else args.action_dim,
                                     if_use_per=args.if_per_or_gae,
-                                    buffer_num=buffer_num, gpu_id=learner_id)
+                                    buffer_num=buffer_num, gpu_id=learner_id)  # todo isaac
             buffer.save_or_load_history(args.cwd, if_save=False)
 
             def update_buffer(_traj_list):
@@ -418,7 +424,9 @@ class PipeEvaluator:
         args.init_before_training(if_main=False)
 
         '''init: Agent'''
-        env = build_env(args.env, if_print=False)
+        # eval_env = args.eval_env if args.eval_env else build_env(env, if_print=False)
+        eval_env = build_env(args.eval_env, if_print=False)  # todo isaac
+        env = eval_env
         agent = args.agent
         agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate,
                    args.if_per_or_gae, args.env_num, agent_id=args.eval_device_id)
@@ -429,7 +437,6 @@ class PipeEvaluator:
         [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
 
         '''init Evaluator'''
-        eval_env = args.eval_env if args.eval_env else build_env(env, if_print=False)
         evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
                               args.eval_gap, args.eval_times1, args.eval_times2)
         evaluator.save_or_load_recoder(if_save=False)
