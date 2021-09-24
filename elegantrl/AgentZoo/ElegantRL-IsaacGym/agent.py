@@ -342,6 +342,7 @@ class AgentDoubleDQN(AgentDQN):
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_prob = self.soft_max(action)
             a_int = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
+            # a_int = rd.choice(self.action_dim, prob=a_prob)  # numpy version
         else:
             a_int = action.argmax(dim=1)
         return a_int.detach().cpu()

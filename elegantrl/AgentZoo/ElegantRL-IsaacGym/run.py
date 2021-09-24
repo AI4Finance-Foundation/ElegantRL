@@ -1,13 +1,13 @@
 import os
 import time
-import shutil
 
 import torch
 import numpy as np
 import numpy.random as rd
 import multiprocessing as mp
 
-from elegantrl.env import build_env
+# from elegantrl.env import build_env
+from elegantrl.env import build_isaac_gym_env as build_env  # todo isaac
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
@@ -98,6 +98,7 @@ class Arguments:
             if self.if_remove is None:
                 self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
             elif self.if_remove:
+                import shutil
                 shutil.rmtree(self.cwd, ignore_errors=True)
                 print(f"| Remove cwd: {self.cwd}")
             os.makedirs(self.cwd, exist_ok=True)
