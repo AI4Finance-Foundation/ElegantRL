@@ -1,0 +1,68 @@
+params:
+  seed: -1
+
+  algo:
+    name: a2c_continuous
+
+  model:
+    name: continuous_a2c_logstd
+
+  network:
+    name: actor_critic
+    separate: False
+
+    space:
+      continuous:
+        mu_activation: None
+        sigma_activation: None
+        mu_init:
+          name: default
+        sigma_init:
+          name: const_initializer
+          val: 0. # std = 1.
+        fixed_sigma: True
+
+    mlp:
+      units: [256, 128, 64]
+      activation: elu
+      d2rl: False
+
+      initializer:
+        name: default
+      regularizer:
+        name: None
+
+  load_checkpoint: False
+
+  config:
+    name: Anymal
+    env_name: rlgpu
+    ppo: True
+    mixed_precision: False
+    normalize_input: True
+    normalize_value: True
+    reward_shaper:
+      scale_value: 1.0
+    normalize_advantage: True
+    gamma: 0.99
+    tau: 0.95
+    e_clip: 0.2
+    entropy_coef: 0.0
+    learning_rate: 1.e-3 # overwritten by adaptive lr_schedule
+    lr_schedule: adaptive
+    lr_threshold: 0.01 # target kl for adaptive lr
+    truncate_grads: True
+    grad_norm: 1.
+    steps_num: 24
+    minibatch_size: 24000
+    mini_epochs: 8
+    critic_coef: 2
+    clip_value: True
+    seq_len: 5 # only for rnn
+    bounds_loss_coef: 0.
+
+    max_epochs: 1000
+    save_best_after: 200
+    score_to_win: 20000
+    save_frequency: 50
+    print_stats: True

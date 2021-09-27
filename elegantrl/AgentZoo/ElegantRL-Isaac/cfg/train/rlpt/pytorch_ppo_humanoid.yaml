@@ -1,0 +1,30 @@
+seed: -1
+policy: # only works for MlpPolicy right now
+  pi_hid_sizes: [400, 200, 100]
+  vf_hid_sizes: [400, 200, 100]
+  activation: selu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+learn:
+  agent_name: humanoid_ppo
+  test: False
+  resume: 0
+  save_interval: 100 # check for potential saves every this many iterations
+  print_log: True
+
+  # rollout params
+  max_iterations: 5000
+
+  # training params
+  cliprange: 0.1
+  ent_coef: 0
+  nsteps: 32
+  noptepochs: 5
+  nminibatches: 4 # this is per agent
+  max_grad_norm: 1.0
+  optim_stepsize: 3.e-4 # 3e-4 is default for single agent training with constant schedule
+  schedule: adaptive # could be adaptive or linear or fixed
+  desired_kl: 0.01
+  gamma: 0.99
+  lam: 0.95
+  init_noise_std: 1.0
+
+  log_interval: 1

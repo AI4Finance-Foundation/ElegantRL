@@ -1,0 +1,35 @@
+# Important Note
+# This code is subject to the NDA between the Robotic Systems Lab (ETH Zurich) and NVIDIA.
+# Under no circumstances should it be made available publicly.
+# For any questions, contact David Hoeller (dhoeller@nvidia.com)
+
+seed: -1
+clip_observations: 1000.0
+clip_actions: 4.0
+policy: # only works for MlpPolicy right now
+  vf_hid_sizes: [256, 128, 64]
+  pi_hid_sizes: [256, 128, 64]
+  activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+learn:
+  agent_name: anymal_ppo
+  test: False
+  resume: 0
+  save_interval: 50 # check for potential saves every this many iterations
+  print_log: True
+
+  # number of policy updates
+  max_iterations: 500
+
+  # training params
+  cliprange: 0.2
+  ent_coef: 0.00
+  nsteps: 24
+  noptepochs: 8
+  nminibatches: 4 # this is per agent
+  optim_stepsize: 1.e-2
+  schedule: adaptive # could be adaptive, linear or fixed
+  gamma: 0.99
+  lam: 0.95
+  init_noise_std: 1.0
+  desired_kl: 0.01
+  log_interval: 1

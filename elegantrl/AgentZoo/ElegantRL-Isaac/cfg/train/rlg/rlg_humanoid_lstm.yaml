@@ -1,0 +1,81 @@
+params:
+  seed: -1
+
+  algo:
+    name: a2c_continuous
+
+  model:
+    name: continuous_a2c_logstd
+
+  network:
+    name: actor_critic
+    separate: False
+    normalization: 'layer_norm'
+
+    space:
+      continuous:
+        mu_activation: None
+        sigma_activation: None
+        mu_init:
+          name: default
+        sigma_init:
+          name: const_initializer
+          val: 0
+        fixed_sigma: False
+
+    normalization: 'layer_norm'
+
+    mlp:
+      units: [400, 200]
+      activation: elu
+      d2rl: False
+
+      initializer:
+        name: default
+        scale: 2
+      regularizer:
+        name:  None
+
+    rnn:
+      name: lstm
+      units: 200
+      layers: 1
+      before_mlp: False
+      concat_input: False
+      layer_norm: True
+
+  load_checkpoint: False
+  load_path: nn/Humanoid_LSTM.pth
+
+  config:
+    name: 'Humanoid_LSTM'
+    env_name: rlgpu
+    multi_gpu: False
+    ppo: True
+    mixed_precision: True
+    normalize_input: True
+    normalize_value: True
+    reward_shaper:
+      scale_value: 0.01
+    normalize_advantage: True
+    score_to_win: 10000
+    save_best_after: 200
+    save_frequency: 100
+    print_stats: True
+    gamma: 0.99
+    tau: 0.95
+    learning_rate: 5e-4
+    lr_schedule: adaptive
+    weight_decay: 0.001
+    lr_threshold: 0.008
+    grad_norm: 1.0
+    entropy_coef: 0.0
+    truncate_grads: True
+    e_clip: 0.2
+    steps_num: 64
+    minibatch_size: 8192
+    mini_epochs: 4
+    critic_coef: 4
+    clip_value: False
+    seq_len: 4
+    bounds_loss_coef: 0.0001
