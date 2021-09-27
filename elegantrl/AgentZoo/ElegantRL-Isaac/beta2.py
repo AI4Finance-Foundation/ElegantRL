@@ -64,8 +64,8 @@ def demo_isaac_on_policy():
     args.init_before_training()
 
     # train_and_evaluate(args)
-    args.workers_gpus = (3, 4)
-    args.learner_gpus = (3, 4)
+    args.workers_gpus = (3, )
+    args.learner_gpus = (3, )
     args.worker_num = 1
     train_and_evaluate_mp(args)
 
