@@ -13,7 +13,7 @@ can't use os.environ['LD_LIBRARY_PATH'] = /xfs/home/podracer_steven/anaconda3/en
 
 class PreprocessIsaacVecEnv:  # environment wrapper
     def __init__(self, env_name, target_return=None, if_print=False, headless=True, data_type=torch.float32,
-                 env_num=32, device_id=0):
+                 env_num=32, device_id=0, rl_device_id=-1):
         """Preprocess an Isaac Gym vec environment for RL training.
         [Isaac Gym](https://developer.nvidia.com/isaac-gym)"""
         # Override env_name if passed on the command line
@@ -21,7 +21,7 @@ class PreprocessIsaacVecEnv:  # environment wrapper
 
         # set after `args = get_args()`  # get_args()  in .../utils/config.py
         args.device_id = device_id  # PhyX device
-        args.rl_device = "cpu"  # f"cuda:{device_id}"
+        args.rl_device = f"cuda:{rl_device_id}" if rl_device_id >= 0 else 'cpu'
         args.num_envs = env_num  # in `.../cfg/train/xxx.yaml`, `numEnvs`
         # set before load_cfg()
 
@@ -67,9 +67,10 @@ class PreprocessIsaacVecEnv:  # environment wrapper
         self.action_max, self.max_step = action_max, max_step
         self.if_discrete = if_discrete
 
-        print(f"\n| env_name:  {self.env_name}, action space if_discrete: {self.if_discrete}"
-              f"\n| state_dim: {self.state_dim:4}, action_dim: {self.action_dim}, action_max: {self.action_max}"
-              f"\n| max_step:  {self.max_step:4}, target_return: {self.target_return}") if if_print else None
+        if if_print:
+            print(f"\n| env_name:  {self.env_name}, action space if_discrete: {self.if_discrete}"
+                  f"\n| state_dim: {self.state_dim:4}, action_dim: {self.action_dim}, action_max: {self.action_max}"
+                  f"\n| max_step:  {self.max_step:4}, target_return: {self.target_return}")
 
     def reset(self) -> torch.Tensor:
         return self.env.reset()
