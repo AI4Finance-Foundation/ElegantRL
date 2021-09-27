@@ -132,7 +132,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
 """Utils"""
 
 
-def build_env(env, if_print=False):
+def build_env(env, if_print=False, device_id=None, env_num=1):
     if isinstance(env, str):
         env_name = env
     else:
@@ -155,6 +155,19 @@ def build_env(env, if_print=False):
     elif env_name == 'CarRacingFix':  # Box2D
         from envs.CarRacingFix import CarRacingFix
         env = CarRacingFix()
+    elif env_name.find('Isaac') >= 0:
+        from envs.IsaacGym import PreprocessIsaacOneEnv, PreprocessIsaacVecEnv
+
+        env_last_name = env_name[11:]
+        assert env_last_name in {'Ant', 'Humanoid'}
+
+        if env_name.find('IsaacOneEnv') >= 0:
+            env = PreprocessIsaacOneEnv(env_last_name, env_num=1, device_id=device_id)
+        elif env_name.find('IsaacVecEnv') >= 0:
+            env = PreprocessIsaacVecEnv(env_last_name, env_num=env_num, device_id=device_id)
+        else:
+            raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
+        return env
     # elif env_name[:10] in {'StockDOW5', 'StockDOW30', 'StockNAS74', 'StockNAS89'}:
     #     if_eval = env_name.find('eval') != -1
     #     gamma = 0.993
@@ -172,25 +185,15 @@ def build_env(env, if_print=False):
     return env
 
 
-def build_isaac_gym_env(env, if_print=False, device_id=2):  # todo isaac 2021-09-24
-    env_name = getattr(env, 'env_name', env)
-    assert isinstance(env_name, str)
-
-    env_last_name = env_name[11:]
-    assert env_last_name in {'Ant', 'Humanoid'}
-    target_return = {'Ant': 4000, 'Humanoid': 7000}[env_last_name]
-    env_num = 16
-
-    from envs.IsaacGym import PreprocessIsaacEnv, PreprocessIsaacVecEnv
-    if env_name.find('IsaacOneEnv') != -1:
-        env = PreprocessIsaacEnv(env_last_name, target_return=target_return, if_print=if_print,
-                                 env_num=1, device_id=device_id)
-    elif env_name.find('IsaacVecEnv') != -1:
-        env = PreprocessIsaacVecEnv(env_last_name, target_return=target_return, if_print=if_print,
-                                    env_num=env_num, device_id=device_id)
+def build_eval_env(eval_env, env, eval_gpu_id, env_num):
+    if isinstance(eval_env, str):
+        eval_env = build_env(env=eval_env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
+    elif eval_env is None:
+        eval_env = build_env(env=env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
     else:
-        raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
-    return env
+        assert hasattr(eval_env, 'reset')
+        assert hasattr(eval_env, 'step')
+    return eval_env
 
 
 def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):

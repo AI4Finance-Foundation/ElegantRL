@@ -802,16 +802,36 @@ class AgentPPO(AgentBase):
         return traj_list
 
     def convert_trajectory(self, traj_list, reward_scale, gamma):
+        # for traj in traj_list:  # todo one env
+        #     temp = list(map(list, zip(*traj)))  # 2D-list transpose
+        #
+        #     ten_state = torch.cat(temp[0])
+        #     ten_reward = torch.as_tensor(temp[1], dtype=torch.float32) * reward_scale
+        #     ten_mask = (1.0 - torch.as_tensor(temp[2], dtype=torch.float32)) * gamma
+        #     ten_action = torch.cat(temp[3])
+        #     ten_noise = torch.cat(temp[4])
+        #
+        #     traj[:] = (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
+        #
+        #     print(';;2')
+        #     print(';;', [ten.shape for ten in traj])
+        #     print(';;')
         for traj in traj_list:
             temp = list(map(list, zip(*traj)))  # 2D-list transpose
 
-            ten_state = torch.cat(temp[0])
+            ten_state = torch.stack(temp[0])
             ten_reward = torch.as_tensor(temp[1], dtype=torch.float32) * reward_scale
             ten_mask = (1.0 - torch.as_tensor(temp[2], dtype=torch.float32)) * gamma
-            ten_action = torch.cat(temp[3])
-            ten_noise = torch.cat(temp[4])
+            ten_action = torch.stack(temp[3])
+            ten_noise = torch.stack(temp[4])
 
             traj[:] = (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
+
+            # print(';;2')
+            # # print(';;', [ten.shape for ten in traj])
+            # print(';;', len(temp), len(temp[0]), temp[0][0].shape)
+            # print(';;', type(temp), type(temp[0]), type(temp[0][0]))
+            # print(';;')
         return traj_list
 
 
