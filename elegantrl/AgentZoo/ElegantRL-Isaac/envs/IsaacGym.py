@@ -12,7 +12,7 @@ can't use os.environ['LD_LIBRARY_PATH'] = /xfs/home/podracer_steven/anaconda3/en
 
 
 class PreprocessIsaacVecEnv:  # environment wrapper
-    def __init__(self, env_name, target_return=None, if_print=True, headless=True, data_type=torch.float32,
+    def __init__(self, env_name, target_return=None, if_print=False, headless=True, data_type=torch.float32,
                  env_num=32, device_id=0):
         """Preprocess an Isaac Gym vec environment for RL training.
         [Isaac Gym](https://developer.nvidia.com/isaac-gym)"""
@@ -75,11 +75,11 @@ class PreprocessIsaacVecEnv:  # environment wrapper
         return self.env.reset()
 
     def step(self, actions: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, None):
-        return self.env.step(actions)
+        return self.env.step(actions)[:3]
 
 
-class PreprocessIsaacEnv(PreprocessIsaacVecEnv):  # environment wrapper
-    def __init__(self, env_name, target_return=None, if_print=True, headless=True, data_type=torch.float32,
+class PreprocessIsaacOneEnv(PreprocessIsaacVecEnv):  # environment wrapper
+    def __init__(self, env_name, target_return=None, if_print=False, headless=True, data_type=torch.float32,
                  env_num=1, device_id=0):
         assert env_num == 1
         super().__init__(env_name=env_name,
@@ -113,8 +113,8 @@ def build_isaac_gym_env(env, if_print=False, device_id=0):
     target_return = {'Ant': 4000, 'Humanoid': 7000}[env_last_name]
 
     if env_name.find('IsaacOneEnv') != -1:
-        env = PreprocessIsaacEnv(env_last_name, target_return=target_return, if_print=if_print,
-                                 env_num=1, device_id=device_id)
+        env = PreprocessIsaacOneEnv(env_last_name, target_return=target_return, if_print=if_print,
+                                    env_num=1, device_id=device_id)
     elif env_name.find('IsaacVecEnv') != -1:
         env = PreprocessIsaacVecEnv(env_last_name, target_return=target_return, if_print=if_print,
                                     env_num=32, device_id=device_id)
