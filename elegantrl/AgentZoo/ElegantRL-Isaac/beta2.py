@@ -5,6 +5,7 @@ from elegantrl.demo import *
 def demo_isaac_on_policy():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
+    args.agent.if_use_cri_target = True  # todo
     args.random_seed += 1943
 
     if_train_ant = 1
@@ -24,17 +25,17 @@ def demo_isaac_on_policy():
 
         args.agent.lambda_entropy = 0.05
         args.agent.lambda_gae_adv = 0.97
-        args.learning_rate = 2 ** -15
+        args.learning_rate = 2 ** -14
         args.if_per_or_gae = True
         args.break_step = int(8e7)
 
         args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
-        args.repeat_times = 2 ** 1
+        args.repeat_times = 2 ** 4
         args.net_dim = 2 ** 9
         args.batch_size = args.net_dim * 2 ** 3
-        args.target_step = 2 ** 9  # todo
+        args.target_step = 2 ** 10  # todo
 
-        args.break_step = int(2e7)
+        args.break_step = int(2e8)
         args.if_allow_break = False
 
     if_train_humanoid = 0
@@ -64,8 +65,8 @@ def demo_isaac_on_policy():
     args.init_before_training()
 
     # train_and_evaluate(args)
-    args.workers_gpus = (3, )
-    args.learner_gpus = (3, )
+    args.learner_gpus = (2,)
+    args.workers_gpus = args.learner_gpus
     args.worker_num = 1
     train_and_evaluate_mp(args)
 

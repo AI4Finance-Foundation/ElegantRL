@@ -17,6 +17,7 @@ def demo_isaac_on_policy():
     if if_train_ant:
         # env = build_env('IsaacOneEnvAnt', if_print=True, device_id=0, env_num=1)
         args.eval_env = 'IsaacOneEnvAnt'
+        args.agnet.if_use_cri_target = True
         args.eval_gpu_id = 7
 
         # env = build_env('IsaacVecEnvAnt', if_print=True, device_id=0, env_num=2)
@@ -76,7 +77,7 @@ def demo_isaac_on_policy():
     args.init_before_training()
 
     # train_and_evaluate(args)
-    args.learner_gpus = (4, )
+    args.learner_gpus = (5, )
     args.workers_gpus = args.learner_gpus
     args.worker_num = 1
     train_and_evaluate_mp(args)
