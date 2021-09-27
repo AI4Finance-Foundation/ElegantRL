@@ -162,9 +162,9 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
         assert env_last_name in {'Ant', 'Humanoid'}
 
         if env_name.find('IsaacOneEnv') >= 0:
-            env = PreprocessIsaacOneEnv(env_last_name, env_num=1, device_id=device_id)
+            env = PreprocessIsaacOneEnv(env_last_name, if_print=if_print, env_num=1, device_id=device_id)
         elif env_name.find('IsaacVecEnv') >= 0:
-            env = PreprocessIsaacVecEnv(env_last_name, env_num=env_num, device_id=device_id)
+            env = PreprocessIsaacVecEnv(env_last_name, if_print=if_print, env_num=env_num, device_id=device_id)
         else:
             raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
         return env

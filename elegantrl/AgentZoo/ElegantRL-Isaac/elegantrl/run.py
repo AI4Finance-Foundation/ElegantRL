@@ -132,7 +132,7 @@ def train_and_evaluate(args, learner_id=0):
 
     '''init Evaluator'''
     eval_env = build_eval_env(args.eval_env, args.env, args.eval_gpu_id, args.env_num)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=0, device=agent.device,
+    evaluator = Evaluator(cwd=args.cwd, agent_id=0, device=agent.device, target_return=args.target_return,
                           eval_env=eval_env, eval_gap=args.eval_gap,
                           eval_times1=args.eval_times1, eval_times2=args.eval_times2)
     evaluator.save_or_load_recoder(if_save=False)
@@ -431,7 +431,7 @@ class PipeEvaluator:
 
         '''init Evaluator'''
         eval_env = build_eval_env(args.eval_env, args.env, args.eval_gpu_id, args.env_num)
-        evaluator = Evaluator(cwd=args.cwd, agent_id=0, device=agent.device,
+        evaluator = Evaluator(cwd=args.cwd, agent_id=0, device=agent.device, target_return=args.target_return,
                               eval_env=eval_env, eval_gap=args.eval_gap,
                               eval_times1=args.eval_times1, eval_times2=args.eval_times2)
         evaluator.save_or_load_recoder(if_save=False)

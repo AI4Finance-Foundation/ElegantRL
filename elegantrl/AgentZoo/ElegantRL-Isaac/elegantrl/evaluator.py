@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, ):
+    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, target_return):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
@@ -18,7 +18,7 @@ class Evaluator:
         self.eval_gap = eval_gap
         self.eval_times1 = eval_times1
         self.eval_times2 = eval_times2
-        self.target_return = eval_env.target_return
+        self.target_return = target_return
 
         self.r_max = -np.inf
         self.eval_time = 0
