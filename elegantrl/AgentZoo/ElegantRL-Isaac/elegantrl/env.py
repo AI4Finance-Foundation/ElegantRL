@@ -133,8 +133,10 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
 
 
 def build_env(env, if_print=False):
-    env_name = getattr(env, 'env_name', env)
-    assert isinstance(env_name, str)
+    if isinstance(env, str):
+        env_name = env
+    else:
+        env_name = env.env_name
 
     if env_name in {'LunarLanderContinuous-v2', 'BipedalWalker-v3', 'BipedalWalkerHardcore-v3',
                     'CartPole-v0', 'LunarLander-v2', }:

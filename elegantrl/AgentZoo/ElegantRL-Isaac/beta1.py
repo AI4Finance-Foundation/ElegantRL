@@ -1,5 +1,5 @@
-from envs.IsaacGym import *
 from elegantrl.demo import *
+from envs.IsaacGym import *  # todo isaac
 
 
 class Arguments:
@@ -93,7 +93,7 @@ class Arguments:
             os.makedirs(self.cwd, exist_ok=True)
 
 
-def demo_isaacgym_on_policy():
+def demo_isaac_on_policy():
     args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.visible_gpu = '3'
@@ -154,4 +154,4 @@ def demo_isaacgym_on_policy():
 
 
 if __name__ == '__main__':
-    demo_isaacgym_on_policy()
+    demo_isaac_on_policy()

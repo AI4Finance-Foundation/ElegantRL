@@ -6,15 +6,15 @@ import numpy as np
 import numpy.random as rd
 import multiprocessing as mp
 
-# from elegantrl.env import build_env
-from elegantrl.env import build_isaac_gym_env as build_env  # todo isaac
+from elegantrl.env import build_env
+# from elegantrl.env import build_isaac_gym_env as build_env  # todo isaac
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
 """[ElegantRL.2021.09.09](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
-class Arguments:
+class Arguments0:
     def __init__(self, if_on_policy=False):
         self.env = None  # the environment for training
         self.agent = None  # Deep Reinforcement Learning algorithm
@@ -24,6 +24,13 @@ class Arguments:
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
+
+        '''environment information'''
+        self.state_dim = None
+        self.action_dim = None
+        self.if_discrete = None
+        self.max_step = None
+        self.target_return = None
 
         self.if_on_policy = if_on_policy
         if self.if_on_policy:  # (on-policy)
@@ -103,18 +110,132 @@ class Arguments:
                 print(f"| Remove cwd: {self.cwd}")
             os.makedirs(self.cwd, exist_ok=True)
 
+    def init_env_info(self, env=None, state_dim=None, action_dim=None,
+                      if_discrete=None, max_step=None, target_return=None):
+        try:
+            self.max_step = env.max_step
+            self.state_dim = env.state_dim
+            self.action_dim = env.action_dim
+            self.if_discrete = env.if_discrete
+            self.target_return = env.target_return
+        except AttributeError:
+            self.max_step = max_step
+            self.state_dim = state_dim
+            self.action_dim = action_dim
+            self.if_discrete = if_discrete
+            self.target_return = target_return
+
+            assert all((self.state_dim, self.action_dim, self.if_discrete,
+                        self.max_step, self.target_return))  # not elegant
+
+
+class Arguments:
+    def __init__(self, if_on_policy=False):
+        self.env = None  # the environment for training
+        self.agent = None  # Deep Reinforcement Learning algorithm
+
+        '''Arguments for training'''
+        self.gamma = 0.99  # discount factor of future rewards
+        self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
+        self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
+        self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
+
+        '''environment information'''
+        self.state_dim = None
+        self.action_dim = None
+        self.if_discrete = None
+        self.max_step = None
+        self.target_return = None
+
+        self.if_on_policy = if_on_policy  # not elegant
+        if self.if_on_policy:  # (on-policy)
+            self.net_dim = 2 ** 9  # the network width
+            self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
+            self.repeat_times = 2 ** 3  # collect target_step, then update network
+            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
+            self.max_memo = self.target_step  # capacity of replay buffer
+            self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
+        else:
+            self.net_dim = 2 ** 8  # the network width
+            self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
+            self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
+            self.target_step = 2 ** 10  # collect target_step, then update network
+            self.max_memo = 2 ** 21  # capacity of replay buffer
+            self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+
+        '''Arguments for device'''
+        self.env_num = 1  # The Environment number for each worker. env_num == 1 means don't use VecEnv.
+        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
+        self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.random_seed = 0  # initialize random seed in self.init_before_training()
+        self.vec_env_gpus = ()  # todo for isaac gym
+        self.learner_gpus = (0,)  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
+
+        '''Arguments for evaluate and save'''
+        self.cwd = None  # current work directory. None means set automatically
+        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
+        self.break_step = 2 ** 20  # break training after 'total_step > break_step'
+        self.if_allow_break = True  # allow break training when reach goal (early termination)
+
+        self.eval_env = None  # the environment for evaluating. None means set automatically.
+        self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
+        self.eval_times1 = 2 ** 3  # number of times that get episode return in first
+        self.eval_times2 = 2 ** 4  # number of times that get episode return in second
+        self.eval_device_id = -1  # -1 means use cpu, >=0 means use GPU
+
+    def init_before_training(self):
+        np.random.seed(self.random_seed)
+        torch.manual_seed(self.random_seed)
+        torch.set_num_threads(self.thread_num)
+        torch.set_default_dtype(torch.float32)
+
+        '''env'''
+        if isinstance(self.env, str):
+            assert self.max_step is not None
+            assert self.state_dim is not None
+            assert self.action_dim is not None
+            assert self.if_discrete is not None
+            assert self.target_return is not None
+        else:
+            self.max_step = self.env.max_step
+            self.state_dim = self.env.state_dim
+            self.action_dim = self.env.action_dim
+            self.if_discrete = self.env.if_discrete
+            self.target_return = self.env.target_return
+
+        '''agent'''
+        assert hasattr(self.agent, 'init')
+        assert self.agent.if_on_policy == self.if_on_policy
+
+        '''cwd'''
+        if self.cwd is None:
+            agent_name = self.agent.__class__.__name__
+            env_name = getattr(self.env, 'env_name', self.env)
+            self.cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
+
+        # remove history according to bool(if_remove)
+        if self.if_remove is None:
+            self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
+        elif self.if_remove:
+            import shutil
+            shutil.rmtree(self.cwd, ignore_errors=True)
+            print(f"| Remove cwd: {self.cwd}")
+        else:
+            print(f"| Keep cwd: {self.cwd}")
+        os.makedirs(self.cwd, exist_ok=True)
+
 
 '''single processing training'''
 
 
-def train_and_evaluate(args, agent_id=0):
-    args.init_before_training(if_main=True)
-
+def train_and_evaluate(args, learner_id=0):
     env = build_env(args.env, if_print=False)
 
     '''init: Agent'''
     agent = args.agent
-    agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate, args.if_per_or_gae, args.env_num)
+    agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
+               state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
+               learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
     agent.save_or_load_agent(args.cwd, if_save=False)
     if env.env_num == 1:
         agent.states = [env.reset(), ]
@@ -128,12 +249,13 @@ def train_and_evaluate(args, agent_id=0):
     '''init Evaluator'''
     eval_env = args.eval_env if args.eval_env else build_env(env)
 
-    evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
-                          args.eval_gap, args.eval_times1, args.eval_times2)
+    evaluator = Evaluator(cwd=args.cwd, agent_id=0, device=agent.device,
+                          eval_env=eval_env, eval_gap=args.eval_gap,
+                          eval_times1=args.eval_times1, eval_times2=args.eval_times2)
     evaluator.save_or_load_recoder(if_save=False)
 
     '''init ReplayBuffer'''
-    if agent.if_on_policy:
+    if args.if_on_policy:
         buffer = list()
 
         def update_buffer(_traj_list):
@@ -222,13 +344,14 @@ class PipeWorker:
 
     def run(self, args, comm_env, worker_id, learner_id):
         # print(f'| os.getpid()={os.getpid()} PipeExplore.run {learner_id}')
-        args.init_before_training(if_main=False)
+        pass
 
         '''init Agent'''
         env = build_env(args.env, if_print=False)
         agent = args.agent
-        agent.init(args.net_dim, env.state_dim, env.action_dim,
-                   args.learning_rate, args.if_per_or_gae, args.env_num, learner_id)
+        agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
+                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
 
         '''loop'''
         gamma = args.gamma
@@ -323,21 +446,17 @@ class PipeLearner:
 
     def run(self, args, comm_eva, comm_exp, learner_id=0):
         # print(f'| os.getpid()={os.getpid()} PipeLearn.run, {learner_id}')
-        args.init_before_training(if_main=learner_id == 0)
-
-        # env = build_env(args.env, if_print=False)
-        if_on_policy = args.if_on_policy
+        pass
 
         '''init Agent'''
         agent = args.agent
-        # agent.init(args.net_dim, env.state_dim, env.action_dim,
-        #            args.learning_rate, args.if_per_or_gae, args.env_num, learner_id)
-        agent.init(args.net_dim, args.state_dim, args.action_dim,
-                   args.learning_rate, args.if_per_or_gae, args.env_num, learner_id)  # todo isaac
+        agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
+                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init ReplayBuffer'''
-        if if_on_policy:
+        if agent.if_on_policy:
             buffer = list()
 
             def update_buffer(_traj_list):
@@ -398,7 +517,7 @@ class PipeLearner:
                 if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
 
         agent.save_or_load_agent(cwd, if_save=True)
-        if not if_on_policy:
+        if not agent.if_on_policy:
             print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
             buffer.save_or_load_history(cwd, if_save=True)
 
@@ -419,17 +538,21 @@ class PipeEvaluator:
         self.pipe1.send((act_cpu_dict, steps, r_exp, logging_tuple))
         return if_train, if_save
 
-    def run(self, args, agent_id):
+    def run(self, args, _learner_id):
         # print(f'| os.getpid()={os.getpid()} PipeEvaluate.run {agent_id}')
-        args.init_before_training(if_main=False)
+        pass
 
         '''init: Agent'''
-        # eval_env = args.eval_env if args.eval_env else build_env(env, if_print=False)
-        eval_env = build_env(args.eval_env, if_print=False)  # todo isaac
-        env = eval_env
+        eval_env = args.eval_env
+        if eval_env is None:
+            eval_env = args.env
+        if isinstance(eval_env, str):
+            eval_env = build_env(eval_env, if_print=False)
+
         agent = args.agent
-        agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate,
-                   args.if_per_or_gae, args.env_num, agent_id=args.eval_device_id)
+        agent.init(net_dim=args.net_dim, gpu_id=-1,  # not elegant, gpu_id=-1 means use CPU
+                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         act_cpu = agent.act
@@ -437,11 +560,11 @@ class PipeEvaluator:
         [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
 
         '''init Evaluator'''
-        evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
-                              args.eval_gap, args.eval_times1, args.eval_times2)
+        evaluator = Evaluator(cwd=args.cwd, agent_id=0, device=agent.device,
+                              eval_env=eval_env, eval_gap=args.eval_gap,
+                              eval_times1=args.eval_times1, eval_times2=args.eval_times2)
         evaluator.save_or_load_recoder(if_save=False)
         del agent
-        del env
 
         '''loop'''
         cwd = args.cwd
@@ -543,7 +666,7 @@ def train_and_evaluate_mp(args, agent_id=0):
     mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 
     '''learner'''
-    learner_num = get_num_learner(args.visible_gpu)
+    learner_num = len(args.learner_gpus)
     learner_pipe = PipeLearner(learner_num)
     for learner_id in range(learner_num):
         '''evaluator'''
