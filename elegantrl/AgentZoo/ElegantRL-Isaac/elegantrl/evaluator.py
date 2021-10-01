@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, ):
+    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, target_return):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
@@ -18,7 +18,7 @@ class Evaluator:
         self.eval_gap = eval_gap
         self.eval_times1 = eval_times1
         self.eval_times2 = eval_times2
-        self.target_return = eval_env.target_return
+        self.target_return = target_return
 
         self.r_max = -np.inf
         self.eval_time = 0
@@ -115,16 +115,24 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
 
     max_step = env.max_step
     if_discrete = env.if_discrete
+    if if_discrete:
+        def get_action(_state):
+            _state = torch.as_tensor(_state, dtype=torch.float32, device=device)
+            _action = act(_state.unsqueeze(0))
+            _action = _action.argmax(dim=1)[0]
+            return _action.detach().cpu().numpy()
+    else:
+        def get_action(_state):
+            _state = torch.as_tensor(_state, dtype=torch.float32, device=device)
+            _action = act(_state.unsqueeze(0))[0]
+            return _action.detach().cpu().numpy()
 
     state = env.reset()
     for episode_step in range(max_step):
-        s_tensor = torch.as_tensor((state,), device=device)
-        a_tensor = act(s_tensor)
-        if if_discrete:
-            a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        action = get_action(state)
         state, reward, done, _ = env.step(action)
         episode_return += reward
+
         if done:
             break
     episode_return = getattr(env, 'episode_return', episode_return)

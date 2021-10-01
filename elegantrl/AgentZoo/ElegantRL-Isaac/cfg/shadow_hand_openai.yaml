@@ -1,0 +1,168 @@
+# if given, will override the device setting in gym. 
+env: 
+  numEnvs: 16384
+  envSpacing: 0.75
+  episodeLength: 160 # Not used, but would be 8 sec if resetTime is not set
+  resetTime: 8 # Max time till reset, in seconds, if a goal wasn't achieved. Will overwrite the episodeLength if is > 0.
+  enableDebugVis: False
+  aggregateMode: 1
+
+  stiffnessScale: 1.0
+  forceLimitScale: 1.0
+  useRelativeControl: False
+  dofSpeedScale: 20.0
+  actionsMovingAverage: 0.3
+  controlFrequencyInv: 3 # 20 Hz
+
+  startPositionNoise: 0.01
+  startRotationNoise: 0.0
+
+  resetPositionNoise: 0.01
+  resetRotationNoise: 0.0
+  resetDofPosRandomInterval: 0.2
+  resetDofVelRandomInterval: 0.0
+
+  distRewardScale: -10.0
+  rotRewardScale: 1.0
+  rotEps: 0.1
+  actionPenaltyScale: -0.0002
+  reachGoalBonus: 250
+  fallDistance: 0.24
+  fallPenalty: -50.0
+
+  objectType: "block" # can be block, egg or pen
+  observationType: "openai" # can be "openai", "full_no_vel", "full","full_state"
+  asymmetric_observations: True
+  successTolerance: 0.1
+  printNumSuccesses: False
+  maxConsecutiveSuccesses: 50
+  averFactor: 0.1
+
+  asset:
+    assetRoot: "../../assets"
+    assetFileName: "mjcf/open_ai_assets/hand/shadow_hand.xml"
+    assetFileNameBlock: "urdf/objects/cube_multicolor.urdf"
+    assetFileNameEgg: "mjcf/open_ai_assets/hand/egg.xml"
+    assetFileNamePen: "mjcf/open_ai_assets/hand/pen.xml"
+
+task:
+  randomize: True
+  randomization_params:
+    frequency: 720   # Define how many simulation steps between generating new randomizations
+    observations:
+      range: [0, .002] # range for the white noise
+      range_correlated: [0, .001 ] # range for correlated noise, refreshed with freq `frequency`
+      operation: "additive"
+      distribution: "gaussian"
+      # schedule: "linear"   # "constant" is to turn on noise after `schedule_steps` num steps
+      # schedule_steps: 40000
+    actions:
+      range: [0., .05]
+      range_correlated: [0, .015] # range for correlated noise, refreshed with freq `frequency`
+      operation: "additive"
+      distribution: "gaussian"
+      # schedule: "linear"  # "linear" will linearly interpolate between no rand and max rand
+      # schedule_steps: 40000
+    sim_params: 
+      gravity:
+        range: [0, 0.4]
+        operation: "additive"
+        distribution: "gaussian"
+        # schedule: "linear"  # "linear" will linearly interpolate between no rand and max rand
+        # schedule_steps: 40000
+    actor_params:
+      hand:
+        color: True
+        tendon_properties:
+          damping:
+            range: [0.3, 3.0]
+            operation: "scaling"
+            distribution: "loguniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+          stiffness:
+            range: [0.75, 1.5]
+            operation: "scaling"
+            distribution: "loguniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+        dof_properties:
+          damping: 
+            range: [0.3, 3.0]
+            operation: "scaling"
+            distribution: "loguniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+          stiffness: 
+            range: [0.75, 1.5]
+            operation: "scaling"
+            distribution: "loguniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+          lower:
+            range: [0, 0.01]
+            operation: "additive"
+            distribution: "gaussian"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+          upper:
+            range: [0, 0.01]
+            operation: "additive"
+            distribution: "gaussian"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+        rigid_body_properties:
+          mass: 
+            range: [0.5, 1.5]
+            operation: "scaling"
+            distribution: "uniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+        rigid_shape_properties:
+          friction: 
+            num_buckets: 250
+            range: [0.7, 1.3]
+            operation: "scaling"
+            distribution: "uniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+      object:
+        scale:
+          range: [0.95, 1.05]
+          operation: "scaling"
+          distribution: "uniform"
+          # schedule: "linear"  # "linear" will scale the current random sample by ``min(current num steps, schedule_steps) / schedule_steps`
+          # schedule_steps: 30000
+        rigid_body_properties:
+          mass: 
+            range: [0.5, 1.5]
+            operation: "scaling"
+            distribution: "uniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by ``min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+        rigid_shape_properties:
+          friction:
+            num_buckets: 250
+            range: [0.7, 1.3]
+            operation: "scaling"
+            distribution: "uniform"
+            # schedule: "linear"  # "linear" will scale the current random sample by `min(current num steps, schedule_steps) / schedule_steps`
+            # schedule_steps: 30000
+
+sim:
+  substeps: 2
+  physx:
+    num_threads: 4
+    solver_type: 1  # 0: pgs, 1: tgs
+    num_position_iterations: 8
+    num_velocity_iterations: 0
+    contact_offset: 0.002
+    rest_offset: 0.0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 1000.0
+    default_buffer_size_multiplier: 5.0
+  flex:
+    num_outer_iterations: 5
+    num_inner_iterations: 20
+    warm_start: 0.8
+    relaxation: 0.75

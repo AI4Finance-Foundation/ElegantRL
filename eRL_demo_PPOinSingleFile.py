@@ -102,7 +102,6 @@ class AgentPPO:
         self.state = None
         self.device = None
         self.action_dim = None
-        self.if_on_policy = True
         self.get_obj_critic = None
 
         self.criterion = torch.nn.SmoothL1Loss()
@@ -119,9 +118,9 @@ class AgentPPO:
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
         self.trajectory_list = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False, gpu_id=0, env_num=1):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-        self.trajectory_list = [list() for _ in range(env_num)]
+        self.trajectory_list = list()
         self.get_reward_sum = self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
         self.cri = self.ClassCri(net_dim, state_dim, action_dim).to(self.device)
@@ -155,8 +154,8 @@ class AgentPPO:
         self.state = state
 
         '''splice list'''
-        trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
-        self.trajectory_list[0] = trajectory_temp[last_done:]
+        trajectory_list = self.trajectory_list + trajectory_temp[:last_done + 1]
+        self.trajectory_list = trajectory_temp[last_done:]
         return trajectory_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
@@ -261,8 +260,9 @@ class AgentDiscretePPO(AgentPPO):
         self.state = state
 
         '''splice list'''
-        trajectory_list = self.trajectory_list[0] + trajectory_temp[:last_done + 1]
-        self.trajectory_list[0] = trajectory_temp[last_done:]
+        trajectory_list = self.trajectory_list + trajectory_temp[:last_done + 1]
+        self.trajectory_list \
+            = trajectory_temp[last_done:]
         return trajectory_list
 
 
@@ -270,7 +270,7 @@ class AgentDiscretePPO(AgentPPO):
 
 
 class Arguments:
-    def __init__(self, agent=None, env=None, if_on_policy=False):
+    def __init__(self, agent=None, env=None):
         self.agent = agent  # Deep Reinforcement Learning algorithm
         self.env = env  # the environment for training
 
@@ -289,25 +289,16 @@ class Arguments:
         self.learning_rate = 2 ** -14  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
-        if if_on_policy:  # (on-policy)
-            self.net_dim = 2 ** 9  # the network width
-            self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 3  # collect target_step, then update network
-            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
-            self.max_memo = self.target_step  # capacity of replay buffer
-            self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
-        else:
-            self.net_dim = 2 ** 8  # the network width
-            self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
-            self.target_step = 2 ** 10  # collect target_step, then update network
-            self.max_memo = 2 ** 17  # capacity of replay buffer
-            self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+        self.net_dim = 2 ** 9  # the network width
+        self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
+        self.repeat_times = 2 ** 3  # collect target_step, then update network
+        self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
+        self.max_memo = self.target_step  # capacity of replay buffer
+        self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
 
         '''Arguments for evaluate'''
         self.eval_gap = 2 ** 6  # evaluate the agent per eval_gap seconds
-        self.eval_times1 = 2  # number of times that get episode return in first
-        self.eval_times2 = 4  # number of times that get episode return in second
+        self.eval_times = 2  # number of times that get episode return in first
         self.random_seed = 0  # initialize random seed in self.init_before_training()
 
     def init_before_training(self, if_main):
@@ -343,8 +334,7 @@ def train_and_evaluate(args, agent_id=0):
 
     '''init Evaluator'''
     eval_env = deepcopy(env)
-    evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
-                          args.eval_times1, args.eval_times2, args.eval_gap)
+    evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env, args.eval_times, args.eval_gap)
 
     '''init ReplayBuffer'''
     buffer = list()
@@ -395,7 +385,7 @@ def train_and_evaluate(args, agent_id=0):
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, device, env, eval_times1, eval_times2, eval_gap, ):
+    def __init__(self, cwd, agent_id, device, env, eval_times, eval_gap, ):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
         self.r_max = -np.inf
@@ -406,8 +396,7 @@ class Evaluator:
         self.device = device
         self.agent_id = agent_id
         self.eval_gap = eval_gap
-        self.eval_times1 = eval_times1
-        self.eval_times2 = eval_times2
+        self.eval_times = eval_times
         self.target_return = env.target_return
 
         self.used_time = None
@@ -426,13 +415,9 @@ class Evaluator:
 
         self.eval_time = time.time()
         rewards_steps_list = [get_episode_return_and_step(self.env, act, self.device) for _ in
-                              range(self.eval_times1)]
+                              range(self.eval_times)]
         r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
-        if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-            rewards_steps_list += [get_episode_return_and_step(self.env, act, self.device)
-                                   for _ in range(self.eval_times2 - self.eval_times1)]
-            r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
         if r_avg > self.r_max:  # save checkpoint with highest episode return
             self.r_max = r_avg  # update max reward (episode return)
 
@@ -547,10 +532,10 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
 
 
 def demo_continuous_action():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments()  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.agent.cri_target = True
-    args.visible_gpu = '0'
+    args.visible_gpu = '1'
 
     if_train_pendulum = 1
     if if_train_pendulum:
@@ -582,9 +567,9 @@ def demo_continuous_action():
 
 
 def demo_discrete_action():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments()  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentDiscretePPO()
-    args.visible_gpu = '0'
+    args.visible_gpu = '2'
 
     if_train_cart_pole = 1
     if if_train_cart_pole:
@@ -604,5 +589,5 @@ def demo_discrete_action():
 
 
 if __name__ == '__main__':
-    demo_continuous_action()
-    # demo_discrete_action()
+    # demo_continuous_action()
+    demo_discrete_action()

@@ -1,0 +1,28 @@
+seed: -1
+policy: # only works for MlpPolicy right now
+  pi_hid_sizes: [32, 32]
+  vf_hid_sizes: [32, 32]
+  activation: elu # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+learn:
+  agent_name: pytorch_ppo
+  resume: 0
+  test: False
+  print_log: True
+  save_interval: 10 # check for potential saves every this many iterations
+
+  # rollout params
+  max_iterations: 500
+
+  # training params
+  cliprange: 0.2
+  ent_coef: 0
+  nsteps: 16
+  noptepochs: 8
+  nminibatches: 2 # this is per agent
+  optim_stepsize: 3.e-4 # 3e-4 isefault for single agent training with constant schedule
+  schedule: adaptive # could be adaptive or linear or fixed
+  gamma: 0.99
+  lam: 0.95
+  init_noise_std: 1.0
+
+  log_interval: 10

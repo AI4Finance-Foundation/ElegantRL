@@ -1,0 +1,13 @@
+# if given, will override the device setting in gym. 
+env:
+  numEnvs: 512
+  envSpacing: 4.0
+  resetDist: 3.0
+  maxEffort: 400.0
+
+  asset:
+    assetRoot: "../../assets"
+    assetFileName: "urdf/cartpole.urdf"
+  
+task:
+  randomize: False

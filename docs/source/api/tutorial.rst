@@ -23,7 +23,7 @@ class QNet(*nn.Module*)
 
 - __init__(*self, mid_dim, state_dim, action_dim*)
 
-The network has four layers with ReLU activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU activation functions.
+The network has four layers with ReLU activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``.
 
 - forward(*self, state*)
 
@@ -948,6 +948,10 @@ class ReplayBuffer
                 print(f"| ReplayBuffer load: {save_path}")
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> f9fda245867c2c799640ee9bfe40316904ccd5c4
 Environment: *env.py*
 ---------------------
 
@@ -1270,4 +1274,8 @@ def get_gym_env_info(env, if_print)
         print(f"\n| env_name:  {env_name}, action if_discrete: {if_discrete}"
             f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}, action_max: {action_max}"
             f"\n| max_step:  {max_step:4}, target_return: {target_return}") if if_print else None
+<<<<<<< HEAD
         return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_return
+=======
+        return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_return
+>>>>>>> f9fda245867c2c799640ee9bfe40316904ccd5c4

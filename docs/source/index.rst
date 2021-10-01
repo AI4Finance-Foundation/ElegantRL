@@ -7,7 +7,7 @@ Welcome to ElegantRL's documentation!
 =====================================
 
 .. image:: ./images/logo.png
-   :width: 100%
+   :width: 50%
    :align: center
    :target: https://github.com/AI4Finance-Foundation/ElegantRL
 

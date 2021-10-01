@@ -1,0 +1,78 @@
+# if given, will override the device setting in gym. 
+env: 
+  numEnvs: 1024
+  envSpacing: 5
+  episodeLength: 1000
+  enableDebugVis: False
+
+  powerScale: 1.0
+  controlFrequencyInv: 1 # 60 Hz
+
+  # reward parameters
+  headingWeight: 0.5
+  upWeight: 0.1
+
+  # cost parameters
+  actionsCost: 0.005
+  energyCost: 0.05
+  dofVelocityScale: 0.2
+  contactForceScale: 0.1
+  jointsAtLimitCost: 0.1
+  deathCost: -2.0
+  terminationHeight: 0.31
+
+  plane:
+    staticFriction: 1.0
+    dynamicFriction: 1.0
+    restitution: 0.0
+
+  asset:
+    assetRoot: "../../assets"
+    assetFileName: "mjcf/nv_ant.xml"
+
+sim:
+  substeps: 2
+
+  physx:
+    num_threads: 4
+    solver_type: 1  # 0: pgs, 1: tgs
+    num_position_iterations: 4
+    num_velocity_iterations: 0
+    contact_offset: 0.02
+    rest_offset: 0.0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 10.0
+
+  flex:
+    num_outer_iterations: 4
+    num_inner_iterations: 6
+    warm_start: 0.25
+
+task:
+  randomize: False
+  randomization_params:
+    # specify which attributes to randomize for each actor type and property
+    frequency: 600   # Define how many environment steps between generating new randomizations
+    actions:
+      range: [0.0, 0.1]
+      operation: "additive"
+      distribution: "gaussian"
+      schedule: "linear"  # "linear" will linearly interpolate between no rand and max rand
+      schedule_steps: 5000
+    actor_params:
+      ant:
+        color: True
+        rigid_body_properties:
+          mass: 
+            range: [0.5, 1.5]
+            operation: "scaling"
+            distribution: "uniform"
+            schedule: "linear"
+            schedule_steps: 5
+        rigid_shape_properties:
+          thickness:
+            range: [0.95, 1.05]
+            operation: "scaling"
+            distribution: "uniform"
+            schedule: "linear"
+            schedule_steps: 5

@@ -130,7 +130,7 @@ def demo_continuous_action_on_policy():
 def demo_discrete_action_off_policy():
     args = Arguments(if_on_policy=False)
     args.agent = AgentD3QN()  # AgentD3QN AgentDuelDQN AgentDoubleDQN AgentDQN
-    args.visible_gpu = '3,1'
+    args.visible_gpu = '1'
 
     if_train_cart_pole = 0
     if if_train_cart_pole:
@@ -153,11 +153,10 @@ def demo_discrete_action_off_policy():
         args.max_memo = 2 ** 19
         args.repeat_times = 2 ** 1
 
-    # train_and_evaluate(args)
-    args.worker_num = 4
-    args.learning_rate = 2 ** -16
-    args.target_step = args.env.max_step // 2
-    train_and_evaluate_mp(args)
+    train_and_evaluate(args)
+    # args.worker_num = 4
+    # args.target_step = args.env.max_step // 2
+    # train_and_evaluate_mp(args)
 
 
 def demo_discrete_action_on_policy():
@@ -180,12 +179,15 @@ def demo_discrete_action_on_policy():
         args.if_per_or_gae = True
 
     train_and_evaluate(args)
+    # args.worker_num = 4
+    # args.target_step = args.env.max_step * 2
+    # train_and_evaluate_mp(args)
 
 
 def demo_pybullet_off_policy():
     args = Arguments(if_on_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentModSAC()
-    args.visible_gpu = sys.argv[-1]  # '0'
+    args.visible_gpu = '0'
     args.random_seed += 19431
 
     if_train_ant = 1

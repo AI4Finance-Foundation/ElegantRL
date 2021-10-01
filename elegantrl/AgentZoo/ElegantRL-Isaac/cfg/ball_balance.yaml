@@ -1,0 +1,30 @@
+# if given, will override the device setting in gym. 
+env:
+  numEnvs: 4096
+  envSpacing: 2.0
+  maxEpisodeLength: 500
+  actionSpeedScale: 20
+  enableDebugVis: False
+
+  asset:
+    assetRoot: "../../assets"
+    assetFileName: "mjcf/balance_bot.xml"
+
+sim:
+  dt: 0.01
+  substeps: 1
+  physx:
+    num_threads: 4
+    solver_type: 1  # 0: pgs, 1: tgs
+    num_position_iterations: 8
+    num_velocity_iterations: 0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 1000.0
+    default_buffer_size_multiplier: 5.0
+
+  flex:
+    num_inner_iterations: 10
+    warm_start: 0.25
+
+task:
+  randomize: False

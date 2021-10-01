@@ -1,0 +1,89 @@
+# if given, will override the device setting in gym. 
+env: 
+  numEnvs: 4096
+  envSpacing: 5
+  episodeLength: 1000
+  isFlagrun: False
+  enableDebugVis: False
+
+  powerScale: 1.0
+
+  # add joint force readings to the observations
+  useDofForceSensors: True
+
+  # reward parameters
+  headingWeight: 0.5
+  upWeight: 0.1
+
+  # cost parameters
+  actionsCost: 0.01
+  energyCost: 0.05
+  dofVelocityScale: 0.1
+  angularVelocityScale: 0.25
+  contactForceScale: 0.01
+  jointsAtLimitCost: 0.25
+  deathCost: -1.0
+  terminationHeight: 0.8
+
+  asset:
+    assetRoot: "../../assets"
+    assetFileName: "mjcf/nv_humanoid.xml"
+
+  plane:
+    staticFriction: 1.0
+    dynamicFriction: 1.0
+    restitution: 0.0
+
+sim:
+  substeps: 2
+  physx:
+    num_threads: 4
+    solver_type: 1  # 0: pgs, 1: tgs
+    num_position_iterations: 4
+    num_velocity_iterations: 0
+    contact_offset: 0.02
+    rest_offset: 0.0
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 10.0
+    default_buffer_size_multiplier: 10.0
+
+  flex:
+    num_inner_iterations: 10
+    warm_start: 0.25
+
+task:
+  randomize: False
+  randomization_params:
+    # specify which attributes to randomize for each actor type and property
+    frequency: 600   # Define how many environment steps between generating new randomizations
+    actions:
+      range: [0., 0.1]
+      operation: "additive"
+      distribution: "gaussian"
+      schedule: "linear"  # "linear" will linearly interpolate between no rand and max rand
+      schedule_steps: 5000
+    actor_params:
+      humanoid:
+        color: True
+        rigid_body_properties:
+          mass: 
+            range: [0.5, 1.5]
+            operation: "scaling"
+            distribution: "uniform"
+            schedule: "linear"  # "linear" will linearly interpolate between no rand and max rand
+            schedule_steps: 5000
+        dof_properties:
+          stiffness: 
+            range: [0.5, 1.5]
+            operation: "scaling"
+            distribution: "loguniform"
+        rigid_shape_properties:
+          friction:
+            num_buckets: 500
+            range: [0.7, 1.3]
+            operation: "scaling"
+            distribution: "uniform"
+          restitution:
+            range: [0., 0.7]
+            operation: "scaling"
+            distribution: "uniform"

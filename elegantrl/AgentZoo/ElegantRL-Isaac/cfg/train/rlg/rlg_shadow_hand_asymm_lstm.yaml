@@ -1,0 +1,105 @@
+params:
+  seed: -1
+
+  algo:
+    name: a2c_continuous
+
+  model:
+    name: continuous_a2c_logstd
+
+  network:
+    name: actor_critic
+    separate: False
+    space:
+      continuous:
+        mu_activation: None
+        sigma_activation: None
+        mu_init:
+          name: default
+        sigma_init:
+          name: const_initializer
+          val: 0
+        fixed_sigma: True
+
+    mlp:
+      units: [256, 256, 128]
+      activation: elu
+      d2rl: False
+
+      initializer:
+        name: default
+      regularizer:
+        name: None
+    rnn:
+        name: lstm
+        units: 128
+        layers: 1
+        layer_norm: True
+  load_checkpoint: False
+  load_path: nn/ShadowHand_LSTM_Asymm.pth
+
+  config:
+    name: ShadowHand_LSTM_Asymm
+    env_name: rlgpu
+    multi_gpu: False
+    ppo: True
+    mixed_precision: False
+    normalize_input: True
+    normalize_value: True
+    reward_shaper:
+      scale_value: 0.01
+    normalize_advantage: True
+    gamma: 0.99
+    tau: 0.95
+    learning_rate: 5e-4
+    lr_schedule: adaptive
+    schedule_type: standard
+    lr_threshold: 0.016
+    score_to_win: 100000
+    max_epochs: 20000
+    save_best_after: 500
+    save_frequency: 200
+    print_stats: True
+    grad_norm: 1.0
+    entropy_coef: 0.0
+    truncate_grads: True
+    e_clip: 0.2
+    steps_num: 16
+    minibatch_size: 32768
+    mini_epochs: 4
+    critic_coef: 4
+    clip_value: True
+    seq_length: 4
+    bounds_loss_coef: 0.0001
+
+    central_value_config:
+      minibatch_size: 32768
+      mini_epochs: 4
+      lr: 5e-4
+      lr_threshold: 0.016
+      clip_value: True
+      normalize_input: True
+      truncate_grads: True
+
+      network:
+        name: actor_critic
+        central_value: True
+        mlp:
+          units: [512, 512, 256]
+          activation: elu
+          d2rl: False
+          initializer:
+            name: default
+          regularizer:
+            name: None
+        rnn:
+          name: lstm
+          units: 256
+          layers: 1
+          layer_norm: True
+
+    player:
+      #render: True
+      deterministic: True
+      games_num: 1000000
+      print_stats: False

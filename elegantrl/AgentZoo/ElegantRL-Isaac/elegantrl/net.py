@@ -191,11 +191,11 @@ class ActorPPO(nn.Module):
     def forward(self, state):
         return self.net(state).tanh()  # action.tanh()
 
-    def get_action(self, state, noise_k=1):
+    def get_action(self, state):
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
-        noise = torch.randn_like(a_avg) * noise_k
+        noise = torch.randn_like(a_avg)
         action = a_avg + noise * a_std
         return action, noise
 
@@ -238,10 +238,11 @@ class ActorDiscretePPO(nn.Module):
     def get_action(self, state):
         a_prob = self.soft_max(self.net(state))
         # dist = Categorical(a_prob)
-        # action = dist.sample()
-        samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
-        action = samples_2d.reshape(state.size(0))
-        return action, a_prob
+        # a_int = dist.sample()
+        a_int = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
+        # samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
+        # samples_2d.shape == (batch_size, num_samples)
+        return a_int, a_prob
 
     def get_logprob_entropy(self, state, a_int):
         a_prob = self.soft_max(self.net(state))
