@@ -948,10 +948,6 @@ class ReplayBuffer
                 print(f"| ReplayBuffer load: {save_path}")
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> f9fda245867c2c799640ee9bfe40316904ccd5c4
 Environment: *env.py*
 ---------------------
 
