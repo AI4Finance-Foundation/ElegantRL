@@ -95,7 +95,7 @@ class Actor(nn.Module)
 
 - __init__(*self, mid_dim, state_dim, action_dim*)
 
-The network has four layers with ReLU and Hardswish activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU activation functions.
+The network has four layers with ReLU and Hardswish activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU and Hardswish activation functions.
 
 - forward(*self, state*)
 
@@ -159,7 +159,11 @@ Take ``state`` as the input and output an action.
 
 - get_action(*self, state*)
 
+Take ``state`` as the input and output re-parameterize action.
+
 - get_action_logprob(*self, state*)
+
+Take ``state`` as the input and output a action and log probability of that action.
 
 class ActorPPO(nn.Module)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -204,6 +208,26 @@ class ActorPPO(nn.Module)
            delta = noise.pow(2) * 0.5
            return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
    
+- __init__(*self, mid_dim, state_dim, action_dim*)
+
+The network has four layers with ReLU and Hardswish activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU Hardswish activation functions.
+
+- forward(*self, state*)
+
+Take ``state`` as the input and output an action.
+
+- get_action(*self, state*)
+
+Take ``state`` as the input and output re-parameterize action and a noise.
+
+- get_logprob_entropy(*self, state, action*)
+
+Take ``state`` and ``action`` as the input and output log probability and the policy's entropy.
+
+- get_old_logprob(*self, state, action*)
+
+
+
 class ActorDiscretePPO(nn.Module)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -240,6 +264,26 @@ class ActorDiscretePPO(nn.Module)
            dist = self.Categorical(a_prob)
            return dist.log_prob(a_int)
            
+- __init__(*self, mid_dim, state_dim, action_dim*)
+
+The network has four layers with ReLU and Hardswish activation functions, where the input size is ``state_dim`` and the output size is ``action_dim``, with ReLU Hardswish activation functions.
+
+- forward(*self, state*)
+
+Take ``state`` as the input and output an action.
+
+- get_action(*self, state*)
+
+Take ``state`` as the input and output re-parameterize action and a noise.
+
+- get_logprob_entropy(*self, state, action*)
+
+Take ``state`` and ``action`` as the input and output log probability and the policy's entropy.
+
+- get_old_logprob(*self, state, action*)
+
+ 
+
 class Critic(nn.Module)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
