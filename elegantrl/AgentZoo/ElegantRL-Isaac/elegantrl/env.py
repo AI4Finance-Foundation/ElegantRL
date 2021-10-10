@@ -3,9 +3,114 @@ import gym  # not necessary
 import numpy as np
 from copy import deepcopy
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 gym.logger.set_level(40)  # Block warning
+
+"""register your custom env here."""
+
+
+def build_env(env, if_print=False, device_id=None, env_num=1):
+    if isinstance(env, str):
+        env_name = env
+    else:
+        env_name = env.env_name
+    env = None
+
+    '''OpenAI gym classical control'''
+    if env_name in {'CartPole-v0', 'CartPole-v1'}:
+        env = gym.make(env_name)
+        env = PreprocessEnv(env, if_print=if_print)
+    elif env_name in {'Pendulum-v1', 'Pendulum-v0'}:
+        env = PendulumEnv(env_name)
+
+    '''OpenAI gym Box2D'''
+    if env_name in {'LunarLander-v2', 'LunarLanderContinuous-v2',
+                    'BipedalWalker-v3', 'BipedalWalkerHardcore-v3', }:
+        env = gym.make(env_name)
+        env = PreprocessEnv(env, if_print=if_print)
+    elif env_name == 'CarRacingFix':  # Box2D
+        from envs.CarRacingFix import CarRacingFix
+        env = CarRacingFix()
+
+    '''PyBullet gym'''
+    if env_name in {'ReacherBulletEnv-v0', 'AntBulletEnv-v0',
+                    'HumanoidBulletEnv-v0', 'MinitaurBulletEnv-v0'}:
+        import pybullet_envs
+        dir(pybullet_envs)
+        env = gym.make(env_name)
+        env = PreprocessEnv(env, if_print=if_print)
+
+    '''NVIDIA Isaac gym'''
+    if env_name.find('Isaac') >= 0:
+        from envs.IsaacGym import PreprocessIsaacOneEnv, PreprocessIsaacVecEnv
+
+        env_last_name = env_name[11:]
+        assert env_last_name in {'Ant', 'Humanoid'}
+
+        if env_name.find('IsaacOneEnv') >= 0:
+            env = PreprocessIsaacOneEnv(env_last_name, if_print=if_print, env_num=1, device_id=device_id)
+        elif env_name.find('IsaacVecEnv') >= 0:
+            env = PreprocessIsaacVecEnv(env_last_name, if_print=if_print, env_num=env_num, device_id=device_id)
+        else:
+            raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
+        return env
+
+    # elif env_name[:10] in {'StockDOW5', 'StockDOW30', 'StockNAS74', 'StockNAS89'}:
+    #     if_eval = env_name.find('eval') != -1
+    #     gamma = 0.993
+    #     from elegantrl.envs.FinRL.StockTradingEnv import StockEnvDOW5, StockEnvDOW30, StockEnvNAS74, StockEnvNAS89
+    #     env_class = {'StockDOW5': StockEnvDOW5,
+    #                  'StockDOW30': StockEnvDOW30,
+    #                  'StockNAS74': StockEnvNAS74,
+    #                  'StockNAS89': StockEnvNAS89,
+    #                  }[env_name[:10]]
+    #     env = env_class(if_eval=if_eval, gamma=gamma)
+
+    if env is None:
+        raise ValueError("| build_env(): register your custom env in here.")
+    return env
+
+
+def build_eval_env(eval_env, env, eval_gpu_id, env_num):
+    if isinstance(eval_env, str):
+        eval_env = build_env(env=eval_env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
+    elif eval_env is None:
+        eval_env = build_env(env=env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
+    else:
+        assert hasattr(eval_env, 'reset')
+        assert hasattr(eval_env, 'step')
+    return eval_env
+
+
+"""a demo tell you how to build a custom env"""
+
+
+class PendulumEnv:  # [ElegantRL.2021.10.10]
+    def __init__(self, env_name):
+        assert env_name in {'Pendulum-v1', 'Pendulum-v0'}
+        self.env = gym.make(env_name)
+        self.env_name = env_name  # assert isinstance(env_name, str)
+
+        # from elegantrl.env import get_gym_env_info
+        # get_gym_env_info(env, if_print=True)  # use this function to see the env information
+        self.env_num = 1  # the env number of VectorEnv is greater than 1
+        self.max_step = 200  # the max step of each episode
+        self.state_dim = 3  # feature number of state
+        self.action_dim = 1  # feature number of action
+        self.if_discrete = False  # discrete action or continuous action
+        self.target_return = -200  # episode return is between (-1600, 0)
+
+    def reset(self):
+        return self.env.reset()
+
+    def step(self, action):
+        # PendulumEnv set its action space as (-2, +2). It is bad.  # https://github.com/openai/gym/wiki/Pendulum-v0
+        # I suggest you to set action space as (-1, +1) when you design your own env.
+        return self.env.step(action * 2)  # state, reward, done, info_dict
+
+
+"""Utils"""
 
 
 class PreprocessEnv(gym.Wrapper):  # environment wrapper
@@ -127,73 +232,6 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
               f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}, action_max: {action_max}"
               f"\n| max_step:  {max_step:4}, target_return: {target_return}")
     return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_return
-
-
-"""Utils"""
-
-
-def build_env(env, if_print=False, device_id=None, env_num=1):
-    if isinstance(env, str):
-        env_name = env
-    else:
-        env_name = env.env_name
-
-    if env_name in {'LunarLanderContinuous-v2', 'BipedalWalker-v3', 'BipedalWalkerHardcore-v3',
-                    'CartPole-v0', 'LunarLander-v2', }:
-        env = gym.make(env_name)
-        env = PreprocessEnv(env, if_print=if_print)
-    elif env_name in {'ReacherBulletEnv-v0', 'AntBulletEnv-v0',
-                      'HumanoidBulletEnv-v0', 'MinitaurBulletEnv-v0'}:
-        import pybullet_envs
-        dir(pybullet_envs)
-        env = gym.make(env_name)
-        env = PreprocessEnv(env, if_print=if_print)
-    elif env_name == 'Pendulum-v0':
-        env = gym.make('Pendulum-v0')
-        env.target_return = -200
-        env = PreprocessEnv(env=env, if_print=if_print)
-    elif env_name == 'CarRacingFix':  # Box2D
-        from envs.CarRacingFix import CarRacingFix
-        env = CarRacingFix()
-    elif env_name.find('Isaac') >= 0:
-        from envs.IsaacGym import PreprocessIsaacOneEnv, PreprocessIsaacVecEnv
-
-        env_last_name = env_name[11:]
-        assert env_last_name in {'Ant', 'Humanoid'}
-
-        if env_name.find('IsaacOneEnv') >= 0:
-            env = PreprocessIsaacOneEnv(env_last_name, if_print=if_print, env_num=1, device_id=device_id)
-        elif env_name.find('IsaacVecEnv') >= 0:
-            env = PreprocessIsaacVecEnv(env_last_name, if_print=if_print, env_num=env_num, device_id=device_id)
-        else:
-            raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
-        return env
-    # elif env_name[:10] in {'StockDOW5', 'StockDOW30', 'StockNAS74', 'StockNAS89'}:
-    #     if_eval = env_name.find('eval') != -1
-    #     gamma = 0.993
-    #     from elegantrl.envs.FinRL.StockTradingEnv import StockEnvDOW5, StockEnvDOW30, StockEnvNAS74, StockEnvNAS89
-    #     env_class = {'StockDOW5': StockEnvDOW5,
-    #                  'StockDOW30': StockEnvDOW30,
-    #                  'StockNAS74': StockEnvNAS74,
-    #                  'StockNAS89': StockEnvNAS89,
-    #                  }[env_name[:10]]
-    #     env = env_class(if_eval=if_eval, gamma=gamma)
-    else:
-        assert not isinstance(env, str)
-        env = deepcopy(env)
-        # raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
-    return env
-
-
-def build_eval_env(eval_env, env, eval_gpu_id, env_num):
-    if isinstance(eval_env, str):
-        eval_env = build_env(env=eval_env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
-    elif eval_env is None:
-        eval_env = build_env(env=env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
-    else:
-        assert hasattr(eval_env, 'reset')
-        assert hasattr(eval_env, 'step')
-    return eval_env
 
 
 def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):

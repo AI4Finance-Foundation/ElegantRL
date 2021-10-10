@@ -3,26 +3,37 @@ from elegantrl.agent import *
 from elegantrl.env import PreprocessEnv, build_env
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
-"""[ElegantRL.2021.09.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
-def demo_continuous_action_off_policy():  # 2021-09-07
-    args = Arguments(if_on_policy=False)
+def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
+    args = Arguments()
     args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
 
     if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 2e5, TargetReward: -200, UsedTime: 200s"
-        import gym
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
-        # args.env = PreprocessEnv(env='Pendulum-v0')  # It is Ok.
-        # args.env = build_env(env='Pendulum-v0')  # It is Ok.
-        args.reward_scale = 2 ** -2
-        args.gamma = 0.97
+        # One way to build env
+        # args.env = build_env(env='Pendulum-v1')  # gym.__version__ == 0.21.0
+        # args.env = build_env(env='Pendulum-v0')  # gym.__version__ == 0.17.0
 
+        # Another way to build env
+        args.env = 'Pendulum-v1'  # or 'Pendulum-v0'
+        args.env_num = 1
+        args.max_step = 200
+        args.state_dim = 3
+        args.action_dim = 1
+        args.if_discrete = False
+        args.target_return = -200
+
+        args.gamma = 0.97
         args.worker_num = 2
-        args.target_step = args.env.max_step * 2
+        args.reward_scale = 2 ** -2
+        args.target_step = 200 * 2  # max_step = 200
+
+        args.init_before_training()  # necessary!
+        # train_and_evaluate(args)  # single process
+        train_and_evaluate_mp(args)  # multiple process
 
     if_train_lunar_lander = 0
     if if_train_lunar_lander:
@@ -71,10 +82,12 @@ def demo_continuous_action_off_policy():  # 2021-09-07
 
         args.target_step = args.env.max_step * 1
 
+    # args.init_before_training()  # necessary!
+    #
     # train_and_evaluate(args)  # single process
-    args.worker_num = 4
-    args.visible_gpu = sys.argv[-1]
-    train_and_evaluate_mp(args)  # multiple process
+    # args.worker_num = 4
+    # args.visible_gpu = sys.argv[-1]
+    # train_and_evaluate_mp(args)  # multiple process
     # args.worker_num = 6
     # args.visible_gpu = '0,1'
     # train_and_evaluate_mp(args)  # multiple GPU

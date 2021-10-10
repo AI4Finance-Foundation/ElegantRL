@@ -10,11 +10,11 @@ from elegantrl.env import build_env, build_eval_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.09.09](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.00](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
-class Arguments:
-    def __init__(self, if_on_policy=False):
+class Arguments:  # [ElegantRL.2021.10.10]
+    def __init__(self):
         self.env = None  # the environment for training
         self.agent = None  # Deep Reinforcement Learning algorithm
 
@@ -25,40 +25,35 @@ class Arguments:
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
         '''environment information'''
+        # self.env_name = str(env)
+        self.env_num = None
+        self.max_step = None
         self.state_dim = None
         self.action_dim = None
         self.if_discrete = None
-        self.max_step = None
         self.target_return = None
 
-        self.if_on_policy = if_on_policy  # not elegant
-        if self.if_on_policy:  # (on-policy)
-            self.net_dim = 2 ** 9  # the network width
-            self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 3  # collect target_step, then update network
-            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
-            self.max_memo = self.target_step  # capacity of replay buffer
-            self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
-        else:
-            self.net_dim = 2 ** 8  # the network width
-            self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
-            self.target_step = 2 ** 10  # collect target_step, then update network
-            self.max_memo = 2 ** 21  # capacity of replay buffer
-            self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+        self.net_dim = None  # the network width
+        self.max_memo = None  # capacity of replay buffer
+        self.batch_size = None  # num of transitions sampled from replay buffer.
+        self.target_step = None  # repeatedly update network to keep critic's loss small
+        self.repeat_times = None  # collect target_step, then update network
+        self.if_off_policy = None  # agent is on-policy or off-policy
+        self.if_per_or_gae = False  # set as True for sparse reward
+        # sparse reward,  on-policy. GAE: Generalized Advantage Estimation.
+        # sparse reward, off-policy. PER: Prioritized Experience Replay.
 
         '''Arguments for device'''
-        self.env_num = 1  # The Environment number for each worker. env_num == 1 means don't use VecEnv.
         self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
         self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
         self.random_seed = 0  # initialize random seed in self.init_before_training()
-        self.workers_gpus = ()  # for isaac gym
         self.learner_gpus = (0,)  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
+        self.workers_gpus = self.learner_gpus  # for isaac gym
 
         '''Arguments for evaluate and save'''
         self.cwd = None  # current work directory. None means set automatically
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
-        self.break_step = 2 ** 20  # break training after 'total_step > break_step'
+        self.break_step = +np.inf  # break training after 'total_step > break_step'
         self.if_allow_break = True  # allow break training when reach goal (early termination)
 
         self.eval_env = None  # the environment for evaluating. None means set automatically.
@@ -73,31 +68,51 @@ class Arguments:
         torch.set_num_threads(self.thread_num)
         torch.set_default_dtype(torch.float32)
 
+        def assign_if_none(v_or_none, default):
+            return default if v_or_none is None else v_or_none
+
         '''env'''
-        if isinstance(self.env, str):
-            assert self.max_step is not None
-            assert self.state_dim is not None
-            assert self.action_dim is not None
-            assert self.if_discrete is not None
-            assert self.target_return is not None
-        else:
-            self.max_step = self.env.max_step
-            self.state_dim = self.env.state_dim
-            self.action_dim = self.env.action_dim
-            self.if_discrete = self.env.if_discrete
-            self.target_return = self.env.target_return
+        self.env_num = getattr(self.env, 'env_num', self.env_num)
+        self.max_step = getattr(self.env, 'max_step', self.max_step)
+        self.state_dim = getattr(self.env, 'state_dim', self.state_dim)
+        self.action_dim = getattr(self.env, 'action_dim', self.action_dim)
+        self.if_discrete = getattr(self.env, 'if_discrete', self.if_discrete)
+        self.target_return = getattr(self.env, 'target_return', self.target_return)
+
+        assert isinstance(self.env_num, int)
+        assert isinstance(self.max_step, int)
+        assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
+        assert isinstance(self.action_dim, int)
+        assert isinstance(self.if_discrete, bool)
+        assert isinstance(self.target_return, int) or isinstance(self.state_dim, float)
+
+        self.if_off_policy = self.agent.if_off_policy
+        if self.if_off_policy:  # off-policy
+            self.net_dim = assign_if_none(self.net_dim, default=2 ** 8)
+            self.max_memo = assign_if_none(self.max_memo, default=2 ** 21)
+            self.batch_size = assign_if_none(self.batch_size, default=self.net_dim)
+            self.target_step = assign_if_none(self.target_step, default=2 ** 10)
+            self.repeat_times = assign_if_none(self.repeat_times, default=2 ** 0)
+        else:  # on-policy
+            self.net_dim = assign_if_none(self.net_dim, default=2 ** 9)
+            self.max_memo = assign_if_none(self.max_memo, default=2 ** 12)
+            self.batch_size = assign_if_none(self.batch_size, default=self.net_dim * 2)
+            self.target_step = assign_if_none(self.target_step, default=self.max_memo)
+            self.repeat_times = assign_if_none(self.repeat_times, default=2 ** 3)
 
         '''agent'''
         assert hasattr(self.agent, 'init')
-        assert self.agent.if_on_policy == self.if_on_policy
+        assert hasattr(self.agent, 'update_net')
+        assert hasattr(self.agent, 'explore_env')
+        assert hasattr(self.agent, 'select_actions')
 
         '''cwd'''
-        if self.cwd is None:
-            agent_name = self.agent.__class__.__name__
-            env_name = getattr(self.env, 'env_name', self.env)
-            self.cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
+        agent_name = self.agent.__class__.__name__
+        env_name = getattr(self.env, 'env_name', self.env)
+        auto_cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
+        self.cwd = assign_if_none(self.cwd, default=auto_cwd)
 
-        # remove history according to bool(if_remove)
+        '''remove history'''
         if self.if_remove is None:
             self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
         elif self.if_remove:
@@ -138,15 +153,7 @@ def train_and_evaluate(args, learner_id=0):
     evaluator.save_or_load_recoder(if_save=False)
 
     '''init ReplayBuffer'''
-    if args.if_on_policy:
-        buffer = list()
-
-        def update_buffer(_traj_list):
-            buffer[:] = _traj_list[0]  # (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
-
-            _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
-            return _step, _r_exp
-    else:
+    if args.if_off_policy:
         buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
                               action_dim=1 if env.if_discrete else env.action_dim,
                               if_use_per=args.if_per_or_gae)
@@ -158,6 +165,14 @@ def train_and_evaluate(args, learner_id=0):
 
             _steps, _r_exp = get_step_r_exp(ten_reward=ten_other[0])  # other = (reward, mask, action)
             return _steps, _r_exp
+    else:
+        buffer = list()
+
+        def update_buffer(_traj_list):
+            buffer[:] = _traj_list[0]  # (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
+
+            _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
+            return _step, _r_exp
 
     """start training"""
     cwd = args.cwd
@@ -172,7 +187,7 @@ def train_and_evaluate(args, learner_id=0):
     del args
 
     '''init ReplayBuffer after training start'''
-    if not agent.if_on_policy:
+    if agent.if_off_policy:
         if_load = buffer.save_or_load_history(cwd, if_save=False)
 
         if not if_load:
@@ -199,7 +214,7 @@ def train_and_evaluate(args, learner_id=0):
 
     env.close()
     agent.save_or_load_agent(cwd, if_save=True)
-    buffer.save_or_load_history(cwd, if_save=True) if not agent.if_on_policy else None
+    buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
     evaluator.save_or_load_recoder(if_save=True)
 
 
@@ -336,16 +351,7 @@ class PipeLearner:
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init ReplayBuffer'''
-        if agent.if_on_policy:
-            buffer = list()
-
-            def update_buffer(_traj_list):
-                _traj_list = list(map(list, zip(*_traj_list)))
-                _traj_list = [torch.cat(t, dim=0) for t in _traj_list]
-                buffer[:] = _traj_list  # (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
-                _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
-                return _step, _r_exp
-        else:
+        if agent.if_off_policy:
             buffer_num = args.worker_num * args.env_num
             if self.learner_num > 1:
                 buffer_num *= 2
@@ -366,6 +372,15 @@ class PipeLearner:
                     step_sum += step_r_exp[0]
                     r_exp_sum += step_r_exp[1]
                 return step_sum, r_exp_sum / len(_traj_list)
+        else:
+            buffer = list()
+
+            def update_buffer(_traj_list):
+                _traj_list = list(map(list, zip(*_traj_list)))
+                _traj_list = [torch.cat(t, dim=0) for t in _traj_list]
+                buffer[:] = _traj_list  # (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
+                _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
+                return _step, _r_exp
 
         '''start training'''
         cwd = args.cwd
@@ -392,7 +407,7 @@ class PipeLearner:
                 if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
 
         agent.save_or_load_agent(cwd, if_save=True)
-        if not agent.if_on_policy:
+        if agent.if_off_policy:
             print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
             buffer.save_or_load_history(cwd, if_save=True)
 

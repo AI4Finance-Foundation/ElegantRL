@@ -19,7 +19,7 @@ class AgentBase:
         self.device = None
         self.traj_list = None
         self.action_dim = None
-        self.if_on_policy = False
+        self.if_off_policy = True
         self.env_num = 1
         self.explore_rate = 1.0
         self.explore_noise = 0.1
@@ -224,9 +224,9 @@ class AgentDQN(AgentBase):
 
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, gpu_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, gpu_id)
-        if if_use_per:
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        super().init(net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
         else:
@@ -378,15 +378,15 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, gpu_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, gpu_id)
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        super().init(net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
 
-        if if_use_per:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+        if if_per_or_gae:
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
@@ -446,13 +446,13 @@ class AgentTD3(AgentBase):
         self.policy_noise = 0.2  # standard deviation of policy noise
         self.update_freq = 2  # delay update frequency
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, gpu_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, gpu_id)
-        if if_use_per:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        super().init(net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        if if_per_or_gae:  # if_use_per
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
@@ -514,19 +514,19 @@ class AgentSAC(AgentBase):
         self.target_entropy = None
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, gpu_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, gpu_id)
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        super().init(net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
 
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
         self.alpha_optim = torch.optim.Adam((self.alpha_log,), lr=learning_rate)
         self.target_entropy = np.log(action_dim)
 
-        if if_use_per:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+        if if_per_or_gae:  # if_use_per
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
@@ -643,7 +643,7 @@ class AgentPPO(AgentBase):
         self.ClassAct = ActorPPO
         self.ClassCri = CriticAdv
 
-        self.if_on_policy = True
+        self.if_off_policy = False
         self.ratio_clip = 0.2  # could be 0.00 ~ 0.50 ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.02  # could be 0.00~0.10
         self.lambda_a_value = 1.00  # could be 0.25~8.00, the lambda of advantage value
@@ -901,16 +901,6 @@ class AgentSharedAC(AgentBase):  # IAC (InterAC) waiting for check
         self.update_freq = 2 ** 7  # delay update frequency, for hard target update
         self.avg_loss_c = (-np.log(0.5)) ** 0.5  # old version reliable_lambda
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
-        state = torch.as_tensor(state, dtype=torch.float32, device=self.device)
-        action = self.act(state)
-
-        a_temp = torch.normal(action, self.explore_noise)
-        mask = torch.as_tensor((a_temp < -1.0) + (a_temp > 1.0), dtype=torch.float32)
-        noise_uniform = torch.rand_like(action)
-        action = noise_uniform * mask + a_temp * (-mask + 1)
-        return action.detach().cpu()
-
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
         buffer.update_now_len()
 
@@ -965,7 +955,7 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
         self.target_entropy = None
         self.alpha_log = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, gpu_id=0):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
@@ -982,6 +972,13 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
              {'params': self.act.dec_q1.parameters(), },
              {'params': self.act.dec_q2.parameters(), },
              {'params': (self.alpha_log,)}], lr=learning_rate)
+
+        if if_per_or_gae:  # if_use_per
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
+            self.get_obj_critic = self.get_obj_critic_per
+        else:
+            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
+            self.get_obj_critic = self.get_obj_critic_raw
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:  # 1111
         buffer.update_now_len()
