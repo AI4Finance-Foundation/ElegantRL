@@ -1,3 +1,6 @@
+.. _dqn:
+.. automodule:: elegantrl.agent
+
 DQN
 ==========
 
