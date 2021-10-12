@@ -3,6 +3,8 @@
 
 DQN
 ==========
+`Deep Q Network (DQN) <https://arxiv.org/abs/1312.5602>`
+
 
 Example
 ------------
