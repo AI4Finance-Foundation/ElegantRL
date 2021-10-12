@@ -53,19 +53,20 @@ For the details of DRL algorithms, please check out the educational webpage `Ope
    :maxdepth: 1
    :caption: Algorithms
    
-   algorithms/ddpg
-   algorithms/td3
-   algorithms/sac
-   algorithms/intersac
-   algorithms/modsac
-   algorithms/a2c
-   algorithms/ppo
-   algorithms/interppo
-   algorithms/gaeppo
    algorithms/dqn
    algorithms/double_dqn
    algorithms/dueling_dqn
    algorithms/d3qn
+   algorithms/a2c
+   algorithms/ddpg
+   algorithms/td3
+   algorithms/ppo
+   algorithms/interppo
+   algorithms/gaeppo
+   algorithms/sac
+   algorithms/intersac
+   algorithms/modsac
+   
    
 .. toctree::
    :maxdepth: 1
