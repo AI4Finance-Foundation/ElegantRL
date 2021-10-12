@@ -39,7 +39,7 @@ Example
 
 
 
-Value-based Methods
+Parameters
 ---------------------
 
 .. autoclass:: elegantrl.agent.AgentDQN
@@ -48,7 +48,7 @@ Value-based Methods
    
 .. _dqn_networks:
    
-DQN Networks
+Networks
 -------------
 
 .. autoclass:: elegantrl.net.QNet
