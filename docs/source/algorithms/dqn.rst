@@ -44,7 +44,6 @@ Parameters
 
 .. autoclass:: elegantrl.agent.AgentDQN
    :members:
-   :inherited-members:
    
 .. _dqn_networks:
    
