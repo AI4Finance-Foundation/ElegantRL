@@ -44,4 +44,13 @@ Value-based Methods
 
 .. autoclass:: elegantrl.agent.AgentDQN
    :members:
-   :undoc-members: 
+   :inherited-members:
+   
+.. _dqn_networks:
+   
+DQN Networks
+-------------
+
+.. autoclass:: elegantrl.net.QNet
+   :members:
+   :inherited-members:
