@@ -84,7 +84,7 @@ class Arguments:  # [ElegantRL.2021.10.10]
         assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
         assert isinstance(self.action_dim, int)
         assert isinstance(self.if_discrete, bool)
-        assert isinstance(self.target_return, int) or isinstance(self.state_dim, float)
+        assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
 
         self.if_off_policy = self.agent.if_off_policy
         if self.if_off_policy:  # off-policy
