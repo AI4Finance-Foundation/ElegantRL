@@ -25,6 +25,7 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
         env = PendulumEnv(env_name)
 
     '''OpenAI gym Box2D'''
+    # pip3 install Box2D==2.3.8 or 2.3.10
     if env_name in {'LunarLander-v2', 'LunarLanderContinuous-v2',
                     'BipedalWalker-v3', 'BipedalWalkerHardcore-v3', }:
         env = gym.make(env_name)
@@ -89,6 +90,8 @@ def build_eval_env(eval_env, env, eval_gpu_id, env_num):
 class PendulumEnv:  # [ElegantRL.2021.10.10]
     def __init__(self, env_name):
         assert env_name in {'Pendulum-v1', 'Pendulum-v0'}
+        # Pendulum-v1  gym.__version__ == 0.21.0
+        # Pendulum-v0  gym.__version__ == 0.17.0
         self.env = gym.make(env_name)
         self.env_name = env_name  # assert isinstance(env_name, str)
 

@@ -1,75 +1,113 @@
-from envs.IsaacGym import *
 from elegantrl.demo import *
 
+"""keep 2021-10-12"""
 
-def demo_isaac_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+
+def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.10]
+    args = Arguments()
     args.agent = AgentPPO()
-    args.agent.if_use_cri_target = True  # todo
-    args.random_seed += 1943
+    args.learner_gpus = (GPU_ID,)  # todo check
+    args.eval_gpu_id = (GPU_ID,)  # todo check
 
-    if_train_ant = 1
-    if if_train_ant:
-        # env = build_env('IsaacOneEnvAnt', if_print=True, device_id=0, env_num=1)
-        args.eval_env = 'IsaacOneEnvAnt'
-        args.eval_gpu_id = 7
+    env_name = ENV_NAME  # todo check
+    if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
+        """
+        Step: 45e4, Reward: -138, UsedTime: 373s PPO
+        Step: 40e4, Reward: -200, UsedTime: 400s PPO
+        Step: 46e4, Reward: -213, UsedTime: 300s PPO
+        """
+        # One way to build env
+        args.env = build_env(env=env_name)
 
-        # env = build_env('IsaacVecEnvAnt', if_print=True, device_id=0, env_num=2)
-        args.env = 'IsaacVecEnvAnt'
-        args.env_num = 1024
-        args.max_step = 1000
-        args.state_dim = 60
-        args.action_dim = 8
-        args.if_discrete = False
-        args.target_return = 4000
+        # Another way to build env
+        # args.env = env_name  # 'Pendulum-v1' or 'Pendulum-v0'
+        # args.env_num = 1
+        # args.max_step = 200
+        # args.state_dim = 3
+        # args.action_dim = 1
+        # args.if_discrete = False
+        # args.target_return = -200
 
-        args.agent.lambda_entropy = 0.05
-        args.agent.lambda_gae_adv = 0.97
-        args.learning_rate = 2 ** -14
-        args.if_per_or_gae = True
-        args.break_step = int(8e7)
+        args.gamma = 0.97
+        args.net_dim = 2 ** 8
+        args.worker_num = 2
+        args.reward_scale = 2 ** -2
+        args.target_step = 200 * 16  # max_step = 200
+    if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
+        """
+        Step: 80e4, Reward: 246, UsedTime: 3000s PPO
+        """
+        args.env = build_env(env=env_name)
+        args.eval_times1 = 2 ** 4
+        args.eval_times2 = 2 ** 6
 
-        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+        args.target_step = args.env.max_step * 8
+    if env_name in {'BipedalWalker-v3', 'BipedalWalker-v2'}:
+        """
+        Step: 57e5, Reward: 295, UsedTime: 17ks PPO
+        Step: 70e5, Reward: 300, UsedTime: 21ks PPO
+        """
+        args.env = build_env(env=env_name)
+        args.eval_times1 = 2 ** 3
+        args.eval_times2 = 2 ** 5
+
+        args.gamma = 0.98
+        args.target_step = args.env.max_step * 16
+    if env_name in {'BipedalWalkerHardcore-v3', 'BipedalWalkerHardcore-v2'}:
+        """
+        Step: 57e5, Reward: 295, UsedTime: 17ks PPO
+        Step: 70e5, Reward: 300, UsedTime: 21ks PPO
+        """
+        args.env = build_env(env=env_name)
+
+        args.gamma = 0.98
+        args.net_dim = 2 ** 8
+        args.max_memo = 2 ** 22
+        args.batch_size = args.net_dim * 4
         args.repeat_times = 2 ** 4
-        args.net_dim = 2 ** 9
-        args.batch_size = args.net_dim * 2 ** 3
-        args.target_step = 2 ** 10  # todo
+        args.learning_rate = 2 ** -15
+        args.if_per_or_gae = True  # todo
+        args.agent.if_use_cri_target = True  # todo
 
-        args.break_step = int(2e8)
-        args.if_allow_break = False
+        args.eval_gap = 2 ** 8
+        args.eval_times1 = 2 ** 2
+        args.eval_times2 = 2 ** 5
+        # args.break_step = int(80e5)
 
-    if_train_humanoid = 0
-    if if_train_humanoid:
-        args.env = build_env(env='HumanoidBulletEnv-v0', if_print=True)
-        """
-        0  2.00e+07 2049.87 | 1905.57  686.5    883   308 |    0.93   0.42  -0.02  -1.14 | UsedTime: 15292
-        0  3.99e+07 2977.80 | 2611.64  979.6    879   317 |    1.29   0.46  -0.01  -1.16 | UsedTime: 19685
-        0  7.99e+07 3047.88 | 3041.95   41.1    999     0 |    1.37   0.46  -0.04  -1.15 | UsedTime: 38693
-        """
+        args.worker_num = WORKER_NUM  # todo
+        args.target_step = args.env.max_step * 16
 
-        args.agent.lambda_entropy = 0.02
-        args.agent.lambda_gae_adv = 0.97
-        args.learning_rate = 2 ** -14
-        args.if_per_or_gae = True
-        args.break_step = int(8e7)
+    # args.learner_gpus = (0, )  # single GPU
+    # args.learner_gpus = (0, 1)  # multiple GPUs
+    # train_and_evaluate(args)  # single process
+    train_and_evaluate_mp(args)  # multiple process
 
-        args.reward_scale = 2 ** -1
-        args.repeat_times = 2 ** 3
-        args.net_dim = 2 ** 9
-        args.batch_size = args.net_dim * 2 ** 3
-        args.target_step = args.env.max_step * 4
 
-        args.break_step = int(8e7)
-        args.if_allow_break = False
+"""
+IP83
+GPU 0 BipedalWalkerHardcore WORKER_NUM=4 GAE CriTarget   6e7, 15,  9e7, 63, 
+GPU 3 BipedalWalkerHardcore WORKER_NUM=2                 8e7,  8, 
+GPU 4 BipedalWalkerHardcore WORKER_NUM=4                 6e7, 30, 12e7, 92,
 
-    args.init_before_training()
-
-    # train_and_evaluate(args)
-    args.learner_gpus = (2,)
-    args.workers_gpus = args.learner_gpus
-    args.worker_num = 1
-    train_and_evaluate_mp(args)
-
+IP194
+GPU 0 BipedalWalkerHardcore WORKER_NUM=2 GAE CriTarget   5e7, 10, 10e7, 63
+GPU 1 BipedalWalkerHardcore WORKER_NUM=2 GAE            12e7,  9, 
+GPU 2 BipedalWalkerHardcore WORKER_NUM=4 GAE             7e7, 15, 16e7, 92
+"""
 
 if __name__ == '__main__':
-    demo_isaac_on_policy()
+    # sys.argv.extend(['WORK GPU ENV', '2', '3', '0'])
+    # sys.argv.extend(['GPU ENV', '3', '0'])
+
+    WORKER_NUM = eval(sys.argv[-3])
+    GPU_ID = eval(sys.argv[-2])
+    ENV_NAME = ['Pendulum-v1',
+                'LunarLanderContinuous-v2',
+                'BipedalWalker-v3',
+                'BipedalWalkerHardcore-v3',
+                ][eval(sys.argv[-1])]
+    print(f"| WORKER_NUM   {WORKER_NUM}")
+    print(f"| GPU_ID       {GPU_ID}")
+    print(f"| ENV_NAME     {ENV_NAME}")
+
+    demo_continuous_action_on_policy()

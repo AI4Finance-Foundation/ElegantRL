@@ -10,7 +10,7 @@ from elegantrl.env import build_env, build_eval_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.10.00](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class Arguments:  # [ElegantRL.2021.10.10]
@@ -26,12 +26,12 @@ class Arguments:  # [ElegantRL.2021.10.10]
 
         '''environment information'''
         # self.env_name = str(env)
-        self.env_num = None
-        self.max_step = None
-        self.state_dim = None
-        self.action_dim = None
-        self.if_discrete = None
-        self.target_return = None
+        self.env_num = None  # env_num = 1. In vector env, env_num > 1.
+        self.max_step = None  # the max step of an episode (an episode: from reset to done=True)
+        self.state_dim = None  # vector dimension (feature number) of state
+        self.action_dim = None  # vector dimension (feature number) of action
+        self.if_discrete = None  # discrete or continuous action space
+        self.target_return = None  # the target average episode return (sum the reward of an episode)
 
         self.net_dim = None  # the network width
         self.max_memo = None  # capacity of replay buffer
@@ -128,7 +128,7 @@ class Arguments:  # [ElegantRL.2021.10.10]
 
 
 def train_and_evaluate(args, learner_id=0):
-    env = build_env(env=args.env, if_print=False, device_id=args.eval_gpu_id, env_num=args.env_num)
+    args.init_before_training()  # necessary!
 
     '''init: Agent'''
     agent = args.agent
@@ -136,6 +136,8 @@ def train_and_evaluate(args, learner_id=0):
                state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
                learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
     agent.save_or_load_agent(args.cwd, if_save=False)
+
+    env = build_env(env=args.env, if_print=False, device_id=args.eval_gpu_id, env_num=args.env_num)
     if env.env_num == 1:
         agent.states = [env.reset(), ]
         assert isinstance(agent.states[0], np.ndarray)
@@ -156,7 +158,7 @@ def train_and_evaluate(args, learner_id=0):
     if args.if_off_policy:
         buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
                               action_dim=1 if env.if_discrete else env.action_dim,
-                              if_use_per=args.if_per_or_gae)
+                              if_use_per=args.if_per_or_gae, gpu_id=args.learner_gpus[learner_id])
         buffer.save_or_load_history(args.cwd, if_save=False)
 
         def update_buffer(_traj_list):
@@ -169,7 +171,12 @@ def train_and_evaluate(args, learner_id=0):
         buffer = list()
 
         def update_buffer(_traj_list):
-            buffer[:] = _traj_list[0]  # (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
+            (ten_state, ten_reward, ten_mask, ten_action, ten_noise) = _traj_list[0]
+            buffer[:] = (ten_state.squeeze(1),
+                         ten_reward,
+                         ten_mask,
+                         ten_action.squeeze(1),
+                         ten_noise.squeeze(1))
 
             _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
             return _step, _r_exp
@@ -212,7 +219,6 @@ def train_and_evaluate(args, learner_id=0):
 
     print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
-    env.close()
     agent.save_or_load_agent(cwd, if_save=True)
     buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
     evaluator.save_or_load_recoder(if_save=True)
@@ -359,7 +365,7 @@ class PipeLearner:
             buffer = ReplayBufferMP(max_len=args.max_memo, state_dim=args.state_dim,
                                     action_dim=1 if args.if_discrete else args.action_dim,
                                     if_use_per=args.if_per_or_gae,
-                                    buffer_num=buffer_num, gpu_id=learner_id)
+                                    buffer_num=buffer_num, gpu_id=args.learner_gpus[learner_id])
             buffer.save_or_load_history(args.cwd, if_save=False)
 
             def update_buffer(_traj_list):
@@ -378,7 +384,13 @@ class PipeLearner:
             def update_buffer(_traj_list):
                 _traj_list = list(map(list, zip(*_traj_list)))
                 _traj_list = [torch.cat(t, dim=0) for t in _traj_list]
-                buffer[:] = _traj_list  # (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
+                (ten_state, ten_reward, ten_mask, ten_action, ten_noise) = _traj_list
+                buffer[:] = (ten_state.squeeze(1),
+                             ten_reward,
+                             ten_mask,
+                             ten_action.squeeze(1),
+                             ten_noise.squeeze(1))
+
                 _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
                 return _step, _r_exp
 
@@ -548,6 +560,8 @@ class PipeEvaluator:
 
 
 def train_and_evaluate_mp(args, agent_id=0):
+    args.init_before_training()  # necessary!
+
     process = list()
     mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 

@@ -216,7 +216,8 @@ class ReplayBufferMP:
         self.worker_num = buffer_num
 
         buf_max_len = max_len // buffer_num
-        self.buffers = [ReplayBuffer(buf_max_len, state_dim, action_dim, if_use_per, gpu_id)
+        self.buffers = [ReplayBuffer(max_len=buf_max_len, state_dim=state_dim, action_dim=action_dim,
+                                     if_use_per=if_use_per, gpu_id=gpu_id)
                         for _ in range(buffer_num)]
 
     def sample_batch(self, batch_size) -> list:

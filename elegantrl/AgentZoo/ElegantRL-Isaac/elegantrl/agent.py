@@ -728,6 +728,8 @@ class AgentPPO(AgentBase):
             buf_len = buffer[0].shape[0]
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
             # (ten_state, ten_reward, ten_mask, ten_action, ten_noise) = buffer
+            # print([ten.shape for ten in (buf_state, buf_reward, buf_mask, buf_action, buf_noise)])
+            # exit()  # todo
 
             '''get buf_r_sum, buf_logprob'''
             bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
@@ -740,6 +742,8 @@ class AgentPPO(AgentBase):
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
+        # print([ten.shape for ten in (buf_state, buf_r_sum, buf_adv_v, buf_action, buf_logprob)])
+        # exit()  # todo
         '''PPO: Surrogate objective of Trust Region'''
         obj_critic = None
         obj_actor = None
@@ -802,20 +806,6 @@ class AgentPPO(AgentBase):
         return traj_list
 
     def convert_trajectory(self, traj_list, reward_scale, gamma):
-        # for traj in traj_list:  # todo one env
-        #     temp = list(map(list, zip(*traj)))  # 2D-list transpose
-        #
-        #     ten_state = torch.cat(temp[0])
-        #     ten_reward = torch.as_tensor(temp[1], dtype=torch.float32) * reward_scale
-        #     ten_mask = (1.0 - torch.as_tensor(temp[2], dtype=torch.float32)) * gamma
-        #     ten_action = torch.cat(temp[3])
-        #     ten_noise = torch.cat(temp[4])
-        #
-        #     traj[:] = (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
-        #
-        #     print(';;2')
-        #     print(';;', [ten.shape for ten in traj])
-        #     print(';;')
         for traj in traj_list:
             temp = list(map(list, zip(*traj)))  # 2D-list transpose
 
@@ -826,12 +816,6 @@ class AgentPPO(AgentBase):
             ten_noise = torch.stack(temp[4])
 
             traj[:] = (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
-
-            # print(';;2')
-            # # print(';;', [ten.shape for ten in traj])
-            # print(';;', len(temp), len(temp[0]), temp[0][0].shape)
-            # print(';;', type(temp), type(temp[0]), type(temp[0][0]))
-            # print(';;')
         return traj_list
 
 

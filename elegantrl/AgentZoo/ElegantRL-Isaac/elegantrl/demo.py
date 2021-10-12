@@ -10,62 +10,54 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
     args = Arguments()
     args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
 
-    if_train_pendulum = 1
-    if if_train_pendulum:
-        "TotalStep: 2e5, TargetReward: -200, UsedTime: 200s"
-        # One way to build env
-        # args.env = build_env(env='Pendulum-v1')  # gym.__version__ == 0.21.0
-        # args.env = build_env(env='Pendulum-v0')  # gym.__version__ == 0.17.0
+    env_name = ['Pendulum-v1',
+                'LunarLanderContinuous-v2',
+                'BipedalWalker-v3',
+                'BipedalWalkerHardcore-v3', ][0]
 
-        # Another way to build env
-        args.env = 'Pendulum-v1'  # or 'Pendulum-v0'
-        args.env_num = 1
-        args.max_step = 200
-        args.state_dim = 3
-        args.action_dim = 1
-        args.if_discrete = False
-        args.target_return = -200
+    if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
+        "Step: 2e5, Reward: -200, UsedTime: 200s ModSAC"
+        '''One way to build env'''
+        args.env = build_env(env=env_name)
+        # '''Another way to build env'''
+        # args.env = env_name  # 'Pendulum-v1' or 'Pendulum-v0'
+        # args.env_num = 1
+        # args.max_step = 200
+        # args.state_dim = 3
+        # args.action_dim = 1
+        # args.if_discrete = False
+        # args.target_return = -200
 
         args.gamma = 0.97
+        args.net_dim = 2 ** 7
         args.worker_num = 2
         args.reward_scale = 2 ** -2
-        args.target_step = 200 * 2  # max_step = 200
-
-        args.init_before_training()  # necessary!
-        # train_and_evaluate(args)  # single process
-        train_and_evaluate_mp(args)  # multiple process
-
-    if_train_lunar_lander = 0
-    if if_train_lunar_lander:
+        args.target_step = 200 * 4  # max_step = 200
+    if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
         "TotalStep: 4e5, TargetReward: 200, UsedTime:  900s, TD3"
         "TotalStep: 5e5, TargetReward: 200, UsedTime: 1500s, ModSAC"
-        args.env = build_env(env='LunarLanderContinuous-v2')
-        args.target_step = args.env.max_step
-        args.reward_scale = 2 ** 0
-
+        args.env = build_env(env=env_name)
         args.eval_times1 = 2 ** 4
-        args.eval_times2 = 2 ** 6  # use CPU to draw learning curve
+        args.eval_times2 = 2 ** 6
 
-    if_train_bipedal_walker = 0
-    if if_train_bipedal_walker:
+        args.target_step = args.env.max_step
+    if env_name in {'BipedalWalker-v3', 'BipedalWalker-v2'}:
         "TotalStep: 08e5, TargetReward: 300, UsedTime: 1800s TD3"
         "TotalStep: 11e5, TargetReward: 329, UsedTime: 6000s TD3"
         "TotalStep:  4e5, TargetReward: 300, UsedTime: 2000s ModSAC"
         "TotalStep:  8e5, TargetReward: 330, UsedTime: 5000s ModSAC"
-        args.env = build_env(env='BipedalWalker-v3')
-        args.target_step = args.env.max_step
-        args.gamma = 0.98
-
+        args.env = build_env(env=env_name)
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
 
-    if_train_bipedal_walker_hard_core = 0
-    if if_train_bipedal_walker_hard_core:
+        args.target_step = args.env.max_step
+        args.gamma = 0.98
+    if env_name in {'BipedalWalkerHardcore-v3', 'BipedalWalkerHardcore-v2'}:
         "TotalStep: 10e5, TargetReward:   0, UsedTime: 10ks ModSAC"
         "TotalStep: 25e5, TargetReward: 150, UsedTime: 20ks ModSAC"
         "TotalStep: 35e5, TargetReward: 295, UsedTime: 40ks ModSAC"
         "TotalStep: 40e5, TargetReward: 300, UsedTime: 50ks ModSAC"
-        args.env = build_env(env='BipedalWalkerHardcore-v3')
+        args.env = build_env(env=env_name)
         args.target_step = args.env.max_step
         args.gamma = 0.98
         args.net_dim = 2 ** 8
@@ -82,62 +74,89 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
 
         args.target_step = args.env.max_step * 1
 
-    # args.init_before_training()  # necessary!
-    #
+    # args.learner_gpus = (0, )  # single GPU
+    # args.learner_gpus = (0, 1)  # multiple GPUs
     # train_and_evaluate(args)  # single process
-    # args.worker_num = 4
-    # args.visible_gpu = sys.argv[-1]
-    # train_and_evaluate_mp(args)  # multiple process
-    # args.worker_num = 6
-    # args.visible_gpu = '0,1'
-    # train_and_evaluate_mp(args)  # multiple GPU
+    train_and_evaluate_mp(args)  # multiple process
 
 
-def demo_continuous_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.12]
+    args = Arguments()
     args.agent = AgentPPO()
-    args.agent.cri_target = True
-    args.visible_gpu = '0'  # sys.argv[-1]
 
-    if_train_pendulum = 1
-    if if_train_pendulum:
-        "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
-        import gym
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
-        # args.env = PreprocessEnv(env='Pendulum-v0')  # It is Ok.
-        # args.env = build_env(env='Pendulum-v0')  # It is Ok.
-        args.reward_scale = 2 ** -2  # RewardRange: -1800 < -200 < -50 < 0
+    env_name = ['Pendulum-v1',
+                'LunarLanderContinuous-v2',
+                'BipedalWalker-v3',
+                'BipedalWalkerHardcore-v3', ][0]
+
+    if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
+        """
+        Step: 45e4, Reward: -138, UsedTime: 373s PPO
+        Step: 40e4, Reward: -200, UsedTime: 400s PPO
+        Step: 46e4, Reward: -213, UsedTime: 300s PPO
+        """
+        '''One way to build env'''
+        args.env = build_env(env=env_name)
+        # '''Another way to build env'''
+        # args.env = env_name  # 'Pendulum-v1' or 'Pendulum-v0'
+        # args.env_num = 1
+        # args.max_step = 200
+        # args.state_dim = 3
+        # args.action_dim = 1
+        # args.if_discrete = False
+        # args.target_return = -200
 
         args.gamma = 0.97
-        args.net_dim = 2 ** 7
-        args.batch_size = args.net_dim * 2
+        args.net_dim = 2 ** 8
+        args.worker_num = 2
+        args.reward_scale = 2 ** -2
+        args.target_step = 200 * 16  # max_step = 200
+    if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
+        """
+        Step: 80e4, Reward: 246, UsedTime: 3000s PPO
+        """
+        args.env = build_env(env=env_name)
+        args.eval_times1 = 2 ** 4
+        args.eval_times2 = 2 ** 6
 
         args.target_step = args.env.max_step * 8
-
-    if_train_lunar_lander = 0
-    if if_train_lunar_lander:
-        "TotalStep: 4e5, TargetReward: 200, UsedTime: 2000s, TD3"
-        args.env = build_env(env='LunarLanderContinuous-v2')
-        args.gamma = 0.99
-        args.break_step = int(4e6)
-
-        args.target_step = args.env.max_step * 8
-
-    if_train_bipedal_walker = 0
-    if if_train_bipedal_walker:
-        "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
-        args.env = build_env(env='BipedalWalker-v3')
+    if env_name in {'BipedalWalker-v3', 'BipedalWalker-v2'}:
+        """
+        Step: 57e5, Reward: 295, UsedTime: 17ks PPO
+        Step: 70e5, Reward: 300, UsedTime: 21ks PPO
+        """
+        args.env = build_env(env=env_name)
+        args.eval_times1 = 2 ** 3
+        args.eval_times2 = 2 ** 5
 
         args.gamma = 0.98
-        args.if_per_or_gae = True
-        args.break_step = int(8e6)
+        args.target_step = args.env.max_step * 16
+    if env_name in {'BipedalWalkerHardcore-v3', 'BipedalWalkerHardcore-v2'}:
+        """
+        Step: 57e5, Reward: 295, UsedTime: 17ks PPO
+        Step: 70e5, Reward: 300, UsedTime: 21ks PPO
+        """
+        args.env = build_env(env=env_name)
 
+        args.gamma = 0.98
+        args.net_dim = 2 ** 8
+        args.max_memo = 2 ** 22
+        args.batch_size = args.net_dim * 4
+        args.repeat_times = 2 ** 4
+        args.learning_rate = 2 ** -15
+
+        args.eval_gap = 2 ** 8
+        args.eval_times1 = 2 ** 2
+        args.eval_times2 = 2 ** 5
+        # args.break_step = int(80e5)
+
+        args.worker_num = 4
         args.target_step = args.env.max_step * 16
 
-    # train_and_evaluate(args)
-    args.worker_num = 4
-    train_and_evaluate_mp(args)
+    # args.learner_gpus = (0, )  # single GPU
+    # args.learner_gpus = (0, 1)  # multiple GPUs
+    # train_and_evaluate(args)  # single process
+    train_and_evaluate_mp(args)  # multiple process
 
 
 def demo_discrete_action_off_policy():
