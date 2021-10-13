@@ -4,11 +4,12 @@
 DQN
 ==========
 
-`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_approximates a state-value function in a Q-Learning framework with a neural network. This implementation provides vanilla Deep Q-Learning and supports the following extensions:
+`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ approximates a state-value function in a Q-Learning framework with a neural network. This implementation provides vanilla Deep Q-Learning and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
 -  Gradient clipping: ✔️
+-  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
 
 Example
