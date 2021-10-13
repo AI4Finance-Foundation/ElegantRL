@@ -192,22 +192,15 @@ class AgentBase:
 
 class AgentDQN(AgentBase):
     """
-    :param net_dim[int]: the dimension of networks (the width of neural networks)
-    :param state_dim: the dimension of state (the number of state vector)
-    :param action_dim: the dimension of action (the number of discrete action)
-    :param learning_rate: learning rate of optimizer
-    :param if_use_per: PER (off-policy) or GAE (on-policy) for sparse reward
-    :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-    :param agent_id: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    :param net_dim (int): the dimension of networks (the width of neural networks)
+    :param state_dim (int): the dimension of state (the number of state vector)
+    :param action_dim (int): the dimension of action (the number of discrete action)
+    :param learning_rate (float): learning rate of optimizer
+    :param if_use_per (bool): PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num (int): the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id (int): if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    def __init__(self, 
-                 net_dim: int = 32, 
-                 state_dim: int = 32, 
-                 action_dim: int = 2, 
-                 learning_rate: float = 1e-4, 
-                 if_use_per: bool = False, 
-                 env_num: int = 1, 
-                 agent_id: int = 0):
+    def __init__(self, net_dim=32, state_dim=32, action_dim=2, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
         super().__init__()
         self.ClassCri = QNet
         self.if_use_cri_target = True
@@ -216,7 +209,7 @@ class AgentDQN(AgentBase):
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
         """
-        Explict call ``self.init()`` to initialize the ``self.object`` in ``__init__()`` for multiprocessing. 
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
         super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, agent_id)
         if if_use_per:
@@ -230,7 +223,7 @@ class AgentDQN(AgentBase):
         """
         Select discrete actions given an array of states.
         
-        :param states: an array of states in a shape (batch_size, state_dim, ).
+        :param states (np.ndarray): an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
@@ -242,6 +235,13 @@ class AgentDQN(AgentBase):
         return a_ints
 
     def explore_one_env(self, env, target_step) -> list:
+        """
+        Collect trajectories through the actor-environment interaction for a single environment instance.
+        
+        :param env (object env): the DRL environment instance.
+        :param target_step (int): the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         traj_temp = list()
         state = self.states[0]
         for _ in range(target_step):
@@ -255,6 +255,13 @@ class AgentDQN(AgentBase):
         return traj_list
 
     def explore_vec_env(self, env, target_step) -> list:
+        """
+        Collect trajectories through the actor-environment interaction for a vectorized environment instance.
+        
+        :param env (object env): the DRL environment instance.
+        :param target_step (int): the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         env_num = len(self.traj_list)
         states = self.states
 
