@@ -192,7 +192,7 @@ class AgentBase:
 
 class AgentDQN(AgentBase):
     """
-    :param net_dim: the dimension of networks (the width of neural networks)
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim: the dimension of state (the number of state vector)
     :param action_dim: the dimension of action (the number of discrete action)
     :param learning_rate: learning rate of optimizer
@@ -229,6 +229,7 @@ class AgentDQN(AgentBase):
     def select_actions(self, states) -> np.ndarray:  # for discrete action space
         """
         Select discrete actions given an array of states.
+        
         :param states: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
