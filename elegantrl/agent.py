@@ -260,7 +260,7 @@ class AgentDQN(AgentBase):
 
     def explore_vec_env(self, env, target_step) -> list:
         """
-        Collect trajectories through the actor-environment interaction for a vectorized environment instance.
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
         
         :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
@@ -306,7 +306,7 @@ class AgentDQN(AgentBase):
 
     def get_obj_critic_raw(self, buffer, batch_size):
         """
-        Calculate the loss of the network and predict Q values with uniform sampling.
+        Calculate the loss of the network and predict Q values with **uniform sampling**.
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
@@ -323,7 +323,7 @@ class AgentDQN(AgentBase):
 
     def get_obj_critic_per(self, buffer, batch_size):
         """
-        Calculate the loss of the network and predict Q values with Prioritized Experience Replay (PER).
+        Calculate the loss of the network and predict Q values with **Prioritized Experience Replay (PER)**.
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
