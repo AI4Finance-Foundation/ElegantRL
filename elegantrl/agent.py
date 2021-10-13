@@ -236,7 +236,7 @@ class AgentDQN(AgentBase):
 
     def explore_one_env(self, env, target_step) -> list:
         """
-        Collect trajectories through the actor-environment interaction for a single environment instance.
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
         
         :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
