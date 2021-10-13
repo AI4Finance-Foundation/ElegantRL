@@ -238,7 +238,7 @@ class AgentDQN(AgentBase):
         """
         Collect trajectories through the actor-environment interaction for a single environment instance.
         
-        :param env[object Env]: the DRL environment instance.
+        :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
@@ -258,7 +258,7 @@ class AgentDQN(AgentBase):
         """
         Collect trajectories through the actor-environment interaction for a vectorized environment instance.
         
-        :param env[object Env]: the DRL environment instance.
+        :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
@@ -286,7 +286,7 @@ class AgentDQN(AgentBase):
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
         
-        :param buffer[object ReplayBuffer]: the ReplayBuffer instance that stores the trajectories.
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
         :param repeat_times[float]: the reusing times of each trajectory.
         :param soft_update_tau[float]: the soft update parameter.
@@ -301,6 +301,15 @@ class AgentDQN(AgentBase):
         return obj_critic.item(), q_value.mean().item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the reusing times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
@@ -311,6 +320,15 @@ class AgentDQN(AgentBase):
         return obj_critic, q_value
 
     def get_obj_critic_per(self, buffer, batch_size):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the reusing times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
