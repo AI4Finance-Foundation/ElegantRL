@@ -226,7 +226,7 @@ class AgentDQN(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, states:array) -> np.ndarray:  # for discrete action space
+    def select_actions(self, states) -> np.ndarray:  # for discrete action space
         """
         Select discrete actions given an array of states.
         :param states: an array of states in a shape (batch_size, state_dim, ).
