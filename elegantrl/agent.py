@@ -200,8 +200,7 @@ class AgentDQN(AgentBase):
     :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    def __init__(self):
-        
+    def __init__(self, net_dim=32, state_dim=32, action_dim=2, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
         super().__init__()
         self.ClassCri = QNet
         self.if_use_cri_target = True
@@ -209,6 +208,9 @@ class AgentDQN(AgentBase):
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
+        """
+        Explict call ``self.init()`` to initialize the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
         super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, agent_id)
         if if_use_per:
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
