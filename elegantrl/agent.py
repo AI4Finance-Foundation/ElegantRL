@@ -191,16 +191,17 @@ class AgentBase:
 
 
 class AgentDQN(AgentBase):
+    """
+    :param net_dim: the dimension of networks (the width of neural networks)
+    :param state_dim: the dimension of state (the number of state vector)
+    :param action_dim: the dimension of action (the number of discrete action)
+    :param learning_rate: learning rate of optimizer
+    :param if_use_per: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
-        """
-        :param net_dim: the dimension of networks (the width of neural networks)
-        :param state_dim: the dimension of state (the number of state vector)
-        :param action_dim: the dimension of action (the number of discrete action)
-        :param learning_rate: learning rate of optimizer
-        :param if_use_per: PER (off-policy) or GAE (on-policy) for sparse reward
-        :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        :param agent_id: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
-        """
+        
         super().__init__()
         self.ClassCri = QNet
         self.if_use_cri_target = True
