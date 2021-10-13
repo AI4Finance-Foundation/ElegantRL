@@ -1,9 +1,9 @@
 from elegantrl.demo import *
 
-"""keep 2021-10-12"""
+"""run 2021-10-13"""
 
 
-def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.10]
+def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
     args = Arguments()
     args.agent = AgentPPO()
     args.learner_gpus = (GPU_ID,)  # todo check
@@ -65,16 +65,14 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.10]
         args.max_memo = 2 ** 22
         args.batch_size = args.net_dim * 4
         args.repeat_times = 2 ** 4
-        args.learning_rate = 2 ** -15
-        args.if_per_or_gae = True  # todo
-        args.agent.if_use_cri_target = True  # todo
+        args.learning_rate = 2 ** -16
 
         args.eval_gap = 2 ** 8
         args.eval_times1 = 2 ** 2
         args.eval_times2 = 2 ** 5
         # args.break_step = int(80e5)
 
-        args.worker_num = WORKER_NUM  # todo
+        args.worker_num = WORKER_NUM
         args.target_step = args.env.max_step * 16
 
     # args.learner_gpus = (0, )  # single GPU
@@ -85,29 +83,27 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.10]
 
 """
 IP83
-GPU 0 BipedalWalkerHardcore WORKER_NUM=4 GAE CriTarget   6e7, 15,  9e7, 63, 
-GPU 3 BipedalWalkerHardcore WORKER_NUM=2                 8e7,  8, 
-GPU 4 BipedalWalkerHardcore WORKER_NUM=4                 6e7, 30, 12e7, 92,
+GPU 0 BipedalWalkerHardcore WORKER_NUM=4 GAE CriTarget   6e7,  15  14e7, 115  21e7,
+GPU 4 BipedalWalkerHardcore WORKER_NUM=4                 6e7,  30  21e7, 156  26e7,
 
 IP194
-GPU 0 BipedalWalkerHardcore WORKER_NUM=2 GAE CriTarget   5e7, 10, 10e7, 63
-GPU 1 BipedalWalkerHardcore WORKER_NUM=2 GAE            12e7,  9, 
-GPU 2 BipedalWalkerHardcore WORKER_NUM=4 GAE             7e7, 15, 16e7, 92
+GPU 2 BipedalWalkerHardcore WORKER_NUM=4 GAE             7e7,  15  18e7, 101  23e7, 149
+GPU 3 BipedalWalkerHardcore WORKER_NUM=4 max_step * 16                 
+GPU 4 BipedalWalkerHardcore WORKER_NUM=8 max_step * 16                 
 """
 
 if __name__ == '__main__':
     # sys.argv.extend(['WORK GPU ENV', '2', '3', '0'])
     # sys.argv.extend(['GPU ENV', '3', '0'])
 
-    WORKER_NUM = eval(sys.argv[-3])
-    GPU_ID = eval(sys.argv[-2])
+    WORKER_NUM = eval(sys.argv[-2])
+    GPU_ID = eval(sys.argv[-1])
     ENV_NAME = ['Pendulum-v1',
                 'LunarLanderContinuous-v2',
                 'BipedalWalker-v3',
                 'BipedalWalkerHardcore-v3',
-                ][eval(sys.argv[-1])]
+                ][3]
     print(f"| WORKER_NUM   {WORKER_NUM}")
     print(f"| GPU_ID       {GPU_ID}")
-    print(f"| ENV_NAME     {ENV_NAME}")
 
     demo_continuous_action_on_policy()

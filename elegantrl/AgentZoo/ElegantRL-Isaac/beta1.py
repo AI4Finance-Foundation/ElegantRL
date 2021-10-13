@@ -1,6 +1,7 @@
 from elegantrl.demo import *
 
-"""keep 2021-10-12"""
+"""delete 2021-10-12"""
+
 
 def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.12]
     args = Arguments()
@@ -85,7 +86,7 @@ GPU 2 if_train_lunar_lander                 40e4, 200, 2686s
 GPU 3 if_train_bipedal_walker               49e4, 322, 2977s
 
 GPU 3 BipedalWalkerHardcore WORKER_NUM=4    
-GPU 4 BipedalWalkerHardcore WORKER_NUM=2     8e5,  13  16e5, 136  23e5, 219  45e5, 306, 67ks
+GPU 4 BipedalWalkerHardcore WORKER_NUM=2     8e5,  13  16e5, 136  23e5, 219  38e5, 302, 99ks
 GPU 5 BipedalWalkerHardcore WORKER_NUM=4    14e5,  15  18e5, 117  28e5, 212  45e5, 306, 67ks
 """
 

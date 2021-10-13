@@ -53,10 +53,26 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
         args.target_step = args.env.max_step
         args.gamma = 0.98
     if env_name in {'BipedalWalkerHardcore-v3', 'BipedalWalkerHardcore-v2'}:
-        "TotalStep: 10e5, TargetReward:   0, UsedTime: 10ks ModSAC"
-        "TotalStep: 25e5, TargetReward: 150, UsedTime: 20ks ModSAC"
-        "TotalStep: 35e5, TargetReward: 295, UsedTime: 40ks ModSAC"
-        "TotalStep: 40e5, TargetReward: 300, UsedTime: 50ks ModSAC"
+        '''
+        Step 12e5, Reward:  20
+        Step 18e5, Reward: 135
+        Step 25e5, Reward: 202
+        Step 43e5, Reward: 309
+        UsedTime: 68ks  ModSAC, worker_num=4
+        
+        Step 14e5, Reward:  15
+        Step 18e5, Reward: 117
+        Step 28e5, Reward: 212
+        Step 45e5, Reward: 306
+        UsedTime: 67ks  ModSAC, worker_num=4
+        
+        Step  8e5, Reward:  13
+        Step 16e5, Reward: 136
+        Step 23e5, Reward: 219
+        Step 38e5, Reward: 302
+        UsedTime: 99ks  ModSAC, worker_num=2
+        '''
+
         args.env = build_env(env=env_name)
         args.target_step = args.env.max_step
         args.gamma = 0.98
@@ -66,12 +82,13 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
         args.repeat_times = 1.5
 
         args.max_memo = 2 ** 22
-        args.break_step = 2 ** 24
+        args.break_step = int(80e6)
 
-        args.eval_gap = 2 ** 8
+        args.eval_gap = 2 ** 9
         args.eval_times1 = 2 ** 2
         args.eval_times2 = 2 ** 5
 
+        args.worker_num = 4
         args.target_step = args.env.max_step * 1
 
     # args.learner_gpus = (0, )  # single GPU
@@ -159,36 +176,36 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.12]
     train_and_evaluate_mp(args)  # multiple process
 
 
-def demo_discrete_action_off_policy():
-    args = Arguments(if_on_policy=False)
+def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
+    args = Arguments()
     args.agent = AgentD3QN()  # AgentD3QN AgentDuelDQN AgentDoubleDQN AgentDQN
-    args.visible_gpu = '1'
 
-    if_train_cart_pole = 0
-    if if_train_cart_pole:
-        "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s, D3QN"
-        args.env = build_env('CartPole-v0', if_print=True)
+    env_name = ['CartPole-v0',
+                'LunarLander-v2',
+                'SlimeVolley-v0', ][0]
+
+    if env_name in {'CartPole-v0', }:
+        "Step: 1e5, Reward: 200, UsedTime: 40s, AgentD3QN"
+        args.env = build_env(env=env_name)
+        args.target_return = 195
+
         args.reward_scale = 2 ** -1
-        args.target_step = args.env.max_step * 8
+        args.target_step = args.env.max_step * 4
 
-    if_train_lunar_lander = 1
-    if if_train_lunar_lander:
-        "TotalStep: 6e5, TargetReturn: 200, UsedTime: 1500s, LunarLander-v2, DQN"
-        """
-        0  4.14e+05  202.48 |  202.48   67.0    602   189 |    0.18   0.40  12.58    | UsedTime: 2054 | D3QN
-        0  6.08e+05  240.13 |  240.13   14.4    384    65 |    0.39   0.14  11.12    | UsedTime: 2488 | D3QN
-        0  2.75e+05  218.51 |  218.51   19.6    442    46 |    0.11   0.50  12.92    | UsedTime: 1991 | D3QN
-        0  6.08e+05  240.13 |  240.13   14.4    384    65 |    0.39   0.14  11.12    | UsedTime: 2488 | D3QN 2GPU
-        """
-        args.env = build_env(env='LunarLander-v2', if_print=True)
-        args.target_step = args.env.max_step
+        args.eval_gap = 2 ** 5
+
+    if env_name in {'LunarLander-v2', }:
+        "Step: 29e4, Reward: 222, UsedTime: 5811s D3QN"
+        args.env = build_env(env=env_name)
+
         args.max_memo = 2 ** 19
-        args.repeat_times = 2 ** 1
+        args.reward_scale = 2 ** -1
+        args.target_step = args.env.max_step
 
-    train_and_evaluate(args)
-    # args.worker_num = 4
-    # args.target_step = args.env.max_step // 2
-    # train_and_evaluate_mp(args)
+    # args.learner_gpus = (0, )  # single GPU
+    # args.learner_gpus = (0, 1)  # multiple GPUs
+    # train_and_evaluate(args)  # single process
+    train_and_evaluate_mp(args)  # multiple process
 
 
 def demo_discrete_action_on_policy():
