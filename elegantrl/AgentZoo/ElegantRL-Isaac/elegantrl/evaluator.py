@@ -3,16 +3,15 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.09.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
-class Evaluator:
-    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, target_return):
+class Evaluator:  # [ElegantRL.2021.10.13]
+    def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
         self.cwd = cwd
-        self.device = device
         self.agent_id = agent_id
         self.eval_env = eval_env
         self.eval_gap = eval_gap
@@ -40,13 +39,13 @@ class Evaluator:
             self.eval_time = time.time()
 
             '''evaluate first time'''
-            rewards_steps_list = [get_episode_return_and_step(self.eval_env, act, self.device) for _ in
-                                  range(self.eval_times1)]
+            rewards_steps_list = [get_episode_return_and_step(self.eval_env, act)
+                                  for _ in range(self.eval_times1)]
             r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
             '''evaluate second time'''
             if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-                rewards_steps_list += [get_episode_return_and_step(self.eval_env, act, self.device)
+                rewards_steps_list += [get_episode_return_and_step(self.eval_env, act)
                                        for _ in range(self.eval_times2 - self.eval_times1)]
                 r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
@@ -109,7 +108,10 @@ class Evaluator:
         save_learning_curve(self.recorder, self.cwd, save_title)
 
 
-def get_episode_return_and_step(env, act, device) -> (float, int):
+def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
+    device_id = next(act.parameters()).get_device()  # net.parameters() is a python generator.
+    device = torch.device('cpu' if device_id == -1 else f'cuda:{device_id}')
+
     episode_step = 1
     episode_return = 0.0  # sum of rewards in an episode
 

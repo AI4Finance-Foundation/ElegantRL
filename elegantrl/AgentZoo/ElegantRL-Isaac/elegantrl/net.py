@@ -170,7 +170,7 @@ class ActorSAC(nn.Module):
         return a_tan, log_prob.sum(1, keepdim=True)
 
 
-class ActorPPO(nn.Module):
+class ActorAdv(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -214,7 +214,7 @@ class ActorPPO(nn.Module):
         return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
 
 
-class ActorDiscretePPO(nn.Module):
+class ActorAdvDiscrete(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -675,7 +675,7 @@ def check_actor_network():
 
     if_check_actor_net = 0
     if if_check_actor_net:
-        net = ActorPPO(mid_dim, state_dim, action_dim)
+        net = ActorAdv(mid_dim, state_dim, action_dim)
 
         inp = torch.ones((batch_size, state_dim), dtype=torch.float32)
         out = net(inp)
@@ -690,7 +690,7 @@ def check_actor_network():
         state_dim = (img_size, img_size, img_channel)
         action_dim = 4
 
-        net = ActorPPO(mid_dim, state_dim, action_dim)
+        net = ActorAdv(mid_dim, state_dim, action_dim)
 
         inp = torch.ones((batch_size, img_size, img_size, img_channel), dtype=torch.int8)
         out = net(inp)

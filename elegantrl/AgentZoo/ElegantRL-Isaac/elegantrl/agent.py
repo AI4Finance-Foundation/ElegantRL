@@ -6,11 +6,11 @@ import numpy.random as rd
 from copy import deepcopy
 from torch.nn.utils import clip_grad_norm_
 from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
-from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
+from elegantrl.net import Actor, ActorAdv, ActorSAC, ActorAdvDiscrete
 from elegantrl.net import Critic, CriticAdv, CriticTwin
 from elegantrl.net import SharedDPG, SharedSPG, SharedPPO
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.13](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class AgentBase:
@@ -20,10 +20,11 @@ class AgentBase:
         self.traj_list = None
         self.action_dim = None
         self.if_off_policy = True
+
         self.env_num = 1
         self.explore_rate = 1.0
         self.explore_noise = 0.1
-        self.grad_clip_norm = 6.0
+        self.clip_grad_norm = 4.0
         # self.amp_scale = None  # automatic mixed precision
 
         '''attribute'''
@@ -47,7 +48,7 @@ class AgentBase:
         `float learning_rate` learning rate of optimizer
         `bool if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
         `int env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        `int agent_id` if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+        `int gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
         """
         self.action_dim = action_dim
         # self.amp_scale = torch.cuda.amp.GradScaler()
@@ -156,7 +157,214 @@ class AgentBase:
     def optim_update(self, optimizer, objective, params):
         optimizer.zero_grad()
         objective.backward()
-        clip_grad_norm_(params, max_norm=self.grad_clip_norm)
+        clip_grad_norm_(params, max_norm=self.clip_grad_norm)
+        optimizer.step()
+
+    # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
+    #     # self.amp_scale = torch.cuda.amp.GradScaler()
+    #
+    #     optimizer.zero_grad()
+    #     self.amp_scale.scale(objective).backward()  # loss.backward()
+    #     self.amp_scale.unscale_(optimizer)  # amp
+    #
+    #     # from torch.nn.utils import clip_grad_norm_
+    #     # clip_grad_norm_(model.parameters(), max_norm=3.0)  # amp, clip_grad_norm_
+    #     self.amp_scale.step(optimizer)  # optimizer.step()
+    #     self.amp_scale.update()  # optimizer.step()
+
+    @staticmethod
+    def soft_update(target_net, current_net, tau):
+        """soft update a target network via current network
+
+        `nn.Module target_net` target network update via a current network, it is more stable
+        `nn.Module current_net` current network update via an optimizer
+        """
+        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
+            tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
+
+    def save_or_load_agent(self, cwd, if_save):
+        """save or load the training files for agent from disk.
+
+        `str cwd` current working directory, where to save training files.
+        `bool if_save` True: save files. False: load files.
+        """
+
+        def load_torch_file(model_or_optim, _path):
+            state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
+            model_or_optim.load_state_dict(state_dict)
+
+        name_obj_list = [('actor', self.act), ('act_target', self.act_target), ('act_optim', self.act_optim),
+                         ('critic', self.cri), ('cri_target', self.cri_target), ('cri_optim', self.cri_optim), ]
+        name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
+
+        if if_save:
+            for name, obj in name_obj_list:
+                save_path = f"{cwd}/{name}.pth"
+                torch.save(obj.state_dict(), save_path)
+        else:
+            for name, obj in name_obj_list:
+                save_path = f"{cwd}/{name}.pth"
+                load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
+
+    @staticmethod
+    def convert_trajectory(traj_list, reward_scale, gamma):  # off-policy
+        for ten_state, ten_other in traj_list:
+            ten_other[:, 0] = ten_other[:, 0] * reward_scale  # ten_reward
+            ten_other[:, 1] = (1.0 - ten_other[:, 1]) * gamma  # ten_mask = (1.0 - ary_done) * gamma
+        return traj_list
+
+
+class AgentBaseMergeBeta:
+    def __init__(self, net_dim=None, state_dim=None, action_dim=None, learning_rate=1e-4,
+                 if_per_or_gae=False, env_num=1, gpu_id=0, if_activate=False):
+        """initialize the self.object in `__init__()`
+
+        replace by different DRL algorithms
+        explict call self.__init__() for multiprocessing.
+
+        `int net_dim` the dimension of networks (the width of neural networks)
+        `int state_dim` the dimension of state (the number of state vector)
+        `int action_dim` the dimension of action (the number of discrete action)
+        `float learning_rate` learning rate of optimizer
+        `bool if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
+        `int env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+        `int gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
+        `bool if_activate` explict call self.__init__() for multiprocessing.
+        """
+        self.ClassCri = getattr(self, 'ClassCri', None)
+        self.ClassAct = getattr(self, 'ClassAct', None)
+        self.if_use_cri_target = getattr(self, 'if_use_cri_target', None)
+        self.if_use_act_target = getattr(self, 'if_use_act_target', None)
+
+        if if_activate:
+            self.action_dim = action_dim
+            # self.amp_scale = torch.cuda.amp.GradScaler()
+            self.traj_list = [list() for _ in range(env_num)]
+            self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+
+            self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
+            self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
+            self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
+            self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
+
+            self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
+            self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
+            del self.ClassCri, self.ClassAct
+
+            assert isinstance(if_per_or_gae, bool)
+            if env_num == 1:
+                self.explore_env = self.explore_one_env
+            else:
+                self.explore_env = self.explore_vec_env
+        else:
+            self.states = None
+            self.device = None
+            self.traj_list = None
+            self.action_dim = None
+            self.if_off_policy = True
+
+            self.env_num = 1
+            self.explore_rate = 1.0
+            self.explore_noise = 0.1
+            self.clip_grad_norm = 4.0
+            # self.amp_scale = None  # automatic mixed precision
+
+            '''attribute'''
+            self.explore_env = None
+            self.get_obj_critic = None
+
+            self.criterion = torch.nn.SmoothL1Loss()
+            self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
+            self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
+
+    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+        """Select continuous actions for exploration
+
+        `tensor states` states.shape==(batch_size, state_dim, )
+        return `tensor actions` actions.shape==(batch_size, action_dim, ),  -1 < action < +1
+        """
+        action = self.act(state.to(self.device))
+        if rd.rand() < self.explore_rate:  # epsilon-greedy
+            action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
+        return action.detach().cpu()
+
+    def explore_one_env(self, env, target_step, reward_scale, gamma):
+        """actor explores in one env, then returns the traj (env transition)
+
+        `object env` RL training environment. env.reset() env.step()
+        `int target_step` explored target_step number of step in env
+        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
+        """
+        state = self.states[0]
+        traj = list()
+        for _ in range(target_step):
+            ten_state = torch.as_tensor(state, dtype=torch.float32)
+            ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
+            action = ten_action.numpy()
+            next_s, reward, done, _ = env.step(action)
+
+            ten_other = torch.empty(2 + self.action_dim)
+            ten_other[0] = reward
+            ten_other[1] = done
+            ten_other[2:] = ten_action
+            traj.append((ten_state, ten_other))
+
+            state = env.reset() if done else next_s
+
+        self.states[0] = state
+
+        traj_state = torch.stack([item[0] for item in traj])
+        traj_other = torch.stack([item[1] for item in traj])
+        traj_list = [(traj_state, traj_other), ]
+        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ]
+
+    def explore_vec_env(self, env, target_step, reward_scale, gamma):
+        """actor explores in VectorEnv, then returns the trajectory (env transition)
+
+        `object env` RL training environment. env.reset() env.step()
+        `int target_step` explored target_step number of step in env
+        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
+        """
+        ten_states = self.states
+
+        traj = list()
+        for _ in range(target_step):
+            ten_actions = self.select_actions(ten_states)
+            ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
+
+            ten_others = torch.cat((ten_rewards.unsqueeze(0),
+                                    ten_dones.unsqueeze(0),
+                                    ten_actions))
+            traj.append((ten_states, ten_others))
+            ten_states = ten_next_states
+
+        self.states = ten_states
+
+        # traj = [(env_ten, ...), ...], env_ten = (env1_ten, env2_ten, ...)
+        traj_state = torch.stack([item[0] for item in traj])
+        traj_other = torch.stack([item[1] for item in traj])
+        traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
+                     for env_i in range(len(self.states))]
+        # traj_list = [traj_env_0, ...], traj_env_0 = (ten_state, ten_other)
+        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+        """update the neural network by sampling batch data from ReplayBuffer
+
+        replace by different DRL algorithms.
+        return the objective value as training information to help fine-tuning
+
+        `buffer` Experience replay buffer.
+        `int batch_size` sample batch_size of data for Stochastic Gradient Descent
+        `float repeat_times` the times of sample batch = int(target_step * repeat_times) in off-policy
+        `float soft_update_tau` target_net = target_net * (1-tau) + current_net * tau
+        `return tuple` training logging. tuple = (float, float, ...)
+        """
+
+    def optim_update(self, optimizer, objective, params):
+        optimizer.zero_grad()
+        objective.backward()
+        clip_grad_norm_(params, max_norm=self.clip_grad_norm)
         optimizer.step()
 
     # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
@@ -640,7 +848,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 class AgentPPO(AgentBase):
     def __init__(self):
         super().__init__()
-        self.ClassAct = ActorPPO
+        self.ClassAct = ActorAdv
         self.ClassCri = CriticAdv
 
         self.if_off_policy = False
@@ -727,9 +935,6 @@ class AgentPPO(AgentBase):
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
-            # (ten_state, ten_reward, ten_mask, ten_action, ten_noise) = buffer
-            # print([ten.shape for ten in (buf_state, buf_reward, buf_mask, buf_action, buf_noise)])
-            # exit()  # todo
 
             '''get buf_r_sum, buf_logprob'''
             bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
@@ -742,9 +947,6 @@ class AgentPPO(AgentBase):
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
-        # print([ten.shape for ten in (buf_state, buf_r_sum, buf_adv_v, buf_action, buf_logprob)])
-        # exit()  # todo
-        '''PPO: Surrogate objective of Trust Region'''
         obj_critic = None
         obj_actor = None
         update_times = int(buf_len / batch_size * repeat_times)
@@ -757,6 +959,7 @@ class AgentPPO(AgentBase):
             action = buf_action[indices]
             logprob = buf_logprob[indices]
 
+            '''PPO: Surrogate objective of Trust Region'''
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             ratio = (new_logprob - logprob.detach()).exp()
             surrogate1 = adv_v * ratio
@@ -822,7 +1025,108 @@ class AgentPPO(AgentBase):
 class AgentDiscretePPO(AgentPPO):
     def __init__(self):
         super().__init__()
-        self.ClassAct = ActorDiscretePPO
+        self.ClassAct = ActorAdvDiscrete
+
+    def explore_one_env(self, env, target_step, reward_scale, gamma):
+        state = self.states[0]
+
+        last_done = 0
+        traj = list()
+        for step_i in range(target_step):
+            ten_states = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            ten_a_ints, ten_probs = self.select_actions(ten_states)
+            a_int = ten_a_ints[0].numpy()
+            next_s, reward, done, _ = env.step(a_int)  # only different
+
+            traj.append((ten_states, reward, done, ten_a_ints, ten_probs))
+            if done:
+                state = env.reset()
+                last_done = step_i
+            else:
+                state = next_s
+
+        self.states[0] = state
+
+        traj_list = self.splice_trajectory([traj, ], [last_done, ])
+        return self.convert_trajectory(traj_list, reward_scale, gamma)
+
+    def explore_vec_env(self, env, target_step, reward_scale, gamma):
+        ten_states = self.states
+
+        env_num = len(self.traj_list)
+        traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
+        last_done_list = [0 for _ in range(env_num)]
+
+        for step_i in range(target_step):
+            ten_a_ints, ten_probs = self.select_actions(ten_states)
+            tem_next_states, ten_rewards, ten_dones = env.step(ten_a_ints.numpy())
+
+            for env_i in range(env_num):
+                traj_list[env_i].append((ten_states[env_i], ten_rewards[env_i], ten_dones[env_i],
+                                         ten_a_ints[env_i], ten_probs[env_i]))
+                if ten_dones[env_i]:
+                    last_done_list[env_i] = step_i
+
+            ten_states = tem_next_states
+
+        self.states = ten_states
+
+        traj_list = self.splice_trajectory(traj_list, last_done_list)
+        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+
+
+class AgentA2C(AgentPPO):
+    def __init__(self):
+        super().__init__()
+        print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
+              '| Without TrustRegion, A2C needs special hyper-parameters, such as smaller repeat_times.')
+
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        with torch.no_grad():
+            buf_len = buffer[0].shape[0]
+            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
+
+            '''get buf_r_sum, buf_logprob'''
+            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
+            buf_value = torch.cat(buf_value, dim=0)
+            # buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
+
+            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / (buf_adv_v.std() + 1e-5))
+            # buf_adv_v: advantage_value in ReplayBuffer
+            del buf_noise, buffer[:]
+
+        obj_critic = None
+        obj_actor = None
+        update_times = int(buf_len / batch_size * repeat_times)
+        for update_i in range(1, update_times + 1):
+            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+
+            state = buf_state[indices]
+            r_sum = buf_r_sum[indices]
+            adv_v = buf_adv_v[indices]
+            action = buf_action[indices]
+            # logprob = buf_logprob[indices]
+
+            '''A2C: Advantage function'''
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
+            obj_actor = -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
+            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+
+            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
+            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+
+        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
+
+
+class AgentDiscreteA2C(AgentA2C):
+    def __init__(self):
+        super().__init__()
+        self.ClassAct = ActorAdvDiscrete
 
     def explore_one_env(self, env, target_step, reward_scale, gamma):
         state = self.states[0]
@@ -1042,7 +1346,6 @@ class AgentSharedPPO(AgentPPO):
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
-        '''PPO: Surrogate objective of Trust Region'''
         obj_critic = obj_actor = None
         for _ in range(int(buf_len / batch_size * repeat_times)):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
@@ -1053,12 +1356,57 @@ class AgentSharedPPO(AgentPPO):
             action = buf_action[indices]
             logprob = buf_logprob[indices]
 
+            '''PPO: Surrogate objective of Trust Region'''
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             ratio = (new_logprob - logprob.detach()).exp()
             surrogate1 = adv_v * ratio
             surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
             obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
+
+            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
+
+            obj_united = obj_critic + obj_actor
+            self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
+            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+
+        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
+
+
+class AgentSharedA2C(AgentSharedPPO):
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        with torch.no_grad():
+            buf_len = buffer[0].shape[0]
+            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [ten.to(self.device) for ten in buffer]
+            # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
+
+            '''get buf_r_sum, buf_logprob'''
+            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
+            buf_value = torch.cat(buf_value, dim=0)
+            # buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
+
+            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / torch.std(buf_adv_v) + 1e-5)
+            # buf_adv_v: buffer data of adv_v value
+            del buf_noise, buffer[:]
+
+        obj_critic = obj_actor = None
+        for _ in range(int(buf_len / batch_size * repeat_times)):
+            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+
+            state = buf_state[indices]
+            r_sum = buf_r_sum[indices]
+            adv_v = buf_adv_v[indices]  # advantage value
+            action = buf_action[indices]
+            # logprob = buf_logprob[indices]
+
+            '''A2C: Advantage function'''
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
+            obj_actor = -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
+            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)

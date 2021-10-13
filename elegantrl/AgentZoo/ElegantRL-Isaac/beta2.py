@@ -87,9 +87,9 @@ GPU 0 BipedalWalkerHardcore WORKER_NUM=4 GAE CriTarget   6e7,  15  14e7, 115  21
 GPU 4 BipedalWalkerHardcore WORKER_NUM=4                 6e7,  30  21e7, 156  26e7,
 
 IP194
+GPU 1 BipedalWalkerHardcore WORKER_NUM=4 max_step * 16                 
+GPU 2 BipedalWalkerHardcore WORKER_NUM=8 max_step * 16                 
 GPU 2 BipedalWalkerHardcore WORKER_NUM=4 GAE             7e7,  15  18e7, 101  23e7, 149
-GPU 3 BipedalWalkerHardcore WORKER_NUM=4 max_step * 16                 
-GPU 4 BipedalWalkerHardcore WORKER_NUM=8 max_step * 16                 
 """
 
 if __name__ == '__main__':
