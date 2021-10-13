@@ -204,7 +204,7 @@ class AgentDQN(AgentBase):
                  net_dim: int = 32, 
                  state_dim: int = 32, 
                  action_dim: int = 2, 
-                 learning_rate: float = =1e-4, 
+                 learning_rate: float = 1e-4, 
                  if_use_per: bool = False, 
                  env_num: int = 1, 
                  agent_id: int = 0):
