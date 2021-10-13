@@ -288,7 +288,7 @@ class AgentDQN(AgentBase):
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :param repeat_times[float]: the reusing times of each trajectory.
+        :param repeat_times[float]: the re-using times of each trajectory.
         :param soft_update_tau[float]: the soft update parameter.
         :return: a tuple of the log information.
         """
@@ -302,13 +302,11 @@ class AgentDQN(AgentBase):
 
     def get_obj_critic_raw(self, buffer, batch_size):
         """
-        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        Calculate the loss of the network and predict Q values with uniform sampling.
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :param repeat_times[float]: the reusing times of each trajectory.
-        :param soft_update_tau[float]: the soft update parameter.
-        :return: a tuple of the log information.
+        :return: the loss of the network and Q values.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
@@ -321,13 +319,11 @@ class AgentDQN(AgentBase):
 
     def get_obj_critic_per(self, buffer, batch_size):
         """
-        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        Calculate the loss of the network and predict Q values with Prioritized Experience Replay (PER).
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :param repeat_times[float]: the reusing times of each trajectory.
-        :param soft_update_tau[float]: the soft update parameter.
-        :return: a tuple of the log information.
+        :return: the loss of the network and Q values.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
