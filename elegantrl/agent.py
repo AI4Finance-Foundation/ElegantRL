@@ -192,7 +192,8 @@ class AgentBase:
 
 class AgentDQN(AgentBase):
     """
-    Bases: elegantrl.agent.AgentBase
+    Bases: ``elegantrl.agent.AgentBase``
+    
     Deep Q-Network algorithm. “Human-Level Control Through Deep Reinforcement Learning”. Mnih V. et al.. 2015.
 
     :param net_dim[int]: the dimension of networks (the width of neural networks)
