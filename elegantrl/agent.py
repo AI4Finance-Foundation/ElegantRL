@@ -200,7 +200,14 @@ class AgentDQN(AgentBase):
     :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    def __init__(self, net_dim=32, state_dim=32, action_dim=2, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
+    def __init__(self, 
+                 net_dim: int = 32, 
+                 state_dim: int = 32, 
+                 action_dim: int = 2, 
+                 learning_rate: float = =1e-4, 
+                 if_use_per: bool = False, 
+                 env_num: int = 1, 
+                 agent_id: int = 0):
         super().__init__()
         self.ClassCri = QNet
         self.if_use_cri_target = True
@@ -219,11 +226,11 @@ class AgentDQN(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, states) -> np.ndarray:  # for discrete action space
-        """Select discrete actions for exploration
-
-        `array states` states.shape==(batch_size, state_dim, )
-        return `array actions` actions.shape==(batch_size, action_dim, ),  -1 < action < +1
+    def select_actions(self, states:array) -> np.ndarray:  # for discrete action space
+        """
+        Select discrete actions given an array of states.
+        :param states: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_ints = rd.randint(self.action_dim, size=len(states))  # choosing action randomly
