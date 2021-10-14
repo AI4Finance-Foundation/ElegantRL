@@ -8,7 +8,13 @@ import torch.nn as nn
 
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
-
+    """
+    Critic class for vanilla DQN.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
