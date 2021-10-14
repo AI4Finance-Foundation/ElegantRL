@@ -20,7 +20,7 @@ Example
 
 .. code-block:: python
    :linenos:
-
+        fsddfasdf
 
 
 
@@ -31,7 +31,6 @@ Parameters
    :members:
    
 
-.. automodule:: elegantrl.net
 Networks
 -------------
 
