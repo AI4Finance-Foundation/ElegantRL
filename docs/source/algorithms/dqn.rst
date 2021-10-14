@@ -71,8 +71,6 @@ Networks
 
 .. autoclass:: elegantrl.net.QNet
    :members:
-   :inherited-members:
 
 .. autoclass:: elegantrl.net.QNetDuel
    :members:
-   :inherited-members:
