@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="elegantrl",
-    version="0.3.1",
+    version="0.3.2",
     author="Xiaoyang Liu, Steven Li, Hongyang Yang, Jiahao Zheng",
     author_email="XL2427@columbia.edu",
     url="https://github.com/AI4Finance-LLC/ElegantRL",
