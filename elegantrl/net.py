@@ -23,7 +23,12 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
                                  nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
+        """
+        The forward function for vanilla DQN.
 
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state)  # Q value
 
 
