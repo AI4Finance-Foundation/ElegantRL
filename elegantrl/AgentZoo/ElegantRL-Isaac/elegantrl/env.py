@@ -171,6 +171,8 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = (state + self.neg_state_avg) * self.div_state_std
         return state, reward, done, info
 
+    # def render(self):
+    #     getattr(self.env, 'render')()
 
 def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [ElegantRL.2021.10.10]
     """get information of a standard OpenAI gym env.

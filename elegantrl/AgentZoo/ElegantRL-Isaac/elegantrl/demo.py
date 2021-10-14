@@ -4,6 +4,8 @@ from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
 """[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
+'''train'''
+
 
 def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
     env_name = ['Pendulum-v1', 'LunarLanderContinuous-v2',
@@ -127,7 +129,6 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         Step 57e5,  Reward 295,  UsedTime 17ks PPO
         Step 70e5,  Reward 300,  UsedTime 21ks PPO
         """
-        args.env = build_env(env=env_name)
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
 
@@ -138,8 +139,6 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         Step 57e5,  Reward 295,  UsedTime 17ks PPO
         Step 70e5,  Reward 300,  UsedTime 21ks PPO
         """
-        args.env = build_env(env=env_name)
-
         args.gamma = 0.98
         args.net_dim = 2 ** 8
         args.max_memo = 2 ** 22
@@ -169,7 +168,6 @@ def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
 
     if env_name in {'CartPole-v0', }:
         "Step 1e5,  Reward 200,  UsedTime 40s, AgentD3QN"
-        args.env = build_env(env=env_name)
         args.target_return = 195
 
         args.reward_scale = 2 ** -1
@@ -178,8 +176,6 @@ def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
         args.eval_gap = 2 ** 5
     if env_name in {'LunarLander-v2', }:
         "Step 29e4,  Reward 222,  UsedTime 5811s D3QN"
-        args.env = build_env(env=env_name)
-
         args.max_memo = 2 ** 19
         args.reward_scale = 2 ** -1
         args.target_step = args.env.max_step
@@ -509,6 +505,8 @@ def demo_pixel_level_task():  # 2021-09-07
         args.learner_gpus = (0,)
         train_and_evaluate_mp(args)
 
+
+'''train and watch'''
 
 if __name__ == '__main__':
     # demo_continuous_action_off_policy()

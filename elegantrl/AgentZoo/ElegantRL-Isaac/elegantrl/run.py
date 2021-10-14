@@ -40,7 +40,6 @@ class Arguments:  # [ElegantRL.2021.10.13]
             self.repeat_times = 2 ** 3  # collect target_step, then update network
             self.if_per_or_gae = False  # use PER: GAE (Generalized Advantage Estimation) for sparse reward
 
-
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
