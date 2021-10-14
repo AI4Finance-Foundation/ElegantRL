@@ -1,35 +1,27 @@
 from envs.IsaacGym import *
 from elegantrl.demo import *
 
-"""
-Ant
-501  GPU 0, args.max_step * 1, learning_rate = 2 ** -15, S 23e7, R 7111, S 97e7, R 12k
-398  GPU 1, args.max_step * 2, learning_rate = 2 ** -15, S 22e7, R 5412, S 91e7, R 10k
-
-Humanoid 
-639  GPU 3, env_num = 4096, args.max_step * 2,           S 86e7, R 5795
-887  GPU 4, env_num = 4096, args.max_step * 1,           S 90e7, R 6900 
-
-net_dim * 2 ** 5, repeat_times = 2 ** 5
-802  GPU 6, env_num = 2048, args.max_step * 1,           S 71e7, R 7800
-806  GPU 7, env_num = 4096, args.max_step * 1,           S 72e7, R 6250, T 130ks
-# 583  GPU 5, 
+"""2021-10-14
+IDEA ENV GPU 0 2 beta0.py
+IDEA ENV GPU 1 3 beta1.py
 """
 
 
 def demo_isaac_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
-    args.agent = AgentPPO()
-    args.random_seed += 1943
-    gpu_id = 6  # todo
+    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][ENV_ID]
+    args = Arguments(env=env_name, agent=AgentPPO())
+    args.eval_gpu_id = GPU_ID
+    args.learner_gpus = (GPU_ID,)
+    args.workers_gpus = args.learner_gpus
 
-    if_train_ant = 1
-    if if_train_ant:
-        # env = build_env('IsaacOneEnvAnt', if_print=True, device_id=0, env_num=1)
+    if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
+        '''
+        Step  21e7, Reward  8350, UsedTime  35ks
+        Step 484e7, Reward 16206, UsedTime 960ks  PPO, if_use_cri_target = False
+        Step  20e7, Reward  9196, UsedTime  35ks
+        Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
+        '''
         args.eval_env = 'IsaacOneEnvAnt'
-        args.eval_gpu_id = 6
-
-        # env = build_env('IsaacVecEnvAnt', if_print=True, device_id=0, env_num=2)
         args.env = f'IsaacVecEnvAnt'
         args.env_num = 4096
         args.max_step = 1000
@@ -37,12 +29,13 @@ def demo_isaac_on_policy():
         args.action_dim = 8
         args.if_discrete = False
         args.target_return = 8000
-        args.if_per_or_gae = True
-        args.learning_rate = 2 ** -14  # todo
 
         args.agent.lambda_entropy = 0.05
         args.agent.lambda_gae_adv = 0.97
-        args.agent.if_use_cri_target = True
+        args.agent.if_use_cri_target = False
+
+        args.if_per_or_gae = True
+        args.learning_rate = 2 ** -14
 
         args.net_dim = int(2 ** 8 * 1.5)
         args.batch_size = args.net_dim * 2 ** 4
@@ -52,16 +45,30 @@ def demo_isaac_on_policy():
 
         args.break_step = int(8e14)
         args.if_allow_break = False
+        args.eval_times1 = 2 ** 1
+        args.eval_times1 = 2 ** 4
+        args.eval_gap = 2 ** 9
 
-    if_train_humanoid = 1
-    if if_train_humanoid:
-        # env = build_env('IsaacOneEnvHumanoid', if_print=True, device_id=0, env_num=1)
+    if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
+        '''
+        Step 126e7, Reward  8021
+        Step 216e7, Reward  9517
+        Step 283e7, Reward  9998
+        Step 438e7, Reward 10749, UsedTime 960ks  PPO
+        Step 215e7, Reward  9794, UsedTime 465ks  PPO
+        Step   1e7, Reward   117
+        Step  16e7, Reward   538
+        Step  21e7, Reward  3044
+        Step  38e7, Reward  5015
+        Step  65e7, Reward  6010
+        Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
+        Step  77e7, Reward  5399, UsedTime 143ks  PPO
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO
+        '''
         args.eval_env = 'IsaacOneEnvHumanoid'
-        args.eval_gpu_id = gpu_id
-
-        # env = build_env('IsaacVecEnvHumanoid', if_print=True, device_id=0, env_num=2)
         args.env = f'IsaacVecEnvHumanoid'
-        args.env_num = 2048  # todo
+        args.env_num = 2048
         args.max_step = 1000
         args.state_dim = 108
         args.action_dim = 21
@@ -73,36 +80,27 @@ def demo_isaac_on_policy():
         args.agent.if_use_cri_target = True
 
         args.net_dim = int(2 ** 8 * 1.5)
-        args.batch_size = args.net_dim * 2 ** 5  # todo
-        args.target_step = args.max_step * 1  # todo
-        args.repeat_times = 2 ** 5  # todo
+        args.batch_size = args.net_dim * 2 ** 5
+        args.target_step = args.max_step * 1
+        args.repeat_times = 2 ** 5
         args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
         args.if_per_or_gae = True
-        args.learning_rate = 2 ** -15  # todo
+        args.learning_rate = 2 ** -15
 
         args.break_step = int(8e14)
         args.if_allow_break = False
+        args.eval_times1 = 2 ** 1
+        args.eval_times1 = 2 ** 4
+        args.eval_gap = 2 ** 9
 
-    args.learner_gpus = (gpu_id,)
-    args.workers_gpus = args.learner_gpus
     args.worker_num = 1
-
-    args.init_before_training()
+    args.workers_gpus = args.learner_gpus
     train_and_evaluate_mp(args)  # train_and_evaluate(args)
 
 
-"""
-Ant
-501  GPU 0, S 18e7, R 8350, T 35sk
-398  GPU 2, S  2e8, R 9196, T 35ks, if_use_cri_target = True
-
-Humanoid 
-639  GPU 3, S  2e8, R 5892, T 31ks
-887  GPU 4, S  8e7, R  711, T 11ks
-583  GPU 0, S  2e8, R 3787, T 30ks, batch_size = args.net_dim * 2 ** 5
-802  GPU 5, S  2e8, R 4295, T 33ks, batch_size = args.net_dim * 2 ** 4
-806  GPU 6, S  2e8, R 3725, T 33ks, batch_size = args.net_dim * 2 ** 4, if_use_cri_target = True
-"""
-
 if __name__ == '__main__':
+    # import sys  # todo
+    ENV_ID = 0  # eval(sys.argv[-2])
+    GPU_ID = 2  # eval(sys.argv[-1])
+
     demo_isaac_on_policy()

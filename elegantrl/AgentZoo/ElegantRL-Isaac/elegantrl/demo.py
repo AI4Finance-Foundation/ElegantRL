@@ -480,8 +480,12 @@ def demo_pybullet_on_policy():
 def demo_isaac_on_policy():
     env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][0]
     args = Arguments(env=env_name, agent=AgentPPO())
-    args.learner_gpus = (0, )
+    args.learner_gpus = (0,)
     args.eval_gpu_id = 1
+    """you should call 
+    from envs.IsaacGym import *  # before elegantrl.demo
+    from elegantrl.demo import *  # behind envs.Isaacgym
+    """
 
     if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
         '''
