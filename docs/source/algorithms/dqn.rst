@@ -20,6 +20,7 @@ Example
 ------------
 
 .. code-block:: python
+
     import torch
     from elegantrl.run import Arguments, train_and_evaluate
     from elegantrl.env import build_env
