@@ -70,212 +70,11 @@ class AgentBase:
         else:
             self.explore_env = self.explore_vec_env
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
-        """Select continuous actions for exploration
-
-        `tensor states` states.shape==(batch_size, state_dim, )
-        return `tensor actions` actions.shape==(batch_size, action_dim, ),  -1 < action < +1
-        """
-        action = self.act(state.to(self.device))
-        if rd.rand() < self.explore_rate:  # epsilon-greedy
-            action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
-        return action.detach().cpu()
-
-    def explore_one_env(self, env, target_step, reward_scale, gamma):
-        """actor explores in one env, then returns the traj (env transition)
-
-        `object env` RL training environment. env.reset() env.step()
-        `int target_step` explored target_step number of step in env
-        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
-        """
-        state = self.states[0]
-        traj = list()
-        for _ in range(target_step):
-            ten_state = torch.as_tensor(state, dtype=torch.float32)
-            ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
-            action = ten_action.numpy()
-            next_s, reward, done, _ = env.step(action)
-
-            ten_other = torch.empty(2 + self.action_dim)
-            ten_other[0] = reward
-            ten_other[1] = done
-            ten_other[2:] = ten_action
-            traj.append((ten_state, ten_other))
-
-            state = env.reset() if done else next_s
-
-        self.states[0] = state
-
-        traj_state = torch.stack([item[0] for item in traj])
-        traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [(traj_state, traj_other), ]
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ]
-
-    def explore_vec_env(self, env, target_step, reward_scale, gamma):
-        """actor explores in VectorEnv, then returns the trajectory (env transition)
-
-        `object env` RL training environment. env.reset() env.step()
-        `int target_step` explored target_step number of step in env
-        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
-        """
-        ten_states = self.states
-
-        traj = list()
-        for _ in range(target_step):
-            ten_actions = self.select_actions(ten_states)
-            ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
-
-            ten_others = torch.cat((ten_rewards.unsqueeze(0),
-                                    ten_dones.unsqueeze(0),
-                                    ten_actions))
-            traj.append((ten_states, ten_others))
-            ten_states = ten_next_states
-
-        self.states = ten_states
-
-        # traj = [(env_ten, ...), ...], env_ten = (env1_ten, env2_ten, ...)
-        traj_state = torch.stack([item[0] for item in traj])
-        traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
-                     for env_i in range(len(self.states))]
-        # traj_list = [traj_env_0, ...], traj_env_0 = (ten_state, ten_other)
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
-
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
-        """update the neural network by sampling batch data from ReplayBuffer
-
-        replace by different DRL algorithms.
-        return the objective value as training information to help fine-tuning
-
-        `buffer` Experience replay buffer.
-        `int batch_size` sample batch_size of data for Stochastic Gradient Descent
-        `float repeat_times` the times of sample batch = int(target_step * repeat_times) in off-policy
-        `float soft_update_tau` target_net = target_net * (1-tau) + current_net * tau
-        `return tuple` training logging. tuple = (float, float, ...)
-        """
-
-    def optim_update(self, optimizer, objective, params):
-        optimizer.zero_grad()
-        objective.backward()
-        clip_grad_norm_(params, max_norm=self.clip_grad_norm)
-        optimizer.step()
-
-    # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
-    #     # self.amp_scale = torch.cuda.amp.GradScaler()
-    #
-    #     optimizer.zero_grad()
-    #     self.amp_scale.scale(objective).backward()  # loss.backward()
-    #     self.amp_scale.unscale_(optimizer)  # amp
-    #
-    #     # from torch.nn.utils import clip_grad_norm_
-    #     # clip_grad_norm_(model.parameters(), max_norm=3.0)  # amp, clip_grad_norm_
-    #     self.amp_scale.step(optimizer)  # optimizer.step()
-    #     self.amp_scale.update()  # optimizer.step()
-
-    @staticmethod
-    def soft_update(target_net, current_net, tau):
-        """soft update a target network via current network
-
-        `nn.Module target_net` target network update via a current network, it is more stable
-        `nn.Module current_net` current network update via an optimizer
-        """
-        for tar, cur in zip(target_net.parameters(), current_net.parameters()):
-            tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
-
-    def save_or_load_agent(self, cwd, if_save):
-        """save or load the training files for agent from disk.
-
-        `str cwd` current working directory, where to save training files.
-        `bool if_save` True: save files. False: load files.
-        """
-
-        def load_torch_file(model_or_optim, _path):
-            state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
-            model_or_optim.load_state_dict(state_dict)
-
-        name_obj_list = [('actor', self.act), ('act_target', self.act_target), ('act_optim', self.act_optim),
-                         ('critic', self.cri), ('cri_target', self.cri_target), ('cri_optim', self.cri_optim), ]
-        name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
-
-        if if_save:
-            for name, obj in name_obj_list:
-                save_path = f"{cwd}/{name}.pth"
-                torch.save(obj.state_dict(), save_path)
-        else:
-            for name, obj in name_obj_list:
-                save_path = f"{cwd}/{name}.pth"
-                load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
-
-    @staticmethod
-    def convert_trajectory(traj_list, reward_scale, gamma):  # off-policy
-        for ten_state, ten_other in traj_list:
-            ten_other[:, 0] = ten_other[:, 0] * reward_scale  # ten_reward
-            ten_other[:, 1] = (1.0 - ten_other[:, 1]) * gamma  # ten_mask = (1.0 - ary_done) * gamma
-        return traj_list
-
-
-class AgentBaseMergeBeta:
-    def __init__(self, net_dim=None, state_dim=None, action_dim=None, learning_rate=1e-4,
-                 if_per_or_gae=False, env_num=1, gpu_id=0, if_activate=False):
-        """initialize the self.object in `__init__()`
-
-        replace by different DRL algorithms
-        explict call self.__init__() for multiprocessing.
-
-        `int net_dim` the dimension of networks (the width of neural networks)
-        `int state_dim` the dimension of state (the number of state vector)
-        `int action_dim` the dimension of action (the number of discrete action)
-        `float learning_rate` learning rate of optimizer
-        `bool if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
-        `int env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        `int gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
-        `bool if_activate` explict call self.__init__() for multiprocessing.
-        """
-        self.ClassCri = getattr(self, 'ClassCri', None)
-        self.ClassAct = getattr(self, 'ClassAct', None)
-        self.if_use_cri_target = getattr(self, 'if_use_cri_target', None)
-        self.if_use_act_target = getattr(self, 'if_use_act_target', None)
-
-        if if_activate:
-            self.action_dim = action_dim
-            # self.amp_scale = torch.cuda.amp.GradScaler()
-            self.traj_list = [list() for _ in range(env_num)]
-            self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-
-            self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
-            self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
-            self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
-            self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
-
-            self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
-            self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
-            del self.ClassCri, self.ClassAct
-
-            assert isinstance(if_per_or_gae, bool)
-            if env_num == 1:
-                self.explore_env = self.explore_one_env
-            else:
-                self.explore_env = self.explore_vec_env
-        else:
-            self.states = None
-            self.device = None
-            self.traj_list = None
-            self.action_dim = None
-            self.if_off_policy = True
-
-            self.env_num = 1
-            self.explore_rate = 1.0
-            self.explore_noise = 0.1
-            self.clip_grad_norm = 4.0
-            # self.amp_scale = None  # automatic mixed precision
-
-            '''attribute'''
-            self.explore_env = None
-            self.get_obj_critic = None
-
-            self.criterion = torch.nn.SmoothL1Loss()
-            self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
-            self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
+    def select_action(self, state: np.ndarray) -> np.ndarray:
+        s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
+        a_tensor = self.act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()
+        return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         """Select continuous actions for exploration
@@ -425,21 +224,26 @@ class AgentBaseMergeBeta:
 
 
 class AgentDQN(AgentBase):
-    def __init__(self):
+    def __init__(self, if_dueling):
         super().__init__()
-        self.ClassCri = QNet
-        self.if_use_cri_target = True
-
+        self.ClassCri = QNetDuel if if_dueling else QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         super().init(net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+
         if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
         else:
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
+
+    def select_action(self, state: np.ndarray) -> np.ndarray:
+        s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
+        a_tensor = self.act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()
+        return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:  # for discrete action space
         """Select discrete actions for exploration
@@ -529,19 +333,10 @@ class AgentDQN(AgentBase):
         return obj_critic, q_value
 
 
-class AgentDuelDQN(AgentDQN):
-    def __init__(self):
-        super().__init__()
-        self.ClassCri = QNetDuel
-
-        self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
-
-
 class AgentDoubleDQN(AgentDQN):
-    def __init__(self):
-        super().__init__()
-        self.ClassCri = QNetTwin
-
+    def __init__(self, if_dueling):
+        super().__init__(if_dueling)
+        self.ClassCri = QNetTwinDuel if if_dueling else QNetTwin
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
         self.soft_max = torch.nn.Softmax(dim=1)
 
@@ -555,7 +350,7 @@ class AgentDoubleDQN(AgentDQN):
             a_int = action.argmax(dim=1)
         return a_int.detach().cpu()
 
-    def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic_raw(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
@@ -565,11 +360,15 @@ class AgentDoubleDQN(AgentDQN):
         obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
         return obj_critic, q1
 
+    def get_obj_critic_per(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
+            q_label = reward + mask * next_q
 
-class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
-    def __init__(self):
-        super().__init__()
-        self.Cri = QNetTwinDuel
+        q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
+        obj_critic = ((self.criterion(q1, q_label) + self.criterion(q2, q_label)) * is_weights).mean()
+        return obj_critic, q1
 
 
 '''Actor-Critic Methods (Policy Gradient)'''

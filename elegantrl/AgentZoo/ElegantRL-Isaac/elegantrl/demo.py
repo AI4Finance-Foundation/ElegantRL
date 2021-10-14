@@ -11,8 +11,7 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
     env_name = ['Pendulum-v1', 'LunarLanderContinuous-v2',
                 'BipedalWalker-v3', 'BipedalWalkerHardcore-v3'][0]
     agent_class = [AgentModSAC, AgentSAC,
-                   AgentTD3, AgentDDPG,
-                   AgentSharedSAC, AgentSharedAC][0]
+                   AgentTD3, AgentDDPG][0]
     args = Arguments(env=build_env(env_name), agent=agent_class())
 
     if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
@@ -34,7 +33,6 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
     if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
         "Step 4e5,  Reward 200,  UsedTime  900s, TD3"
         "Step 5e5,  Reward 200,  UsedTime 1500s, ModSAC"
-
         args.eval_times1 = 2 ** 4
         args.eval_times2 = 2 ** 6
 
@@ -44,8 +42,6 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
         "Step 11e5,  Reward 329,  UsedTime 6000s TD3"
         "Step  4e5,  Reward 300,  UsedTime 2000s ModSAC"
         "Step  8e5,  Reward 330,  UsedTime 5000s ModSAC"
-        args = Arguments(env=build_env(env_name), agent=agent_class())
-
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
 
@@ -83,7 +79,6 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
 
         args.worker_num = 4
         args.target_step = args.env.max_step * 1
-
     # args.learner_gpus = (0, )  # single GPU
     # args.learner_gpus = (0, 1)  # multiple GPUs
     # train_and_evaluate(args)  # single process
@@ -118,6 +113,7 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         args.target_step = 200 * 16  # max_step = 200
     if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
         """
+        Step 40e4,  Reward 226,  UsedTime 1500s PPO
         Step 80e4,  Reward 246,  UsedTime 3000s PPO
         """
         args.eval_times1 = 2 ** 4
@@ -163,8 +159,8 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
 def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
     env_name = ['CartPole-v0', 'LunarLander-v2',
                 'SlimeVolley-v0', ][0]
-    agent_class = [AgentD3QN, AgentDuelDQN, AgentDoubleDQN, AgentDQN][0]
-    args = Arguments(env=build_env(env_name), agent=agent_class())
+    agent_class = [AgentDoubleDQN, AgentDQN][0]
+    args = Arguments(env=build_env(env_name), agent=agent_class(if_use_dueling_dqn=True))
 
     if env_name in {'CartPole-v0', }:
         "Step 1e5,  Reward 200,  UsedTime 40s, AgentD3QN"
@@ -177,6 +173,7 @@ def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
     if env_name in {'LunarLander-v2', }:
         "Step 29e4,  Reward 222,  UsedTime 5811s D3QN"
         args.max_memo = 2 ** 19
+
         args.reward_scale = 2 ** -1
         args.target_step = args.env.max_step
 
@@ -201,7 +198,6 @@ def demo_discrete_action_on_policy():  # [ElegantRL.2021.10.12]
 
         args.eval_gap = 2 ** 5
         train_and_evaluate(args)  # single process
-
     if env_name in {'LunarLander-v2', }:
         '''
         Step 70e5,  Reward 110,  UsedTime 9961s  DiscretePPO, repeat_times = 2 ** 4
@@ -215,10 +211,46 @@ def demo_discrete_action_on_policy():  # [ElegantRL.2021.10.12]
         train_and_evaluate_mp(args)  # multiple process
 
 
+def demo_pixel_level_on_policy():  # 2021-09-07
+    env_name = ['CarRacingFix', ][0]
+    agent_class = [AgentPPO, AgentSharedPPO, AgentSharedA2C][0]
+    args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
+
+    if env_name == 'CarRacingFix':
+        "Step 12e5,  Reward 300,  UsedTime 10ks PPO"
+        "Step 20e5,  Reward 700,  UsedTime 25ks PPO"
+        "Step 40e5,  Reward 800,  UsedTime 50ks PPO"
+        args.agent.ratio_clip = 0.5
+        args.agent.explore_rate = 0.75
+        args.agent.if_use_cri_target = True
+
+        args.gamma = 0.98
+        args.net_dim = 2 ** 8
+        args.repeat_times = 2 ** 4
+        args.learning_rate = 2 ** -17
+        args.soft_update_tau = 2 ** -11
+        args.batch_size = args.net_dim * 4
+        args.if_per_or_gae = True
+        args.agent.lambda_gae_adv = 0.96
+
+        args.eval_gap = 2 ** 9
+        args.eval_times1 = 2 ** 2
+        args.eval_times1 = 2 ** 4
+        args.if_allow_break = False
+        args.break_step = int(2 ** 22)
+
+        args.worker_num = 6
+        args.target_step = args.env.max_step * 2
+        args.learner_gpus = (0,)
+        train_and_evaluate_mp(args)
+
+
 def demo_pybullet_off_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
-    args = None
+    agent_class = [AgentModSAC, AgentTD3,
+                   AgentSharedSAC, AgentSharedAC][0]
+    args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
         """
@@ -227,25 +259,20 @@ def demo_pybullet_off_policy():
         0  3.54e+06 2875.30 |  888.67    4.7    999     0 |    0.19   0.11 -69.10   0.05 | UsedTime   54701 |
         0  2.00e+07 2960.38 |  698.58   42.5    999     0 |    0.08   0.05 -39.44   0.03 | UsedTime   53545 |
         """
-        agent = AgentModSAC()
-        agent.if_use_act_target = False
-        args = Arguments(env=build_env(env_name, if_print=True), agent=agent)
+        args.agent.if_use_act_target = False
 
-        args.break_step = int(8e7)
-
-        args.reward_scale = 2 ** -2
         args.net_dim = 2 ** 9
-        args.batch_size = args.net_dim * 2
         args.max_memo = 2 ** 22
         args.repeat_times = 2 ** 1
+        args.reward_scale = 2 ** -2
+        args.batch_size = args.net_dim * 2
         args.target_step = args.env.max_step * 2
-
-        args.break_step = int(2e7)
-        args.if_allow_break = False
 
         args.eval_gap = 2 ** 8
         args.eval_times1 = 2 ** 1
         args.eval_times2 = 2 ** 4
+        args.break_step = int(8e7)
+        args.if_allow_break = False
     if env_name == 'HumanoidBulletEnv-v0':
         """
         0  1.50e+07 2571.46 |   53.63   66.8    128    58 |    0.04   0.96-153.29   0.06 | UsedTime    74470 |
@@ -260,8 +287,6 @@ def demo_pybullet_off_policy():
         0  1.09e+07 2936.10 | 2936.10   24.8    999     0 |    0.60   0.13 -68.74   0.02
         0  2.83e+07 2968.08 | 2737.18   15.9    999     0 |    0.57   0.21 -81.07   0.03 | UsedTime    74512 |
         """
-        args = Arguments(env=build_env(env_name, if_print=True), agent=AgentModSAC())
-
         args.net_dim = 2 ** 9
         args.reward_scale = 2 ** -2
         args.batch_size = args.net_dim * 2
@@ -270,18 +295,15 @@ def demo_pybullet_off_policy():
         args.break_step = int(8e7)
         args.if_allow_break = False
     if env_name == 'ReacherBulletEnv-v0':
-        args = Arguments(env=build_env(env_name, if_print=True), agent=AgentModSAC())
-
         args.explore_rate = 0.9
         args.learning_rate = 2 ** -15
 
         args.gamma = 0.99
-        args.reward_scale = 2 ** 2
-        args.break_step = int(4e7)
-
         args.net_dim = 2 ** 8
+        args.break_step = int(4e7)
         args.batch_size = args.net_dim * 2
         args.repeat_times = 2 ** 0
+        args.reward_scale = 2 ** 2
 
         args.target_step = args.env.max_step * 4
 
@@ -298,22 +320,18 @@ def demo_pybullet_off_policy():
         0  5.72e+06    9.79 |    9.28    0.1    999     0 |    0.22   0.03 -23.89   0.01
         0  6.01e+06   10.69 |   10.09    0.8    999     0 |    0.22   0.03 -24.98   0.01
         """
-        args = Arguments(env=build_env(env_name, if_print=True), agent=AgentModSAC())
 
-        args.learning_rate = 2 ** -16
-        args.break_step = int(8e7)
-
-        args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
         args.net_dim = 2 ** 9
+        args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
+        args.learning_rate = 2 ** -16
         args.batch_size = args.net_dim * 2
         args.target_step = args.env.max_step * 2
-
-        args.break_step = int(4e7)
-        args.if_allow_break = False
 
         args.eval_gap = 2 ** 8
         args.eval_times1 = 2 ** 2
         args.eval_times2 = 2 ** 4
+        args.break_step = int(8e7)
+        args.if_allow_break = False
 
     args.worker_num = 4
     args.learner_gpus = (0,)
@@ -323,7 +341,8 @@ def demo_pybullet_off_policy():
 def demo_pybullet_on_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
-    args = None
+    agent_class = [AgentPPO, AgentSharedPPO][0]
+    args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
         """
@@ -333,34 +352,27 @@ def demo_pybullet_on_policy():
         0  1.97e+07 3345.48 | 3345.48   29.0    999     0 |    0.80   0.49  -0.01  -0.81 | UsedTime 8169  PPO 2GPU
         0  1.98e+07 3028.69 | 3004.67   10.3    999     0 |    0.72   0.48   0.05  -0.82 | UsedTime 8734  PPO 2GPU
         """
-        agent = AgentPPO()
-        agent.lambda_entropy = 0.05
-        agent.lambda_gae_adv = 0.97
-        args = Arguments(env=build_env(env_name, if_print=True), agent=agent)
+        args.agent.lambda_entropy = 0.05
+        args.agent.lambda_gae_adv = 0.97
 
-        args.learning_rate = 2 ** -15
-        args.if_per_or_gae = True
-        args.break_step = int(8e7)
-
+        args.net_dim = 2 ** 9
         args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
         args.repeat_times = 2 ** 3
-        args.net_dim = 2 ** 9
+        args.learning_rate = 2 ** -15
+        args.if_per_or_gae = True
         args.batch_size = args.net_dim * 2 ** 3
         args.target_step = args.env.max_step * 2
 
-        args.break_step = int(2e7)
+        args.break_step = int(8e7)
         args.if_allow_break = False
-
     if env_name == 'HumanoidBulletEnv-v0':
         """
         0  2.00e+07 2049.87 | 1905.57  686.5    883   308 |    0.93   0.42  -0.02  -1.14 | UsedTime 15292
         0  3.99e+07 2977.80 | 2611.64  979.6    879   317 |    1.29   0.46  -0.01  -1.16 | UsedTime 19685
         0  7.99e+07 3047.88 | 3041.95   41.1    999     0 |    1.37   0.46  -0.04  -1.15 | UsedTime 38693
         """
-        agent = AgentPPO()
-        agent.lambda_entropy = 0.02
-        agent.lambda_gae_adv = 0.97
-        args = Arguments(env=build_env(env_name, if_print=True), agent=agent)
+        args.agent.lambda_entropy = 0.02
+        args.agent.lambda_gae_adv = 0.97
 
         args.net_dim = 2 ** 9
         args.batch_size = args.net_dim * 2 ** 3
@@ -372,11 +384,13 @@ def demo_pybullet_on_policy():
 
         args.break_step = int(8e7)
         args.if_allow_break = False
-
     if env_name == 'ReacherBulletEnv-v0':
-        "Step 1e5, TargetReturn: 18,  UsedTime  3ks, PPO eval_times < 4"
-        "Step 1e6, TargetReturn: 18,  UsedTime 30ks, PPO eval_times < 4"
-        '''The probability of the following results is only 25%.
+        '''eval_times = 4
+        Step 1e5, Return: 18,  UsedTime  3ks, PPO eval_times =< 4
+        Step 1e6, Return: 18,  UsedTime 30ks, PPO eval_times =< 4
+
+        eval_times = 64
+        The probability of the following results is only 25%.      
         0  5.00e+05    3.23 |    3.23   12.6    149     0 |   -0.03   0.64  -0.03  -0.51
         0  3.55e+06    7.69 |    7.69   10.3    149     0 |   -0.19   0.56  -0.04  -0.59
         0  5.07e+06    9.72 |    7.89    7.6    149     0 |    0.27   0.24   0.02  -0.71
@@ -406,30 +420,25 @@ def demo_pybullet_on_policy():
         0  6.00e+07   15.75 |    6.33    6.1    149     0 |    0.18   0.13  -0.03  -1.43
         0  7.29e+07   20.71 |   20.71    8.1    149     0 |    0.16   0.03  -0.00  -1.41
         '''
-        agent = AgentPPO()
-        agent.ratio_clip = 0.5
-        agent.lambda_gae_adv = 0.97
-        args = Arguments(env=build_env(env_name, if_print=True), agent=agent)
-
-        args.explore_rate = 0.9
-        args.learning_rate = 2 ** -16
+        args.agent.ratio_clip = 0.5
+        args.agent.lambda_gae_adv = 0.97
         args.agent.if_use_cri_target = True
 
         args.gamma = 0.99
         args.reward_scale = 2 ** 1
         args.if_per_or_gae = True
         args.break_step = int(8e7)
+        args.explore_rate = 0.9
+        args.learning_rate = 2 ** -16
 
         args.net_dim = 2 ** 8
         args.batch_size = args.net_dim * 4
         args.repeat_times = 2 ** 4
-
         args.target_step = args.env.max_step * 4
 
         args.eval_gap = 2 ** 8
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
-
     if env_name == 'MinitaurBulletEnv-v0':
         """
         0  5.91e+05   10.59 |   10.59    3.9    727   282 |    0.27   0.69  -0.03  -0.52
@@ -446,10 +455,8 @@ def demo_pybullet_on_policy():
         0  8.03e+06   30.96 |   28.32    6.8    905   163 |    0.93   0.52  -0.05  -0.76
         0  1.09e+07   32.07 |   31.29    0.9    999     0 |    0.95   0.47  -0.07  -0.82 | UsedTime   20238 |
         """
-        agent = AgentPPO()
-        agent.lambda_entropy = 0.05
-        agent.lambda_gae_adv = 0.97
-        args = Arguments(env=build_env(env_name, if_print=True), agent=agent)
+        args.agent.lambda_entropy = 0.05
+        args.agent.lambda_gae_adv = 0.97
 
         args.net_dim = 2 ** 9
         args.reward_scale = 2 ** 5  # (-2) 0 ~ 16 (20)
@@ -465,45 +472,69 @@ def demo_pybullet_on_policy():
         args.eval_gap = 2 ** 8
         args.eval_times1 = 2 ** 2
         args.eval_times2 = 2 ** 4
-
     args.worker_num = 4
     args.learner_gpus = (0,)
     train_and_evaluate_mp(args)
 
 
-def demo_pixel_level_task():  # 2021-09-07
-    env_name = ['CarRacingFix', ][0]
-    agent_class = [AgentPPO, AgentSharedPPO, AgentSharedA2C][0]
+def demo_isaac_on_policy():
+    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][0]
+    args = Arguments(env=env_name, agent=AgentPPO())
+    args.learner_gpus = (0, )
+    args.eval_gpu_id = 1
 
-    if env_name == 'CarRacingFix':
-        "Step 12e5,  Reward 300,  UsedTime 10ks PPO"
-        "Step 20e5,  Reward 700,  UsedTime 25ks PPO"
-        "Step 40e5,  Reward 800,  UsedTime 50ks PPO"
-        agent = agent_class()
-        agent.ratio_clip = 0.5
-        agent.explore_rate = 0.75
-        agent.if_use_cri_target = True
-        args = Arguments(env=build_env(env_name, if_print=True), agent=agent)
+    if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
+        args.eval_env = 'IsaacOneEnvAnt'
+        args.env = f'IsaacVecEnvAnt'
+        args.env_num = 4096
+        args.max_step = 1000
+        args.state_dim = 60
+        args.action_dim = 8
+        args.if_discrete = False
+        args.target_return = 8000
 
-        args.gamma = 0.98
-        args.net_dim = 2 ** 8
-        args.repeat_times = 2 ** 4
-        args.learning_rate = 2 ** -17
-        args.soft_update_tau = 2 ** -11
-        args.batch_size = args.net_dim * 4
+        args.agent.lambda_entropy = 0.05
+        args.agent.lambda_gae_adv = 0.97
+        args.agent.if_use_cri_target = True
+
         args.if_per_or_gae = True
-        args.agent.lambda_gae_adv = 0.96
+        args.learning_rate = 2 ** -14
 
-        args.eval_gap = 2 ** 9
-        args.eval_times1 = 2 ** 2
-        args.eval_times1 = 2 ** 4
+        args.net_dim = int(2 ** 8 * 1.5)
+        args.batch_size = args.net_dim * 2 ** 4
+        args.target_step = args.max_step * 1
+        args.repeat_times = 2 ** 4
+        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+
+        args.break_step = int(8e14)
         args.if_allow_break = False
-        args.break_step = int(2 ** 22)
+    if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
+        args.eval_env = 'IsaacOneEnvHumanoid'
+        args.env = f'IsaacVecEnvHumanoid'
+        args.env_num = 2048
+        args.max_step = 1000
+        args.state_dim = 108
+        args.action_dim = 21
+        args.if_discrete = False
+        args.target_return = 7000
 
-        args.worker_num = 6
-        args.target_step = args.env.max_step * 2
-        args.learner_gpus = (0,)
-        train_and_evaluate_mp(args)
+        args.agent.lambda_entropy = 0.05
+        args.agent.lambda_gae_adv = 0.97
+        args.agent.if_use_cri_target = True
+
+        args.net_dim = int(2 ** 8 * 1.5)
+        args.batch_size = args.net_dim * 2 ** 5
+        args.target_step = args.max_step * 1
+        args.repeat_times = 2 ** 5
+        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+        args.if_per_or_gae = True
+        args.learning_rate = 2 ** -15
+
+        args.break_step = int(8e14)
+        args.if_allow_break = False
+    args.worker_num = 1
+    args.workers_gpus = args.learner_gpus
+    train_and_evaluate_mp(args)  # train_and_evaluate(args)
 
 
 '''train and watch'''
