@@ -1,8 +1,11 @@
 .. _dqn:
 .. automodule:: elegantrl.agent
+
 DQN
 ==========
+
 `Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ approximates a state-value function in a Q-Learning framework with a neural network. This implementation provides vanilla Deep Q-Learning and supports the following extensions:
+
 -  Experience replay: ✔️
 -  Target network: ✔️
 -  Gradient clipping: ✔️
@@ -11,10 +14,10 @@ DQN
 
 .. note::
     This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
-    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to map the reward back and forth.
 
 Example
 ------------
+
 .. code-block:: python
    :linenos:
       class AgentDQN(AgentBase):
@@ -36,8 +39,12 @@ Example
               self.act = self.cri  # to keep the same from Actor-Critic framework
               self.criterion = torch.torch.nn.MSELoss()
               self.optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+              
+              
+              
 Parameters
 ---------------------
+
 .. autoclass:: elegantrl.agent.AgentDQN
    :members:
    
@@ -45,5 +52,6 @@ Parameters
    
 Networks
 -------------
+
 .. autoclass:: elegantrl.net.QNet
    :members:
