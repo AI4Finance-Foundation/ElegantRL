@@ -15,25 +15,27 @@ DQN
 -  Dueling DQN: ✔️
 
 .. note::
-    This implementation has ndo support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to map the reward back and forth.
+    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to map the reward back and forth.
     
     
     
 Example
 ------------
 .. code-block:: python
-    :linenos:
+
     import torch
     from elegantrl.run import Arguments, train_and_evaluate
     from elegantrl.env import build_env
     from elegantrl.agent import AgentDQN
-
+    
+    # train and save
     args = Arguments(env=build_env('CartPole-v0'), agent=AgentDQN())
     args.cwd = 'demo_CartPole_DQN'
     args.target_return = 195
 
-    train_and_evaluate(args) # train and save
+    train_and_evaluate(args) 
 
+    # test
     env = build_env('CartPole-v0')
 
     agent = AgentDQN()
