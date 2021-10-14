@@ -31,20 +31,20 @@ Example
     args.cwd = 'demo_CartPole_DQN'
     args.target_return = 195
     train_and_evaluate(args) 
+    
     # test
-    env = build_env('CartPole-v0')
     agent = AgentDQN()
     agent.init(args.net_dim, args.state_dim, args.action_dim)
     agent.save_or_load_agent(cwd=agrs.cwd, if_save=False)
+    
+    env = build_env('CartPole-v0')
     state = env.reset()
     episode_reward = 0
     for i in range(2 ** 10):
-        s = torch.as_tensor((state,), dtype=torch.float32, device=agent.device)
-        action = agent.act(s).detach().cpu().numpy()[0]
+        action = agent.select_action(state)
         next_state, reward, done, _ = env.step(action)
         
         episode_reward += reward
-        
         if done:
             print(f'Step {i:>6}, Episode return {episode_return:8.3f}')
             break
