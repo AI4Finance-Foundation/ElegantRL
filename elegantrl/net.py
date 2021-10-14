@@ -9,7 +9,7 @@ import torch.nn as nn
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     """
-    Critic class for vanilla DQN.
+    Critic class for **vanilla DQN**.
     
     :param mid_dim[int]: the middle dimension of networks
     :param state_dim[int]: the dimension of state (the number of state vector)
@@ -24,7 +24,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
     def forward(self, state):
         """
-        The forward function for vanilla DQN.
+        The forward function for **vanilla DQN**.
 
         :param state[np.array]: the input state.
         :return: the output tensor.
@@ -34,7 +34,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
 class QNetDuel(nn.Module):  # Dueling DQN
     """
-    Critic class for Dueling DQN.
+    Critic class for **Dueling DQN**.
     
     :param mid_dim[int]: the middle dimension of networks
     :param state_dim[int]: the dimension of state (the number of state vector)
@@ -51,7 +51,7 @@ class QNetDuel(nn.Module):  # Dueling DQN
 
     def forward(self, state):
         """
-        The forward function for Dueling DQN.
+        The forward function for **Dueling DQN**.
 
         :param state[np.array]: the input state.
         :return: the output tensor.
