@@ -33,6 +33,13 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
 
 class QNetDuel(nn.Module):  # Dueling DQN
+    """
+    Critic class for Dueling DQN.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -43,6 +50,12 @@ class QNetDuel(nn.Module):  # Dueling DQN
                                      nn.Linear(mid_dim, action_dim))  # Q value
 
     def forward(self, state):
+        """
+        The forward function for Dueling DQN.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         t_tmp = self.net_state(state)  # tensor of encoded state
         q_adv = self.net_adv(t_tmp)
         q_val = self.net_val(t_tmp)
