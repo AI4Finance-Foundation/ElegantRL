@@ -15,34 +15,45 @@ DQN
 -  Dueling DQN: ✔️
 
 .. note::
-
-    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to map the reward back and forth.
+    This implementation has ndo support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to map the reward back and forth.
     
     
     
 Example
 ------------
 .. code-block:: python
-   :linenos:
-      class AgentDQN(AgentBase):
-          def __init__(self):
-              super().__init__()
-              self.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy
-              self.action_dim = None  # chose discrete action randomly in epsilon-greedy
-              self.state = None  # set for self.update_buffer(), initialize before training
-              self.learning_rate = 1e-4
-              self.act = None
-              self.cri = self.cri_target = None
-              self.criterion = None
-              self.optimizer = None
-          def init(self, net_dim, state_dim, action_dim):
-              self.action_dim = action_dim
-              self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-              self.cri = QNet(net_dim, state_dim, action_dim).to(self.device)
-              self.cri_target = deepcopy(self.cri)
-              self.act = self.cri  # to keep the same from Actor-Critic framework
-              self.criterion = torch.torch.nn.MSELoss()
-              self.optimizer = torch.optim.Adam(self.cri.parameters(), lr=self.learning_rate)
+    :linenos:
+    import torch
+    from elegantrl.run import Arguments, train_and_evaluate
+    from elegantrl.env import build_env
+    from elegantrl.agent import AgentDQN
+
+    args = Arguments(env=build_env('CartPole-v0'), agent=AgentDQN())
+    args.cwd = 'demo_CartPole_DQN'
+    args.target_return = 195
+
+    train_and_evaluate(args) # train and save
+
+    env = build_env('CartPole-v0')
+
+    agent = AgentDQN()
+    agent.init(args.net_dim, args.state_dim, args.action_dim)
+    agent.save_or_load_agent(cwd=agrs.cwd, if_save=False)
+
+    state = env.reset()
+    episode_reward = 0
+    for i in range(2 ** 10):
+        s = torch.as_tensor((state,), dtype=torch.float32, device=agent.device)
+        action = agent.act(s).detach().cpu().numpy()[0]
+        next_state, reward, done, _ = env.step(action)
+        
+        episode_reward += reward
+        
+        if done:
+            print(f'Step {i:>6}, Episode return {episode_return:8.3f}')
+            break
+        else:
+            state = next_state
               
               
 Parameters
