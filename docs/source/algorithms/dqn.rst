@@ -1,5 +1,4 @@
 .. _dqn:
-
 .. automodule:: elegantrl.agent
 
 
@@ -64,13 +63,4 @@ Parameters
 .. autoclass:: elegantrl.agent.AgentDQN
    :members:
 
-.. _dqn_networks:
 
-Networks
--------------
-
-.. autoclass:: elegantrl.net.QNet
-   :members:
-
-.. autoclass:: elegantrl.net.QNetDuel
-   :members:
