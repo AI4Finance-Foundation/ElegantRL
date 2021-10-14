@@ -56,7 +56,7 @@ Example
             break
         else:
             state = next_state
-              
+        env.render()
               
 Parameters
 ---------------------
