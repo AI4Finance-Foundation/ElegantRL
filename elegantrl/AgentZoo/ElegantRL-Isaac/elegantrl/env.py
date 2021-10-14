@@ -403,7 +403,7 @@ def demo_get_video_to_watch_gym_render():
                   f'-crf 25 -vb 20M -pix_fmt yuv420p {save_video}')
 
 
-def train_save_evaluate_watch():
+def train_save_eval_watch():
     # from elegantrl.env import build_env
     from elegantrl.run import Arguments, train_and_evaluate
     from elegantrl.agent import AgentDoubleDQN

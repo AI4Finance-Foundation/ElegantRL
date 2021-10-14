@@ -484,6 +484,12 @@ def demo_isaac_on_policy():
     args.eval_gpu_id = 1
 
     if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
+        '''
+        Step  21e7, Reward  8350, UsedTime  35ks
+        Step 484e7, Reward 16206, UsedTime 960ks  PPO, if_use_cri_target = False
+        Step  20e7, Reward  9196, UsedTime  35ks
+        Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
+        '''
         args.eval_env = 'IsaacOneEnvAnt'
         args.env = f'IsaacVecEnvAnt'
         args.env_num = 4096
@@ -495,7 +501,7 @@ def demo_isaac_on_policy():
 
         args.agent.lambda_entropy = 0.05
         args.agent.lambda_gae_adv = 0.97
-        args.agent.if_use_cri_target = True
+        args.agent.if_use_cri_target = False
 
         args.if_per_or_gae = True
         args.learning_rate = 2 ** -14
@@ -508,7 +514,26 @@ def demo_isaac_on_policy():
 
         args.break_step = int(8e14)
         args.if_allow_break = False
+        args.eval_times1 = 2 ** 1
+        args.eval_times1 = 2 ** 3
+
     if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
+        '''
+        Step 126e7, Reward  8021
+        Step 216e7, Reward  9517
+        Step 283e7, Reward  9998
+        Step 438e7, Reward 10749, UsedTime 960ks  PPO
+        Step 215e7, Reward  9794, UsedTime 465ks  PPO
+        Step   1e7, Reward   117
+        Step  16e7, Reward   538
+        Step  21e7, Reward  3044
+        Step  38e7, Reward  5015
+        Step  65e7, Reward  6010
+        Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
+        Step  77e7, Reward  5399, UsedTime 143ks  PPO
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO
+        '''
         args.eval_env = 'IsaacOneEnvHumanoid'
         args.env = f'IsaacVecEnvHumanoid'
         args.env_num = 2048
@@ -532,6 +557,9 @@ def demo_isaac_on_policy():
 
         args.break_step = int(8e14)
         args.if_allow_break = False
+        args.eval_times1 = 2 ** 1
+        args.eval_times1 = 2 ** 3
+
     args.worker_num = 1
     args.workers_gpus = args.learner_gpus
     train_and_evaluate_mp(args)  # train_and_evaluate(args)
