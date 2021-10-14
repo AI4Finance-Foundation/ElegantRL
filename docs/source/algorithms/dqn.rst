@@ -67,3 +67,6 @@ Networks
 
 .. autoclass:: elegantrl.net.QNet
    :members:
+   
+.. autoclass:: elegantrl.net.QNetDuel
+   :members:
