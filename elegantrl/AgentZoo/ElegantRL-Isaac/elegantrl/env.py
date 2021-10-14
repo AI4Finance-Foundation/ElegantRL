@@ -112,6 +112,9 @@ class PendulumEnv:  # [ElegantRL.2021.10.10]
         # I suggest you to set action space as (-1, +1) when you design your own env.
         return self.env.step(action * 2)  # state, reward, done, info_dict
 
+    def render(self):
+        self.env.render()
+
 
 """Utils"""
 
@@ -171,8 +174,6 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = (state + self.neg_state_avg) * self.div_state_std
         return state, reward, done, info
 
-    # def render(self):
-    #     getattr(self.env, 'render')()
 
 def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [ElegantRL.2021.10.10]
     """get information of a standard OpenAI gym env.
@@ -400,3 +401,47 @@ def demo_get_video_to_watch_gym_render():
         os.system(f'ffmpeg -r 60 -f image2 -s {frame_shape[0]}x{frame_shape[1]} '
                   f'-i ./{save_frame_dir}/%06d.png '
                   f'-crf 25 -vb 20M -pix_fmt yuv420p {save_video}')
+
+
+def train_save_evaluate_watch():
+    import torch
+
+    from elegantrl.run import Arguments, train_and_evaluate
+    # from elegantrl.env import build_env
+    from elegantrl.agent import AgentD3QN
+
+    args = Arguments(env=build_env('CartPole-v0'), agent=AgentD3QN())
+
+    '''train and save'''
+    args.cwd = 'demo_CartPole_D3QN'
+    args.eval_gap = 2 ** 5
+    args.target_return = 195
+
+    train_and_evaluate(args)  # single process
+
+    '''evaluate and watch'''
+    env = build_env('CartPole-v0')
+
+    agent = AgentD3QN()
+    agent.init(args.net_dim, args.state_dim, args.action_dim, gpu_id=0)
+    agent.save_or_load_agent(cwd=args.cwd, if_save=False)
+    agent.explore_rate = 0.0
+
+    state = env.reset()
+    episode_return = 0
+    for i in range(2 ** 10):
+        s_tensor = torch.as_tensor((state,), dtype=torch.float32, device=agent.device)
+        a_tensor = agent.select_actions(s_tensor)
+        action = a_tensor.detach().cpu().numpy()
+        next_state, reward, done, _ = env.step(int(action))
+
+        episode_return += reward
+        if done:
+            print(f'Step {i:>6}, EpisodeReturn {episode_return:8.3f}')
+            state = env.reset()
+            episode_return = 0
+        else:
+            state = next_state
+        env.render()
+
+    print('done')
