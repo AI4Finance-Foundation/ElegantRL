@@ -11,6 +11,7 @@ DQN
 -  Gradient clipping: ✔️
 -  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
+-  Dueling DQN: ✔️
 
 .. note::
     This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to map the reward back and forth.
@@ -54,10 +55,14 @@ Parameters
 .. autoclass:: elegantrl.agent.AgentDQN
    :members:
    
-.. _dqn_networks:
    
 Networks
 -------------
 
 .. autoclass:: elegantrl.net.QNet
    :members:
+   :inherited-members:
+
+.. autoclass:: elegantrl.net.QNetDuel
+   :members:
+   :inherited-members:
