@@ -11,7 +11,7 @@ DQN
 -  Gradient clipping: ✔️
 -  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
--  Dueling DQN: ✔️
+-  Dueling network architecture: ✔️
 
 .. note::
     This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
