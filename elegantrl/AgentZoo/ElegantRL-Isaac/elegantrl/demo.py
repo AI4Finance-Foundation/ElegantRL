@@ -493,6 +493,11 @@ def demo_isaac_on_policy():
         Step 484e7, Reward 16206, UsedTime 960ks  PPO, if_use_cri_target = False
         Step  20e7, Reward  9196, UsedTime  35ks
         Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
+        
+        Step   7e7, Reward  2453
+        Step  19e7, Reward  6014
+        Step  40e7, Reward  9315
+        Step  52e7, Reward  9930
         '''
         args.eval_env = 'IsaacOneEnvAnt'
         args.env = f'IsaacVecEnvAnt'
@@ -537,6 +542,12 @@ def demo_isaac_on_policy():
         Step  77e7, Reward  5399, UsedTime 143ks  PPO
         Step  86e7, Reward  5822, UsedTime 157ks  PPO
         Step  86e7, Reward  5822, UsedTime 157ks  PPO
+        
+        Step   1e7, Reward   121
+        Step  10e7, Reward   500
+        Step  14e7, Reward  3051
+        Step  26e7, Reward  5041
+        Step  47e7, Reward  6361
         '''
         args.eval_env = 'IsaacOneEnvHumanoid'
         args.env = f'IsaacVecEnvHumanoid'
