@@ -246,8 +246,10 @@ class ReplayBufferMP:
             self.buffers[i].per_tree.td_error_update(td_errors[i])
 
     def save_or_load_history(self, cwd, if_save):
+        print(f"| ReplayBufferMP start saving in {cwd}")
         for i in range(self.worker_num):
             self.buffers[i].save_or_load_history(cwd, if_save, buffer_id=i)
+            print(f"| ReplayBufferMP buffer_id[{i}] saved in {cwd}")
 
 
 class BinarySearchTree:

@@ -213,7 +213,7 @@ def demo_discrete_action_on_policy():  # [ElegantRL.2021.10.12]
 
 def demo_pixel_level_on_policy():  # 2021-09-07
     env_name = ['CarRacingFix', ][0]
-    agent_class = [AgentPPO, AgentSharedPPO, AgentSharedA2C][0]
+    agent_class = [AgentPPO, AgentSharePPO, AgentShareA2C][0]
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'CarRacingFix':
@@ -249,7 +249,7 @@ def demo_pybullet_off_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
     agent_class = [AgentModSAC, AgentTD3,
-                   AgentSharedSAC, AgentSharedAC][0]
+                   AgentShareSAC, AgentShareAC][0]
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
@@ -341,7 +341,7 @@ def demo_pybullet_off_policy():
 def demo_pybullet_on_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
-    agent_class = [AgentPPO, AgentSharedPPO][0]
+    agent_class = [AgentPPO, AgentSharePPO][0]
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
