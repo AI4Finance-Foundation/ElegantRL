@@ -461,15 +461,25 @@ class AgentBase
 
 - init(*self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_per_or_gae=False, gpu_id=0*)
 
+Initialize the device type, actor and critic network, copy of actor and critic, and Adam optimizer for both network.
+
 - select_action(*self, state*) -> *np.ndarray*
 
+Take ``state`` as input and return the action selected by the actor net.
+
 - explore_env(*self, env, target_step*) -> *list*
+
+Explore the environment ``env`` for ``target_step`` steps, and return the state, action, reward information for each step in a list.
 
 - optim_update(*optimizer, objective*)
 
 - soft_update(*target_net, current_net, tau*)
 
+Update the ``target_net`` data using the ``current_net`` with a learning rate of ``tau``.
+
 - save_or_load_agent(*self, cwd, if_save*)
+
+Load or save the agent in the ``cwd`` directory.
 
 class AgentDQN(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -567,6 +577,12 @@ class AgentDoubleDQN(AgentDQN)
             q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
             obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
             return obj_critic, q1
+
+- __init__(*self*)
+
+- select_action(*self, state*) -> *int*
+
+- get_obj_critic(*self, buffer, batch_size*) -> (*torch.Tensor, torch.Tensor*)
 
 class AgentDDPG(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
