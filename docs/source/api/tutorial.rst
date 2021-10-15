@@ -459,6 +459,17 @@ class AgentBase
                    save_path = f"{cwd}/{name}.pth"
                    load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
 
+- init(*self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_per_or_gae=False, gpu_id=0*)
+
+- select_action(*self, state*) -> *np.ndarray*
+
+- explore_env(*self, env, target_step*) -> *list*
+
+- optim_update(*optimizer, objective*)
+
+- soft_update(*target_net, current_net, tau*)
+
+- save_or_load_agent(*self, cwd, if_save*)
 
 class AgentDQN(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -513,6 +524,16 @@ class AgentDQN(AgentBase)
             q_value = self.cri(state).gather(1, action.long())
             obj_critic = self.criterion(q_value, q_label)
             return obj_critic, q_value
+
+- __init__(self)
+
+- select_action(*self, state*) -> *int*
+
+- explore_env(*self, env, target_step*) -> *list*
+
+- update_net(*self, buffer, batch_size, repeat_times, soft_update_tau*) -> *tuple*
+
+- get_obj_critic(*self, buffer, batch_size*) -> (*torch.Tensor, torch.Tensor*)
 
 class AgentDoubleDQN(AgentDQN)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
