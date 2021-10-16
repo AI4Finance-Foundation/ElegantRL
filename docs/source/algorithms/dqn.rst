@@ -16,6 +16,11 @@ DQN
 .. note::
     This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
 
+
+..warning::
+    Although PER leads to a faster learning process because of the efficient data sampling, it 
+
+
 Example
 ------------
 
