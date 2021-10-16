@@ -354,7 +354,21 @@ class AgentDuelDQN(AgentDQN):
 
 
 class AgentDoubleDQN(AgentDQN):
-    def __init__(self):
+    """
+    Bases: ``elegantrl.agent.AgentDQN``
+    
+    Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. H. V. Hasselt et al.. 2015.
+
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_use_per[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param if_use_duel[bool]: whether or not to use dueling DQN
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
+    def __init__(self, net_dim=32, state_dim=32, action_dim=2, learning_rate=1e-4, if_use_per=False, if_use_duel=False, env_num=1, agent_id=0):
         super().__init__()
         self.ClassCri = QNetTwin
 
@@ -362,6 +376,12 @@ class AgentDoubleDQN(AgentDQN):
         self.softMax = torch.nn.Softmax(dim=1)
 
     def select_actions(self, states) -> np.ndarray:  # for discrete action space
+        """
+        Select discrete actions given an array of states.
+        
+        :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
