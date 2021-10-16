@@ -63,6 +63,13 @@ class QNetDuel(nn.Module):  # Dueling DQN
 
 
 class QNetTwin(nn.Module):  # Double DQN
+    """
+    Critic class for **Double DQN**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -73,15 +80,31 @@ class QNetTwin(nn.Module):  # Double DQN
                                     nn.Linear(mid_dim, action_dim))  # q2 value
 
     def forward(self, state):
+        """
+        The forward function for **Double DQN**.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         tmp = self.net_state(state)
         return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state):
+        """
+        TBD
+        """
         tmp = self.net_state(state)
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
 
 class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
+    """
+    Critic class for **Dueling Double DQN**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -96,12 +119,21 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
                                       nn.Linear(mid_dim, action_dim))  # advantage function value 1
 
     def forward(self, state):
+        """
+        The forward function for **Dueling Double DQN**.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         t_tmp = self.net_state(state)
         q_adv = self.net_adv1(t_tmp)
         q_val = self.net_val1(t_tmp)
         return q_adv + q_val - q_val.mean(dim=1, keepdim=True)  # one dueling Q value
 
     def get_q1_q2(self, state):
+        """
+        TBD
+        """
         tmp = self.net_state(state)
 
         adv1 = self.net_adv1(tmp)
