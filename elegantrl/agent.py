@@ -186,20 +186,19 @@ class AgentDQN(AgentBase):
     Bases: ``elegantrl.agent.AgentBase``
     
     Deep Q-Network algorithm. “Human-Level Control Through Deep Reinforcement Learning”. Mnih V. et al.. 2015.
+    
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param learning_rate[float]: learning rate of optimizer
     :param if_use_per[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
-    :param if_use_duel[bool]: whether or not to use dueling DQN
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    def __init__(self, net_dim=32, state_dim=32, action_dim=2, learning_rate=1e-4, if_use_per=False, if_use_duel=False, env_num=1, agent_id=0):
-        super().__init__()
-        self.ClassCri = QNet
-        self.if_use_cri_target = True
-
+    def __init__(self, net_dim=256, state_dim=8, action_dim=2, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
+        AgentBase.__init__(self)
+        self.ClassCri = None  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
+        self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
