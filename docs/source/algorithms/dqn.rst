@@ -21,7 +21,7 @@ DQN
     PER leads to a faster learning speed and is also critical for environmnets with sparse reward. However, a replay buffer with small size may hurt the performance of PER. 
 
 
-Example
+Code Snippet
 ------------
 
 .. code-block:: python
