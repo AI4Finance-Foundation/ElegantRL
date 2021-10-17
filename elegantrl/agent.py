@@ -220,6 +220,9 @@ class AgentDQN(AgentBase):
         """
         Select discrete actions given an array of states.
         
+        .. note::
+            Using ϵ-greedy to uniformly random select actions for randomness.
+        
         :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
@@ -378,6 +381,9 @@ class AgentDoubleDQN(AgentDQN):
     def select_actions(self, states) -> np.ndarray:  # for discrete action space
         """
         Select discrete actions given an array of states.
+        
+        .. note::
+            Using softmax to select the random actions with proportional probabilities for randomness.
         
         :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
