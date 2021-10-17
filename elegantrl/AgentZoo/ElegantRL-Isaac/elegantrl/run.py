@@ -99,6 +99,117 @@ class Arguments:  # [ElegantRL.2021.10.13]
         os.makedirs(self.cwd, exist_ok=True)
 
 
+class Arguments0:  # [ElegantRL.2021.10.10]
+    def __init__(self):
+        self.env = None  # the environment for training
+        self.agent = None  # Deep Reinforcement Learning algorithm
+
+        '''Arguments for training'''
+        self.gamma = 0.99  # discount factor of future rewards
+        self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
+        self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
+        self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
+
+        '''environment information'''
+        # self.env_name = str(env)
+        self.env_num = None  # env_num = 1. In vector env, env_num > 1.
+        self.max_step = None  # the max step of an episode (an episode: from reset to done=True)
+        self.state_dim = None  # vector dimension (feature number) of state
+        self.action_dim = None  # vector dimension (feature number) of action
+        self.if_discrete = None  # discrete or continuous action space
+        self.target_return = None  # the target average episode return (sum the reward of an episode)
+
+        self.net_dim = None  # the network width
+        self.max_memo = None  # capacity of replay buffer
+        self.batch_size = None  # num of transitions sampled from replay buffer.
+        self.target_step = None  # repeatedly update network to keep critic's loss small
+        self.repeat_times = None  # collect target_step, then update network
+        self.if_off_policy = None  # agent is on-policy or off-policy
+        self.if_per_or_gae = False  # set as True for sparse reward
+        # sparse reward,  on-policy. GAE: Generalized Advantage Estimation.
+        # sparse reward, off-policy. PER: Prioritized Experience Replay.
+
+        '''Arguments for device'''
+        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
+        self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
+        self.random_seed = 0  # initialize random seed in self.init_before_training()
+        self.learner_gpus = (0,)  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
+        self.workers_gpus = self.learner_gpus  # for isaac gym
+
+        '''Arguments for evaluate and save'''
+        self.cwd = None  # current work directory. None means set automatically
+        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
+        self.break_step = +np.inf  # break training after 'total_step > break_step'
+        self.if_allow_break = True  # allow break training when reach goal (early termination)
+
+        self.eval_env = None  # the environment for evaluating. None means set automatically.
+        self.eval_gap = 2 ** 8  # evaluate the agent per eval_gap seconds
+        self.eval_times1 = 2 ** 2  # number of times that get episode return in first
+        self.eval_times2 = 2 ** 4  # number of times that get episode return in second
+        self.eval_gpu_id = -1  # -1 means use cpu, >=0 means use GPU
+
+    def init_before_training(self):
+        np.random.seed(self.random_seed)
+        torch.manual_seed(self.random_seed)
+        torch.set_num_threads(self.thread_num)
+        torch.set_default_dtype(torch.float32)
+
+        def assign_if_none(v_or_none, default):
+            return default if v_or_none is None else v_or_none
+
+        '''env'''
+        self.env_num = getattr(self.env, 'env_num', self.env_num)
+        self.max_step = getattr(self.env, 'max_step', self.max_step)
+        self.state_dim = getattr(self.env, 'state_dim', self.state_dim)
+        self.action_dim = getattr(self.env, 'action_dim', self.action_dim)
+        self.if_discrete = getattr(self.env, 'if_discrete', self.if_discrete)
+        self.target_return = getattr(self.env, 'target_return', self.target_return)
+
+        assert isinstance(self.env_num, int)
+        assert isinstance(self.max_step, int)
+        assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
+        assert isinstance(self.action_dim, int)
+        assert isinstance(self.if_discrete, bool)
+        assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
+
+        self.if_off_policy = self.agent.if_off_policy
+        if self.if_off_policy:  # off-policy
+            self.net_dim = assign_if_none(self.net_dim, default=2 ** 8)
+            self.max_memo = assign_if_none(self.max_memo, default=2 ** 21)
+            self.batch_size = assign_if_none(self.batch_size, default=self.net_dim)
+            self.target_step = assign_if_none(self.target_step, default=2 ** 10)
+            self.repeat_times = assign_if_none(self.repeat_times, default=2 ** 0)
+        else:  # on-policy
+            self.net_dim = assign_if_none(self.net_dim, default=2 ** 9)
+            self.max_memo = assign_if_none(self.max_memo, default=2 ** 12)
+            self.batch_size = assign_if_none(self.batch_size, default=self.net_dim * 2)
+            self.target_step = assign_if_none(self.target_step, default=self.max_memo)
+            self.repeat_times = assign_if_none(self.repeat_times, default=2 ** 3)
+
+        '''agent'''
+        assert hasattr(self.agent, 'init')
+        assert hasattr(self.agent, 'update_net')
+        assert hasattr(self.agent, 'explore_env')
+        assert hasattr(self.agent, 'select_actions')
+
+        '''cwd'''
+        agent_name = self.agent.__class__.__name__
+        env_name = getattr(self.env, 'env_name', self.env)
+        auto_cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
+        self.cwd = assign_if_none(self.cwd, default=auto_cwd)
+
+        '''remove history'''
+        if self.if_remove is None:
+            self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
+        elif self.if_remove:
+            import shutil
+            shutil.rmtree(self.cwd, ignore_errors=True)
+            print(f"| Remove cwd: {self.cwd}")
+        else:
+            print(f"| Keep cwd: {self.cwd}")
+        os.makedirs(self.cwd, exist_ok=True)
+
+
 '''single processing training'''
 
 
@@ -140,7 +251,7 @@ def train_and_evaluate(args, learner_id=0):
             ten_state, ten_other = _traj_list[0]
             buffer.extend_buffer(ten_state, ten_other)
 
-            _steps, _r_exp = get_step_and_r_exp(ten_reward=ten_other[0])  # other = (reward, mask, action)
+            _steps, _r_exp = get_step_r_exp(ten_reward=ten_other[0])  # other = (reward, mask, action)
             return _steps, _r_exp
     else:
         buffer = list()
@@ -153,7 +264,7 @@ def train_and_evaluate(args, learner_id=0):
                          ten_action.squeeze(1),
                          ten_noise.squeeze(1))
 
-            _step, _r_exp = get_step_and_r_exp(ten_reward=buffer[1])
+            _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
             return _step, _r_exp
 
     """start training"""
@@ -199,46 +310,11 @@ def train_and_evaluate(args, learner_id=0):
     evaluator.save_or_load_recoder(if_save=True)
 
 
-def get_step_and_r_exp(ten_reward):
+def get_step_r_exp(ten_reward):
     return len(ten_reward), ten_reward.mean().item()
 
 
 '''multiple processing training'''
-
-
-def train_and_evaluate_mp(args, agent_id=0):
-    args.init_before_training()  # necessary!
-
-    process = list()
-    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
-
-    '''learner'''
-    learner_num = len(args.learner_gpus)
-    learner_pipe = PipeLearner(learner_num)
-    for learner_id in range(learner_num):
-        '''evaluator'''
-        if learner_id == learner_num - 1:
-            evaluator_pipe = PipeEvaluator()
-            process.append(mp.Process(target=evaluator_pipe.run, args=(args, agent_id)))
-        else:
-            evaluator_pipe = None
-
-        '''explorer'''
-        worker_pipe = PipeWorker(args.env_num, args.worker_num)
-        for worker_id in range(args.worker_num):
-            # if args.env_num == 1:
-            #     env_pipe = None
-            # else:
-            #     env_pipe = PipeVectorEnv(args)
-            #     process.extend(env_pipe.process)
-            env_pipe = None
-            process.append(mp.Process(target=worker_pipe.run, args=(args, env_pipe, worker_id, learner_id)))
-
-        process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe, learner_id)))
-
-    [(p.start(), time.sleep(0.1)) for p in process]
-    process[-1].join()
-    process_safely_terminate(process)
 
 
 class PipeWorker:
@@ -384,7 +460,7 @@ class PipeLearner:
                 for buffer_i, (ten_state, ten_other) in enumerate(_traj_list):
                     buffer.buffers[buffer_i].extend_buffer(ten_state, ten_other)
 
-                    step_r_exp = get_step_and_r_exp(ten_reward=ten_other[:, 0])  # other = (reward, mask, action)
+                    step_r_exp = get_step_r_exp(ten_reward=ten_other[:, 0])  # other = (reward, mask, action)
                     step_sum += step_r_exp[0]
                     r_exp_sum += step_r_exp[1]
                 return step_sum, r_exp_sum / len(_traj_list)
@@ -401,7 +477,7 @@ class PipeLearner:
                              ten_action.squeeze(1),
                              ten_noise.squeeze(1))
 
-                _step, _r_exp = get_step_and_r_exp(ten_reward=buffer[1])
+                _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
                 return _step, _r_exp
 
         '''start training'''
@@ -428,10 +504,9 @@ class PipeLearner:
             if comm_eva:
                 if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
 
-        print(f"| LearnerPipe.run: agent start saving in {cwd}")
         agent.save_or_load_agent(cwd, if_save=True)
-        print(f"| LearnerPipe.run: agent saved in {cwd}")
         if agent.if_off_policy:
+            print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
             buffer.save_or_load_history(cwd, if_save=True)
 
 
@@ -500,6 +575,108 @@ class PipeEvaluator:
 
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
         evaluator.save_or_load_recoder(if_save=True)
+
+
+# class PipeVectorEnv:
+#     def __init__(self, args):
+#         self.env_num = args.env_num
+#         self.pipes = [mp.Pipe() for _ in range(self.env_num)]
+#         self.pipe0s = [pipe[0] for pipe in self.pipes]
+#
+#         env = build_env(args.eval_env)
+#         self.max_step = env.max_step
+#         self.env_name = env.env_name
+#         self.state_dim = env.state_dim
+#         self.action_dim = env.action_dim
+#         self.action_max = env.action_max
+#         self.if_discrete = env.if_discrete
+#         self.target_return = env.target_return
+#         del env
+#
+#         self.process = list()
+#         for env_id in range(args.env_num):
+#             self.process.append(mp.Process(target=self.run, args=(args, env_id)))
+#             args.random_seed += 1  # set different for each env
+#         # [p.start() for p in self.process]
+#
+#     def reset(self):
+#         vec_state = [pipe0.recv() for pipe0 in self.pipe0s]
+#         return vec_state
+#
+#     def step(self, vec_action):  # pipe0_step
+#         for i in range(self.env_num):
+#             self.pipe0s[i].send(vec_action[i])
+#         return [pipe0.recv() for pipe0 in self.pipe0s]  # list of (state, reward, done)
+#
+#     def run(self, args, env_id):
+#         np.random.seed(args.random_seed)
+#
+#         env = build_env(args.eval_env, if_print=False)
+#         pipe1 = self.pipes[env_id][1]
+#         del args
+#
+#         state = env.reset()
+#         pipe1.send(state)
+#
+#         while True:
+#             action = pipe1.recv()
+#             state, reward, done, _ = env.step(action)
+#             pipe1.send((env.reset() if done else state, reward, done))
+#
+#     # def check(self):
+#     #     vec_state = self.reset()
+#     #     ten_state = np.array(vec_state)
+#     #     print(ten_state.shape)
+#     #
+#     #     vec_action = np.array(((0.0, 1.0, 0.0),
+#     #                            (0.0, 0.5, 0.0),
+#     #                            (0.0, 0.1, 0.0),))[:self.env_num]
+#     #     assert self.env_num <= 3
+#     #
+#     #     trajectory_list = list()
+#     #     for _ in range(8):
+#     #         s_r_d_list = self.step(vec_action)
+#     #         ten_state = np.array([s_r_d[0] for s_r_d in s_r_d_list])
+#     #         print(ten_state.shape)
+#     #         trajectory_list.append(s_r_d_list)
+#     #
+#     #     trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
+#     #     print('| shape of trajectory_list:', len(trajectory_list), len(trajectory_list[0]))
+
+
+def train_and_evaluate_mp(args, agent_id=0):
+    args.init_before_training()  # necessary!
+
+    process = list()
+    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
+
+    '''learner'''
+    learner_num = len(args.learner_gpus)
+    learner_pipe = PipeLearner(learner_num)
+    for learner_id in range(learner_num):
+        '''evaluator'''
+        if learner_id == learner_num - 1:
+            evaluator_pipe = PipeEvaluator()
+            process.append(mp.Process(target=evaluator_pipe.run, args=(args, agent_id)))
+        else:
+            evaluator_pipe = None
+
+        '''explorer'''
+        worker_pipe = PipeWorker(args.env_num, args.worker_num)
+        for worker_id in range(args.worker_num):
+            # if args.env_num == 1:
+            #     env_pipe = None
+            # else:
+            #     env_pipe = PipeVectorEnv(args)
+            #     process.extend(env_pipe.process)
+            env_pipe = None
+            process.append(mp.Process(target=worker_pipe.run, args=(args, env_pipe, worker_id, learner_id)))
+
+        process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe, learner_id)))
+
+    [(p.start(), time.sleep(0.1)) for p in process]
+    process[-1].join()
+    process_safely_terminate(process)
 
 
 """Utils"""

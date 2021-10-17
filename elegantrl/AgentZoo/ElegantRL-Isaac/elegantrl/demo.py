@@ -160,7 +160,7 @@ def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
     env_name = ['CartPole-v0', 'LunarLander-v2',
                 'SlimeVolley-v0', ][0]
     agent_class = [AgentDoubleDQN, AgentDQN][0]
-    args = Arguments(env=build_env(env_name), agent=agent_class(if_use_dueling_dqn=True))
+    args = Arguments(env=build_env(env_name), agent=agent_class(if_dueling=True))
 
     if env_name in {'CartPole-v0', }:
         "Step 1e5,  Reward 200,  UsedTime 40s, AgentD3QN"
@@ -213,7 +213,7 @@ def demo_discrete_action_on_policy():  # [ElegantRL.2021.10.12]
 
 def demo_pixel_level_on_policy():  # 2021-09-07
     env_name = ['CarRacingFix', ][0]
-    agent_class = [AgentPPO, AgentSharePPO, AgentShareA2C][0]
+    agent_class = [AgentPPO, AgentSharedPPO, AgentSharedA2C][0]
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'CarRacingFix':
@@ -249,7 +249,7 @@ def demo_pybullet_off_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
     agent_class = [AgentModSAC, AgentTD3,
-                   AgentShareSAC, AgentShareAC][0]
+                   AgentSharedSAC, AgentSharedAC][0]
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
@@ -341,7 +341,7 @@ def demo_pybullet_off_policy():
 def demo_pybullet_on_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
-    agent_class = [AgentPPO, AgentSharePPO][0]
+    agent_class = [AgentPPO, AgentSharedPPO][0]
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
@@ -480,24 +480,17 @@ def demo_pybullet_on_policy():
 def demo_isaac_on_policy():
     env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][0]
     args = Arguments(env=env_name, agent=AgentPPO())
-    args.learner_gpus = (0,)
+    args.learner_gpus = (0, )
     args.eval_gpu_id = 1
-    """you should call 
-    from envs.IsaacGym import *  # before elegantrl.demo
-    from elegantrl.demo import *  # behind envs.Isaacgym
-    """
 
     if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
         '''
         Step  21e7, Reward  8350, UsedTime  35ks
-        Step 484e7, Reward 16206, UsedTime 960ks  PPO, if_use_cri_target = False
+        Step 484e7, Reward 16206, UsedTime 960ks  PPO
         Step  20e7, Reward  9196, UsedTime  35ks
         Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
-        
-        Step   7e7, Reward  2453
-        Step  19e7, Reward  6014
-        Step  40e7, Reward  9315
-        Step  52e7, Reward  9930
+        Step  23e7, Reward  7111, UsedTime  12ks  PPO
+        Step  22e7, Reward  5412, UsedTime  12ks  PPO, max_step * 2
         '''
         args.eval_env = 'IsaacOneEnvAnt'
         args.env = f'IsaacVecEnvAnt'
@@ -531,8 +524,9 @@ def demo_isaac_on_policy():
         Step 126e7, Reward  8021
         Step 216e7, Reward  9517
         Step 283e7, Reward  9998
-        Step 438e7, Reward 10749, UsedTime 960ks  PPO
-        Step 215e7, Reward  9794, UsedTime 465ks  PPO
+        Step 438e7, Reward 10749, UsedTime 960ks  PPO, env_num = 4096
+        Step  71e7, Reward  7800
+        Step 215e7, Reward  9794, UsedTime 465ks  PPO, env_num = 2048
         Step   1e7, Reward   117
         Step  16e7, Reward   538
         Step  21e7, Reward  3044
@@ -540,18 +534,11 @@ def demo_isaac_on_policy():
         Step  65e7, Reward  6010
         Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
         Step  77e7, Reward  5399, UsedTime 143ks  PPO
-        Step  86e7, Reward  5822, UsedTime 157ks  PPO
-        Step  86e7, Reward  5822, UsedTime 157ks  PPO
-        
-        Step   1e7, Reward   121
-        Step  10e7, Reward   500
-        Step  14e7, Reward  3051
-        Step  26e7, Reward  5041
-        Step  47e7, Reward  6361
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO, max_step * 2
         '''
         args.eval_env = 'IsaacOneEnvHumanoid'
         args.env = f'IsaacVecEnvHumanoid'
-        args.env_num = 2048
+        args.env_num = 4096
         args.max_step = 1000
         args.state_dim = 108
         args.action_dim = 21
@@ -565,7 +552,7 @@ def demo_isaac_on_policy():
         args.net_dim = int(2 ** 8 * 1.5)
         args.batch_size = args.net_dim * 2 ** 5
         args.target_step = args.max_step * 1
-        args.repeat_times = 2 ** 5
+        args.repeat_times = 2 ** 4
         args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
         args.if_per_or_gae = True
         args.learning_rate = 2 ** -15

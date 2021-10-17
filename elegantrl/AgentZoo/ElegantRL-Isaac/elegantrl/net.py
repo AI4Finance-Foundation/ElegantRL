@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-"""[ElegantRL.2021.10.15](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 '''Q Network'''
 
@@ -24,16 +24,16 @@ class QNetDuel(nn.Module):  # Dueling DQN
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_val = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                     nn.Linear(mid_dim, 1))  # advantage function value 1
         self.net_adv = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                     nn.Linear(mid_dim, action_dim))  # average Q value
+                                     nn.Linear(mid_dim, 1))  # advantage function value 1
+        self.net_val = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                     nn.Linear(mid_dim, action_dim))  # Q value
 
     def forward(self, state):
         t_tmp = self.net_state(state)  # tensor of encoded state
-        q_val = self.net_val(t_tmp)
         q_adv = self.net_adv(t_tmp)
-        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # dueling Q value
+        q_val = self.net_val(t_tmp)
+        return q_adv + q_val - q_val.mean(dim=1, keepdim=True)  # dueling Q value
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -60,31 +60,31 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, 1))  # average q1 value
-        self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, 1))  # average q2 value
         self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
+                                      nn.Linear(mid_dim, 1))  # q1 value
         self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                      nn.Linear(mid_dim, 1))  # q2 value
+        self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
+        self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                       nn.Linear(mid_dim, action_dim))  # advantage function value 1
 
     def forward(self, state):
         t_tmp = self.net_state(state)
-        q_val = self.net_val1(t_tmp)
         q_adv = self.net_adv1(t_tmp)
-        return q_val + q_adv - q_adv.mean(dim=1, keepdim=True)  # one dueling Q value
+        q_val = self.net_val1(t_tmp)
+        return q_adv + q_val - q_val.mean(dim=1, keepdim=True)  # one dueling Q value
 
     def get_q1_q2(self, state):
         tmp = self.net_state(state)
 
-        advval1 = self.net_val1(tmp)
-        valadv1 = self.net_adv1(tmp)
-        q1 = advval1 + valadv1 - valadv1.mean(dim=1, keepdim=True)
+        adv1 = self.net_adv1(tmp)
+        val1 = self.net_val1(tmp)
+        q1 = adv1 + val1 - val1.mean(dim=1, keepdim=True)
 
-        advval2 = self.net_val2(tmp)
-        valadv2 = self.net_adv2(tmp)
-        q2 = advval2 + valadv2 - valadv2.mean(dim=1, keepdim=True)
+        adv2 = self.net_adv2(tmp)
+        val2 = self.net_val2(tmp)
+        q2 = adv2 + val2 - val2.mean(dim=1, keepdim=True)
         return q1, q2  # two dueling Q values
 
 

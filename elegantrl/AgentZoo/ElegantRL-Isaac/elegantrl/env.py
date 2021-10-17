@@ -23,8 +23,6 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
         env = PreprocessEnv(env, if_print=if_print)
     elif env_name in {'Pendulum-v1', 'Pendulum-v0'}:
         env = PendulumEnv(env_name)
-        # 'Pendulum-v1'， gym.__version__ == 1.21.0
-        # 'Pendulum-v0'， gym.__version__ == 1.17.0
 
     '''OpenAI gym Box2D'''
     # pip3 install Box2D==2.3.8 or 2.3.10
