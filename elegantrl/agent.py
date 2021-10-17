@@ -257,8 +257,7 @@ class AgentDQN(AgentBase):
         self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
-    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
@@ -416,8 +415,7 @@ class AgentDoubleDQN(AgentDQN):
         AgentDQN.__init__(self)
         self.soft_max = torch.nn.Softmax(dim=1)
 
-    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
