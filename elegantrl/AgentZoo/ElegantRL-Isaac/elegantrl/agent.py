@@ -49,7 +49,7 @@ class AgentBase:
         self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
         self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """initialize the self.object in `__init__()`
 
@@ -244,7 +244,7 @@ class AgentDQN(AgentBase):
         self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
@@ -255,12 +255,6 @@ class AgentDQN(AgentBase):
         else:
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
-
-    def select_action(self, state: np.ndarray) -> np.ndarray:
-        s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
-        a_tensor = self.act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()
-        return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:  # for discrete action space
         """Select discrete actions for exploration
@@ -355,7 +349,7 @@ class AgentDoubleDQN(AgentDQN):
         AgentDQN.__init__(self)
         self.soft_max = torch.nn.Softmax(dim=1)
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
         AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
@@ -366,12 +360,6 @@ class AgentDoubleDQN(AgentDQN):
         else:
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
-
-    def select_action(self, state: np.ndarray) -> np.ndarray:  # todo totally same as AgentDQN.select_action()
-        s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
-        a_tensor = self.act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()
-        return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:  # for discrete action space
         action = self.act(state.to(self.device))
@@ -418,7 +406,7 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
@@ -487,7 +475,7 @@ class AgentTD3(AgentBase):
         self.policy_noise = 0.2  # standard deviation of policy noise
         self.update_freq = 2  # delay update frequency
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         if if_per_or_gae:  # if_use_per
@@ -556,7 +544,7 @@ class AgentSAC(AgentBase):
         self.target_entropy = None
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
 
@@ -693,7 +681,7 @@ class AgentPPO(AgentBase):
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         super().init(net_dim=net_dim, gpu_id=gpu_id,
                      state_dim=state_dim, action_dim=action_dim, env_num=env_num,
@@ -709,6 +697,12 @@ class AgentPPO(AgentBase):
             self.explore_env = self.explore_one_env
         else:
             self.explore_env = self.explore_vec_env
+
+    def select_action(self, state: np.ndarray) -> np.ndarray:
+        s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
+        a_tensor = self.act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()
+        return action
 
     def select_actions(self, state: torch.Tensor) -> tuple:
         """
@@ -1079,7 +1073,7 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
         self.target_entropy = None
         self.alpha_log = None
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
@@ -1148,7 +1142,7 @@ class AgentSharedPPO(AgentPPO):
         AgentBase.__init__(self)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim: int, state_dim: int, action_dim: int,
+    def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         if if_per_or_gae:
