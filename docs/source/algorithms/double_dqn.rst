@@ -16,7 +16,7 @@ Without having to introduce additional networks, we use the Q-network to select 
 -  Dueling network architecture: ✔️
 
 
-Example
+Code Snippet
 ------------
 
 .. code-block:: python
