@@ -195,7 +195,8 @@ class AgentDQN(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    def __init__(self, net_dim=256, state_dim=8, action_dim=2, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         AgentBase.__init__(self)
         self.ClassCri = None  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
@@ -267,25 +268,26 @@ class AgentDQN(AgentBase):
         :param target_step[int]: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        env_num = len(self.traj_list)
-        states = self.states
+        ten_states = self.states
 
-        traj_list = [list() for _ in range(env_num)]
+        traj = list()
         for _ in range(target_step):
-            actions = self.select_actions(states)
-            s_r_d_list = env.step(actions)
+            ten_actions = self.select_actions(ten_states)
+            ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
 
-            next_states = list()
-            for env_i in range(env_num):
-                next_state, reward, done = s_r_d_list[env_i]
-                traj_list[env_i].append(
-                    (states[env_i], (reward, done, actions[env_i]))  # different
-                )
-                next_states.append(next_state)
-            states = next_states
+            ten_others = torch.cat((ten_rewards.unsqueeze(0),
+                                    ten_dones.unsqueeze(0),
+                                    ten_actions.unsqueeze(0)))
+            traj.append((ten_states, ten_others))
+            ten_states = ten_next_states
 
-        self.states = states
-        return traj_list  # (traj_env_0, ..., traj_env_i)
+        self.states = ten_states
+
+        traj_state = torch.stack([item[0] for item in traj])
+        traj_other = torch.stack([item[1] for item in traj])
+        traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
+                     for env_i in range(len(self.states))]
+        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
         """
@@ -301,7 +303,7 @@ class AgentDQN(AgentBase):
         obj_critic = q_value = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, q_value = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic)
+            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
         return obj_critic.item(), q_value.mean().item()
 
@@ -321,7 +323,7 @@ class AgentDQN(AgentBase):
         q_value = self.cri(state).gather(1, action.long())
         obj_critic = self.criterion(q_value, q_label)
         return obj_critic, q_value
-
+    
     def get_obj_critic_per(self, buffer, batch_size):
         """
         Calculate the loss of the network and predict Q values with **Prioritized Experience Replay (PER)**.
@@ -340,34 +342,37 @@ class AgentDQN(AgentBase):
         return obj_critic, q_value
 
 
-class AgentDuelDQN(AgentDQN):
-    def __init__(self):
-        super().__init__()
-        self.ClassCri = QNetDuel
-
-        self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
-
-
 class AgentDoubleDQN(AgentDQN):
     """
     Bases: ``elegantrl.agent.AgentDQN``
     
     Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. H. V. Hasselt et al.. 2015.
+    
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param learning_rate[float]: learning rate of optimizer
     :param if_use_per[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
-    :param if_use_duel[bool]: whether or not to use dueling DQN
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
     def __init__(self, net_dim=32, state_dim=32, action_dim=2, learning_rate=1e-4, if_use_per=False, if_use_duel=False, env_num=1, agent_id=0):
-        super().__init__()
-        self.ClassCri = QNetTwin
+        AgentDQN.__init__(self)
+        self.soft_max = torch.nn.Softmax(dim=1)
+        
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
+        self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
+        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
 
-        self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
-        self.softMax = torch.nn.Softmax(dim=1)
+        if if_per_or_gae:  # if_use_per
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
+            self.get_obj_critic = self.get_obj_critic_per
+        else:
+            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
+            self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, states) -> np.ndarray:  # for discrete action space
         """
@@ -376,16 +381,23 @@ class AgentDoubleDQN(AgentDQN):
         :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states)
+        action = self.act(state.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_probs = self.softMax(actions).detach().cpu().numpy()
-            a_ints = [rd.choice(self.action_dim, p=a_prob) for a_prob in a_probs]  # choose action according to Q value
+            a_prob = self.soft_max(action)
+            a_int = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
+            # a_int = rd.choice(self.action_dim, prob=a_prob)  # numpy version
         else:
-            a_ints = actions.argmax(dim=1).detach().cpu().numpy()
-        return a_ints
+            a_int = action.argmax(dim=1)
+        return a_int.detach().cpu()
 
-    def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic_raw(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the loss of the network and predict Q values with **uniform sampling**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and Q values.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
@@ -395,11 +407,22 @@ class AgentDoubleDQN(AgentDQN):
         obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
         return obj_critic, q1
 
+    def get_obj_critic_per(self, buffer, batch_size):
+        """
+        Calculate the loss of the network and predict Q values with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and Q values.
+        """
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
+            q_label = reward + mask * next_q
 
-class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
-    def __init__(self):
-        super().__init__()
-        self.Cri = QNetTwinDuel
+        q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
+        obj_critic = ((self.criterion(q1, q_label) + self.criterion(q2, q_label)) * is_weights).mean()
+        return obj_critic, q1
 
 
 '''Actor-Critic Methods (Policy Gradient)'''
