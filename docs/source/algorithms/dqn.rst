@@ -4,7 +4,7 @@
 DQN
 ==========
 
-`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ approximates a state-value function in a Q-Learning framework with a neural network. This implementation provides vanilla Deep Q-Learning and supports the following extensions:
+`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It approximates a state-value function in a Q-Learning framework with a neural network. This implementation provides vanilla Deep Q-Learning and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
@@ -18,7 +18,7 @@ DQN
 
 
 .. warning::
-    Although PER leads to a faster learning process because of the efficient data sampling, it 
+    PER leads to a faster learning speed and is also critical for environmnets with sparse reward. However, a replay buffer with small size may hurt the performance of PER. 
 
 
 Example
