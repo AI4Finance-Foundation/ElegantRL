@@ -65,8 +65,8 @@ Parameters
 Networks
 -------------
 
-.. autoclass:: elegantrl.net.QNetTwin
+.. autoclass:: elegantrl.net.QNet
    :members:
    
-.. autoclass:: elegantrl.net.QNetTwinDuel
+.. autoclass:: elegantrl.net.QNetDuel
    :members:
