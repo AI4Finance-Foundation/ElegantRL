@@ -205,18 +205,15 @@ class AgentDQN(AgentBase):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, agent_id)
-        if if_use_per:
+        self.ClassCri = QNetDuel if self.if_use_dueling else QNet
+        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+
+        if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
         else:
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
-        
-        if if_use_duel:
-            self.ClassCri = QNetDuel
-        else:
-            self.ClassCri = QNet
 
     def select_actions(self, states) -> np.ndarray:  # for discrete action space
         """
@@ -226,12 +223,11 @@ class AgentDQN(AgentBase):
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_ints = rd.randint(self.action_dim, size=len(states))  # choosing action randomly
+            a_int = torch.randint(self.action_dim, size=state.shape[0])  # choosing action randomly
         else:
-            states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-            actions = self.act(states)
-            a_ints = actions.argmax(dim=1).detach().cpu().numpy()
-        return a_ints
+            action = self.act(state.to(self.device))
+            a_int = action.argmax(dim=1)
+        return a_int.detach().cpu()
 
     def explore_one_env(self, env, target_step) -> list:
         """
@@ -241,18 +237,28 @@ class AgentDQN(AgentBase):
         :param target_step[int]: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_temp = list()
+        traj = list()
         state = self.states[0]
         for _ in range(target_step):
-            action = self.select_actions((state,))[0]  # assert isinstance(action, int)
+            ten_state = torch.as_tensor(state, dtype=torch.float32)
+            ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
+            action = ten_action.numpy()  # isinstance(action, int)
             next_s, reward, done, _ = env.step(action)
-            traj_temp.append((state, (reward, done, action)))
+
+            ten_other = torch.empty(2 + 1)
+            ten_other[0] = reward
+            ten_other[1] = done
+            ten_other[2] = ten_action
+            traj.append((ten_state, ten_other))
 
             state = env.reset() if done else next_s
         self.states[0] = state
-        traj_list = [traj_temp, ]
-        return traj_list
 
+        traj_state = torch.stack([item[0] for item in traj])
+        traj_other = torch.stack([item[1] for item in traj])
+        traj_list = [(traj_state, traj_other), ]
+        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+    
     def explore_vec_env(self, env, target_step) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
