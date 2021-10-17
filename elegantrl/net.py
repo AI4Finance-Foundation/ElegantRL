@@ -24,7 +24,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
     def forward(self, state):
         """
-        The forward function for **vanilla DQN**.
+        The forward function for **Q-network**.
 
         :param state[np.array]: the input state.
         :return: the output tensor.
@@ -51,7 +51,7 @@ class QNetDuel(nn.Module):  # Dueling DQN
 
     def forward(self, state):
         """
-        The forward function for **Dueling DQN**.
+        The forward function for **Dueling Q-network**.
 
         :param state[np.array]: the input state.
         :return: the output tensor.
