@@ -55,8 +55,6 @@ For the details of DRL algorithms, please check out the educational webpage `Ope
    
    algorithms/dqn
    algorithms/double_dqn
-   algorithms/dueling_dqn
-   algorithms/d3qn
    algorithms/a2c
    algorithms/ddpg
    algorithms/td3
