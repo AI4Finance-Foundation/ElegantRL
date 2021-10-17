@@ -35,6 +35,7 @@ Code Snippet
     args = Arguments(env=build_env('CartPole-v0'), agent=AgentDQN())
     args.cwd = 'demo_CartPole_DQN'
     args.target_return = 195
+    args.agent.if_use_dueling = True
     train_and_evaluate(args) 
     
     # test
