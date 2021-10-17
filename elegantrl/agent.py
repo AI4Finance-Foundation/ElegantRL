@@ -16,19 +16,6 @@ from elegantrl.net import SharedDPG, SharedSPG, SharedPPO
 class AgentBase:
     def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
                  _if_per_or_gae=False, _env_num=1, _gpu_id=0):  # todo I add _xx to avoid PEP8 warning
-        """initialize
-
-        replace by different DRL algorithms
-        explict call self.init() for multiprocessing.
-
-        `net_dim` the dimension of networks (the width of neural networks)
-        `state_dim` the dimension of state (the number of state vector)
-        `action_dim` the dimension of action (the number of discrete action)
-        `learning_rate` learning rate of optimizer
-        `if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
-        `env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        `gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
-        """
         self.states = None
         self.device = None
         self.traj_list = None
@@ -51,19 +38,6 @@ class AgentBase:
 
     def init(self, net_dim: 256, state_dim: 8, action_dim: 2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        """initialize the self.object in `__init__()`
-
-        replace by different DRL algorithms
-        explict call self.init() for multiprocessing.
-
-        `net_dim` the dimension of networks (the width of neural networks)
-        `state_dim` the dimension of state (the number of state vector)
-        `action_dim` the dimension of action (the number of discrete action)
-        `learning_rate` learning rate of optimizer
-        `if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
-        `env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        `gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
-        """
         self.action_dim = action_dim
         # self.amp_scale = torch.cuda.amp.GradScaler()
         self.traj_list = [list() for _ in range(env_num)]
@@ -91,23 +65,12 @@ class AgentBase:
         return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
-        """Select continuous actions for exploration
-
-        `tensor states` states.shape==(batch_size, state_dim, )
-        return `tensor actions` actions.shape==(batch_size, action_dim, ),  -1 < action < +1
-        """
         action = self.act(state.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.detach().cpu()
 
     def explore_one_env(self, env, target_step, reward_scale, gamma):
-        """actor explores in one env, then returns the traj (env transition)
-
-        `object env` RL training environment. env.reset() env.step()
-        `int target_step` explored target_step number of step in env
-        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
-        """
         state = self.states[0]
         traj = list()
         for _ in range(target_step):
@@ -132,12 +95,6 @@ class AgentBase:
         return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step, reward_scale, gamma):
-        """actor explores in VectorEnv, then returns the trajectory (env transition)
-
-        `object env` RL training environment. env.reset() env.step()
-        `int target_step` explored target_step number of step in env
-        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
-        """
         ten_states = self.states
 
         traj = list()
@@ -162,17 +119,6 @@ class AgentBase:
         return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
-        """update the neural network by sampling batch data from ReplayBuffer
-
-        replace by different DRL algorithms.
-        return the objective value as training information to help fine-tuning
-
-        `buffer` Experience replay buffer.
-        `int batch_size` sample batch_size of data for Stochastic Gradient Descent
-        `float repeat_times` the times of sample batch = int(target_step * repeat_times) in off-policy
-        `float soft_update_tau` target_net = target_net * (1-tau) + current_net * tau
-        `return tuple` training logging. tuple = (float, float, ...)
-        """
 
     def optim_update(self, optimizer, objective, params):
         optimizer.zero_grad()
@@ -194,20 +140,10 @@ class AgentBase:
 
     @staticmethod
     def soft_update(target_net, current_net, tau):
-        """soft update a target network via current network
-
-        `nn.Module target_net` target network update via a current network, it is more stable
-        `nn.Module current_net` current network update via an optimizer
-        """
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
     def save_or_load_agent(self, cwd, if_save):
-        """save or load the training files for agent from disk.
-
-        `str cwd` current working directory, where to save training files.
-        `bool if_save` True: save files. False: load files.
-        """
 
         def load_torch_file(model_or_optim, _path):
             state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
