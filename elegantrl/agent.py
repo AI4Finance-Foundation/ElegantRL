@@ -251,7 +251,8 @@ class AgentDQN(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    def __init__(self):
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         AgentBase.__init__(self)
         self.ClassCri = None  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
