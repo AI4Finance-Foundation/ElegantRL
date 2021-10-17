@@ -9,7 +9,7 @@ import torch.nn as nn
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     """
-    Critic class for **vanilla DQN**.
+    Critic class for **Q-network**.
     
     :param mid_dim[int]: the middle dimension of networks
     :param state_dim[int]: the dimension of state (the number of state vector)
@@ -34,7 +34,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
 class QNetDuel(nn.Module):  # Dueling DQN
     """
-    Critic class for **Dueling DQN**.
+    Critic class for **Dueling Q-network**.
     
     :param mid_dim[int]: the middle dimension of networks
     :param state_dim[int]: the dimension of state (the number of state vector)
