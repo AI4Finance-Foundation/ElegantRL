@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 
 import torch
@@ -10,7 +11,7 @@ from elegantrl.env import build_env, build_eval_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class Arguments:  # [ElegantRL.2021.10.13]
@@ -317,6 +318,41 @@ def get_step_r_exp(ten_reward):
 '''multiple processing training'''
 
 
+def train_and_evaluate_mp(args, agent_id=0):
+    args.init_before_training()  # necessary!
+
+    process = list()
+    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
+
+    '''learner'''
+    learner_num = len(args.learner_gpus)
+    learner_pipe = PipeLearner(learner_num)
+    for learner_id in range(learner_num):
+        '''evaluator'''
+        if learner_id == learner_num - 1:
+            evaluator_pipe = PipeEvaluator()
+            process.append(mp.Process(target=evaluator_pipe.run, args=(args, agent_id)))
+        else:
+            evaluator_pipe = None
+
+        '''explorer'''
+        worker_pipe = PipeWorker(args.env_num, args.worker_num)
+        for worker_id in range(args.worker_num):
+            # if args.env_num == 1:
+            #     env_pipe = None
+            # else:
+            #     env_pipe = PipeVectorEnv(args)
+            #     process.extend(env_pipe.process)
+            env_pipe = None
+            process.append(mp.Process(target=worker_pipe.run, args=(args, env_pipe, worker_id, learner_id)))
+
+        process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe, learner_id)))
+
+    [(p.start(), time.sleep(0.1)) for p in process]
+    process[-1].join()
+    process_safely_terminate(process)
+
+
 class PipeWorker:
     def __init__(self, env_num, worker_num):
         self.env_num = env_num
@@ -324,8 +360,22 @@ class PipeWorker:
         self.pipes = [mp.Pipe() for _ in range(worker_num)]
         self.pipe1s = [pipe[1] for pipe in self.pipes]
 
+    def explore0(self, agent):
+        act_dict = agent.act.state_dict()
+        for worker_id in range(self.worker_num):
+            self.pipe1s[worker_id].send(act_dict)
+
+        traj_lists = [pipe1.recv() for pipe1 in self.pipe1s]
+        return traj_lists
+
     def explore(self, agent):
         act_dict = agent.act.state_dict()
+
+        if sys.platform == 'win32':  # todo: not elegant. YonV1943. Avoid CUDA runtime error (801)
+            # Python3.9< multiprocessing can't send torch.tensor_gpu in WinOS. So I send torch.tensor_cpu
+            for key, value in act_dict.items():
+                act_dict[key] = value.to(torch.device('cpu'))
+
         for worker_id in range(self.worker_num):
             self.pipe1s[worker_id].send(act_dict)
 
@@ -355,26 +405,22 @@ class PipeWorker:
         with torch.no_grad():
             while True:
                 act_dict = self.pipes[worker_id][0].recv()
+
+                if sys.platform == 'win32':  # todo: not elegant. YonV1943. Avoid CUDA runtime error (801)
+                    # Python3.9< multiprocessing can't send torch.tensor_gpu in WinOS. So I send torch.tensor_cpu
+                    for key, value in act_dict.items():
+                        act_dict[key] = value.to(agent.device)
+
                 agent.act.load_state_dict(act_dict)
 
                 trajectory = agent.explore_env(env, target_step, reward_scale, gamma)
+                if sys.platform == 'win32':  # todo: not elegant. YonV1943. Avoid CUDA runtime error (801)
+                    # Python3.9< multiprocessing can't send torch.tensor_gpu in WinOS. So I send torch.tensor_cpu
+                    trajectory = [[item.to(torch.device('cpu'))
+                                   for item in item_list]
+                                  for item_list in trajectory]
+
                 self.pipes[worker_id][0].send(trajectory)
-
-
-def get_comm_data(agent):
-    act = list(agent.act.parameters())
-    cri_optim = get_optim_parameters(agent.cri_optim)
-
-    if agent.cri is agent.act:
-        cri = None
-        act_optim = None
-    else:
-        cri = list(agent.cri.parameters())
-        act_optim = get_optim_parameters(agent.act_optim)
-
-    act_target = list(agent.act_target.parameters()) if agent.if_use_act_target else None
-    cri_target = list(agent.cri_target.parameters()) if agent.if_use_cri_target else None
-    return act, act_optim, cri, cri_optim, act_target, cri_target  # data
 
 
 class PipeLearner:
@@ -431,7 +477,7 @@ class PipeLearner:
                 avg_update_net(agent.act_target, data[4], device) if agent.if_use_act_target else None
                 avg_update_net(agent.cri_target, data[5], device) if agent.if_use_cri_target else None
 
-    def run(self, args, comm_eva, comm_exp, learner_id=0):
+    def run0(self, args, comm_eva, comm_exp, learner_id=0):
         # print(f'| os.getpid()={os.getpid()} PipeLearn.run, {learner_id}')
         pass
 
@@ -497,6 +543,91 @@ class PipeLearner:
 
             steps, r_exp = update_buffer(traj_list)
             del traj_lists
+            logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
+            if self.learner_num > 1:
+                self.comm_network_optim(agent, learner_id)
+
+            if comm_eva:
+                if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
+
+        agent.save_or_load_agent(cwd, if_save=True)
+        if agent.if_off_policy:
+            print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
+            buffer.save_or_load_history(cwd, if_save=True)
+
+    def run(self, args, comm_eva, comm_exp, learner_id=0):
+        # print(f'| os.getpid()={os.getpid()} PipeLearn.run, {learner_id}')
+        pass
+
+        '''init Agent'''
+        agent = args.agent
+        agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
+                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
+        agent.save_or_load_agent(args.cwd, if_save=False)
+
+        '''init ReplayBuffer'''
+        if agent.if_off_policy:
+            buffer_num = args.worker_num * args.env_num
+            if self.learner_num > 1:
+                buffer_num *= 2
+
+            buffer = ReplayBufferMP(max_len=args.max_memo, state_dim=args.state_dim,
+                                    action_dim=1 if args.if_discrete else args.action_dim,
+                                    if_use_per=args.if_per_or_gae,
+                                    buffer_num=buffer_num, gpu_id=args.learner_gpus[learner_id])
+            buffer.save_or_load_history(args.cwd, if_save=False)
+
+            def update_buffer(_traj_list):
+                step_sum = 0
+                r_exp_sum = 0
+                for buffer_i, (ten_state, ten_other) in enumerate(_traj_list):
+                    buffer.buffers[buffer_i].extend_buffer(ten_state, ten_other)
+
+                    step_r_exp = get_step_r_exp(ten_reward=ten_other[:, 0])  # other = (reward, mask, action)
+                    step_sum += step_r_exp[0]
+                    r_exp_sum += step_r_exp[1]
+                return step_sum, r_exp_sum / len(_traj_list)
+        else:
+            buffer = list()
+
+            def update_buffer(_traj_list):
+                _traj_list = list(map(list, zip(*_traj_list)))
+                _traj_list = [torch.cat(t, dim=0) for t in _traj_list]
+                (ten_state, ten_reward, ten_mask, ten_action, ten_noise) = _traj_list
+                buffer[:] = (ten_state.squeeze(1),
+                             ten_reward,
+                             ten_mask,
+                             ten_action.squeeze(1),
+                             ten_noise.squeeze(1))
+
+                _step, _r_exp = get_step_r_exp(ten_reward=buffer[1])
+                return _step, _r_exp
+
+        '''start training'''
+        cwd = args.cwd
+        batch_size = args.batch_size
+        repeat_times = args.repeat_times
+        soft_update_tau = args.soft_update_tau
+        del args
+
+        if_train = True
+        while if_train:
+            traj_lists = comm_exp.explore(agent)
+            if self.learner_num > 1:
+                data = self.comm_data(traj_lists, learner_id, round_id=-1)
+                traj_lists.extend(data)
+            traj_list = sum(traj_lists, list())
+
+            if sys.platform == 'win32':  # todo: not elegant. YonV1943. Avoid CUDA runtime error (801)
+                # Python3.9< multiprocessing can't send torch.tensor_gpu in WinOS. So I send torch.tensor_cpu
+                traj_list = [[item.to(torch.device('cpu'))
+                              for item in item_list]
+                             for item_list in traj_list]
+
+            steps, r_exp = update_buffer(traj_list)
+            del traj_lists
+
             logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
             if self.learner_num > 1:
                 self.comm_network_optim(agent, learner_id)
@@ -643,40 +774,20 @@ class PipeEvaluator:
 #     #     trajectory_list = list(map(list, zip(*trajectory_list)))  # 2D-list transpose
 #     #     print('| shape of trajectory_list:', len(trajectory_list), len(trajectory_list[0]))
 
+def get_comm_data(agent):
+    act = list(agent.act.parameters())
+    cri_optim = get_optim_parameters(agent.cri_optim)
 
-def train_and_evaluate_mp(args, agent_id=0):
-    args.init_before_training()  # necessary!
+    if agent.cri is agent.act:
+        cri = None
+        act_optim = None
+    else:
+        cri = list(agent.cri.parameters())
+        act_optim = get_optim_parameters(agent.act_optim)
 
-    process = list()
-    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
-
-    '''learner'''
-    learner_num = len(args.learner_gpus)
-    learner_pipe = PipeLearner(learner_num)
-    for learner_id in range(learner_num):
-        '''evaluator'''
-        if learner_id == learner_num - 1:
-            evaluator_pipe = PipeEvaluator()
-            process.append(mp.Process(target=evaluator_pipe.run, args=(args, agent_id)))
-        else:
-            evaluator_pipe = None
-
-        '''explorer'''
-        worker_pipe = PipeWorker(args.env_num, args.worker_num)
-        for worker_id in range(args.worker_num):
-            # if args.env_num == 1:
-            #     env_pipe = None
-            # else:
-            #     env_pipe = PipeVectorEnv(args)
-            #     process.extend(env_pipe.process)
-            env_pipe = None
-            process.append(mp.Process(target=worker_pipe.run, args=(args, env_pipe, worker_id, learner_id)))
-
-        process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe, learner_id)))
-
-    [(p.start(), time.sleep(0.1)) for p in process]
-    process[-1].join()
-    process_safely_terminate(process)
+    act_target = list(agent.act_target.parameters()) if agent.if_use_act_target else None
+    cri_target = list(agent.cri_target.parameters()) if agent.if_use_cri_target else None
+    return act, act_optim, cri, cri_optim, act_target, cri_target  # data
 
 
 """Utils"""

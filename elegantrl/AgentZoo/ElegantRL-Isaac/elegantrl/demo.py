@@ -160,7 +160,8 @@ def demo_discrete_action_off_policy():  # [ElegantRL.2021.10.10]
     env_name = ['CartPole-v0', 'LunarLander-v2',
                 'SlimeVolley-v0', ][0]
     agent_class = [AgentDoubleDQN, AgentDQN][0]
-    args = Arguments(env=build_env(env_name), agent=agent_class(if_dueling=True))
+    args = Arguments(env=build_env(env_name), agent=agent_class())
+    args.agent.if_use_dueling = True  # DuelingDQN
 
     if env_name in {'CartPole-v0', }:
         "Step 1e5,  Reward 200,  UsedTime 40s, AgentD3QN"
@@ -574,7 +575,8 @@ if __name__ == '__main__':
     # demo_continuous_action_on_policy()
     # demo_discrete_action_off_policy()
     # demo_discrete_action_on_policy()
+    # demo_pixel_level_on_policy()
     # demo_pybullet_off_policy()
     # demo_pybullet_on_policy()
-    # demo_pixel_level_task()
+    # demo_isaac_on_policy
     pass
