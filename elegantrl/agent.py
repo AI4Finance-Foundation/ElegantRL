@@ -485,7 +485,7 @@ class AgentDDPG(AgentBase):
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         """
-        Select discrete actions given an array of states.
+        Select actions given an array of states.
         
         .. note::
             Using ϵ-greedy with Ornstein–Uhlenbeck noise to add noise to actions for randomness.
