@@ -4,7 +4,7 @@
 TD3
 ==========
 
-`Twin Delayed DDPG (TD3) <https://arxiv.org/abs/1802.09477>`_ is a successor of DDPG algorithm with the usage of three additional tricks. In TD3, the usage of **Clipped Double-Q Learning**,  **Delayed Policy Updates**, and **Target Policy Smoothing** overcomes the overestimation of Q-values and smooths out Q-values along changes in action, which shows an improved performance over baseline DDPG. This implementation provides TD3 and supports the following extensions:
+`Twin Delayed DDPG (TD3) <https://arxiv.org/abs/1802.09477>`_ is a successor of DDPG algorithm with the usage of three additional tricks. In TD3, the usage of **Clipped Double-Q Learning**,  **Delayed Policy Updates**, and **Target Policy Smoothing** overcomes the overestimation of Q-values and smooths out Q-values along with changes in action, which shows improved performance over baseline DDPG. This implementation provides TD3 and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
@@ -14,7 +14,7 @@ TD3
 
 
 .. warning::
-    In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which means the user has to carefully tune these hyper-parameters to obtain a satisfied result.
+    In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which requires the user to carefully tune these hyper-parameters to obtain a satisfied result.
 
 Code Snippet
 ------------
