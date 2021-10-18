@@ -340,9 +340,12 @@ class AgentDQN(AgentBase):
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
             q_label = reward + mask * next_q
 
-        buffer.td_error_update(td_error.detach())
         q_value = self.cri(state).gather(1, action.long())
-        obj_critic = (self.criterion(q_value, q_label) * is_weights).mean()
+        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, q_value
 
         
 class AgentDoubleDQN(AgentDQN):
@@ -428,7 +431,10 @@ class AgentDoubleDQN(AgentDQN):
             q_label = reward + mask * next_q
 
         q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
-        obj_critic = ((self.criterion(q1, q_label) + self.criterion(q2, q_label)) * is_weights).mean()
+        td_error = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
         return obj_critic, q1
 
 
