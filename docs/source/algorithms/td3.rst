@@ -4,18 +4,17 @@
 TD3
 ==========
 
-`Twin Delayed DDPG (TD3) <https://arxiv.org/abs/1802.09477>`_ is an off-policy policy-gradient algorithm for continuous action space. Since computing the maximum over actions in the target is a challenge in continuous action spaces, DDPG deals with this by using a policy network to compute an action. This implementation provides DDPG and supports the following extensions:
+`Twin Delayed DDPG (TD3) <https://arxiv.org/abs/1802.09477>`_ is a successor of DDPG algorithm with the usage of three additional tricks. In TD3, the usage of **Clipped Double-Q Learning**,  **Delayed Policy Updates**, and **Target Policy Smoothing** overcomes the overestimation of Q-values and smooths out Q-values along changes in action, which shows an improved performance over baseline DDPG. This implementation provides TD3 and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
 -  Gradient clipping: ✔️
 -  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
--  Ornstein–Uhlenbeck noise: ✔️
 
 
-.. note::
-    In the DDPG paper, the authors use time-correlated Ornstein-Uhlenbeck Process to add noise to the action output. However, as shown in the later works, the Ornstein-Uhlenbeck Process is an overcomplication that does not have a noticeable effect on performance when compared to uncorrelated Gaussian noise.
+.. warning::
+    In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which means the user has to carefully tune these hyper-parameters to obtain a satisfied result.
 
 Code Snippet
 ------------
@@ -62,7 +61,7 @@ Parameters
 .. autoclass:: elegantrl.agent.AgentTD3
    :members:
    
-.. _ddpg_networks:
+.. _td3_networks:
    
 Networks
 -------------
@@ -70,5 +69,5 @@ Networks
 .. autoclass:: elegantrl.net.Actor
    :members:
    
-.. autoclass:: elegantrl.net.Critic
+.. autoclass:: elegantrl.net.CriticTwin
    :members:
