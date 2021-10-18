@@ -13,9 +13,6 @@ DDPG
 -  Prioritized Experience Replay (PER): ✔️
 -  Ornstein–Uhlenbeck noise: ✔️
 
-.. note::
-    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
-
 
 .. warning::
     PER leads to a faster learning speed and is also critical for environmnets with sparse reward. However, a replay buffer with small size may hurt the performance of PER. 
@@ -32,9 +29,10 @@ Code Snippet
     from elegantrl.agent import AgentDDPG
     
     # train and save
-    args = Arguments(env=build_env('CartPole-v0'), agent=AgentDDPG())
-    args.cwd = 'demo_CartPole_DQN'
-    args.target_return = 195
+    args = Arguments(env=build_env('Pendulum-v0'), agent=AgentDDPG())
+    args.cwd = 'demo_Pendulum_DDPG'
+    args.env.target_return = -200
+    args.reward_scale = 2 ** -2
     train_and_evaluate(args) 
     
     # test
@@ -42,7 +40,7 @@ Code Snippet
     agent.init(args.net_dim, args.state_dim, args.action_dim)
     agent.save_or_load_agent(cwd=agrs.cwd, if_save=False)
     
-    env = build_env('CartPole-v0')
+    env = build_env('Pendulum-v0')
     state = env.reset()
     episode_reward = 0
     for i in range(2 ** 10):
