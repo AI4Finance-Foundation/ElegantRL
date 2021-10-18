@@ -202,7 +202,8 @@ class AgentDQN(AgentBase):
         self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(self, net_dim=256, state_dim=8, action_dim=2,
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
@@ -367,7 +368,8 @@ class AgentDoubleDQN(AgentDQN):
         AgentDQN.__init__(self)
         self.soft_max = torch.nn.Softmax(dim=1)
         
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(self, net_dim=256, state_dim=8, action_dim=2,
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
@@ -386,7 +388,7 @@ class AgentDoubleDQN(AgentDQN):
         Select discrete actions given an array of states.
         
         .. note::
-            Using softmax to select the random actions with proportional probabilities for randomness.
+            Using softmax to random select actions with proportional probabilities for randomness.
         
         :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
@@ -442,8 +444,22 @@ class AgentDoubleDQN(AgentDQN):
 
 
 class AgentDDPG(AgentBase):
-    def __init__(self):
-        super().__init__()
+    """
+    Bases: ``elegantrl.agent.AgentBase``
+    
+    Deep Deterministic Policy Gradient algorithm. “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
+        AgentBase.__init__(self)
         self.ClassAct = Actor
         self.ClassCri = Critic
         self.if_use_cri_target = True
@@ -452,42 +468,70 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_per=False, env_num=1, agent_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate, if_use_per, env_num, agent_id)
+    def init(self, net_dim=256, state_dim=8, action_dim=2,
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
+        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
 
-        if if_use_per:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+        if if_per_or_gae:
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, states) -> np.ndarray:
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states).detach().cpu().numpy()
+    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+        """
+        Select discrete actions given an array of states.
+        
+        .. note::
+            Using ϵ-greedy with Ornstein–Uhlenbeck noise to add noise to actions for randomness.
+        
+        :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
+        action = self.act(state.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            ou_noise = self.ou_noise()
-            actions = (actions + ou_noise[np.newaxis]).clip(-1, 1)
-        return actions
+            ou_noise = torch.as_tensor(self.ou_noise(), dtype=torch.float32, device=self.device).unsqueeze(0)
+            action = (action + ou_noise).clamp(-1, 1)
+        return action.detach().cpu()
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the re-using times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_critic = None
         obj_actor = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic)
+            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             action_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri(state, action_pg).mean()
-            self.optim_update(self.act_optim, obj_actor)
+            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
             self.soft_update(self.act_target, self.act, soft_update_tau)
-        return obj_actor.item(), obj_critic.item()
+        return obj_critic.item(), obj_actor.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and Q values.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s, self.act_target(next_s))
@@ -497,15 +541,23 @@ class AgentDDPG(AgentBase):
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and Q values.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s, self.act_target(next_s))
             q_label = reward + mask * next_q
-        q_value = self.cri(state, action)
-        obj_critic = (self.criterion(q_value, q_label) * is_weights).mean()
 
-        td_error = (q_label - q_value.detach()).abs()
-        buffer.td_error_update(td_error)
+        q_value = self.cri(state, action)
+        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
         return obj_critic, state
 
 
