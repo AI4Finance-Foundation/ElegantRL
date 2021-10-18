@@ -537,7 +537,11 @@ class AgentDQN(AgentBase)
 
 - __init__(self)
 
+Inherit the init from AgentBase class, set the explore rate to 0.25, and set the critic net to QNet.
+
 - select_action(*self, state*) -> *int*
+
+Take an input ``state`` and return the index of the best action
 
 - explore_env(*self, env, target_step*) -> *list*
 
