@@ -15,8 +15,7 @@ DDPG
 
 
 .. warning::
-    PER leads to a faster learning speed and is also critical for environmnets with sparse reward. However, a replay buffer with small size may hurt the performance of PER. 
-
+    In the DDPG paper, the authors use time-correlated Ornstein-Uhlenbeck Process to add noise to the action output. However, as shown in the later works, the Ornstein-Uhlenbeck Process is an overcomplication that does not have a noticeable effect on performance when compared to uncorrelated Gaussian noise.
 
 Code Snippet
 ------------
