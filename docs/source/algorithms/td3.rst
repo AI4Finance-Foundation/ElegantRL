@@ -12,6 +12,8 @@ TD3
 -  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
 
+.. note::
+    For the clipped Double-Q learning, we implement two Q-networks with shared parameters. 
 
 .. warning::
     In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which requires the user to carefully tune these hyper-parameters to obtain a satisfied result.
