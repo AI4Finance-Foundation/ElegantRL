@@ -6,16 +6,16 @@ import numpy.random as rd
 from copy import deepcopy
 from torch.nn.utils import clip_grad_norm_
 from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
-from elegantrl.net import Actor, ActorAdv, ActorSAC, ActorAdvDiscrete
-from elegantrl.net import Critic, CriticAdv, CriticTwin
-from elegantrl.net import SharedDPG, SharedSPG, SharedPPO
+from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
+from elegantrl.net import Critic, CriticPPO, CriticTwin
+from elegantrl.net import ShareDPG, ShareSPG, SharePPO
 
-"""[ElegantRL.2021.10.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.19](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class AgentBase:
     def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
-                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):  # todo I add _xx to avoid PEP8 warning
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         """initialize
 
         replace by different DRL algorithms
@@ -354,7 +354,7 @@ class AgentDoubleDQN(AgentDQN):
     def init(self, net_dim=256, state_dim=8, action_dim=2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
-        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentDQN.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
 
         if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
@@ -500,10 +500,10 @@ class AgentTD3(AgentBase):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
 
-            action_pg = self.act(state)  # policy gradient
-            obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target instead of cri for stable training
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
             if update_c % self.update_freq == 0:  # delay update
+                action_pg = self.act(state)  # policy gradient
+                obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target is more stable than cri
+                self.optim_update(self.act_optim, obj_actor, self.act.parameters())
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
                 self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_critic.item() / 2, obj_actor.item()
@@ -633,7 +633,7 @@ class AgentSAC(AgentBase):
 
 class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
     def __init__(self):
-        AgentBase.__init__(self)
+        AgentSAC.__init__(self)
         self.if_use_act_target = True
         self.if_use_cri_target = True
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
@@ -677,8 +677,8 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 class AgentPPO(AgentBase):
     def __init__(self):
         AgentBase.__init__(self)
-        self.ClassAct = ActorAdv
-        self.ClassCri = CriticAdv
+        self.ClassAct = ActorPPO
+        self.ClassCri = CriticPPO
 
         self.if_off_policy = False
         self.ratio_clip = 0.2  # could be 0.00 ~ 0.50 ratio.clamp(1 - clip, 1 + clip)
@@ -689,9 +689,7 @@ class AgentPPO(AgentBase):
 
     def init(self, net_dim=256, state_dim=8, action_dim=2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        super().init(net_dim=net_dim, gpu_id=gpu_id,
-                     state_dim=state_dim, action_dim=action_dim, env_num=env_num,
-                     learning_rate=learning_rate, if_per_or_gae=if_per_or_gae)
+        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         self.traj_list = [list() for _ in range(env_num)]
         self.env_num = env_num
 
@@ -860,8 +858,8 @@ class AgentPPO(AgentBase):
 
 class AgentDiscretePPO(AgentPPO):
     def __init__(self):
-        AgentBase.__init__(self)
-        self.ClassAct = ActorAdvDiscrete
+        AgentPPO.__init__(self)
+        self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step, reward_scale, gamma):
         state = self.states[0]
@@ -911,9 +909,9 @@ class AgentDiscretePPO(AgentPPO):
         return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
 
 
-class AgentA2C(AgentPPO):
+class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
     def __init__(self):
-        AgentBase.__init__(self)
+        AgentPPO.__init__(self)
         print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
               '| Without TrustRegion, A2C needs special hyper-parameters, such as smaller repeat_times.')
 
@@ -961,8 +959,8 @@ class AgentA2C(AgentPPO):
 
 class AgentDiscreteA2C(AgentA2C):
     def __init__(self):
-        AgentBase.__init__(self)
-        self.ClassAct = ActorAdvDiscrete
+        AgentA2C.__init__(self)
+        self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step, reward_scale, gamma):
         state = self.states[0]
@@ -1015,10 +1013,10 @@ class AgentDiscreteA2C(AgentA2C):
 '''Actor-Critic Methods (Parameter Sharing)'''
 
 
-class AgentSharedAC(AgentBase):  # IAC (InterAC) waiting for check
+class AgentShareAC(AgentBase):  # IAC (InterAC) waiting for check
     def __init__(self):
         AgentBase.__init__(self)
-        self.ClassCri = SharedDPG  # self.Act = None
+        self.ClassCri = ShareDPG  # self.Act = None
 
         self.explore_noise = 0.2  # standard deviation of explore noise
         self.policy_noise = 0.4  # standard deviation of policy noise
@@ -1070,9 +1068,9 @@ class AgentSharedAC(AgentBase):  # IAC (InterAC) waiting for check
         return obj_critic.item(), obj_actor.item(), reliable_lambda
 
 
-class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
+class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
     def __init__(self):
-        AgentBase.__init__(self)
+        AgentSAC.__init__(self)
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
         self.cri_optim = None
 
@@ -1085,7 +1083,7 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
         self.target_entropy = np.log(action_dim)
-        self.act = self.cri = SharedSPG(net_dim, state_dim, action_dim).to(self.device)
+        self.act = self.cri = ShareSPG(net_dim, state_dim, action_dim).to(self.device)
         self.act_target = self.cri_target = deepcopy(self.act)
 
         self.cri_optim = torch.optim.Adam(
@@ -1143,9 +1141,9 @@ class AgentSharedSAC(AgentSAC):  # Integrated Soft Actor-Critic
         return self.obj_critic, obj_actor.item(), alpha.item()
 
 
-class AgentSharedPPO(AgentPPO):
+class AgentSharePPO(AgentPPO):
     def __init__(self):
-        AgentBase.__init__(self)
+        AgentPPO.__init__(self)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(self, net_dim=256, state_dim=8, action_dim=2,
@@ -1156,7 +1154,7 @@ class AgentSharedPPO(AgentPPO):
         else:
             self.get_reward_sum = self.get_reward_sum_raw
 
-        self.act = self.cri = SharedPPO(state_dim, action_dim, net_dim).to(self.device)
+        self.act = self.cri = SharePPO(state_dim, action_dim, net_dim).to(self.device)
 
         self.cri_optim = torch.optim.Adam([
             {'params': self.act.enc_s.parameters(), 'lr': learning_rate * 0.9},
@@ -1213,7 +1211,7 @@ class AgentSharedPPO(AgentPPO):
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
 
-class AgentSharedA2C(AgentSharedPPO):
+class AgentShareA2C(AgentSharePPO):
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
@@ -1260,7 +1258,7 @@ class AgentSharedA2C(AgentSharedPPO):
 '''Utils'''
 
 
-class OrnsteinUhlenbeckNoise:
+class OrnsteinUhlenbeckNoise:  # NOT suggest to use it
     def __init__(self, size, theta=0.15, sigma=0.3, ou_noise=0.0, dt=1e-2):
         """The noise of Ornstein-Uhlenbeck Process
 
