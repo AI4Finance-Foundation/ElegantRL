@@ -13,7 +13,7 @@ TD3
 -  Prioritized Experience Replay (PER): ✔️
 
 .. note::
-    For the clipped Double-Q learning, we implement two Q-networks with shared parameters. 
+    For the clipped Double-Q learning, we implement two Q-networks under a single network Class with shared parameters. Such an implementation allows a lower computational and training time cost.
 
 .. warning::
     In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which requires the user to carefully tune these hyper-parameters to obtain a satisfied result.
