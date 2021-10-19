@@ -381,10 +381,24 @@ class CriticTwin(nn.Module):  # shared parameter
                                     nn.Linear(mid_dim, 1))  # q2 value
 
     def forward(self, state, action):
+        """
+        The forward function to ouput a single Q-value.
+
+        :param state[np.array]: the input state.
+        :param state[float]: the input action.
+        :return: the output tensor.
+        """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state, action):
+        """
+        The forward function to output two Q-values from two shared-paramter networks.
+
+        :param state[np.array]: the input state.
+        :param state[float]: the input action.
+        :return: the output tensor.
+        """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
