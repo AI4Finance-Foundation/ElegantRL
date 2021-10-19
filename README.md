@@ -1,4 +1,4 @@
-## ElegantRL: Lightweight and Scalable Deep Reinforcement Learning
+## ElegantRL: Scalable and Elastic Deep Reinforcement Learning
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
@@ -137,7 +137,7 @@ To cite this repository:
 ```
 @misc{erl,
   author = {Xiao-Yang Liu, Zechu Li, Zhaoran Wang, Jiahao Zheng},
-  title = {ElegantRL: A Lightweight and Scalable Deep Reinforcement Learning Library},
+  title = {ElegantRL: A Scalable and Elastic Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},
