@@ -11,6 +11,7 @@ PPO
 -  Reward clipping: ❌
 -  Generalized Advantage Estimation (GAE): ✔️
 -  Entropy
+-  Discrete version: ✔️
 
 .. note::
     For the clipped Double-Q learning, we implement two Q-networks with shared parameters under a single Class ``CriticTwin``. Such an implementation allows a lower computational and training time cost.
@@ -69,6 +70,9 @@ Networks
 -------------
 
 .. autoclass:: elegantrl.net.ActorPPO
+   :members:
+   
+.. autoclass:: elegantrl.net.ActorDiscretePPO
    :members:
    
 .. autoclass:: elegantrl.net.CriticPPO
