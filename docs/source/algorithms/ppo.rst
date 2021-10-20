@@ -4,7 +4,7 @@
 PPO
 ==========
 
-`Proximal Policy Optimization (PPO) <https://arxiv.org/abs/1707.06347>`_ is an on-policy policy-gradient algorithm for both discrete and continuous action spaces. It follows an Actor-Critic architecture with two primary variants: **PPO-Penalty** and **PPO-Clip**. Both variants utilize surrogate objectives to avoid the new policy changing too far from the old policy. This implementation provides PPO-Clip and supports the following extensions:
+`Proximal Policy Optimization (PPO) <https://arxiv.org/abs/1707.06347>`_ is an on-policy Actor-Critic algorithm for both discrete and continuous action spaces. It has two primary variants: **PPO-Penalty** and **PPO-Clip**, where both utilize surrogate objectives to avoid the new policy changing too far from the old policy. This implementation provides PPO-Clip and supports the following extensions:
 
 -  Target network: ✔️
 -  Gradient clipping: ✔️
