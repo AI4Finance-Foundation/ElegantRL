@@ -618,10 +618,10 @@ class AgentTD3(AgentBase):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
 
+            action_pg = self.act(state)  # policy gradient
+            obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target instead of cri for stable training
+            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
             if update_c % self.update_freq == 0:  # delay update
-                action_pg = self.act(state)  # policy gradient
-                obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target instead of cri for stable training
-                self.optim_update(self.act_optim, obj_actor, self.act.parameters())
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
                 self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_critic.item() / 2, obj_actor.item()
