@@ -249,6 +249,13 @@ class ActorSAC(nn.Module):
 
 
 class ActorPPO(nn.Module):
+    """
+    Actor class for **PPO**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -267,17 +274,36 @@ class ActorPPO(nn.Module):
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
+        """
+        The forward function.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state).tanh()  # action.tanh()
 
-    def get_action(self, state, noise_k=1):
+    def get_action(self, state):
+        """
+        The forward function with Gaussian noise.
+
+        :param state[np.array]: the input state.
+        :return: the action and added noise.
+        """
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
-        noise = torch.randn_like(a_avg) * noise_k
+        noise = torch.randn_like(a_avg)
         action = a_avg + noise * a_std
         return action, noise
 
     def get_logprob_entropy(self, state, action):
+        """
+        Compute the log of probability with current network.
+
+        :param state[np.array]: the input state.
+        :param action[float]: the action.
+        :return: the log of probability and entropy.
+        """
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
@@ -288,11 +314,25 @@ class ActorPPO(nn.Module):
         return logprob, dist_entropy
 
     def get_old_logprob(self, _action, noise):  # noise = action - a_noise
+        """
+        Compute the log of probability with old network.
+
+        :param _action[float]: the action.
+        :param noise[float]: the added noise when exploring.
+        :return: the log of probability with old network.
+        """
         delta = noise.pow(2) * 0.5
         return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
 
 
 class ActorDiscretePPO(nn.Module):
+    """
+    Actor class for **Discrete PPO**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -311,22 +351,49 @@ class ActorDiscretePPO(nn.Module):
         self.Categorical = torch.distributions.Categorical
 
     def forward(self, state):
+        """
+        The forward function.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state)  # action_prob without softmax
 
     def get_action(self, state):
+        """
+        The forward function with Softmax.
+
+        :param state[np.array]: the input state.
+        :return: the action index and probabilities.
+        """
         a_prob = self.soft_max(self.net(state))
         # dist = Categorical(a_prob)
-        # action = dist.sample()
-        samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
-        action = samples_2d.reshape(state.size(0))
-        return action, a_prob
+        # a_int = dist.sample()
+        a_int = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
+        # samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
+        # samples_2d.shape == (batch_size, num_samples)
+        return a_int, a_prob
 
     def get_logprob_entropy(self, state, a_int):
+        """
+        Compute the log of probability with current network.
+
+        :param state[np.array]: the input state.
+        :param a_int[int]: the action.
+        :return: the log of probability and entropy.
+        """
         a_prob = self.soft_max(self.net(state))
         dist = self.Categorical(a_prob)
         return dist.log_prob(a_int), dist.entropy().mean()
 
     def get_old_logprob(self, a_int, a_prob):
+        """
+        Compute the log of probability with old network.
+
+        :param a_int[int]: the action.
+        :param a_prob[float]: the action probability.
+        :return: the log of probability with old network.
+        """
         dist = self.Categorical(a_prob)
         return dist.log_prob(a_int)
 
@@ -354,7 +421,7 @@ class Critic(nn.Module):
         The forward function.
 
         :param state[np.array]: the input state.
-        :param state[float]: the input action.
+        :param action[float]: the input action.
         :return: the output tensor.
         """
         return self.net(torch.cat((state, action), dim=1))  # Q value
@@ -392,7 +459,7 @@ class CriticTwin(nn.Module):  # shared parameter
         The forward function to ouput a single Q-value.
 
         :param state[np.array]: the input state.
-        :param state[float]: the input action.
+        :param action[float]: the input action.
         :return: the output tensor.
         """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
@@ -403,14 +470,21 @@ class CriticTwin(nn.Module):  # shared parameter
         The forward function to output two Q-values from two shared-paramter networks.
 
         :param state[np.array]: the input state.
-        :param state[float]: the input action.
+        :param action[float]: the input action.
         :return: the output tensor.
         """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
 
-class CriticAdv(nn.Module):
+class CriticPPO(nn.Module):
+    """
+    The Critic class for **PPO**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, _action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -425,7 +499,14 @@ class CriticAdv(nn.Module):
         layer_norm(self.net[-1], std=0.5)  # output layer for advantage value
 
     def forward(self, state):
+        """
+        The forward function to ouput the value of the state.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state)  # advantage value
+
 
 
 class CriticAdvTwin(nn.Module):
