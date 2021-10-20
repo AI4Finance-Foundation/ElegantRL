@@ -4,20 +4,18 @@
 PPO
 ==========
 
-`Proximal Policy Optimization (PPO) <https://arxiv.org/abs/1707.06347>`_ is a successor of DDPG algorithm with the usage of three additional tricks. In TD3, the usage of **Clipped Double-Q Learning**,  **Delayed Policy Updates**, and **Target Policy Smoothing** overcomes the overestimation of Q-values and smooths out Q-values along with changes in action, which shows improved performance over baseline DDPG. This implementation provides TD3 and supports the following extensions:
+`Proximal Policy Optimization (PPO) <https://arxiv.org/abs/1707.06347>`_ is an on-policy policy-gradient algorithm for both discrete and continuous action spaces. It follows an Actor-Critic architecture with two primary variants: **PPO-Penalty** and **PPO-Clip**. Both variants utilize surrogate objectives to avoid the new policy changing too far from the old policy. This implementation provides PPO-Clip and supports the following extensions:
 
 -  Target network: ✔️
 -  Gradient clipping: ✔️
 -  Reward clipping: ❌
 -  Generalized Advantage Estimation (GAE): ✔️
--  Entropy
 -  Discrete version: ✔️
 
 .. note::
-    For the clipped Double-Q learning, we implement two Q-networks with shared parameters under a single Class ``CriticTwin``. Such an implementation allows a lower computational and training time cost.
-
-.. warning::
-    In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which requires the user to carefully tune these hyper-parameters to obtain a satisfied result.
+    The surrogate objective is the key feature of PPO since it both regularizes the policy update and enables the reuse of training data.
+    
+A clear explanation of PPO algorithm and implementation in ElegantRL is available `here <https://towardsdatascience.com/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791>`_.
 
 Code Snippet
 ------------
