@@ -59,7 +59,7 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentBase
+.. autoclass:: elegantrl.agent.AgentDDPG
    :members:
    
 .. _ddpg_networks:
