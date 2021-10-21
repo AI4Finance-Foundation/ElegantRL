@@ -274,12 +274,14 @@ class AgentDQN(AgentBase):
             a_int = action.argmax(dim=1)
         return a_int.detach().cpu()
 
-    def explore_one_env(self, env, target_step) -> list:
+    def explore_one_env(self, env, target_step, reward_scale, gamma) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
         
         :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
         traj = list()
@@ -304,12 +306,14 @@ class AgentDQN(AgentBase):
         traj_list = [(traj_state, traj_other), ]
         return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
     
-    def explore_vec_env(self, env, target_step) -> list:
+    def explore_vec_env(self, env, target_step, reward_scale, gamma) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
         
         :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
         ten_states = self.states
@@ -901,7 +905,8 @@ class AgentPPO(AgentBase):
         
         :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
-        
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
         state = self.states[0]
@@ -932,6 +937,8 @@ class AgentPPO(AgentBase):
         
         :param env[object]: the DRL environment instance.
         :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
         ten_states = self.states
@@ -961,7 +968,8 @@ class AgentPPO(AgentBase):
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
         
-        
+        .. note::
+            Using advantage normalization and entropy loss.
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
@@ -1014,6 +1022,15 @@ class AgentPPO(AgentBase):
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the **reward-to-go** and **advantage estimation**.
+        
+        :param buf_len[int]: the length of the ``ReplayBuffer``.
+        :param buf_reward[np.array]: a list of rewards for the state-action pairs.
+        :param buf_mask[np.array]: a list of masks computed by the product of done signal and discount factor.
+        :param buf_value[np.array]: a list of state values estimiated by the ``Critic`` network.
+        :return: the reward-to-go and advantage estimation.
+        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
 
         pre_r_sum = 0
@@ -1024,6 +1041,15 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the **reward-to-go** and **advantage estimation** using GAE.
+        
+        :param buf_len[int]: the length of the ``ReplayBuffer``.
+        :param buf_reward[np.array]: a list of rewards for the state-action pairs.
+        :param buf_mask[np.array]: a list of masks computed by the product of done signal and discount factor.
+        :param buf_value[np.array]: a list of state values estimiated by the ``Critic`` network.
+        :return: the reward-to-go and advantage estimation.
+        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
         buf_adv_v = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -1037,6 +1063,13 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def splice_trajectory(self, traj_list, last_done_list):
+        """
+        Splice and concatenate trajectories.
+        
+        :param traj_list[list]: a list of trajectories.
+        :param last_done_list[list]: a list of indexes of done signals.
+        :return: a trajectory list.
+        """
         for env_i in range(self.env_num):
             last_done = last_done_list[env_i]
             traj_temp = traj_list[env_i]
@@ -1046,6 +1079,14 @@ class AgentPPO(AgentBase):
         return traj_list
 
     def convert_trajectory(self, traj_list, reward_scale, gamma):
+        """
+        Process the trajectory list, rescale the rewards and calculate the masks.
+        
+        :param traj_list[list]: a list of trajectories.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a trajectory list.
+        """
         for traj in traj_list:
             temp = list(map(list, zip(*traj)))  # 2D-list transpose
 
@@ -1060,12 +1101,32 @@ class AgentPPO(AgentBase):
 
 
 class AgentDiscretePPO(AgentPPO):
+    """
+    Bases: ``elegantrl.agent.AgentPPO``
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
                  _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         AgentPPO.__init__(self)
         self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step, reward_scale, gamma):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env[object]: the DRL environment instance.
+        :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.states[0]
 
         last_done = 0
@@ -1089,6 +1150,15 @@ class AgentDiscretePPO(AgentPPO):
         return self.convert_trajectory(traj_list, reward_scale, gamma)
 
     def explore_vec_env(self, env, target_step, reward_scale, gamma):
+        """
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
+        
+        :param env[object]: the DRL environment instance.
+        :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         ten_states = self.states
 
         env_num = len(self.traj_list)
