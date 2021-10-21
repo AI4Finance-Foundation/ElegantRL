@@ -4,7 +4,7 @@
 Double DQN
 ==========
 
-`Double Deep Q-Network (Double DQN) <https://arxiv.org/abs/1509.06461>`_ is one of the most important extensions of vanilla DQN. It resolves the issue of overestimation in vanilla DQN by a simple trick: decoupling the max operation in the target into action selection and action evaluation. 
+`Double Deep Q-Network (Double DQN) <https://arxiv.org/abs/1509.06461>`_ is one of the most important extensions of vanilla DQN. It resolves the issue of overestimation in vanilla DQN by a simple trick: decoupling the max operation in the target into **action selection** and **action evaluation**. 
 
 Without having to introduce additional networks, we use the Q-network to select the best next action among all the available next actions and use the target network to evaluate its Q-value. Similar to DQN implementation, this implementation supports the following extensions:
 
