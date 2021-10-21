@@ -62,6 +62,9 @@ Parameters
 .. autoclass:: elegantrl.agent.AgentPPO
    :members:
    
+.. autoclass:: elegantrl.agent.AgentDiscretePPO
+   :members:
+   
 .. _ppo_networks:
    
 Networks
