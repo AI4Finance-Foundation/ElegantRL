@@ -11,10 +11,10 @@ from elegantrl.env import build_env, build_eval_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.10.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.21](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
-class Arguments:  # [ElegantRL.2021.10.13]
+class Arguments:  # [ElegantRL.2021.10.21]
     def __init__(self, env, agent):
         self.env = env  # the environment for training
         self.env_num = getattr(env, 'env_num', 1)  # env_num = 1. In vector env, env_num > 1.
@@ -55,9 +55,7 @@ class Arguments:  # [ElegantRL.2021.10.13]
         self.workers_gpus = self.learner_gpus  # for isaac gym
 
         '''Arguments for evaluate and save'''
-        agent_name = self.agent.__class__.__name__
-        env_name = getattr(self.env, 'env_name', self.env)
-        self.cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
+        self.cwd = None  # the directory path to save the model
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = +np.inf  # break training after 'total_step > break_step'
         self.if_allow_break = True  # allow break training when reach goal (early termination)
@@ -66,7 +64,8 @@ class Arguments:  # [ElegantRL.2021.10.13]
         self.eval_gap = 2 ** 8  # evaluate the agent per eval_gap seconds
         self.eval_times1 = 2 ** 2  # number of times that get episode return in first
         self.eval_times2 = 2 ** 4  # number of times that get episode return in second
-        self.eval_gpu_id = -1  # -1 means use cpu, >=0 means use GPU
+        self.eval_gpu_id = None  # -1 means use cpu, >=0 means use GPU, None means set as learner_gpus[0]
+        self.if_overwrite = False  # Save policy networks with different episode return or overwrite
 
     def init_before_training(self):
         np.random.seed(self.random_seed)
@@ -88,116 +87,13 @@ class Arguments:  # [ElegantRL.2021.10.13]
         assert hasattr(self.agent, 'explore_env')
         assert hasattr(self.agent, 'select_actions')
 
-        '''remove history'''
-        if self.if_remove is None:
-            self.if_remove = bool(input(f"| PRESS 'y' to REMOVE: {self.cwd}? ") == 'y')
-        elif self.if_remove:
-            import shutil
-            shutil.rmtree(self.cwd, ignore_errors=True)
-            print(f"| Remove cwd: {self.cwd}")
-        else:
-            print(f"| Keep cwd: {self.cwd}")
-        os.makedirs(self.cwd, exist_ok=True)
-
-
-class Arguments0:  # [ElegantRL.2021.10.10]
-    def __init__(self):
-        self.env = None  # the environment for training
-        self.agent = None  # Deep Reinforcement Learning algorithm
-
-        '''Arguments for training'''
-        self.gamma = 0.99  # discount factor of future rewards
-        self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
-        self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
-        self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
-
-        '''environment information'''
-        # self.env_name = str(env)
-        self.env_num = None  # env_num = 1. In vector env, env_num > 1.
-        self.max_step = None  # the max step of an episode (an episode: from reset to done=True)
-        self.state_dim = None  # vector dimension (feature number) of state
-        self.action_dim = None  # vector dimension (feature number) of action
-        self.if_discrete = None  # discrete or continuous action space
-        self.target_return = None  # the target average episode return (sum the reward of an episode)
-
-        self.net_dim = None  # the network width
-        self.max_memo = None  # capacity of replay buffer
-        self.batch_size = None  # num of transitions sampled from replay buffer.
-        self.target_step = None  # repeatedly update network to keep critic's loss small
-        self.repeat_times = None  # collect target_step, then update network
-        self.if_off_policy = None  # agent is on-policy or off-policy
-        self.if_per_or_gae = False  # set as True for sparse reward
-        # sparse reward,  on-policy. GAE: Generalized Advantage Estimation.
-        # sparse reward, off-policy. PER: Prioritized Experience Replay.
-
-        '''Arguments for device'''
-        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
-        self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
-        self.random_seed = 0  # initialize random seed in self.init_before_training()
-        self.learner_gpus = (0,)  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-        self.workers_gpus = self.learner_gpus  # for isaac gym
-
-        '''Arguments for evaluate and save'''
-        self.cwd = None  # current work directory. None means set automatically
-        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
-        self.break_step = +np.inf  # break training after 'total_step > break_step'
-        self.if_allow_break = True  # allow break training when reach goal (early termination)
-
-        self.eval_env = None  # the environment for evaluating. None means set automatically.
-        self.eval_gap = 2 ** 8  # evaluate the agent per eval_gap seconds
-        self.eval_times1 = 2 ** 2  # number of times that get episode return in first
-        self.eval_times2 = 2 ** 4  # number of times that get episode return in second
-        self.eval_gpu_id = -1  # -1 means use cpu, >=0 means use GPU
-
-    def init_before_training(self):
-        np.random.seed(self.random_seed)
-        torch.manual_seed(self.random_seed)
-        torch.set_num_threads(self.thread_num)
-        torch.set_default_dtype(torch.float32)
-
-        def assign_if_none(v_or_none, default):
-            return default if v_or_none is None else v_or_none
-
-        '''env'''
-        self.env_num = getattr(self.env, 'env_num', self.env_num)
-        self.max_step = getattr(self.env, 'max_step', self.max_step)
-        self.state_dim = getattr(self.env, 'state_dim', self.state_dim)
-        self.action_dim = getattr(self.env, 'action_dim', self.action_dim)
-        self.if_discrete = getattr(self.env, 'if_discrete', self.if_discrete)
-        self.target_return = getattr(self.env, 'target_return', self.target_return)
-
-        assert isinstance(self.env_num, int)
-        assert isinstance(self.max_step, int)
-        assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
-        assert isinstance(self.action_dim, int)
-        assert isinstance(self.if_discrete, bool)
-        assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
-
-        self.if_off_policy = self.agent.if_off_policy
-        if self.if_off_policy:  # off-policy
-            self.net_dim = assign_if_none(self.net_dim, default=2 ** 8)
-            self.max_memo = assign_if_none(self.max_memo, default=2 ** 21)
-            self.batch_size = assign_if_none(self.batch_size, default=self.net_dim)
-            self.target_step = assign_if_none(self.target_step, default=2 ** 10)
-            self.repeat_times = assign_if_none(self.repeat_times, default=2 ** 0)
-        else:  # on-policy
-            self.net_dim = assign_if_none(self.net_dim, default=2 ** 9)
-            self.max_memo = assign_if_none(self.max_memo, default=2 ** 12)
-            self.batch_size = assign_if_none(self.batch_size, default=self.net_dim * 2)
-            self.target_step = assign_if_none(self.target_step, default=self.max_memo)
-            self.repeat_times = assign_if_none(self.repeat_times, default=2 ** 3)
-
-        '''agent'''
-        assert hasattr(self.agent, 'init')
-        assert hasattr(self.agent, 'update_net')
-        assert hasattr(self.agent, 'explore_env')
-        assert hasattr(self.agent, 'select_actions')
-
-        '''cwd'''
-        agent_name = self.agent.__class__.__name__
-        env_name = getattr(self.env, 'env_name', self.env)
-        auto_cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
-        self.cwd = assign_if_none(self.cwd, default=auto_cwd)
+        '''auto set'''
+        if self.cwd is None:
+            agent_name = self.agent.__class__.__name__
+            env_name = getattr(self.env, 'env_name', self.env)
+            self.cwd = f'./{agent_name}_{env_name}_{self.learner_gpus}'
+        if self.eval_gpu_id is None:
+            self.eval_gpu_id = self.learner_gpus[0]
 
         '''remove history'''
         if self.if_remove is None:
@@ -236,9 +132,10 @@ def train_and_evaluate(args, learner_id=0):
 
     '''init Evaluator'''
     eval_env = build_eval_env(args.eval_env, args.env, args.eval_gpu_id, args.env_num)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=0, target_return=args.target_return,
+    evaluator = Evaluator(cwd=args.cwd, agent_id=0,
                           eval_env=eval_env, eval_gap=args.eval_gap,
-                          eval_times1=args.eval_times1, eval_times2=args.eval_times2)
+                          eval_times1=args.eval_times1, eval_times2=args.eval_times2,
+                          target_return=args.target_return, if_overwrite=args.if_overwrite)
     evaluator.save_or_load_recoder(if_save=False)
 
     '''init ReplayBuffer'''
@@ -641,7 +538,7 @@ class PipeLearner:
             buffer.save_or_load_history(cwd, if_save=True)
 
 
-class PipeEvaluator:
+class PipeEvaluator:  # [ElegantRL.10.21]
     def __init__(self):
         super().__init__()
         self.pipe0, self.pipe1 = mp.Pipe()
@@ -668,17 +565,17 @@ class PipeEvaluator:
                    learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
         agent.save_or_load_agent(args.cwd, if_save=False)
 
-        act_cpu = agent.act
-        act_cpu.eval()
-        [setattr(param, 'requires_grad', False) for param in act_cpu.parameters()]
+        act = agent.act
+        [setattr(param, 'requires_grad', False) for param in agent.act.parameters()]
+        del agent
 
         '''init Evaluator'''
         eval_env = build_eval_env(args.eval_env, args.env, args.eval_gpu_id, args.env_num)
-        evaluator = Evaluator(cwd=args.cwd, agent_id=0, target_return=args.target_return,
+        evaluator = Evaluator(cwd=args.cwd, agent_id=0,
                               eval_env=eval_env, eval_gap=args.eval_gap,
-                              eval_times1=args.eval_times1, eval_times2=args.eval_times2)
+                              eval_times1=args.eval_times1, eval_times2=args.eval_times2,
+                              target_return=args.target_return, if_overwrite=args.if_overwrite)
         evaluator.save_or_load_recoder(if_save=False)
-        del agent
 
         '''loop'''
         cwd = args.cwd
@@ -691,11 +588,11 @@ class PipeEvaluator:
         if_reach_goal = False
         with torch.no_grad():
             while if_train:
-                act_cpu_dict, steps, r_exp, logging_tuple = self.pipe0.recv()
+                act_dict, steps, r_exp, logging_tuple = self.pipe0.recv()
 
-                if act_cpu_dict:
-                    act_cpu.load_state_dict(act_cpu_dict)
-                    if_reach_goal, if_save = evaluator.evaluate_and_save(act_cpu, steps, r_exp, logging_tuple)
+                if act_dict:
+                    act.load_state_dict(act_dict)
+                    if_reach_goal, if_save = evaluator.evaluate_and_save(act, steps, r_exp, logging_tuple)
                 else:
                     evaluator.total_step += steps
 

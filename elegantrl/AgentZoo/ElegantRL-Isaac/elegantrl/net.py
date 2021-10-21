@@ -169,6 +169,14 @@ class ActorSAC(nn.Module):
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
         return a_tan, log_prob.sum(1, keepdim=True)
 
+    # def log_abs_det_jacobian(self, x, y):
+    #     # https://github.com/denisyarats/pytorch_sac/blob/81c5b536d3a1c5616b2531e446450df412a064fb/agent/actor.py#L37
+    #     # ↑ MIT License， Thanks for https://www.zhihu.com/people/Z_WXCY 2ez4U
+    #     # We use a formula that is more numerically stable, see details in the following link
+    #     # https://pytorch.org/docs/stable/_modules/torch/distributions/transforms.html#TanhTransform
+    #     # https://github.com/tensorflow/probability/commit/ef6bb176e0ebd1cf6e25c6b5cecdd2428c22963f#diff-e120f70e92e6741bca649f04fcd907b7
+    #     return 2. * (math.log(2.) - x - F.softplus(-2. * x))
+
 
 class ActorPPO(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):

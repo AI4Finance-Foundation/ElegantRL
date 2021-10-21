@@ -7,7 +7,7 @@ import numpy as np
 
 
 class Evaluator:  # [ElegantRL.2021.10.13]
-    def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return):
+    def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
@@ -17,6 +17,7 @@ class Evaluator:  # [ElegantRL.2021.10.13]
         self.eval_gap = eval_gap
         self.eval_times1 = eval_times1
         self.eval_times2 = eval_times2
+        self.if_overwrite = if_overwrite
         self.target_return = target_return
 
         self.r_max = -np.inf
@@ -54,8 +55,9 @@ class Evaluator:  # [ElegantRL.2021.10.13]
             if if_save:  # save checkpoint with highest episode return
                 self.r_max = r_avg  # update max reward (episode return)
 
-                act_save_path = f'{self.cwd}/actor.pth'
-                torch.save(act.state_dict(), act_save_path)  # save policy network in *.pth
+                act_name = 'actor.pth' if self.if_overwrite else f"actor.{self.r_max:08.2f}"
+                act_path = f'{self.cwd}/{act_name}'
+                torch.save(act.state_dict(), act_path)  # save policy network in *.pth
 
                 print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
 

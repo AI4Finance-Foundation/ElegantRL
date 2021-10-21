@@ -90,9 +90,12 @@ def build_eval_env(eval_env, env, eval_gpu_id, env_num):
 class PendulumEnv:  # [ElegantRL.2021.10.10]
     def __init__(self, env_name):
         assert env_name in {'Pendulum-v1', 'Pendulum-v0'}
-        # Pendulum-v1  gym.__version__ == 0.21.0
-        # Pendulum-v0  gym.__version__ == 0.17.0
-        self.env = gym.make(env_name)
+        try:
+            env_name = 'Pendulum-v0'  # gym.__version__ == 0.17.0
+            self.env = gym.make(env_name)
+        except KeyError:
+            env_name = 'Pendulum-v1'  # gym.__version__ == 0.21.0
+            self.env = gym.make(env_name)
         self.env_name = env_name  # assert isinstance(env_name, str)
 
         # from elegantrl.env import get_gym_env_info
