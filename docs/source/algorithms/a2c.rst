@@ -1,35 +1,79 @@
+.. _a2c:
+
+
 A2C
-=======
+==========
 
+`Advantage Actor-Critic (A2C) <https://arxiv.org/abs/1602.01783>`_ is a synchronous and deterministic version of Asynchronous Advantage Actor-Critic (A3C). This implementation of the A2C algorithm is built on PPO algorithm for simplicity, and it supports the following extensions:
 
-Example
----------------
+-  Target network: ✔️
+-  Gradient clipping: ✔️
+-  Reward clipping: ❌
+-  Generalized Advantage Estimation (GAE): ✔️
+-  Discrete version: ✔️
+
+.. warning::
+    The implementation of A2C serves as a pedagogical goal. For practitioners, we recommend using the PPO algorithm for training agents. Without the trust-region and clipped ratio, hyper-parameters in A2C, e.g., ``repeat_times``, need to be fine-tuned to avoid performance collapse.
+    
+
+Code Snippet
+------------
 
 .. code-block:: python
-   :linenos:
 
-    class AgentInterAC(AgentBase):  # use InterSAC instead of InterAC .Warning: sth. wrong with this code, need to check
-        def __init__(self):
-            super().__init__()
-            self.explore_noise = 0.2  # standard deviation of explore noise
-            self.policy_noise = 0.4  # standard deviation of policy noise
-            self.update_freq = 2 ** 7  # delay update frequency, for hard target update
-            self.avg_loss_c = (-np.log(0.5)) ** 0.5  # old version reliable_lambda
+    import torch
+    from elegantrl.run import Arguments, train_and_evaluate
+    from elegantrl.env import build_env
+    from elegantrl.agent import AgentA2C
+    
+    # train and save
+    args = Arguments(env=build_env('Pendulum-v0'), agent=AgentA2C())
+    args.cwd = 'demo_Pendulum_A2C'
+    args.env.target_return = -200
+    args.reward_scale = 2 ** -2
+    train_and_evaluate(args) 
+    
+    # test
+    agent = AgentA2C()
+    agent.init(args.net_dim, args.state_dim, args.action_dim)
+    agent.save_or_load_agent(cwd=agrs.cwd, if_save=False)
+    
+    env = build_env('Pendulum-v0')
+    state = env.reset()
+    episode_reward = 0
+    for i in range(2 ** 10):
+        action = agent.select_action(state)
+        next_state, reward, done, _ = env.step(action)
+        
+        episode_reward += reward
+        if done:
+            print(f'Step {i:>6}, Episode return {episode_return:8.3f}')
+            break
+        else:
+            state = next_state
+        env.render()
+              
+              
+              
+Parameters
+---------------------
 
-        def init(self, net_dim, state_dim, action_dim):
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-            self.act = InterDPG(state_dim, action_dim, net_dim).to(self.device)
-            self.act_target = deepcopy(self.act)
-
-            self.criterion = torch.nn.MSELoss()
-            self.optimizer = torch.optim.Adam(self.act.parameters(), lr=self.learning_rate)
-
-
-
-Actor-Critic
-----------------
-
-.. autoclass:: elegantrl.agent.AgentInterAC		
+.. autoclass:: elegantrl.agent.AgentA2C
    :members:
-   :undoc-members:
+   
+.. autoclass:: elegantrl.agent.AgentDiscreteA2C
+   :members:
+   
+.. _a2c_networks:
+   
+Networks
+-------------
+
+.. autoclass:: elegantrl.net.ActorPPO
+   :members:
+   
+.. autoclass:: elegantrl.net.ActorDiscretePPO
+   :members:
+   
+.. autoclass:: elegantrl.net.CriticPPO
+   :members:
