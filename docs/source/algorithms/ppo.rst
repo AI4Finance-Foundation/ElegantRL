@@ -28,9 +28,9 @@ Code Snippet
     from elegantrl.agent import AgentPPO
     
     # train and save
-    args = Arguments(env=build_env('Pendulum-v0'), agent=AgentPPO())
-    args.cwd = 'demo_Pendulum_PPO'
-    args.env.target_return = -200
+    args = Arguments(env=build_env('BipedalWalker-v3'), agent=AgentPPO())
+    args.cwd = 'demo_BipedalWalker_PPO'
+    args.env.target_return = 300
     args.reward_scale = 2 ** -2
     train_and_evaluate(args) 
     
@@ -39,7 +39,7 @@ Code Snippet
     agent.init(args.net_dim, args.state_dim, args.action_dim)
     agent.save_or_load_agent(cwd=agrs.cwd, if_save=False)
     
-    env = build_env('Pendulum-v0')
+    env = build_env('BipedalWalker-v3')
     state = env.reset()
     episode_reward = 0
     for i in range(2 ** 10):
