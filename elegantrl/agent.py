@@ -1184,12 +1184,38 @@ class AgentDiscretePPO(AgentPPO):
 
 
 class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
-    def __init__(self):
+    """
+    Bases: ``elegantrl.agent.AgentPPO``
+    
+    A2C algorithm. “Asynchronous Methods for Deep Reinforcement Learning”. Mnih V. et al.. 2016.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         AgentPPO.__init__(self)
-        print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
+        print('| AgentA2C: A2C or A3C is no more better than PPO. We provide AgentA2C code just for teaching.'
               '| Without TrustRegion, A2C needs special hyper-parameters, such as smaller repeat_times.')
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        .. note::
+            Using advantage normalization and entropy loss.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the re-using times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
@@ -1232,11 +1258,31 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
 
 
 class AgentDiscreteA2C(AgentA2C):
+    """
+    Bases: ``elegantrl.agent.AgentA2C``
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentA2C.__init__(self)
         self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step, reward_scale, gamma):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env[object]: the DRL environment instance.
+        :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.states[0]
 
         last_done = 0
@@ -1260,6 +1306,15 @@ class AgentDiscreteA2C(AgentA2C):
         return self.convert_trajectory(traj_list, reward_scale, gamma)
 
     def explore_vec_env(self, env, target_step, reward_scale, gamma):
+        """
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
+        
+        :param env[object]: the DRL environment instance.
+        :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         ten_states = self.states
 
         env_num = len(self.traj_list)
