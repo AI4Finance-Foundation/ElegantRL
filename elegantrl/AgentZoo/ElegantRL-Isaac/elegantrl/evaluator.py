@@ -55,8 +55,8 @@ class Evaluator:  # [ElegantRL.2021.10.13]
             if if_save:  # save checkpoint with highest episode return
                 self.r_max = r_avg  # update max reward (episode return)
 
-                act_name = 'actor.pth' if self.if_overwrite else f"actor.{self.r_max:08.2f}"
-                act_path = f'{self.cwd}/{act_name}'
+                act_name = 'actor' if self.if_overwrite else f'actor.{self.r_max:08.2f}'
+                act_path = f"{self.cwd}/{act_name}.pth"
                 torch.save(act.state_dict(), act_path)  # save policy network in *.pth
 
                 print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print

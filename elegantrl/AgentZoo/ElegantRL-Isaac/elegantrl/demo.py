@@ -87,9 +87,10 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
 
 def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
     env_name = ['Pendulum-v1', 'LunarLanderContinuous-v2',
-                'BipedalWalker-v3', 'BipedalWalkerHardcore-v3'][0]
+                'BipedalWalker-v3', 'BipedalWalkerHardcore-v3'][ENV_ID]
     agent_class = [AgentPPO, AgentA2C][0]
     args = Arguments(env=build_env(env_name), agent=agent_class())
+    # args.if_per_or_gae = True
 
     if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
         """
@@ -111,10 +112,18 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         args.worker_num = 2
         args.reward_scale = 2 ** -2
         args.target_step = 200 * 16  # max_step = 200
+
+        args.eval_gap = 2 ** 5
+
     if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
         """
-        Step 40e4,  Reward 226,  UsedTime 1500s PPO
-        Step 80e4,  Reward 246,  UsedTime 3000s PPO
+        Step  9e5,  Reward 210,  UsedTime 1127s PPO
+        Step 13e5,  Reward 223,  UsedTime 1416s PPO
+        Step 15e5,  Reward 250,  UsedTime 1648s PPO
+        Step 19e5,  Reward 201,  UsedTime 1880s PPO
+        Step 43e5,  Reward 224,  UsedTime 3738s PPO
+        Step 14e5,  Reward 213,  UsedTime 1654s PPO GAE
+        Step 12e5,  Reward 216,  UsedTime 1710s PPO GAE
         """
         args.eval_times1 = 2 ** 4
         args.eval_times2 = 2 ** 6
@@ -122,8 +131,10 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         args.target_step = args.env.max_step * 8
     if env_name in {'BipedalWalker-v3', 'BipedalWalker-v2'}:
         """
-        Step 57e5,  Reward 295,  UsedTime 17ks PPO
-        Step 70e5,  Reward 300,  UsedTime 21ks PPO
+        Step 51e5,  Reward 300,  UsedTime 2827s PPO
+        Step 78e5,  Reward 304,  UsedTime 4747s PPO
+        Step 61e5,  Reward 300,  UsedTime 3977s PPO GAE
+        Step 95e5,  Reward 291,  UsedTime 6193s PPO GAE
         """
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
@@ -150,7 +161,7 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         args.worker_num = 4
         args.target_step = args.env.max_step * 16
 
-    # args.learner_gpus = (0, )  # single GPU
+    args.learner_gpus = (GPU_ID,)  # single GPU
     # args.learner_gpus = (0, 1)  # multiple GPUs
     # train_and_evaluate(args)  # single process
     train_and_evaluate_mp(args)  # multiple process
@@ -479,10 +490,11 @@ def demo_pybullet_on_policy():
 
 
 def demo_isaac_on_policy():
-    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][0]
+    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][ENV_ID]
     args = Arguments(env=env_name, agent=AgentPPO())
-    args.learner_gpus = (0, )
-    args.eval_gpu_id = 1
+    args.eval_gpu_id = GPU_ID
+    args.learner_gpus = (GPU_ID,)
+    args.workers_gpus = args.learner_gpus
 
     if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
         '''
@@ -490,8 +502,10 @@ def demo_isaac_on_policy():
         Step 484e7, Reward 16206, UsedTime 960ks  PPO
         Step  20e7, Reward  9196, UsedTime  35ks
         Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
-        Step  23e7, Reward  7111, UsedTime  12ks  PPO
-        Step  22e7, Reward  5412, UsedTime  12ks  PPO, max_step * 2
+        Step  55e7, Reward 10002
+        Step 100e7, Reward 10685
+        Step 200e7, Reward 12341
+        Step 300e7, Reward 13554, UsedTime ???ks  PPO
         '''
         args.eval_env = 'IsaacOneEnvAnt'
         args.env = f'IsaacVecEnvAnt'
@@ -518,16 +532,16 @@ def demo_isaac_on_policy():
         args.break_step = int(8e14)
         args.if_allow_break = False
         args.eval_times1 = 2 ** 1
-        args.eval_times1 = 2 ** 3
+        args.eval_times1 = 2 ** 4
+        args.eval_gap = 2 ** 9
 
     if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
         '''
         Step 126e7, Reward  8021
         Step 216e7, Reward  9517
         Step 283e7, Reward  9998
-        Step 438e7, Reward 10749, UsedTime 960ks  PPO, env_num = 4096
-        Step  71e7, Reward  7800
-        Step 215e7, Reward  9794, UsedTime 465ks  PPO, env_num = 2048
+        Step 438e7, Reward 10749, UsedTime 960ks  PPO
+        Step 215e7, Reward  9794, UsedTime 465ks  PPO
         Step   1e7, Reward   117
         Step  16e7, Reward   538
         Step  21e7, Reward  3044
@@ -535,11 +549,19 @@ def demo_isaac_on_policy():
         Step  65e7, Reward  6010
         Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
         Step  77e7, Reward  5399, UsedTime 143ks  PPO
-        Step  86e7, Reward  5822, UsedTime 157ks  PPO, max_step * 2
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO
+
+        Step  50e7, Reward  6488
+        Step 100e7, Reward  8591
+        Step 150e7, Reward  9446
+        Step 200e7, Reward 10027
+        Step 300e7, Reward 10294
+        Step 336e7, Reward 10399, UsedTime ???ks  PPO
         '''
         args.eval_env = 'IsaacOneEnvHumanoid'
         args.env = f'IsaacVecEnvHumanoid'
-        args.env_num = 4096
+        args.env_num = 2048
         args.max_step = 1000
         args.state_dim = 108
         args.action_dim = 21
@@ -553,7 +575,7 @@ def demo_isaac_on_policy():
         args.net_dim = int(2 ** 8 * 1.5)
         args.batch_size = args.net_dim * 2 ** 5
         args.target_step = args.max_step * 1
-        args.repeat_times = 2 ** 4
+        args.repeat_times = 2 ** 5
         args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
         args.if_per_or_gae = True
         args.learning_rate = 2 ** -15
@@ -561,7 +583,8 @@ def demo_isaac_on_policy():
         args.break_step = int(8e14)
         args.if_allow_break = False
         args.eval_times1 = 2 ** 1
-        args.eval_times1 = 2 ** 3
+        args.eval_times1 = 2 ** 4
+        args.eval_gap = 2 ** 9
 
     args.worker_num = 1
     args.workers_gpus = args.learner_gpus
@@ -571,6 +594,8 @@ def demo_isaac_on_policy():
 '''train and watch'''
 
 if __name__ == '__main__':
+    GPU_ID = 0  # eval(sys.argv[1])
+    ENV_ID = 0  # eval(sys.argv[2])
     # demo_continuous_action_off_policy()
     # demo_continuous_action_on_policy()
     # demo_discrete_action_off_policy()
