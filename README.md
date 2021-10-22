@@ -47,7 +47,7 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 ## Framework
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-   An agent (in **agent.py**) uses networks (in **net.py**) and is trained (in **run.py**) by interacting with an environment (in **env.py**).
+   An agent (from **agent.py**) uses networks (from **net.py**) and is trained (from **run.py**) by interacting with an environment (from **env.py**).
    
 A high-level overview:
 + 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
