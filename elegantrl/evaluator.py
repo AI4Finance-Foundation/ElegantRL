@@ -3,22 +3,22 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.09.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
-class Evaluator:
-    def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, ):
+class Evaluator:  # [ElegantRL.2021.10.13]
+    def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
         self.cwd = cwd
-        self.device = device
         self.agent_id = agent_id
         self.eval_env = eval_env
         self.eval_gap = eval_gap
         self.eval_times1 = eval_times1
         self.eval_times2 = eval_times2
-        self.target_return = eval_env.target_return
+        self.if_overwrite = if_overwrite
+        self.target_return = target_return
 
         self.r_max = -np.inf
         self.eval_time = 0
@@ -40,13 +40,13 @@ class Evaluator:
             self.eval_time = time.time()
 
             '''evaluate first time'''
-            rewards_steps_list = [get_episode_return_and_step(self.eval_env, act, self.device) for _ in
-                                  range(self.eval_times1)]
+            rewards_steps_list = [get_episode_return_and_step(self.eval_env, act)
+                                  for _ in range(self.eval_times1)]
             r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
             '''evaluate second time'''
             if r_avg > self.r_max:  # evaluate actor twice to save CPU Usage and keep precision
-                rewards_steps_list += [get_episode_return_and_step(self.eval_env, act, self.device)
+                rewards_steps_list += [get_episode_return_and_step(self.eval_env, act)
                                        for _ in range(self.eval_times2 - self.eval_times1)]
                 r_avg, r_std, s_avg, s_std = self.get_r_avg_std_s_avg_std(rewards_steps_list)
 
@@ -55,8 +55,9 @@ class Evaluator:
             if if_save:  # save checkpoint with highest episode return
                 self.r_max = r_avg  # update max reward (episode return)
 
-                act_save_path = f'{self.cwd}/actor.pth'
-                torch.save(act.state_dict(), act_save_path)  # save policy network in *.pth
+                act_name = 'actor' if self.if_overwrite else f'actor.{self.r_max:08.2f}'
+                act_path = f"{self.cwd}/{act_name}.pth"
+                torch.save(act.state_dict(), act_path)  # save policy network in *.pth
 
                 print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
 
@@ -109,22 +110,33 @@ class Evaluator:
         save_learning_curve(self.recorder, self.cwd, save_title)
 
 
-def get_episode_return_and_step(env, act, device) -> (float, int):
+def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
+    device_id = next(act.parameters()).get_device()  # net.parameters() is a python generator.
+    device = torch.device('cpu' if device_id == -1 else f'cuda:{device_id}')
+
     episode_step = 1
     episode_return = 0.0  # sum of rewards in an episode
 
     max_step = env.max_step
     if_discrete = env.if_discrete
+    if if_discrete:
+        def get_action(_state):
+            _state = torch.as_tensor(_state, dtype=torch.float32, device=device)
+            _action = act(_state.unsqueeze(0))
+            _action = _action.argmax(dim=1)[0]
+            return _action.detach().cpu().numpy()
+    else:
+        def get_action(_state):
+            _state = torch.as_tensor(_state, dtype=torch.float32, device=device)
+            _action = act(_state.unsqueeze(0))[0]
+            return _action.detach().cpu().numpy()
 
     state = env.reset()
     for episode_step in range(max_step):
-        s_tensor = torch.as_tensor((state,), device=device)
-        a_tensor = act(s_tensor)
-        if if_discrete:
-            a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
+        action = get_action(state)
         state, reward, done, _ = env.step(action)
         episode_return += reward
+
         if done:
             break
     episode_return = getattr(env, 'episode_return', episode_return)
