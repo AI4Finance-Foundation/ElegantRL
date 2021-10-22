@@ -95,11 +95,11 @@ The while-loop will terminate when the conditions are met, e.g., achieving a tar
 
 ## Experiment
 
-### Experiment 5.1 Comparisons with benchmark algorithms
+### Experiment 1 Comparisons with benchmark algorithms
 
 
 
-### Experiment 5.2 Self-comparisons
+### Experiment 2 Self-comparisons
 
 It is easy to run the 
 
