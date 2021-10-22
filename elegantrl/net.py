@@ -538,7 +538,7 @@ class CriticAdvTwin(nn.Module):
 '''Parameter sharing Network'''
 
 
-class SharedDPG(nn.Module):  # DPG means deterministic policy gradient
+class ShareDPG(nn.Module):  # DPG means deterministic policy gradient
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         nn_dense = DenseNet(mid_dim // 2)
@@ -600,7 +600,7 @@ class SharedDPG(nn.Module):  # DPG means deterministic policy gradient
         return q_target, a
 
 
-class SharedSPG(nn.Module):  # SPG means stochastic policy gradient
+class ShareSPG(nn.Module):  # SPG means stochastic policy gradient
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.log_sqrt_2pi_sum = np.log(np.sqrt(2 * np.pi)) * action_dim
@@ -697,7 +697,7 @@ class SharedSPG(nn.Module):  # SPG means stochastic policy gradient
         return q1, q2
 
 
-class SharedPPO(nn.Module):  # Pixel-level state version
+class SharePPO(nn.Module):  # Pixel-level state version
     def __init__(self, state_dim, action_dim, mid_dim):
         super().__init__()
         if isinstance(state_dim, int):
