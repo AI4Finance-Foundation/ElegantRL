@@ -4,7 +4,7 @@
 DQN
 ==========
 
-`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It approximates a state-value function in a Q-Learning framework with a neural network. This implementation provides vanilla Deep Q-Learning and supports the following extensions:
+`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It used a deep neural network to approximate a state-value function in a Q-Learning framework. This implementation provides a vanilla Deep Q-Learning and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
@@ -14,11 +14,11 @@ DQN
 -  Dueling network architecture: ✔️
 
 .. note::
-    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` as an alternative for reward scaling. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
+    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` for reward scaling as an alternative. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
 
 
 .. warning::
-    PER leads to a faster learning speed and is also critical for environmnets with sparse reward. However, a replay buffer with small size may hurt the performance of PER. 
+    PER leads to a faster learning speed and is also critical for environmnets with sparse rewards. However, a replay buffer with small size may hurt the performance of PER. 
 
 
 Code Snippet
