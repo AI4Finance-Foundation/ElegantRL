@@ -21,7 +21,7 @@ Welcome to ElegantRL's documentation!
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
-   - **DDPG, TD3, SAC, A2C, PPO(GAE) for continuous actions**
+   - **DDPG, TD3, SAC, A2C, PPO (GAE) for continuous actions**
    
    - **DQN, DoubleDQN, D3QN for discrete actions**
 
