@@ -136,7 +136,7 @@ Note: BipedalWalkerHardcore is a difficult task in continuous action space. Ther
 To cite this repository:
 ```
 @misc{erl,
-  author = {Xiao-Yang Liu, Zechu Li, Zhaoran Wang, Jiahao Zheng},
+  author = {Xiao-Yang Liu and Zechu Li and Zhaoran Wang and Jiahao Zheng},
   title = {ElegantRL: A Scalable and Elastic Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
