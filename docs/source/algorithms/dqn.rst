@@ -4,7 +4,7 @@
 DQN
 ==========
 
-`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It used a deep neural network to approximate a state-value function in a Q-Learning framework. This implementation provides a vanilla Deep Q-Learning and supports the following extensions:
+`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It uses a deep neural network to approximate a state-value function in a Q-Learning framework. This implementation provides a vanilla Deep Q-Learning and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
