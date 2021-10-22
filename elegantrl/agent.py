@@ -4,10 +4,11 @@ import numpy as np
 import numpy.random as rd
 
 from copy import deepcopy
+from torch.nn.utils import clip_grad_norm_
 from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
 from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
 from elegantrl.net import Critic, CriticPPO, CriticTwin
-from elegantrl.net import SharedDPG, SharedSPG, SharedPPO
+from elegantrl.net import ShareDPG, ShareSPG, SharePPO
 
 """[ElegantRL.2021.09.09](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
