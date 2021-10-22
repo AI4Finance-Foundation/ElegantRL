@@ -5,7 +5,7 @@ Overview
 Advantages of ElegantRL
 ----------------------------
 
-One sentence summary: in reinforcement learning (RL), an agent learns by continuously interacting with an environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
+One sentence summary: in reinforcement learning (RL), an agent learns by continuously interacting with an unknown environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
 
 Deep reinforcement learning (DRL) has great potential to solve real-world problems that are challenging to humans, such as self-driving cars, gaming, natural language processing (NLP), and financial trading. Starting from the success of AlphaGo, various DRL algorithms and applications are emerging in a disruptive manner. The ElegantRL library enables researchers and practitioners to pipeline the disruptive “design, development and deployment” of DRL technology.
 
@@ -13,9 +13,9 @@ The library to be presented is featured with “elegant” in the following aspe
 
   - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/tutorial>`_.
 
-  - **Efficient**: the performance is comparable with Ray RLlib.
+  - **Efficient**: in many testing cases, we find it more efficient than Ray RLlib.
 
-  - **Stable**: more stable than Stable Baseline 3.
+  - **Stable**: more stable than Stable baseline 3.
  
 ElegantRL supports state-of-the-art DRL algorithms, including discrete and continuous ones, and provides user-friendly tutorials in Jupyter notebooks.
 
@@ -55,7 +55,7 @@ The file structure of ElegantRL is shown in Fig. 1:
       
       - Evaluator
       
-As a high-level overview, the relations among the files are as follows. Initialize an environment in Env.py and an agent in Agent.py. The agent is constructed with Actor and Critic networks in Net.py. In each training step in Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good. 
+As a high-level overview, the relations among the files are as follows. Initialize an environment from Env.py and an agent from Agent.py. The agent is constructed with Actor and Critic networks from Net.py. In each training step from Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good. 
 
       
 Implementations of DRL Algorithms
