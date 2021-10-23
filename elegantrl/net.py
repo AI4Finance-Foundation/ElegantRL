@@ -187,6 +187,13 @@ class Actor(nn.Module):
 
 
 class ActorSAC(nn.Module):
+    """
+    Actor class for **SAC** with stochastic, learnable, **state-dependent** log standard deviation..
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
         if if_use_dn:
@@ -208,16 +215,34 @@ class ActorSAC(nn.Module):
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
+        """
+        The forward function.
+
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         tmp = self.net_state(state)
         return self.net_a_avg(tmp).tanh()  # action
 
     def get_action(self, state):
+        """
+        The forward function with noise.
+
+        :param state[np.array]: the input state.
+        :return: the action and added noise.
+        """
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
         a_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get_action_logprob(self, state):
+        """
+        Compute the action and log of probability with current network.
+
+        :param state[np.array]: the input state.
+        :return: the action and log of probability.
+        """
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it needs a_avg.tanh()
         a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
@@ -250,7 +275,7 @@ class ActorSAC(nn.Module):
 
 class ActorPPO(nn.Module):
     """
-    Actor class for **PPO**.
+    Actor class for **PPO** with stochastic, learnable, **state-independent** log standard deviation.
     
     :param mid_dim[int]: the middle dimension of networks
     :param state_dim[int]: the dimension of state (the number of state vector)
