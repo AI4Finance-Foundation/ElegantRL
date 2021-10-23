@@ -59,7 +59,9 @@ Parameters
 ---------------------
 
 .. autoclass:: elegantrl.agent.AgentSAC
-.. autoclass:: elegantrl.agent.AgentmModSAC
+   :members:
+   
+.. autoclass:: elegantrl.agent.AgentModSAC
    :members:
    
 .. _sac_networks:
