@@ -57,12 +57,11 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    algorithms/double_dqn
    algorithms/ddpg
    algorithms/td3
+   algorithms/sac
+   algorithms/intersac
    algorithms/a2c
    algorithms/ppo
    algorithms/interppo
-   algorithms/sac
-   algorithms/intersac
-   algorithms/modsac
    
    
 .. toctree::
