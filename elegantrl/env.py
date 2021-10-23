@@ -15,6 +15,7 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
         env_name = env
     else:
         env_name = env.env_name
+        original_env = env
     env = None
 
     '''OpenAI gym classical control'''
@@ -69,7 +70,11 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
     #     env = env_class(if_eval=if_eval, gamma=gamma)
 
     if env is None:
-        raise ValueError("| build_env(): register your custom env in here.")
+        try:
+            env = deepcopy(original_env)
+            original_env = None
+        except:
+            raise ValueError("| build_env(): register your custom env in here.")
     return env
 
 
