@@ -4,20 +4,17 @@
 SAC
 ==========
 
-`Soft Actor-Critic (SAC) <https://arxiv.org/abs/1801.01290>`_ is a successor of DDPG algorithm with the usage of three additional tricks. In TD3, the usage of **Clipped Double-Q Learning**,  **Delayed Policy Updates**, and **Target Policy Smoothing** overcomes the overestimation of Q-values and smooths out Q-values along with changes in action, which shows improved performance over baseline DDPG. This implementation provides TD3 and supports the following extensions:
+`Soft Actor-Critic (SAC) <https://arxiv.org/abs/1801.01290>`_ is an off-policy Actor-Critic algorithm for continuous action space. In SAC, it introduces an entropy regularization to the loss function, which has a close connection with the trade-off of the exploration and exploitation. In our implementation, we employ a **learnable entropy regularization coefficienct** to dynamic control the scale of the entropy, which makes it consistent with a pre-defined target entropy. SAC also utilizes **Clipped Double-Q Learning** (mentioned in TD3) to overcome the overestimation of Q-values. This implementation provides SAC and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
 -  Gradient clipping: ✔️
 -  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
--  Leanable entropy regularization coefficient \alpha: ✔️
+-  Leanable entropy regularization coefficient: ✔️
 
 .. note::
-    For the clipped Double-Q learning, we implement two Q-networks with shared parameters under a single Class ``CriticTwin``. Such an implementation allows a lower computational and training time cost.
-
-.. warning::
-    In the TD3 implementation, it contains a number of highly sensitive hyper-parameters, which requires the user to carefully tune these hyper-parameters to obtain a satisfied result.
+    Inspired by the delayed policy update from TD3, we implement a modified version of SAC ``AgentModSAC`` with a dynamic adjustment of the frequency of the policy update. The adjustment is based on the loss of critic networks: a small loss leads to a high update frequency and vise versa. 
 
 Code Snippet
 ------------
@@ -62,6 +59,7 @@ Parameters
 ---------------------
 
 .. autoclass:: elegantrl.agent.AgentSAC
+.. autoclass:: elegantrl.agent.AgentmModSAC
    :members:
    
 .. _sac_networks:
