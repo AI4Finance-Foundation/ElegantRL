@@ -572,7 +572,7 @@ class AgentDDPG(AgentBase):
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and Q values.
+        :return: the loss of the network and states.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
@@ -588,7 +588,7 @@ class AgentDDPG(AgentBase):
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and Q values.
+        :return: the loss of the network and states.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
@@ -674,7 +674,7 @@ class AgentTD3(AgentBase):
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and Q values.
+        :return: the loss of the network and states.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
@@ -691,7 +691,7 @@ class AgentTD3(AgentBase):
         
         :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
         :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and Q values.
+        :return: the loss of the network and states.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
@@ -708,7 +708,21 @@ class AgentTD3(AgentBase):
     
     
 class AgentSAC(AgentBase):
-    def __init__(self):
+    """
+    Bases: ``elegantrl.agent.AgentBase``
+    
+    Soft Actor-Critic algorithm. “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor”. Tuomas Haarnoja et al.. 2018.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         AgentBase.__init__(self)
         self.ClassCri = CriticTwin
         self.ClassAct = ActorSAC
@@ -722,6 +736,9 @@ class AgentSAC(AgentBase):
 
     def init(self, net_dim=256, state_dim=8, action_dim=2,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
         AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
 
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
@@ -737,6 +754,12 @@ class AgentSAC(AgentBase):
             self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+        """
+        Select actions given an array of states.
+        
+        :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
         state = state.to(self.device)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             actions = self.act.get_action(state)
@@ -745,6 +768,15 @@ class AgentSAC(AgentBase):
         return actions.detach().cpu()
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the re-using times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_actor = None
@@ -773,6 +805,14 @@ class AgentSAC(AgentBase):
         return self.obj_critic, obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha[float]: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
 
@@ -785,6 +825,14 @@ class AgentSAC(AgentBase):
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha[float]: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
 
@@ -802,13 +850,36 @@ class AgentSAC(AgentBase):
 
 
 class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
-    def __init__(self):
+    """
+    Bases: ``elegantrl.agent.AgentSAC``
+    
+    Modified SAC with introducing of reliable_lambda, to realize “Delayed” Policy Updates.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
         AgentSAC.__init__(self)
         self.if_use_act_target = True
         self.if_use_cri_target = True
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the re-using times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_actor = None
@@ -891,7 +962,7 @@ class AgentPPO(AgentBase):
 
     def select_actions(self, state: torch.Tensor) -> tuple:
         """
-        Select actions given an array of states (continuous action space).
+        Select actions given an array of states.
         
         :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
