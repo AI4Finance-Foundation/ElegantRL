@@ -541,13 +541,19 @@ Inherit the init from AgentBase class, set the explore rate to 0.25, and set the
 
 - select_action(*self, state*) -> *int*
 
-Take an input ``state`` and return the index of the best action
+Take an input ``state`` and return the index of the best action index.
 
 - explore_env(*self, env, target_step*) -> *list*
 
+Explore the environment ``env`` for ``target_step`` steps, and return the state, action, reward information for each step in a list.
+
 - update_net(*self, buffer, batch_size, repeat_times, soft_update_tau*) -> *tuple*
 
+Update the network and q values for (`buffer` length / `batch_size` * `repeat_times`) times.
+
 - get_obj_critic(*self, buffer, batch_size*) -> (*torch.Tensor, torch.Tensor*)
+
+Return the critic network and q values.
 
 class AgentDoubleDQN(AgentDQN)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
