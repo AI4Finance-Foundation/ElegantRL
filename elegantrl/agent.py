@@ -258,7 +258,7 @@ class AgentDQN(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
             
-    def select_actions(self, states) -> np.ndarray:  # for discrete action space
+    def select_actions(self, state) -> np.ndarray:  # for discrete action space
         """
         Select discrete actions given an array of states.
         
@@ -269,7 +269,7 @@ class AgentDQN(AgentBase):
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_int = torch.randint(self.action_dim, size=state.shape[0])  # choosing action randomly
+            a_int = torch.randint(self.action_dim, size=(state.shape[0],))  # choosing action randomly
         else:
             action = self.act(state.to(self.device))
             a_int = action.argmax(dim=1)
