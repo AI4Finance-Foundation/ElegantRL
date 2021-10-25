@@ -537,7 +537,7 @@ class AgentTD3(AgentBase):
         return obj_critic, state
 
 
-class AgentSAC(AgentBase):
+class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassCri = CriticTwin
@@ -596,7 +596,8 @@ class AgentSAC(AgentBase):
             '''objective of actor'''
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-20, 2).detach()
-            obj_actor = -(torch.min(*self.cri_target.get_q1_q2(state, action_pg)) + logprob * alpha).mean()
+            obj_actor = -(torch.min(*self.cri.get_q1_q2(state, action_pg)) + logprob * alpha).mean()
+            # use self.cri_target.get_q1_q2 in above code for more stable training.
             self.optim_update(self.act_optim, obj_actor, self.act.parameters())
 
             self.soft_update(self.act_target, self.act, soft_update_tau)
