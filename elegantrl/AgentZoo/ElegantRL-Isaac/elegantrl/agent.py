@@ -10,7 +10,7 @@ from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
 from elegantrl.net import Critic, CriticPPO, CriticTwin
 from elegantrl.net import ShareDPG, ShareSPG, SharePPO
 
-"""[ElegantRL.2021.10.19](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.25](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class AgentBase:
@@ -236,7 +236,7 @@ class AgentBase:
 """Value-based Methods (Q network)"""
 
 
-class AgentDQN(AgentBase):
+class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassCri = None  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
@@ -255,18 +255,18 @@ class AgentDQN(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:  # for discrete action space
+    def select_actions(self, states: torch.Tensor) -> torch.Tensor:  # for discrete action space
         """Select discrete actions for exploration
 
         `tensor states` states.shape==(batch_size, state_dim, )
         return `tensor a_ints` a_ints.shape==(batch_size, )
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_int = torch.randint(self.action_dim, size=state.shape[0])  # choosing action randomly
+            a_ints = torch.randint(self.action_dim, size=states.shape[0])  # choosing action randomly
         else:
-            action = self.act(state.to(self.device))
-            a_int = action.argmax(dim=1)
-        return a_int.detach().cpu()
+            actions = self.act(states.to(self.device))
+            a_ints = actions.argmax(dim=1)
+        return a_ints.detach().cpu()
 
     def explore_one_env(self, env, target_step, reward_scale, gamma) -> list:
         traj = list()
@@ -346,7 +346,7 @@ class AgentDQN(AgentBase):
         return obj_critic, q_value
 
 
-class AgentDoubleDQN(AgentDQN):
+class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     def __init__(self):
         AgentDQN.__init__(self)
         self.soft_max = torch.nn.Softmax(dim=1)
@@ -363,15 +363,15 @@ class AgentDoubleDQN(AgentDQN):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:  # for discrete action space
-        action = self.act(state.to(self.device))
+    def select_actions(self, states: torch.Tensor) -> torch.Tensor:  # for discrete action space
+        actions = self.act(states.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_prob = self.soft_max(action)
-            a_int = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
+            a_prob = self.soft_max(actions)
+            a_ints = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
             # a_int = rd.choice(self.action_dim, prob=a_prob)  # numpy version
         else:
-            a_int = action.argmax(dim=1)
-        return a_int.detach().cpu()
+            a_ints = actions.argmax(dim=1)
+        return a_ints.detach().cpu()
 
     def get_obj_critic_raw(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
         with torch.no_grad():
