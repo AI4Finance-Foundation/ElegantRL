@@ -551,7 +551,7 @@ Explore the environment ``env`` for ``target_step`` steps, and return the state,
 
 - update_net(*self, buffer, batch_size, repeat_times, soft_update_tau*) -> *tuple*
 
-Update the network and q values for (`buffer` length / `batch_size` * `repeat_times`) times.
+Update the network and q values for (``buffer`` length / ``batch_size`` * ``repeat_times``) times.
 
 - get_obj_critic(*self, buffer, batch_size*) -> (*torch.Tensor, torch.Tensor*)
 
@@ -645,6 +645,11 @@ Set the explore rate to 0.25, initialize the critic network as **Critic** and ac
 
 - update_net(*self, buffer, batch_size, repeat_times, soft_update_tau*)
 
+Update the network and q values for (``buffer`` length / ``batch_size`` * ``repeat_times``) times.
+
+- get_obj_critic(*self, buffer, batch_size*)
+
+Return the critic network and states.
 
 class AgentTD3(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
