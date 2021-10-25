@@ -226,6 +226,7 @@ Take ``state`` and ``action`` as the input and output log probability and the po
 
 - get_old_logprob(*self, state, action*)
 
+Take ``_action`` and ``noise`` as the input, compute and return the old log probability.
 
 
 class ActorDiscretePPO(nn.Module)
@@ -276,12 +277,13 @@ Take ``state`` as the input and output an action.
 
 Take ``state`` as the input and output re-parameterize action and a noise.
 
-- get_logprob_entropy(*self, state, action*)
+- get_logprob_entropy(*self, state, a_int*)
 
-Take ``state`` and ``action`` as the input and output log probability and the policy's entropy.
+Take ``state`` and ``a_int`` as the input and output log probability and the policy's entropy.
 
-- get_old_logprob(*self, state, action*)
+- get_old_logprob(*self, a_int, a_prob*)
 
+Take ``a_int`` and ``a_prob`` as the input, compute and return the old log probability.
  
 
 class Critic(nn.Module)
@@ -537,7 +539,7 @@ class AgentDQN(AgentBase)
 
 - __init__(self)
 
-Inherit the init from AgentBase class, set the explore rate to 0.25, and set the critic net to QNet.
+Inherit the init from AgentBase class, set the explore rate to 0.25, and set the critic net to **QNet**.
 
 - select_action(*self, state*) -> *int*
 
@@ -590,9 +592,15 @@ class AgentDoubleDQN(AgentDQN)
 
 - __init__(*self*)
 
+Initialize the critic network as **QNetTwin**.
+
 - select_action(*self, state*) -> *int*
 
+Take an input ``state`` and return the index of the best action index.
+
 - get_obj_critic(*self, buffer, batch_size*) -> (*torch.Tensor, torch.Tensor*)
+
+Return the critic network and q values from the first Q-net.
 
 class AgentDDPG(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -630,6 +638,13 @@ class AgentDDPG(AgentBase)
             q_value = self.cri(state, action)
             obj_critic = self.criterion(q_value, q_label)
             return obj_critic, state
+            
+- __init__(*self*)
+
+Set the explore rate to 0.25, initialize the critic network as **Critic** and actor network as **Actor**.
+
+- update_net(*self, buffer, batch_size, repeat_times, soft_update_tau*)
+
 
 class AgentTD3(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
