@@ -3,7 +3,7 @@ import gym  # not necessary
 import numpy as np
 from copy import deepcopy
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 gym.logger.set_level(40)  # Block warning
 
