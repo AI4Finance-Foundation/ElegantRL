@@ -2,7 +2,7 @@ from elegantrl.agent import *
 from elegantrl.env import build_env
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 '''train'''
 

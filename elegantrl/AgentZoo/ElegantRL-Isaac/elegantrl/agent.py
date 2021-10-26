@@ -10,7 +10,7 @@ from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
 from elegantrl.net import Critic, CriticPPO, CriticTwin
 from elegantrl.net import ShareDPG, ShareSPG, SharePPO
 
-"""[ElegantRL.2021.10.25](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.10.25](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 
 class AgentBase:

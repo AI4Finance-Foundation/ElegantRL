@@ -3,7 +3,7 @@ import gym  # not necessary
 import numpy as np
 from copy import deepcopy
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
 
 gym.logger.set_level(40)  # Block warning
 
@@ -69,7 +69,12 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
     #     env = env_class(if_eval=if_eval, gamma=gamma)
 
     if env is None:
-        raise ValueError("| build_env(): register your custom env in here.")
+        try:
+            env = deepcopy(env)
+            print(f"| build_env(): Warning. NOT suggest to use `deepcopy(env)`.")
+        except Exception as error:
+            print(f"| build_env(): Error. {error}")
+            raise ValueError("| build_env(): register your custom env in this function.")
     return env
 
 
