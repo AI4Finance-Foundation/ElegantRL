@@ -165,4 +165,4 @@ Two major steps to train an agent:
       
       - evaluator.evaluate_save(…): evaluates the agent’s performance and keeps the trained model with the highest score.
 
-The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
+The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manual breaks.
