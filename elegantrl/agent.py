@@ -85,12 +85,12 @@ class AgentBase:
         action = a_tensor.detach().cpu().numpy()
         return action
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+    def select_actions(self, states: torch.Tensor) -> torch.Tensor:
         """Select continuous actions for exploration
         `tensor states` states.shape==(batch_size, state_dim, )
         return `tensor actions` actions.shape==(batch_size, action_dim, ),  -1 < action < +1
         """
-        action = self.act(state.to(self.device))
+        action = self.act(states.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.detach().cpu()
@@ -258,7 +258,7 @@ class AgentDQN(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
             
-    def select_actions(self, state) -> np.ndarray:  # for discrete action space
+    def select_actions(self, states) -> np.ndarray:  # for discrete action space
         """
         Select discrete actions given an array of states.
         
@@ -269,7 +269,7 @@ class AgentDQN(AgentBase):
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_int = torch.randint(self.action_dim, size=(state.shape[0],))  # choosing action randomly
+            a_int = torch.randint(self.action_dim, size=(states.shape[0],))  # choosing action randomly
         else:
             action = self.act(state.to(self.device))
             a_int = action.argmax(dim=1)
@@ -428,7 +428,7 @@ class AgentDoubleDQN(AgentDQN):
             self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:  # for discrete action space
+    def select_actions(self, states: torch.Tensor) -> torch.Tensor:  # for discrete action space
         """
         Select discrete actions given an array of states.
         
@@ -438,7 +438,7 @@ class AgentDoubleDQN(AgentDQN):
         :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
-        action = self.act(state.to(self.device))
+        action = self.act(states.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_prob = self.soft_max(action)
             a_int = torch.multinomial(a_prob, num_samples=1, replacement=True)[:, 0]
