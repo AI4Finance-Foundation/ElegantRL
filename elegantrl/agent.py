@@ -48,7 +48,7 @@ class AgentBase:
         self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
     def init(self, net_dim=256, state_dim=8, action_dim=2,
-             learning_rate=1e-4,marl= False,n_agents = 1, if_per_or_gae=False, env_num=1, gpu_id=0):
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """initialize the self.object in `__init__()`
         replace by different DRL algorithms
         explict call self.init() for multiprocessing.
@@ -65,10 +65,7 @@ class AgentBase:
         self.traj_list = [list() for _ in range(env_num)]
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
-        if not marl:
-            self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
-        else:
-            self.cri = self.ClassCri(int(net_dim * 1.25), state_dim * n_agents, action_dim * n_agents).to(self.device)
+        self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
         self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
         self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
         self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
@@ -489,8 +486,22 @@ class AgentDoubleDQN(AgentDQN):
 
     
 class AgentDDPG(AgentBase):
-    def __init__(self):
-        super().__init__()
+    """
+    Bases: ``elegantrl.agent.AgentBase``
+    
+    Deep Deterministic Policy Gradient algorithm. “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
+    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
+                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
+        AgentBase.__init__(self)
         self.ClassAct = Actor
         self.ClassCri = Critic
         self.if_use_cri_target = True
@@ -499,44 +510,70 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4,marl=False, n_agents=1, if_use_per=False, env_num=1,  agent_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate,marl, n_agents, if_use_per, env_num, agent_id)
+    def init(self, net_dim=256, state_dim=8, action_dim=2,
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
+        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
-        self.loss_td = torch.nn.MSELoss()
-        if if_use_per:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+
+        if if_per_or_gae:
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_use_per else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, states) -> np.ndarray:
-        states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
-        actions = self.act(states).detach().cpu().numpy()
+    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+        """
+        Select actions given an array of states.
         
+        .. note::
+            Using ϵ-greedy with Ornstein–Uhlenbeck noise to add noise to actions for randomness.
+        
+        :param states[np.ndarray]: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
+        action = self.act(state.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            ou_noise = self.ou_noise()
-            actions = (actions + ou_noise[np.newaxis]).clip(-1, 1)
-        
-        return actions[0]
+            ou_noise = torch.as_tensor(self.ou_noise(), dtype=torch.float32, device=self.device).unsqueeze(0)
+            action = (action + ou_noise).clamp(-1, 1)
+        return action.detach().cpu()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times[float]: the re-using times of each trajectory.
+        :param soft_update_tau[float]: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_critic = None
         obj_actor = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic)
+            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             action_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri(state, action_pg).mean()
-            self.optim_update(self.act_optim, obj_actor)
+            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
             self.soft_update(self.act_target, self.act, soft_update_tau)
-        return obj_actor.item(), obj_critic.item()
+        return obj_critic.item(), obj_actor.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s, self.act_target(next_s))
@@ -546,144 +583,26 @@ class AgentDDPG(AgentBase):
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer[object]: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size[int]: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s, self.act_target(next_s))
             q_label = reward + mask * next_q
-        q_value = self.cri(state, action)
-        obj_critic = (self.criterion(q_value, q_label) * is_weights).mean()
 
-        td_error = (q_label - q_value.detach()).abs()
-        buffer.td_error_update(td_error)
+        q_value = self.cri(state, action)
+        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
         return obj_critic, state
 
-
-class AgentMADDPG(AgentBase):
-    def __init__(self):
-        super().__init__()
-        self.ClassAct = Actor
-        self.ClassCri = Critic
-        self.if_use_cri_target = True
-        self.if_use_act_target = True
-        self.if_on_policy = False
-        
-    def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1,   if_use_per=False, env_num=1, agent_id=0):
-        self.agents = [AgentDDPG() for i in range(n_agents)]
-        self.explore_env = self.explore_one_env
-        
-        self.n_agents = n_agents
-        for i in range(self.n_agents):
-            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = self.n_agents,   if_use_per=False, env_num=1, agent_id=0)
-        self.n_states = state_dim
-        self.n_actions = action_dim
-        
-        self.batch_size = net_dim
-        self.gamma = 0.95
-        self.update_tau = 0
-        self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
-
-        
-    def update_agent(self, rewards, dones, actions, observations, next_obs, index):
-        #rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
-        curr_agent = self.agents[index]
-        curr_agent.cri_optim.zero_grad()
-        all_target_actions = []
-        for i in range(self.n_agents):
-            if i == index:
-                all_target_actions.append(curr_agent.act_target(next_obs[:, index]))
-            if i != index:
-                action = self.agents[i].act_target(next_obs[:, i])
-                all_target_actions.append(action)
-        action_target_all = torch.cat(all_target_actions, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])
-        
-        target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), action_target_all).detach().squeeze(dim = 1)
-        #vf_in = torch.cat((observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1],actions.shape[2])), dim = 2)
-        actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1]*actions.shape[2])).squeeze(dim = 1)
-        vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
-        
-        
-        #vf_loss.backward()
-        #curr_agent.cri_optim.step()
-
-        curr_agent.act_optim.zero_grad()
-        curr_pol_out = curr_agent.act(observations[:, index])
-        curr_pol_vf_in = curr_pol_out
-        all_pol_acs = []
-        for i in range(0, self.n_agents):
-            if i == index:
-                all_pol_acs.append(curr_pol_vf_in)
-            else:
-                all_pol_acs.append(actions[:, i])
-        #vf_in = torch.cat((observations, torch.cat(all_pol_acs, dim = 0).to(self.device).reshape(actions.size()[0], actions.size()[1], actions.size()[2])), dim = 2)
-
-        pol_loss = -torch.mean(curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1]*observations.shape[2]), torch.cat(all_pol_acs, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])))
-        
-        curr_agent.act_optim.zero_grad()
-        pol_loss.backward()
-        curr_agent.act_optim.step()     
-        curr_agent.cri_optim.zero_grad()
-        vf_loss.backward()
-        curr_agent.cri_optim.step()
-
-
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
-        buffer.update_now_len()
-        self.batch_size = batch_size
-        self.update_tau = soft_update_tau
-        self.update(buffer)
-        self.update_all_agents()
-        return 
-
-    def update(self, buffer):
-        rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
-        for index in range(self.n_agents):
-            self.update_agent(rewards, dones, actions, observations, next_obs, index)
-
-    def update_all_agents(self):
-        for agent in self.agents:
-            self.soft_update(agent.cri_target, agent.cri, self.update_tau)
-            self.soft_update(agent.act_target, agent.act, self.update_tau)
     
-    def explore_one_env(self, env, target_step) -> list:
-        traj_temp = list()
-        k = 0
-        for _ in range(target_step):
-            k = k + 1
-            actions = []
-            for i in range(self.n_agents):
-                action = self.agents[i].select_actions(self.states[i])
-                actions.append(action)
-            #print(actions)
-            next_s, reward, done, _ = env.step(actions)
-            traj_temp.append((self.states, reward, done, actions))
-            global_done = True
-            for i in range(self.n_agents):
-                if global_done is not True:
-                    global_done = False
-                    break
-            if global_done or k >100:
-                state = env.reset() 
-                k = 0
-            else: 
-                state = next_s
-        self.states = state
-        traj_list = traj_temp
-        return traj_list
-    
-    def select_actions(self, states):
-        actions = []
-        for i in range(self.n_agents):
-            action = self.agents[i].select_actions((states[i]))
-            actions.append(action)
-        return actions
-
-    def save_or_load_agent(self, cwd, if_save):
-        for i in range(self.n_agents):
-            self.agents[i].save_or_load_agent(cwd+'/'+str(i),if_save)
-    def load_actor(self, cwd):
-        for i in range(self.n_agents):
-            self.agents[i].act.load_state_dict(torch.load(cwd+'/actor'+str(i) + '.pth', map_location ='cpu'))
-
 class AgentTD3(AgentBase):
     """
     Bases: ``elegantrl.agent.AgentBase``
