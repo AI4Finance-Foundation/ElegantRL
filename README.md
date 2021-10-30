@@ -137,7 +137,7 @@ To cite this repository:
 ```
 @misc{erl,
   author = {Liu, Xiao-Yang and Li, Zechu and Wang, Zhaoran and Zheng, Jiahao},
-  title = {ElegantRL: A Scalable and Elastic Deep Reinforcement Learning Library},
+  title = {{ElegantRL}: A Scalable and Elastic Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},
