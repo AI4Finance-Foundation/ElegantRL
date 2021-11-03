@@ -7,9 +7,9 @@ import numpy as np
 import numpy.random as rd
 import multiprocessing as mp
 
-from elegantrl.AgentZoo.ElegantMARL.env import build_env
-from elegantrl.AgentZoo.ElegantMARL.replay import ReplayBuffer, ReplayBufferMP, ReplayBufferMARL
-from elegantrl.AgentZoo.ElegantMARL.evaluator import Evaluator
+from env import build_env
+from replay import ReplayBuffer, ReplayBufferMP, ReplayBufferMARL
+from evaluator import Evaluator
 from tqdm import tqdm
 """[ElegantRL.2021.09.09](https://github.com/AI4Finance-LLC/ElegantRL)"""
 

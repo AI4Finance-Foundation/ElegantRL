@@ -1,6 +1,6 @@
-from elegantrl.AgentZoo.ElegantMARL.run import *
-from elegantrl.AgentZoo.ElegantMARL.agent import AgentDQN, AgentMADDPG
-from elegantrl.AgentZoo.ElegantMARL.env import PreprocessEnv
+from run import *
+from agent import  AgentMADDPG
+from env import PreprocessEnv
 import gym
 gym.logger.set_level(40) # Block warning    
 env = mpe_make_env('simple_spread')
