@@ -10,7 +10,7 @@ from ray_elegantrl.evaluate import RecordEpisode, RecordEvaluate, Evaluator
 from ray_elegantrl.config import default_config
 
 """
-Modify [ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)
+Modify [ElegantRL](https://github.com/AI4Finance-Foundation/ElegantRL)
 by https://github.com/GyChou
 """
 

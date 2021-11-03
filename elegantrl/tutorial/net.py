@@ -12,7 +12,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
                                  nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
-        return self.net(state)  # q value
+        return self.net(state)  # Q values for multiple actions
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -27,11 +27,11 @@ class QNetTwin(nn.Module):  # Double DQN
 
     def forward(self, state):
         tmp = self.net_state(state)
-        return self.net_q1(tmp)  # one Q value
+        return self.net_q1(tmp)  # one group of Q values
 
     def get_q1_q2(self, state):
         tmp = self.net_state(state)
-        return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
+        return self.net_q1(tmp), self.net_q2(tmp)  # two groups of Q values
 
 
 class Actor(nn.Module):

@@ -3,7 +3,8 @@ import gym  # not necessary
 import numpy as np
 from copy import deepcopy
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.11.03](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+
 
 gym.logger.set_level(40)  # Block warning
 
@@ -29,10 +30,14 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
     if env_name in {'LunarLander-v2', 'LunarLanderContinuous-v2',
                     'BipedalWalker-v3', 'BipedalWalkerHardcore-v3', }:
         env = gym.make(env_name)
-        env = PreprocessEnv(env, if_print=if_print)
+        env = PreprocessEnv(env, if_print=if_print)  # todo plan to be elegant
     elif env_name == 'CarRacingFix':  # Box2D
         from envs.CarRacingFix import CarRacingFix
         env = CarRacingFix()
+        if if_print:  # todo plan to be elegant
+            print(f"\n| env_name:  {env.env_name}, action if_discrete: {env.if_discrete}"
+                  f"\n| state_dim: {env.state_dim}, action_dim: {env.action_dim}"
+                  f"\n| max_step:  {env.max_step:4}, target_return: {env.target_return}")
 
     '''PyBullet gym'''
     if env_name in {'ReacherBulletEnv-v0', 'AntBulletEnv-v0',

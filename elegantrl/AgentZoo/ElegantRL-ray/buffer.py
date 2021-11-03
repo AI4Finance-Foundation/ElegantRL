@@ -3,7 +3,7 @@ import numpy.random as rd
 import torch
 
 """
-Modify [ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)
+Modify [ElegantRL](https://github.com/AI4Finance-Foundation/ElegantRL)
 by https://github.com/GyChou
 """
 

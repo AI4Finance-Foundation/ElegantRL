@@ -11,7 +11,7 @@ from elegantrl.env import build_env, build_eval_env
 from elegantrl.replay import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
-"""[ElegantRL.2021.10.21](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.21](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class Arguments:  # [ElegantRL.2021.10.21]
@@ -52,7 +52,7 @@ class Arguments:  # [ElegantRL.2021.10.21]
         self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
         self.random_seed = 0  # initialize random seed in self.init_before_training()
         self.learner_gpus = (0,)  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-        self.workers_gpus = self.learner_gpus  # for isaac gym
+        self.workers_gpus = self.learner_gpus  # for GPU_VectorEnv (such as isaac gym)
 
         '''Arguments for evaluate and save'''
         self.cwd = None  # the directory path to save the model

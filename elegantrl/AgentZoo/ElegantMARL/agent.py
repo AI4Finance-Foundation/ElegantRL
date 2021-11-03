@@ -7,7 +7,7 @@ from copy import deepcopy
 from net import Actor
 from net import Critic
 
-"""[ElegantRL.2021.09.09](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.09](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class AgentBase:

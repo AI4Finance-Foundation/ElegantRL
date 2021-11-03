@@ -2,7 +2,7 @@ from elegantrl.agent import *
 from elegantrl.env import build_env
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 '''train'''
 
@@ -224,11 +224,18 @@ def demo_discrete_action_on_policy():  # [ElegantRL.2021.10.12]
 
 
 def demo_pixel_level_on_policy():  # 2021-09-07
-    env_name = ['CarRacingFix', ][0]
+    env_name = ['CarRacingFix', ][ENV_ID]
     agent_class = [AgentPPO, AgentSharePPO, AgentShareA2C][0]
-    args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
+    # args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
+    args = Arguments(env=env_name, agent=agent_class())
 
     if env_name == 'CarRacingFix':
+        args.state_dim = (112, 112, 6)
+        args.action_dim = 6
+        args.max_step = 512
+        args.if_discrete = False
+        args.target_return = 950
+
         "Step 12e5,  Reward 300,  UsedTime 10ks PPO"
         "Step 20e5,  Reward 700,  UsedTime 25ks PPO"
         "Step 40e5,  Reward 800,  UsedTime 50ks PPO"
@@ -251,10 +258,13 @@ def demo_pixel_level_on_policy():  # 2021-09-07
         args.if_allow_break = False
         args.break_step = int(2 ** 22)
 
-        args.worker_num = 6
-        args.target_step = args.env.max_step * 2
-        args.learner_gpus = (0,)
-        train_and_evaluate_mp(args)
+        # args.worker_num = 6  # about 96 cores
+        args.worker_num = 2  # about 32 cores
+        args.target_step = int(args.max_step * 12 / args.worker_num)
+
+    args.learner_gpus = (GPU_ID,)  # single GPU
+    args.eval_gpu_id = GPU_ID
+    train_and_evaluate_mp(args)
 
 
 def demo_pybullet_off_policy():

@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import numpy.random as rd
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class ReplayBuffer:

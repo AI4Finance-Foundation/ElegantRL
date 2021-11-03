@@ -47,7 +47,7 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 ## Framework
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-   An agent (from **agent.py**) uses networks (from **net.py**) and is trained (from **run.py**) by interacting with an environment (from **env.py**).
+   An agent (**agent.py**) with Actor-Critic networks (**net.py**) is trained (**run.py**) by interacting with an environment (**env.py**).
    
 A high-level overview:
 + 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network in **Net.py**; 
@@ -124,7 +124,7 @@ Note: BipedalWalkerHardcore is a difficult task in continuous action space. Ther
 
     Not necessary:
     | Numpy 1.18+     | For ReplayBuffer. Numpy will be installed along with PyTorch.
-    | gym 0.17.0      | For env. Gym provides tutorial env for DRL training. (env.render() bug in gym==1.18 pyglet==1.6. Change to gym==1.17.0, pyglet==1.5)
+    | gym 0.17.0      | For env. Gym provides tutorial env for DRL training. (env.render() bug in gym==0.18 pyglet==1.6. Change to gym==0.17.0, pyglet==1.5)
     | pybullet 2.7+   | For env. We use PyBullet (free) as an alternative of MuJoCo (not free).
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots. 
@@ -137,7 +137,7 @@ To cite this repository:
 ```
 @misc{erl,
   author = {Liu, Xiao-Yang and Li, Zechu and Wang, Zhaoran and Zheng, Jiahao},
-  title = {ElegantRL: A Scalable and Elastic Deep Reinforcement Learning Library},
+  title = {{ElegantRL}: A Scalable and Elastic Deep Reinforcement Learning Library},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},

@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 from IPython import embed
 
 """
-Modify [ElegantRL](https://github.com/AI4Finance-LLC/ElegantRL)
+Modify [ElegantRL](https://github.com/AI4Finance-Foundation/ElegantRL)
 by https://github.com/GyChou
 """
 
