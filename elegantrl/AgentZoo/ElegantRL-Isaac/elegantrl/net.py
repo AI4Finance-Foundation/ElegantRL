@@ -104,6 +104,7 @@ class Actor(nn.Module):
 
     def get_action(self, state, action_std):
         action = self.net(state).tanh()
+        # todo could be `action = self.forward(state)`
         noise = (torch.randn_like(action) * action_std).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
 
@@ -174,7 +175,7 @@ class ActorSAC(nn.Module):
     #     # ↑ MIT License， Thanks for https://www.zhihu.com/people/Z_WXCY 2ez4U
     #     # We use a formula that is more numerically stable, see details in the following link
     #     # https://pytorch.org/docs/stable/_modules/torch/distributions/transforms.html#TanhTransform
-    #     # https://github.com/tensorflow/probability/commit/ef6bb176e0ebd1cf6e25c6b5cecdd2428c22963f#diff-e120f70e92e6741bca649f04fcd907b7
+    #     # https://github.com/tensorflow/probability/commit/ef6bb176e0ebd1cf6e25c6b5cecdd2428c22963f
     #     return 2. * (math.log(2.) - x - F.softplus(-2. * x))
 
 

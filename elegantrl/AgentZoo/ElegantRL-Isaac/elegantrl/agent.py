@@ -10,32 +10,37 @@ from elegantrl.net import Actor, ActorPPO, ActorSAC, ActorDiscretePPO
 from elegantrl.net import Critic, CriticPPO, CriticTwin
 from elegantrl.net import ShareDPG, ShareSPG, SharePPO
 
-"""[ElegantRL.2021.10.25](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.11.05](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class AgentBase:
-    def __init__(self, _net_dim=256, _state_dim=8, _action_dim=2, _learning_rate=1e-4,
-                 _if_per_or_gae=False, _env_num=1, _gpu_id=0):
+    def __init__(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
+                 learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """initialize
 
         replace by different DRL algorithms
         explict call self.init() for multiprocessing.
 
-        `net_dim` the dimension of networks (the width of neural networks)
-        `state_dim` the dimension of state (the number of state vector)
-        `action_dim` the dimension of action (the number of discrete action)
-        `learning_rate` learning rate of optimizer
-        `if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
-        `env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        `gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
+        :param net_dim: the dimension of networks (the width of neural networks)
+        :param state_dim: the dimension of state (the number of state vector)
+        :param action_dim: the dimension of action (the number of discrete action)
+        :param reward_scale: scale the reward to get a appropriate scale Q value
+        :param gamma: the discount factor of Reinforcement Learning
+
+        :param learning_rate: learning rate of optimizer
+        :param if_per_or_gae: PER (off-policy) or GAE (on-policy) for sparse reward
+        :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+        :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
         """
+        self.gamma = None
         self.states = None
         self.device = None
         self.traj_list = None
         self.action_dim = None
+        self.reward_scale = None
         self.if_off_policy = True
 
-        self.env_num = 1
+        self.env_num = env_num
         self.explore_rate = 1.0
         self.explore_noise = 0.1
         self.clip_grad_norm = 4.0
@@ -49,22 +54,37 @@ class AgentBase:
         self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
         self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+        assert isinstance(gpu_id, int)
+        assert isinstance(env_num, int)
+        assert isinstance(net_dim, int)
+        assert isinstance(state_dim, int)
+        assert isinstance(action_dim, int)
+        assert isinstance(if_per_or_gae, bool)
+        assert isinstance(gamma, float)
+        assert isinstance(reward_scale, float)
+        assert isinstance(learning_rate, float)
+
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """initialize the self.object in `__init__()`
 
         replace by different DRL algorithms
         explict call self.init() for multiprocessing.
 
-        `net_dim` the dimension of networks (the width of neural networks)
-        `state_dim` the dimension of state (the number of state vector)
-        `action_dim` the dimension of action (the number of discrete action)
-        `learning_rate` learning rate of optimizer
-        `if_per_or_gae` PER (off-policy) or GAE (on-policy) for sparse reward
-        `env_num` the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        `gpu_id` the gpu_id of the training device. Use CPU when cuda is not available.
+        :param net_dim: the dimension of networks (the width of neural networks)
+        :param state_dim: the dimension of state (the number of state vector)
+        :param action_dim: the dimension of action (the number of discrete action)
+        :param reward_scale: scale the reward to get a appropriate scale Q value
+        :param gamma: the discount factor of Reinforcement Learning
+
+        :param learning_rate: learning rate of optimizer
+        :param if_per_or_gae: PER (off-policy) or GAE (on-policy) for sparse reward
+        :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+        :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
         """
+        self.gamma = gamma
         self.action_dim = action_dim
+        self.reward_scale = reward_scale
         # self.amp_scale = torch.cuda.amp.GradScaler()
         self.traj_list = [list() for _ in range(env_num)]
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
@@ -78,6 +98,7 @@ class AgentBase:
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
         del self.ClassCri, self.ClassAct
 
+        assert isinstance(if_per_or_gae, bool)
         if env_num == 1:
             self.explore_env = self.explore_one_env
         else:
@@ -92,20 +113,23 @@ class AgentBase:
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         """Select continuous actions for exploration
 
-        `tensor states` states.shape==(batch_size, state_dim, )
-        return `tensor actions` actions.shape==(batch_size, action_dim, ),  -1 < action < +1
+        :param state: states.shape==(batch_size, state_dim, )
+        :return: actions.shape==(batch_size, action_dim, ),  -1 < action < +1
         """
+
         action = self.act(state.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.detach().cpu()
 
-    def explore_one_env(self, env, target_step, reward_scale, gamma):
-        """actor explores in one env, then returns the traj (env transition)
+    def explore_one_env(self, env, target_step: int) -> list:
+        """actor explores in single Env, then returns the trajectory (env transitions) for ReplayBuffer
 
-        `object env` RL training environment. env.reset() env.step()
-        `int target_step` explored target_step number of step in env
-        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
+        :param env: RL training environment. env.reset() env.step()
+        :param target_step: explored target_step number of step in env
+        :return: `[traj_env_0, ]`
+        `traj_env_0 = [(state, reward, mask, action, noise), ...]` for on-policy
+        `traj_env_0 = [(state, other), ...]` for off-policy
         """
         state = self.states[0]
         traj = list()
@@ -128,14 +152,16 @@ class AgentBase:
         traj_state = torch.stack([item[0] for item in traj])
         traj_other = torch.stack([item[1] for item in traj])
         traj_list = [(traj_state, traj_other), ]
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ]
 
-    def explore_vec_env(self, env, target_step, reward_scale, gamma):
-        """actor explores in VectorEnv, then returns the trajectory (env transition)
+    def explore_vec_env(self, env, target_step: int) -> list:
+        """actor explores in VectorEnv, then returns the trajectory (env transitions) for ReplayBuffer
 
-        `object env` RL training environment. env.reset() env.step()
-        `int target_step` explored target_step number of step in env
-        return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
+        :param env: RL training environment. env.reset() env.step(). It should be a vector env.
+        :param target_step: explored target_step number of step in env
+        :return: `[traj_env_0, ]`
+        `traj_env_0 = [(state, reward, mask, action, noise), ...]` for on-policy
+        `traj_env_0 = [(state, other), ...]` for off-policy
         """
         ten_states = self.states
 
@@ -144,9 +170,7 @@ class AgentBase:
             ten_actions = self.select_actions(ten_states)
             ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
 
-            ten_others = torch.cat((ten_rewards.unsqueeze(0),
-                                    ten_dones.unsqueeze(0),
-                                    ten_actions))
+            ten_others = torch.cat((ten_rewards.unsqueeze(0), ten_dones.unsqueeze(0), ten_actions))
             traj.append((ten_states, ten_others))
             ten_states = ten_next_states
 
@@ -158,28 +182,38 @@ class AgentBase:
         traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
                      for env_i in range(len(self.states))]
         # traj_list = [traj_env_0, ...], traj_env_0 = (ten_state, ten_other)
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+    def update_net(self, buffer, batch_size: int, repeat_times: float, soft_update_tau: float) -> tuple:
         """update the neural network by sampling batch data from ReplayBuffer
 
-        replace by different DRL algorithms.
-        return the objective value as training information to help fine-tuning
-
-        `buffer` Experience replay buffer.
-        `int batch_size` sample batch_size of data for Stochastic Gradient Descent
-        `float repeat_times` the times of sample batch = int(target_step * repeat_times) in off-policy
-        `float soft_update_tau` target_net = target_net * (1-tau) + current_net * tau
-        `return tuple` training logging. tuple = (float, float, ...)
+        :param buffer: Experience replay buffer
+        :param batch_size: sample batch_size of data for Stochastic Gradient Descent
+        :param repeat_times: `batch_sampling_times = int(target_step * repeat_times / batch_size)`
+        :param soft_update_tau: soft target update: `target_net = target_net * (1-tau) + current_net * tau`,
         """
 
     def optim_update(self, optimizer, objective, params):
+        """minimize the optimization objective via update the network parameters
+
+        :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
+        :param objective: `objective = net(...)` the optimization objective, sometimes is a loss function.
+        :param params: `params = net.parameters()` the network parameters which need to be updated.
+        """
         optimizer.zero_grad()
         objective.backward()
         clip_grad_norm_(params, max_norm=self.clip_grad_norm)
         optimizer.step()
 
     # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
+    #     """minimize the optimization objective via update the network parameters
+    #
+    #     amp: Automatic Mixed Precision
+    #
+    #     :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
+    #     :param objective: `objective = net(...)` the optimization objective, sometimes is a loss function.
+    #     :param params: `params = net.parameters()` the network parameters which need to be updated.
+    #     """
     #     # self.amp_scale = torch.cuda.amp.GradScaler()
     #
     #     optimizer.zero_grad()
@@ -193,19 +227,20 @@ class AgentBase:
 
     @staticmethod
     def soft_update(target_net, current_net, tau):
-        """soft update a target network via current network
+        """soft update target network via current network
 
-        `nn.Module target_net` target network update via a current network, it is more stable
-        `nn.Module current_net` current network update via an optimizer
+        :param target_net: update target network via current network to make training more stable.
+        :param current_net: current network update via an optimizer
+        :param tau: tau of soft target update: `target_net = target_net * (1-tau) + current_net * tau`
         """
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    def save_or_load_agent(self, cwd, if_save):
-        """save or load the training files for agent from disk.
+    def save_or_load_agent(self, cwd: str, if_save: bool):
+        """save or load training files for Agent
 
-        `str cwd` current working directory, where to save training files.
-        `bool if_save` True: save files. False: load files.
+        :param cwd: Current Working Directory. ElegantRL save training files in CWD.
+        :param if_save: True: save files. False: load files.
         """
 
         def load_torch_file(model_or_optim, _path):
@@ -225,11 +260,18 @@ class AgentBase:
                 save_path = f"{cwd}/{name}.pth"
                 load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
 
-    @staticmethod
-    def convert_trajectory(traj_list, reward_scale, gamma):  # off-policy
+    def convert_trajectory(self, traj_list: list) -> list:  # off-policy
+        """convert trajectory (env exploration type) to trajectory (replay buffer type)
+
+        convert `other = concat((      reward, done, ...))`
+        to      `other = concat((scale_reward, mask, ...))`
+
+        :param traj_list: `traj_list = [(tensor_state, other_state), ...]`
+        :return: `traj_list = [(tensor_state, other_state), ...]`
+        """
         for ten_state, ten_other in traj_list:
-            ten_other[:, 0] = ten_other[:, 0] * reward_scale  # ten_reward
-            ten_other[:, 1] = (1.0 - ten_other[:, 1]) * gamma  # ten_mask = (1.0 - ary_done) * gamma
+            ten_other[:, 0] = ten_other[:, 0] * self.reward_scale  # ten_reward
+            ten_other[:, 1] = (1.0 - ten_other[:, 1]) * self.gamma  # ten_mask = (1.0 - ary_done) * gamma
         return traj_list
 
 
@@ -243,10 +285,13 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.ClassCri = QNetDuel if self.if_use_dueling else QNet
-        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
+                       reward_scale=reward_scale, gamma=gamma,
+                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
+                       env_num=env_num, gpu_id=gpu_id, )
 
         if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
@@ -268,7 +313,7 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
             a_ints = actions.argmax(dim=1)
         return a_ints.detach().cpu()
 
-    def explore_one_env(self, env, target_step, reward_scale, gamma) -> list:
+    def explore_one_env(self, env, target_step) -> list:
         traj = list()
         state = self.states[0]
         for _ in range(target_step):
@@ -289,9 +334,9 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         traj_state = torch.stack([item[0] for item in traj])
         traj_other = torch.stack([item[1] for item in traj])
         traj_list = [(traj_state, traj_other), ]
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
-    def explore_vec_env(self, env, target_step, reward_scale, gamma) -> list:
+    def explore_vec_env(self, env, target_step) -> list:
         ten_states = self.states
 
         traj = list()
@@ -311,7 +356,7 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         traj_other = torch.stack([item[1] for item in traj])
         traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
                      for env_i in range(len(self.states))]
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
         buffer.update_now_len()
@@ -319,7 +364,8 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, q_value = self.get_obj_critic(buffer, batch_size)
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau)
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
         return obj_critic.item(), q_value.mean().item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
@@ -351,10 +397,11 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
         AgentDQN.__init__(self)
         self.soft_max = torch.nn.Softmax(dim=1)
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
-        AgentDQN.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentDQN.init(self, net_dim, state_dim, action_dim, learning_rate, reward_scale, gamma,
+                      if_per_or_gae, env_num, gpu_id)
 
         if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
@@ -411,9 +458,12 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
+                       reward_scale=reward_scale, gamma=gamma,
+                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
+                       env_num=env_num, gpu_id=gpu_id, )
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
 
         if if_per_or_gae:
@@ -438,12 +488,14 @@ class AgentDDPG(AgentBase):
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau)
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             action_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri(state, action_pg).mean()
             self.optim_update(self.act_optim, obj_actor, self.act.parameters())
-            self.soft_update(self.act_target, self.act, soft_update_tau)
+            if self.if_use_act_target:
+                self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_critic.item(), obj_actor.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
@@ -481,9 +533,12 @@ class AgentTD3(AgentBase):
         self.policy_noise = 0.2  # standard deviation of policy noise
         self.update_freq = 2  # delay update frequency
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
+                       reward_scale=reward_scale, gamma=gamma,
+                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
+                       env_num=env_num, gpu_id=gpu_id, )
         if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
@@ -504,8 +559,10 @@ class AgentTD3(AgentBase):
                 action_pg = self.act(state)  # policy gradient
                 obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target is more stable than cri
                 self.optim_update(self.act_optim, obj_actor, self.act.parameters())
-                self.soft_update(self.cri_target, self.cri, soft_update_tau)
-                self.soft_update(self.act_target, self.act, soft_update_tau)
+                if self.if_use_cri_target:
+                    self.soft_update(self.cri_target, self.cri, soft_update_tau)
+                if self.if_use_act_target:
+                    self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_critic.item() / 2, obj_actor.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
@@ -550,9 +607,12 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
         self.target_entropy = None
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
+                       reward_scale=reward_scale, gamma=gamma,
+                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
+                       env_num=env_num, gpu_id=gpu_id, )
 
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
@@ -586,7 +646,8 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
             obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
             self.obj_critic = 0.995 * self.obj_critic + 0.0025 * obj_critic.item()  # for reliable_lambda
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau)
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             '''objective of alpha (temperature parameter automatic adjustment)'''
             action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
@@ -600,7 +661,8 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
             # use self.cri_target.get_q1_q2 in above code for more stable training.
             self.optim_update(self.act_optim, obj_actor, self.act.parameters())
 
-            self.soft_update(self.act_target, self.act, soft_update_tau)
+            if self.if_use_act_target:
+                self.soft_update(self.act_target, self.act, soft_update_tau)
         return self.obj_critic, obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
@@ -652,7 +714,8 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
             obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
             self.obj_critic = 0.995 * self.obj_critic + 0.0025 * obj_critic.item()  # for reliable_lambda
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau)
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
             '''objective of alpha (temperature parameter automatic adjustment)'''
@@ -670,7 +733,8 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
                 q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
                 obj_actor = -(q_value_pg + logprob * alpha).mean()
                 self.optim_update(self.act_optim, obj_actor, self.act.parameters())
-                self.soft_update(self.act_target, self.act, soft_update_tau)
+                if self.if_use_act_target:
+                    self.soft_update(self.act_target, self.act, soft_update_tau)
 
         return self.obj_critic, obj_actor.item(), alpha.item()
 
@@ -688,9 +752,12 @@ class AgentPPO(AgentBase):
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        AgentBase.init(self, net_dim, state_dim, action_dim, learning_rate, if_per_or_gae, env_num, gpu_id)
+        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
+                       reward_scale=reward_scale, gamma=gamma,
+                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
+                       env_num=env_num, gpu_id=gpu_id, )
         self.traj_list = [list() for _ in range(env_num)]
         self.env_num = env_num
 
@@ -719,7 +786,7 @@ class AgentPPO(AgentBase):
         action, noise = self.act.get_action(state)
         return action.detach().cpu(), noise.detach().cpu()
 
-    def explore_one_env(self, env, target_step, reward_scale, gamma):
+    def explore_one_env(self, env, target_step):
         state = self.states[0]
 
         last_done = 0
@@ -740,9 +807,9 @@ class AgentPPO(AgentBase):
         self.states[0] = state
 
         traj_list = self.splice_trajectory([traj, ], [last_done, ])
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ]
 
-    def explore_vec_env(self, env, target_step, reward_scale, gamma):
+    def explore_vec_env(self, env, target_step):
         ten_states = self.states
 
         env_num = len(self.traj_list)
@@ -764,7 +831,7 @@ class AgentPPO(AgentBase):
         self.states = ten_states
 
         traj_list = self.splice_trajectory(traj_list, last_done_list)
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
@@ -806,7 +873,8 @@ class AgentPPO(AgentBase):
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
@@ -818,8 +886,7 @@ class AgentPPO(AgentBase):
         for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
-        # buf_adv_v = buf_r_sum - (buf_mask * buf_value[:, 0])  # buf_advantage_value  # todo mask->undone
-        buf_adv_v = buf_r_sum - buf_value[:, 0]  # buf_advantage_value  # todo need to check
+        buf_adv_v = buf_r_sum - buf_value[:, 0]
         return buf_r_sum, buf_adv_v
 
     def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
@@ -845,13 +912,13 @@ class AgentPPO(AgentBase):
             self.traj_list[env_i] = traj_temp[last_done:]
         return traj_list
 
-    def convert_trajectory(self, traj_list, reward_scale, gamma):
+    def convert_trajectory(self, traj_list):
         for traj in traj_list:
             temp = list(map(list, zip(*traj)))  # 2D-list transpose
 
             ten_state = torch.stack(temp[0])
-            ten_reward = torch.as_tensor(temp[1], dtype=torch.float32) * reward_scale
-            ten_mask = (1.0 - torch.as_tensor(temp[2], dtype=torch.float32)) * gamma
+            ten_reward = torch.as_tensor(temp[1], dtype=torch.float32) * self.reward_scale
+            ten_mask = (1.0 - torch.as_tensor(temp[2], dtype=torch.float32)) * self.gamma
             ten_action = torch.stack(temp[3])
             ten_noise = torch.stack(temp[4])
 
@@ -864,7 +931,7 @@ class AgentDiscretePPO(AgentPPO):
         AgentPPO.__init__(self)
         self.ClassAct = ActorDiscretePPO
 
-    def explore_one_env(self, env, target_step, reward_scale, gamma):
+    def explore_one_env(self, env, target_step):
         state = self.states[0]
 
         last_done = 0
@@ -885,9 +952,9 @@ class AgentDiscretePPO(AgentPPO):
         self.states[0] = state
 
         traj_list = self.splice_trajectory([traj, ], [last_done, ])
-        return self.convert_trajectory(traj_list, reward_scale, gamma)
+        return self.convert_trajectory(traj_list)
 
-    def explore_vec_env(self, env, target_step, reward_scale, gamma):
+    def explore_vec_env(self, env, target_step):
         ten_states = self.states
 
         env_num = len(self.traj_list)
@@ -909,7 +976,7 @@ class AgentDiscretePPO(AgentPPO):
         self.states = ten_states
 
         traj_list = self.splice_trajectory(traj_list, last_done_list)
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
 
 class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
@@ -954,7 +1021,8 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
@@ -965,7 +1033,7 @@ class AgentDiscreteA2C(AgentA2C):
         AgentA2C.__init__(self)
         self.ClassAct = ActorDiscretePPO
 
-    def explore_one_env(self, env, target_step, reward_scale, gamma):
+    def explore_one_env(self, env, target_step):
         state = self.states[0]
 
         last_done = 0
@@ -986,9 +1054,9 @@ class AgentDiscreteA2C(AgentA2C):
         self.states[0] = state
 
         traj_list = self.splice_trajectory([traj, ], [last_done, ])
-        return self.convert_trajectory(traj_list, reward_scale, gamma)
+        return self.convert_trajectory(traj_list)
 
-    def explore_vec_env(self, env, target_step, reward_scale, gamma):
+    def explore_vec_env(self, env, target_step):
         ten_states = self.states
 
         env_num = len(self.traj_list)
@@ -1010,7 +1078,7 @@ class AgentDiscreteA2C(AgentA2C):
         self.states = ten_states
 
         traj_list = self.splice_trajectory(traj_list, last_done_list)
-        return self.convert_trajectory(traj_list, reward_scale, gamma)  # [traj_env_0, ...]
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
 
 '''Actor-Critic Methods (Parameter Sharing)'''
@@ -1080,7 +1148,7 @@ class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
         self.target_entropy = None
         self.alpha_log = None
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
@@ -1139,7 +1207,8 @@ class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
                 obj_united = obj_critic + obj_alpha
 
             self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
-            self.soft_update(self.act_target, self.act, soft_update_tau)
+            if self.if_use_act_target:
+                self.soft_update(self.act_target, self.act, soft_update_tau)
 
         return self.obj_critic, obj_actor.item(), alpha.item()
 
@@ -1149,7 +1218,7 @@ class AgentSharePPO(AgentPPO):
         AgentPPO.__init__(self)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2,
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         if if_per_or_gae:
@@ -1208,7 +1277,8 @@ class AgentSharePPO(AgentPPO):
 
             obj_united = obj_critic + obj_actor
             self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
@@ -1252,7 +1322,8 @@ class AgentShareA2C(AgentSharePPO):
 
             obj_united = obj_critic + obj_actor
             self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
-            self.soft_update(self.cri_target, self.cri, soft_update_tau) if self.cri_target is not self.cri else None
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple

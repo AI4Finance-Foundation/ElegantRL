@@ -15,7 +15,9 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
     args = Arguments(env=build_env(env_name), agent=agent_class())
 
     if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
-        "Step 2e5,  Reward -200,  UsedTime 200s ModSAC"
+        """EpisodeReturn: (-1800) -1000 ~ -200 (-50)
+        Step 2e5,  Reward -200,  UsedTime 200s ModSAC
+        """
         # args = Arguments(env=build_env(env_name), agent=agent_class())  # One way to build env
         # args = Arguments(env=env_name, agent=agent_class())  # Another way to build env
         # args.env_num = 1
@@ -31,24 +33,30 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
         args.reward_scale = 2 ** -2
         args.target_step = 200 * 4  # max_step = 200
     if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
-        "Step 4e5,  Reward 200,  UsedTime  900s, TD3"
-        "Step 5e5,  Reward 200,  UsedTime 1500s, ModSAC"
+        """EpisodeReturn: (-800) -200 ~ 200 (302)
+        Step 4e5,  Reward 200,  UsedTime  900s, TD3
+        Step 5e5,  Reward 200,  UsedTime 1500s, ModSAC
+        """
         args.eval_times1 = 2 ** 4
         args.eval_times2 = 2 ** 6
 
         args.target_step = args.env.max_step
     if env_name in {'BipedalWalker-v3', 'BipedalWalker-v2'}:
-        "Step 08e5,  Reward 300,  UsedTime 1800s TD3"
-        "Step 11e5,  Reward 329,  UsedTime 6000s TD3"
-        "Step  4e5,  Reward 300,  UsedTime 2000s ModSAC"
-        "Step  8e5,  Reward 330,  UsedTime 5000s ModSAC"
+        """EpisodeReturn: (-200) -140 ~ 300 (341)
+        Step 08e5,  Reward 300,  UsedTime 1800s TD3
+        Step 11e5,  Reward 329,  UsedTime 6000s TD3
+        Step  4e5,  Reward 300,  UsedTime 2000s ModSAC
+        Step  8e5,  Reward 330,  UsedTime 5000s ModSAC
+        """
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
 
         args.gamma = 0.98
         args.target_step = args.env.max_step
     if env_name in {'BipedalWalkerHardcore-v3', 'BipedalWalkerHardcore-v2'}:
-        '''
+        '''EpisodeReturn: (-200) -150 ~ 300 (334)
+        TotalStep (2e6) 4e6
+        
         Step 12e5,  Reward  20
         Step 18e5,  Reward 135
         Step 25e5,  Reward 202
@@ -114,7 +122,6 @@ def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
         args.target_step = 200 * 16  # max_step = 200
 
         args.eval_gap = 2 ** 5
-
     if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
         """
         Step  9e5,  Reward 210,  UsedTime 1127s PPO
@@ -275,7 +282,8 @@ def demo_pybullet_off_policy():
     args = Arguments(env=build_env(env_name, if_print=True), agent=agent_class())
 
     if env_name == 'AntBulletEnv-v0':
-        """
+        """EpisodeReturn (-50) 0 ~ 2500 (3340)
+        TotalStep (8e5) 10e5
         0  4.29e+06 2446.47 |  431.34   82.1    999     0 |    0.08   1.65-275.32   0.26 | UsedTime   14393 |
         0  1.41e+07 3499.37 | 3317.42    5.9    999     0 |    0.24   0.06 -49.94   0.03 | UsedTime   70020 |
         0  3.54e+06 2875.30 |  888.67    4.7    999     0 |    0.19   0.11 -69.10   0.05 | UsedTime   54701 |
@@ -317,6 +325,9 @@ def demo_pybullet_off_policy():
         args.break_step = int(8e7)
         args.if_allow_break = False
     if env_name == 'ReacherBulletEnv-v0':
+        """EpisodeReturn (-37) 0 ~ 18 (29) 
+        TotalStep: (4e4) 5e4  # low eval_times
+        """
         args.explore_rate = 0.9
         args.learning_rate = 2 ** -15
 
@@ -333,7 +344,8 @@ def demo_pybullet_off_policy():
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
     if env_name == 'MinitaurBulletEnv-v0':
-        """
+        """EpisodeReturn (-2) 0 ~ 16 (20)
+        TotalStep (2e6) 4e6
         0  1.00e+06    0.46 |    0.24    0.0     98    37 |    0.06   0.06  -7.64   0.02
         0  1.26e+06    1.36 |    1.36    0.7    731   398 |    0.10   0.08 -10.40   0.02
         0  1.30e+06    3.18 |    3.18    0.8    999     0 |    0.13   0.08 -10.99   0.02
@@ -462,7 +474,8 @@ def demo_pybullet_on_policy():
         args.eval_times1 = 2 ** 3
         args.eval_times2 = 2 ** 5
     if env_name == 'MinitaurBulletEnv-v0':
-        """
+        """EpisodeReturn (-2) 0 ~ 16 (PPO 34)
+        TotalStep (PPO 3e5) 5e5
         0  5.91e+05   10.59 |   10.59    3.9    727   282 |    0.27   0.69  -0.03  -0.52
         0  1.15e+06   14.91 |   12.48    2.2    860   158 |    0.40   0.65  -0.02  -0.55
         0  2.27e+06   25.38 |   22.54    4.7    968    54 |    0.75   0.61  -0.06  -0.60

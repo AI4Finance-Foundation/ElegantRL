@@ -7,7 +7,7 @@ import numpy.random as rd
 
 
 class ReplayBuffer:
-    def __init__(self, max_len, state_dim, action_dim, if_use_per, gpu_id=0):
+    def __init__(self, max_len, state_dim, action_dim, if_use_per, gpu_id=0, state_type=torch.float32):
         """Experience Replay Buffer
 
         save environment transition in a continuous RAM for high performance training
@@ -33,12 +33,8 @@ class ReplayBuffer:
         other_dim = 1 + 1 + self.action_dim
         self.buf_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
 
-        if isinstance(state_dim, int):  # state is pixel
-            self.buf_state = torch.empty((max_len, state_dim), dtype=torch.float32, device=self.device)
-        elif isinstance(state_dim, tuple):
-            self.buf_state = torch.empty((max_len, *state_dim), dtype=torch.uint8, device=self.device)
-        else:
-            raise ValueError('state_dim')
+        buf_state_shape = (max_len, state_dim) if isinstance(state_dim, int) else (max_len, *state_dim)
+        self.buf_state = torch.empty(buf_state_shape, dtype=state_type, device=self.device)
 
     def append_buffer(self, state, other):  # CPU array to CPU array
         self.buf_state[self.next_idx] = state
@@ -102,6 +98,23 @@ class ReplayBuffer:
                     r_m_a[:, 2:],  # action
                     self.buf_state[indices],
                     self.buf_state[indices + 1])
+
+    def sample_batch_one_step(self, batch_size) -> tuple:
+        """randomly sample a batch of data for training
+
+        :int batch_size: the number of data in a batch for Stochastic Gradient Descent
+        :return torch.Tensor reward: reward.shape==(now_len, 1)
+        :return torch.Tensor mask:   mask.shape  ==(now_len, 1), mask = 0.0 if done else gamma
+        :return torch.Tensor action: action.shape==(now_len, action_dim)
+        :return torch.Tensor state:  state.shape ==(now_len, state_dim)
+        :return torch.Tensor state:  state.shape ==(now_len, state_dim), next state
+        """
+
+        indices = rd.randint(self.now_len - 1, size=batch_size)
+        r_m_a = self.buf_other[indices]
+        return (r_m_a[:, 0:1],  # reward
+                r_m_a[:, 2:],  # action
+                self.buf_state[indices],)
 
     def update_now_len(self):
         """update the a pointer `now_len`, which is the current data number of ReplayBuffer
@@ -223,6 +236,16 @@ class ReplayBufferMP:
     def sample_batch(self, batch_size) -> list:
         bs = batch_size // self.worker_num
         list_items = [self.buffers[i].sample_batch(bs)
+                      for i in range(self.worker_num)]
+        # list_items of reward, mask, action, state, next_state
+        # list_items of reward, mask, action, state, next_state, is_weights (PER)
+
+        list_items = list(map(list, zip(*list_items)))  # 2D-list transpose
+        return [torch.cat(item, dim=0) for item in list_items]
+
+    def sample_batch_one_step(self, batch_size) -> list:
+        bs = batch_size // self.worker_num
+        list_items = [self.buffers[i].sample_batch_one_step(bs)
                       for i in range(self.worker_num)]
         # list_items of reward, mask, action, state, next_state
         # list_items of reward, mask, action, state, next_state, is_weights (PER)

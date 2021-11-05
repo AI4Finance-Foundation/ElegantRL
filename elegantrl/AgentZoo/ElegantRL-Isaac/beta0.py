@@ -1,106 +1,405 @@
-from envs.IsaacGym import *
-from elegantrl.demo import *
+# import os
+import sys
+import numpy as np
+# import numpy.random as rd
+import torch
+import torch.nn as nn
+# from copy import deepcopy
+# from torch.nn.utils import clip_grad_norm_
 
-"""2021-10-14
-IDEA ENV GPU 0 2 beta0.py
-IDEA ENV GPU 1 3 beta1.py
+from elegantrl.net import NnReshape, layer_norm
+from elegantrl.agent import AgentBase
+from elegantrl.env import build_env
+from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
+
+"""
+GPU 1 beta2, ur_n = 8
+GPU 3 beta3, ur_n = 4
 """
 
+'''net'''
 
-def demo_isaac_on_policy():
-    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][ENV_ID]
-    args = Arguments(env=env_name, agent=AgentPPO())
+
+class ActorBiCNN1(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+
+        cnn_dim = mid_dim * 4
+        nn_middle = BiCNN(mid_dim, state_dim, cnn_dim)
+        self.net = nn.Sequential(
+            nn_middle,
+            nn.Linear(cnn_dim * 1, mid_dim * 2), nn.Hardswish(),
+            nn.Linear(mid_dim * 2, action_dim),
+        )
+        layer_norm(self.net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state):
+        action = self.net(state)
+        return action * torch.pow((action ** 2).sum(), -0.5)  # sqrt(L2_norm)
+
+    def get_action(self, state, action_std):
+        action = self.forward(state)
+        noise = (torch.randn_like(action) * action_std)
+        return action + noise
+
+
+class CriticBiCNN1(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        i_c_dim, i_h_dim, i_w_dim = state_dim  # inp_for_cnn.shape == (N, C, H, W)
+        assert action_dim == int(np.prod((i_c_dim, i_w_dim, i_h_dim)))
+        action_dim = (i_c_dim, i_w_dim, i_h_dim)  # (2, bs_n, ur_n)
+
+        cnn_dim = mid_dim * 4
+        self.cnn_s = nn.Sequential(
+            BiCNN(mid_dim, state_dim, cnn_dim),
+            nn.Linear(cnn_dim, mid_dim * 2), nn.ReLU(inplace=True),
+        )
+        self.cnn_a = nn.Sequential(
+            NnReshape(*action_dim),
+            BiCNN(mid_dim, action_dim, cnn_dim),
+            nn.Linear(cnn_dim, mid_dim * 2), nn.ReLU(inplace=True),
+        )
+
+        self.out_net = nn.Sequential(
+            nn.Linear(mid_dim * 2, mid_dim * 1), nn.Hardswish(),
+            nn.Linear(mid_dim * 1, 1),
+        )
+        layer_norm(self.out_net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state, action):
+        xs = self.cnn_s(state)
+        xa = self.cnn_a(action)
+        return self.out_net(xs + xa)  # Q value
+
+
+class BiCNN1(nn.Module):
+    def __init__(self, mid_dim, inp_dim, out_dim):
+        super().__init__()
+        i_c_dim, i_h_dim, i_w_dim = inp_dim  # inp_for_cnn.shape == (N, C, H, W)
+
+        self.cnn_h = nn.Sequential(
+            nn.Conv2d(i_c_dim * 1, mid_dim * 2, (1, i_w_dim), bias=True), nn.LeakyReLU(inplace=True),
+            nn.Conv2d(mid_dim * 2, mid_dim * 1, (1, 1), bias=True), nn.ReLU(inplace=True),
+            NnReshape(-1),  # shape=(-1, i_h_dim * mid_dim)
+            nn.Linear(i_h_dim * mid_dim, out_dim), nn.ReLU(inplace=True),
+        )
+        self.cnn_w = nn.Sequential(
+            nn.Conv2d(i_c_dim * 1, mid_dim * 2, (i_h_dim, 1), bias=True), nn.LeakyReLU(inplace=True),
+            nn.Conv2d(mid_dim * 2, mid_dim * 1, (1, 1), bias=True), nn.ReLU(inplace=True),
+            NnReshape(-1),  # shape=(-1, i_w_dim * mid_dim)
+            nn.Linear(i_w_dim * mid_dim, out_dim), nn.ReLU(inplace=True),
+        )
+
+    def forward(self, state):
+        xh = self.cnn_h(state)
+        xw = self.cnn_w(state)
+        return xw + xh
+
+
+class ActorBiCNN(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+
+        nn_middle = BiCNN(mid_dim, state_dim)
+        self.net = nn.Sequential(
+            nn_middle, nn.ReLU(inplace=True),
+            nn.Linear(nn_middle.out_dim, mid_dim), nn.Hardswish(),
+            nn.Linear(mid_dim, action_dim),
+        )
+        layer_norm(self.net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state):
+        action = self.net(state)
+        return action * torch.pow((action ** 2).sum(), -0.5)  # sqrt(L2_norm)
+
+    def get_action(self, state, action_std):
+        action = self.forward(state)
+        noise = (torch.randn_like(action) * action_std)
+        return action + noise
+
+
+class CriticBiCNN(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        i_c_dim, i_h_dim, i_w_dim = state_dim  # inp_for_cnn.shape == (N, C, H, W)
+        assert action_dim == int(np.prod((i_c_dim, i_w_dim, i_h_dim)))
+        action_dim = (i_c_dim, i_w_dim, i_h_dim)  # (2, bs_n, ur_n)
+
+        self.cnn_s = nn.Sequential(
+            BiCNN(mid_dim, state_dim), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim * 2, mid_dim), nn.ReLU(inplace=True),
+        )
+        self.cnn_a = nn.Sequential(
+            NnReshape(*action_dim),
+            BiCNN(mid_dim, action_dim), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim * 2, mid_dim), nn.ReLU(inplace=True),
+        )
+
+        self.att_s = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim // 2), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim // 2, mid_dim), nn.Sigmoid(),
+        )
+        self.att_a = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim // 2), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim // 2, mid_dim), nn.Sigmoid(),
+        )
+
+        self.out_net = nn.Sequential(
+            nn.Linear(mid_dim + mid_dim, mid_dim), nn.Hardswish(),
+            nn.Linear(mid_dim, 1),
+        )
+        layer_norm(self.out_net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state, action):
+        xs = self.cnn_s(state)
+        xa = self.cnn_a(action)
+        xc = torch.cat((xs * self.att_a(xa),
+                        xa * self.att_s(xs)), dim=1)
+        return self.out_net(xc)  # Q value
+
+
+class CriticBiCNN3(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+
+        nn_middle = BiCNN(mid_dim, state_dim)
+        self.cnn_s = nn.Sequential(
+            nn_middle, nn.ReLU(inplace=True),
+            nn.Linear(nn_middle.out_dim, mid_dim), nn.ReLU(inplace=True),
+        )
+        self.net_a = nn.Sequential(
+            nn.Linear(action_dim, mid_dim), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(inplace=True),
+        )
+
+        self.att_s = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim // 2), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim // 2, mid_dim), nn.Sigmoid(),
+        )
+        self.att_a = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim // 2), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim // 2, mid_dim), nn.Sigmoid(),
+        )
+
+        self.out_net = nn.Sequential(
+            nn.Linear(mid_dim + mid_dim, mid_dim), nn.Hardswish(),
+            nn.Linear(mid_dim, 1),
+        )
+        layer_norm(self.out_net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state, action):
+        xs = self.cnn_s(state)
+        xa = self.net_a(action)
+        xc = torch.cat((xs * self.att_a(xa),
+                        xa * self.att_s(xs)), dim=1)
+        return self.out_net(xc)  # Q value
+
+
+class BiCNN(nn.Module):
+    def __init__(self, mid_dim, inp_dim):
+        super().__init__()
+        # inp_for_cnn.shape == (N, C, H, W)
+        c_dim, h_dim, w_dim = inp_dim
+
+        d = mid_dim
+        self.cnn_h = nn.Sequential(
+            nn.Conv2d(c_dim, d * 2, (1, w_dim), bias=True), nn.LeakyReLU(inplace=True),
+            nn.Conv2d(d * 2, d * 1, (1, 1), bias=True), nn.ReLU(inplace=True),
+            NnReshape(-1),  # shape=(-1, h_dim * d)
+        )
+        self.cnn_w = nn.Sequential(
+            nn.Conv2d(c_dim, d * 2, (h_dim, 1), bias=True), nn.LeakyReLU(inplace=True),
+            nn.Conv2d(d * 2, d * 1, (1, 1), bias=True), nn.ReLU(inplace=True),
+            NnReshape(-1),  # shape=(-1, w_dim * d)
+        )
+
+        hd_dim = h_dim * d
+        wd_dim = w_dim * d
+        self.att_h = nn.Sequential(
+            nn.Linear(hd_dim, hd_dim // 2), nn.ReLU(inplace=True),
+            nn.Linear(hd_dim // 2, wd_dim), nn.Sigmoid(),
+        )
+        self.att_w = nn.Sequential(
+            nn.Linear(wd_dim, wd_dim // 2), nn.ReLU(inplace=True),
+            nn.Linear(wd_dim // 2, hd_dim), nn.Sigmoid(),
+        )
+
+        f_dim = hd_dim + wd_dim
+        self.out_dim = d * 2
+        self.out_net = nn.Sequential(
+            nn.Linear(f_dim, d * 2), nn.ReLU(inplace=True),
+            nn.Linear(d * 2, self.out_dim),
+        )
+
+    def forward(self, state):
+        xh = self.cnn_h(state)
+        xw = self.cnn_w(state)
+        xc = torch.cat((xh * self.att_w(xw),
+                        xw * self.att_h(xh)), dim=1)
+        return self.out_net(xc)
+
+
+class ActorSimplify:
+    def __init__(self, gpu_id, actor_net):
+        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and gpu_id >= 0) else 'cpu')
+        self.actor_net = actor_net.to(self.device)
+
+    def get_action(self, state: np.ndarray) -> np.ndarray:
+        states = torch.as_tensor(state[np.newaxis], dtype=torch.float32, device=self.device)
+        action = self.actor_net(states)[0]
+        return action.detach().cpu().numpy()
+
+
+def check_network():
+    from envs.DownLink import DownLinkEnv
+    env = DownLinkEnv()
+
+    gpu_id = 1
+    mid_dim = 128
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+
+    if_check_actor = 0
+    if if_check_actor:
+        net = ActorBiCNN(mid_dim, state_dim, action_dim)
+        act = ActorSimplify(gpu_id, net)
+
+        state = env.reset()
+
+        action = env.get_action_mmse(state)
+        reward = env.get_reward(action)
+        print(f"| mmse            : {reward:8.3f}")
+
+        action = env.get_action_mmse(state)
+        action = env.get_action_norm_power(action)
+        reward = env.get_reward(action)
+        print(f"| mmse (max Power): {reward:8.3f}")
+
+        action = np.ones(env.action_dim)
+        reward = env.get_reward(action)
+        print(f"| ones (max Power): {reward:8.3f}")
+
+        action = env.get_action_norm_power(action=None)  # random.normal action
+        reward = env.get_reward(action)
+        print(f"| rand (max Power): {reward:8.3f}")
+
+        action = act.get_action(state)
+        action = env.get_action_norm_power(action)
+        reward = env.get_reward(action)
+        print(f"| net  (max Power): {reward:8.3f}")
+
+        # state, reward, done, _ = env.step(action)
+        # print(reward)
+
+    if_check_critic = 1
+    if if_check_critic:
+        batch_size = 3
+        device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and gpu_id >= 0) else 'cpu')
+        critic_net = CriticBiCNN(mid_dim, state_dim, action_dim).to(device)
+
+        ten_state = torch.randn(size=(batch_size, *state_dim), dtype=torch.float32, device=device)
+        ten_action = torch.randn(size=(batch_size, action_dim), dtype=torch.float32, device=device)
+
+        q_value = critic_net(ten_state, ten_action)
+        print(q_value)
+
+
+'''agent'''
+
+
+class AgentOneStepPG(AgentBase):
+    def __init__(self):
+        AgentBase.__init__(self)
+        self.ClassAct = ActorBiCNN
+        self.ClassCri = CriticBiCNN
+        self.if_use_cri_target = False
+        self.if_use_act_target = False
+        self.explore_noise = 2 ** -8
+
+    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
+                       reward_scale=reward_scale, gamma=gamma,
+                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
+                       env_num=env_num, gpu_id=gpu_id, )
+        self.get_obj_critic = self.get_obj_critic_raw
+
+    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+        action = self.act.get_action(state.to(self.device), self.explore_noise)
+        return action.detach().cpu()
+
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+        buffer.update_now_len()
+
+        obj_critic = None
+        obj_actor = None
+        for _ in range(int(buffer.now_len / batch_size * repeat_times)):
+            obj_critic, state = self.get_obj_critic(buffer, batch_size)
+            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            if self.if_use_cri_target:
+                self.soft_update(self.cri_target, self.cri, soft_update_tau)
+
+            action_pg = self.act(state)  # policy gradient
+            obj_actor = -self.cri(state, action_pg).mean()
+            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+            if self.if_use_act_target:
+                self.soft_update(self.act_target, self.act, soft_update_tau)
+        return obj_critic.item(), obj_actor.item()
+
+    def get_obj_critic_raw(self, buffer, batch_size):
+        with torch.no_grad():
+            # reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+            q_label, action, state = buffer.sample_batch_one_step(batch_size)
+
+        q_value = self.cri(state, action)
+        obj_critic = self.criterion(q_value, q_label)
+        return obj_critic, state
+
+
+'''run'''
+
+
+def demo_down_link_task():
+    env_name = ['DownLinkEnv-v0'][ENV_ID]
+    agent_class = [AgentOneStepPG, ][0]
+    args = Arguments(env=build_env(env_name), agent=agent_class())
+
+    args.net_dim = 2 ** 8  # todo
+    args.max_memo = 2 ** eval(sys.argv[2])  # todo 17, 18
+    args.target_step = 2 ** 13
+    args.batch_size = 2 ** 12
+    args.repeat_times = 1.0
+    args.agent.exploration_noise = 0  # 1 / 64 # todo
+
     args.eval_gpu_id = GPU_ID
+    args.eval_gap = 2 ** 8
+    args.eval_times1 = 2 ** 0
+    args.eval_times2 = 2 ** 1
+
     args.learner_gpus = (GPU_ID,)
-    args.workers_gpus = args.learner_gpus
 
-    if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
-        '''
-        Step  21e7, Reward  8350, UsedTime  35ks
-        Step 484e7, Reward 16206, UsedTime 960ks  PPO, if_use_cri_target = False
-        Step  20e7, Reward  9196, UsedTime  35ks
-        Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
-        '''
-        args.eval_env = 'IsaacOneEnvAnt'
-        args.env = f'IsaacVecEnvAnt'
-        args.env_num = 4096
-        args.max_step = 1000
-        args.state_dim = 60
-        args.action_dim = 8
-        args.if_discrete = False
-        args.target_return = 8000
+    if_use_single_process = 0
+    if if_use_single_process:
+        train_and_evaluate(args, )
+    else:
+        args.worker_num = 4
+        train_and_evaluate_mp(args, )
 
-        args.agent.lambda_entropy = 0.05
-        args.agent.lambda_gae_adv = 0.97
-        args.agent.if_use_cri_target = False
 
-        args.if_per_or_gae = True
-        args.learning_rate = 2 ** -14
+"""
+111 GPU 0 CriticBiCNN (2BiCNN) exploration_noise = 0
+111 GPU 2 CriticBiCNN (2BiCNN) exploration_noise = 1 / 64
+111 GPU 3 CriticBiCNN (1BiCNN) exploration_noise = 1 / 64
 
-        args.net_dim = int(2 ** 8 * 1.5)
-        args.batch_size = args.net_dim * 2 ** 4
-        args.target_step = args.max_step * 1
-        args.repeat_times = 2 ** 4
-        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
-
-        args.break_step = int(8e14)
-        args.if_allow_break = False
-        args.eval_times1 = 2 ** 1
-        args.eval_times1 = 2 ** 4
-        args.eval_gap = 2 ** 9
-
-    if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
-        '''
-        Step 126e7, Reward  8021
-        Step 216e7, Reward  9517
-        Step 283e7, Reward  9998
-        Step 438e7, Reward 10749, UsedTime 960ks  PPO
-        Step 215e7, Reward  9794, UsedTime 465ks  PPO
-        Step   1e7, Reward   117
-        Step  16e7, Reward   538
-        Step  21e7, Reward  3044
-        Step  38e7, Reward  5015
-        Step  65e7, Reward  6010
-        Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
-        Step  77e7, Reward  5399, UsedTime 143ks  PPO
-        Step  86e7, Reward  5822, UsedTime 157ks  PPO
-        Step  86e7, Reward  5822, UsedTime 157ks  PPO
-        '''
-        args.eval_env = 'IsaacOneEnvHumanoid'
-        args.env = f'IsaacVecEnvHumanoid'
-        args.env_num = 2048
-        args.max_step = 1000
-        args.state_dim = 108
-        args.action_dim = 21
-        args.if_discrete = False
-        args.target_return = 7000
-
-        args.agent.lambda_entropy = 0.05
-        args.agent.lambda_gae_adv = 0.97
-        args.agent.if_use_cri_target = True
-
-        args.net_dim = int(2 ** 8 * 1.5)
-        args.batch_size = args.net_dim * 2 ** 5
-        args.target_step = args.max_step * 1
-        args.repeat_times = 2 ** 5
-        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
-        args.if_per_or_gae = True
-        args.learning_rate = 2 ** -15
-
-        args.break_step = int(8e14)
-        args.if_allow_break = False
-        args.eval_times1 = 2 ** 1
-        args.eval_times1 = 2 ** 4
-        args.eval_gap = 2 ** 9
-
-    args.worker_num = 1
-    args.workers_gpus = args.learner_gpus
-    train_and_evaluate_mp(args)  # train_and_evaluate(args)
-
+83 GPU 4 CriticBiCNN (2BiCNN) exploration_noise = 0, net_dim = 2 ** 8, max_memo = 2 ** 17
+83 GPU 0 CriticBiCNN (2BiCNN) exploration_noise = 0, net_dim = 2 ** 8, max_memo = 2 ** 18
+83 GPU 1 beta1  not ReLU
+83 GPU 2 beta2  ReLU + not ReLU
+"""
 
 if __name__ == '__main__':
-    # import sys  # todo
-    ENV_ID = 0  # eval(sys.argv[-2])
-    GPU_ID = 2  # eval(sys.argv[-1])
-
-    demo_isaac_on_policy()
+    # check_network()
+    ENV_ID = 0
+    GPU_ID = eval(sys.argv[1])
+    demo_down_link_task()

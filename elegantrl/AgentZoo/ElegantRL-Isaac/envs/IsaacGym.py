@@ -4,6 +4,8 @@ import numpy as np
 import torch  # import torch after isaacgym modules
 import multiprocessing as mp
 
+"""[ElegantRL.2021.11.04](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+
 """
 run the following code in bash before running.
 export LD_LIBRARY_PATH=/xfs/home/podracer_steven/anaconda3/envs/rlgpu/lib

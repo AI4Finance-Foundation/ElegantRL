@@ -1,10 +1,14 @@
 import math
 import Box2D
-import pyglet
 import numpy as np
 import numpy.random as rd
-from pyglet import gl  # must gym<=0.17.1, pyglet==1.5.0
+
+import gym
 from gym.envs.box2d.car_dynamics import Car
+import pyglet
+from pyglet import gl  # must gym<=0.17.1, pyglet==1.5.0
+
+"""[ElegantRL.2021.11.03](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
@@ -56,6 +60,8 @@ ROAD_COLOR = [0.4, 0.4, 0.4]
 
 
 class CarRacingFix:
+    assert gym.__version__ <= '0.17.1'
+
     def __init__(self, verbose=1):
         self.contactListener_keep_ref = FrictionDetector(self)
         self.world = Box2D.b2World((0, 0), contactListener=self.contactListener_keep_ref)

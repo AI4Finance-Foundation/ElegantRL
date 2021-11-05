@@ -5,7 +5,6 @@ from copy import deepcopy
 
 """[ElegantRL.2021.11.03](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
-
 gym.logger.set_level(40)  # Block warning
 
 """register your custom env here."""
@@ -72,6 +71,11 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
     #                  'StockNAS89': StockEnvNAS89,
     #                  }[env_name[:10]]
     #     env = env_class(if_eval=if_eval, gamma=gamma)
+
+    if env_name in {'DownLinkEnv-v0'}:
+        from envs.DownLink import DownLinkEnv
+        env = DownLinkEnv(bs_n=4, ur_n=8, power=1.0,
+                          csi_noise_var=0.1, csi_clip=3.0)
 
     if env is None:
         try:
@@ -226,7 +230,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [El
 
         if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
         if if_discrete:  # make sure it is discrete action space
-            action_dim = env.action_space.n
+            action_dim = env.action_space.bs_n
         elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
             action_dim = env.action_space.shape[0]
             assert not any(env.action_space.high - 1)

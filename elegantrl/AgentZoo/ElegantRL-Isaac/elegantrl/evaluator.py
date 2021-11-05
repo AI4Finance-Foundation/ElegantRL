@@ -113,7 +113,6 @@ class Evaluator:  # [ElegantRL.2021.10.13]
 def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
     device_id = next(act.parameters()).get_device()  # net.parameters() is a python generator.
     device = torch.device('cpu' if device_id == -1 else f'cuda:{device_id}')
-    print(';;', device_id)  # todo
 
     episode_step = 1
     episode_return = 0.0  # sum of rewards in an episode

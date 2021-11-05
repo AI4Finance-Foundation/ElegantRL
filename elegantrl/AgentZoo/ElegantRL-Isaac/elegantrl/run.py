@@ -65,7 +65,7 @@ class Arguments:  # [ElegantRL.2021.10.21]
         self.eval_times1 = 2 ** 2  # number of times that get episode return in first
         self.eval_times2 = 2 ** 4  # number of times that get episode return in second
         self.eval_gpu_id = None  # -1 means use cpu, >=0 means use GPU, None means set as learner_gpus[0]
-        self.if_overwrite = False  # Save policy networks with different episode return or overwrite
+        self.if_overwrite = True  # Save policy networks with different episode return or overwrite
 
     def init_before_training(self):
         np.random.seed(self.random_seed)
@@ -77,7 +77,7 @@ class Arguments:  # [ElegantRL.2021.10.21]
         assert isinstance(self.env_num, int)
         assert isinstance(self.max_step, int)
         assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
-        assert isinstance(self.action_dim, int)
+        assert isinstance(self.action_dim, int) or isinstance(self.action_dim, tuple)
         assert isinstance(self.if_discrete, bool)
         assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
 
@@ -115,16 +115,18 @@ def train_and_evaluate(args, learner_id=0):
 
     '''init: Agent'''
     agent = args.agent
-    agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
-               state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
-               learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
+    agent.init(net_dim=args.net_dim, state_dim=args.state_dim, action_dim=args.action_dim,
+               gamma=args.gamma, reward_scale=args.reward_scale,
+               learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae,
+               env_num=args.env_num, gpu_id=args.learner_gpus[learner_id], )
+
     agent.save_or_load_agent(args.cwd, if_save=False)
 
     env = build_env(env=args.env, if_print=False, device_id=args.eval_gpu_id, env_num=args.env_num)
     if env.env_num == 1:
         agent.states = [env.reset(), ]
         assert isinstance(agent.states[0], np.ndarray)
-        assert agent.states[0].shape == (env.state_dim,)
+        assert agent.states[0].shape in {(env.state_dim,), env.state_dim}
     else:
         agent.states = env.reset()
         assert isinstance(agent.states, torch.Tensor)
@@ -172,7 +174,6 @@ def train_and_evaluate(args, learner_id=0):
     batch_size = args.batch_size
     target_step = args.target_step
     repeat_times = args.repeat_times
-    reward_scale = args.reward_scale
     if_allow_break = args.if_allow_break
     soft_update_tau = args.soft_update_tau
     del args
@@ -182,7 +183,7 @@ def train_and_evaluate(args, learner_id=0):
         if_load = buffer.save_or_load_history(cwd, if_save=False)
 
         if not if_load:
-            traj_list = agent.explore_env(env, target_step, reward_scale, gamma)
+            traj_list = agent.explore_env(env, target_step)
             steps, r_exp = update_buffer(traj_list)
             evaluator.total_step += steps
 
@@ -190,7 +191,7 @@ def train_and_evaluate(args, learner_id=0):
     if_train = True
     while if_train:
         with torch.no_grad():
-            traj_list = agent.explore_env(env, target_step, reward_scale, gamma)
+            traj_list = agent.explore_env(env, target_step)
             steps, r_exp = update_buffer(traj_list)
 
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
@@ -285,9 +286,10 @@ class PipeWorker:
 
         '''init Agent'''
         agent = args.agent
-        agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
-                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
-                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
+        agent.init(net_dim=args.net_dim, state_dim=args.state_dim, action_dim=args.action_dim,
+                   gamma=args.gamma, reward_scale=args.reward_scale,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae,
+                   env_num=args.env_num, gpu_id=args.learner_gpus[learner_id], )
         if args.env_num == 1:
             agent.states = [env.reset(), ]
         else:
@@ -310,7 +312,7 @@ class PipeWorker:
 
                 agent.act.load_state_dict(act_dict)
 
-                trajectory = agent.explore_env(env, target_step, reward_scale, gamma)
+                trajectory = agent.explore_env(env, target_step)
                 if sys.platform == 'win32':  # todo: not elegant. YonV1943. Avoid CUDA runtime error (801)
                     # Python3.9< multiprocessing can't send torch.tensor_gpu in WinOS. So I send torch.tensor_cpu
                     trajectory = [[item.to(torch.device('cpu'))
@@ -380,9 +382,11 @@ class PipeLearner:
 
         '''init Agent'''
         agent = args.agent
-        agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
-                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
-                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
+        agent.init(net_dim=args.net_dim, state_dim=args.state_dim, action_dim=args.action_dim,
+                   gamma=args.gamma, reward_scale=args.reward_scale,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae,
+                   env_num=args.env_num, gpu_id=args.learner_gpus[learner_id], )
+
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init ReplayBuffer'''
@@ -458,9 +462,10 @@ class PipeLearner:
 
         '''init Agent'''
         agent = args.agent
-        agent.init(net_dim=args.net_dim, gpu_id=args.learner_gpus[learner_id],
-                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
-                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
+        agent.init(net_dim=args.net_dim, state_dim=args.state_dim, action_dim=args.action_dim,
+                   gamma=args.gamma, reward_scale=args.reward_scale,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae,
+                   env_num=args.env_num, gpu_id=args.learner_gpus[learner_id], )
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init ReplayBuffer'''
@@ -560,9 +565,11 @@ class PipeEvaluator:  # [ElegantRL.10.21]
 
         '''init: Agent'''
         agent = args.agent
-        agent.init(net_dim=args.net_dim, gpu_id=args.eval_gpu_id,
-                   state_dim=args.state_dim, action_dim=args.action_dim, env_num=args.env_num,
-                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae)
+        agent.init(net_dim=args.net_dim, state_dim=args.state_dim, action_dim=args.action_dim,
+                   gamma=args.gamma, reward_scale=args.reward_scale,
+                   learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae,
+                   env_num=args.env_num, gpu_id=args.eval_gpu_id, )
+
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         act = agent.act
