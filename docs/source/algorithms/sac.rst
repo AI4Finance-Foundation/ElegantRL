@@ -36,7 +36,7 @@ Code Snippet
     # test
     agent = AgentSAC()
     agent.init(args.net_dim, args.state_dim, args.action_dim)
-    agent.save_or_load_agent(cwd=agrs.cwd, if_save=False)
+    agent.save_or_load_agent(cwd=args.cwd, if_save=False)
     
     env = build_env('Pendulum-v0')
     state = env.reset()
@@ -47,7 +47,7 @@ Code Snippet
         
         episode_reward += reward
         if done:
-            print(f'Step {i:>6}, Episode return {episode_return:8.3f}')
+            print(f'Step {i:>6}, Episode return {episode_reward:8.3f}')
             break
         else:
             state = next_state
