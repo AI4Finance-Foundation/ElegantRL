@@ -1,4 +1,4 @@
-## ElegantRL: Scalable and Elastic Deep Reinforcement Learning
+## ElegantRL “小雅”: Scalable and Elastic Deep Reinforcement Learning
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
