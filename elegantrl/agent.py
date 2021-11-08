@@ -271,7 +271,7 @@ class AgentDQN(AgentBase):
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_int = torch.randint(self.action_dim, size=(states.shape[0],))  # choosing action randomly
         else:
-            action = self.act(state.to(self.device))
+            action = self.act(states.to(self.device))
             a_int = action.argmax(dim=1)
         return a_int.detach().cpu()
 
