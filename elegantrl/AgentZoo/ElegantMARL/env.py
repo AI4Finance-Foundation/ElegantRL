@@ -92,6 +92,8 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     env_name = 'simple_spread'
     #env_name = env.unwrapped.spec.id if env_name is None else env_name
 
+    if isinstance(env.observation_space, gym.spaces.discrete.Discrete):
+        raise RuntimeError("| <class 'gym.spaces.discrete.Discrete'> does not support environment with discrete observation (state) space.")
     state_shape = env.observation_space[0].shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
