@@ -3,14 +3,14 @@ import gym  # not necessary
 import numpy as np
 from copy import deepcopy
 
-"""[ElegantRL.2021.11.03](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.11.08](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 gym.logger.set_level(40)  # Block warning
 
 """register your custom env here."""
 
 
-def build_env(env, if_print=False, device_id=None, env_num=1):
+def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
     if isinstance(env, str):
         env_name = env
     else:
@@ -72,26 +72,32 @@ def build_env(env, if_print=False, device_id=None, env_num=1):
     #                  }[env_name[:10]]
     #     env = env_class(if_eval=if_eval, gamma=gamma)
 
-    if env_name in {'DownLinkEnv-v0'}:
-        from envs.DownLink import DownLinkEnv
-        env = DownLinkEnv(bs_n=4, ur_n=8, power=1.0,
-                          csi_noise_var=0.1, csi_clip=3.0)
+    if env_name in {'DownLinkEnv-v0', 'DownLinkEnv-v1'}:
+        if env_name == 'DownLinkEnv-v0':
+            from envs.DownLink import DownLinkEnv
+            env = DownLinkEnv(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0)
+        elif env_name == 'DownLinkEnv-v1':
+            from envs.DownLink import DownLinkEnv1
+            env = DownLinkEnv1(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
+                               env_cwd=getattr(args, 'cwd', '.'))
+        else:
+            raise ValueError("| env.py, build_env(), DownLinkEnv")
 
     if env is None:
         try:
             env = deepcopy(env)
-            print(f"| build_env(): Warning. NOT suggest to use `deepcopy(env)`.")
+            print(f"| build_env(): Warning. NOT suggest to use `deepcopy(env)`. env_name: {env_name}")
         except Exception as error:
             print(f"| build_env(): Error. {error}")
             raise ValueError("| build_env(): register your custom env in this function.")
     return env
 
 
-def build_eval_env(eval_env, env, eval_gpu_id, env_num):
+def build_eval_env(eval_env, env, env_num, eval_gpu_id, args, ):
     if isinstance(eval_env, str):
-        eval_env = build_env(env=eval_env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
+        eval_env = build_env(env=eval_env, if_print=False, env_num=env_num, device_id=eval_gpu_id, args=args, )
     elif eval_env is None:
-        eval_env = build_env(env=env, if_print=False, device_id=eval_gpu_id, env_num=env_num)
+        eval_env = build_env(env=env, if_print=False, env_num=env_num, device_id=eval_gpu_id, args=args, )
     else:
         assert hasattr(eval_env, 'reset')
         assert hasattr(eval_env, 'step')
@@ -211,8 +217,6 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [El
         env_name = getattr(env, 'env_name', None)
         env_name = env.unwrapped.spec.id if env_name is None else env_name
 
-        if isinstance(env.observation_space, gym.spaces.discrete.Discrete):
-            raise RuntimeError("| <class 'gym.spaces.discrete.Discrete'> does not support environment with discrete observation (state) space.")
         state_shape = env.observation_space.shape
         state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
@@ -251,7 +255,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [El
 
     if if_print:
         print(f"\n| env_name:  {env_name}, action if_discrete: {if_discrete}"
-              f"\n| state_dim: {state_dim}, action_dim: {action_dim}"
+              f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}"
               f"\n| max_step:  {max_step:4}, target_return: {target_return}")
     return env_name, state_dim, action_dim, max_step, if_discrete, target_return
 

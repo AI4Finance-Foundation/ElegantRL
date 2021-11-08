@@ -96,7 +96,7 @@ class AgentBase:
 
         self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
-        del self.ClassCri, self.ClassAct
+        # del self.ClassCri, self.ClassAct
 
         assert isinstance(if_per_or_gae, bool)
         if env_num == 1:

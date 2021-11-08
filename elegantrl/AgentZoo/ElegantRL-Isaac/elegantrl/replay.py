@@ -16,7 +16,7 @@ class ReplayBuffer:
         `int max_len` the maximum capacity of ReplayBuffer. First In First Out
         `int state_dim` the dimension of state
         `int action_dim` the dimension of action (action_dim==1 for discrete action)
-        `bool if_off_policy` on-policy or off-policy
+        `bool if_on_policy` on-policy or off-policy
         `bool if_gpu` create buffer space on CPU RAM or GPU
         `bool if_per` Prioritized Experience Replay for sparse reward
         """
@@ -100,21 +100,22 @@ class ReplayBuffer:
                     self.buf_state[indices + 1])
 
     def sample_batch_one_step(self, batch_size) -> tuple:
-        """randomly sample a batch of data for training
+        if self.per_tree:
+            beg = -self.max_len
+            end = (self.now_len - self.max_len) if (self.now_len < self.max_len) else None
 
-        :int batch_size: the number of data in a batch for Stochastic Gradient Descent
-        :return torch.Tensor reward: reward.shape==(now_len, 1)
-        :return torch.Tensor mask:   mask.shape  ==(now_len, 1), mask = 0.0 if done else gamma
-        :return torch.Tensor action: action.shape==(now_len, action_dim)
-        :return torch.Tensor state:  state.shape ==(now_len, state_dim)
-        :return torch.Tensor state:  state.shape ==(now_len, state_dim), next state
-        """
-
-        indices = rd.randint(self.now_len - 1, size=batch_size)
-        r_m_a = self.buf_other[indices]
-        return (r_m_a[:, 0:1],  # reward
-                r_m_a[:, 2:],  # action
-                self.buf_state[indices],)
+            indices, is_weights = self.per_tree.get_indices_is_weights(batch_size, beg, end)
+            r_m_a = self.buf_other[indices]
+            return (r_m_a[:, 0:1].type(torch.float32),  # reward
+                    r_m_a[:, 2:].type(torch.float32),  # action
+                    self.buf_state[indices].type(torch.float32),  # state
+                    torch.as_tensor(is_weights, dtype=torch.float32, device=self.device))  # important sampling weights
+        else:
+            indices = rd.randint(self.now_len - 1, size=batch_size)
+            r_m_a = self.buf_other[indices]
+            return (r_m_a[:, 0:1],  # reward
+                    r_m_a[:, 2:],  # action
+                    self.buf_state[indices],)
 
     def update_now_len(self):
         """update the a pointer `now_len`, which is the current data number of ReplayBuffer
