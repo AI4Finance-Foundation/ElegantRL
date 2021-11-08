@@ -123,7 +123,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
 
     if if_print:
         print(f"\n| env_name:  {env_name}, action if_discrete: {if_discrete}"
-              f"\n| state_dim: {state_dim:4}, action_dim: {action_dim}, action_max: {action_max}"
+              f"\n| state_dim: {state_dim}, action_dim: {action_dim}, action_max: {action_max}"
               f"\n| max_step:  {max_step:4}, target_return: {target_return}")
     return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_return
 
