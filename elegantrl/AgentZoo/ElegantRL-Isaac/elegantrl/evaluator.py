@@ -79,7 +79,8 @@ class Evaluator:  # [ElegantRL.2021.10.13]
                   f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
             self.draw_plot()
 
-            self.eval_env.curriculum_learning_for_evaluator(r_avg)
+            if hasattr(self.eval_env, 'curriculum_learning_for_evaluator'):
+                self.eval_env.curriculum_learning_for_evaluator(r_avg)
         return if_reach_goal, if_save
 
     @staticmethod
