@@ -9,7 +9,7 @@ class AgentBase:
         self.state = None
         self.device = None
         self.action_dim = None
-        self.if_on_policy = None
+        self.if_off_policy = None
         self.explore_noise = None
         self.trajectory_list = None
 
@@ -351,7 +351,7 @@ class AgentPPO(AgentBase):
         self.ClassCri = CriticAdv
         self.ClassAct = ActorPPO
 
-        self.if_on_policy = True
+        self.if_off_policy = False
         self.ratio_clip = 0.2  # ratio.clamp(1 - clip, 1 + clip)
         self.lambda_entropy = 0.02  # could be 0.01~0.05
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)

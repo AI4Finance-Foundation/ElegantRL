@@ -41,7 +41,7 @@ config = {
     },
     'buffer': {
         'max_buf': max_step * rollout_num,
-        'if_on_policy': True,
+        'if_off_policy': False,
         'if_per': False,
     },
     'evaluator': {

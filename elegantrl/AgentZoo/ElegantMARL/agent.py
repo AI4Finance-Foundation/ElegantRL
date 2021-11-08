@@ -15,7 +15,7 @@ class AgentBase:
         self.states = None
         self.device = None
         self.action_dim = None
-        self.if_on_policy = False
+        self.if_off_policy = True
         self.explore_rate = 1.0
         self.explore_noise = None
         self.traj_list = None  # trajectory_list
@@ -273,7 +273,7 @@ class AgentMADDPG(AgentBase):
     def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1,   if_use_per=False, env_num=1, agent_id=0):
         self.agents = [AgentDDPG() for i in range(n_agents)]
         self.explore_env = self.explore_one_env
-        self.if_on_policy = False
+        self.if_off_policy = True
         self.n_agents = n_agents
         for i in range(self.n_agents):
             self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = self.n_agents,   if_use_per=False, env_num=1, agent_id=0)

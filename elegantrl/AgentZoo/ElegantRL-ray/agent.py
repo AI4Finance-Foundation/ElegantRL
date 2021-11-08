@@ -629,7 +629,7 @@ class AgentPPO(AgentBase):
         # if use Generalized Advantage Estimation
         self.if_use_gae = True if args is None else args['if_use_gae']
         # AgentPPO is an on policy DRL algorithm
-        self.if_on_policy = True
+        self.if_off_policy = False
         self.if_use_dn = False if args is None else args['if_use_dn']
 
         self.noise = None

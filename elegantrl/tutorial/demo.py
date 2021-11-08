@@ -4,7 +4,7 @@ gym.logger.set_level(40)  # Block warning
 
 
 def demo_continuous_action_off_policy():
-    args = Arguments(if_on_policy=False)
+    args = Arguments(if_off_policy=True)
     args.agent = AgentModSAC()  # AgentModSAC AgentSAC AgentTD3 AgentDDPG
     args.visible_gpu = '0'
 
@@ -35,7 +35,7 @@ def demo_continuous_action_off_policy():
 
 
 def demo_continuous_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.visible_gpu = '0'
 
@@ -71,7 +71,7 @@ def demo_continuous_action_on_policy():
 
 
 def demo_discrete_action_off_policy():
-    args = Arguments(if_on_policy=False)
+    args = Arguments(if_off_policy=True)
     args.agent = AgentDoubleDQN()  # AgentDoubleDQN AgentDQN
     args.visible_gpu = '0'
 
@@ -94,7 +94,7 @@ def demo_discrete_action_off_policy():
 
 
 def demo_discrete_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentDiscretePPO()
     args.visible_gpu = '0'
 

@@ -16,7 +16,7 @@ class ReplayBuffer:
         `int max_len` the maximum capacity of ReplayBuffer. First In First Out
         `int state_dim` the dimension of state
         `int action_dim` the dimension of action (action_dim==1 for discrete action)
-        `bool if_on_policy` on-policy or off-policy
+        `bool if_off_policy` on-policy or off-policy
         `bool if_gpu` create buffer space on CPU RAM or GPU
         `bool if_per` Prioritized Experience Replay for sparse reward
         """

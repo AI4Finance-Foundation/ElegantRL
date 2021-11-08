@@ -9,7 +9,7 @@ GPU 5 if_use_cri_target = True
 
 
 def demo_isaac_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.random_seed += 1943
 

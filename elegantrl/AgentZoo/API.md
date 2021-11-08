@@ -41,12 +41,12 @@ soft target update using self.tau (set as $2^{-8}$ in default)
 ---
 ## `class ReplayBuffer`
 
-### level 1 `__init__(self, max_len, state_dim, action_dim, if_on_policy, if_gpu)`
+### level 1 `__init__(self, max_len, state_dim, action_dim, if_off_policy, if_gpu)`
 creat a continuous memory space to store data
 - `int max_len` maximum capacity, First In First Out.
 - `int state_dim`
 - `int action_dim`
-- `bool if_on_policy` on-policy or off-policy
+- `bool if_off_policy` on-policy or off-policy
 - `bool if_gpu` creat memory space on CPU RAM or GPU RAM
 
 ### level 2 `append_buffer(self, state, other)`
@@ -233,12 +233,12 @@ single processing
 ## `class ReplayBufferMP`
 multiple processing. Same as single processing
 
-### level 1 `__init__(self, max_len, state_dim, action_dim, if_on_policy, if_gpu)`
+### level 1 `__init__(self, max_len, state_dim, action_dim, if_off_policy, if_gpu)`
 creat a continuous memory space to store data
 - `int max_len` maximum capacity, First In First Out.
 - `int state_dim` the dimension of state 
 - `int action_dim` the dimension of action (`action_dim=1` for discrete action)
-- `bool if_on_policy` on-policy or off-policy
+- `bool if_off_policy` on-policy or off-policy
 - `bool if_gpu` creat memory space on CPU RAM or GPU RAM
 
 
@@ -415,4 +415,4 @@ training
 
 other
 - `bool if_xxx` a Boolean value. Call it a `flag` in English?
-- `bool if_on_policy` it shows that it is an on-policy algorithm.
+- `bool if_off_policy` it shows that it is an off-policy algorithm.

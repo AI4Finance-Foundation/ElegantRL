@@ -38,10 +38,10 @@ class Arguments:
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
 
         '''if_per_explore'''
-        if self.buffer['if_on_policy']:
-            self.if_per_explore = False
-        else:
+        if self.buffer['if_off_policy']:
             self.if_per_explore = True
+        else:
+            self.if_per_explore = False
 
     def init_before_training(self, if_main=True):
         '''set gpu_id automatically'''
@@ -109,7 +109,7 @@ class InterActor(object):
             self.modify_action = lambda x: x
         self.buffer = ReplayBuffer(
             max_len=args.buffer['max_buf'] // args.interactor['rollout_num'] + args.env['max_step'],
-            if_on_policy=args.buffer['if_on_policy'],
+            if_off_policy=args.buffer['if_off_policy'],
             state_dim=args.env['state_dim'],
             action_dim=1 if self.if_discrete_action else args.env['action_dim'],
             reward_dim=args.env['reward_dim'],
@@ -201,7 +201,7 @@ class Trainer(object):
         self.agent.act.to(device=self.agent.device)
         self.agent.cri.to(device=self.agent.device)
         train_record = self.agent.update_net(self.buffer, self.sample_step, self.batch_size, self.policy_reuse)
-        if self.buffer.if_on_policy:
+        if not self.buffer.if_off_policy:
             self.buffer.empty_buffer_before_explore()
         return train_record
 
@@ -223,7 +223,7 @@ def beginer(config, params=None):
         state_dim=args.env['state_dim'],
         action_dim=1 if args.env['if_discrete_action'] else args.env['action_dim'],
         reward_dim=args.env['reward_dim'],
-        if_on_policy=args.buffer['if_on_policy'],
+        if_off_policy=args.buffer['if_off_policy'],
         if_per=args.buffer['if_per'],
         rollout_num=args.interactor['rollout_num'])
     trainer = Trainer(args.trainer, agent, buffer_mp)

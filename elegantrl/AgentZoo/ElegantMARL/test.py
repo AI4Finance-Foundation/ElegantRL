@@ -4,7 +4,7 @@ from env import PreprocessEnv
 import gym
 gym.logger.set_level(40) # Block warning    
 env = mpe_make_env('simple_spread')
-args = Arguments(if_on_policy=False)  # AgentSAC(), AgentTD3(), AgentDDPG()
+args = Arguments(if_off_policy=True)  # AgentSAC(), AgentTD3(), AgentDDPG()
 args.agent = AgentMADDPG()
 args.env = PreprocessEnv(env)
 args.reward_scale = 2 ** -1  # RewardRange: -200 < -150 < 300 < 334

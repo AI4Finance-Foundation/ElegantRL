@@ -9,7 +9,7 @@ by https://github.com/GyChou
 
 
 class ReplayBuffer:
-    def __init__(self, max_len, state_dim, action_dim, reward_dim, if_on_policy, if_per, if_gpu):
+    def __init__(self, max_len, state_dim, action_dim, reward_dim, if_off_policy, if_per, if_gpu):
         """Experience Replay Buffer
 
         save environment transition in a continuous RAM for high performance training
@@ -18,7 +18,7 @@ class ReplayBuffer:
         `int max_len` the maximum capacity of ReplayBuffer. First In First Out
         `int state_dim` the dimension of state
         `int action_dim` the dimension of action (action_dim==1 for discrete action)
-        `bool if_on_policy` on-policy or off-policy
+        `bool if_off_policy` on-policy or off-policy
         `bool if_gpu` create buffer space on CPU RAM or GPU
         `bool if_per` Prioritized Experience Replay for sparse reward
         """
@@ -28,7 +28,7 @@ class ReplayBuffer:
         self.next_idx = 0
         self.if_full = False
         self.action_dim = action_dim
-        self.if_on_policy = if_on_policy
+        self.if_off_policy = if_off_policy
         self.if_per = if_per
         self.if_gpu = if_gpu
         if if_per:
@@ -156,7 +156,7 @@ class ReplayBuffer:
 
 
 class ReplayBufferMP:
-    def __init__(self, max_len, state_dim, action_dim, reward_dim, if_on_policy, if_per, rollout_num):
+    def __init__(self, max_len, state_dim, action_dim, reward_dim, if_off_policy, if_per, rollout_num):
         """Experience Replay Buffer for Multiple Processing
 
         `int rollout_num` the rollout workers number
@@ -164,13 +164,13 @@ class ReplayBufferMP:
         self.now_len = 0
         self.max_len = max_len
         self.rollout_num = rollout_num
-        self.if_on_policy=if_on_policy
+        self.if_off_policy=if_off_policy
         _max_len = max_len // rollout_num
         if_gpu = True
-        if self.if_on_policy:
+        if not self.if_off_policy:
             if_gpu = False
             if_per = False
-        self.buffers = [ReplayBuffer(_max_len, state_dim, action_dim, reward_dim, if_on_policy, if_per, if_gpu=if_gpu)
+        self.buffers = [ReplayBuffer(_max_len, state_dim, action_dim, reward_dim, if_off_policy, if_per, if_gpu=if_gpu)
                         for _ in range(rollout_num)]
 
     def extend_buffer(self, state, action, reward, gamma, i):

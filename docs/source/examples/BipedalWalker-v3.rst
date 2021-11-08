@@ -42,7 +42,7 @@ Step 3: Specify Agent and Environment
 .. code-block:: python
    :linenos:
    
-      args = Arguments(if_on_policy=False)
+      args = Arguments(if_off_policy=True)
       args.agent = AgentGaePPO() # AgentSAC(), AgentTD3(), AgentDDPG()
       args.env = PreprocessEnv(env=gym.make(‘BipedalWalker-v3’))
       args.reward_scale = 2 ** -1 # RewardRange: -200 < -150 < 300 < 334

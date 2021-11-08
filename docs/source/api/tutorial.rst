@@ -392,7 +392,7 @@ class AgentBase
            self.state = None
            self.device = None
            self.action_dim = None
-           self.if_on_policy = None
+           self.if_off_policy = None
            self.explore_noise = None
            self.trajectory_list = None
 
@@ -835,7 +835,7 @@ class AgentPPO(AgentBase)
             self.ClassCri = CriticAdv
             self.ClassAct = ActorPPO
 
-            self.if_on_policy = True
+            self.if_off_policy = False
             self.ratio_clip = 0.2  # ratio.clamp(1 - clip, 1 + clip)
             self.lambda_entropy = 0.02  # could be 0.01~0.05
             self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
@@ -1072,7 +1072,7 @@ class Arguments
    :linenos:
 
     class Arguments:
-        def __init__(self, agent=None, env=None, if_on_policy=False):
+        def __init__(self, agent=None, env=None, if_off_policy=True):
             self.agent = agent  # DRL algorithm
             self.env = env  # env for training
 
@@ -1091,20 +1091,20 @@ class Arguments
             self.learning_rate = 2 ** -14  # 2 ** -14 ~= 6e-5
             self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
-            if if_on_policy:  # (on-policy)
-                self.net_dim = 2 ** 9  # the network width
-                self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
-                self.repeat_times = 2 ** 3  # collect target_step, then update network
-                self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
-                self.max_memo = self.target_step  # capacity of replay buffer
-                self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
-            else:
+            if if_off_policy:  # (off-policy)
                 self.net_dim = 2 ** 8  # the network width
                 self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
                 self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
                 self.target_step = 2 ** 10  # collect target_step, then update network
                 self.max_memo = 2 ** 20  # capacity of replay buffer
                 self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+            else:
+                self.net_dim = 2 ** 9  # the network width
+                self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
+                self.repeat_times = 2 ** 3  # collect target_step, then update network
+                self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
+                self.max_memo = self.target_step  # capacity of replay buffer
+                self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
 
             '''Arguments for evaluate'''
             self.eval_env = None  # the environment for evaluating. None means set automatically.
@@ -1155,23 +1155,7 @@ def train_and_evaluate(args, agent_id=0)
                             args.eval_times, args.eval_gap)
 
         '''init ReplayBuffer'''
-        if agent.if_on_policy:
-            buffer = list()
-
-            def update_buffer(_trajectory):
-                _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
-                ten_state = torch.as_tensor(_trajectory[0])
-                ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
-                ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
-                ten_action = torch.as_tensor(_trajectory[3])
-                ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
-
-                buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
-
-                _steps = ten_reward.shape[0]
-                _r_exp = ten_reward.mean()
-                return _steps, _r_exp
-        else:
+        if agent.if_off_policy:
             buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
                                 action_dim=1 if env.if_discrete else env.action_dim)
             buffer.save_or_load_history(args.cwd, if_save=False)
@@ -1187,6 +1171,22 @@ def train_and_evaluate(args, agent_id=0)
                 _steps = ten_state.shape[0]
                 _r_exp = ary_other[:, 0].mean()  # other = (reward, mask, action)
                 return _steps, _r_exp
+        else:
+            buffer = list()
+
+            def update_buffer(_trajectory):
+                _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
+                ten_state = torch.as_tensor(_trajectory[0])
+                ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
+                ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
+                ten_action = torch.as_tensor(_trajectory[3])
+                ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
+
+                buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
+
+                _steps = ten_reward.shape[0]
+                _r_exp = ten_reward.mean()
+                return _steps, _r_exp
 
         '''start training'''
         cwd = args.cwd
@@ -1201,7 +1201,7 @@ def train_and_evaluate(args, agent_id=0)
         del args
 
         agent.state = env.reset()
-        if not agent.if_on_policy:
+        if agent.if_off_policy:
             trajectory = agent.explore_env(env, target_step)
             update_buffer(trajectory)
 
@@ -1220,7 +1220,7 @@ def train_and_evaluate(args, agent_id=0)
                                 or os.path.exists(f'{cwd}/stop'))
         print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
         agent.save_or_load_agent(cwd, if_save=True)
-        buffer.save_or_load_history(cwd, if_save=True) if not agent.if_on_policy else None
+        buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
 
 
 class Evaluator

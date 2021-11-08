@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 
 class Arguments:
-    def __init__(self, if_on_policy=False):
+    def __init__(self, if_off_policy=True):
         self.env = None  # the environment for training
         self.agent = None  # Deep Reinforcement Learning algorithm
 
@@ -25,21 +25,21 @@ class Arguments:
         self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
-        self.if_on_policy = if_on_policy
-        if self.if_on_policy:  # (on-policy)
-            self.net_dim = 2 ** 9  # the network width
-            self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 3  # collect target_step, then update network
-            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
-            self.max_memo = self.target_step  # capacity of replay buffer
-            self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
-        else:
+        self.if_off_policy = if_off_policy
+        if self.if_off_policy:  # (off-policy)
             self.net_dim = 2 ** 8  # the network width
             self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
             self.repeat_times = 2 ** 0  # repeatedly update network to keep critic's loss small
             self.target_step = 2 ** 10  # collect target_step, then update network
             self.max_memo = 2 ** 21  # capacity of replay buffer
             self.if_per_or_gae = False  # PER for off-policy sparse reward: Prioritized Experience Replay.
+        else:
+            self.net_dim = 2 ** 9  # the network width
+            self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
+            self.repeat_times = 2 ** 3  # collect target_step, then update network
+            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
+            self.max_memo = self.target_step  # capacity of replay buffer
+            self.if_per_or_gae = False  # GAE for on-policy sparse reward: Generalized Advantage Estimation.
 
         '''Arguments for device'''
         self.env_num = 1  # The Environment number for each worker. env_num == 1 means don't use VecEnv.
@@ -83,10 +83,10 @@ class Arguments:
         if not hasattr(self.agent, 'init'):
             raise RuntimeError(f"\n| why hasattr(self.agent, 'init') == False"
                                f'\n| Should be `agent=AgentXXX()` instead of `agent=AgentXXX`.')
-        if self.agent.if_on_policy != self.if_on_policy:
-            raise RuntimeError(f'\n| Why bool `if_on_policy` is not consistent?'
-                               f'\n| self.if_on_policy: {self.if_on_policy}'
-                               f'\n| self.agent.if_on_policy: {self.agent.if_on_policy}')
+        if self.agent.if_off_policy != self.if_off_policy:
+            raise RuntimeError(f'\n| Why bool `if_off_policy` is not consistent?'
+                               f'\n| self.if_off_policy: {self.if_off_policy}'
+                               f'\n| self.agent.if_off_policy: {self.agent.if_off_policy}')
 
         '''cwd'''
         if self.cwd is None:
@@ -150,13 +150,13 @@ def train_and_evaluate(args, agent_id=0):
                           args.eval_gap, args.eval_times1, args.eval_times2)
     evaluator.save_or_load_recoder(if_save=False)
     '''init ReplayBuffer'''
-    if agent.if_on_policy:
-        buffer = list()
-    else:
+    if agent.if_off_policy:
         buffer = ReplayBufferMARL(max_len=args.max_memo, state_dim=env.state_dim,
                               action_dim= env.action_dim,n_agents = 3,
                               if_use_per=args.if_per_or_gae)
         buffer.save_or_load_history(args.cwd, if_save=False)
+    else:
+        buffer = list()
 
     """start training"""
     cwd = args.cwd
@@ -171,23 +171,7 @@ def train_and_evaluate(args, agent_id=0):
     del args
 
     '''choose update_buffer()'''
-    if agent.if_on_policy:
-        assert isinstance(buffer, list)
-
-        def update_buffer(_trajectory):
-            _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
-            ten_state = torch.as_tensor(_trajectory[0])
-            ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
-            ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
-            ten_action = torch.as_tensor(_trajectory[3])
-            ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
-
-            buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
-
-            _steps = ten_reward.shape[0]
-            _r_exp = ten_reward.mean()
-            return _steps, _r_exp
-    else:
+    if agent.if_off_policy:
         assert isinstance(buffer, ReplayBufferMARL)
 
         def update_buffer(_trajectory_list):
@@ -207,11 +191,27 @@ def train_and_evaluate(args, agent_id=0):
                 _steps += ten_state.shape[0]
                 _r_exp += ten_reward.mean()  # other = (reward, mask, action)
             return _steps, _r_exp
+    else:
+        assert isinstance(buffer, list)
+
+        def update_buffer(_trajectory):
+            _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
+            ten_state = torch.as_tensor(_trajectory[0])
+            ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
+            ten_mask = (1.0 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma  # _trajectory[2] = done
+            ten_action = torch.as_tensor(_trajectory[3])
+            ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
+
+            buffer[:] = (ten_state, ten_action, ten_noise, ten_reward, ten_mask)
+
+            _steps = ten_reward.shape[0]
+            _r_exp = ten_reward.mean()
+            return _steps, _r_exp
 
     '''init ReplayBuffer after training start'''
     agent.states = env.reset()
-    agent.if_on_policy = True
-    if not agent.if_on_policy:
+    agent.if_off_policy = False
+    if agent.if_off_policy:
         #if_load = buffer.save_or_load_history(cwd, if_save=False)
         if_load = 0
         if not if_load:
@@ -256,7 +256,7 @@ def train_and_evaluate(args, agent_id=0):
 
     env.close()
     agent.save_or_load_agent(cwd, if_save=True)
-    buffer.save_or_load_history(cwd, if_save=True) if not agent.if_on_policy else None
+    buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
     evaluator.save_or_load_recoder(if_save=True)
 
 
@@ -363,17 +363,7 @@ class PipeWorker:
         gamma = args.gamma
         target_step = args.target_step
         reward_scale = args.reward_scale
-        if args.if_on_policy:
-            def convert_trajectory(_trajectory):  # on-policy
-                _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
-
-                ten_state = torch.as_tensor(_trajectory[0])
-                ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
-                ten_mask = (1 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma
-                ten_action = torch.as_tensor(_trajectory[3])
-                ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
-                return ten_state, ten_action, ten_noise, ten_reward, ten_mask
-        else:
+        if args.if_off_policy:
             def convert_trajectory(_trajectory):  # off-policy
                 temp = list()
                 for item_trajectory in _trajectory:
@@ -384,6 +374,16 @@ class PipeWorker:
 
                     temp.append((ten_state, ten_other))
                 return temp
+        else:
+            def convert_trajectory(_trajectory):  # on-policy
+                _trajectory = list(map(list, zip(*_trajectory)))  # 2D-list transpose
+
+                ten_state = torch.as_tensor(_trajectory[0])
+                ten_reward = torch.as_tensor(_trajectory[1], dtype=torch.float32) * reward_scale
+                ten_mask = (1 - torch.as_tensor(_trajectory[2], dtype=torch.float32)) * gamma
+                ten_action = torch.as_tensor(_trajectory[3])
+                ten_noise = torch.as_tensor(_trajectory[4], dtype=torch.float32)
+                return ten_state, ten_action, ten_noise, ten_reward, ten_mask
         del args
 
         if comm_env:
@@ -477,7 +477,7 @@ class PipeLearner:
         args.init_before_training(if_main=learner_id == 0)
 
         env = build_env(args.env, if_print=False)
-        if_on_policy = args.if_on_policy
+        if_off_policy = args.if_off_policy
 
         '''init Agent'''
         agent = args.agent
@@ -486,19 +486,7 @@ class PipeLearner:
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init ReplayBuffer'''
-        if if_on_policy:
-            buffer = list()
-
-            def update_buffer(_trajectory_lists):  # on-policy
-                # _trajectory_lists = ((ten_state, ten_action, ten_noise, ten_reward, ten_mask), ...)
-                _trajectory_lists = list(map(list, zip(*_trajectory_lists)))
-                buffer[:] = [torch.cat(tensors, dim=0) for tensors in _trajectory_lists]
-
-                _steps = buffer[3].shape[0]  # buffer[3] = ary_reward
-                _r_exp = buffer[3].mean().item()  # buffer[3] = ary_reward
-                return _steps, _r_exp
-
-        else:
+        if if_off_policy:
             buffer_num = args.worker_num * args.env_num
             if self.learner_num > 1:
                 buffer_num *= 2
@@ -524,6 +512,18 @@ class PipeLearner:
                 return _steps, _r_exp
 
             buffer.save_or_load_history(args.cwd, if_save=False)
+        else:
+
+            buffer = list()
+
+            def update_buffer(_trajectory_lists):  # on-policy
+                # _trajectory_lists = ((ten_state, ten_action, ten_noise, ten_reward, ten_mask), ...)
+                _trajectory_lists = list(map(list, zip(*_trajectory_lists)))
+                buffer[:] = [torch.cat(tensors, dim=0) for tensors in _trajectory_lists]
+
+                _steps = buffer[3].shape[0]  # buffer[3] = ary_reward
+                _r_exp = buffer[3].mean().item()  # buffer[3] = ary_reward
+                return _steps, _r_exp
 
         '''start training'''
         cwd = args.cwd
@@ -549,7 +549,7 @@ class PipeLearner:
                 if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
 
         agent.save_or_load_agent(cwd, if_save=True)
-        if not if_on_policy:
+        if if_off_policy:
             print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
             buffer.save_or_load_history(cwd, if_save=True)
 

@@ -265,7 +265,7 @@ def check_stock_trading_env():
     '''draw_cumulative_return'''
     from elegantrl.agent import AgentPPO
     from elegantrl.run import Arguments
-    args = Arguments(if_on_policy=True)
+    args = Arguments(if_off_policy=False)
     args.agent = AgentPPO()
 
     args.init_before_training()

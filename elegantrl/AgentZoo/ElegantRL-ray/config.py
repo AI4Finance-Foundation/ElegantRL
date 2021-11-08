@@ -38,7 +38,7 @@ default_config = {
     },
     'buffer': {
         'max_buf': 2 ** 17,
-        'if_on_policy': False,
+        'if_off_policy': True,
         'if_per': False,  # for off policy
     },
     'evaluator': {

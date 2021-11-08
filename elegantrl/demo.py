@@ -7,7 +7,7 @@ from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
 
 def demo_continuous_action_off_policy():  # 2021-09-07
-    args = Arguments(if_on_policy=False)
+    args = Arguments(if_off_policy=True)
     args.agent = AgentModSAC()  # AgentSAC AgentTD3 AgentDDPG
 
     if_train_pendulum = 1
@@ -81,7 +81,7 @@ def demo_continuous_action_off_policy():  # 2021-09-07
 
 
 def demo_continuous_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.agent.cri_target = True
     args.visible_gpu = '0'  # sys.argv[-1]
@@ -128,7 +128,7 @@ def demo_continuous_action_on_policy():
 
 
 def demo_discrete_action_off_policy():
-    args = Arguments(if_on_policy=False)
+    args = Arguments(if_off_policy=True)
     args.agent = AgentD3QN()  # AgentD3QN AgentDuelDQN AgentDoubleDQN AgentDQN
     args.visible_gpu = '3,1'
 
@@ -161,7 +161,7 @@ def demo_discrete_action_off_policy():
 
 
 def demo_discrete_action_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentDiscretePPO()
     args.visible_gpu = '0'
 
@@ -183,7 +183,7 @@ def demo_discrete_action_on_policy():
 
 
 def demo_pybullet_off_policy():
-    args = Arguments(if_on_policy=False)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=True)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentModSAC()
     args.visible_gpu = sys.argv[-1]  # '0'
     args.random_seed += 19431
@@ -296,7 +296,7 @@ def demo_pybullet_off_policy():
 
 
 def demo_pybullet_on_policy():
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.visible_gpu = '0'
     args.random_seed += 1943
@@ -452,7 +452,7 @@ def demo_pybullet_on_policy():
 
 
 def demo_pixel_level_task():  # 2021-09-07
-    args = Arguments(if_on_policy=True)  # hyper-parameters of on-policy is different from off-policy
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
     args.agent = AgentPPO()
     args.agent.cri_target = True
     args.visible_gpu = sys.argv[-1]
