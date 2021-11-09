@@ -217,6 +217,7 @@ class AgentStep1AC(AgentBase):
         self.if_use_cri_target = False
         self.if_use_act_target = False
         self.explore_noise = 2 ** -8
+        self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
@@ -233,20 +234,28 @@ class AgentStep1AC(AgentBase):
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
         buffer.update_now_len()
 
-        obj_critic = None
         obj_actor = None
-        for _ in range(int(buffer.now_len / batch_size * repeat_times)):
+        update_a = 0
+        for update_c in range(1, int(buffer.now_len / batch_size * repeat_times)):
+            '''objective of critic (loss function of critic)'''
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
+            self.obj_critic = 0.99 * self.obj_critic + 0.01 * obj_critic.item()  # for reliable_lambda
             self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-            action_pg = self.act(state)  # policy gradient
-            obj_actor = -self.cri(state, action_pg).mean()
+            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
+            reliable_lambda = np.exp(-self.obj_critic ** 2)  # for reliable_lambda
+            if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
+            if if_update_a:  # auto TTUR
+                update_a += 1
+
+            obj_actor = -self.cri(state, self.act(state)).mean()  # policy gradient
             self.optim_update(self.act_optim, obj_actor, self.act.parameters())
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
-        return obj_critic.item(), obj_actor.item()
+
+        return self.obj_critic, obj_actor.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
         with torch.no_grad():
@@ -360,11 +369,13 @@ def demo_down_link_task():
     args = Arguments(env=build_env(env_name), agent=agent_class())
 
     args.net_dim = 2 ** 8
+    args.batch_size = int(args.net_dim * B_SIZE)
+
     args.max_memo = 2 ** 17
-    args.target_step = 2 ** 13  # todo 14
-    args.batch_size = args.net_dim * 2
-    # args.repeat_times = 1.25  # todo
-    args.agent.exploration_noise = 1 / 128
+    args.target_step = int(args.max_memo * 2 ** T_STEP)  # 2 ** 14
+    args.repeat_times = RP_TIM  # 1.0
+    args.reward_scale = 2 ** 3  # todo 2
+    args.agent.exploration_noise = 2 ** -8
 
     args.eval_gpu_id = GPU_ID
     args.eval_gap = 2 ** 9
@@ -427,15 +438,17 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
 """
 
 """
-GPU 83 GPU 1   beta0 repeat_times=1
-GPU 83 GPU 2   ENV=1
-GPU 83 GPU 3   ENV=1
+GPU 83 GPU 1   beta0 RP_TIM=1.00 T_STEP=-4  B_SIZE=net_dim*1
+GPU 83 GPU 2   beta0 RP_TIM=0.75 T_STEP=-4  B_SIZE=net_dim*1
+GPU 83 GPU 3   beta0 RP_TIM=0.75 T_STEP=-3  B_SIZE=net_dim*1
+GPU 83 GPU 0   beta0 RP_TIM=0.75 T_STEP=-4  B_SIZE=net_dim*0.5
 
-GPU 111 GPU 0  beta1 T_STEP=14 MEMO 18
-GPU 111 GPU 1  beta0 T_STEP=14 NOISE 128
-GPU 111 GPU 2  beta0 T_STEP=14 NOISE 64
-GPU 111 GPU 3  beta0 T_STEP=14 NOISE 32
-GPU 111 GPU 4  beta0 T_STEP=15 NOISE 128
+GPU 111 GPU 1  beta0 RP_TIM=0.75 T_STEP=-4  B_SIZE=net_dim*1
+GPU 111 GPU 2  beta0 RP_TIM=1.00 T_STEP=-4
+GPU 111 GPU 3  beta0 RP_TIM=0.75 T_STEP=-4  # main
+GPU 111 GPU 4  beta0 RP_TIM=0.75 T_STEP=-3
+ 
+GPU 111 GPU 0  beta1 RP_TIM=0.75 T_STEP=-4
 """
 
 if __name__ == '__main__':
@@ -443,6 +456,9 @@ if __name__ == '__main__':
 
     # check_network()
     GPU_ID = int(eval(sys.argv[1]))
-    ENV_ID = int(eval(sys.argv[2]))
+    ENV_ID = 1  # int(eval(sys.argv[2]))
     DRL_ID = 0  # int(eval(sys.argv[2]))
+    RP_TIM = float(eval(sys.argv[2]))
+    T_STEP = float(eval(sys.argv[3]))
+    B_SIZE = 0.5  # todo
     demo_down_link_task()

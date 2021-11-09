@@ -193,7 +193,7 @@ class AgentBase:
         :param soft_update_tau: soft target update: `target_net = target_net * (1-tau) + current_net * tau`,
         """
 
-    def optim_update(self, optimizer, objective, params):
+    def optim_update(self, optimizer, objective, params):  # plan todo params generator -> list
         """minimize the optimization objective via update the network parameters
 
         :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`

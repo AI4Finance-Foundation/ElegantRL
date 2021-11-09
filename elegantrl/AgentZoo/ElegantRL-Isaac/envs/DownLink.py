@@ -1,90 +1,14 @@
 import os.path
 
-import torch
+# import torch
 import numpy as np
 import numpy.random as rd
 
 """[ElegantRL.2021.11.04](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
-class DownLinkEnv0:  # stable 2021-11-04
-    def __init__(self, bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
-                 if_curriculum=True):
-        """
-        :param bs_n: antennas number of BaseStation
-        :param ur_n: user number
-        :param power: the power of BaseStation. `self.get_action_power()`
-        :param csi_noise_var: the noise var of Channel State Information
-        """
-        self.bs_n = bs_n
-        self.ur_n = ur_n
-        self.power = power
-        self.csi_clip = csi_clip
-        self.csi_noise_var = csi_noise_var
-
-        self.env_name = 'DownLinkEnv-v0'
-        self.env_num = 1
-        self.state_dim = (2, ur_n, bs_n)
-        self.action_dim = int(np.prod((2, bs_n, ur_n)))
-        self.max_step = 2 ** 10
-        self.if_discrete = False
-        self.target_return = 2.1 * self.max_step
-
-        self.state = None
-        self.step_i = None
-        self.hall_ary = None
-        self.hall_noisy_ary = None
-
-    def reset(self):
-        self.hall_ary = rd.randn(self.max_step + 1, 2, self.ur_n, self.bs_n).clip(-self.csi_clip, self.csi_clip)
-        self.hall_ary *= (1 / 2) ** 0.5
-
-        hall_noise_ary = rd.randn(self.max_step + 1, 2, self.ur_n, self.bs_n).clip(-self.csi_clip, self.csi_clip)
-        hall_noise_ary *= (self.csi_noise_var / 2) ** 0.5
-
-        self.hall_noisy_ary = self.hall_ary + hall_noise_ary
-
-        self.step_i = 0
-        self.state = self.get_state()
-        return self.state
-
-    def step(self, action):
-        reward = self.get_reward(action)
-        self.step_i += 1  # write before `self.get_state()`
-        self.state = self.get_state()
-        done = self.step_i == self.max_step
-        return self.state, reward, done, None
-
-    def get_state(self):
-        state = self.hall_noisy_ary[self.step_i]
-        return state
-
-    def get_reward(self, action):  # get_sum_rate
-        hall = self.hall_ary[self.step_i]
-        h = hall[0] + hall[1] * 1j
-
-        action = action.reshape((2, self.bs_n, self.ur_n))
-        w = action[0] + action[1] * 1j
-        return get_sum_rate(h, w)
-
-    def get_action_norm_power(self, action=None):
-        if action is None:
-            action = rd.randn(self.action_dim)
-        action *= (self.power * (action ** 2).sum()) ** -0.5
-        # action /= (self.power * ((action[0] ** 2).sum() + (action[1] ** 2).sum())) ** -0.5
-        return action
-
-    def get_action_mmse(self, state):  # not-necessary
-        # (state, bs_n, user_n, power, csi_noise_var)
-        h_noisy = state[0] + state[1] * 1j
-        w_mmse = func_mmse(h_noisy, self.bs_n, self.ur_n, self.power, self.csi_noise_var)
-        action = np.stack((w_mmse.real, w_mmse.imag))
-        return action
-
-
 class DownLinkEnv:  # stable 2021-11-08
-    def __init__(self, bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
-                 if_curriculum=True):
+    def __init__(self, bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0):
         """
         :param bs_n: antennas number of BaseStation
         :param ur_n: user number
@@ -164,7 +88,7 @@ class DownLinkEnv:  # stable 2021-11-08
         return action
 
 
-class DownLinkEnv1:  # stable 2021-11-08
+class DownLinkEnv1108:  # stable 2021-11-08
     def __init__(self, bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
                  curr_add=1 / 16, env_cwd='.'):
         """
@@ -206,7 +130,7 @@ class DownLinkEnv1:  # stable 2021-11-08
                 curr_tau = eval(f.readlines()[-1])
             assert isinstance(curr_tau, float)
         else:
-            curr_tau = 1
+            curr_tau = 0.125
 
         self.hall_ary = (rd.randn(self.max_step + 1, self.ur_n, self.bs_n).astype(np.float32)
                          .clip(-self.csi_clip, self.csi_clip) +
@@ -270,11 +194,128 @@ class DownLinkEnv1:  # stable 2021-11-08
 
             r_ones_temp += get_sum_rate(h=h_noisy, w=w_ones)
 
-        r_mmse = r_mmse_temp / self.max_step
-        r_ones = r_ones_temp / self.max_step
-        self.curr_target_return = (r_mmse + r_ones) / 2
-        print(f"| DownLinkEnv: {self.curr_tau:8.3f}    currR {self.curr_target_return:8.3f}    "
-              f"r_mmse {r_mmse:8.3f}    r_ones {r_ones:8.3f}")
+        self.curr_target_return = (r_mmse_temp + r_ones_temp) / 2
+        if self.curr_tau < 1:
+            print(f"| DownLinkEnv: {self.curr_tau:8.3f}    currR {self.curr_target_return:8.3f}    "
+                  f"r_mmse {r_mmse_temp:8.3f}    r_ones {r_ones_temp:8.3f}\n")
+
+        '''update file in disk'''
+        curr_file_path = f"{self.env_cwd}/{self.curr_txt}"
+        if not os.path.isdir(self.env_cwd):
+            os.mkdir(self.env_cwd)
+        with open(curr_file_path, 'w+') as f:
+            f.write(f'{self.curr_tau}\n')
+
+
+class DownLinkEnv1:  # stable 2021-11-08
+    def __init__(self, bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0, env_cwd='.'):
+        """
+        :param bs_n: antennas number of BaseStation
+        :param ur_n: user number
+        :param power: the power of BaseStation. `self.get_action_power()`
+        :param csi_noise_var: the noise var of Channel State Information
+        """
+        self.bs_n = bs_n
+        self.ur_n = ur_n
+        self.power = power
+        self.csi_clip = csi_clip
+        self.csi_noise_var = csi_noise_var
+
+        self.env_name = 'DownLinkEnv-v1'
+        self.env_cwd = env_cwd
+        self.env_num = 1
+        self.state_dim = (2, ur_n, bs_n)
+        self.action_dim = int(np.prod((2, bs_n, ur_n)))
+        self.max_step = 2 ** 10
+        self.if_discrete = False
+        self.target_return = 2.1 * self.max_step
+
+        self.state = None
+        self.step_i = None
+        self.hall_ary = None
+        self.hall_noisy_ary = None
+
+        '''curriculum learning'''
+        self.curr_txt = 'tau_of_curriculum.txt'
+        self.curr_tau = 1
+        self.curr_target_return = -np.inf
+
+    def reset(self):
+        curr_file_path = f"{self.env_cwd}/{self.curr_txt}"
+        if os.path.isfile(curr_file_path):
+            with open(curr_file_path, 'r') as f:
+                curr_tau = int(eval(f.readlines()[-1]))
+            assert 1 <= curr_tau <= self.ur_n
+        else:
+            curr_tau = self.ur_n // 4
+
+        self.hall_ary = (rd.randn(self.max_step + 1, self.ur_n, self.bs_n).astype(np.float32)
+                         .clip(-self.csi_clip, self.csi_clip) +
+                         rd.randn(self.max_step + 1, self.ur_n, self.bs_n).astype(np.float32)
+                         .clip(-self.csi_clip, self.csi_clip) * 1j
+                         ) * np.array((1 / 2) ** 0.5)
+
+        hall_noise_ary = (rd.randn(self.max_step + 1, self.ur_n, self.bs_n).astype(np.float32)
+                          .clip(-self.csi_clip, self.csi_clip) +
+                          rd.randn(self.max_step + 1, self.ur_n, self.bs_n).astype(np.float32)
+                          .clip(-self.csi_clip, self.csi_clip) * 1j
+                          ) * np.array((self.csi_noise_var / 2) ** 0.5)
+        self.hall_noisy_ary = self.hall_ary + hall_noise_ary
+        self.hall_noisy_ary[:, curr_tau:] *= 1 / 128  # todo
+
+        self.step_i = 0
+        self.state = self.get_state()
+        return self.state
+
+    def step(self, action):
+        reward = self.get_reward(action)
+
+        self.step_i += 1  # write before `self.get_state()`
+        self.state = self.get_state()
+
+        done = self.step_i == self.max_step
+        return self.state, reward, done, None
+
+    def get_state(self):
+        hall_noisy = self.hall_noisy_ary[self.step_i]
+        return np.stack((hall_noisy.real,
+                         hall_noisy.imag))
+
+    def get_reward(self, action):  # get_sum_rate
+        h = self.hall_ary[self.step_i]
+
+        action = action.reshape((2, self.bs_n, self.ur_n))
+        w = action[0] + action[1] * 1j
+        return get_sum_rate(h, w)
+
+    def curriculum_learning_for_evaluator(self, r_avg):
+        if r_avg < self.curr_target_return:
+            return
+
+        '''add curriculum learning tau'''
+        self.curr_tau = min(self.ur_n, self.curr_tau + 1)  # write before `self.reset()`
+
+        r_mmse_temp = 0.0
+        r_ones_temp = 0.0
+
+        w_ones = (np.ones((self.bs_n, self.ur_n)).astype(np.float32) +
+                  np.ones((self.bs_n, self.ur_n)).astype(np.float32) * 1j)
+        w_ones *= np.power((w_ones ** 2).sum(), -0.5)
+
+        '''get the episode return (reward sum) of Traditional algorithm (MMSE and Ones)'''
+        self.reset()
+        for step_i in range(self.max_step):
+            h_noisy = self.hall_noisy_ary[step_i]
+
+            w_mmse = func_mmse(h_noisy, self.bs_n, self.ur_n, self.power, self.csi_noise_var)
+            r_mmse_temp += get_sum_rate(h=h_noisy, w=w_mmse)
+
+            r_ones_temp += get_sum_rate(h=h_noisy, w=w_ones)
+
+        self.curr_target_return = (r_mmse_temp * 3 + r_ones_temp * 1) / 4
+        if self.curr_tau < self.ur_n:
+            print(f"\n| DownLinkEnv: {self.curr_tau:8.3f}    currR {self.curr_target_return:8.3f}    "
+                  f"r_mmse {r_mmse_temp:8.3f}    r_ones {r_ones_temp:8.3f}")
 
         '''update file in disk'''
         curr_file_path = f"{self.env_cwd}/{self.curr_txt}"
