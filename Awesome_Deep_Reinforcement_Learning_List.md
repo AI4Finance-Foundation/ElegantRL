@@ -16,6 +16,15 @@ Deep Neuroevolution: Genetic Algorithms Are a Competitive Alternative for Traini
 
 RLlib: Abstractions for Distributed Reinforcement Learning (Library)
 
+Distributed Deep Reinforcement Learning: Learn how to play Atari games in 21 minutes (Batched A3C).
+
+Distributed Prioritized Experience Replay (Ape-X, distributed replay buffer).
+
+IMPALA: Scalable Distributed Deep-RL with Importance Weighted Actor-Learner Architectures (CPU+GPU).
+
+Accelerated Methods for Deep Reinforcement Learning (Simulation Acceleration).
+
+GPU-Accelerated Robotic Simulation for Distributed Reinforcement Learning (Simulation Acceleration).
 
 
 ## 
