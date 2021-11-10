@@ -274,6 +274,96 @@ def demo_pixel_level_on_policy():  # 2021-09-07
     train_and_evaluate_mp(args)
 
 
+def demo_isaac_gym_on_policy():
+    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][0]
+    args = Arguments(env=env_name, agent=AgentPPO())
+    args.learner_gpus = (0,)
+    args.eval_gpu_id = 1
+
+    if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
+        '''
+        Step  21e7, Reward  8350, UsedTime  35ks
+        Step 484e7, Reward 16206, UsedTime 960ks  PPO
+        Step  20e7, Reward  9196, UsedTime  35ks
+        Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
+        Step  23e7, Reward  7111, UsedTime  12ks  PPO
+        Step  22e7, Reward  5412, UsedTime  12ks  PPO, max_step * 2
+        '''
+        args.eval_env = 'IsaacOneEnvAnt'
+        args.env = f'IsaacVecEnvAnt'
+        args.env_num = 4096
+        args.max_step = 1000
+        args.state_dim = 60
+        args.action_dim = 8
+        args.if_discrete = False
+        args.target_return = 8000
+
+        args.agent.lambda_entropy = 0.05
+        args.agent.lambda_gae_adv = 0.97
+        args.agent.if_use_cri_target = False
+
+        args.if_per_or_gae = True
+        args.learning_rate = 2 ** -14
+
+        args.net_dim = int(2 ** 8 * 1.5)
+        args.batch_size = args.net_dim * 2 ** 4
+        args.target_step = args.max_step * 1
+        args.repeat_times = 2 ** 4
+        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+
+        args.break_step = int(8e14)
+        args.if_allow_break = False
+        args.eval_times1 = 2 ** 1
+        args.eval_times1 = 2 ** 3
+
+    if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
+        '''
+        Step 126e7, Reward  8021
+        Step 216e7, Reward  9517
+        Step 283e7, Reward  9998
+        Step 438e7, Reward 10749, UsedTime 960ks  PPO, env_num = 4096
+        Step  71e7, Reward  7800
+        Step 215e7, Reward  9794, UsedTime 465ks  PPO, env_num = 2048
+        Step   1e7, Reward   117
+        Step  16e7, Reward   538
+        Step  21e7, Reward  3044
+        Step  38e7, Reward  5015
+        Step  65e7, Reward  6010
+        Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
+        Step  77e7, Reward  5399, UsedTime 143ks  PPO
+        Step  86e7, Reward  5822, UsedTime 157ks  PPO, max_step * 2
+        '''
+        args.eval_env = 'IsaacOneEnvHumanoid'
+        args.env = f'IsaacVecEnvHumanoid'
+        args.env_num = 4096
+        args.max_step = 1000
+        args.state_dim = 108
+        args.action_dim = 21
+        args.if_discrete = False
+        args.target_return = 7000
+
+        args.agent.lambda_entropy = 0.05
+        args.agent.lambda_gae_adv = 0.97
+        args.agent.if_use_cri_target = True
+
+        args.net_dim = int(2 ** 8 * 1.5)
+        args.batch_size = args.net_dim * 2 ** 5
+        args.target_step = args.max_step * 1
+        args.repeat_times = 2 ** 4
+        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+        args.if_per_or_gae = True
+        args.learning_rate = 2 ** -15
+
+        args.break_step = int(8e14)
+        args.if_allow_break = False
+        args.eval_times1 = 2 ** 1
+        args.eval_times1 = 2 ** 3
+
+    args.worker_num = 1
+    args.workers_gpus = args.learner_gpus
+    train_and_evaluate_mp(args)  # train_and_evaluate(args)
+
+
 def demo_pybullet_off_policy():
     env_name = ['AntBulletEnv-v0', 'HumanoidBulletEnv-v0',
                 'ReacherBulletEnv-v0', 'MinitaurBulletEnv-v0', ][0]
@@ -512,94 +602,34 @@ def demo_pybullet_on_policy():
     train_and_evaluate_mp(args)
 
 
-def demo_isaac_on_policy():
-    env_name = ['IsaacVecEnvAnt', 'IsaacVecEnvHumanoid'][0]
-    args = Arguments(env=env_name, agent=AgentPPO())
-    args.learner_gpus = (0,)
-    args.eval_gpu_id = 1
+def demo_step1_off_policy():
+    env_name = ['DownLinkEnv-v0', 'DownLinkEnv-v1'][ENV_ID]
+    agent_class = [AgentStep1AC, AgentShareStep1AC][1]
+    args = Arguments(env=build_env(env_name), agent=agent_class())
+    args.random_seed += GPU_ID
 
-    if env_name in {'IsaacVecEnvAnt', 'IsaacOneEnvAnt'}:
-        '''
-        Step  21e7, Reward  8350, UsedTime  35ks
-        Step 484e7, Reward 16206, UsedTime 960ks  PPO
-        Step  20e7, Reward  9196, UsedTime  35ks
-        Step 471e7, Reward 15021, UsedTime 960ks  PPO, if_use_cri_target = True
-        Step  23e7, Reward  7111, UsedTime  12ks  PPO
-        Step  22e7, Reward  5412, UsedTime  12ks  PPO, max_step * 2
-        '''
-        args.eval_env = 'IsaacOneEnvAnt'
-        args.env = f'IsaacVecEnvAnt'
-        args.env_num = 4096
-        args.max_step = 1000
-        args.state_dim = 60
-        args.action_dim = 8
-        args.if_discrete = False
-        args.target_return = 8000
+    args.net_dim = 2 ** 8
+    args.batch_size = int(args.net_dim * 2 ** -1)
 
-        args.agent.lambda_entropy = 0.05
-        args.agent.lambda_gae_adv = 0.97
-        args.agent.if_use_cri_target = False
+    args.max_memo = 2 ** 17
+    args.target_step = int(args.max_memo * 2 ** -4)
+    args.repeat_times = 0.75
+    args.reward_scale = 2 ** 2
+    args.agent.exploration_noise = 2 ** -5
 
-        args.if_per_or_gae = True
-        args.learning_rate = 2 ** -14
+    args.eval_gpu_id = GPU_ID
+    args.eval_gap = 2 ** 9
+    args.eval_times1 = 2 ** 0
+    args.eval_times2 = 2 ** 1
 
-        args.net_dim = int(2 ** 8 * 1.5)
-        args.batch_size = args.net_dim * 2 ** 4
-        args.target_step = args.max_step * 1
-        args.repeat_times = 2 ** 4
-        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
+    args.learner_gpus = (GPU_ID,)
 
-        args.break_step = int(8e14)
-        args.if_allow_break = False
-        args.eval_times1 = 2 ** 1
-        args.eval_times1 = 2 ** 3
-
-    if env_name in {'IsaacVecEnvHumanoid', 'IsaacOneEnvHumanoid'}:
-        '''
-        Step 126e7, Reward  8021
-        Step 216e7, Reward  9517
-        Step 283e7, Reward  9998
-        Step 438e7, Reward 10749, UsedTime 960ks  PPO, env_num = 4096
-        Step  71e7, Reward  7800
-        Step 215e7, Reward  9794, UsedTime 465ks  PPO, env_num = 2048
-        Step   1e7, Reward   117
-        Step  16e7, Reward   538
-        Step  21e7, Reward  3044
-        Step  38e7, Reward  5015
-        Step  65e7, Reward  6010
-        Step  72e7, Reward  6257, UsedTime 129ks  PPO, if_use_cri_target = True
-        Step  77e7, Reward  5399, UsedTime 143ks  PPO
-        Step  86e7, Reward  5822, UsedTime 157ks  PPO, max_step * 2
-        '''
-        args.eval_env = 'IsaacOneEnvHumanoid'
-        args.env = f'IsaacVecEnvHumanoid'
-        args.env_num = 4096
-        args.max_step = 1000
-        args.state_dim = 108
-        args.action_dim = 21
-        args.if_discrete = False
-        args.target_return = 7000
-
-        args.agent.lambda_entropy = 0.05
-        args.agent.lambda_gae_adv = 0.97
-        args.agent.if_use_cri_target = True
-
-        args.net_dim = int(2 ** 8 * 1.5)
-        args.batch_size = args.net_dim * 2 ** 5
-        args.target_step = args.max_step * 1
-        args.repeat_times = 2 ** 4
-        args.reward_scale = 2 ** -2  # (-50) 0 ~ 2500 (3340)
-        args.if_per_or_gae = True
-        args.learning_rate = 2 ** -15
-
-        args.break_step = int(8e14)
-        args.if_allow_break = False
-        args.eval_times1 = 2 ** 1
-        args.eval_times1 = 2 ** 3
-
-    args.worker_num = 1
-    args.workers_gpus = args.learner_gpus
-    train_and_evaluate_mp(args)  # train_and_evaluate(args)
+    if_use_single_process = 0
+    if if_use_single_process:
+        train_and_evaluate(args, )
+    else:
+        args.worker_num = 4
+        train_and_evaluate_mp(args, )
 
 
 '''train and watch'''
@@ -614,5 +644,5 @@ if __name__ == '__main__':
     # demo_pixel_level_on_policy()
     # demo_pybullet_off_policy()
     # demo_pybullet_on_policy()
-    # demo_isaac_on_policy
+    # demo_step1_off_policy()
     pass

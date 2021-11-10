@@ -3,7 +3,7 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.11.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class Evaluator:  # [ElegantRL.2021.10.13]
@@ -210,3 +210,5 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
+
+

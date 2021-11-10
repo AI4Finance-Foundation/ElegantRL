@@ -104,7 +104,6 @@ class Actor(nn.Module):
 
     def get_action(self, state, action_std):
         action = self.net(state).tanh()
-        # todo could be `action = self.forward(state)`
         noise = (torch.randn_like(action) * action_std).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
 
@@ -186,7 +185,7 @@ class ActorPPO(nn.Module):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
+            nn_middle = ConvNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle,
                                  nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
@@ -229,7 +228,7 @@ class ActorDiscretePPO(nn.Module):
         if isinstance(state_dim, int):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
+            nn_middle = ConvNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle,
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -261,6 +260,28 @@ class ActorDiscretePPO(nn.Module):
     def get_old_logprob(self, a_int, a_prob):
         dist = self.Categorical(a_prob)
         return dist.log_prob(a_int)
+
+
+class ActorBiConv(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            BiConvNet(mid_dim, state_dim, mid_dim * 4),
+            nn.Linear(mid_dim * 4, mid_dim * 1), nn.ReLU(),
+            DenseNet(mid_dim * 1), nn.ReLU(),
+            nn.Linear(mid_dim * 4, action_dim),
+        )
+        layer_norm(self.net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state):
+        action = self.net(state)
+        return action * torch.pow((action ** 2).sum(), -0.5)  # action / sqrt(L2_norm(action))
+
+    def get_action(self, state, action_std):
+        action = self.net(state)
+        action = action + (torch.randn_like(action) * action_std)
+        return action * torch.pow((action ** 2).sum(), -0.5)  # action / sqrt(L2_norm(action))
 
 
 '''Value Network (Critic)'''
@@ -313,7 +334,7 @@ class CriticPPO(nn.Module):
         if isinstance(state_dim, int):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
+            nn_middle = ConvNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle,
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
@@ -332,7 +353,7 @@ class CriticTwinPPO(nn.Module):
             nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
         else:
-            nn_middle = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
+            nn_middle = ConvNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
 
         self.net = nn.Sequential(nn_middle, )
         self.net_v1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
@@ -349,6 +370,37 @@ class CriticTwinPPO(nn.Module):
     def get_q1_q2(self, state):
         tmp = self.net(state)
         return self.net_v1(tmp), self.net_v2(tmp)  # two advantage values
+
+
+class CriticBiConv(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        i_c_dim, i_h_dim, i_w_dim = state_dim  # inp_for_cnn.shape == (N, C, H, W)
+        assert action_dim == int(np.prod((i_c_dim, i_w_dim, i_h_dim)))
+        action_dim = (i_c_dim, i_w_dim, i_h_dim)  # (2, bs_n, ur_n)
+
+        self.cnn_s = nn.Sequential(
+            BiConvNet(mid_dim, state_dim, mid_dim * 4),
+            nn.Linear(mid_dim * 4, mid_dim * 2), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim * 2, mid_dim * 1),
+        )
+        self.cnn_a = nn.Sequential(
+            NnReshape(*action_dim),
+            BiConvNet(mid_dim, action_dim, mid_dim * 4),
+            nn.Linear(mid_dim * 4, mid_dim * 2), nn.ReLU(inplace=True),
+            nn.Linear(mid_dim * 2, mid_dim * 1),
+        )
+
+        self.out_net = nn.Sequential(
+            nn.Linear(mid_dim * 1, mid_dim * 1), nn.Hardswish(),
+            nn.Linear(mid_dim * 1, 1),
+        )
+        layer_norm(self.out_net[-1], std=0.1)  # output layer for action
+
+    def forward(self, state, action):
+        xs = self.cnn_s(state)
+        xa = self.cnn_a(action)
+        return self.out_net(xs + xa)  # Q value
 
 
 '''Parameter sharing Network'''
@@ -522,7 +574,7 @@ class SharePPO(nn.Module):  # Pixel-level state version
             self.enc_s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, mid_dim))  # the only difference.
         else:
-            self.enc_s = Conv2dNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
+            self.enc_s = ConvNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
         out_dim = mid_dim
 
         self.dec_a = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.ReLU(),
@@ -574,6 +626,60 @@ class SharePPO(nn.Module):  # Pixel-level state version
         return q1, q2, logprob
 
 
+class ShareBiConv(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        i_c_dim, i_h_dim, i_w_dim = state_dim  # inp_for_cnn.shape == (N, C, H, W)
+        assert action_dim == int(np.prod((i_c_dim, i_w_dim, i_h_dim)))
+
+        state_tuple = (i_c_dim, i_h_dim, i_w_dim)
+        self.enc_s = nn.Sequential(
+            # NnReshape(*state_tuple),
+            BiConvNet(mid_dim, state_tuple, mid_dim * 4),
+        )
+        action_tuple = (i_c_dim, i_w_dim, i_h_dim)
+        self.enc_a = nn.Sequential(
+            NnReshape(*action_tuple),
+            BiConvNet(mid_dim, action_tuple, mid_dim * 4),
+        )
+
+        self.mid_n = nn.Sequential(
+            nn.Linear(mid_dim * 4, mid_dim * 2), nn.ReLU(),
+            nn.Linear(mid_dim * 2, mid_dim * 1), nn.ReLU(),
+            DenseNet(mid_dim),
+        )
+
+        self.dec_a = nn.Sequential(
+            nn.Linear(mid_dim * 4, mid_dim * 2), nn.Hardswish(),
+            nn.Linear(mid_dim * 2, action_dim),
+        )
+        layer_norm(self.dec_a[-1], std=0.1)  # output layer for action
+        self.dec_q = nn.Sequential(
+            nn.Linear(mid_dim * 4, mid_dim * 2), nn.Hardswish(),
+            nn.Linear(mid_dim * 2, 1),
+        )
+        layer_norm(self.dec_q[-1], std=0.1)  # output layer for action
+
+    def forward(self, state):  # actor
+        xs = self.enc_s(state)
+        xn = self.mid_n(xs)
+        action = self.dec_a(xn)
+        return action * torch.pow((action ** 2).sum(), -0.5)  # action / sqrt(L2_norm(action))
+
+    def critic(self, state, action):
+        xs = self.enc_s(state)
+        xa = self.enc_a(action)
+        xn = self.mid_n(xs + xa)
+        return self.dec_q(xn)  # Q value
+
+    def get_action(self, state, action_std):  # actor, get noisy action
+        xs = self.enc_s(state)
+        xn = self.mid_n(xs)
+        action = self.dec_a(xn)
+        action = action + (torch.randn_like(action) * action_std)
+        return action * torch.pow((action ** 2).sum(), -0.5)  # action / sqrt(L2_norm(action))
+
+
 """utils"""
 
 
@@ -622,7 +728,7 @@ class ConcatNet(nn.Module):  # concatenate
         return torch.cat((x1, x2, x3, x4), dim=1)
 
 
-class Conv2dNet(nn.Module):  # pixel-level state encoder
+class ConvNet(nn.Module):  # pixel-level state encoder
     def __init__(self, inp_dim, out_dim, image_size=224):
         super().__init__()
         if image_size == 224:
@@ -670,9 +776,44 @@ class Conv2dNet(nn.Module):  # pixel-level state encoder
     #     print(y.shape)
 
 
+class BiConvNet(nn.Module):
+    def __init__(self, mid_dim, inp_dim, out_dim):
+        super().__init__()
+        i_c_dim, i_h_dim, i_w_dim = inp_dim  # inp_for_cnn.shape == (N, C, H, W)
+
+        self.cnn_h = nn.Sequential(
+            nn.Conv2d(i_c_dim * 1, mid_dim * 2, (1, i_w_dim), bias=True), nn.LeakyReLU(inplace=True),
+            nn.Conv2d(mid_dim * 2, mid_dim * 1, (1, 1), bias=True), nn.ReLU(inplace=True),
+            NnReshape(-1),  # shape=(-1, i_h_dim * mid_dim)
+            nn.Linear(i_h_dim * mid_dim, out_dim),
+        )
+        self.cnn_w = nn.Sequential(
+            nn.Conv2d(i_c_dim * 1, mid_dim * 2, (i_h_dim, 1), bias=True), nn.LeakyReLU(inplace=True),
+            nn.Conv2d(mid_dim * 2, mid_dim * 1, (1, 1), bias=True), nn.ReLU(inplace=True),
+            NnReshape(-1),  # shape=(-1, i_w_dim * mid_dim)
+            nn.Linear(i_w_dim * mid_dim, out_dim),
+        )
+
+    def forward(self, state):
+        xh = self.cnn_h(state)
+        xw = self.cnn_w(state)
+        return xw + xh
+
+
 def layer_norm(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
+
+
+class ActorSimplify:
+    def __init__(self, gpu_id, actor_net):
+        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and gpu_id >= 0) else 'cpu')
+        self.actor_net = actor_net.to(self.device)
+
+    def get_action(self, state: np.ndarray) -> np.ndarray:
+        states = torch.as_tensor(state[np.newaxis], dtype=torch.float32, device=self.device)
+        action = self.actor_net(states)[0]
+        return action.detach().cpu().numpy()
 
 
 """check"""
@@ -706,3 +847,57 @@ def check_actor_network():
         inp = torch.ones((batch_size, img_size, img_size, img_channel), dtype=torch.int8)
         out = net(inp)
         print(out.shape)
+
+
+def check_network():
+    from envs.DownLink import DownLinkEnv
+    env = DownLinkEnv()
+
+    gpu_id = 1
+    mid_dim = 128
+    state_dim = env.state_dim
+    action_dim = env.action_dim
+
+    if_check_actor = 0
+    if if_check_actor:
+        net = ActorBiConv(mid_dim, state_dim, action_dim)
+        act = ActorSimplify(gpu_id, net)
+
+        state = env.reset()
+
+        action = env.get_action_mmse(state)
+        reward = env.get_reward(action)
+        print(f"| mmse            : {reward:8.3f}")
+
+        action = env.get_action_mmse(state)
+        action = env.get_action_norm_power(action)
+        reward = env.get_reward(action)
+        print(f"| mmse (max Power): {reward:8.3f}")
+
+        action = np.ones(env.action_dim)
+        reward = env.get_reward(action)
+        print(f"| ones (max Power): {reward:8.3f}")
+
+        action = env.get_action_norm_power(action=None)  # random.normal action
+        reward = env.get_reward(action)
+        print(f"| rand (max Power): {reward:8.3f}")
+
+        action = act.get_action(state)
+        action = env.get_action_norm_power(action)
+        reward = env.get_reward(action)
+        print(f"| net  (max Power): {reward:8.3f}")
+
+        # state, reward, done, _ = env.step(action)
+        # print(reward)
+
+    if_check_critic = 1
+    if if_check_critic:
+        batch_size = 3
+        device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and gpu_id >= 0) else 'cpu')
+        critic_net = CriticBiConv(mid_dim, state_dim, action_dim).to(device)
+
+        ten_state = torch.randn(size=(batch_size, *state_dim), dtype=torch.float32, device=device)
+        ten_action = torch.randn(size=(batch_size, action_dim), dtype=torch.float32, device=device)
+
+        q_value = critic_net(ten_state, ten_action)
+        print(q_value)
