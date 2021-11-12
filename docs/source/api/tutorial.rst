@@ -939,6 +939,9 @@ class AgentPPO(AgentBase)
                 buf_advantage[i] = ten_reward[i] + ten_mask[i] * (pre_advantage - ten_value[i])  # fix a bug here
                 pre_advantage = ten_value[i] + buf_advantage[i] * self.lambda_gae_adv
             return buf_r_sum, buf_advantage
+            
+.. autoclass:: elegantrl.tutorial.agent.AgentPPO
+   :members:
 
 class AgentDiscretePPO(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
