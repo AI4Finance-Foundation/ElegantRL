@@ -943,6 +943,9 @@ class AgentPPO(AgentBase)
 .. autoclass:: elegantrl.tutorial.agent.AgentPPO
    :members:
 
+.. autoclass:: elegantrl.agent.AgentPPO
+   :members:
+
 class AgentDiscretePPO(AgentBase)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
