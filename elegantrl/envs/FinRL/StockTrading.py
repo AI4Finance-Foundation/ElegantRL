@@ -240,7 +240,7 @@ class StockTradingEnv:
         cwd = args.cwd
 
         agent.init(net_dim, state_dim, action_dim)
-        agent.save_load_model(cwd=cwd, if_save=False)
+        agent.save_or_load_agent(cwd=cwd, if_save=False)
         act = agent.act
         device = agent.device
 
