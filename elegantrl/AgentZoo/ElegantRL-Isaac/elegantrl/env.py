@@ -61,7 +61,7 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
             raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
         return env
 
-    # elif env_name[:10] in {'StockDOW5', 'StockDOW30', 'StockNAS74', 'StockNAS89'}:
+    # if env_name[:10] in {'StockDOW5', 'StockDOW30', 'StockNAS74', 'StockNAS89'}:
     #     if_eval = env_name.find('eval') != -1
     #     gamma = 0.993
     #     from elegantrl.envs.FinRL.StockTradingEnv import StockEnvDOW5, StockEnvDOW30, StockEnvNAS74, StockEnvNAS89
@@ -72,16 +72,18 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
     #                  }[env_name[:10]]
     #     env = env_class(if_eval=if_eval, gamma=gamma)
 
-    if env_name in {'DownLinkEnv-v0', 'DownLinkEnv-v1'}:
-        if env_name == 'DownLinkEnv-v0':
-            from envs.DownLink import DownLinkEnv
-            env = DownLinkEnv(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0)
-        elif env_name == 'DownLinkEnv-v1':
-            from envs.DownLink import DownLinkEnv1
-            env = DownLinkEnv1(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
-                               env_cwd=getattr(args, 'cwd', '.'))
-        else:
-            raise ValueError("| env.py, build_env(), DownLinkEnv")
+    # if env_name in {'DownLinkEnv-v0', 'DownLinkEnv-v1', 'DownLinkEnv-v2'}:
+    #     from envs.DownLink import DownLinkEnv0, DownLinkEnv1, DownLinkEnv2
+    #     if env_name == 'DownLinkEnv-v0':
+    #         env = DownLinkEnv0(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0)
+    #     elif env_name == 'DownLinkEnv-v1':
+    #         env = DownLinkEnv1(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
+    #                            env_cwd=getattr(args, 'cwd', '.'))
+    #     elif env_name == 'DownLinkEnv-v2':
+    #         env = DownLinkEnv2(bs_n=4, ur_n=8, power=1.0, csi_noise_var=0.1, csi_clip=3.0,
+    #                            env_cwd=getattr(args, 'cwd', '.'))
+    #     else:
+    #         raise ValueError("| env.py, build_env(), DownLinkEnv")
 
     if env is None:
         try:
@@ -426,13 +428,14 @@ def demo_get_video_to_watch_gym_render():
                   f'-crf 25 -vb 20M -pix_fmt yuv420p {save_video}')
 
 
-def train_save_eval_watch():
+def train_save_eval_watch():  # need to check
     # from elegantrl.env import build_env
     from elegantrl.run import Arguments, train_and_evaluate
     from elegantrl.agent import AgentDoubleDQN
 
     env = build_env('CartPole-v0')
-    agent = AgentDoubleDQN(if_dueling=True)
+    agent = AgentDoubleDQN()
+    agent.if_use_dueling = True
     cwd = 'demo_CartPole_D3QN'
 
     print('train and save')

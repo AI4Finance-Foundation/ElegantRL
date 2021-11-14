@@ -9,12 +9,13 @@ from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
 from elegantrl.net import Actor, Critic, ShareDPG
 from elegantrl.net import ActorSAC, CriticTwin, ShareSPG
 from elegantrl.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
+from elegantrl.net import CriticMultiple, CriticEnsemble
 from elegantrl.net import ActorBiConv, CriticBiConv, ShareBiConv
 
-"""[ElegantRL.2021.11.05](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.11.11](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
-class AgentBase:
+class AgentBase:  # [ElegantRL.2021.11.11]
     def __init__(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
                  learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """initialize
@@ -97,7 +98,6 @@ class AgentBase:
 
         self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
-        # del self.ClassCri, self.ClassAct
 
         assert isinstance(if_per_or_gae, bool)
         if env_num == 1:
@@ -194,16 +194,16 @@ class AgentBase:
         :param soft_update_tau: soft target update: `target_net = target_net * (1-tau) + current_net * tau`,
         """
 
-    def optim_update(self, optimizer, objective, params):  # plan todo params generator -> list
+    def optim_update(self, optimizer, objective):  # [ElegantRL 2021.11.11]
         """minimize the optimization objective via update the network parameters
 
         :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
         :param objective: `objective = net(...)` the optimization objective, sometimes is a loss function.
-        :param params: `params = net.parameters()` the network parameters which need to be updated.
         """
         optimizer.zero_grad()
         objective.backward()
-        clip_grad_norm_(params, max_norm=self.clip_grad_norm)
+        clip_grad_norm_(parameters=optimizer.param_groups[0]['params'],
+                        max_norm=self.clip_grad_norm)
         optimizer.step()
 
     # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
@@ -364,7 +364,7 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         obj_critic = q_value = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, q_value = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
         return obj_critic.item(), q_value.mean().item()
@@ -488,13 +488,13 @@ class AgentDDPG(AgentBase):
         obj_actor = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             action_pg = self.act(state)  # policy gradient
             obj_actor = -self.cri(state, action_pg).mean()
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+            self.optim_update(self.act_optim, obj_actor)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_critic.item(), obj_actor.item()
@@ -554,12 +554,12 @@ class AgentTD3(AgentBase):
         obj_actor = None
         for update_c in range(int(buffer.now_len / batch_size * repeat_times)):
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
 
             if update_c % self.update_freq == 0:  # delay update
                 action_pg = self.act(state)  # policy gradient
                 obj_actor = -self.cri_target(state, action_pg).mean()  # use cri_target is more stable than cri
-                self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+                self.optim_update(self.act_optim, obj_actor)
                 if self.if_use_cri_target:
                     self.soft_update(self.cri_target, self.cri, soft_update_tau)
                 if self.if_use_act_target:
@@ -595,7 +595,7 @@ class AgentTD3(AgentBase):
         return obj_critic, state
 
 
-class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
+class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassCri = CriticTwin
@@ -638,6 +638,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         buffer.update_now_len()
 
+        obj_critic = None
         obj_actor = None
         alpha = None
         for _ in range(int(buffer.now_len * repeat_times / batch_size)):
@@ -645,26 +646,21 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
 
             '''objective of critic (loss function of critic)'''
             obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
-            self.obj_critic = 0.995 * self.obj_critic + 0.0025 * obj_critic.item()  # for reliable_lambda
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             '''objective of alpha (temperature parameter automatic adjustment)'''
             action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
             obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
-            self.optim_update(self.alpha_optim, obj_alpha, self.alpha_log)
+            self.optim_update(self.alpha_optim, obj_alpha)
 
             '''objective of actor'''
-            with torch.no_grad():
-                self.alpha_log[:] = self.alpha_log.clamp(-20, 2).detach()
-            obj_actor = -(torch.min(*self.cri.get_q1_q2(state, action_pg)) + logprob * alpha).mean()
-            # use self.cri_target.get_q1_q2 in above code for more stable training.
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
-
+            obj_actor = -(self.cri(state, action_pg) + logprob * alpha).mean()
+            self.optim_update(self.act_optim, obj_actor)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
-        return self.obj_critic, obj_actor.item(), alpha.item()
+        return obj_critic, obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
         with torch.no_grad():
@@ -675,7 +671,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
 
             q_label = reward + mask * (next_q + next_log_prob * alpha)
         q1, q2 = self.cri.get_q1_q2(state, action)
-        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+        obj_critic = (self.criterion(q1, q_label) + self.criterion(q2, q_label)) / 2.
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size, alpha):
@@ -686,21 +682,26 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.10.25]
             next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
 
             q_label = reward + mask * (next_q + next_log_prob * alpha)
-
         q1, q2 = self.cri.get_q1_q2(state, action)
-        td_error = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+        td_error = (self.criterion(q1, q_label) + self.criterion(q2, q_label)) / 2.
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())
         return obj_critic, state
 
 
-class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
+    """Modified SAC
+    - reliable_lambda and TTUR (Two Time-scale Update Rule)
+    - modified REDQ (Randomized Ensemble Double Q-learning)
+    """
+
     def __init__(self):
         AgentSAC.__init__(self)
-        self.if_use_act_target = True
+        self.ClassCri = CriticMultiple  # REDQ ensemble (parameter sharing)
+        # self.ClassCri = CriticEnsemble  # REDQ ensemble  # todo ensemble
         self.if_use_cri_target = True
-        self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+        self.if_use_act_target = True
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         buffer.update_now_len()
@@ -713,15 +714,15 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
             '''objective of critic (loss function of critic)'''
             obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
-            self.obj_critic = 0.995 * self.obj_critic + 0.0025 * obj_critic.item()  # for reliable_lambda
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.obj_critic = 0.995 * self.obj_critic + 0.005 * obj_critic.item()  # for reliable_lambda
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
             a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
             '''objective of alpha (temperature parameter automatic adjustment)'''
             obj_alpha = (self.alpha_log * (logprob - self.target_entropy).detach()).mean()
-            self.optim_update(self.alpha_optim, obj_alpha, self.alpha_log)
+            self.optim_update(self.alpha_optim, obj_alpha)
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-16, 2).detach()
 
@@ -731,13 +732,47 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
             if if_update_a:  # auto TTUR
                 update_a += 1
 
-                q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
-                obj_actor = -(q_value_pg + logprob * alpha).mean()
-                self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+                q_value_pg = self.cri(state, a_noise_pg)
+                obj_actor = -(q_value_pg + logprob * alpha).mean()  # todo ensemble
+                self.optim_update(self.act_optim, obj_actor)
                 if self.if_use_act_target:
                     self.soft_update(self.act_target, self.act, soft_update_tau)
 
         return self.obj_critic, obj_actor.item(), alpha.item()
+
+    def get_obj_critic_raw(self, buffer, batch_size, alpha):
+        with torch.no_grad():
+            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = torch.min(self.cri_target.get_q_values(next_s, next_a), dim=1, keepdim=True)[0]  # multiple critics
+
+            # todo ensemble
+            q_label = (reward + mask * (next_q + next_log_prob * alpha))
+            q_labels = q_label * torch.ones((1, self.cri.q_values_num), dtype=torch.float32, device=self.device)
+        q_values = self.cri.get_q_values(state, action)  # todo ensemble
+
+        obj_critic = self.criterion(q_values, q_labels)
+        return obj_critic, state
+
+    def get_obj_critic_per(self, buffer, batch_size, alpha):
+        with torch.no_grad():
+            # reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = torch.min(self.cri_target.get_q_values(next_s, next_a), dim=1, keepdim=True)[0]  # multiple critics
+
+            q_label = (reward + mask * (next_q + next_log_prob * alpha))
+            q_labels = q_label * torch.ones((1, self.cri.q_values_num), dtype=torch.float32, device=self.device)
+        q_values = self.cri.get_q_values(state, action)
+
+        # obj_critic = self.criterion(q_values, q_labels)
+        td_error = self.criterion(q_values, q_labels).mean(dim=1, keepdim=True)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, state
 
 
 class AgentPPO(AgentBase):
@@ -869,11 +904,11 @@ class AgentPPO(AgentBase):
             surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
             obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+            self.optim_update(self.act_optim, obj_actor)
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
@@ -900,7 +935,7 @@ class AgentPPO(AgentBase):
         for i in range(buf_len - 1, -1, -1):
             buf_r_sum[i] = ten_reward[i] + ten_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
-            buf_adv_v[i] = ten_reward[i] + ten_bool[i] * (pre_adv_v - ten_value[i])  # todo need to check
+            buf_adv_v[i] = ten_reward[i] + ten_bool[i] * (pre_adv_v - ten_value[i])
             pre_adv_v = ten_value[i] + buf_adv_v[i] * self.lambda_gae_adv
         return buf_r_sum, buf_adv_v
 
@@ -1017,11 +1052,11 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
             '''A2C: Advantage function'''
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             obj_actor = -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+            self.optim_update(self.act_optim, obj_actor)
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
@@ -1119,7 +1154,7 @@ class AgentStep1AC(AgentBase):
             '''objective of critic (loss function of critic)'''
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
             self.obj_critic = 0.99 * self.obj_critic + 0.01 * obj_critic.item()  # for reliable_lambda
-            self.optim_update(self.cri_optim, obj_critic, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
@@ -1130,7 +1165,7 @@ class AgentStep1AC(AgentBase):
                 update_a += 1
 
             obj_actor = -self.cri(state, self.act(state)).mean()  # policy gradient
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+            self.optim_update(self.act_optim, obj_actor)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
 
@@ -1209,7 +1244,7 @@ class AgentShareAC(AgentBase):  # IAC (InterAC) waiting for check
                 obj_united = obj_critic + actor_term * (1 - reliable_lambda)
 
             """united loss"""
-            self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_united)
             if i % self.update_freq == self.update_freq and reliable_lambda > 0.1:
                 self.cri_target.load_state_dict(self.cri.state_dict())  # Hard Target Update
 
@@ -1283,7 +1318,7 @@ class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
             else:
                 obj_united = obj_critic + obj_alpha
 
-            self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_united)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
 
@@ -1353,7 +1388,7 @@ class AgentSharePPO(AgentPPO):
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
 
             obj_united = obj_critic + obj_actor
-            self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_united)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
@@ -1392,13 +1427,13 @@ class AgentShareA2C(AgentSharePPO):
             '''A2C: Advantage function'''
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             obj_actor = -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
-            self.optim_update(self.act_optim, obj_actor, self.act.parameters())
+            self.optim_update(self.act_optim, obj_actor)
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
 
             obj_united = obj_critic + obj_actor
-            self.optim_update(self.cri_optim, obj_united, self.cri.parameters())
+            self.optim_update(self.cri_optim, obj_united)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
@@ -1428,9 +1463,9 @@ class AgentShareStep1AC(AgentBase):
             self.act_target = self.cri_target = self.act
 
         self.cri_optim = torch.optim.Adam(
-            [{'params': self.act.enc_s.parameters(), 'lr': learning_rate * 1.5},
+            [{'params': self.act.enc_s.parameters(), 'lr': learning_rate * 1.25},
              {'params': self.act.enc_a.parameters(), },
-             {'params': self.act.mid_n.parameters(), 'lr': learning_rate * 1.5},
+             {'params': self.act.mid_n.parameters(), 'lr': learning_rate * 1.25},
              {'params': self.act.dec_a.parameters(), },
              {'params': self.act.dec_q.parameters(), },
              ], lr=learning_rate)
@@ -1471,7 +1506,7 @@ class AgentShareStep1AC(AgentBase):
             else:
                 obj_united = obj_critic
 
-            self.optim_update(self.act_optim, obj_united, self.act.parameters())
+            self.optim_update(self.cri_optim, obj_united)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
 

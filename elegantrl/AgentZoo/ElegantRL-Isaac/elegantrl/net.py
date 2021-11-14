@@ -128,6 +128,7 @@ class ActorSAC(nn.Module):
         self.net_a_std = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
                                        nn.Linear(mid_dim, action_dim))  # the log_std of action
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.soft_plus = nn.Softplus()
 
     def forward(self, state):
         tmp = self.net_state(state)
@@ -145,37 +146,38 @@ class ActorSAC(nn.Module):
         a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
         a_std = a_std_log.exp()
 
-        """add noise to action in stochastic policy"""
+        '''add noise to a_noise in stochastic policy'''
         noise = torch.randn_like(a_avg, requires_grad=True)
-        a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
+        a_noise = a_avg + a_std * noise
         # Can only use above code instead of below, because the tensor need gradients here.
         # a_noise = torch.normal(a_avg, a_std, requires_grad=True)
 
-        '''compute log_prob according to mean and std of action (stochastic policy)'''
+        '''compute log_prob according to mean and std of a_noise (stochastic policy)'''
         # self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
         log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
+        """same as below:
+        from torch.distributions.normal import Normal
+        log_prob = Normal(a_avg, a_std).log_prob(a_noise)
         # same as below:
-        # from torch.distributions.normal import Normal
-        # log_prob_noise = Normal(a_avg, a_std).log_prob(a_noise)
-        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
-        # same as below:
-        # a_delta = (a_avg - a_noise).pow(2) /(2*a_std.pow(2))
-        # log_prob_noise = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
-        # log_prob = log_prob_noise + (-a_noise_tanh.pow(2) + 1.000001).log()
+        a_delta = (a_avg - a_noise).pow(2) /(2*a_std.pow(2))
+        log_prob = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
+        """
 
-        log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
-        # same as below:
-        # epsilon = 1e-6
-        # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
-        return a_tan, log_prob.sum(1, keepdim=True)
+        '''fix log_prob of action.tanh'''
+        log_prob += (np.log(2.) - a_noise - self.soft_plus(-2. * a_noise)) * 2.  # better than below
+        """same as below:
+        epsilon = 1e-6
+        a_noise_tanh = a_noise.tanh()
+        log_prob = log_prob - (1 - a_noise_tanh.pow(2) + epsilon).log()
 
-    # def log_abs_det_jacobian(self, x, y):
-    #     # https://github.com/denisyarats/pytorch_sac/blob/81c5b536d3a1c5616b2531e446450df412a064fb/agent/actor.py#L37
-    #     # ↑ MIT License， Thanks for https://www.zhihu.com/people/Z_WXCY 2ez4U
-    #     # We use a formula that is more numerically stable, see details in the following link
-    #     # https://pytorch.org/docs/stable/_modules/torch/distributions/transforms.html#TanhTransform
-    #     # https://github.com/tensorflow/probability/commit/ef6bb176e0ebd1cf6e25c6b5cecdd2428c22963f
-    #     return 2. * (math.log(2.) - x - F.softplus(-2. * x))
+        Thanks for:
+        https://github.com/denisyarats/pytorch_sac/blob/81c5b536d3a1c5616b2531e446450df412a064fb/agent/actor.py#L37
+        ↑ MIT License， Thanks for https://www.zhihu.com/people/Z_WXCY 2ez4U
+        They use action formula that is more numerically stable, see details in the following link
+        https://pytorch.org/docs/stable/_modules/torch/distributions/transforms.html#TanhTransform
+        https://github.com/tensorflow/probability/commit/ef6bb176e0ebd1cf6e25c6b5cecdd2428c22963f
+        """
+        return a_noise.tanh(), log_prob.sum(1, keepdim=True)
 
 
 class ActorPPO(nn.Module):
@@ -326,6 +328,60 @@ class CriticTwin(nn.Module):  # shared parameter
     def get_q1_q2(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
+
+
+class CriticEnsemble(nn.Module):  # todo ensemble
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.q_values_num = 8  # modified REDQ (Randomized Ensemble Double Q-learning)
+        for critic_id in range(self.q_values_num):
+            setattr(self, f'critic{critic_id:02}', Critic(mid_dim, state_dim, action_dim))
+
+    def forward(self, state, action):
+        tensor_sa = torch.cat((state, action), dim=1)
+        tensor_qs = [getattr(self, f'critic{critic_id:02}').net(tensor_sa)  # criticID(tensor_sa)
+                     for critic_id in range(self.q_values_num)]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs.mean(dim=1, keepdim=True)  # the mean of multiple Q values
+
+    def get_q_values(self, state, action):  # todo ensemble
+        tensor_sa = torch.cat((state, action), dim=1)
+        tensor_qs = [getattr(self, f'critic{critic_id:02}').net(tensor_sa)  # criticID.net(tensor_sa)
+                     for critic_id in range(self.q_values_num)]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs  # multiple Q values
+
+
+class CriticMultiple(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
+        super().__init__()
+        self.q_values_num = 16  # modified REDQ (Randomized Ensemble Double Q-learning)
+        if if_use_dn:
+            nn_middle = DenseNet(mid_dim)
+            out_dim = nn_middle.out_dim
+        else:
+            nn_middle = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+            out_dim = mid_dim
+
+        self.enc_s = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                   nn.Linear(mid_dim, mid_dim), )
+        self.enc_a = nn.Sequential(nn.Linear(action_dim, mid_dim), nn.ReLU(),
+                                   nn.Linear(mid_dim, mid_dim), )
+        self.mid_n = nn_middle
+
+        self.net_q = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                   nn.Linear(mid_dim, self.q_values_num), )
+
+    def forward(self, state, action):
+        x = self.mid_n(self.enc_s(state) +
+                       self.enc_a(action))  # use add instead of concatenate
+        return self.net_q(x).mean(dim=1, keepdim=True)
+
+    def get_q_values(self, state, action):
+        x = self.mid_n(self.enc_s(state) +
+                       self.enc_a(action))
+        return self.net_q(x)  # multiple Q values
 
 
 class CriticPPO(nn.Module):
@@ -850,8 +906,8 @@ def check_actor_network():
 
 
 def check_network():
-    from envs.DownLink import DownLinkEnv
-    env = DownLinkEnv()
+    from envs.DownLink import DownLinkEnv0
+    env = DownLinkEnv0()
 
     gpu_id = 1
     mid_dim = 128

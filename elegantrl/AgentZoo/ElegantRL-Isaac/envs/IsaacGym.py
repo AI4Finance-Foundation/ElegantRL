@@ -127,6 +127,9 @@ def build_isaac_gym_env(env, if_print=False, device_id=0):
     return env
 
 
+'''check'''
+
+
 def run_isaac_env(env_name, device_id):
     env = build_isaac_gym_env(env_name, if_print=True, device_id=device_id)
 

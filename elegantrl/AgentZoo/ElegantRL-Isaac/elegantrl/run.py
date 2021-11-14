@@ -110,7 +110,7 @@ class Arguments:  # [ElegantRL.2021.10.21]
 '''single processing training'''
 
 
-def train_and_evaluate(args, learner_id=0):
+def train_and_evaluate(args, learner_id=0):  # 2021.11.11
     args.init_before_training()  # necessary!
 
     '''init: Agent'''
@@ -152,7 +152,7 @@ def train_and_evaluate(args, learner_id=0):
             ten_state, ten_other = _traj_list[0]
             buffer.extend_buffer(ten_state, ten_other)
 
-            _steps, _r_exp = get_step_r_exp(ten_reward=ten_other[0])  # other = (reward, mask, action)
+            _steps, _r_exp = get_step_r_exp(ten_reward=ten_other)
             return _steps, _r_exp
     else:
         buffer = list()
@@ -170,7 +170,6 @@ def train_and_evaluate(args, learner_id=0):
 
     """start training"""
     cwd = args.cwd
-    gamma = args.gamma
     break_step = args.break_step
     batch_size = args.batch_size
     target_step = args.target_step
@@ -197,8 +196,7 @@ def train_and_evaluate(args, learner_id=0):
 
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
         with torch.no_grad():
-            temp = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)
-            if_reach_goal, if_save = temp
+            if_reach_goal, if_save = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)
             if_train = not ((if_allow_break and if_reach_goal)
                             or evaluator.total_step > break_step
                             or os.path.exists(f'{cwd}/stop'))

@@ -1,3 +1,4 @@
+import sys
 from elegantrl.agent import *
 from elegantrl.env import build_env
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
@@ -7,11 +8,11 @@ from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 '''train'''
 
 
-def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
+def demo_continuous_action_off_policy():  # [ElegantRL.2021.11.11]
     env_name = ['Pendulum-v1', 'LunarLanderContinuous-v2',
-                'BipedalWalker-v3', 'BipedalWalkerHardcore-v3'][0]
+                'BipedalWalker-v3', 'BipedalWalkerHardcore-v3'][ENV_ID]
     agent_class = [AgentModSAC, AgentSAC,
-                   AgentTD3, AgentDDPG][0]
+                   AgentTD3, AgentDDPG][DRL_ID]
     args = Arguments(env=build_env(env_name), agent=agent_class())
 
     if env_name in {'Pendulum-v1', 'Pendulum-v0'}:
@@ -34,9 +35,11 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
         args.target_step = 200 * 4  # max_step = 200
     if env_name in {'LunarLanderContinuous-v2', 'LunarLanderContinuous-v1'}:
         """EpisodeReturn: (-800) -200 ~ 200 (302)
-        Step 4e5,  Reward 200,  UsedTime  900s, TD3
-        Step 5e5,  Reward 200,  UsedTime 1500s, ModSAC
+        Step 40e4,  Reward 200,  UsedTime  900s, TD3
+        Step 27e4,  Reward 200,  UsedTime 1600s, ModSAC
+        Step 38e4,  Reward 200,  UsedTime 2700s, ModSAC
         """
+        args.reward_scale = 2 ** -1
         args.eval_times1 = 2 ** 4
         args.eval_times2 = 2 ** 6
 
@@ -45,7 +48,7 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
         """EpisodeReturn: (-200) -140 ~ 300 (341)
         Step 08e5,  Reward 300,  UsedTime 1800s TD3
         Step 11e5,  Reward 329,  UsedTime 6000s TD3
-        Step  4e5,  Reward 300,  UsedTime 2000s ModSAC
+        Step  5e5,  Reward 300,  UsedTime 3500s ModSAC
         Step  8e5,  Reward 330,  UsedTime 5000s ModSAC
         """
         args.eval_times1 = 2 ** 3
@@ -56,17 +59,17 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
     if env_name in {'BipedalWalkerHardcore-v3', 'BipedalWalkerHardcore-v2'}:
         '''EpisodeReturn: (-200) -150 ~ 300 (334)
         TotalStep (2e6) 4e6
-        
+
         Step 12e5,  Reward  20
         Step 18e5,  Reward 135
         Step 25e5,  Reward 202
         Step 43e5,  Reward 309, UsedTime 68ks,  ModSAC, worker_num=4
-        
+
         Step 14e5,  Reward  15
         Step 18e5,  Reward 117
         Step 28e5,  Reward 212
         Step 45e5,  Reward 306,  UsedTime 67ks,  ModSAC, worker_num=4
-        
+
         Step  8e5,  Reward  13
         Step 16e5,  Reward 136
         Step 23e5,  Reward 219
@@ -87,10 +90,14 @@ def demo_continuous_action_off_policy():  # [ElegantRL.2021.10.10]
 
         args.worker_num = 4
         args.target_step = args.env.max_step * 1
-    # args.learner_gpus = (0, )  # single GPU
+
+    args.learner_gpus = (GPU_ID,)  # single GPU
     # args.learner_gpus = (0, 1)  # multiple GPUs
-    # train_and_evaluate(args)  # single process
-    train_and_evaluate_mp(args)  # multiple process
+    if_use_single_process = 0
+    if if_use_single_process:
+        train_and_evaluate(args)  # single process
+    else:
+        train_and_evaluate_mp(args)  # multiple process
 
 
 def demo_continuous_action_on_policy():  # [ElegantRL.2021.10.13]
@@ -602,41 +609,14 @@ def demo_pybullet_on_policy():
     train_and_evaluate_mp(args)
 
 
-def demo_step1_off_policy():
-    env_name = ['DownLinkEnv-v0', 'DownLinkEnv-v1'][ENV_ID]
-    agent_class = [AgentStep1AC, AgentShareStep1AC][1]
-    args = Arguments(env=build_env(env_name), agent=agent_class())
-    args.random_seed += GPU_ID
-
-    args.net_dim = 2 ** 8
-    args.batch_size = int(args.net_dim * 2 ** -1)
-
-    args.max_memo = 2 ** 17
-    args.target_step = int(args.max_memo * 2 ** -4)
-    args.repeat_times = 0.75
-    args.reward_scale = 2 ** 2
-    args.agent.exploration_noise = 2 ** -5
-
-    args.eval_gpu_id = GPU_ID
-    args.eval_gap = 2 ** 9
-    args.eval_times1 = 2 ** 0
-    args.eval_times2 = 2 ** 1
-
-    args.learner_gpus = (GPU_ID,)
-
-    if_use_single_process = 0
-    if if_use_single_process:
-        train_and_evaluate(args, )
-    else:
-        args.worker_num = 4
-        train_and_evaluate_mp(args, )
-
-
 '''train and watch'''
 
 if __name__ == '__main__':
-    GPU_ID = 0  # eval(sys.argv[1])
-    ENV_ID = 0  # eval(sys.argv[2])
+    dir(sys)
+    sys.argv.extend('0 0 0'.split(' '))
+    GPU_ID = eval(sys.argv[1])
+    ENV_ID = eval(sys.argv[2])
+    DRL_ID = eval(sys.argv[3])
     # demo_continuous_action_off_policy()
     # demo_continuous_action_on_policy()
     # demo_discrete_action_off_policy()
