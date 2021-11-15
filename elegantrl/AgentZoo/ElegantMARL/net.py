@@ -208,6 +208,56 @@ class ActorSAC(nn.Module):
         # log_prob = log_prob_noise - (1 - a_noise_tanh.pow(2) + epsilon).log()
         return a_tan, log_prob.sum(1, keepdim=True)
 
+class CriticTwin(nn.Module):  # shared parameter
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
+        super().__init__()
+        if if_use_dn:
+            nn_middle = DenseNet(mid_dim // 2)
+            inp_dim = nn_middle.inp_dim
+            out_dim = nn_middle.out_dim
+        else:
+            nn_middle = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+            inp_dim = mid_dim
+            out_dim = mid_dim
+
+        self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, inp_dim), nn.ReLU(),
+                                    nn_middle, )  # concat(state, action)
+        self.net_q1 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, 1))  # q1 value
+        self.net_q2 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, 1))  # q2 value
+
+    def forward(self, state, action):
+        tmp = self.net_sa(torch.cat((state, action), dim=1))
+        return self.net_q1(tmp)  # one Q value
+
+    def get_q1_q2(self, state, action):
+        tmp = self.net_sa(torch.cat((state, action), dim=1))
+        return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
+
+class CriticREDQ(nn.Module):  # ensemble N critic 
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.q_values_num = 10  # REDQ N
+        self.critic_list =  nn.ModuleList(Critic(mid_dim, state_dim, action_dim) for i in range(self.q_values_num))
+
+    def forward(self, state, action):
+        tensor_sa = torch.cat((state, action), dim=1)
+        tensor_qs = [self.critic_list[critic_id].net(tensor_sa) 
+                     for critic_id in range(self.q_values_num)]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs.mean(dim=1, keepdim=True)  # multiple Q values means
+
+    def get_q_values(self, state, action):  # redq
+        tensor_sa = torch.cat((state, action), dim=1)
+        tensor_qs = [self.critic_list[critic_id].net(tensor_sa)  
+                     for critic_id in range(self.q_values_num)]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs  # multi Q 
+
+
+
 
 class ActorPPO(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):

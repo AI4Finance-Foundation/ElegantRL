@@ -138,11 +138,14 @@ def mpe_make_env(scenario_name, benchmark=False):
 
 def train_and_evaluate(args, agent_id=0):
     args.init_before_training(if_main=True)
-
     env = build_env(args.env, if_print=False)
     '''init: Agent'''
     agent = args.agent
-    agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate,args.marl, args.n_agents, args.if_per_or_gae, args.env_num)
+    if args.marl:
+        agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate,args.marl, args.n_agents, args.if_per_or_gae, args.env_num)
+    else:
+        agent.init(args.net_dim, env.state_dim, env.action_dim, reward_scale=1.0, gamma=0.99,
+             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0)
     #agent.save_or_load_agent(args.cwd, if_save=False)
     '''init Evaluator'''
     eval_env = build_env(env) if args.eval_env is None else args.eval_env
@@ -151,9 +154,12 @@ def train_and_evaluate(args, agent_id=0):
     evaluator.save_or_load_recoder(if_save=False)
     '''init ReplayBuffer'''
     if agent.if_off_policy:
-        buffer = ReplayBufferMARL(max_len=args.max_memo, state_dim=env.state_dim,
-                              action_dim= env.action_dim,n_agents = 3,
+        buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
+                              action_dim= env.action_dim,
                               if_use_per=args.if_per_or_gae)
+        #buffer = ReplayBufferMARL(max_len=args.max_memo, state_dim=env.state_dim,
+        #                      action_dim= env.action_dim,n_agents = 3,
+        #                      if_use_per=args.if_per_or_gae)
         buffer.save_or_load_history(args.cwd, if_save=False)
     else:
         buffer = list()
@@ -172,22 +178,23 @@ def train_and_evaluate(args, agent_id=0):
 
     '''choose update_buffer()'''
     if agent.if_off_policy:
-        assert isinstance(buffer, ReplayBufferMARL)
+        assert isinstance(buffer, ReplayBuffer)
 
         def update_buffer(_trajectory_list):
             _steps = 0
             _r_exp = 0
             #print(_trajectory_list.shape)
             for _trajectory in _trajectory_list:
+                i = 0
+                _trajectory = _trajectory
                 ten_state = torch.as_tensor([item[0] for item in _trajectory], dtype=torch.float32)
                 
                 ten_reward = torch.as_tensor([item[1] for item in _trajectory])
-
                 ten_done = torch.as_tensor([item[2] for item in _trajectory])
-                ten_action = torch.as_tensor([item[3] for item in _trajectory])
+                ten_action = torch.cat([item[3] for item in _trajectory])
                 ten_reward = ten_reward * reward_scale  # ten_reward
                 ten_mask = (1.0 - ten_done *1) * gamma  # ten_mask = (1.0 - ary_done) * gamma
-                buffer.extend_buffer(ten_state, ten_reward, ten_mask, ten_action)
+                buffer.extend_buffer(ten_state, torch.cat((ten_reward, ten_mask, ten_action[0]),0))
                 _steps += ten_state.shape[0]
                 _r_exp += ten_reward.mean()  # other = (reward, mask, action)
             return _steps, _r_exp
@@ -228,25 +235,27 @@ def train_and_evaluate(args, agent_id=0):
     state = env.reset()
     for cnt_train in tqdm(range(2000000)):
         #    while if_train or cnt_train < 2000000:
-        if cnt_train % 100 ==0  and cnt_train > 0:
-            state = env.reset()
         with torch.no_grad():
             traj_temp = list()
-            actions = []
-            for i in range(agent.n_agents):
-                 action = agent.agents[i].select_actions(state[i])
-                 actions.append(action)
-
+            actions = agent.select_actions(torch.as_tensor(state, dtype=torch.float32).unsqueeze(0))
+            #actions = []
+            #for i in range(agent.n_agents):
+            #     action = agent.agents[i].select_actions(state[i])
+            #     actions.append(action)
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((state, reward, done, actions))
-            state = next_s
+            if(done):
+                state = env.reset()
+            else:
+                state = next_s
             #trajectory = agent.explore_env(env, target_step)
-            steps, r_exp = update_buffer([traj_temp,])
-        if cnt_train > agent.batch_size:
-            agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
+            steps, r_exp = update_buffer([traj_temp,]) 
+        if cnt_train > batch_size:
+            agent.update_net(buffer, batch_size, 10, soft_update_tau)
         if cnt_train % 1000 == 0:
             with torch.no_grad():
-                temp = evaluator.evaluate_and_save_marl(agent, steps, r_exp)
+                log_t = ()
+                temp = evaluator.evaluate_and_save(agent.act, steps, r_exp, log_t)
                 if_reach_goal, if_save = temp
                 if_train = not ((if_allow_break and if_reach_goal)
                                 or evaluator.total_step > break_step

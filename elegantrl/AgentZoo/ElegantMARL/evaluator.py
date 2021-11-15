@@ -30,7 +30,6 @@ class Evaluator:
 
     def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
         self.total_step += steps  # update total training steps
-
         if time.time() - self.eval_time < self.eval_gap:
             if_reach_goal = False
             if_save = False
@@ -194,15 +193,13 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
 
     state = env.reset()
     for episode_step in range(max_step):
-        s_tensor = torch.as_tensor((state,), device=device)
+        s_tensor = torch.as_tensor((state,),dtype=torch.float32, device=device)
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
         action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because with torch.no_grad() outside
         state, reward, done, _ = env.step(action)
-        episode_return += reward[0]
-        episode_return += reward[1]
-        episode_return += reward[2]
+        episode_return += reward
         if done:
             break
     episode_return = getattr(env, 'episode_return', episode_return)
