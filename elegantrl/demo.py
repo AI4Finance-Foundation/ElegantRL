@@ -3,7 +3,7 @@ from elegantrl.agent import *
 from elegantrl.env import PreprocessEnv, build_env
 from elegantrl.run import Arguments, train_and_evaluate, train_and_evaluate_mp
 
-"""[ElegantRL.2021.09.18](https://github.com/AI4Finance-LLC/ElegantRL)"""
+"""[ElegantRL.2021.09.18](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 def demo_continuous_action_off_policy():  # 2021-09-07
