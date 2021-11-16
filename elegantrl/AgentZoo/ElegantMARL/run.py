@@ -243,8 +243,10 @@ def train_and_evaluate(args, agent_id=0):
             #     action = agent.agents[i].select_actions(state[i])
             #     actions.append(action)
             next_s, reward, done, _ = env.step(actions)
+            done = False if cnt_train % 100 == 0 else done
             traj_temp.append((state, reward, done, actions))
-            if(done):
+            
+            if done or (cnt_train % 100 == 0):
                 state = env.reset()
             else:
                 state = next_s
