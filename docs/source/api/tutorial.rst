@@ -1329,28 +1329,6 @@ def get_episode_return_and_step(env, act, device)
         return episode_return, episode_step
 
 
-class PreprocessEnv(gym.Wrapper)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-   :linenos:
-
-    class PreprocessEnv(gym.Wrapper):  # environment wrapper
-        def __init__(self, env, if_print=True):
-            self.env = gym.make(env) if isinstance(env, str) else env
-            super().__init__(self.env)
-
-            (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
-            self.if_discrete, self.target_return) = get_gym_env_info(self.env, if_print)
-
-        def reset(self) -> np.ndarray:
-            state = self.env.reset()
-            return state.astype(np.float32)
-
-        def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):
-            state, reward, done, info_dict = self.env.step(action * self.action_max)
-            return state.astype(np.float32), reward, done, info_dict
-
 def get_gym_env_info(env, if_print)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
