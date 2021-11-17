@@ -42,12 +42,13 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    about/quickstart
 
 .. toctree::
-   :maxdepth: 2
-   :caption: API
+   :maxdepth: 1
+   :caption: TUTORIAL
 
-   api/tutorial
-   api/server
-   api/cloud
+   tutorial/net
+   tutorial/agent
+   tutorial/env
+   tutorial/run
 
 .. toctree::
    :maxdepth: 1
