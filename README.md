@@ -28,6 +28,8 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
+《詩經·小雅·鶴鳴》「他山之石，可以攻玉」，是我们的库“小雅”名字的来源。
+
 ## Contents
 
 + [News](#News)
