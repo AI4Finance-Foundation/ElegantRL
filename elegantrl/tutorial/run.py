@@ -1,6 +1,7 @@
 import gym
 import time
 from elegantrl.tutorial.agent import *
+from elegantrl.tutorial.env import *
 
 gym.logger.set_level(40)  # Block warning
 
@@ -238,55 +239,121 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
     return episode_return, episode_step
 
 
-class PreprocessEnv(gym.Wrapper):  # environment wrapper
-    def __init__(self, env, if_print=True):
-        self.env = gym.make(env) if isinstance(env, str) else env
-        super().__init__(self.env)
+def demo_continuous_action_off_policy():
+    args = Arguments(if_off_policy=True)
+    args.agent = AgentModSAC()  # AgentModSAC AgentSAC AgentTD3 AgentDDPG
+    args.visible_gpu = '0'
 
-        (self.env_name, self.state_dim, self.action_dim, self.action_max, self.max_step,
-         self.if_discrete, self.target_return) = get_gym_env_info(self.env, if_print)
+    if_train_pendulum = 1
+    if if_train_pendulum:
+        "TotalStep: 2e5, TargetReward: -200, UsedTime: 200s"
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
+        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
+        args.reward_scale = 2 ** -2  # RewardRange: -1800 < -200 < -50 < 0
+        args.gamma = 0.97
+        args.target_step = args.env.max_step * 8
 
-    def reset(self) -> np.ndarray:
-        state = self.env.reset()
-        return state.astype(np.float32)
+    if_train_lunar_lander = 0
+    if if_train_lunar_lander:
+        "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
+        args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+        args.target_step = args.env.max_step * 4
+        args.gamma = 0.98
 
-    def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):
-        state, reward, done, info_dict = self.env.step(action * self.action_max)
-        return state.astype(np.float32), reward, done, info_dict
+    if_train_bipedal_walker = 0
+    if if_train_bipedal_walker:
+        "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
+        args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+        args.gamma = 0.98
+
+    args.eval_times = 2 ** 5  # evaluate times of the average episode return
+    train_and_evaluate(args)
 
 
-def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
-    assert isinstance(env, gym.Env)
+def demo_continuous_action_on_policy():
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
+    args.agent = AgentPPO()
+    args.visible_gpu = '0'
 
-    env_name = getattr(env, 'env_name', None)
-    env_name = env.unwrapped.spec.id if env_name is None else env_name
+    if_train_pendulum = 1
+    if if_train_pendulum:
+        "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
+        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
+        args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
+        args.gamma = 0.97
+        args.net_dim = 2 ** 7
+        args.batch_size = args.net_dim * 2
+        args.target_step = args.env.max_step * 8
 
-    if isinstance(env.observation_space, gym.spaces.discrete.Discrete):
-        raise RuntimeError("| <class 'gym.spaces.discrete.Discrete'> does not support environment with discrete observation (state) space.")
-    state_shape = env.observation_space.shape
-    state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
+    if_train_lunar_lander = 0
+    if if_train_lunar_lander:
+        "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
+        args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
+        args.target_step = args.env.max_step * 4
+        args.gamma = 0.98
+        args.if_per_or_gae = True
 
-    target_return = getattr(env.spec, 'reward_threshold', 2 ** 16)
+    if_train_bipedal_walker = 0
+    if if_train_bipedal_walker:
+        "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
+        args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
+        args.gamma = 0.98
+        args.if_per_or_gae = True
+        args.agent.cri_target = True
 
-    max_step = getattr(env, 'max_step', None)
-    max_step_default = getattr(env, '_max_episode_steps', None)
-    if max_step is None:
-        max_step = max_step_default
-    if max_step is None:
-        max_step = 2 ** 10
+    args.eval_times = 2 ** 5  # evaluate times of the average episode return
+    train_and_evaluate(args)
 
-    if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-    if if_discrete:  # for discrete action space
-        action_dim = env.action_space.n
-        action_max = int(1)
-    elif isinstance(env.action_space, gym.spaces.Box):  # for continuous action space
-        action_dim = env.action_space.shape[0]
-        action_max = float(env.action_space.high[0])
-        assert not any(env.action_space.high + env.action_space.low)
-    else:
-        raise RuntimeError('| Please set these value manually: if_discrete=bool, action_dim=int, action_max=1.0')
 
-    print(f"\n| env_name:  {env_name}, action if_discrete: {if_discrete}"
-          f"\n| state_dim: {state_dim}, action_dim: {action_dim}, action_max: {action_max}"
-          f"\n| max_step:  {max_step:4}, target_return: {target_return}") if if_print else None
-    return env_name, state_dim, action_dim, action_max, max_step, if_discrete, target_return
+def demo_discrete_action_off_policy():
+    args = Arguments(if_off_policy=True)
+    args.agent = AgentDoubleDQN()  # AgentDoubleDQN AgentDQN
+    args.visible_gpu = '0'
+
+    if_train_cart_pole = 1
+    if if_train_cart_pole:
+        "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
+        args.env = PreprocessEnv(env='CartPole-v0')
+        args.reward_scale = 2 ** -1
+        args.target_step = args.env.max_step * 8
+
+    if_train_lunar_lander = 0
+    if if_train_lunar_lander:
+        "TotalStep: 6e5, TargetReturn: 200, UsedTime: 1500s, LunarLander-v2, DQN"
+        args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
+        args.repeat_times = 2 ** 5
+        args.if_per_or_gae = True
+
+    args.eval_times = 2 ** 5  # evaluate times of the average episode return
+    train_and_evaluate(args)
+
+
+def demo_discrete_action_on_policy():
+    args = Arguments(if_off_policy=False)  # hyper-parameters of on-policy is different from off-policy
+    args.agent = AgentDiscretePPO()
+    args.visible_gpu = '0'
+
+    if_train_cart_pole = 1
+    if if_train_cart_pole:
+        "TotalStep: 5e4, TargetReward: 200, UsedTime: 60s"
+        args.env = PreprocessEnv(env='CartPole-v0')
+        args.reward_scale = 2 ** -1
+        args.target_step = args.env.max_step * 8
+
+    if_train_lunar_lander = 0
+    if if_train_lunar_lander:
+        "TotalStep: 6e5, TargetReturn: 200, UsedTime: 1500s, LunarLander-v2, PPO"
+        args.env = PreprocessEnv(env=gym.make('LunarLander-v2'))
+        args.repeat_times = 2 ** 5
+        args.if_per_or_gae = True
+
+    args.eval_times = 2 ** 5  # evaluate times of the average episode return
+    train_and_evaluate(args)
+
+
+if __name__ == '__main__':
+    # demo_continuous_action_off_policy()
+    demo_continuous_action_on_policy()
+    # demo_discrete_action_off_policy()
+    # demo_discrete_action_on_policy()
