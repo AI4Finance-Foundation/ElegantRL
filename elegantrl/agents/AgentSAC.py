@@ -7,6 +7,19 @@ from elegantrl.agents.net import ActorSAC, CriticTwin, ShareSPG
 
 
 class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
+    """
+    Bases: ``AgentBase``
+    
+    Soft Actor-Critic algorithm. “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor”. Tuomas Haarnoja et al.. 2018.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassCri = CriticTwin
@@ -21,6 +34,9 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
         AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
                        reward_scale=reward_scale, gamma=gamma,
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
@@ -39,6 +55,12 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
             self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+        """
+        Select actions given an array of states.
+        
+        :param state: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
         state = state.to(self.device)
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             actions = self.act.get_action(state)
@@ -47,6 +69,15 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
         return actions.detach().cpu()
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_critic = None
@@ -74,6 +105,14 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
         return obj_critic, obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
 
@@ -86,6 +125,14 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
 
@@ -102,6 +149,19 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
 
 
 class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
+    """
+    Bases: ``AgentSAC``
+    
+    Modified SAC with introducing of reliable_lambda, to realize “Delayed” Policy Updates.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentSAC.__init__(self)
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
@@ -112,6 +172,9 @@ class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
         self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
                                       requires_grad=True, device=self.device)  # trainable parameter
@@ -137,6 +200,15 @@ class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
             self.get_obj_critic = self.get_obj_critic_raw
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:  # 1111
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_actor = None
