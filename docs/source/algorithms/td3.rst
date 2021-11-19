@@ -24,9 +24,10 @@ Code Snippet
 .. code-block:: python
 
     import torch
-    from elegantrl.run import Arguments, train_and_evaluate
-    from elegantrl.env import build_env
-    from elegantrl.agent import AgentTD3
+    from elegantrl.run import train_and_evaluate
+    from elegantrl.config import Arguments
+    from elegantrl.envs.gym import build_env
+    from elegantrl.agents.AgentTD3 import AgentTD3
     
     # train and save
     args = Arguments(env=build_env('Pendulum-v0'), agent=AgentTD3())
@@ -60,7 +61,7 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentTD3
+.. autoclass:: elegantrl.agents.AgentTD3.AgentTD3
    :members:
    
 .. _td3_networks:
@@ -68,8 +69,8 @@ Parameters
 Networks
 -------------
 
-.. autoclass:: elegantrl.net.Actor
+.. autoclass:: elegantrl.agents.net.Actor
    :members:
    
-.. autoclass:: elegantrl.net.CriticTwin
+.. autoclass:: elegantrl.agents.net.CriticTwin
    :members:
