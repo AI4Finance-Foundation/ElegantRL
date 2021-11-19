@@ -4,12 +4,37 @@ from elegantrl.agents.net import ActorDiscretePPO
 
 
 class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
+    """
+    Bases: ``AgentPPO``
+    
+    A2C algorithm. “Asynchronous Methods for Deep Reinforcement Learning”. Mnih V. et al.. 2016.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentPPO.__init__(self)
         print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
               '| Without TrustRegion, A2C needs special hyper-parameters, such as smaller repeat_times.')
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        .. note::
+            Using advantage normalization and entropy loss.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
@@ -53,11 +78,31 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
 
 
 class AgentDiscreteA2C(AgentA2C):
+    """
+    Bases: ``AgentA2C``
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentA2C.__init__(self)
         self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :param reward_scale: a reward scalar to clip the reward.
+        :param gamma: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.states[0]
 
         last_done = 0
@@ -81,6 +126,15 @@ class AgentDiscreteA2C(AgentA2C):
         return self.convert_trajectory(traj_list)
 
     def explore_vec_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
+        
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :param reward_scale: a reward scalar to clip the reward.
+        :param gamma: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         ten_states = self.states
 
         env_num = len(self.traj_list)
