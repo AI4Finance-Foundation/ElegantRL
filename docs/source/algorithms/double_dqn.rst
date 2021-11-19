@@ -22,9 +22,10 @@ Code Snippet
 .. code-block:: python
 
     import torch
-    from elegantrl.run import Arguments, train_and_evaluate
-    from elegantrl.env import build_env
-    from elegantrl.agent import AgentDoubleDQN
+    from elegantrl.run import train_and_evaluate
+    from elegantrl.config import Arguments
+    from elegantrl.envs.gym import build_env
+    from elegantrl.agents.AgentDoubleDQN import AgentDoubleDQN
     
     # train and save
     args = Arguments(env=build_env('CartPole-v0'), agent=AgentDoubleDQN())
@@ -57,7 +58,7 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentDoubleDQN
+.. autoclass:: elegantrl.agents.AgentDoubleDQN.AgentDoubleDQN
    :members:
    
 .. _dqn_networks:
@@ -65,8 +66,8 @@ Parameters
 Networks
 -------------
 
-.. autoclass:: elegantrl.net.QNet
+.. autoclass:: elegantrl.agents.net.QNetTwin
    :members:
    
-.. autoclass:: elegantrl.net.QNetDuel
+.. autoclass:: elegantrl.agents.net.QNetTwinDuel
    :members:
