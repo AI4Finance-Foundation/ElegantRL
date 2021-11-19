@@ -22,9 +22,10 @@ Code Snippet
 .. code-block:: python
 
     import torch
-    from elegantrl.run import Arguments, train_and_evaluate
-    from elegantrl.env import build_env
-    from elegantrl.agent import AgentA2C
+    from elegantrl.run import train_and_evaluate
+    from elegantrl.config import Arguments
+    from elegantrl.envs.gym import build_env
+    from elegantrl.agents.AgentA2C import AgentA2C
     
     # train and save
     args = Arguments(env=build_env('Pendulum-v0'), agent=AgentA2C())
@@ -58,10 +59,10 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentA2C
+.. autoclass:: elegantrl.agents.AgentA2C.AgentA2C
    :members:
    
-.. autoclass:: elegantrl.agent.AgentDiscreteA2C
+.. autoclass:: elegantrl.agents.AgentA2C.AgentDiscreteA2C
    :members:
    
 .. _a2c_networks:
@@ -69,11 +70,11 @@ Parameters
 Networks
 -------------
 
-.. autoclass:: elegantrl.net.ActorPPO
+.. autoclass:: elegantrl.agents.net.ActorPPO
    :members:
    
-.. autoclass:: elegantrl.net.ActorDiscretePPO
+.. autoclass:: elegantrl.agents.net.ActorDiscretePPO
    :members:
    
-.. autoclass:: elegantrl.net.CriticPPO
+.. autoclass:: elegantrl.agents.net.CriticPPO
    :members:
