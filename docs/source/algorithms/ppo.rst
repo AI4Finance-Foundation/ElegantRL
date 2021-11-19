@@ -23,9 +23,10 @@ Code Snippet
 .. code-block:: python
 
     import torch
-    from elegantrl.run import Arguments, train_and_evaluate
-    from elegantrl.env import build_env
-    from elegantrl.agent import AgentPPO
+    from elegantrl.run import train_and_evaluate
+    from elegantrl.config import Arguments
+    from elegantrl.envs.gym import build_env
+    from elegantrl.agents.AgentPPO import AgentPPO
     
     # train and save
     args = Arguments(env=build_env('BipedalWalker-v3'), agent=AgentPPO())
@@ -59,10 +60,10 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentPPO
+.. autoclass:: elegantrl.agents.AgentPPO.AgentPPO
    :members:
    
-.. autoclass:: elegantrl.agent.AgentDiscretePPO
+.. autoclass:: elegantrl.agents.AgentPPO.AgentDiscretePPO
    :members:
    
 .. _ppo_networks:
@@ -70,11 +71,11 @@ Parameters
 Networks
 -------------
 
-.. autoclass:: elegantrl.net.ActorPPO
+.. autoclass:: elegantrl.agents.net.ActorPPO
    :members:
    
-.. autoclass:: elegantrl.net.ActorDiscretePPO
+.. autoclass:: elegantrl.agents.net.ActorDiscretePPO
    :members:
    
-.. autoclass:: elegantrl.net.CriticPPO
+.. autoclass:: elegantrl.agents.net.CriticPPO
    :members:
