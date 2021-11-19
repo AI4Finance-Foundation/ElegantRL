@@ -22,9 +22,10 @@ Code Snippet
 .. code-block:: python
 
     import torch
-    from elegantrl.run import Arguments, train_and_evaluate
-    from elegantrl.env import build_env
-    from elegantrl.agent import AgentSAC
+    from elegantrl.run import train_and_evaluate
+    from elegantrl.config import Arguments
+    from elegantrl.envs.gym import build_env
+    from elegantrl.agents.AgentSAC import AgentSAC
     
     # train and save
     args = Arguments(env=build_env('Pendulum-v0'), agent=AgentSAC())
@@ -58,10 +59,10 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentSAC
+.. autoclass:: elegantrl.agents.AgentSAC.AgentSAC
    :members:
    
-.. autoclass:: elegantrl.agent.AgentModSAC
+.. autoclass:: elegantrl.agents.AgentSAC.AgentModSAC
    :members:
    
 .. _sac_networks:
@@ -69,8 +70,8 @@ Parameters
 Networks
 -------------
 
-.. autoclass:: elegantrl.net.ActorSAC
+.. autoclass:: elegantrl.agents.net.ActorSAC
    :members:
    
-.. autoclass:: elegantrl.net.CriticTwin
+.. autoclass:: elegantrl.agents.net.CriticTwin
    :members:
