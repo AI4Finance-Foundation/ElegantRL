@@ -8,6 +8,13 @@ import torch.nn as nn
 
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
+    """
+    Critic class for **Q-network**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -16,10 +23,22 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
                                  nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
+        """
+        The forward function for **Q-network**.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state)  # Q value
 
 
 class QNetDuel(nn.Module):  # Dueling DQN
+    """
+    Critic class for **Dueling Q-network**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -30,6 +49,11 @@ class QNetDuel(nn.Module):  # Dueling DQN
                                      nn.Linear(mid_dim, action_dim))  # Q value
 
     def forward(self, state):
+        """
+        The forward function for **Dueling Q-network**.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         t_tmp = self.net_state(state)  # tensor of encoded state
         q_adv = self.net_adv(t_tmp)
         q_val = self.net_val(t_tmp)
@@ -37,6 +61,13 @@ class QNetDuel(nn.Module):  # Dueling DQN
 
 
 class QNetTwin(nn.Module):  # Double DQN
+    """
+    Critic class for **Double DQN**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -47,15 +78,30 @@ class QNetTwin(nn.Module):  # Double DQN
                                     nn.Linear(mid_dim, action_dim))  # q2 value
 
     def forward(self, state):
+        """
+        The forward function for **Double DQN**.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         tmp = self.net_state(state)
         return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state):
+        """
+        TBD
+        """
         tmp = self.net_state(state)
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
 
 class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
+    """
+    Critic class for **Dueling Double DQN**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -70,12 +116,20 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
                                       nn.Linear(mid_dim, action_dim))  # advantage function value 1
 
     def forward(self, state):
+        """
+        The forward function for **Dueling Double DQN**.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         t_tmp = self.net_state(state)
         q_adv = self.net_adv1(t_tmp)
         q_val = self.net_val1(t_tmp)
         return q_adv + q_val - q_val.mean(dim=1, keepdim=True)  # one dueling Q value
 
     def get_q1_q2(self, state):
+        """
+        TBD
+        """
         tmp = self.net_state(state)
 
         adv1 = self.net_adv1(tmp)
@@ -92,6 +146,13 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
 
 
 class Actor(nn.Module):
+    """
+    A simple Actor class.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -100,15 +161,33 @@ class Actor(nn.Module):
                                  nn.Linear(mid_dim, action_dim))
 
     def forward(self, state):
+        """
+        The forward function.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state).tanh()  # action.tanh()
 
     def get_action(self, state, action_std):
+        """
+        The forward function with Gaussian noise.
+        :param state[np.array]: the input state.
+        :param action_std[float]: the standard deviation of the Gaussian distribution.
+        :return: the output tensor.
+        """
         action = self.net(state).tanh()
         noise = (torch.randn_like(action) * action_std).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
 
 
 class ActorSAC(nn.Module):
+    """
+    Actor class for **SAC** with stochastic, learnable, **state-dependent** log standard deviation..
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
         if if_use_dn:
@@ -131,16 +210,31 @@ class ActorSAC(nn.Module):
         self.soft_plus = nn.Softplus()
 
     def forward(self, state):
+        """
+        The forward function.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         tmp = self.net_state(state)
         return self.net_a_avg(tmp).tanh()  # action
 
     def get_action(self, state):
+        """
+        The forward function with noise.
+        :param state[np.array]: the input state.
+        :return: the action and added noise.
+        """
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
         a_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
     def get_action_logprob(self, state):
+        """
+        Compute the action and log of probability with current network.
+        :param state[np.array]: the input state.
+        :return: the action and log of probability.
+        """
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it needs a_avg.tanh()
         a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
@@ -181,6 +275,13 @@ class ActorSAC(nn.Module):
 
 
 class ActorPPO(nn.Module):
+    """
+    Actor class for **PPO** with stochastic, learnable, **state-independent** log standard deviation.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -199,9 +300,19 @@ class ActorPPO(nn.Module):
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
+        """
+        The forward function.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state).tanh()  # action.tanh()
 
     def get_action(self, state):
+        """
+        The forward function with Gaussian noise.
+        :param state[np.array]: the input state.
+        :return: the action and added noise.
+        """
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
@@ -210,6 +321,12 @@ class ActorPPO(nn.Module):
         return action, noise
 
     def get_logprob_entropy(self, state, action):
+        """
+        Compute the log of probability with current network.
+        :param state[np.array]: the input state.
+        :param action[float]: the action.
+        :return: the log of probability and entropy.
+        """
         a_avg = self.net(state)
         a_std = self.a_std_log.exp()
 
@@ -220,11 +337,24 @@ class ActorPPO(nn.Module):
         return logprob, dist_entropy
 
     def get_old_logprob(self, _action, noise):  # noise = action - a_noise
+        """
+        Compute the log of probability with old network.
+        :param _action[float]: the action.
+        :param noise[float]: the added noise when exploring.
+        :return: the log of probability with old network.
+        """
         delta = noise.pow(2) * 0.5
         return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
 
 
 class ActorDiscretePPO(nn.Module):
+    """
+    Actor class for **Discrete PPO**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -243,9 +373,19 @@ class ActorDiscretePPO(nn.Module):
         self.Categorical = torch.distributions.Categorical
 
     def forward(self, state):
+        """
+        The forward function.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state)  # action_prob without softmax
 
     def get_action(self, state):
+        """
+        The forward function with Softmax.
+        :param state[np.array]: the input state.
+        :return: the action index and probabilities.
+        """
         a_prob = self.soft_max(self.net(state))
         # dist = Categorical(a_prob)
         # a_int = dist.sample()
@@ -255,11 +395,23 @@ class ActorDiscretePPO(nn.Module):
         return a_int, a_prob
 
     def get_logprob_entropy(self, state, a_int):
+        """
+        Compute the log of probability with current network.
+        :param state[np.array]: the input state.
+        :param a_int[int]: the action.
+        :return: the log of probability and entropy.
+        """
         a_prob = self.soft_max(self.net(state))
         dist = self.Categorical(a_prob)
         return dist.log_prob(a_int), dist.entropy().mean()
 
     def get_old_logprob(self, a_int, a_prob):
+        """
+        Compute the log of probability with old network.
+        :param a_int[int]: the action.
+        :param a_prob[float]: the action probability.
+        :return: the log of probability with old network.
+        """
         dist = self.Categorical(a_prob)
         return dist.log_prob(a_int)
 
@@ -290,6 +442,13 @@ class ActorBiConv(nn.Module):
 
 
 class Critic(nn.Module):
+    """
+    A simple Critic class.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
@@ -298,10 +457,23 @@ class Critic(nn.Module):
                                  nn.Linear(mid_dim, 1))
 
     def forward(self, state, action):
+        """
+        The forward function.
+        :param state[np.array]: the input state.
+        :param action[float]: the input action.
+        :return: the output tensor.
+        """
         return self.net(torch.cat((state, action), dim=1))  # Q value
 
 
 class CriticTwin(nn.Module):  # shared parameter
+    """
+    The Critic class for **Clipped Double DQN**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
         if if_use_dn:
@@ -322,10 +494,22 @@ class CriticTwin(nn.Module):  # shared parameter
                                     nn.Linear(mid_dim, 1))  # q2 value
 
     def forward(self, state, action):
+        """
+        The forward function to ouput a single Q-value.
+        :param state[np.array]: the input state.
+        :param action[float]: the input action.
+        :return: the output tensor.
+        """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state, action):
+        """
+        The forward function to output two Q-values from two shared-paramter networks.
+        :param state[np.array]: the input state.
+        :param action[float]: the input action.
+        :return: the output tensor.
+        """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
@@ -385,6 +569,13 @@ class CriticMultiple(nn.Module):
 
 
 class CriticPPO(nn.Module):
+    """
+    The Critic class for **PPO**.
+    
+    :param mid_dim[int]: the middle dimension of networks
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    """
     def __init__(self, mid_dim, state_dim, _action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -399,6 +590,11 @@ class CriticPPO(nn.Module):
         layer_norm(self.net[-1], std=0.5)  # output layer for advantage value
 
     def forward(self, state):
+        """
+        The forward function to ouput the value of the state.
+        :param state[np.array]: the input state.
+        :return: the output tensor.
+        """
         return self.net(state)  # advantage value
 
 
