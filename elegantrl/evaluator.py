@@ -3,7 +3,7 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.10.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.11.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 
 class Evaluator:  # [ElegantRL.2021.10.13]
@@ -78,6 +78,9 @@ class Evaluator:  # [ElegantRL.2021.10.13]
                   f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
                   f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
             self.draw_plot()
+
+            if hasattr(self.eval_env, 'curriculum_learning_for_evaluator'):
+                self.eval_env.curriculum_learning_for_evaluator(r_avg)
         return if_reach_goal, if_save
 
     @staticmethod
@@ -207,3 +210,5 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
+
+
