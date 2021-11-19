@@ -149,11 +149,19 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
 
 
 class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
-    """Modified SAC
-    - reliable_lambda and TTUR (Two Time-scale Update Rule)
-    - modified REDQ (Randomized Ensemble Double Q-learning)
     """
-
+    Bases: ``AgentSAC``
+    
+    Modified SAC with introducing of reliable_lambda, to realize “Delayed” Policy Updates.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentSAC.__init__(self)
         self.ClassCri = CriticMultiple  # REDQ ensemble (parameter sharing)
@@ -162,6 +170,15 @@ class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
         self.if_use_act_target = True
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_actor = None
@@ -199,6 +216,14 @@ class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
         return self.obj_critic, obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
 
@@ -214,6 +239,14 @@ class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             # reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
@@ -234,19 +267,6 @@ class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
 
 
 class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
-    """
-    Bases: ``AgentSAC``
-    
-    Modified SAC with introducing of reliable_lambda, to realize “Delayed” Policy Updates.
-    
-    :param net_dim[int]: the dimension of networks (the width of neural networks)
-    :param state_dim[int]: the dimension of state (the number of state vector)
-    :param action_dim[int]: the dimension of action (the number of discrete action)
-    :param learning_rate[float]: learning rate of optimizer
-    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
-    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
-    """
     def __init__(self):
         AgentSAC.__init__(self)
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
@@ -285,15 +305,6 @@ class AgentShareSAC(AgentSAC):  # Integrated Soft Actor-Critic
             self.get_obj_critic = self.get_obj_critic_raw
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:  # 1111
-        """
-        Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
-        :param buffer: the ReplayBuffer instance that stores the trajectories.
-        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :param repeat_times: the re-using times of each trajectory.
-        :param soft_update_tau: the soft update parameter.
-        :return: a tuple of the log information.
-        """
         buffer.update_now_len()
 
         obj_actor = None
