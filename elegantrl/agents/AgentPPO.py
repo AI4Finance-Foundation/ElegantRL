@@ -5,6 +5,19 @@ from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
 
 
 class AgentPPO(AgentBase):
+    """
+    Bases: ``AgentBase``
+    
+    PPO algorithm. “Proximal Policy Optimization Algorithms”. John Schulman. et al.. 2017.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassAct = ActorPPO
@@ -19,6 +32,9 @@ class AgentPPO(AgentBase):
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
         AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
                        reward_scale=reward_scale, gamma=gamma,
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
@@ -36,6 +52,12 @@ class AgentPPO(AgentBase):
             self.explore_env = self.explore_vec_env
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
+        """
+        Select an action given a state.
+        
+        :param state: a state in a shape (state_dim, ).
+        :return: a action in a shape (action_dim, ) where each action is clipped into range(-1, 1).
+        """
         s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
         a_tensor = self.act(s_tensor)
         action = a_tensor.detach().cpu().numpy()
@@ -43,15 +65,25 @@ class AgentPPO(AgentBase):
 
     def select_actions(self, state: torch.Tensor) -> tuple:
         """
-        `tensor state` state.shape = (batch_size, state_dim)
-        return `tensor action` action.shape = (batch_size, action_dim)
-        return `tensor noise` noise.shape = (batch_size, action_dim)
+        Select actions given an array of states.
+        
+        :param state: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         state = state.to(self.device)
         action, noise = self.act.get_action(state)
         return action.detach().cpu(), noise.detach().cpu()
 
     def explore_one_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :param reward_scale: a reward scalar to clip the reward.
+        :param gamma: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.states[0]
 
         last_done = 0
@@ -75,6 +107,15 @@ class AgentPPO(AgentBase):
         return self.convert_trajectory(traj_list)  # [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
+        
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :param reward_scale: a reward scalar to clip the reward.
+        :param gamma: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         ten_states = self.states
 
         env_num = len(self.traj_list)
@@ -99,6 +140,18 @@ class AgentPPO(AgentBase):
         return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        .. note::
+            Using advantage normalization and entropy loss.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
@@ -145,6 +198,15 @@ class AgentPPO(AgentBase):
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the **reward-to-go** and **advantage estimation**.
+        
+        :param buf_len: the length of the ``ReplayBuffer``.
+        :param buf_reward: a list of rewards for the state-action pairs.
+        :param buf_mask: a list of masks computed by the product of done signal and discount factor.
+        :param buf_value: a list of state values estimiated by the ``Critic`` network.
+        :return: the reward-to-go and advantage estimation.
+        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
 
         pre_r_sum = 0
@@ -155,6 +217,15 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the **reward-to-go** and **advantage estimation** using GAE.
+        
+        :param buf_len: the length of the ``ReplayBuffer``.
+        :param buf_reward: a list of rewards for the state-action pairs.
+        :param buf_mask: a list of masks computed by the product of done signal and discount factor.
+        :param buf_value: a list of state values estimiated by the ``Critic`` network.
+        :return: the reward-to-go and advantage estimation.
+        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
         buf_adv_v = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -169,6 +240,13 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def splice_trajectory(self, traj_list, last_done_list):
+        """
+        Splice and concatenate trajectories.
+        
+        :param traj_list: a list of trajectories.
+        :param last_done_list: a list of indexes of done signals.
+        :return: a trajectory list.
+        """
         for env_i in range(self.env_num):
             last_done = last_done_list[env_i]
             traj_temp = traj_list[env_i]
@@ -178,6 +256,14 @@ class AgentPPO(AgentBase):
         return traj_list
 
     def convert_trajectory(self, traj_list):
+        """
+        Process the trajectory list, rescale the rewards and calculate the masks.
+        
+        :param traj_list: a list of trajectories.
+        :param reward_scale: a reward scalar to clip the reward.
+        :param gamma: the discount factor.
+        :return: a trajectory list.
+        """
         for traj in traj_list:
             temp = list(map(list, zip(*traj)))  # 2D-list transpose
 
@@ -192,11 +278,31 @@ class AgentPPO(AgentBase):
 
 
 class AgentDiscretePPO(AgentPPO):
+    """
+    Bases: ``AgentPPO``
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentPPO.__init__(self)
         self.ClassAct = ActorDiscretePPO
 
     def explore_one_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env[object]: the DRL environment instance.
+        :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.states[0]
 
         last_done = 0
@@ -220,6 +326,15 @@ class AgentDiscretePPO(AgentPPO):
         return self.convert_trajectory(traj_list)
 
     def explore_vec_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
+        
+        :param env[object]: the DRL environment instance.
+        :param target_step[int]: the total step for the interaction.
+        :param reward_scale[float]: a reward scalar to clip the reward.
+        :param gamma[float]: the discount factor.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         ten_states = self.states
 
         env_num = len(self.traj_list)
