@@ -6,7 +6,7 @@ from elegantrl.agents.net import QNetTwin, QNetTwinDuel
 
 class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     """
-    Bases: ``elegantrl.agent.AgentDQN``
+    Bases: ``AgentDQN``
     
     Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. H. V. Hasselt et al.. 2015.
     

@@ -7,7 +7,7 @@ from elegantrl.agents.net import Actor, Critic
 
 class AgentDDPG(AgentBase):
     """
-    Bases: ``elegantrl.agent.AgentBase``
+    Bases: ``AgentBase``
     
     Deep Deterministic Policy Gradient algorithm. “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.
     
@@ -47,17 +47,17 @@ class AgentDDPG(AgentBase):
             self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
+    def select_actions(self, states: torch.Tensor) -> torch.Tensor:
         """
         Select actions given an array of states.
         
         .. note::
             Using ϵ-greedy with Ornstein–Uhlenbeck noise to add noise to actions for randomness.
         
-        :param state: an array of states in a shape (batch_size, state_dim, ).
+        :param states: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
-        action = self.act(state.to(self.device))
+        action = self.act(states.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             ou_noise = torch.as_tensor(self.ou_noise(), dtype=torch.float32, device=self.device).unsqueeze(0)
             action = (action + ou_noise).clamp(-1, 1)

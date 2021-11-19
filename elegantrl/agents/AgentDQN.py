@@ -6,7 +6,7 @@ from elegantrl.agents.net import QNet, QNetDuel
 
 class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
     """
-    Bases: ``elegantrl.agent.AgentBase``
+    Bases: ``AgentBase``
 
     Deep Q-Network algorithm. “Human-Level Control Through Deep Reinforcement Learning”. Mnih V. et al.. 2015.
 
