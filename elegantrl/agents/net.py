@@ -25,6 +25,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     def forward(self, state):
         """
         The forward function for **Q-network**.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -51,6 +52,7 @@ class QNetDuel(nn.Module):  # Dueling DQN
     def forward(self, state):
         """
         The forward function for **Dueling Q-network**.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -80,6 +82,7 @@ class QNetTwin(nn.Module):  # Double DQN
     def forward(self, state):
         """
         The forward function for **Double DQN**.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -118,6 +121,7 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
     def forward(self, state):
         """
         The forward function for **Dueling Double DQN**.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -163,6 +167,7 @@ class Actor(nn.Module):
     def forward(self, state):
         """
         The forward function.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -171,6 +176,7 @@ class Actor(nn.Module):
     def get_action(self, state, action_std):
         """
         The forward function with Gaussian noise.
+        
         :param state[np.array]: the input state.
         :param action_std[float]: the standard deviation of the Gaussian distribution.
         :return: the output tensor.
@@ -212,6 +218,7 @@ class ActorSAC(nn.Module):
     def forward(self, state):
         """
         The forward function.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -221,6 +228,7 @@ class ActorSAC(nn.Module):
     def get_action(self, state):
         """
         The forward function with noise.
+        
         :param state[np.array]: the input state.
         :return: the action and added noise.
         """
@@ -232,6 +240,7 @@ class ActorSAC(nn.Module):
     def get_action_logprob(self, state):
         """
         Compute the action and log of probability with current network.
+        
         :param state[np.array]: the input state.
         :return: the action and log of probability.
         """
@@ -302,6 +311,7 @@ class ActorPPO(nn.Module):
     def forward(self, state):
         """
         The forward function.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -310,6 +320,7 @@ class ActorPPO(nn.Module):
     def get_action(self, state):
         """
         The forward function with Gaussian noise.
+        
         :param state[np.array]: the input state.
         :return: the action and added noise.
         """
@@ -323,6 +334,7 @@ class ActorPPO(nn.Module):
     def get_logprob_entropy(self, state, action):
         """
         Compute the log of probability with current network.
+        
         :param state[np.array]: the input state.
         :param action[float]: the action.
         :return: the log of probability and entropy.
@@ -339,6 +351,7 @@ class ActorPPO(nn.Module):
     def get_old_logprob(self, _action, noise):  # noise = action - a_noise
         """
         Compute the log of probability with old network.
+        
         :param _action[float]: the action.
         :param noise[float]: the added noise when exploring.
         :return: the log of probability with old network.
@@ -375,6 +388,7 @@ class ActorDiscretePPO(nn.Module):
     def forward(self, state):
         """
         The forward function.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
@@ -383,6 +397,7 @@ class ActorDiscretePPO(nn.Module):
     def get_action(self, state):
         """
         The forward function with Softmax.
+        
         :param state[np.array]: the input state.
         :return: the action index and probabilities.
         """
@@ -397,6 +412,7 @@ class ActorDiscretePPO(nn.Module):
     def get_logprob_entropy(self, state, a_int):
         """
         Compute the log of probability with current network.
+        
         :param state[np.array]: the input state.
         :param a_int[int]: the action.
         :return: the log of probability and entropy.
@@ -408,6 +424,7 @@ class ActorDiscretePPO(nn.Module):
     def get_old_logprob(self, a_int, a_prob):
         """
         Compute the log of probability with old network.
+        
         :param a_int[int]: the action.
         :param a_prob[float]: the action probability.
         :return: the log of probability with old network.
@@ -459,6 +476,7 @@ class Critic(nn.Module):
     def forward(self, state, action):
         """
         The forward function.
+        
         :param state[np.array]: the input state.
         :param action[float]: the input action.
         :return: the output tensor.
@@ -496,6 +514,7 @@ class CriticTwin(nn.Module):  # shared parameter
     def forward(self, state, action):
         """
         The forward function to ouput a single Q-value.
+        
         :param state[np.array]: the input state.
         :param action[float]: the input action.
         :return: the output tensor.
@@ -506,6 +525,7 @@ class CriticTwin(nn.Module):  # shared parameter
     def get_q1_q2(self, state, action):
         """
         The forward function to output two Q-values from two shared-paramter networks.
+        
         :param state[np.array]: the input state.
         :param action[float]: the input action.
         :return: the output tensor.
@@ -592,6 +612,7 @@ class CriticPPO(nn.Module):
     def forward(self, state):
         """
         The forward function to ouput the value of the state.
+        
         :param state[np.array]: the input state.
         :return: the output tensor.
         """
