@@ -5,6 +5,19 @@ from elegantrl.agents.net import CriticTwin
 
 
 class AgentTD3(AgentBase):
+    """
+    Bases: ``AgentBase``
+    
+    Twin Delayed DDPG algorithm. “Addressing Function Approximation Error in Actor-Critic Methods”. Scott Fujimoto. et al.. 2015.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param learning_rate[float]: learning rate of optimizer
+    :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
+    """
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassAct = Actor
@@ -18,6 +31,9 @@ class AgentTD3(AgentBase):
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+        """
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        """
         AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
                        reward_scale=reward_scale, gamma=gamma,
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
@@ -30,6 +46,15 @@ class AgentTD3(AgentBase):
             self.get_obj_critic = self.get_obj_critic_raw
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         obj_critic = None
@@ -49,6 +74,13 @@ class AgentTD3(AgentBase):
         return obj_critic.item() / 2, obj_actor.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
@@ -59,9 +91,12 @@ class AgentTD3(AgentBase):
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size):
-        """Prioritized Experience Replay
-
-        Contributor: Github GyChou
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
