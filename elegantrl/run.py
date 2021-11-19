@@ -8,7 +8,7 @@ import numpy.random as rd
 import multiprocessing as mp
 
 from elegantrl.env import build_env, build_eval_env
-from elegantrl.replay import ReplayBuffer, ReplayBufferMP
+from elegantrl.replay_buffer import ReplayBuffer, ReplayBufferMP
 from elegantrl.evaluator import Evaluator
 
 """[ElegantRL.2021.10.21](https://github.com/AI4Finance-Foundation/ElegantRL)"""
