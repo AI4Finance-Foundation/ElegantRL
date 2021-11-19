@@ -63,7 +63,7 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agent.AgentDQN
+.. autoclass:: elegantrl.agents.AgentDQN.AgentDQN
    :members:
    
 .. _dqn_networks:
