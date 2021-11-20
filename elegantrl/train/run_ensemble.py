@@ -1,5 +1,5 @@
-from elegantrl.run_parallel import *
-from elegantrl.run_tutorial import *
+from elegantrl.train.run_parallel import *
+from elegantrl.train.run_tutorial import *
 import random as rd
 '''run.py'''
 
@@ -265,7 +265,7 @@ class PipeLearner:
 '''run'''
 from elegantrl.agents.AgentPPO import AgentPPO
 from elegantrl.agents.AgentA2C import AgentA2C
-from elegantrl.config import Arguments
+from elegantrl.train.config import Arguments
 
 
 def demo_continuous_action_on_policy():  # [ElegantRL.2021.11.11]

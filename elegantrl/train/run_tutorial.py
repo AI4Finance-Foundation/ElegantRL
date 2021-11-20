@@ -3,8 +3,8 @@ import time
 import torch
 import numpy as np
 from elegantrl.envs.gym import build_env, build_eval_env
-from elegantrl.replay_buffer import ReplayBuffer
-from elegantrl.evaluator import Evaluator
+from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.evaluator import Evaluator
 
 """[ElegantRL.2021.10.21](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 

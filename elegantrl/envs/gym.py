@@ -430,8 +430,8 @@ def demo_get_video_to_watch_gym_render():
 
 def train_save_eval_watch():  # need to check
     # from elegantrl.env import build_env
-    from elegantrl.run_tutorial import train_and_evaluate
-    from elegantrl.config import Arguments
+    from elegantrl.train.run_tutorial import train_and_evaluate
+    from elegantrl.train.config import Arguments
     from elegantrl.agents.AgentDoubleDQN import AgentDoubleDQN
 
     env = build_env('CartPole-v0')
