@@ -3,13 +3,8 @@
   <component name="ChangeListManager">
     <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/eRL_demo_BipedalWalker.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/eRL_demo_PPOinSingleFile.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/eRL_demo_SACinSingleFile.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/eRL_demo_StockTrading.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/eRL_demos.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/tutorial_LunarLander.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/tutorial_CartPole.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/evaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/evaluator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/tutorial_CartPole.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/tutorial_Pendulum.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -44,14 +39,14 @@
       <usages-collector id="statistics.file.extensions.open">
         <counts>
           <entry key="md" value="1" />
-          <entry key="py" value="104" />
+          <entry key="py" value="106" />
           <entry key="rst" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Markdown" value="1" />
-          <entry key="Python" value="104" />
+          <entry key="Python" value="106" />
           <entry key="ReST" value="1" />
         </counts>
       </usages-collector>
@@ -71,7 +66,7 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="289">
@@ -84,10 +79,34 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl/tutorial_CartPole.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="340">
-              <caret line="20" lean-forward="true" selection-start-line="20" selection-end-line="20" />
+            <state relative-caret-position="306">
+              <caret line="18" selection-start-line="18" selection-end-line="18" />
+              <folding>
+                <element signature="e#0#9#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1157">
+              <caret line="278" lean-forward="true" selection-start-line="278" selection-end-line="278" />
+              <folding>
+                <element signature="e#0#9#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/elegantrl/tutorial_Pendulum.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="85">
+              <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
               <folding>
                 <element signature="e#0#42#0" expanded="true" />
               </folding>
@@ -150,7 +169,6 @@
         <option value="$PROJECT_DIR$/elegantrl/run_em.py" />
         <option value="$PROJECT_DIR$/elegantrl/run_ensemble.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/run_ensemble.py" />
-        <option value="$PROJECT_DIR$/elegantrl/train/evaluator.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/config.py" />
         <option value="$PROJECT_DIR$/elegantrl/envs/Gym.py" />
@@ -161,6 +179,8 @@
         <option value="$PROJECT_DIR$/elegantrl/tutorial_LunarLander.py" />
         <option value="$PROJECT_DIR$/elegantrl/tutorial_CartPole.py" />
         <option value="$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py" />
+        <option value="$PROJECT_DIR$/elegantrl/tutorial_Pendulum.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/evaluator.py" />
       </list>
     </option>
   </component>
@@ -189,6 +209,12 @@
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
               <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
+              <item name="train" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -301,7 +327,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\tutorial_CartPole.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\tutorial_Pendulum.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -541,13 +567,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="51">
-          <caret line="3" column="18" selection-start-line="3" selection-start-column="18" selection-end-line="3" selection-end-column="18" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="68">
@@ -616,16 +635,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="125">
-          <caret line="18" selection-start-line="18" selection-end-line="18" />
-          <folding>
-            <element signature="e#0#9#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/eRL_demo_PPOinSingleFile.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-9791">
@@ -645,22 +654,42 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/tutorial_CartPole.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="340">
-          <caret line="20" lean-forward="true" selection-start-line="20" selection-end-line="20" />
-          <folding>
-            <element signature="e#0#42#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="289">
           <caret line="17" column="17" lean-forward="true" selection-start-line="17" selection-start-column="17" selection-end-line="17" selection-end-column="17" />
           <folding>
             <element signature="e#0#42#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="306">
+          <caret line="18" selection-start-line="18" selection-end-line="18" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/tutorial_Pendulum.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="85">
+          <caret line="5" lean-forward="true" selection-start-line="5" selection-end-line="5" />
+          <folding>
+            <element signature="e#0#42#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1157">
+          <caret line="278" lean-forward="true" selection-start-line="278" selection-end-line="278" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
           </folding>
         </state>
       </provider>
