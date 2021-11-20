@@ -31,7 +31,7 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
         env = gym.make(env_name)
         env = PreprocessEnv(env, if_print=if_print)  # todo plan to be elegant
     elif env_name == 'CarRacingFix':  # Box2D
-        from envs.CarRacingFix import CarRacingFix
+        from elegantrl.envs.CarRacingFix import CarRacingFix
         env = CarRacingFix()
         if if_print:  # todo plan to be elegant
             print(f"\n| env_name:  {env.env_name}, action if_discrete: {env.if_discrete}"
@@ -48,7 +48,7 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
 
     '''NVIDIA Isaac gym'''
     if env_name.find('Isaac') >= 0:
-        from envs.IsaacGym import PreprocessIsaacOneEnv, PreprocessIsaacVecEnv
+        from elegantrl.envs.IsaacGym import PreprocessIsaacOneEnv, PreprocessIsaacVecEnv
 
         env_last_name = env_name[11:]
         assert env_last_name in {'Ant', 'Humanoid'}
@@ -362,7 +362,7 @@ def demo_get_video_to_watch_gym_render():
 
     '''init agent'''
     # agent = None   # means use random action
-    from elegantrl.agent import AgentPPO
+    from elegantrl.agents.AgentPPO import AgentPPO
     agent = AgentPPO()  # means use the policy network which saved in cwd
     agent_cwd = '/mnt/sdb1/Yonv/code/ElegantRL/AgentPPO_CarRacingFix_3'
     net_dim = 2 ** 8
@@ -430,8 +430,9 @@ def demo_get_video_to_watch_gym_render():
 
 def train_save_eval_watch():  # need to check
     # from elegantrl.env import build_env
-    from elegantrl.run import Arguments, train_and_evaluate
-    from elegantrl.agent import AgentDoubleDQN
+    from elegantrl.run_tutorial import train_and_evaluate
+    from elegantrl.config import Arguments
+    from elegantrl.agents.AgentDoubleDQN import AgentDoubleDQN
 
     env = build_env('CartPole-v0')
     agent = AgentDoubleDQN()

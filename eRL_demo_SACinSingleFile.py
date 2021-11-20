@@ -217,7 +217,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
         return self.obj_c, obj_actor.item(), alpha.item()
 
 
-'''run.py'''
+'''run_tutorial.py'''
 
 
 class Arguments:

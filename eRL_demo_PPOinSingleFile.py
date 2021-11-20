@@ -266,7 +266,7 @@ class AgentDiscretePPO(AgentPPO):
         return trajectory_list
 
 
-'''run.py'''
+'''run_tutorial.py'''
 
 
 class Arguments:
