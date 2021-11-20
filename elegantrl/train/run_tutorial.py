@@ -90,7 +90,6 @@ def train_and_evaluate(args, learner_id=0):  # 2021.11.11
         with torch.no_grad():
             traj_list = agent.explore_env(env, target_step)
             steps, r_exp = update_buffer(traj_list)
-
         logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
         with torch.no_grad():
             if_reach_goal, if_save = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)

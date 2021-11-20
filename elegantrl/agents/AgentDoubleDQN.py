@@ -27,10 +27,9 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
         """
+        self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
         AgentDQN.init(self, net_dim, state_dim, action_dim, learning_rate, reward_scale, gamma,
                       if_per_or_gae, env_num, gpu_id)
-
-        self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
 
         if if_per_or_gae:  # if_use_per
             self.criterion = torch.nn.SmoothL1Loss(reduction='none')

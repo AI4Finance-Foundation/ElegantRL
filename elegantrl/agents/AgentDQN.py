@@ -29,7 +29,8 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
         """
-        self.ClassCri = QNetDuel if self.if_use_dueling else QNet
+        if self.ClassCri is None:
+            self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
                        reward_scale=reward_scale, gamma=gamma,
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
