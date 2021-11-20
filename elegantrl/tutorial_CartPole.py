@@ -7,13 +7,14 @@ import gym
 gym.logger.set_level(40)  # Block warning
 
 agent = AgentDoubleDQN()
-env = build_env('LunarLander-v2')
+env = build_env('CartPole-v0')
 args = Arguments(env, agent)
 
-args.max_memo = 2 ** 19
-args.if_use_cri_target = True
-args.agent.if_use_dueling = True  # using Dueling DQN trick
+args.target_return = 195
+
 args.reward_scale = 2 ** -1
-args.target_step = args.env.max_step
+args.target_step = args.env.max_step * 4
+
+args.eval_gap = 2 ** 5
 
 train_and_evaluate(args)  # the training process will terminate once it reaches the target reward.

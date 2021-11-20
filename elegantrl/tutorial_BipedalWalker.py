@@ -1,17 +1,21 @@
 from elegantrl.train.run_tutorial import *
 from elegantrl.train.config import Arguments
-from elegantrl.agents.AgentPPO import AgentPPO
-from elegantrl.envs.Gym import PreprocessEnv
+from elegantrl.agents.AgentTD3 import AgentTD3
+from elegantrl.envs.Gym import build_env
 import gym
 
 gym.logger.set_level(40)  # Block warning
 
-agent = AgentPPO()  # AgentSAC(), AgentTD3(), AgentDDPG()
-env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
-args = Arguments(agent, env)
 
-args.reward_scale = 2 ** -1  # RewardRange: -200 < -150 < 300 < 334
-args.gamma = 0.95
-args.rollout_num = 2  # the number of rollout workers (larger is not always faster)
+# demo for continuous action space + off policy algorithms
+agent = AgentTD3()
+env = build_env('BipedalWalker-v3')
+args = Arguments(env, agent)
+
+args.eval_times1 = 2 ** 3
+args.eval_times2 = 2 ** 5
+
+args.gamma = 0.98
+args.target_step = args.env.max_step
 
 train_and_evaluate(args)
