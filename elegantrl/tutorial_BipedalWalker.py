@@ -1,7 +1,7 @@
 from elegantrl.train.run_tutorial import *
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentPPO import AgentPPO
-from elegantrl.envs.gym import PreprocessEnv
+from elegantrl.envs.Gym import PreprocessEnv
 import gym
 
 gym.logger.set_level(40)  # Block warning

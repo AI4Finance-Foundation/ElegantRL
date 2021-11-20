@@ -3,8 +3,6 @@ import time
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.11.10](https://github.com/AI4Finance-Foundation/ElegantRL)"""
-
 
 class Evaluator:  # [ElegantRL.2021.10.13]
     def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):

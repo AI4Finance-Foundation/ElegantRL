@@ -2,8 +2,6 @@ import os
 import torch
 import numpy as np
 
-"""[ElegantRL.2021.10.21](https://github.com/AI4Finance-Foundation/ElegantRL)"""
-
 
 class Arguments:  # [ElegantRL.2021.10.21]
     def __init__(self, env, agent):
@@ -43,7 +41,9 @@ class Arguments:  # [ElegantRL.2021.10.21]
         self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
         self.random_seed = 0  # initialize random seed in self.init_before_training()
         self.learner_gpus = (0,)  # for example: os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-        self.workers_gpus = self.learner_gpus  # for isaac gym
+        self.workers_gpus = self.learner_gpus  # for GPU_VectorEnv (such as isaac gym)
+        self.ensemble_gpus = None  # for example: (learner_gpus0, ...)
+        self.ensemble_gap = 2 ** 8
 
         '''Arguments for evaluate and save'''
         self.cwd = None  # the directory path to save the model
@@ -56,7 +56,7 @@ class Arguments:  # [ElegantRL.2021.10.21]
         self.eval_times1 = 2 ** 2  # number of times that get episode return in first
         self.eval_times2 = 2 ** 4  # number of times that get episode return in second
         self.eval_gpu_id = None  # -1 means use cpu, >=0 means use GPU, None means set as learner_gpus[0]
-        self.if_overwrite = False  # Save policy networks with different episode return or overwrite
+        self.if_overwrite = True  # Save policy networks with different episode return or overwrite
 
     def init_before_training(self):
         np.random.seed(self.random_seed)
@@ -68,7 +68,7 @@ class Arguments:  # [ElegantRL.2021.10.21]
         assert isinstance(self.env_num, int)
         assert isinstance(self.max_step, int)
         assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
-        assert isinstance(self.action_dim, int)
+        assert isinstance(self.action_dim, int) or isinstance(self.action_dim, tuple)
         assert isinstance(self.if_discrete, bool)
         assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
 
