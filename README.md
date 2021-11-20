@@ -95,16 +95,7 @@ A high-level overview:
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually breaks.
 
-## Experiment
-
-### Experiment 1 Comparisons with benchmark algorithms
-
-
-
-### Experiment 2 Self-comparisons
-
-It is easy to run the 
-
+## Experiments
 
 ## Experimental Demos 
 
