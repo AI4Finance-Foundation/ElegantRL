@@ -14,6 +14,7 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
         env_name = env
     else:
         env_name = env.env_name
+        original_env = env
     env = None
 
     '''OpenAI gym classical control'''
@@ -84,7 +85,7 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
 
     if env is None:
         try:
-            env = deepcopy(env)
+            env = deepcopy(original_env)
             print(f"| build_env(): Warning. NOT suggest to use `deepcopy(env)`. env_name: {env_name}")
         except Exception as error:
             print(f"| build_env(): Error. {error}")
