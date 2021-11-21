@@ -1,7 +1,7 @@
 import os
 import numpy.random as rd
 from copy import deepcopy
-from elegantrl.tutorial.net import *
+from elegantrl_helloworld.net import *
 
 
 class AgentBase:

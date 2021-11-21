@@ -6,6 +6,7 @@ import gym
 
 gym.logger.set_level(40)  # Block warning
 
+# demo for continuous action space + on policy algorithms
 agent = AgentPPO()
 env = build_env('Pendulum-v1')
 args = Arguments(env, agent)

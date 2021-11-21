@@ -208,5 +208,3 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
-
-
