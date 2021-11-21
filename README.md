@@ -46,7 +46,7 @@ For the details of DRL algorithms, please check out the educational webpage [Ope
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208)
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f)
 
-## Framework ([tutorial folder](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/tutorial))
+## Framework ([Helloworld folder](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld))
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
    An agent (**agent.py**) with Actor-Critic networks (**net.py**) is trained (**run.py**) by interacting with an environment (**env.py**).
