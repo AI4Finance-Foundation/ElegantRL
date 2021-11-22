@@ -1,4 +1,5 @@
 import time
+from elegantrl_helloworld.agent import *
 from elegantrl_helloworld.env import *
 
 gym.logger.set_level(40)  # Block warning
