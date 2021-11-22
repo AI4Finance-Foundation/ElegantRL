@@ -122,7 +122,7 @@ Note: BipedalWalkerHardcore is a difficult task in continuous action space. Ther
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots. 
     
-    pip3 install gym==1.17.0 pybullet Box2D matplotlib
+    pip3 install gym==0.17.0 pybullet Box2D matplotlib
     
 
 ## Citation:
