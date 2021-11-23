@@ -60,11 +60,11 @@ A high-level overview:
 
 ## Code Structure
 ### Core Codes
-+ **elegantrl/net.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Neural networks.
++ **elegantrl/agents/net.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Neural networks.
    + Q-Net,
    + Actor network,
    + Critic network, 
-+ **elegantrl/agent.py**  &nbsp;&nbsp;# RL algorithms. 
++ **elegantrl/agents/Agent___.py**  &nbsp;&nbsp;# RL algorithms. 
    + AgentBase, 
 + **elegantrl/run.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
    + Parameter initialization,
