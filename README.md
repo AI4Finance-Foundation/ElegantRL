@@ -66,7 +66,7 @@ A high-level overview:
    + Critic network, 
 + **elegantrl/agents/Agent___.py**  &nbsp;&nbsp;# RL algorithms. 
    + AgentBase, 
-+ **elegantrl/run.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
++ **elegantrl/train/run___.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
    + Parameter initialization,
    + Training loop,
    + Evaluator.
