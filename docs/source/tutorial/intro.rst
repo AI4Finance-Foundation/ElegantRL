@@ -5,7 +5,7 @@ ElegantRL HelloWorld
 Welcome to ElegantRL Helloworld! In this section, we will help you understand and use ElegantRL by introducing the main structure, functionality of codes, and how to run.
 
 .. contents:: Table of Contents
-    :depth: 2
+    :depth: 3
 
 Structure
 =========
