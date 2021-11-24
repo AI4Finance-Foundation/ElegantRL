@@ -10,7 +10,7 @@ Welcome to ElegantRL Helloworld! In this section, we will help you understand an
 Structure
 =========
 
-.. figure:: ../../../../figs/File_structure.png
+.. figure:: ../images/File_structure.png
     :align: center
 
 An agent (*agent.py*) with Actor-Critic networks (*net.py*) is trained (*run.py*) by interacting with an environment (*env.py*).
@@ -22,3 +22,12 @@ Our `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/eleg
 Network are the core of DRL, which will be updated in each step (might not be the case for some specific algs) during training time.
 
 For detail explanation, please refer to the page of `Networks <https://elegantrl.readthedocs.io/en/latest/tutorial/net.html>`_.
+
+agent.py
+--------
+
+env.py
+------
+
+run.py
+------
