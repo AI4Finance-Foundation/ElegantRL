@@ -9,8 +9,8 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
         Network that takes state as input and computes Q values for actions as output.
 
         :param mid_dim[int]: the middle dimension of networks
-        :param state_dim[int]: the dimension of state (the number of state vector)
-        :param action_dim[int]: the dimension of action (the number of discrete action)
+        :param state_dim[int]: the dimension of state
+        :param action_dim[int]: the dimension of action
         """
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -20,7 +20,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
     def forward(self, state):
         """
-        The forward function that take a state as input and compute corresponding output Q values for actions.
+        The forward function that takes a state as input and computes corresponding output Q values for actions.
 
         :param state[np.ndarray]: an array of states.
         :return: an array of actions.
