@@ -77,7 +77,7 @@ A high-level overview:
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
 + **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
 + **eRL_demos.ipynb**       &nbsp;&nbsp;&nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial version and advanced version.
-+ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use single file to train PPO, more simple than tutorial version
++ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use a single file to train PPO, more simple than tutorial version
 + **eRL_demo_StockTrading.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
 
 ## Start to Train
@@ -108,7 +108,7 @@ The while-loop will terminate when the conditions are met, e.g., achieving a tar
 
 <img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="100"/>
 
-Note: BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward. Check out a experiment video: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
+Note: BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can reach the target reward. Check out an experiment video: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC).
 
 ## Requirements
 
