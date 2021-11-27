@@ -27,16 +27,16 @@ For detail explanation, please refer to the page of `Networks <https://elegantrl
 agent.py
 --------
 
-Our `agent.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/agent.py>`_ contains classes of different DRL agents which implement all kinds of DRL algorithms and their variations.
+`agent.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/agent.py>`_ contains classes of different DRL agents which implement different DRL algorithms and their variations.
 
-In this helloWorld, we will focus on DQN, PPO, SAC, and a discrete version of PPO, which are few most popular and commonly used algorithms in DRL.
+In this helloWorld, we will focus on DQN, PPO, SAC, and a discrete version of PPO, which are the most popular and commonly used DRL algorithms.
 
 For detail explanation, please refer to the page of `Networks <https://elegantrl.readthedocs.io/en/latest/tutorial/agent.html>`_.
 
 env.py
 ------
 
-Our `env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/env.py>`_
+`env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/env.py>`_
 
 run.py
 ------
