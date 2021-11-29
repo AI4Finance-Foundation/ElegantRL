@@ -6,6 +6,10 @@ from elegantrl_helloworld.net import *
 
 class AgentBase:
     def __init__(self):
+        """initialize
+        
+        replace by different DRL algorithms
+        """
         self.state = None
         self.device = None
         self.action_dim = None
@@ -18,6 +22,18 @@ class AgentBase:
         self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_per_or_gae=False, gpu_id=0):
+        """initialize the self.object in `__init__()`
+        
+        replace by different DRL algorithms
+
+        :param net_dim: the dimension of networks (the width of neural networks)
+        :param state_dim: the dimension of state (the number of state vector)
+        :param action_dim: the dimension of action (the number of discrete action)
+
+        :param learning_rate: learning rate of optimizer
+        :param if_per_or_gae: PER (off-policy) or GAE (on-policy) for sparse reward
+        :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
+        """
         # explict call self.init() for multiprocessing
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
         self.action_dim = action_dim
