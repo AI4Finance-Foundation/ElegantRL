@@ -48,12 +48,23 @@ class AgentBase:
         del self.ClassCri, self.ClassAct
 
     def select_action(self, state) -> np.ndarray:
+        """Given a state, select action for exploration
+        
+        :param state: states.shape==(batch_size, state_dim, )
+        :return: actions.shape==(batch_size, action_dim, ),  -1 < action < +1
+        """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
         action = self.act(states)[0]
         action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
         return action.detach().cpu().numpy()
 
     def explore_env(self, env, target_step) -> list:
+        """actor explores in single Env, then returns the trajectory (env transitions) for ReplayBuffer
+        
+        :param env: RL training environment. env.reset() env.step()
+        :param target_step: explored target_step number of step in env
+        :return: the trajectory list with length target_step
+        """
         state = self.state
 
         trajectory_list = list()
@@ -68,16 +79,32 @@ class AgentBase:
 
     @staticmethod
     def optim_update(optimizer, objective):
+        """minimize the optimization objective via update the network parameters
+        
+        :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
+        :param objective: `objective = net(...)` the optimization objective, sometimes is a loss function.
+        """
         optimizer.zero_grad()
         objective.backward()
         optimizer.step()
 
     @staticmethod
     def soft_update(target_net, current_net, tau):
+        """soft update target network via current network
+        
+        :param target_net: update target network via current network to make training more stable.
+        :param current_net: current network update via an optimizer
+        :param tau: tau of soft target update: `target_net = target_net * (1-tau) + current_net * tau`
+        """
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
     def save_or_load_agent(self, cwd, if_save):
+        """save or load training files for Agent
+        
+        :param cwd: Current Working Directory. ElegantRL save training files in CWD.
+        :param if_save: True: save files. False: load files.
+        """
         def load_torch_file(model_or_optim, _path):
             state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
             model_or_optim.load_state_dict(state_dict)
@@ -96,13 +123,27 @@ class AgentBase:
 
 
 class AgentDQN(AgentBase):
+    """
+    Bases: ``AgentBase``
+    Deep Q-Network algorithm. “Human-Level Control Through Deep Reinforcement Learning”. Mnih V. et al.. 2015.
+    """
     def __init__(self):
+        """
+        call the __init__ function from AgentBase and set specific self.object
+        """
         super().__init__()
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
         self.if_use_cri_target = True
         self.ClassCri = QNet
 
     def select_action(self, state) -> int:  # for discrete action space
+        """
+        Select discrete actions given an array of states.
+        .. note::
+            Using ϵ-greedy to uniformly random select actions for randomness.
+        :param state: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             a_int = rd.randint(self.action_dim)  # choosing action randomly
         else:
@@ -112,6 +153,12 @@ class AgentDQN(AgentBase):
         return a_int
 
     def explore_env(self, env, target_step) -> list:
+        """
+        Collect trajectories through the actor-environment interaction for a environment instance.
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.state
 
         trajectory_list = list()
@@ -125,6 +172,14 @@ class AgentDQN(AgentBase):
         return trajectory_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
         obj_critic = q_value = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
@@ -134,6 +189,13 @@ class AgentDQN(AgentBase):
         return obj_critic.item(), q_value.mean().item()
 
     def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the loss of the network and predict Q values with **uniform sampling**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and Q values.
+        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
@@ -242,7 +304,15 @@ class AgentTD3(AgentBase):
 
 
 class AgentSAC(AgentBase):
+    """
+    Bases: ``AgentBase``
+    
+    Soft Actor-Critic algorithm. “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor”. Tuomas Haarnoja et al.. 2018.
+    """
     def __init__(self):
+        """
+        call the __init__ function from AgentBase and set specific self.object
+        """
         super().__init__()
         self.ClassCri = CriticTwin
         self.ClassAct = ActorSAC
@@ -254,6 +324,15 @@ class AgentSAC(AgentBase):
         self.target_entropy = None
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, _if_use_per=False, gpu_id=0, env_num=1):
+        """
+        :param net_dim[int]: the dimension of networks (the width of neural networks)
+        :param state_dim[int]: the dimension of state (the number of state vector)
+        :param action_dim[int]: the dimension of action (the number of discrete action)
+        :param learning_rate[float]: learning rate of optimizer
+        :param if_use_or_per[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+        :param gpu_id[int]: which specific gpu to use
+        :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+        """
         super().init(net_dim, state_dim, action_dim, learning_rate, _if_use_per, gpu_id)
 
         self.alpha_log = torch.tensor((-np.log(action_dim) * np.e,), dtype=torch.float32,
