@@ -21,7 +21,7 @@
   
   + **Efficient**: in many testing cases, we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
   
-  + **Stable**: much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3). Stable Baselines 3 can only use single GPU, but ElegantRL can use 1~8 GPUs for stable training.
+  + **Stable**: much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3). Stable Baselines 3 can only use single GPU, but ElegantRL can use 1~8 GPUs for stable training. 
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms: 
 + **DDPG, TD3, SAC, PPO, PPO (GAE)** for continuous actions
