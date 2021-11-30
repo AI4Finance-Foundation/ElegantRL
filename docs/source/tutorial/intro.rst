@@ -36,11 +36,12 @@ For detail explanation, please refer to the page of `Networks <https://elegantrl
 env.py
 ------
 
-`env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/env.py>`_
+`env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/env.py>`_ contains a class that preprocess env from OpenAI Gym, and another helper function to get the objects we need. We still have the reset() and step() functions, which are just calling the reset() and step() functions in OpenAI Gym envs, in the class PreprocessEnv. Refer to `OpenAI's explanation <https://github.com/openai/gym/blob/master/gym/core.py>`_ to better understand what role does envs play in DRL.
 
 run.py
 ------
 
+`run.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/run.py>`_ contains classes and functions for training and evaluating, and four functions available to run. Those four functions are the four big categories of DRL: 1. continuous action using off polocy algorithm 2. continuous action using off polocy algorithm 3. discrete action using off polocy algorithm 4. discrete action using on polocy algorithm.
 
 Tasks
 =====
@@ -62,3 +63,17 @@ Discrete action tasks
 1. `Cart Pole <https://gym.openai.com/envs/CartPole-v0/>`_
 
 2. `Lunar Lander <https://gym.openai.com/envs/LunarLander-v2/>`_
+
+Run The Code
+============
+
+In `run.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/run.py>`_, there are four functions that are available to run in the main function.
+
+- demo_continuous_action_off_policy()
+- demo_continuous_action_on_policy()
+- demo_discrete_action_off_policy()
+- demo_discrete_action_on_policy()
+
+Chose the task you want by setting the boolean to 1 (others to 0) in the function, then uncomment one of the four functions and run it. 
+
+If everything works fine, then congratulation! You have successfully run a DRL trial using ElegantRL!
