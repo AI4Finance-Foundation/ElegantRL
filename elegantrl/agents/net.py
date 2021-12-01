@@ -1107,3 +1107,69 @@ class RNNAgent(nn.Module):
         h = self.rnn(x, h_in)
         q = self.fc2(h)
         return q, h
+
+
+class ActorDiscreteSAC(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                 nn.Linear(mid_dim, action_dim))
+        self.action_dim = action_dim
+
+        self.soft_max = nn.Softmax(dim=-1)
+        self.Categorical = torch.distributions.Categorical
+
+    def forward(self, state):
+        return self.net(state)  # action_prob without softmax
+
+    def get_action(self, state):
+        # print(self.net(state).shape)
+        #exit()
+        a_prob = self.soft_max(self.net(state))
+        # action = Categorical(a_prob).sample()
+        # print(a_prob.shape)
+        samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
+        action = samples_2d.reshape(state.size(0))
+        z = a_prob == 0.0
+        z = z.float() * 1e-8
+        log_action_probabilities = torch.log(a_prob + z)
+        return action, a_prob,log_action_probabilities
+
+    def get_logprob_entropy(self, state, a_int):
+        a_prob = self.soft_max(self.net(state))
+        dist = self.Categorical(a_prob)
+        return dist.log_prob(a_int), dist.entropy().mean()
+
+    def get_old_logprob(self, a_int, a_prob):
+        dist = self.Categorical(a_prob)
+        return dist.log_prob(a_int)
+
+class DiscreteCriTwin(nn.Module):  # shared parameter
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
+        super().__init__()
+        if if_use_dn:
+            nn_middle = DenseNet(mid_dim // 2)
+            inp_dim = nn_middle.inp_dim
+            out_dim = nn_middle.out_dim
+        else:
+            nn_middle = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+            inp_dim = mid_dim
+            out_dim = mid_dim
+
+        self.net_sa = nn.Sequential(nn.Linear(state_dim, inp_dim), nn.ReLU(),
+                                    nn_middle, )  # concat(state, action)
+        self.net_q1 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim))  # q1 value
+        self.net_q2 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim))  # q2 value
+
+    def forward(self, state, action):
+        tmp = self.net_sa(state)
+        return self.net_q1(tmp)  # one Q value
+
+    def get_q1_q2(self, state):
+        tmp = self.net_sa(state)
+        return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
