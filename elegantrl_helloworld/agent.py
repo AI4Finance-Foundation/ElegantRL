@@ -341,11 +341,24 @@ class AgentSAC(AgentBase):
         self.target_entropy = np.log(action_dim)
 
     def select_action(self, state):
+        """
+        Select actions given a state, or an array of states.
+        
+        :param state: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
         actions = self.act.get_action(states)
         return actions.detach().cpu().numpy()[0]
 
     def explore_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         trajectory = list()
 
         state = self.state
@@ -359,6 +372,18 @@ class AgentSAC(AgentBase):
         return trajectory
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        .. note::
+            Using advantage normalization and entropy loss.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         buffer.update_now_len()
 
         alpha = self.alpha_log.exp().detach()
@@ -393,7 +418,15 @@ class AgentSAC(AgentBase):
 
 
 class AgentPPO(AgentBase):
+    """
+    Bases: ``AgentBase``
+    
+    PPO algorithm. “Proximal Policy Optimization Algorithms”. John Schulman. et al.. 2017.
+    """
     def __init__(self):
+        """
+        call the __init__ function from AgentBase and set specific self.object
+        """
         super().__init__()
         self.ClassCri = CriticAdv
         self.ClassAct = ActorPPO
@@ -405,16 +438,38 @@ class AgentPPO(AgentBase):
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
     def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, if_use_gae=False, gpu_id=0, env_num=1):
+        """
+        :param net_dim[int]: the dimension of networks (the width of neural networks)
+        :param state_dim[int]: the dimension of state (the number of state vector)
+        :param action_dim[int]: the dimension of action (the number of discrete action)
+        :param learning_rate[float]: learning rate of optimizer
+        :param if_use_or_per[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
+        :param gpu_id[int]: which specific gpu to use
+        :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+        """
         super().init(net_dim, state_dim, action_dim, learning_rate, if_use_gae, gpu_id)
         self.trajectory_list = list()
         self.get_reward_sum = self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
 
     def select_action(self, state):
+        """
+        Select actions given a state, or an array of states.
+        
+        :param state: an array of states in a shape (batch_size, state_dim, ).
+        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
+        """
         states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
         actions, noises = self.act.get_action(states)
         return actions[0].detach().cpu().numpy(), noises[0].detach().cpu().numpy()
 
     def explore_env(self, env, target_step):
+        """
+        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         state = self.state
 
         trajectory_temp = list()
@@ -436,6 +491,18 @@ class AgentPPO(AgentBase):
         return trajectory_list
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        .. note::
+            Using advantage normalization and entropy loss.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param repeat_times: the re-using times of each trajectory.
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
             buf_state, buf_action, buf_noise, buf_reward, buf_mask = [ten.to(self.device) for ten in buffer]
@@ -479,6 +546,15 @@ class AgentPPO(AgentBase):
         return obj_critic.item(), obj_actor.item(), a_std_log.mean().item()  # logging_tuple
 
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the **reward-to-go** and **advantage estimation**.
+        
+        :param buf_len: the length of the ``ReplayBuffer``.
+        :param buf_reward: a list of rewards for the state-action pairs.
+        :param buf_mask: a list of masks computed by the product of done signal and discount factor.
+        :param buf_value: a list of state values estimiated by the ``Critic`` network.
+        :return: the reward-to-go and advantage estimation.
+        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
 
         pre_r_sum = 0
@@ -489,6 +565,15 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_advantage
 
     def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+        """
+        Calculate the **reward-to-go** and **advantage estimation** using GAE.
+        
+        :param buf_len: the length of the ``ReplayBuffer``.
+        :param buf_reward: a list of rewards for the state-action pairs.
+        :param buf_mask: a list of masks computed by the product of done signal and discount factor.
+        :param buf_value: a list of state values estimiated by the ``Critic`` network.
+        :return: the reward-to-go and advantage estimation.
+        """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
         buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
