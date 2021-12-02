@@ -24,8 +24,9 @@
   + **Stable**: much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3). Stable Baselines 3 can only use single GPU, but ElegantRL can use 1~8 GPUs for stable training. 
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms: 
-+ **DDPG, TD3, SAC, PPO, PPO (GAE)** for continuous actions
-+ **DQN, DoubleDQN, D3QN** for discrete actions
++ **DDPG, TD3, SAC, PPO, PPO (GAE),REDQ** for continuous actions
++ **DQN, DoubleDQN, D3QN, SAC** for discrete actions
++ **MADDPG, VDN, QMIX** for multi-agent environment
 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 
@@ -124,6 +125,10 @@ Note: BipedalWalkerHardcore is a difficult task in continuous action space. Ther
     | matplotlib 3.2  | For plots. 
     
     pip3 install gym==0.17.0 pybullet Box2D matplotlib
+
+    To install StarCraftII env,
+    bash ./elegantrl/envs/installsc2.sh
+    pip install -r sc2_requirements.txt
     
 
 ## Citation:
