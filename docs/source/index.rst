@@ -64,9 +64,6 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    algorithms/a2c
    algorithms/ppo
    algorithms/interppo
-   algorithms/maddpg
-   algorithms/qmix
-   algorithms/redq
    
    
 .. toctree::
