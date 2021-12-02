@@ -1,7 +1,7 @@
 .. _ddpg:
 
 
-DDPG
+MADDPG
 ==========
 
 `Multi-Agent Deep Deterministic Policy Gradient (DDPG) <https://arxiv.org/abs/1706.02275>`_  This implementation is based on DDPG and supports the following extensions:
