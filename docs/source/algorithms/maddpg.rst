@@ -4,7 +4,7 @@
 MADDPG
 ==========
 
-`Multi-Agent Deep Deterministic Policy Gradient (DDPG) <https://arxiv.org/abs/1706.02275>`_  This implementation is based on DDPG and supports the following extensions:
+`Multi-Agent Deep Deterministic Policy Gradient (MADDPG) <https://arxiv.org/abs/1706.02275>`_  This implementation is based on DDPG and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
@@ -12,10 +12,6 @@ MADDPG
 -  Reward clipping: ❌
 -  Prioritized Experience Replay (PER): ✔️
 -  Ornstein–Uhlenbeck noise: ✔️
-
-
-.. warning::
-    In the DDPG paper, the authors use time-correlated Ornstein-Uhlenbeck Process to add noise to the action output. However, as shown in the later works, the Ornstein-Uhlenbeck Process is an overcomplication that does not have a noticeable effect on performance when compared to uncorrelated Gaussian noise.
 
 Code Snippet
 ------------
