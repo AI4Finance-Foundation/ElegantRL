@@ -1,11 +1,11 @@
 import torch as th
 import copy
-from mixer import VDNMixer,QMixer
+from net import VDNMixer,QMixer
 import torch as th
 from torch.optim import RMSprop
 
 
-class QLearner:
+class Qmix:
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.mac = mac
@@ -120,4 +120,3 @@ class QLearner:
             self.target_mixer.load_state_dict(self.mixer.state_dict())
         self.logger.console_logger.info("Updated target network")
 
-    
