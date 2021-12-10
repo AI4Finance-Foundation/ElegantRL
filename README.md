@@ -1,5 +1,5 @@
 ## ElegantRL “小雅”: Scalable and Elastic Deep Reinforcement Learning
-
+ 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
@@ -26,7 +26,7 @@
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms: 
 + **DDPG, TD3, SAC, PPO, PPO (GAE),REDQ** for continuous actions
 + **DQN, DoubleDQN, D3QN, SAC** for discrete actions
-+ **MADDPG, VDN, QMIX** for multi-agent environment
++ **QMIX, VDN; MADDPG, MAPPO, MATD3** for multi-agent environment
 
 For the details of DRL algorithms, please check out the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/). 
 

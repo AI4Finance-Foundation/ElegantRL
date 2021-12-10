@@ -46,6 +46,14 @@ def build_env(env, if_print=False, env_num=1, device_id=None, args=None, ):
         env = gym.make(env_name)
         env = PreprocessEnv(env, if_print=if_print)
 
+    '''MuJoCo gym'''
+    if env_name in {'Hopper-v2', 'Hopper-v3',
+                    'Ant-v2', 'Ant-v3'}:
+        import mujoco_py
+        dir(mujoco_py)
+        env = gym.make(env_name)
+        env = PreprocessEnv(env, if_print=if_print)
+
     '''NVIDIA Isaac gym'''
     if env_name.find('Isaac') >= 0:
         from elegantrl.envs.IsaacGym import PreprocessIsaacOneEnv, PreprocessIsaacVecEnv

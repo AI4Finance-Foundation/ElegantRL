@@ -103,7 +103,7 @@ class AgentMADDPG(AgentBase):
             traj_temp.append((self.states, reward, done, actions))
             global_done = True
             for i in range(self.n_agents):
-                if global_done is not True:
+                if done[i] is not True:
                     global_done = False
                     break
             if global_done or k >100:

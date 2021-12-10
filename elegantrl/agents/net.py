@@ -1315,6 +1315,10 @@ class AgentQMixer(nn.Module):
         return q_tot
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5a8140edbccfcea7c4c0849856ab9b714c2797f0
 class ActorMAPPO(nn.Module):
     """
     Actor network class for MAPPO. Outputs actions given observations.
