@@ -2,11 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/elegantrl/MuJoCo_Ant.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/Gym.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/Gym.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/Gym_BipedalWalker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/tutorial_Pendulum.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/Gym_Pendulum.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Gym_BipedalWalker.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Gym_Pendulum.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/MuJoCo_Ant.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -29,27 +29,27 @@
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="dummy" value="49" />
-          <entry key="py" value="611" />
+          <entry key="dummy" value="74" />
+          <entry key="py" value="650" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="PLAIN_TEXT" value="49" />
-          <entry key="Python" value="611" />
+          <entry key="PLAIN_TEXT" value="74" />
+          <entry key="Python" value="650" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
           <entry key="md" value="1" />
-          <entry key="py" value="110" />
+          <entry key="py" value="111" />
           <entry key="rst" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Markdown" value="1" />
-          <entry key="Python" value="110" />
+          <entry key="Python" value="111" />
           <entry key="ReST" value="1" />
         </counts>
       </usages-collector>
@@ -60,10 +60,22 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="391">
-              <caret line="59" lean-forward="true" selection-start-line="59" selection-end-line="59" />
+            <state relative-caret-position="-425">
+              <caret line="11" column="60" lean-forward="true" selection-start-line="11" selection-start-column="35" selection-end-line="11" selection-end-column="60" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="578">
+              <caret line="34" column="27" lean-forward="true" selection-start-line="34" selection-start-column="27" selection-end-line="34" selection-end-column="27" />
+              <folding>
+                <element signature="e#0#42#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -91,7 +103,7 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl/Gym_BipedalWalker.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="255">
               <caret line="15" column="25" selection-start-line="15" selection-start-column="25" selection-end-line="15" selection-end-column="25" />
@@ -126,11 +138,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/elegantrl/MuJoCo_Ant.py">
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="272">
-              <caret line="16" column="16" lean-forward="true" selection-start-line="16" selection-start-column="16" selection-end-line="16" selection-end-column="16" />
+            <state>
+              <caret selection-end-line="18" selection-end-column="24" />
               <folding>
                 <element signature="e#0#42#0" expanded="true" />
               </folding>
@@ -139,7 +151,7 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl/Gym_Pendulum.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="255">
               <caret line="15" column="19" selection-start-line="15" selection-start-column="19" selection-end-line="15" selection-end-column="19" />
@@ -220,13 +232,15 @@
         <option value="$PROJECT_DIR$/elegantrl/single_GPU_MuJoCo_Ant.py" />
         <option value="$PROJECT_DIR$/elegantrl/envs/Gym.py" />
         <option value="$PROJECT_DIR$/setup.py" />
+        <option value="$PROJECT_DIR$/elegantrl/IsaacGym_Ant_1.py" />
+        <option value="$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="105" />
-    <option name="width" value="810" />
-    <option name="height" value="735" />
+    <option name="x" value="2" />
+    <option name="width" value="325" />
+    <option name="height" value="295" />
   </component>
   <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
@@ -255,13 +269,6 @@
               <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
               <item name="envs" type="462c0819:PsiDirectoryNode" />
             </path>
-            <path>
-              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
-              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-              <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
-              <item name="envs" type="462c0819:PsiDirectoryNode" />
-              <item name="utils" type="462c0819:PsiDirectoryNode" />
-            </path>
           </expand>
           <select />
         </subPane>
@@ -269,7 +276,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../ElegantRL-ensemble" />
+    <property name="last_opened_file_path" value="$USER_HOME$/Downloads/ElegantRL-master" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
@@ -352,7 +359,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\Gym_BipedalWalker.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\Demo_Gym_BipedalWalker.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -373,7 +380,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\Gym_Pendulum.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\Demo_Gym_Pendulum.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -482,7 +489,6 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/elegantrl/cloud/__init__.py" />
     <entry file="file://$PROJECT_DIR$/elegantrl/server/__init__.py" />
     <entry file="file://$PROJECT_DIR$/Awesome_Deep_Reinforcement_Learning_List.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
@@ -680,6 +686,23 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/setup.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="187">
+          <caret line="11" column="86" selection-start-line="11" selection-start-column="86" selection-end-line="11" selection-end-column="86" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="255">
+          <caret line="15" column="19" selection-start-line="15" selection-start-column="19" selection-end-line="15" selection-end-column="19" />
+          <folding>
+            <element signature="e#0#42#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="204">
@@ -690,10 +713,13 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/setup.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="187">
-          <caret line="11" column="86" selection-start-line="11" selection-start-column="86" selection-end-line="11" selection-end-column="86" />
+        <state>
+          <caret selection-end-line="18" selection-end-column="24" />
+          <folding>
+            <element signature="e#0#42#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -707,7 +733,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/Gym_BipedalWalker.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="255">
           <caret line="15" column="25" selection-start-line="15" selection-start-column="25" selection-end-line="15" selection-end-column="25" />
@@ -717,30 +743,20 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/Gym_Pendulum.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="255">
-          <caret line="15" column="19" selection-start-line="15" selection-start-column="19" selection-end-line="15" selection-end-column="19" />
-          <folding>
-            <element signature="e#0#42#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="391">
-          <caret line="59" lean-forward="true" selection-start-line="59" selection-end-line="59" />
+        <state relative-caret-position="-425">
+          <caret line="11" column="60" lean-forward="true" selection-start-line="11" selection-start-column="35" selection-end-line="11" selection-end-column="60" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/MuJoCo_Ant.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="272">
-          <caret line="16" column="16" lean-forward="true" selection-start-line="16" selection-start-column="16" selection-end-line="16" selection-end-column="16" />
+        <state relative-caret-position="578">
+          <caret line="34" column="27" lean-forward="true" selection-start-line="34" selection-start-column="27" selection-end-line="34" selection-end-column="27" />
           <folding>
             <element signature="e#0#42#0" expanded="true" />
           </folding>
