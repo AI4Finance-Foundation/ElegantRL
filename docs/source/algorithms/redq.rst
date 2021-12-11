@@ -6,65 +6,18 @@ REDQ
 
 `REDQ <https://arxiv.org/abs/2101.05982>`_ REDQ has three carefully integrated ingredients which allow it to achieve its high performance: (i) a UTD ratio >> 1; (ii) an ensemble of Q functions; (iii) in-target minimization across a random subset of Q functions from the ensemble. This implementation is based on SAC and supports the following extensions:
 
--  Experience replay: ✔️
--  Target network: ✔️
--  Gradient clipping: ✔️
--  Reward clipping: ❌
--  Prioritized Experience Replay (PER): ✔️
--  Leanable entropy regularization coefficient: ✔️
+- Implement G, M, N Parameter
+- Based On SAC class
+- Works well in Mujoco
+
 
 Code Snippet
 ------------
-
+You can change G,M,N when call AgentREDQ.init 
 .. code-block:: python
 
-    import torch
-    from elegantrl.run import train_and_evaluate
-    from elegantrl.config import Arguments
-    from elegantrl.envs.gym import build_env
-    from elegantrl.agents.AgentREDQ import AgentREDQ
-    
-    # train and save
-    args = Arguments(env=build_env('Pendulum-v0'), agent=AgentREDQ())
-    args.cwd = 'demo_Pendulum_SAC'
-    args.env.target_return = -200
-    args.reward_scale = 2 ** -2
-    train_and_evaluate(args) 
-    
-    # test
-    agent = AgentREDQ()
-    agent.init(args.net_dim, args.state_dim, args.action_dim)
-    agent.save_or_load_agent(cwd=args.cwd, if_save=False)
-    
-    env = build_env('Pendulum-v0')
-    state = env.reset()
-    episode_reward = 0
-    for i in range(2 ** 10):
-        action = agent.select_action(state)
-        next_state, reward, done, _ = env.step(action)
-        
-        episode_reward += reward
-        if done:
-            print(f'Step {i:>6}, Episode return {episode_reward:8.3f}')
-            break
-        else:
-            state = next_state
-        env.render()
-
+    AgentREDQ.init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
+            learning_rate=3e-4, if_per_or_gae=False, env_num=1, gpu_id=0, G=20, M=2, N=10):
               
               
               
-Parameters
----------------------
-
-.. autoclass:: elegantrl.agents.AgentREDQ.AgentREDQ
-   :members:
-   
-Networks
--------------
-
-.. autoclass:: elegantrl.agents.net.ActorSAC
-   :members:
-   
-.. autoclass:: elegantrl.agents.net.Critic
-   :members:

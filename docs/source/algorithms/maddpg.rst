@@ -1,4 +1,4 @@
-.. _ddpg:
+.. _maddpg:
 
 
 MADDPG
@@ -6,64 +6,28 @@ MADDPG
 
 `Multi-Agent Deep Deterministic Policy Gradient (MADDPG) <https://arxiv.org/abs/1706.02275>`_  This implementation is based on DDPG and supports the following extensions:
 
--  Experience replay: ✔️
--  Target network: ✔️
--  Gradient clipping: ✔️
--  Reward clipping: ❌
--  Prioritized Experience Replay (PER): ✔️
--  Ornstein–Uhlenbeck noise: ✔️
+-  Implement is based on DDPG ✔️
+-  Init n DDPG Agent in MADDPG: ✔️
 
 Code Snippet
 ------------
-
+DDPG Agents is store in the list agents
 .. code-block:: python
 
-    import torch
-    from elegantrl.run import train_and_evaluate
-    from elegantrl.config import Arguments
-    from elegantrl.envs.gym import build_env
-    from elegantrl.agents.AgentMADDPG import AgentMADDPG
-
-    
-    # train and save
-    args = Arguments(env=build_env('simple_spread'), agent=AgentMADDPG())
-    train_and_evaluate(args) 
-    
-    # test
-    agent = AgentMADDPG()
-    agent.init(args.net_dim, args.state_dim, args.action_dim)
-    agent.save_or_load_agent(cwd=args.cwd, if_save=False)
-    
-    env = build_env('simple_spread')
-    state = env.reset()
-    episode_reward = 0
-    for i in range(2 ** 10):
-        action = agent.select_action(state)
-        next_state, reward, done, _ = env.step(action)
+    def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1,   if_use_per=False, env_num=1, agent_id=0):
+        self.agents = [AgentDDPG() for i in range(n_agents)]
+        self.explore_env = self.explore_one_env
+        self.if_off_policy = True
+        self.n_agents = n_agents
+        for i in range(self.n_agents):
+            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = self.n_agents,   if_use_per=False, env_num=1, agent_id=0)
+        self.n_states = state_dim
+        self.n_actions = action_dim
         
-        episode_reward += reward
-        if done:
-            print(f'Step {i:>6}, Episode return {episode_reward:8.3f}')
-            break
-        else:
-            state = next_state
-        env.render()
+        self.batch_size = net_dim
+        self.gamma = 0.95
+        self.update_tau = 0
+        self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
               
               
               
-Parameters
----------------------
-
-.. autoclass:: elegantrl.agents.AgentMADDPG.AgentMADDPG
-   :members:
-   
-.. _ddpg_networks:
-   
-Networks
--------------
-
-.. autoclass:: elegantrl.agents.net.Actor
-   :members:
-   
-.. autoclass:: elegantrl.agents.net.Critic
-   :members:
