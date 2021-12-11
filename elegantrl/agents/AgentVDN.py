@@ -5,7 +5,7 @@ import torch as th
 from torch.optim import RMSprop
 
 
-class Qmix:
+class VDN:
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.mac = mac
@@ -17,7 +17,8 @@ class Qmix:
 
         self.mixer = None
         if args.mixer is not None:
-            self.mixer = QMixer(args)
+            args.mixer == "vdn":
+            self.mixer = VDNMixer()
             self.params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
