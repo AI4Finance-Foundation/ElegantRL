@@ -12,11 +12,12 @@ class AgentMADDPG(AgentBase):
         self.if_use_cri_target = True
         self.if_use_act_target = True
         
-    def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1,   if_use_per=False, env_num=1, agent_id=0):
+    def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1, if_use_per=False, env_num=1, agent_id=0):
         self.agents = [AgentDDPG() for i in range(n_agents)]
         self.explore_env = self.explore_one_env
         self.if_off_policy = True
         self.n_agents = n_agents
+
         for i in range(self.n_agents):
             self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = self.n_agents,   if_use_per=False, env_num=1, agent_id=0)
         self.n_states = state_dim
@@ -42,14 +43,8 @@ class AgentMADDPG(AgentBase):
         action_target_all = torch.cat(all_target_actions, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])
         
         target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), action_target_all).detach().squeeze(dim = 1)
-        #vf_in = torch.cat((observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1],actions.shape[2])), dim = 2)
         actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1]*actions.shape[2])).squeeze(dim = 1)
         vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
-        
-        
-        #vf_loss.backward()
-        #curr_agent.cri_optim.step()
-
         curr_agent.act_optim.zero_grad()
         curr_pol_out = curr_agent.act(observations[:, index])
         curr_pol_vf_in = curr_pol_out
@@ -59,10 +54,7 @@ class AgentMADDPG(AgentBase):
                 all_pol_acs.append(curr_pol_vf_in)
             else:
                 all_pol_acs.append(actions[:, i])
-        #vf_in = torch.cat((observations, torch.cat(all_pol_acs, dim = 0).to(self.device).reshape(actions.size()[0], actions.size()[1], actions.size()[2])), dim = 2)
-
         pol_loss = -torch.mean(curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1]*observations.shape[2]), torch.cat(all_pol_acs, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])))
-        
         curr_agent.act_optim.zero_grad()
         pol_loss.backward()
         curr_agent.act_optim.step()     

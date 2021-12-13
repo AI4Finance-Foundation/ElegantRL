@@ -18,7 +18,6 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,learning_rate=3e-4, if_per_or_gae=False, env_num=1, gpu_id=0, G=20, M=2, N=10):
-        #mp.set_start_method('spawn',force=True)
         self.gamma = gamma
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -72,16 +71,11 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         #return y_q, state,action
 
     def select_actions(self, state,size, env):
-        # if size < 5000:
-        #    return env.action_space.sample()
-        #else:
         state = state.to(self.device)
         actions = self.act.get_action(state)
         return actions.detach().cpu()
 
     def cri_multi_train(self, k):
-        #state = self.state
-        #action = self.action
         q_values = self.cri_list[k](self.state,self.action)
         obj = self.criterion(q_values, self.y_q)
         self.cri_optim_list[k].zero_grad()
@@ -98,16 +92,6 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
             for q_i in range(self.N):
                 self.cri_optim_list[q_i].zero_grad()
             obj_critic.backward()
-            #processes = []
-            #state = self.state
-            #mp.set_start_method('spawn')
-            #for rank in range(self.N):
-            #    p = mp.Process(target = self.cri_multi_train, args = (rank,))
-            #    p.start()
-            #    processes.append(p)
-            #for p in processes:
-            #    p.join()
-           
             if ((i + 1) % self.G == 0) or i == self.G - 1:
                 a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
                 '''objective of alpha (temperature parameter automatic adjustment)'''

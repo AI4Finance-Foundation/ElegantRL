@@ -30,7 +30,6 @@ class AgentMADDPG(AgentBase):
 
         
     def update_agent(self, rewards, dones, actions, observations, next_obs, index):
-        #rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
         curr_agent = self.agents[index]
         curr_agent.cri_optim.zero_grad()
         all_target_actions = []
@@ -43,14 +42,8 @@ class AgentMADDPG(AgentBase):
         action_target_all = torch.cat(all_target_actions, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])
         
         target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), action_target_all).detach().squeeze(dim = 1)
-        #vf_in = torch.cat((observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1],actions.shape[2])), dim = 2)
         actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1]*actions.shape[2])).squeeze(dim = 1)
         vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
-        
-        
-        #vf_loss.backward()
-        #curr_agent.cri_optim.step()
-
         curr_agent.act_optim.zero_grad()
         curr_pol_out = curr_agent.act(observations[:, index])
         curr_pol_vf_in = curr_pol_out
@@ -60,7 +53,6 @@ class AgentMADDPG(AgentBase):
                 all_pol_acs.append(curr_pol_vf_in)
             else:
                 all_pol_acs.append(actions[:, i])
-        #vf_in = torch.cat((observations, torch.cat(all_pol_acs, dim = 0).to(self.device).reshape(actions.size()[0], actions.size()[1], actions.size()[2])), dim = 2)
 
         pol_loss = -torch.mean(curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1]*observations.shape[2]), torch.cat(all_pol_acs, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])))
         
@@ -99,7 +91,6 @@ class AgentMADDPG(AgentBase):
             for i in range(self.n_agents):
                 action = self.agents[i].select_actions(self.states[i])
                 actions.append(action)
-            #print(actions)
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((self.states, reward, done, actions))
             global_done = True
