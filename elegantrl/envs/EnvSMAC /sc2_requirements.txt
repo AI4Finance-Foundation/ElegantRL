@@ -19,7 +19,6 @@ munch==2.3.2
 numpy==1.15.2
 pathlib2==2.3.2
 pbr==4.3.0
-Pillow==6.2.0
 pluggy==0.7.1
 portpicker==1.2.0
 probscale==0.2.3
@@ -41,7 +40,6 @@ tensorboard-logger==0.1.0
 torch==0.4.1
 torchvision==0.2.1
 tornado==5.1.1
-urllib3==1.24.2
 websocket-client==0.53.0
 whichcraft==0.5.2
 wrapt==1.10.11
