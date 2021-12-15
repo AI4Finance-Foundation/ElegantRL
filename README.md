@@ -73,7 +73,7 @@ A high-level overview:
    + Evaluator.
 
 ### Until Codes
-+ **elegantrl/envs/**    &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
++ **elegantrl/envs/**   &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
 + **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
