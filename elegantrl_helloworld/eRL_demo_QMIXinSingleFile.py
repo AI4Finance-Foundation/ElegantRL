@@ -29,7 +29,7 @@ from marl_utils import *
 
 
 
-class QLearner:
+class AgentQmix:
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.mac = mac
@@ -251,7 +251,7 @@ def run_sequential(args, logger):
     runner.setup(scheme=scheme, groups=groups, preprocess=preprocess, mac=mac)
 
     # Learner
-    learner = QLearner(mac, buffer.scheme, logger, args)
+    learner = AgentQmix(mac, buffer.scheme, logger, args)
 
     if args.use_cuda:
         learner.cuda()
