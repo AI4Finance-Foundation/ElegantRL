@@ -1090,23 +1090,38 @@ class ActorSimplify:
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        super(RNNAgent, self).__init__()
+        super(NRNNAgent, self).__init__()
         self.args = args
 
-        self.fc1 = torch.nn.Linear(input_shape, args.rnn_hidden_dim)
-        self.rnn = torch.nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
-        self.fc2 = torch.nn.Linear(args.rnn_hidden_dim, args.n_actions)
+        self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
+        self.rnn = nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
+        self.fc2 = nn.Linear(args.rnn_hidden_dim, args.n_actions)
+
+        if getattr(args, "use_layer_norm", False):
+            self.layer_norm = LayerNorm(args.rnn_hidden_dim)
+        
+        if getattr(args, "use_orthogonal", False):
+            orthogonal_init_(self.fc1)
+            orthogonal_init_(self.fc2, gain=args.gain)
 
     def init_hidden(self):
         # make hidden states on same device as model
         return self.fc1.weight.new(1, self.args.rnn_hidden_dim).zero_()
 
     def forward(self, inputs, hidden_state):
-        x = torch.nn.F.relu(self.fc1(inputs))
+        b, a, e = inputs.size()
+
+        inputs = inputs.view(-1, e)
+        x = F.relu(self.fc1(inputs), inplace=True)
         h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim)
-        h = self.rnn(x, h_in)
-        q = self.fc2(h)
-        return q, h
+        hh = self.rnn(x, h_in)
+
+        if getattr(self.args, "use_layer_norm", False):
+            q = self.fc2(self.layer_norm(hh))
+        else:
+            q = self.fc2(hh)
+
+        return q.view(b, a, -1), hh.view(b, a, -1)
 
 
 class ActorDiscreteSAC(nn.Module):
@@ -1203,6 +1218,7 @@ class QMix(nn.Module):
         self.state_dim = int(np.prod(args.state_shape))
 
         self.embed_dim = args.mixing_embed_dim
+        self.abs = getattr(self.args, 'abs', True)
 
         if getattr(args, "hypernet_layers", 1) == 1:
             self.hyper_w_1 = nn.Linear(self.state_dim, self.embed_dim * self.n_agents)
@@ -1210,10 +1226,10 @@ class QMix(nn.Module):
         elif getattr(args, "hypernet_layers", 1) == 2:
             hypernet_embed = self.args.hypernet_embed
             self.hyper_w_1 = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
+                                           nn.ReLU(inplace=True),
                                            nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
             self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
+                                           nn.ReLU(inplace=True),
                                            nn.Linear(hypernet_embed, self.embed_dim))
         elif getattr(args, "hypernet_layers", 1) > 2:
             raise Exception("Sorry >2 hypernet layers is not implemented!")
@@ -1225,21 +1241,23 @@ class QMix(nn.Module):
 
         # V(s) instead of a bias for the last layers
         self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
-                               nn.ReLU(),
+                               nn.ReLU(inplace=True),
                                nn.Linear(self.embed_dim, 1))
+        
 
     def forward(self, agent_qs, states):
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
-        agent_qs = agent_qs.view(-1, 1, self.n_agents)
+        agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
         # First layer
-        w1 = th.abs(self.hyper_w_1(states))
+        w1 = self.hyper_w_1(states).abs() if self.abs else self.hyper_w_1(states)
         b1 = self.hyper_b_1(states)
         w1 = w1.view(-1, self.n_agents, self.embed_dim)
         b1 = b1.view(-1, 1, self.embed_dim)
         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
+        
         # Second layer
-        w_final = th.abs(self.hyper_w_final(states))
+        w_final = self.hyper_w_final(states).abs() if self.abs else self.hyper_w_final(states)
         w_final = w_final.view(-1, self.embed_dim, 1)
         # State-dependent bias
         v = self.V(states).view(-1, 1, 1)
@@ -1247,7 +1265,28 @@ class QMix(nn.Module):
         y = th.bmm(hidden, w_final) + v
         # Reshape and return
         q_tot = y.view(bs, -1, 1)
+        
         return q_tot
+
+    def k(self, states):
+        bs = states.size(0)
+        w1 = th.abs(self.hyper_w_1(states))
+        w_final = th.abs(self.hyper_w_final(states))
+        w1 = w1.view(-1, self.n_agents, self.embed_dim)
+        w_final = w_final.view(-1, self.embed_dim, 1)
+        k = th.bmm(w1,w_final).view(bs, -1, self.n_agents)
+        k = k / th.sum(k, dim=2, keepdim=True)
+        return k
+
+    def b(self, states):
+        bs = states.size(0)
+        w_final = th.abs(self.hyper_w_final(states))
+        w_final = w_final.view(-1, self.embed_dim, 1)
+        b1 = self.hyper_b_1(states)
+        b1 = b1.view(-1, 1, self.embed_dim)
+        v = self.V(states).view(-1, 1, 1)
+        b = th.bmm(b1, w_final) + v
+        return b
 
 
 class ActorMAPPO(nn.Module):

@@ -1,37 +1,51 @@
+import numpy as np
 import torch as th
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions import Categorical
-import numpy as np
-import os
-from types import SimpleNamespace as SN
-from os.path import dirname, abspath
-import collections
+from torch.distributions.one_hot_categorical import OneHotCategorical
+import operator
 from collections import defaultdict
-from copy import deepcopy
-from sacred import Experiment, SETTINGS
-from sacred.observers import FileStorageObserver
-from sacred.utils import apply_backspaces_and_linefeeds
-import sys
-import yaml
-import datetime
-import pprint
-import time
-import threading
-from types import SimpleNamespace as SN
 import logging
-import copy
-from torch.optim import RMSprop
-from os.path import dirname, abspath
-from functools import partial
-from smac.env import MultiAgentEnv, StarCraft2Env
+import numpy as np
+from ...agents.net import RNNAgent
 
-def env_fn(env, **kwargs) -> MultiAgentEnv:
-    return env(**kwargs)
+class DecayThenFlatSchedule():
 
-if sys.platform == "linux":
-    os.environ.setdefault("SC2PATH",
-                          os.path.join(os.path.dirname(os.getcwd()), "sc2", "StarCraftII"))
+    def __init__(self,
+                 start,
+                 finish,
+                 time_length,
+                 decay="exp"):
+
+        self.start = start
+        self.finish = finish
+        self.time_length = time_length
+        self.delta = (self.start - self.finish) / self.time_length
+        self.decay = decay
+
+        if self.decay in ["exp"]:
+            self.exp_scaling = (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+
+    def eval(self, T):
+        if self.decay in ["linear"]:
+            return max(self.finish, self.start - self.delta * T)
+        elif self.decay in ["exp"]:
+            return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+
+class LinearIncreaseSchedule():
+
+    def __init__(self,
+                 start,
+                 finish,
+                 time_length):
+
+        self.start = start
+        self.finish = finish
+        self.time_length = time_length
+        self.delta = (self.start - self.finish) / self.time_length
+
+    def eval(self, T):
+        return min(self.finish, self.start - self.delta * T)
 
 
 class Transform:
@@ -54,47 +68,130 @@ class OneHot(Transform):
     def infer_output_info(self, vshape_in, dtype_in):
         return (self.out_dim,), th.float32
 
-def print_time(start_time, T, t_max, episode, episode_rewards):
-    time_elapsed = time.time() - start_time
-    T = max(1, T)
-    time_left = time_elapsed * (t_max - T) / T
-    # Just in case its over 100 days
-    time_left = min(time_left, 60 * 60 * 24 * 100)
-    last_reward = "N\A"
-    if len(episode_rewards) > 5:
-        last_reward = "{:.2f}".format(np.mean(episode_rewards[-50:]))
-    print("\033[F\033[F\x1b[KEp: {:,}, T: {:,}/{:,}, Reward: {}, \n\x1b[KElapsed: {}, Left: {}\n".format(episode, T, t_max, last_reward, time_str(time_elapsed), time_str(time_left)), " " * 10, end="\r")
+class DecayThenFlatSchedule():
+
+    def __init__(self,
+                 start,
+                 finish,
+                 time_length,
+                 decay="exp"):
+
+        self.start = start
+        self.finish = finish
+        self.time_length = time_length
+        self.delta = (self.start - self.finish) / self.time_length
+        self.decay = decay
+
+        if self.decay in ["exp"]:
+            self.exp_scaling = (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+
+    def eval(self, T):
+        if self.decay in ["linear"]:
+            return max(self.finish, self.start - self.delta * T)
+        elif self.decay in ["exp"]:
+            return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+
+class LinearIncreaseSchedule():
+
+    def __init__(self,
+                 start,
+                 finish,
+                 time_length):
+
+        self.start = start
+        self.finish = finish
+        self.time_length = time_length
+        self.delta = (self.start - self.finish) / self.time_length
+
+    def eval(self, T):
+        return min(self.finish, self.start - self.delta * T)
+
+# Directly from OpenAI Baseline implementation (https://github.com/openai/baselines)
+class SegmentTree(object):
+    def __init__(self, capacity, operation, neutral_element):
+        assert capacity > 0 and capacity & (capacity - 1) == 0, "capacity must be positive and a power of 2."
+        self._capacity = capacity
+        self._value = [neutral_element for _ in range(2 * capacity)]
+        self._operation = operation
+
+    def _reduce_helper(self, start, end, node, node_start, node_end):
+        if start == node_start and end == node_end:
+            return self._value[node]
+        mid = (node_start + node_end) // 2
+        if end <= mid:
+            return self._reduce_helper(start, end, 2 * node, node_start, mid)
+        else:
+            if mid + 1 <= start:
+                return self._reduce_helper(start, end, 2 * node + 1, mid + 1, node_end)
+            else:
+                return self._operation(
+                    self._reduce_helper(start, mid, 2 * node, node_start, mid),
+                    self._reduce_helper(mid + 1, end, 2 * node + 1, mid + 1, node_end)
+                )
+
+    def reduce(self, start=0, end=None):
+        if end is None:
+            end = self._capacity
+        if end < 0:
+            end += self._capacity
+        end -= 1
+        return self._reduce_helper(start, end, 1, 0, self._capacity - 1)
+
+    def __setitem__(self, idx, val):
+        # index of the leaf
+        idx += self._capacity
+        self._value[idx] = val
+        idx //= 2
+        while idx >= 1:
+            self._value[idx] = self._operation(
+                self._value[2 * idx],
+                self._value[2 * idx + 1]
+            )
+            idx //= 2
+
+    def __getitem__(self, idx):
+        assert 0 <= idx < self._capacity
+        return self._value[self._capacity + idx]
 
 
-def time_left(start_time, t_start, t_current, t_max):
-    if t_current >= t_max:
-        return "-"
-    time_elapsed = time.time() - start_time
-    t_current = max(1, t_current)
-    time_left = time_elapsed * (t_max - t_current) / (t_current - t_start)
-    # Just in case its over 100 days
-    time_left = min(time_left, 60 * 60 * 24 * 100)
-    return time_str(time_left)
+class SumSegmentTree(SegmentTree):
+    def __init__(self, capacity):
+        super(SumSegmentTree, self).__init__(
+            capacity=capacity,
+            operation=operator.add,
+            neutral_element=0.0
+        )
+
+    def sum(self, start=0, end=None):
+        """Returns arr[start] + ... + arr[end]"""
+        return super(SumSegmentTree, self).reduce(start, end)
+
+    def find_prefixsum_idx(self, prefixsum):
+        assert 0 <= prefixsum <= self.sum() + 1e-5
+        idx = 1
+        while idx < self._capacity:  # while non-leaf
+            if self._value[2 * idx] > prefixsum:
+                idx = 2 * idx
+            else:
+                prefixsum -= self._value[2 * idx]
+                idx = 2 * idx + 1
+        return idx - self._capacity
 
 
-def time_str(s):
-    """
-    Convert seconds to a nicer string showing days, hours, minutes and seconds
-    """
-    days, remainder = divmod(s, 60 * 60 * 24)
-    hours, remainder = divmod(remainder, 60 * 60)
-    minutes, seconds = divmod(remainder, 60)
-    string = ""
-    if days > 0:
-        string += "{:d} days, ".format(int(days))
-    if hours > 0:
-        string += "{:d} hours, ".format(int(hours))
-    if minutes > 0:
-        string += "{:d} minutes, ".format(int(minutes))
-    string += "{:d} seconds".format(int(seconds))
-    return string
+class MinSegmentTree(SegmentTree):
+    def __init__(self, capacity):
+        super(MinSegmentTree, self).__init__(
+            capacity=capacity,
+            operation=min,
+            neutral_element=float('inf')
+        )
 
+    def min(self, start=0, end=None):
+        """Returns min(arr[start], ...,  arr[end])"""
 
+        return super(MinSegmentTree, self).reduce(start, end)
+    
+    
 class Logger:
     def __init__(self, console_logger):
         self.console_logger = console_logger
@@ -138,10 +235,12 @@ class Logger:
                 continue
             i += 1
             window = 5 if k != "epsilon" else 1
-            item = "{:.4f}".format(np.mean([x[1] for x in self.stats[k][-window:]]))
+            item = "{:.4f}".format(th.mean(th.tensor([float(x[1]) for x in self.stats[k][-window:]])))
             log_str += "{:<25}{:>8}".format(k + ":", item)
             log_str += "\n" if i % 4 == 0 else "\t"
         self.console_logger.info(log_str)
+        # Reset stats to avoid accumulating logs in memory
+        self.stats = defaultdict(lambda: [])
 
 
 # set up a custom logger
@@ -156,60 +255,59 @@ def get_logger():
 
     return logger
 
+import time
+import numpy as np
 
 
-class DecayThenFlatSchedule():
+def print_time(start_time, T, t_max, episode, episode_rewards):
+    time_elapsed = time.time() - start_time
+    T = max(1, T)
+    time_left = time_elapsed * (t_max - T) / T
+    # Just in case its over 100 days
+    time_left = min(time_left, 60 * 60 * 24 * 100)
+    last_reward = "N\A"
+    if len(episode_rewards) > 5:
+        last_reward = "{:.2f}".format(np.mean(episode_rewards[-50:]))
+    print("\033[F\033[F\x1b[KEp: {:,}, T: {:,}/{:,}, Reward: {}, \n\x1b[KElapsed: {}, Left: {}\n".format(episode, T, t_max, last_reward, time_str(time_elapsed), time_str(time_left)), " " * 10, end="\r")
 
-    def __init__(self,
-                 start,
-                 finish,
-                 time_length,
-                 decay="exp"):
 
-        self.start = start
-        self.finish = finish
-        self.time_length = time_length
-        self.delta = (self.start - self.finish) / self.time_length
-        self.decay = decay
+def time_left(start_time, t_start, t_current, t_max):
+    if t_current >= t_max:
+        return "-"
+    time_elapsed = time.time() - start_time
+    t_current = max(1, t_current)
+    time_left = time_elapsed * (t_max - t_current) / (t_current - t_start)
+    # Just in case its over 100 days
+    time_left = min(time_left, 60 * 60 * 24 * 100)
+    return time_str(time_left)
 
-        if self.decay in ["exp"]:
-            self.exp_scaling = (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
 
-    def eval(self, T):
-        if self.decay in ["linear"]:
-            return max(self.finish, self.start - self.delta * T)
-        elif self.decay in ["exp"]:
-            return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
-    pass
-
-class RNNAgent(nn.Module):
-    def __init__(self, input_shape, args):
-        super(RNNAgent, self).__init__()
-        self.args = args
-
-        self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
-        self.rnn = nn.GRUCell(args.rnn_hidden_dim, args.rnn_hidden_dim)
-        self.fc2 = nn.Linear(args.rnn_hidden_dim, args.n_actions)
-
-    def init_hidden(self):
-        # make hidden states on same device as model
-        return self.fc1.weight.new(1, self.args.rnn_hidden_dim).zero_()
-
-    def forward(self, inputs, hidden_state):
-        x = F.relu(self.fc1(inputs))
-        h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim)
-        h = self.rnn(x, h_in)
-        q = self.fc2(h)
-        return q, h
+def time_str(s):
+    """
+    Convert seconds to a nicer string showing days, hours, minutes and seconds
+    """
+    days, remainder = divmod(s, 60 * 60 * 24)
+    hours, remainder = divmod(remainder, 60 * 60)
+    minutes, seconds = divmod(remainder, 60)
+    string = ""
+    if days > 0:
+        string += "{:d} days, ".format(int(days))
+    if hours > 0:
+        string += "{:d} hours, ".format(int(hours))
+    if minutes > 0:
+        string += "{:d} minutes, ".format(int(minutes))
+    string += "{:d} seconds".format(int(seconds))
+    return string
 
 class EpsilonGreedyActionSelector():
-
+    
     def __init__(self, args):
         self.args = args
 
         self.schedule = DecayThenFlatSchedule(args.epsilon_start, args.epsilon_finish, args.epsilon_anneal_time,
                                               decay="linear")
         self.epsilon = self.schedule.eval(0)
+        
 
     def select_action(self, agent_inputs, avail_actions, t_env, test_mode=False):
 
@@ -218,12 +316,12 @@ class EpsilonGreedyActionSelector():
 
         if test_mode:
             # Greedy action selection only
-            self.epsilon = 0.0
+            self.epsilon  = getattr(self.args, "test_noise", 0.0)
 
         # mask actions that are excluded from selection
         masked_q_values = agent_inputs.clone()
-        masked_q_values[avail_actions == 0.0] = -float("inf")  # should never be selected!
-
+        masked_q_values[avail_actions == 0] = -float("inf")  # should never be selected!
+        
         random_numbers = th.rand_like(agent_inputs[:, :, 0])
         pick_random = (random_numbers < self.epsilon).long()
         random_actions = Categorical(avail_actions.float()).sample().long()
@@ -231,6 +329,9 @@ class EpsilonGreedyActionSelector():
         picked_actions = pick_random * random_actions + (1 - pick_random) * masked_q_values.max(dim=2)[1]
         return picked_actions
 
+
+
+# This multi-agent controller shares parameters between agents
 class BasicMAC:
     def __init__(self, scheme, groups, args):
         self.n_agents = args.n_agents
@@ -240,6 +341,7 @@ class BasicMAC:
         self.agent_output_type = args.agent_output_type
 
         self.action_selector = EpsilonGreedyActionSelector(args)
+        self.save_probs = getattr(self.args, 'save_probs', False)
 
         self.hidden_states = None
 
@@ -253,6 +355,8 @@ class BasicMAC:
     def forward(self, ep_batch, t, test_mode=False):
         agent_inputs = self._build_inputs(ep_batch, t)
         avail_actions = ep_batch["avail_actions"][:, t]
+        if test_mode:
+            self.agent.eval()
         agent_outs, self.hidden_states = self.agent(agent_inputs, self.hidden_states)
 
         # Softmax the agent outputs if they're policy logits
@@ -260,28 +364,18 @@ class BasicMAC:
 
             if getattr(self.args, "mask_before_softmax", True):
                 # Make the logits for unavailable actions very negative to minimise their affect on the softmax
+                agent_outs = agent_outs.reshape(ep_batch.batch_size * self.n_agents, -1)
                 reshaped_avail_actions = avail_actions.reshape(ep_batch.batch_size * self.n_agents, -1)
                 agent_outs[reshaped_avail_actions == 0] = -1e10
 
             agent_outs = th.nn.functional.softmax(agent_outs, dim=-1)
-            if not test_mode:
-                # Epsilon floor
-                epsilon_action_num = agent_outs.size(-1)
-                if getattr(self.args, "mask_before_softmax", True):
-                    # With probability epsilon, we will pick an available action uniformly
-                    epsilon_action_num = reshaped_avail_actions.sum(dim=1, keepdim=True).float()
-
-                agent_outs = ((1 - self.action_selector.epsilon) * agent_outs
-                               + th.ones_like(agent_outs) * self.action_selector.epsilon/epsilon_action_num)
-
-                if getattr(self.args, "mask_before_softmax", True):
-                    # Zero out the unavailable actions
-                    agent_outs[reshaped_avail_actions == 0] = 0.0
-
+            
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
+        self.hidden_states = self.agent.init_hidden()
+        if self.hidden_states is not None:
+            self.hidden_states = self.hidden_states.unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
 
     def parameters(self):
         return self.agent.parameters()
@@ -315,7 +409,7 @@ class BasicMAC:
         if self.args.obs_agent_id:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
 
-        inputs = th.cat([x.reshape(bs*self.n_agents, -1) for x in inputs], dim=1)
+        inputs = th.cat([x.reshape(bs, self.n_agents, -1) for x in inputs], dim=-1)
         return inputs
 
     def _get_input_shape(self, scheme):
@@ -328,420 +422,143 @@ class BasicMAC:
         return input_shape
 
 
-class Runner:
 
-    def __init__(self, args, logger):
-        self.args = args
-        self.logger = logger
-        self.batch_size = self.args.batch_size_run
-        assert self.batch_size == 1
-
-        E = partial(env_fn, env=StarCraft2Env)
-        self.env = E(**self.args.env_args)
-        self.episode_limit = self.env.episode_limit
-        self.t = 0
-
-        self.t_env = 0
-
-        self.train_returns = []
-        self.test_returns = []
-        self.train_stats = {}
-        self.test_stats = {}
-
-        # Log the first run
-        self.log_train_stats_t = -1000000
-
-    def setup(self, scheme, groups, preprocess, mac):
-        self.new_batch = partial(eBatch, scheme, groups, self.batch_size, self.episode_limit + 1,
-                                 preprocess=preprocess, device=self.args.device)
-        self.mac = mac
-
-    def get_env_info(self):
-        return self.env.get_env_info()
-
-    def save_replay(self):
-        self.env.save_replay()
-
-    def close_env(self):
-        self.env.close()
-
-    def reset(self):
-        self.batch = self.new_batch()
-        self.env.reset()
-        self.t = 0
-
-    def run(self, test_mode=False):
-        self.reset()
-
-        terminated = False
-        episode_return = 0
-        self.mac.init_hidden(batch_size=self.batch_size)
-
-        while not terminated:
-
-            pre_transition_data = {
-                "state": [self.env.get_state()],
-                "avail_actions": [self.env.get_avail_actions()],
-                "obs": [self.env.get_obs()]
-            }
-
-            self.batch.update(pre_transition_data, ts=self.t)
-
-            # Pass the entire batch of experiences up till now to the agents
-            # Receive the actions for each agent at this timestep in a batch of size 1
-            actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
-
-            reward, terminated, env_info = self.env.step(actions[0])
-            episode_return += reward
-
-            post_transition_data = {
-                "actions": actions,
-                "reward": [(reward,)],
-                "terminated": [(terminated != env_info.get("episode_limit", False),)],
-            }
-
-            self.batch.update(post_transition_data, ts=self.t)
-
-            self.t += 1
-
-        last_data = {
-            "state": [self.env.get_state()],
-            "avail_actions": [self.env.get_avail_actions()],
-            "obs": [self.env.get_obs()]
-        }
-        self.batch.update(last_data, ts=self.t)
-
-        # Select actions in the last stored state
-        actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
-        self.batch.update({"actions": actions}, ts=self.t)
-
-        cur_stats = self.test_stats if test_mode else self.train_stats
-        cur_returns = self.test_returns if test_mode else self.train_returns
-        log_prefix = "test_" if test_mode else ""
-        cur_stats.update({k: cur_stats.get(k, 0) + env_info.get(k, 0) for k in set(cur_stats) | set(env_info)})
-        cur_stats["n_episodes"] = 1 + cur_stats.get("n_episodes", 0)
-        cur_stats["ep_length"] = self.t + cur_stats.get("ep_length", 0)
-
-        if not test_mode:
-            self.t_env += self.t
-
-        cur_returns.append(episode_return)
-
-        if test_mode and (len(self.test_returns) == self.args.test_nepisode):
-            self._log(cur_returns, cur_stats, log_prefix)
-        elif self.t_env - self.log_train_stats_t >= self.args.runner_log_interval:
-            self._log(cur_returns, cur_stats, log_prefix)
-            if hasattr(self.mac.action_selector, "epsilon"):
-                self.logger.log_stat("epsilon", self.mac.action_selector.epsilon, self.t_env)
-            self.log_train_stats_t = self.t_env
-
-        return self.batch
-
-    def _log(self, returns, stats, prefix):
-        self.logger.log_stat(prefix + "return_mean", np.mean(returns), self.t_env)
-        self.logger.log_stat(prefix + "return_std", np.std(returns), self.t_env)
-        returns.clear()
-
-        for k, v in stats.items():
-            if k != "n_episodes":
-                self.logger.log_stat(prefix + k + "_mean" , v/stats["n_episodes"], self.t_env)
-        stats.clear()
-class QMixer(nn.Module):
-    def __init__(self, args):
-        super(QMixer, self).__init__()
-
-        self.args = args
-        self.n_agents = args.n_agents
-        self.state_dim = int(np.prod(args.state_shape))
-
-        self.embed_dim = args.mixing_embed_dim
-
-        if getattr(args, "hypernet_layers", 1) == 1:
-            self.hyper_w_1 = nn.Linear(self.state_dim, self.embed_dim * self.n_agents)
-            self.hyper_w_final = nn.Linear(self.state_dim, self.embed_dim)
-        elif getattr(args, "hypernet_layers", 1) == 2:
-            hypernet_embed = self.args.hypernet_embed
-            self.hyper_w_1 = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
-                                           nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
-            self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
-                                           nn.Linear(hypernet_embed, self.embed_dim))
-        elif getattr(args, "hypernet_layers", 1) > 2:
-            raise Exception("Sorry >2 hypernet layers is not implemented!")
-        else:
-            raise Exception("Error setting number of hypernet layers.")
-
-        # State dependent bias for hidden layer
-        self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
-
-        # V(s) instead of a bias for the last layers
-        self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
-                               nn.ReLU(),
-                               nn.Linear(self.embed_dim, 1))
-
-    def forward(self, agent_qs, states):
-        bs = agent_qs.size(0)
-        states = states.reshape(-1, self.state_dim)
-        agent_qs = agent_qs.view(-1, 1, self.n_agents)
-        # First layer
-        w1 = th.abs(self.hyper_w_1(states))
-        b1 = self.hyper_b_1(states)
-        w1 = w1.view(-1, self.n_agents, self.embed_dim)
-        b1 = b1.view(-1, 1, self.embed_dim)
-        hidden = F.elu(th.bmm(agent_qs, w1) + b1)
-        # Second layer
-        w_final = th.abs(self.hyper_w_final(states))
-        w_final = w_final.view(-1, self.embed_dim, 1)
-        # State-dependent bias
-        v = self.V(states).view(-1, 1, 1)
-        # Compute final output
-        y = th.bmm(hidden, w_final) + v
-        # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-        return q_tot
-
-
-class eBatch:
-    def __init__(self,
-                 scheme,
-                 groups,
-                 batch_size,
-                 max_seq_length,
-                 data=None,
-                 preprocess=None,
-                 device="cpu"):
-        self.scheme = scheme.copy()
-        self.groups = groups
-        self.batch_size = batch_size
-        self.max_seq_length = max_seq_length
-        self.preprocess = {} if preprocess is None else preprocess
-        self.device = device
-
-        if data is not None:
-            self.data = data
-        else:
-            self.data = SN()
-            self.data.transition_data = {}
-            self.data.episode_data = {}
-            self._setup_data(self.scheme, self.groups, batch_size, max_seq_length, self.preprocess)
-
-    def _setup_data(self, scheme, groups, batch_size, max_seq_length, preprocess):
-        if preprocess is not None:
-            for k in preprocess:
-                assert k in scheme
-                new_k = preprocess[k][0]
-                transforms = preprocess[k][1]
-
-                vshape = self.scheme[k]["vshape"]
-                dtype = self.scheme[k]["dtype"]
-                for transform in transforms:
-                    vshape, dtype = transform.infer_output_info(vshape, dtype)
-
-                self.scheme[new_k] = {
-                    "vshape": vshape,
-                    "dtype": dtype
-                }
-                if "group" in self.scheme[k]:
-                    self.scheme[new_k]["group"] = self.scheme[k]["group"]
-                if "episode_const" in self.scheme[k]:
-                    self.scheme[new_k]["episode_const"] = self.scheme[k]["episode_const"]
-
-        assert "filled" not in scheme, '"filled" is a reserved key for masking.'
-        scheme.update({
-            "filled": {"vshape": (1,), "dtype": th.long},
-        })
-
-        for field_key, field_info in scheme.items():
-            assert "vshape" in field_info, "Scheme must define vshape for {}".format(field_key)
-            vshape = field_info["vshape"]
-            episode_const = field_info.get("episode_const", False)
-            group = field_info.get("group", None)
-            dtype = field_info.get("dtype", th.float32)
-
-            if isinstance(vshape, int):
-                vshape = (vshape,)
-
-            if group:
-                assert group in groups, "Group {} must have its number of members defined in _groups_".format(group)
-                shape = (groups[group], *vshape)
-            else:
-                shape = vshape
-
-            if episode_const:
-                self.data.episode_data[field_key] = th.zeros((batch_size, *shape), dtype=dtype, device=self.device)
-            else:
-                self.data.transition_data[field_key] = th.zeros((batch_size, max_seq_length, *shape), dtype=dtype, device=self.device)
-
-    def extend(self, scheme, groups=None):
-        self._setup_data(scheme, self.groups if groups is None else groups, self.batch_size, self.max_seq_length)
-
-    def to(self, device):
-        for k, v in self.data.transition_data.items():
-            self.data.transition_data[k] = v.to(device)
-        for k, v in self.data.episode_data.items():
-            self.data.episode_data[k] = v.to(device)
-        self.device = device
-
-    def update(self, data, bs=slice(None), ts=slice(None), mark_filled=True):
-        slices = self._parse_slices((bs, ts))
-        for k, v in data.items():
-            if k in self.data.transition_data:
-                target = self.data.transition_data
-                if mark_filled:
-                    target["filled"][slices] = 1
-                    mark_filled = False
-                _slices = slices
-            elif k in self.data.episode_data:
-                target = self.data.episode_data
-                _slices = slices[0]
-            else:
-                raise KeyError("{} not found in transition or episode data".format(k))
-
-            dtype = self.scheme[k].get("dtype", th.float32)
-            v = th.tensor(v, dtype=dtype, device=self.device)
-            self._check_safe_view(v, target[k][_slices])
-            target[k][_slices] = v.view_as(target[k][_slices])
-
-            if k in self.preprocess:
-                new_k = self.preprocess[k][0]
-                v = target[k][_slices]
-                for transform in self.preprocess[k][1]:
-                    v = transform.transform(v)
-                target[new_k][_slices] = v.view_as(target[new_k][_slices])
-
-    def _check_safe_view(self, v, dest):
-        idx = len(v.shape) - 1
-        for s in dest.shape[::-1]:
-            if v.shape[idx] != s:
-                if s != 1:
-                    raise ValueError("Unsafe reshape of {} to {}".format(v.shape, dest.shape))
-            else:
-                idx -= 1
-
-    def __getitem__(self, item):
-        if isinstance(item, str):
-            if item in self.data.episode_data:
-                return self.data.episode_data[item]
-            elif item in self.data.transition_data:
-                return self.data.transition_data[item]
-            else:
-                raise ValueError
-        elif isinstance(item, tuple) and all([isinstance(it, str) for it in item]):
-            new_data = self._new_data_sn()
-            for key in item:
-                if key in self.data.transition_data:
-                    new_data.transition_data[key] = self.data.transition_data[key]
-                elif key in self.data.episode_data:
-                    new_data.episode_data[key] = self.data.episode_data[key]
-                else:
-                    raise KeyError("Unrecognised key {}".format(key))
-
-            # Update the scheme to only have the requested keys
-            new_scheme = {key: self.scheme[key] for key in item}
-            new_groups = {self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
-                          for key in item if "group" in self.scheme[key]}
-            ret = eBatch(new_scheme, new_groups, self.batch_size, self.max_seq_length, data=new_data, device=self.device)
-            return ret
-        else:
-            item = self._parse_slices(item)
-            new_data = self._new_data_sn()
-            for k, v in self.data.transition_data.items():
-                new_data.transition_data[k] = v[item]
-            for k, v in self.data.episode_data.items():
-                new_data.episode_data[k] = v[item[0]]
-
-            ret_bs = self._get_num_items(item[0], self.batch_size)
-            ret_max_t = self._get_num_items(item[1], self.max_seq_length)
-
-            ret = eBatch(self.scheme, self.groups, ret_bs, ret_max_t, data=new_data, device=self.device)
-            return ret
-
-    def _get_num_items(self, indexing_item, max_size):
-        if isinstance(indexing_item, list) or isinstance(indexing_item, np.ndarray):
-            return len(indexing_item)
-        elif isinstance(indexing_item, slice):
-            _range = indexing_item.indices(max_size)
-            return 1 + (_range[1] - _range[0] - 1)//_range[2]
-
-    def _new_data_sn(self):
-        new_data = SN()
-        new_data.transition_data = {}
-        new_data.episode_data = {}
-        return new_data
-
-    def _parse_slices(self, items):
-        parsed = []
-        # Only batch slice given, add full time slice
-        if (isinstance(items, slice)  # slice a:b
-            or isinstance(items, int)  # int i
-            or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))  # [a,b,c]
-            ):
-            items = (items, slice(None))
-
-        # Need the time indexing to be contiguous
-        if isinstance(items[1], list):
-            raise IndexError("Indexing across Time must be contiguous")
-
-        for item in items:
-            #TODO: stronger checks to ensure only supported options get through
-            if isinstance(item, int):
-                # Convert single indices to slices
-                parsed.append(slice(item, item+1))
-            else:
-                # Leave slices and lists as is
-                parsed.append(item)
-        return parsed
-
-    def max_t_filled(self):
-        return th.sum(self.data.transition_data["filled"], 1).max(0)[0]
-
-    def __repr__(self):
-        return "eBatch. Batch Size:{} Max_seq_len:{} Keys:{} Groups:{}".format(self.batch_size,
-                                                                                     self.max_seq_length,
-                                                                                     self.scheme.keys(),
-                                                                                     self.groups.keys())
-
-
-class ReplayBuffer(eBatch):
-    def __init__(self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"):
-        super(ReplayBuffer, self).__init__(scheme, groups, buffer_size, max_seq_length, preprocess=preprocess, device=device)
-        self.buffer_size = buffer_size  # same as self.batch_size but more explicit
-        self.buffer_index = 0
-        self.episodes_in_buffer = 0
-
-    def insert_episode_batch(self, ep_batch):
-        if self.buffer_index + ep_batch.batch_size <= self.buffer_size:
-            self.update(ep_batch.data.transition_data,
-                        slice(self.buffer_index, self.buffer_index + ep_batch.batch_size),
-                        slice(0, ep_batch.max_seq_length),
-                        mark_filled=False)
-            self.update(ep_batch.data.episode_data,
-                        slice(self.buffer_index, self.buffer_index + ep_batch.batch_size))
-            self.buffer_index = (self.buffer_index + ep_batch.batch_size)
-            self.episodes_in_buffer = max(self.episodes_in_buffer, self.buffer_index)
-            self.buffer_index = self.buffer_index % self.buffer_size
-            assert self.buffer_index < self.buffer_size
-        else:
-            buffer_left = self.buffer_size - self.buffer_index
-            self.insert_episode_batch(ep_batch[0:buffer_left, :])
-            self.insert_episode_batch(ep_batch[buffer_left:, :])
-
-    def can_sample(self, batch_size):
-        return self.episodes_in_buffer >= batch_size
-
-    def sample(self, batch_size):
-        assert self.can_sample(batch_size)
-        if self.episodes_in_buffer == batch_size:
-            return self[:batch_size]
-        else:
-            # Uniform sampling only atm
-            ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
-            return self[ep_ids]
-
-    def __repr__(self):
-        return "ReplayBuffer. {}/{} episodes. Keys:{} Groups:{}".format(self.episodes_in_buffer,
-                                                                        self.buffer_size,
-                                                                        self.scheme.keys(),
-                                                                        self.groups.keys())
-
+# This multi-agent controller shares parameters between agents
+class MAC(BasicMAC):
+    def __init__(self, scheme, groups, args):
+        super(MAC, self).__init__(scheme, groups, args)
+        
+    def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None), test_mode=False):
+        # Only select actions for the selected batch elements in bs
+        avail_actions = ep_batch["avail_actions"][:, t_ep]
+        qvals = self.forward(ep_batch, t_ep, test_mode=test_mode)
+        chosen_actions = self.action_selector.select_action(qvals[bs], avail_actions[bs], t_env, test_mode=test_mode)
+        return chosen_actions
+
+    def forward(self, ep_batch, t, test_mode=False):
+        if test_mode:
+            self.agent.eval()
+            
+        agent_inputs = self._build_inputs(ep_batch, t)
+        avail_actions = ep_batch["avail_actions"][:, t]
+        agent_outs, self.hidden_states = self.agent(agent_inputs, self.hidden_states)
+
+        return agent_outs
+
+
+def build_td_lambda_targets(rewards, terminated, mask, target_qs, n_agents, gamma, td_lambda):
+    # Assumes  <target_qs > in B*T*A and <reward >, <terminated >, <mask > in (at least) B*T-1*1
+    # Initialise  last  lambda -return  for  not  terminated  episodes
+    ret = target_qs.new_zeros(*target_qs.shape)
+    ret[:, -1] = target_qs[:, -1] * (1 - th.sum(terminated, dim=1))
+    # Backwards  recursive  update  of the "forward  view"
+    for t in range(ret.shape[1] - 2, -1,  -1):
+        ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] \
+                    * (rewards[:, t] + (1 - td_lambda) * gamma * target_qs[:, t + 1] * (1 - terminated[:, t]))
+    # Returns lambda-return from t=0 to t=T-1, i.e. in B*T-1*A
+    return ret[:, 0:-1]
+
+
+def build_gae_targets(rewards, masks, values, gamma, lambd):
+    B, T, A, _ = values.size()
+    T-=1
+    advantages = th.zeros(B, T, A, 1).to(device=values.device)
+    advantage_t = th.zeros(B, A, 1).to(device=values.device)
+
+    for t in reversed(range(T)):
+        delta = rewards[:, t] + values[:, t+1] * gamma * masks[:, t] - values[:, t]
+        advantage_t = delta + advantage_t * gamma * lambd * masks[:, t]
+        advantages[:, t] = advantage_t
+
+    returns = values[:, :T] + advantages
+    return advantages, returns
+
+
+def build_q_lambda_targets(rewards, terminated, mask, exp_qvals, qvals, gamma, td_lambda):
+    # Assumes  <target_qs > in B*T*A and <reward >, <terminated >, <mask > in (at least) B*T-1*1
+    # Initialise  last  lambda -return  for  not  terminated  episodes
+    ret = exp_qvals.new_zeros(*exp_qvals.shape)
+    ret[:, -1] = exp_qvals[:, -1] * (1 - th.sum(terminated, dim=1))
+    # Backwards  recursive  update  of the "forward  view"
+    for t in range(ret.shape[1] - 2, -1,  -1):
+        reward = rewards[:, t] + exp_qvals[:, t] - qvals[:, t] #off-policy correction
+        ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] \
+                    * (reward + (1 - td_lambda) * gamma * exp_qvals[:, t + 1] * (1 - terminated[:, t]))
+    # Returns lambda-return from t=0 to t=T-1, i.e. in B*T-1*A
+    return ret[:, 0:-1]
+
+
+def build_target_q(td_q, target_q, mac, mask, gamma, td_lambda, n):
+    aug = th.zeros_like(td_q[:, :1])
+
+    #Tree diagram
+    mac = mac[:, :-1]
+    tree_q_vals = th.zeros_like(td_q)
+    coeff = 1.0
+    t1 = td_q[:]
+    for _ in range(n):
+        tree_q_vals += t1 * coeff
+        t1 = th.cat(((t1 * mac)[:, 1:], aug), dim=1)
+        coeff *= gamma * td_lambda
+    return target_q + tree_q_vals
+
+class RunningMeanStd(object):
+    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+    def __init__(self, epsilon=1e-4, shape=()):
+        self.mean = np.zeros(shape, 'float64')
+        self.var = np.ones(shape, 'float64')
+        self.count = epsilon
+
+    def update(self, x):
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * (self.count)
+        m_b = batch_var * (batch_count)
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        new_count = batch_count + self.count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
+        
+        
+def clip_by_tensor(t,t_min,t_max):
+    """
+    clip_by_tensor
+    :param t: tensor
+    :param t_min: min
+    :param t_max: max
+    :return: cliped tensor
+    """
+    t=t.float()
+    t_min=t_min.float()
+    t_max=t_max.float()
+ 
+    result = (t >= t_min).float() * t + (t < t_min).float() * t_min
+    result = (result <= t_max).float() * result + (result > t_max).float() * t_max
+    return result
+
+def get_parameters_num(param_list):
+    return str(sum(p.numel() for p in param_list) / 1000) + 'K'
+
+
+def init(module, weight_init, bias_init, gain=1):
+    weight_init(module.weight.data, gain=gain)
+    bias_init(module.bias.data)
+    return module
+
+
+def orthogonal_init_(m, gain=1):
+    if isinstance(m, nn.Linear):
+        init(m, nn.init.orthogonal_,
+                    lambda x: nn.init.constant_(x, 0), gain=gain)
