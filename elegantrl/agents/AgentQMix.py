@@ -1,7 +1,7 @@
 import copy
-from ..train.replay_buffer import EpisodeBatch
+from train.replay_buffer import EpisodeBatch
 from net import QMix,VDN
-from ..envs.utils.marl_utils import build_td_lambda_targets, build_q_lambda_targets,get_parameters_num
+from envs.utils.marl_utils import build_td_lambda_targets, build_q_lambda_targets,get_parameters_num
 import torch as th
 from torch.optim import RMSprop, Adam
 import numpy as np
