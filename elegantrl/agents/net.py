@@ -1090,7 +1090,7 @@ class ActorSimplify:
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        super(NRNNAgent, self).__init__()
+        super(RNNAgent, self).__init__()
         self.args = args
 
         self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
@@ -1204,14 +1204,14 @@ import numpy as np
 
 class VDN(nn.Module):
     def __init__(self):
-        super(VDNMixer, self).__init__()
+        super(VDN, self).__init__()
 
     def forward(self, agent_qs, batch):
         return th.sum(agent_qs, dim=2, keepdim=True)
         
 class QMix(nn.Module):
     def __init__(self, args):
-        super(QMixer, self).__init__()
+        super(QMix, self).__init__()
 
         self.args = args
         self.n_agents = args.n_agents
