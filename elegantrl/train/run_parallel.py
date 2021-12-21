@@ -366,14 +366,15 @@ def avg_update_net(dst_net, src_net_param, device):
     for dst, src in zip(dst_net.parameters(), src_net_param):
         dst.data.copy_((dst.data + src.data.to(device)) * 0.5)
 
-from envs import REGISTRY as env_REGISTRY
+from envs.starcraft import StarCraft2Env
 from functools import partial
 from run_parallel import EpisodeBatch
 from multiprocessing import Pipe, Process
 import numpy as np
 import torch as th
 
-
+def env_fn1(env, **kwargs) :
+    return env(**kwargs)
 
 class ParallelRunner:
 
@@ -384,7 +385,7 @@ class ParallelRunner:
 
         # Make subprocesses for the envs
         self.parent_conns, self.worker_conns = zip(*[Pipe() for _ in range(self.batch_size)])
-        env_fn = env_REGISTRY[self.args.env]
+        env_fn = partial(env_fn1, env=StarCraft2Env)
         self.ps = []
         for i, worker_conn in enumerate(self.worker_conns):
             ps = Process(target=env_worker, 

@@ -5,14 +5,14 @@ import time
 import threading
 import torch as th
 from types import SimpleNamespace as SN
-from ..envs.utils.marl_utils import Logger,time_left, time_str,OneHot
+from envs.utils.marl_utils import Logger,time_left, time_str,OneHot
 from os.path import dirname, abspath
-from ..agents.AgentQMix import AgentQMix
-from .run_parallel import ParallelRunner
-from replay_buffer import ReplayBuffer
-from ..envs.starcraft import StarCraft2Env
-from ..agents.net import RNNAgent
-from ..envs.utils.marl_utils import *
+from agents.AgentQMix import AgentQMix
+from train.run_parallel import ParallelRunner
+from train.replay_buffer import ReplayBuffer
+from envs.starcraft import StarCraft2Env
+from agents.net import RNNAgent
+from envs.utils.marl_utils import *
 import numpy as np
 
 # This multi-agent controller shares parameters between agents
