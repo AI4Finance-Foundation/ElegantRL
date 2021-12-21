@@ -368,7 +368,7 @@ def avg_update_net(dst_net, src_net_param, device):
 
 from envs.starcraft import StarCraft2Env
 from functools import partial
-from run_parallel import EpisodeBatch
+from train.replay_buffer import EpisodeBatch
 from multiprocessing import Pipe, Process
 import numpy as np
 import torch as th
