@@ -858,7 +858,7 @@ class BinarySearchTree:
 import torch as th
 import numpy as np
 from types import SimpleNamespace as SN
-from envs.utils.marl_utils import SumSegmentTree,MinSegmentTree
+from elegantrl.envs.utils.marl_utils import SumSegmentTree,MinSegmentTree
 import random
 class EpisodeBatch:
     def __init__(self,
