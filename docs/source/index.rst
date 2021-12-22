@@ -43,7 +43,7 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
 
 .. toctree::
    :maxdepth: 1
-   :caption: TUTORIAL
+   :caption: Hellow-World
 
    tutorial/intro
    tutorial/net
@@ -69,10 +69,11 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    
 .. toctree::
    :maxdepth: 1
-   :caption: Examples
+   :caption: Tutorials
    
    examples/BipedalWalker-v3
    examples/LunarLanderContinuous-v2
+   examples/Creating_VecEnv
 
 
 Indices and tables
