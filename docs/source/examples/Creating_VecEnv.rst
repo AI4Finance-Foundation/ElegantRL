@@ -6,7 +6,6 @@ Deep reinforcement learning (DRL) employs a trial-and-error manner to collect da
 A VecEnv runs thousands of independent sub-environments in parallel. In practice, it takes a batch of actions and returns a batch of transitions for each step.
 
 Why creating a VecEnv on GPUs?
---------------
 
 - Running thousands of parallel simulations, since the manycore GPU architecture is natually suited for highly parallel simulations.
 - Speeding up the matrix computations of each simulation using GPU tensor cores.
