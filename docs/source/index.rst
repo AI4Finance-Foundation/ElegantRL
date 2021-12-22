@@ -60,10 +60,8 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    algorithms/ddpg
    algorithms/td3
    algorithms/sac
-   algorithms/intersac
    algorithms/a2c
    algorithms/ppo
-   algorithms/interppo
    algorithms/maddpg
    algorithms/qmix
    algorithms/redq

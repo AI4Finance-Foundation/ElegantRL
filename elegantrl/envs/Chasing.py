@@ -14,7 +14,7 @@ class ChasingVecEnv:
         self.v1s = None
 
         self.distances = None
-        self.now_steps = None
+        self.steps = None
 
         '''env info'''
         self.env_name = 'ChasingVecEnv'
@@ -33,7 +33,7 @@ class ChasingVecEnv:
         self.p1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
         self.v1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
 
-        self.now_steps = np.zeros(self.env_num, dtype=np.int)
+        self.steps = np.zeros(self.env_num, dtype=np.int)
 
         for env_i in range(self.env_num):
             self.reset_env_i(env_i)
@@ -48,9 +48,9 @@ class ChasingVecEnv:
         self.p1s[i] = torch.normal(-self.init_distance, 1, size=(self.dim,))
         self.v1s[i] = torch.zeros((self.dim,))
 
-        self.now_steps[i] = 0
+        self.steps[i] = 0
 
-    def step(self, actions):
+    def step(self, action1s):
         action0s = torch.rand(size=(self.env_num, self.dim), dtype=torch.float32, device=self.device)
         action0s_l2 = (action0s ** 2).sum(dim=1, keepdim=True) ** 0.5
         action0s = action0s / action0s_l2.clamp_min(1.0)
@@ -59,36 +59,36 @@ class ChasingVecEnv:
         self.v0s += action0s
         self.p0s += self.v0s * 0.01
 
-        actions_l2 = (actions ** 2).sum(dim=1, keepdim=True) ** 0.5
-        actions = actions / actions_l2.clamp_min(1.0)
+        action1s_l2 = (action1s ** 2).sum(dim=1, keepdim=True) ** 0.5
+        action1s = action1s / action1s_l2.clamp_min(1.0)
 
         self.v1s *= 0.75
-        self.v1s += actions
+        self.v1s += action1s
         self.p1s += self.v1s * 0.01
 
         '''reward'''
         distances = ((self.p0s - self.p1s) ** 2).sum(dim=1) ** 0.5
-        rewards = self.distances - distances - actions_l2.squeeze(1) * 0.02
+        rewards = self.distances - distances - action1s_l2.squeeze(1) * 0.02
         self.distances = distances
 
         '''done'''
-        self.now_steps += 1  # array
-        dones = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
+        self.steps += 1  # array
+        masks = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
         for env_i in range(self.env_num):
             done = 0
             if distances[env_i] < 1:
                 done = 1
                 rewards[env_i] += self.init_distance
-            elif self.now_steps[env_i] == self.max_step:
+            elif self.steps[env_i] == self.max_step:
                 done = 1
 
             if done:
                 self.reset_env_i(env_i)
-            dones[env_i] = done
+            masks[env_i] = done
 
         '''next_state'''
         next_states = self.get_state()
-        return next_states, rewards, dones, None
+        return next_states, rewards, masks, None
 
     def get_state(self):
         return torch.cat((self.p0s, self.v0s, self.p1s, self.v1s), dim=1)
@@ -105,26 +105,26 @@ def vec_policy(states):
 def check_env():
     env = ChasingVecEnv(dim=2, env_num=4096, device_id=0)
 
-    epi_rs = [0.0, ] * env.env_num  # episode returns
-    epi_r_list = [[], ] * env.env_num
+    rewards = [0.0, ] * env.env_num  # episode returns
+    rewards_list = [[], ] * env.env_num
 
     states = env.reset()
     for _ in range(env.max_step * 4):
         actions = vec_policy(states)
-        states, rewards, dones, _ = env.step(actions)
+        states, rewards, masks, _ = env.step(actions)
 
         for env_i in range(env.env_num):
-            epi_rs[env_i] += rewards[env_i].item()
+            rewards[env_i] += rewards[env_i].item()
 
-            if dones[env_i]:
+            if masks[env_i]:
                 print(f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}")
-                epi_r_list[env_i].append(epi_rs[env_i])
-                epi_rs[env_i] = 0.0
+                rewards_list[env_i].append(rewards[env_i])
+                rewards[env_i] = 0.0
 
-    epi_r_list = np.array(epi_r_list)
-    print('shape:', epi_r_list.shape)
-    print('mean: ', np.mean(epi_r_list, axis=1))
-    print('std:  ', np.std(epi_r_list, axis=1))
+    rewards_list = np.array(rewards_list)
+    print('shape:', rewards_list.shape)
+    print('mean: ', np.mean(rewards_list, axis=1))
+    print('std:  ', np.std(rewards_list, axis=1))
 
 
 if __name__ == '__main__':
