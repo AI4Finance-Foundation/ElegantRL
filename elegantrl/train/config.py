@@ -5,19 +5,19 @@ import numpy as np
 
 class Arguments:  # [ElegantRL.2021.10.21]
     """
-        Configuration map for environment setup, model training, model evaluation, and resource allocation.
+        Configuration map.
         
-        Parameters
-        ----------
-            env : object
-                The environment object in ElegantRL.
-            agent : object
-                The agent object in ElegantRL.
+        :param env[object]: the environment object in ElegantRL.
+        :param agent[object]: the agent object in ElegantRL.
     
+        Environment setup:
+        
         Attributes
         ----------
             env : object
                 The environment object in ElegantRL.
+            env_num : int
+                The number of sub-environments. For VecEnv, env_num > 1.
     
     """
     def __init__(self, env, agent):
