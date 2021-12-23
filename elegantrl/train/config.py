@@ -4,6 +4,22 @@ import numpy as np
 
 
 class Arguments:  # [ElegantRL.2021.10.21]
+    """
+        Configuration map for environment setup, model training, model evaluation, and resource allocation.
+        
+        Parameters
+        ----------
+            env : object
+                The environment object in ElegantRL.
+            agent : object
+                The agent object in ElegantRL.
+    
+        Attributes
+        ----------
+            env : object
+                The environment object in ElegantRL.
+    
+    """
     def __init__(self, env, agent):
         self.env = env  # the environment for training
         self.env_num = getattr(env, 'env_num', 1)  # env_num = 1. In vector env, env_num > 1.
