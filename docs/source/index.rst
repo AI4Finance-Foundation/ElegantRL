@@ -50,6 +50,13 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    tutorial/agent
    tutorial/env
    tutorial/run
+   
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
+   API/config 
 
 .. toctree::
    :maxdepth: 1
@@ -71,9 +78,9 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    :maxdepth: 1
    :caption: Tutorials
    
+   examples/Creating_VecEnv
    examples/BipedalWalker-v3
    examples/LunarLanderContinuous-v2
-   examples/Creating_VecEnv
 
 
 Indices and tables
