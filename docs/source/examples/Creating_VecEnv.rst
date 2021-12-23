@@ -1,25 +1,25 @@
 How to create a VecEnv on GPUs
 ===============================
 
-Deep reinforcement learning (DRL) employs a trial-and-error manner to collect data from agent-environment interactions, along with the learning procedure. ElegantRL speeds up the data collection through **worker parallelism (VecEnv)**, by making use of hardwares, e.g., GPUs. 
+Deep reinforcement learning (DRL) employs a trial-and-error manner to collect training data (transitions in the format (s, a, r, s')) from agent-environment interactions, along with the learning procedure. ElegantRL greatly speeds up the data collection through **worker parallelism (VecEnv)**, by making full use of hardwares, GPUs in particular.
 
-A VecEnv runs thousands of independent sub-environments in parallel. In practice, it takes a batch of actions and returns a batch of transitions for each step.
+A VecEnv runs thousands of independent sub-environments in parallel. In each step, it takes a batch of actions and returns a batch of transitions.
 
-Why creating a VecEnv on GPUs?
+Why use VecEnv on GPUs?
 
-- Running thousands of parallel simulations, since the manycore GPU architecture is natually suited for highly parallel simulations.
+- Running thousands of parallel simulations, since the manycore GPU architecture is natually suited for parallel simulations.
 - Speeding up the matrix computations of each simulation using GPU tensor cores.
 - Reducing the communication overhead by bypassing the bottleneck between CPUs and GPUs.
 - Maximizing GPU utilization through pipeline parallelism.
 
-For GPU-accelerated VecEnv, ElegantRL supports external GPU-accelerated VecEnv, namely NVIDIA Isaac Gym, and user-customized VecEnv. Here we explain in detail how to use Isaac Gym and how to define your own VecEnv in ElegantRL. 
+For GPU-accelerated VecEnv, ElegantRL supports both external GPU-accelerated VecEnv, e.g., NVIDIA Isaac Gym, and user-customized VecEnv. Next, we explain in detail how to use Isaac Gym and how to define your own VecEnv in ElegantRL. 
 
-Running an environmnet from NVIDIA Isaac Gym
+Running a VecEnv environmnet from NVIDIA Isaac Gym
 ------------------------------------------
 
-Isaac Gym is NVIDIA’s prototype physics simulation environment for reinforcement learning research. Isaac Gym includes a straightforward RL task system, e.g., Cartpole, Ant, Humanoid, Shadow Hand Object Manipulation, and supports users for customization. To download NVIDIA Isaac Gym, please follow the installation instructions from https://developer.nvidia.com/isaac-gym. 
+Isaac Gym is NVIDIA’s prototype physics simulators for reinforcement learning research. Isaac Gym includes typical RL tasks, e.g., Cartpole, Ant, Humanoid, Shadow Hand Object Manipulation, and also supports user-customization. Please lease follow instructions at https://developer.nvidia.com/isaac-gym. 
 
-ElegantRL provides a wrapper ``PreprocessIsaacVecEnv`` to process a defined Isaac Gym environment:
+ElegantRL provides a wrapper ``PreprocessIsaacVecEnv`` to process an Isaac Gym environment:
 
 .. code-block:: python
 
@@ -30,12 +30,12 @@ ElegantRL provides a wrapper ``PreprocessIsaacVecEnv`` to process a defined Isaa
     env = PreprocessIsaacVecEnv(env_name, if_print=False, env_num=4096, device_id=0)
 
 
-Building an environmnet from scratch
+Building a VecEnv environmnet from scratch
 ------------------------------------------
 
-We show you an example of how to construct a VecEnv from scratch. We create a simple chasing environment, a deterministic environment with continuous actions and continuous state space. The objective is to move the agent to chase a randomly moving robot. The reward depends on the distance between the agent and the robot. The environment terminates when the agent catches the robot or the max step is reached.
+We show an example of how to construct a VecEnv from scratch. We create a simple chasing environment, a deterministic environment with continuous actions and continuous state space. The goal is to move an agent to chase a randomly moving robot. The reward depends on the distance between agent and robot. The environment terminates when the agent catches the robot or the max step is reached.
 
-To keep the example simple, we only import two packages, PyTorch and Numpy.
+To keep the example simple, we only use two packages, PyTorch and Numpy.
 
 .. code-block:: python
 
@@ -44,7 +44,7 @@ To keep the example simple, we only import two packages, PyTorch and Numpy.
     
 Now, we start to create the environment, which usually includes initialization function, reset function, and step function. 
 
-For **initialization function**, we define the number of environments ``env_num``, the GPU id ``device_id``, and the dimension of the chasing space ``dim``. In the chasing environment, we keep track of positions and velocities of the agent and the robot.
+For **initialization function**, we specify the number of environments ``env_num``, the GPU id ``device_id``, and the dimension of the chasing space ``dim``. In the chasing environment, we keep track of positions and velocities of the agent and the robot.
 
 .. code-block:: python
 
@@ -73,7 +73,7 @@ For **initialization function**, we define the number of environments ``env_num`
             self.env_num = env_num
             self.device = torch.device(f"cuda:{device_id}")
           
-The second step is to implement a **reset function**. The reset function is called at the beginning of every episode and sets initial state to current state. To utilize GPUs, we use data structures for multi-dimensional tensors provided by the torch package.
+The second step is to implement a **reset function**. The reset function is called at the beginning of each episode and sets initial state to current state. To utilize GPUs, we use data structures for multi-dimensional tensors provided by the torch package.
 
 .. code-block:: python
 
@@ -92,7 +92,7 @@ The second step is to implement a **reset function**. The reset function is call
 
         return self.get_state()
         
-The last function is the **step function**, that defines the transition function and reward function, and signals the terminal state. To compute the transition function, we utilize mathematical operations from the torch package over the data (tensors). These operations allow us to compute transitions and rewards of thousands of environments in parallel.
+The last function is the **step function**, that includes a transition function and a reward function, and signals the terminal state. To compute the transition function, we utilize mathematical operations from the torch package over the data (tensors). These operations allow us to compute transitions and rewards of thousands of environments in parallel.
 
 .. note::
     Unlike computing the transition function and reward function in parallel, we check the terminal state in a sequential way. Since sub-environments may terminate at different time steps, when a sub-environment is at terminal state, we have to reset it manually.
@@ -140,6 +140,6 @@ The last function is the **step function**, that defines the transition function
         next_states = self.get_state()
         return next_states, rewards, masks, None
         
-For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can also be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/Chasing.py>`_.  
+For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/Chasing.py>`_.  
 
 
