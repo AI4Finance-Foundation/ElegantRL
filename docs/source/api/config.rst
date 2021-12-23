@@ -6,6 +6,7 @@ To keep ElegantRL simple to use, we allow users to control the training process 
 The ``Arguments`` class provides users an unified interface to customize the training process and save the training profile. The class should be initialized at the start of the training process.
 
 .. code-block:: python
+
    from elegantrl.train.config import Arguments
    from elegantrl.agents.AgentPPO import AgentPPO
    from elegantrl.envs.Gym import build_env
