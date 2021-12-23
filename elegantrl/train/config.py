@@ -12,9 +12,10 @@ class Arguments:  # [ElegantRL.2021.10.21]
                 
     """
     def __init__(self, env, agent):
-        '''
-            Attributes for environment setup:
-        '''
+        """Attributes for environment setup:"""
+        
+        """Attributes for environment setup:"""
+        
         self.env = env  # the environment for training
         "The environment object in ElegantRL."
         
