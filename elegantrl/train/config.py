@@ -9,20 +9,18 @@ class Arguments:  # [ElegantRL.2021.10.21]
         
         :param env[object]: the environment object in ElegantRL.
         :param agent[object]: the agent object in ElegantRL.
-    
-        Environment setup:
-        
-        Attributes
-        ----------
-            env : object
-                The environment object in ElegantRL.
-            env_num : int
-                The number of sub-environments. For VecEnv, env_num > 1.
-    
+                
     """
     def __init__(self, env, agent):
+        '''
+            Attributes for environment setup:
+        '''
         self.env = env  # the environment for training
+        "The environment object in ElegantRL."
+        
         self.env_num = getattr(env, 'env_num', 1)  # env_num = 1. In vector env, env_num > 1.
+        "The number of sub-environments. For VecEnv, env_num > 1."
+        
         self.max_step = getattr(env, 'max_step', None)  # the max step of an episode
         self.state_dim = getattr(env, 'state_dim', None)  # vector dimension (feature number) of state
         self.action_dim = getattr(env, 'action_dim', None)  # vector dimension (feature number) of action
