@@ -9,18 +9,65 @@ class Arguments:  # [ElegantRL.2021.10.21]
         
         :param env[object]: the environment object in ElegantRL.
         :param agent[object]: the agent object in ElegantRL.
+
+        **Attributes for environment setup**
+
+        Attributes
+        ----------------
+            env : object
+                environment object in ElegantRL.
+            env_num : int
+                number of sub-environments. For VecEnv, env_num > 1.
+            max_step : int
+                max step of an episode.
+            state_dim : int
+                state dimension of the environment.
+            action_dim : int
+                action dimension of the environment.
+            if_discrete : boolean
+                discrete or continuous action space.
+            target_return : float
+                target average episodic return.
+
+        **Attributes for model training**
+
+        Attributes
+        ----------------
+            agent : object
+                agent object in ElegantRL.
+            if_off_policy : boolean
+                off-policy or on-policy for the DRL algorithm.
+            net_dim : int
+                neural network width.
+            max_memo : int
+                capacity of replay buffer.
+            batch_size : int
+                number of transitions sampled in one iteration.
+            target_step : int
+                repeatedly update network to keep critic's loss small.
+            repeat_times : int
+                collect target_step, then update network.
+            if_per_or_gae : boolean
+                use Prioritized Experience Replay (PER) or not for off-policy algorithms.
+                use Generalized Advantage Estimation or not for on-policy algorithms.
+            gamma : float
+                discount factor of future rewards.
+            reward_scale : int
+                an approximate target reward.
+            learning_rate : float
+                the learning rate.
+            soft_update_tau : float
+                soft update parameter for target networks.
+
+        **Attributes for model training**
+
+        Attributes
+        ----------------
                 
     """
     def __init__(self, env, agent):
-        """Attributes for environment setup:"""
-        
-        """Attributes for environment setup:"""
-        
         self.env = env  # the environment for training
-        "The environment object in ElegantRL."
-        
         self.env_num = getattr(env, 'env_num', 1)  # env_num = 1. In vector env, env_num > 1.
-        "The number of sub-environments. For VecEnv, env_num > 1."
         
         self.max_step = getattr(env, 'max_step', None)  # the max step of an episode
         self.state_dim = getattr(env, 'state_dim', None)  # vector dimension (feature number) of state
@@ -45,13 +92,11 @@ class Arguments:  # [ElegantRL.2021.10.21]
             self.repeat_times = 2 ** 3  # collect target_step, then update network
             self.if_per_or_gae = False  # use PER: GAE (Generalized Advantage Estimation) for sparse reward
 
-        '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
-        '''Arguments for device'''
         self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
         self.thread_num = 8  # cpu_num for evaluate model, torch.set_num_threads(self.num_threads)
         self.random_seed = 0  # initialize random seed in self.init_before_training()
@@ -60,7 +105,6 @@ class Arguments:  # [ElegantRL.2021.10.21]
         self.ensemble_gpus = None  # for example: (learner_gpus0, ...)
         self.ensemble_gap = 2 ** 8
 
-        '''Arguments for evaluate and save'''
         self.cwd = None  # the directory path to save the model
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = +np.inf  # break training after 'total_step > break_step'
