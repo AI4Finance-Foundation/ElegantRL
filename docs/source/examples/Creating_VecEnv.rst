@@ -17,9 +17,9 @@ For GPU-accelerated VecEnv, ElegantRL supports external GPU-accelerated VecEnv, 
 Running an environmnet from NVIDIA Isaac Gym
 ------------------------------------------
 
-Isaac Gym is NVIDIA’s prototype physics simulation environment for reinforcement learning research. Isaac Gym includes a straightforward RL task system that can be used with it, e.g., Cartpole, Ant, Humanoid, Shadow Hand Object Manipulation, and supports users for customization. To download NVIDIA Isaac Gym, please follow the installation instructions from https://developer.nvidia.com/isaac-gym. 
+Isaac Gym is NVIDIA’s prototype physics simulation environment for reinforcement learning research. Isaac Gym includes a straightforward RL task system, e.g., Cartpole, Ant, Humanoid, Shadow Hand Object Manipulation, and supports users for customization. To download NVIDIA Isaac Gym, please follow the installation instructions from https://developer.nvidia.com/isaac-gym. 
 
-ElegantRL provides a wrapper to process a defined Isaac Gym environment ``PreprocessIsaacVecEnv``:
+ElegantRL provides a wrapper ``PreprocessIsaacVecEnv`` to process a defined Isaac Gym environment:
 
 .. code-block:: python
 
@@ -95,7 +95,7 @@ The second step is to implement a **reset function**. The reset function is call
 The last function is the **step function**, that defines the transition function and reward function, and signals the terminal state. To compute the transition function, we utilize mathematical operations from the torch package over the data (tensors). These operations allow us to compute transitions and rewards of thousands of environments in parallel.
 
 .. note::
-    Unlike parallel computations of the transition function and reward function, we check the terminal state in a sequential way. This is because sub-environments may terminate at different time steps. When a sub-environment is at terminal state, we have to reset it manually.
+    Unlike computing the transition function and reward function in parallel, we check the terminal state in a sequential way. Since sub-environments may terminate at different time steps, when a sub-environment is at terminal state, we have to reset it manually.
     
 .. code-block:: python
 
@@ -140,6 +140,6 @@ The last function is the **step function**, that defines the transition function
         next_states = self.get_state()
         return next_states, rewards, masks, None
         
-  
+For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can also be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/Chasing.py>`_.  
 
 
