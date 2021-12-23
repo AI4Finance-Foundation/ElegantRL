@@ -12,7 +12,7 @@ Why creating a VecEnv on GPUs?
 - Reducing the communication overhead by bypassing the bottleneck between CPUs and GPUs.
 - Maximizing GPU utilization through pipeline parallelism.
 
-ElegantRL supports external GPU-accelerated simulators, namely NVIDIA Isaac Gym, and user-customized VecEnv. Here we explain in detail how to use Isaac Gym and how to define your own VecEnv. 
+For GPU-accelerated VecEnv, ElegantRL supports external GPU-accelerated VecEnv, namely NVIDIA Isaac Gym, and user-customized VecEnv. Here we explain in detail how to use Isaac Gym and how to define your own VecEnv in ElegantRL. 
 
 Running an environmnet from NVIDIA Isaac Gym
 ------------------------------------------
@@ -30,7 +30,46 @@ ElegantRL provides a wrapper to process a defined Isaac Gym environment ``Prepro
     env = PreprocessIsaacVecEnv(env_name, if_print=False, env_num=4096, device_id=0)
 
 
-Building an environmnet from scatch
+Building an environmnet from scratch
 ------------------------------------------
 
-We show you an example of how to construct a VecEnv from scatch. We create a simple chasing environment, with discrete actions, continuous state space, and mildly stochastic dynamics. The objective is to move the agent from any point of the room towards the goal point. The agent takes a penalty at every step equal to the distance to the objective. When the agent reaches the goal the episode ends. The agent can move in the room by using one of the 4 discrete actions, North, South, West, East.
+We show you an example of how to construct a VecEnv from scratch. We create a simple chasing environment, a deterministic environment with continuous actions and continuous state space. The objective is to move the agent to chase a randomly moving robot. The reward depends on the distance between the agent and the robot. The environment terminates when the agent catches the robot or the max step is reached.
+
+To keep the example simple, we only import two packages, PyTorch and Numpy.
+
+.. code-block:: python
+
+    import torch
+    import numpy as np
+    
+Now, we start to create the environment. For initialization, we define the number of environments ``env_num``, the GPU id ``device_id``, and the dimension of the chasing space ``dim``. In the chasing environment, we needs to keep track of the positions and velocities of the agent and the robot.
+
+.. code-block:: python
+
+    class ChasingVecEnv:
+    def __init__(self, dim=2, env_num=4096, device_id=0):
+        self.dim = dim
+        self.init_distance = 8.0
+
+        # reset
+        self.p0s = None  # position
+        self.v0s = None  # velocity
+        self.p1s = None
+        self.v1s = None
+
+        self.distances = None
+        self.steps = None
+
+        '''env info'''
+        self.env_name = 'ChasingVecEnv'
+        self.state_dim = self.dim * 4
+        self.action_dim = self.dim
+        self.max_step = 2 ** 10
+        self.if_discrete = False
+        self.target_return = 6.3
+
+        self.env_num = env_num
+        self.device = torch.device(f"cuda:{device_id}")
+ 
+
+
