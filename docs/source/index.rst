@@ -56,7 +56,9 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    :maxdepth: 1
    :caption: API Reference
 
-   api/config 
+   api/config
+   api/evaluator
+   api/replay
 
 .. toctree::
    :maxdepth: 1
