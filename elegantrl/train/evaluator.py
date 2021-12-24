@@ -6,7 +6,17 @@ import numpy as np
 
 class Evaluator:  # [ElegantRL.2021.10.13]
     """
-        Evaluator
+    An ``evaluator`` evaluates agent’s performance and saves models.
+
+    :param cwd[string]: directory path to save the model.
+    :param agent_id[int]:
+    :param eval_env[object]: environment object for model evaluation.
+    :param eval_gap[int]: time gap for periodical evaluation (in seconds).
+    :param eval_times1[int]: number of times that get episode return in first.
+    :param eval_times2[int]: number of times that get episode return in second
+    :param target_return[float]: target average episodic return.
+    :param if_overwrite[boolean]: save policy networks with different episodic return separately or overwrite.
+
     """
     def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
@@ -32,6 +42,15 @@ class Evaluator:  # [ElegantRL.2021.10.13]
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
     def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
+        """
+        Evaluate and save the model.
+
+        :param act:
+        :param steps:
+        :param r_exp:
+        :param log_tuple:
+        :return:
+        """
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
