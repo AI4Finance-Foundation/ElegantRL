@@ -111,12 +111,12 @@ def check_env():
     states = env.reset()
     for _ in range(env.max_step * 4):
         actions = vec_policy(states)
-        states, rewards, masks, _ = env.step(actions)
+        states, rewards, dones, _ = env.step(actions)
 
         for env_i in range(env.env_num):
             episodic_rewards[env_i] += rewards[env_i].item()
 
-            if masks[env_i]:
+            if dones[env_i]:
                 print(f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}")
                 rewards_list[env_i].append(episodic_rewards[env_i])
                 episodic_rewards[env_i] = 0.0
