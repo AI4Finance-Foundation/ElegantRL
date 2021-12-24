@@ -14,7 +14,7 @@ class ChasingVecEnv:
         self.v1s = None
 
         self.distances = None
-        self.steps = None
+        self.current_steps = None
 
         '''env info'''
         self.env_name = 'ChasingVecEnv'
@@ -33,7 +33,7 @@ class ChasingVecEnv:
         self.p1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
         self.v1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
 
-        self.steps = np.zeros(self.env_num, dtype=np.int)
+        self.current_steps = np.zeros(self.env_num, dtype=np.int)
 
         for env_i in range(self.env_num):
             self.reset_env_i(env_i)
@@ -48,7 +48,7 @@ class ChasingVecEnv:
         self.p1s[i] = torch.normal(-self.init_distance, 1, size=(self.dim,))
         self.v1s[i] = torch.zeros((self.dim,))
 
-        self.steps[i] = 0
+        self.current_steps[i] = 0
 
     def step(self, action1s):
         action0s = torch.rand(size=(self.env_num, self.dim), dtype=torch.float32, device=self.device)
@@ -72,23 +72,23 @@ class ChasingVecEnv:
         self.distances = distances
 
         '''done'''
-        self.steps += 1  # array
-        masks = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
+        self.current_steps += 1  # array
+        dones = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
         for env_i in range(self.env_num):
             done = 0
             if distances[env_i] < 1:
                 done = 1
                 rewards[env_i] += self.init_distance
-            elif self.steps[env_i] == self.max_step:
+            elif self.current_steps[env_i] == self.max_step:
                 done = 1
 
             if done:
                 self.reset_env_i(env_i)
-            masks[env_i] = done
+            dones[env_i] = done
 
         '''next_state'''
         next_states = self.get_state()
-        return next_states, rewards, masks, None
+        return next_states, rewards, dones, None
 
     def get_state(self):
         return torch.cat((self.p0s, self.v0s, self.p1s, self.v1s), dim=1)
@@ -105,7 +105,7 @@ def vec_policy(states):
 def check_env():
     env = ChasingVecEnv(dim=2, env_num=4096, device_id=0)
 
-    rewards = [0.0, ] * env.env_num  # episode returns
+    episodic_rewards = [0.0, ] * env.env_num  # episode returns
     rewards_list = [[], ] * env.env_num
 
     states = env.reset()
@@ -114,12 +114,12 @@ def check_env():
         states, rewards, masks, _ = env.step(actions)
 
         for env_i in range(env.env_num):
-            rewards[env_i] += rewards[env_i].item()
+            episodic_rewards[env_i] += rewards[env_i].item()
 
             if masks[env_i]:
                 print(f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}")
-                rewards_list[env_i].append(rewards[env_i])
-                rewards[env_i] = 0.0
+                rewards_list[env_i].append(episodic_rewards[env_i])
+                episodic_rewards[env_i] = 0.0
 
     rewards_list = np.array(rewards_list)
     print('shape:', rewards_list.shape)

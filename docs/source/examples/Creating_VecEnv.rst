@@ -60,7 +60,7 @@ For **initialization function**, we specify the number of environments ``env_num
             self.v1s = None
 
             self.distances = None
-            self.steps = None
+            self.current_steps = None
 
             '''env info'''
             self.env_name = 'ChasingVecEnv'
@@ -83,7 +83,7 @@ The second step is to implement a **reset function**. The reset function is call
         self.p1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
         self.v1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
 
-        self.steps = np.zeros(self.env_num, dtype=np.int)
+        self.current_steps = np.zeros(self.env_num, dtype=np.int)
 
         for env_i in range(self.env_num):
             self.reset_env_i(env_i)
@@ -123,7 +123,7 @@ The last function is the **step function**, that includes a transition function 
 
         '''check terminal state'''
         self.steps += 1  # array
-        masks = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
+        dones = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
         for env_i in range(self.env_num):
             done = 0
             if distances[env_i] < 1:
@@ -134,11 +134,11 @@ The last function is the **step function**, that includes a transition function 
 
             if done:
                 self.reset_env_i(env_i)
-            masks[env_i] = done
+            dones[env_i] = done
 
         '''next_state'''
         next_states = self.get_state()
-        return next_states, rewards, masks, None
+        return next_states, rewards, dones, None
         
 For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/Chasing.py>`_.  
 
