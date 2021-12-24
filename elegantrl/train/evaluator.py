@@ -5,6 +5,9 @@ import numpy as np
 
 
 class Evaluator:  # [ElegantRL.2021.10.13]
+    """
+        Evaluator
+    """
     def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
@@ -112,6 +115,9 @@ class Evaluator:  # [ElegantRL.2021.10.13]
 
 
 def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
+    """
+        Evaluator
+    """
     device_id = next(act.parameters()).get_device()  # net.parameters() is a python generator.
     device = torch.device('cpu' if device_id == -1 else f'cuda:{device_id}')
 
@@ -145,6 +151,9 @@ def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10
 
 
 def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig_name='plot_learning_curve.jpg'):
+    """
+        Evaluator
+    """
     if recorder is None:
         recorder = np.load(f"{cwd}/recorder.npy")
 
