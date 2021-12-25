@@ -28,12 +28,10 @@ class AgentQMix:
         else:
             self.optimiser = RMSprop(params=self.params, lr=args.lr, alpha=args.optim_alpha, eps=args.optim_eps)
 
-        # a little wasteful to deepcopy (e.g. duplicates action selector), but should work for any MAC
         self.target_mac = copy.deepcopy(mac)
         self.log_stats_t = -self.args.learner_log_interval - 1
         self.train_t = 0
 
-        # priority replay
         self.use_per = getattr(self.args, 'use_per', False)
         self.return_priority = getattr(self.args, "return_priority", False)
         if self.use_per:
@@ -41,7 +39,6 @@ class AgentQMix:
             self.priority_min = float('inf')
         
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int, per_weight=None):
-        # Get the relevant quantities
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
         terminated = batch["terminated"][:, :-1].float()
@@ -49,20 +46,17 @@ class AgentQMix:
         mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
         avail_actions = batch["avail_actions"]
         
-        # Calculate estimated Q-Values
         self.mac.agent.train()
         mac_out = []
         self.mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
             agent_outs = self.mac.forward(batch, t=t)
             mac_out.append(agent_outs)
-        mac_out = th.stack(mac_out, dim=1)  # Concat over time
+        mac_out = th.stack(mac_out, dim=1)  
 
-        # Pick the Q-Values for the actions taken by each agent
         chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
         chosen_action_qvals_ = chosen_action_qvals
 
-        # Calculate the Q-Values necessary for the target
         with th.no_grad():
             self.target_mac.agent.train()
             target_mac_out = []
@@ -71,16 +65,13 @@ class AgentQMix:
                 target_agent_outs = self.target_mac.forward(batch, t=t)
                 target_mac_out.append(target_agent_outs)
 
-            # We don't need the first timesteps Q-Value estimate for calculating targets
             target_mac_out = th.stack(target_mac_out, dim=1)  # Concat across time
 
-            # Max over target Q-Values/ Double q learning
             mac_out_detach = mac_out.clone().detach()
             mac_out_detach[avail_actions == 0] = -9999999
             cur_max_actions = mac_out_detach.max(dim=3, keepdim=True)[1]
             target_max_qvals = th.gather(target_mac_out, 3, cur_max_actions).squeeze(3)
             
-            # Calculate n-step Q-Learning targets
             target_max_qvals = self.target_mixer(target_max_qvals, batch["state"])
 
             if getattr(self.args, 'q_lambda', False):
@@ -93,7 +84,6 @@ class AgentQMix:
                 targets = build_td_lambda_targets(rewards, terminated, mask, target_max_qvals, 
                                                     self.args.n_agents, self.args.gamma, self.args.td_lambda)
 
-        # Mixer
         chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1])
 
         td_error = (chosen_action_qvals - targets.detach())
@@ -102,14 +92,14 @@ class AgentQMix:
         mask = mask.expand_as(td_error2)
         masked_td_error = td_error2 * mask
 
-        # important sampling for PER
+
         if self.use_per:
             per_weight = th.from_numpy(per_weight).unsqueeze(-1).to(device=self.device)
             masked_td_error = masked_td_error.sum(1) * per_weight
 
         loss = L_td = masked_td_error.sum() / mask.sum()
 
-        # Optimise
+
         self.optimiser.zero_grad()
         loss.backward()
         grad_norm = th.nn.utils.clip_grad_norm_(self.params, self.args.grad_norm_clip)
@@ -128,13 +118,10 @@ class AgentQMix:
             self.logger.log_stat("target_mean", (targets * mask).sum().item()/(mask_elems * self.args.n_agents), t_env)
             self.log_stats_t = t_env
 
-        # return info
         info = {}
-        # calculate priority
         if self.use_per:
             if self.return_priority:
                 info["td_errors_abs"] = rewards.sum(1).detach().to('cpu')
-                # normalize to [0, 1]
                 self.priority_max = max(th.max(info["td_errors_abs"]).item(), self.priority_max)
                 self.priority_min = min(th.min(info["td_errors_abs"]).item(), self.priority_min)
                 info["td_errors_abs"] = (info["td_errors_abs"] - self.priority_min) \
@@ -165,7 +152,6 @@ class AgentQMix:
 
     def load_models(self, path):
         self.mac.load_models(path)
-        # Not quite right but I don't want to save target networks
         self.target_mac.load_models(path)
         if self.mixer is not None:
             self.mixer.load_state_dict(th.load("{}/mixer.th".format(path), map_location=lambda storage, loc: storage))
