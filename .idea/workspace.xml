@@ -2,8 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/api/evaluator.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/api/evaluator.rst" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/elegantrl/train/evaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/evaluator.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -29,14 +27,14 @@
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="dummy" value="81" />
-          <entry key="py" value="3751" />
+          <entry key="py" value="3830" />
           <entry key="rst" value="82" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="PLAIN_TEXT" value="81" />
-          <entry key="Python" value="3751" />
+          <entry key="Python" value="3830" />
           <entry key="ReST" value="82" />
         </counts>
       </usages-collector>
@@ -98,8 +96,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="913">
-              <caret line="209" column="21" selection-start-line="209" selection-start-column="21" selection-end-line="209" selection-end-column="21" />
+            <state relative-caret-position="-600">
+              <caret line="193" column="30" selection-start-line="193" selection-start-column="30" selection-end-line="193" selection-end-column="30" />
             </state>
           </provider>
         </entry>
@@ -764,8 +762,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="913">
-          <caret line="209" column="21" selection-start-line="209" selection-start-column="21" selection-end-line="209" selection-end-column="21" />
+        <state relative-caret-position="-600">
+          <caret line="193" column="30" selection-start-line="193" selection-start-column="30" selection-end-line="193" selection-end-column="30" />
         </state>
       </provider>
     </entry>

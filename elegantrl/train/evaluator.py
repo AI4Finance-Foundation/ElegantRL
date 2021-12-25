@@ -8,29 +8,16 @@ class Evaluator:  # [ElegantRL.2021.10.13]
     """
     An ``evaluator`` evaluates agent’s performance and saves models.
 
-    :param cwd[string]: directory path to save the model.
-    :param agent_id[int]:
-    :param eval_env[object]: environment object for model evaluation.
-    :param eval_gap[int]: time gap for periodical evaluation (in seconds).
-    :param eval_times1[int]: number of times that get episode return in first.
-    :param eval_times2[int]: number of times that get episode return in second
-    :param target_return[float]: target average episodic return.
-    :param if_overwrite[boolean]: save policy networks with different episodic return separately or overwrite.
-
+    :param cwd: directory path to save the model.
+    :param agent_id: agent id.
+    :param eval_env: environment object for model evaluation.
+    :param eval_gap: time gap for periodical evaluation (in seconds).
+    :param eval_times1: number of times that get episode return in first.
+    :param eval_times2: number of times that get episode return in second.
+    :param target_return: target average episodic return.
+    :param if_overwrite: save policy networks with different episodic return separately or overwrite.
     """
     def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):
-        """
-        An ``evaluator`` evaluates agent’s performance and saves models.
-
-        :param cwd: directory path to save the model.
-        :param agent_id: agent id.
-        :param eval_env: environment object for model evaluation.
-        :param eval_gap: time gap for periodical evaluation (in seconds).
-        :param eval_times1: number of times that get episode return in first.
-        :param eval_times2: number of times that get episode return in second.
-        :param target_return: target average episodic return.
-        :param if_overwrite: save policy networks with different episodic return separately or overwrite.
-        """
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
@@ -204,10 +191,10 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     """
     Draw learning curve.
 
-    :param recorder:
-    :param cwd:
-    :param save_title:
-    :param fig_name: 
+    :param recorder: recorder.
+    :param cwd: saving directory.
+    :param save_title: learning curve title.
+    :param fig_name: figure name.
     """
     if recorder is None:
         recorder = np.load(f"{cwd}/recorder.npy")
