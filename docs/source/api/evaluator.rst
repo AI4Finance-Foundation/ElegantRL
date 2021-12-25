@@ -19,4 +19,9 @@ We implement the ``evaluator`` as a microservice, which can be ran as an indepen
 
 .. autoclass:: elegantrl.train.evaluator.Evaluator
    :members:
+
+
+.. autofunction:: elegantrl.train.evaluator.get_episode_return_and_step
+
+.. autofunction:: elegantrl.train.evaluator.save_learning_curve
    

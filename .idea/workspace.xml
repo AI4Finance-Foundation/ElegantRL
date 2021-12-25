@@ -3,6 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/api/evaluator.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/api/evaluator.rst" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/elegantrl/train/evaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/evaluator.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -15,44 +16,44 @@
     <session id="1417114242">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="10" />
+          <entry key="project.closed" value="11" />
           <entry key="project.open.time.0" value="2" />
-          <entry key="project.open.time.1" value="2" />
+          <entry key="project.open.time.1" value="3" />
           <entry key="project.open.time.4" value="3" />
-          <entry key="project.open.time.5" value="2" />
+          <entry key="project.open.time.5" value="3" />
           <entry key="project.open.time.7" value="1" />
           <entry key="project.open.time.8" value="2" />
-          <entry key="project.opened" value="12" />
+          <entry key="project.opened" value="14" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="dummy" value="81" />
-          <entry key="py" value="2936" />
-          <entry key="rst" value="55" />
+          <entry key="py" value="3751" />
+          <entry key="rst" value="82" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="PLAIN_TEXT" value="81" />
-          <entry key="Python" value="2936" />
-          <entry key="ReST" value="55" />
+          <entry key="Python" value="3751" />
+          <entry key="ReST" value="82" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
           <entry key="jpg" value="1" />
           <entry key="md" value="1" />
-          <entry key="py" value="120" />
-          <entry key="rst" value="4" />
+          <entry key="py" value="121" />
+          <entry key="rst" value="5" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Image" value="1" />
           <entry key="Markdown" value="1" />
-          <entry key="Python" value="120" />
-          <entry key="ReST" value="4" />
+          <entry key="Python" value="121" />
+          <entry key="ReST" value="5" />
         </counts>
       </usages-collector>
     </session>
@@ -62,7 +63,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
+            <state relative-caret-position="782">
               <caret line="49" column="29" selection-start-line="49" selection-start-column="29" selection-end-line="49" selection-end-column="29" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
@@ -85,8 +86,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/envs/Chasing.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="238">
-              <caret line="14" lean-forward="true" selection-start-line="14" selection-end-line="14" />
+            <state relative-caret-position="221">
+              <caret line="14" selection-start-line="14" selection-end-line="14" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -97,8 +98,20 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="238">
-              <caret line="17" column="38" selection-start-line="17" selection-start-column="38" selection-end-line="17" selection-end-column="38" />
+            <state relative-caret-position="913">
+              <caret line="209" column="21" selection-start-line="209" selection-start-column="21" selection-end-line="209" selection-end-column="21" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-260">
+              <caret line="51" column="57" selection-start-line="51" selection-start-column="57" selection-end-line="51" selection-end-column="57" />
+              <folding>
+                <element signature="e#0#9#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -106,8 +119,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/train/config.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="323">
-              <caret line="29" column="16" lean-forward="true" selection-start-line="29" selection-start-column="16" selection-end-line="29" selection-end-column="47" />
+            <state relative-caret-position="1377">
+              <caret line="83" column="92" selection-start-line="83" selection-start-column="16" selection-end-line="83" selection-end-column="92" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -200,8 +213,8 @@
         <option value="$PROJECT_DIR$/docs/source/index.rst" />
         <option value="$PROJECT_DIR$/elegantrl/train/config.py" />
         <option value="$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst" />
-        <option value="$PROJECT_DIR$/docs/source/api/evaluator.rst" />
         <option value="$PROJECT_DIR$/elegantrl/envs/Chasing.py" />
+        <option value="$PROJECT_DIR$/docs/source/api/evaluator.rst" />
         <option value="$PROJECT_DIR$/elegantrl/train/evaluator.py" />
       </list>
     </option>
@@ -230,13 +243,25 @@
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-              <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+              <item name="source" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+              <item name="source" type="462c0819:PsiDirectoryNode" />
+              <item name="api" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
               <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
-              <item name="agents" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
@@ -251,7 +276,7 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../Cloud Computing/UI" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../ElegantRL_Jiahao" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
@@ -622,13 +647,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="204">
-          <caret line="18" selection-start-line="18" selection-end-line="18" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py" />
     <entry file="file://$PROJECT_DIR$/elegantrl/AgentModSAC_AntBulletEnv-v0_(0,)/plot_learning_curve.jpg" />
     <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py">
@@ -669,9 +687,22 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentPPO.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentBase.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="731">
+          <caret line="88" selection-start-line="88" selection-end-line="88" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
+        <state relative-caret-position="782">
           <caret line="49" column="29" selection-start-line="49" selection-start-column="29" selection-end-line="49" selection-end-column="29" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
@@ -688,6 +719,26 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/Chasing.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="221">
+          <caret line="14" selection-start-line="14" selection-end-line="14" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1377">
+          <caret line="83" column="92" selection-start-line="83" selection-start-column="16" selection-end-line="83" selection-end-column="92" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/envs/IsaacGym.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1785">
@@ -698,46 +749,23 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst">
-      <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/docs/source/api/evaluator.rst">
-      <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentPPO.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentBase.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="731">
-          <caret line="88" selection-start-line="88" selection-end-line="88" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/Chasing.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="238">
-          <caret line="14" lean-forward="true" selection-start-line="14" selection-end-line="14" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/config.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="323">
-          <caret line="29" column="16" lean-forward="true" selection-start-line="29" selection-start-column="16" selection-end-line="29" selection-end-column="47" />
+        <state relative-caret-position="-260">
+          <caret line="51" column="57" selection-start-line="51" selection-start-column="57" selection-end-line="51" selection-end-column="57" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/api/evaluator.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="238">
-          <caret line="17" column="38" selection-start-line="17" selection-start-column="38" selection-end-line="17" selection-end-column="38" />
+        <state relative-caret-position="913">
+          <caret line="209" column="21" selection-start-line="209" selection-start-column="21" selection-end-line="209" selection-end-column="21" />
         </state>
       </provider>
     </entry>
