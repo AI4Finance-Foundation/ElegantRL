@@ -3,9 +3,12 @@ Run: *run.py*
 
 In *run.py*, we provide functions to wrap the training (and evaluation) process. 
 
-To train an agent in ElegantRL, users mainly follow a two-step procedure. 
+In ElegantRL, users follow a **two-step procedure** to train an agent in a lightweight and automatic way. 
+
 1. Initializing the agent, environment and setting hyper-parameters up in ``Arguments``.
 2. Passing the ``Arguments`` to functions for the training process, e.g., ``train_and_evaluate`` for single-process training and ``train_and_evaluate_mp`` for multi-process training.
+
+Let's look at a demo for the simple two-step procedure.
 
 .. code-block:: python
    
