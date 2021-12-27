@@ -57,11 +57,11 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    :caption: API Reference
 
    api/config
-   api/evaluator
-   api/replay
+   api/run
    api/worker
    api/learner
-   api/run
+   api/replay
+   api/evaluator
    api/leaderboard
 
 .. toctree::
