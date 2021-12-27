@@ -12,6 +12,7 @@ from train.run_parallel import ParallelRunner
 from envs.starcraft import StarCraft2Env
 from agents.net import RNNAgent
 from envs.utils.marl_utils import *
+
 import numpy as np
 import torch as th
 import numpy as np
