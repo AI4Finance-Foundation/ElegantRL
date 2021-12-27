@@ -1,0 +1,47 @@
+# --- QMIX specific parameters ---
+
+# use epsilon greedy action selector
+action_selector: "epsilon_greedy"
+epsilon_start: 1.0
+epsilon_finish: 0.05
+epsilon_anneal_time: 100000 # 500000 for 6h_vs_8z
+
+runner: "parallel"
+batch_size_run: 8 # batch_size_run=4, buffer_size = 2500, batch_size=64  for 3s5z_vs_3s6z
+buffer_size: 5000 
+batch_size: 128
+optimizer: 'adam'
+
+t_max: 10050000
+
+# update the target network every {} episodes
+target_update_interval: 200
+
+# use the Q_Learner to train
+mac: "n_mac"
+agent: "n_rnn"
+agent_output_type: q
+
+learner: "nq_learner"
+mixer: "qmix"
+mixing_embed_dim: 32
+hypernet_embed: 64
+lr: 0.001 # Learning rate for agents
+td_lambda: 0.6 # 0.3 for 6h_vs_8z
+optimizer: 'adam'
+q_lambda: False
+
+# rnn layer normalization
+use_layer_norm: False
+
+# orthogonal init for DNN
+use_orthogonal: False
+gain: 0.01
+
+# Priority experience replay
+use_per: False
+per_alpha: 0.6
+per_beta: 0.4
+return_priority: False
+
+name: "qmix_env=8_adam_td_lambda"
