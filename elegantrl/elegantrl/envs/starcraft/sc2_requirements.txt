@@ -23,7 +23,7 @@ pluggy==0.7.1
 portpicker==1.2.0
 probscale==0.2.3
 protobuf==3.6.1
-py==1.6.0
+py==1.10.0
 pyparsing==2.2.2
 pysc2==3.0.0
 pytest==3.8.2
