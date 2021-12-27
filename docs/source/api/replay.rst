@@ -1,5 +1,5 @@
-Replay Buffer (replay_buffer.py)
-===============================
+Replay Buffer: *replay_buffer.py*
+=================================
 
 ElegantRL provides ``ReplayBuffer`` to store sampled transitions. 
 
