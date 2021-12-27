@@ -1,17 +1,6 @@
 How to create a VecEnv on GPUs
 ===============================
 
-Deep reinforcement learning (DRL) employs a trial-and-error manner to collect training data (transitions in the format (s, a, r, s')) from agent-environment interactions, along with the learning procedure. ElegantRL greatly speeds up the data collection through **worker parallelism (VecEnv)**, by making full use of hardwares, GPUs in particular.
-
-A VecEnv runs thousands of independent sub-environments in parallel. In each step, it takes a batch of actions and returns a batch of transitions.
-
-Why use VecEnv on GPUs?
-
-- Running thousands of parallel simulations, since the manycore GPU architecture is natually suited for parallel simulations.
-- Speeding up the matrix computations of each simulation using GPU tensor cores.
-- Reducing the communication overhead by bypassing the bottleneck between CPUs and GPUs.
-- Maximizing GPU utilization through pipeline parallelism.
-
 For GPU-accelerated VecEnv, ElegantRL supports both external GPU-accelerated VecEnv, e.g., NVIDIA Isaac Gym, and user-customized VecEnv. Next, we explain in detail how to use Isaac Gym and how to define your own VecEnv in ElegantRL. 
 
 Running a VecEnv environmnet from NVIDIA Isaac Gym
