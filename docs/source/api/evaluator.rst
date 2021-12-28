@@ -1,4 +1,4 @@
-Evaluator (evaluator.py)
+Evaluator: *evaluator.py*
 ===============================
 
 In the course of training, ElegantRL provide an ``evaluator`` to periodically evaluate agent's performance and save models.
@@ -17,9 +17,25 @@ For model saving, the evaluator saves following three types of files:
   
 We implement the ``evaluator`` as a microservice, which can be ran as an independent process. When an evaluator is running, it can automatically monitors parallel agents, and provide evaluation when any agent needs, and communicate agent information with the leaderboard.
 
+Implementations
+---------------------
 
 .. autoclass:: elegantrl.train.evaluator.Evaluator
    :members:
+   
+Multiprocessing
+---------------------
+
+.. autoclass:: elegantrl.train.evaluator.PipeEvaluator
+   :members:
+   
+Initialization
+---------------------
+
+.. autofunction:: elegantrl.train.evaluator.init_evaluator
+
+Utils
+---------------------
 
 .. autofunction:: elegantrl.train.evaluator.get_episode_return_and_step
 
