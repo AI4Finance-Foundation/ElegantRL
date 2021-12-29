@@ -1090,6 +1090,11 @@ class ActorSimplify:
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
+        """
+        Actor network class for Qmix. Outputs decentralized independent q value.
+        :param args: (argparse) arguments containing relevant model information.
+        :param input_shape: (argparse) observation shape.
+        """
         super(RNNAgent, self).__init__()
         self.args = args
 
@@ -1109,6 +1114,14 @@ class RNNAgent(nn.Module):
         return self.fc1.weight.new(1, self.args.rnn_hidden_dim).zero_()
 
     def forward(self, inputs, hidden_state):
+        """
+        Compute q value from the given inputs.
+        :param inputs: input for RNNAgent.
+        :param hidden_states: hidden states for RNN.
+
+        :return q: (torch.Tensor) value function.
+        :return hh: (torch.Tensor) updated RNN hidden states.
+        """
         b, a, e = inputs.size()
 
         inputs = inputs.view(-1, e)
@@ -1211,6 +1224,10 @@ class VDN(nn.Module):
         
 class QMix(nn.Module):
     def __init__(self, args):
+        """
+        Critic network class for Qmix. Outputs centralized value function predictions given independent q value.
+        :param args: (argparse) arguments containing relevant model information.
+        """
         super(QMix, self).__init__()
 
         self.args = args
@@ -1246,6 +1263,13 @@ class QMix(nn.Module):
         
 
     def forward(self, agent_qs, states):
+        """
+        Compute actions from the given inputs.
+        :param agent_qs: q value inputs into network.
+        :param states: state observation.
+
+        :return q_tot: (torch.Tensor) return q-total .
+        """
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
         agent_qs = agent_qs.reshape(-1, 1, self.n_agents)

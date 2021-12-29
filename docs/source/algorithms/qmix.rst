@@ -58,15 +58,15 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agents.AgentDDPG.AgentDDPG
+.. autoclass:: elegantrl.agents.AgentQMix.AgentQMix
    :members:
    
-.. _ddpg_networks:
+.. _qmix_networks:
    
 Networks
 -------------
 
-.. autoclass:: elegantrl.agents.net.Actor
+.. autoclass:: elegantrl.agents.net.QMix
    :members:
    
 .. autoclass:: elegantrl.agents.net.Critic
