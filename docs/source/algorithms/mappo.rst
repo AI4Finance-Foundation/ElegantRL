@@ -11,5 +11,24 @@ MAPPO
 
 MAPPO achieves strong results while exhibiting comparable sample efficiency. 
 
+
+Parameters
+---------------------
+
+.. autoclass:: elegantrl.agents.AgentMAPPO.AgentMAPPO
+   :members:
+   
+   
+.. _sac_networks:
+   
+Networks
+-------------
+
+.. autoclass:: elegantrl.agents.net.ActorSAC
+   :members:
+   
+.. autoclass:: elegantrl.agents.net.CriticTwin
+   :members:
+
               
               
