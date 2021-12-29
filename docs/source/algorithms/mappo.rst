@@ -16,18 +16,16 @@ Parameters
 ---------------------
 
 .. autoclass:: elegantrl.agents.AgentMAPPO.AgentMAPPO
-   :members:
-   
-   
-.. _sac_networks:
+   :members:   
+.. _mappo_networks:
    
 Networks
 -------------
 
-.. autoclass:: elegantrl.agents.net.ActorSAC
+.. autoclass:: elegantrl.agents.net.ActorMAPPO
    :members:
    
-.. autoclass:: elegantrl.agents.net.CriticTwin
+.. autoclass:: elegantrl.agents.net.CriticMAPPO
    :members:
 
               
