@@ -78,6 +78,8 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    algorithms/maddpg
    algorithms/qmix
    algorithms/redq
+   algorithms/mappo
+   algorithms/vdn
    
    
 .. toctree::
