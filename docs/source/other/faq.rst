@@ -158,69 +158,117 @@ Section 4 References for diving deep into Deep Reinforcement Learning (DRL)
 
 .. _Section-4-1:
 
-Subsection 4.1 General resources
+Subsection 4.1 Open-source softwares and materials
 -----------------------------------------------------------------
 
 	.. role:: raw-html(raw)
 	   :format: html
 
-    - OpenAI Spinning UP DRL, educational resource
+    - OpenAI Gym
+        https://gym.openai.com/	
+    
+    - MuJoCo
+        https://mujoco.org/
+      
+    - Isaac Gym
+        https://developer.nvidia.com/isaac-gym	
+	
+    - OpenAI Spinning Up
         https://spinningup.openai.com/en/latest/
 
-    - Awesome-ai-in-finance
-        https://github.com/georgezouq/awesome-ai-in-finance
-
-    - penAI Gym
-        https://github.com/openai/gym
-
-    - Stable Baselines 3
-        contains the implementations of all models used by FinRL
+    - Stable Baselines3
         https://github.com/DLR-RM/stable-baselines3
 
     - Ray RLlib
         https://docs.ray.io/en/master/rllib.html
+	
+    - Tianshou
+        https://github.com/thu-ml/tianshou
+	
+    - ChainerRL
+        https://github.com/chainer/chainerrl
+	
+    - MushroomRL
+        https://github.com/MushroomRL/mushroom-rl/tree/master
+	
+    - ACME
+        https://github.com/deepmind/acme
+	
+    - PFRL
+        https://github.com/pfnet/pfrl
+	
+    - SURREAL
+        https://github.com/SurrealAI/surreal
+	
+    - rlpyt
+        https://github.com/astooke/rlpyt
+	
+    - MAlib
+        https://github.com/sjtu-marl/malib	
 
     - Policy gradient algorithms
         https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 
-    - Fischer, T.G., 2018. Reinforcement learning in financial markets-a survey (No. 12/2018). FAU Discussion Papers in Economics. (:raw-html:`<font color="#A52A2A">a survey on the use of RL for finance </font>`)
-
-    - Li, Y., 2018. Deep reinforcement learning. arXiv preprint arXiv:1810.06339. (:raw-html:`<font color="#A52A2A">an in-depth review of DRL and its main models and components</font>`)
-
-    - Charpentier, A., Elie, R. and Remlinger, C., 2020. Reinforcement learning in economics and finance. arXiv preprint arXiv:2003.10014. (:raw-html:`<font color="#A52A2A">an in-depth review of uses of RL and DRL in finance</font>`)
-
-    - Kolm, P.N. and Ritter, G., 2020. Modern perspectives on reinforcement learning in finance. Modern Perspectives on Reinforcement Learning in Finance (September 6, 2019). The Journal of Machine Learning in Finance, 1(1) (:raw-html:`<font color="#A52A2A">an in-depth review of uses of RL and DRL in finance</font>`)
-
-    - Practical Deep Reinforcement Learning Approach for Stock Trading, paper and codes, Workshop on Challenges and Opportunities for AI in Financial Services, NeurIPS 2018.
-
+    
 
 .. _Section-4-2:
 
-Subsection 4.2 Papers related to the implemented DRL models
+Subsection 4.2 DRL algorithms
 -----------------------------------------------------------------
 
 	.. role:: raw-html(raw)
 	   :format: html
 
-    - Mnih, V., Kavukcuoglu, K., Silver, D., Graves, A., Antonoglou, I., Wierstra, D. and Riedmiller, M., 2013. Playing atari with deep reinforcement learning. arXiv preprint arXiv:1312.5602 	(:raw-html:`<font color="#A52A2A">the first paper that proposed (with success) the use of DL in RL</font>`)
+    - David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton, et al. Mastering the game of Go without human knowledge. Nature, 550(7676):354–359, 2017.
+    
+    - V. Mnih, K. Kavukcuoglu, D. Silver, A. Graves, Ioannis Antonoglou, Daan Wierstra, and Martin A. Riedmiller. Playing atari with deep reinforcement learning. ArXiv, abs/1312.5602, 2013.
+    
+    - H. V. Hasselt, Arthur Guez, and David Silver. Deep reinforcement learning with double q-learning. ArXiv, abs/1509.06461, 2016.
+    
+    - Timothy P Lillicrap, Jonathan J Hunt, Alexander Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa, David Silver, and Daan Wierstra. Continuous control with deep reinforcement learning. In ICLR, 2016.
+    
+    - J. Schulman, F. Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal policy optimizationalgorithms.ArXiv, abs/1707.06347, 2017.
+    
+    - Matteo Hessel, Joseph Modayil, H. V. Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney, Dan Horgan,Bilal Piot, Mohammad Gheshlaghi Azar, and David Silver. Rainbow:  Combining improvements in deepreinforcement learning. In AAAI, 2018.
+    
+    - Scott Fujimoto, Herke Hoof, and David Meger. Addressing function approximation error in actor-critic methods. In International Conference on Machine Learning, pages 1587–1596. PMLR, 2018.
+    
+    - Tuomas Haarnoja, Aurick Zhou, P. Abbeel, and Sergey Levine. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In ICML, 2018.
+    
+    - Xinyue Chen, Che Wang, Zijian Zhou, and Keith W. Ross. Randomized ensembled double q-learning: Learning fast without a model. In International Conference on Learning Representations, 2021.
+  
+    
+    
+.. _Section-4-3:
 
-    - Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A.A., Veness, J., Bellemare, M.G., Graves, A., Riedmiller, M., Fidjeland, A.K., Ostrovski, G. and Petersen, S., 2015. Human-level control through deep reinforcement learning. Nature, 518(7540), pp.529-533 (:raw-html:`<font color="#A52A2A">an excellent review paper of important concepts on DRL</font>`)
+Subsection 4.2 Other resources
+-----------------------------------------------------------------
 
-    - Lillicrap, T.P., Hunt, J.J., Pritzel, A., Heess, N., Erez, T., Tassa, Y., Silver, D. and Wierstra, D., 2015. Continuous control with deep reinforcement learning. arXiv preprint arXiv:1509.02971 (:raw-html:`<font color="#A52A2A">paper that proposed the DDPG model</font>`)
+	.. role:: raw-html(raw)
+	   :format: html
 
-    - Fujimoto, S., Hoof, H. and Meger, D., 2018, July. Addressing function approximation error in actor-critic methods. In International Conference on Machine Learning (pp. 1587-1596). PMLR (:raw-html:`<font color="#A52A2A">paper that proposed the TD3 model</font>`)
+    - Richard S. Sutton and Andrew G. Barto. Reinforcement learning: An introduction. IEEE Transactions on Neural Networks, 16:285–286, 2005.
+    
+    - Arun Nair, Praveen Srinivasan, Sam Blackwell, Cagdas Alcicek, Rory Fearon, Alessandro De Maria, Vedavyas Panneershelvam, Mustafa Suleyman, Charlie Beattie, Stig Petersen, Shane Legg, Volodymyr Mnih, Koray Kavukcuoglu, and David Silver. Massively parallel methods for deep reinforcement learning. ArXiv, abs/1507.04296, 2015.
+    
+    - Philipp Moritz, Robert Nishihara, Stephanie Wang, Alexey Tumanov, Richard Liaw, Eric Liang, Melih Elibol, Zongheng Yang, William Paul, Michael I Jordan, et al. Ray: A distributed framework for emerging ai applications. In 13th USENIX Symposium on Operating Systems Design and Implementation (OSDI), pages 561–577, 2018.
+    
+    - Lasse Espeholt, Rapha¨el Marinier, Piotr Stanczyk, Ke Wang, and Marcin Michalski. Seed rl: Scalable and efficient deep-rl with accelerated central inference. In International Conference on Machine Learning. PMLR, 2019.
+    
+    - Agrim Gupta, Silvio Savarese, Surya Ganguli, and Fei-Fei Li. Embodied intelligence via learning and evolution. Nature Communications, 2021.
+    
+    - Matteo Hessel, Manuel Kroiss, Aidan Clark, Iurii Kemaev, John Quan, Thomas Keck, Fabio Viola, and Hado van Hasselt. Podracer architectures for scalable reinforcement learning. arXiv preprint arXiv:2104.06272, 2021.
+    
+    - Zechu Li, Xiao-Yang Liu, Jiahao Zheng, Zhaoran Wang, Anwar Walid, and Jian Guo. FinRL-podracer: High performance and scalable deep reinforcement learning for quantitative finance. ACM International Conference on AI in Finance (ICAIF), 2021.
+    
+    - Nikita Rudin, David Hoeller, Philipp Reist, and Marco Hutter. Learning to walk in minutes using massively parallel deep reinforcement learning. In Conference on Robot Learning, 2021.
+    
+    - Brijen Thananjeyan, Kirthevasan Kandasamy, Ion Stoica, Michael I. Jordan, Ken Goldberg, and Joseph Gonzalez. Resource allocation in multi-armed bandit exploration: Overcoming nonlinear scaling with adaptive parallelism. In ICML, 2021.
 
-    - Schulman, J., Wolski, F., Dhariwal, P., Radford, A. and Klimov, O., 2017. Proximal policy optimization algorithms. arXiv preprint arXiv:1707.06347 (:raw-html:`<font color="#A52A2A">paper that proposed the PPO model</font>`)
-
-    - Mnih, V., Badia, A.P., Mirza, M., Graves, A., Lillicrap, T., Harley, T., Silver, D. and Kavukcuoglu, K., 2016, June. Asynchronous methods for deep reinforcement learning. In International conference on machine learning (pp. 1928-1937). PMLR (:raw-html:`<font color="#A52A2A">paper that proposed the A3C model</font>`)
-
-    - https://openai.com/blog/baselines-acktr-a2c/ (:raw-html:`<font color="#A52A2A">description of the implementation of the A2C model</font>`)
-
-    - Schulman, J., Levine, S., Abbeel, P., Jordan, M. and Moritz, P., 2015, June. Trust region policy optimization. In International conference on machine learning (pp. 1889-1897). PMLR (:raw-html:`<font color="#A52A2A">description of the implementation of the TRPO model</font>`)
 
 .. _Section-5:
     
 Section 5  Common issues/bugs
 --------------------------------
-- Package trading_calendars reports errors in Windows system:\
-    Trading_calendars is not maintained now. It may report erros in Windows system (python>=3.7). These are two possible solutions: 1.Use python=3.6 environment 2.Replace trading_calendars with exchange_caldenars.
+- awaiting:\
+    awaiting.
