@@ -4,8 +4,8 @@
 FAQ
 =============================
 
-:Version: 0.1
-:Date: 02-06-2021
+:Version: 1.0
+:Date: 12-31-2021
 :Contributors: Steven Li, Xiao-Yang Liu
 
 
@@ -51,21 +51,21 @@ Section 1  Where to start?
 
     - Get started with ElegantRL-helloworld, a lightweight and stable subset of ElegantRL. 
     
-        - Read the introductary `post <https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b`_ of ElegantRL-helloworld.
+        - Read the introductary `post <https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b>`_ of ElegantRL-helloworld.
 
-        - Read the `post <https://towardsdatascience.com/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791`_ to learn how an algorithm is implemented.
+        - Read the `post <https://towardsdatascience.com/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791>`_ to learn how an algorithm is implemented.
         
-        - Read the posts (`Part I <https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208`_, `Part II <https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f`_) to learn a demo of ElegantRL-helloworld on a stock trading task.
+        - Read the posts (`Part I <https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208>`_, `Part II <https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f>`_) to learn a demo of ElegantRL-helloworld on a stock trading task.
     
-    - Read the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0`_ and the `paper <https://arxiv.org/abs/2112.05923`_ that describe our cloud solution, ElegantRL-Podracer.
+    - Read the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0`_ and the `paper <https://arxiv.org/abs/2112.05923>`_ that describe our cloud solution, ElegantRL-Podracer.
 
     - Run the Colab-based notebooks on simple Gym environments.
     
-    - Install the library following the instructions at the official Github `repo <https://github.com/AI4Finance-Foundation/ElegantRL`_.
+    - Install the library following the instructions at the official Github `repo <https://github.com/AI4Finance-Foundation/ElegantRL>`_.
     
-    - Run the demos from MuJoCo to Isaac Gym provided in the library `folder <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl`_.
+    - Run the demos from MuJoCo to Isaac Gym provided in the library `folder <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl>`_.
 
-    - Enter on the AI4Finance `slack <https://join.slack.com/t/ai4financeworkspace/shared_invite/zt-kq0c9het-FCSU6Y986OnSw6Wb5EkEYw`_.
+    - Enter on the AI4Finance `slack <https://join.slack.com/t/ai4financeworkspace/shared_invite/zt-kq0c9het-FCSU6Y986OnSw6Wb5EkEYw>`_.
 
 
 .. _Section-2:
