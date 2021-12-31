@@ -84,71 +84,71 @@ Section 3 Most frequently asked questions related to the ElegantRL Library
 
     - :raw-html:`<font color="#A52A2A">What kinds of environment can I use? </font>`
 
-	*ElegantRL supports any gym-style environment and provides wrappers for MuJoCo and Isaac Gym. *
+	ElegantRL supports any gym-style environment and provides wrappers for MuJoCo and Isaac Gym.
 
     - :raw-html:`<font color="#A52A2A">How can I use a VecEnv? </font>`
 
-	*You can use `VecEnv <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_ imported from Isaac Gym or write your own VecEnv by yourself. There is no VecEnv wrapper to process a non-VecEnv to VecEnv.*   
+	You can use `VecEnv <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_ imported from Isaac Gym or write your own VecEnv by yourself. There is no VecEnv wrapper to process a non-VecEnv to VecEnv.   
 
     - :raw-html:`<font color="#A52A2A">What is ElegantRL-helloworld? </font>`
 
-	*It is a tutorial-level implementation for users (e.g., beginners) who do not have a demand for parallel computing. *
+	It is a tutorial-level implementation for users (e.g., beginners) who do not have a demand for parallel computing. 
 	
     - :raw-html:`<font color="#A52A2A">What DRL algorithms can I use with ElegantRL? </font>`
 
-	*In the `folder <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/agents>`_, we currently have DQN, DDQN, DDPG, TD3, SAC, A2C, REDQ, and PPO. *
+	In the `folder <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/agents>`_, we currently have DQN, DDQN, DDPG, TD3, SAC, A2C, REDQ, and PPO. 
 	
     - :raw-html:`<font color="#A52A2A">What kinds of parallelism does ElegantRL support? </font>`
 
-	*ElegantRL support parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent.*
+	ElegantRL support parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent.
 	
     - :raw-html:`<font color="#A52A2A">What is agent parallelism?  </font>`
 
-	*Agent parallelism is to train hundreds of agents in parallel through population-based training (PBT), which offers a flexibility for ensemble methods.*
+	Agent parallelism is to train hundreds of agents in parallel through population-based training (PBT), which offers a flexibility for ensemble methods.
 	
     - :raw-html:`<font color="#A52A2A">What is worker parallelism? </font>`
 
-	*Worker parallelism is to generate transitions in parallel, thus accelerating the data collection. We currently support two different parallelism to adapt different types of environments.*
+	Worker parallelism is to generate transitions in parallel, thus accelerating the data collection. We currently support two different parallelism to adapt different types of environments.
 	
-		- *use a `VecEnv <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_ to generate transitions in batch.*
+		- use a `VecEnv <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_ to generate transitions in batch.
 		
-		- *if the environment is not a VecEnv, use multiple workers to generate transitions in parallel.*
+		- if the environment is not a VecEnv, use multiple workers to generate transitions in parallel.
 
     - :raw-html:`<font color="#A52A2A">What is learner parallelism? </font>`
 
-	*Learner parallelism is to train multiple-critics and multiple actors running in parallel for ensemble DRL methods. Due to the stochastic nature of the training process (e.g., random seeds), an ensemble DRL algorithm increases the diversity of the data collection, improves the stability of the learning process, and reduces the overestimation bias.*
+	Learner parallelism is to train multiple-critics and multiple actors running in parallel for ensemble DRL methods. Due to the stochastic nature of the training process (e.g., random seeds), an ensemble DRL algorithm increases the diversity of the data collection, improves the stability of the learning process, and reduces the overestimation bias.
 
     - :raw-html:`<font color="#A52A2A">What kinds of ensemble methods can I use?  </font>`
 
-	*We currently support three ensemble methods, which are weighted average, model fusion, and tournament-based ensemble training scheme.*
+	We currently support three ensemble methods, which are weighted average, model fusion, and tournament-based ensemble training scheme.
 
     - :raw-html:`<font color="#A52A2A">What is tournament-based ensemble training scheme?  </font>`
 
-	*Tournament-based ensemble training scheme is our cloud orchestration mechanism, scheduling the interactions between a leaderboard and a training pool with hundreds of agents (pods). More details are available in the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0>`_ and the `paper <https://arxiv.org/abs/2112.05923>`_.*
+	Tournament-based ensemble training scheme is our cloud orchestration mechanism, scheduling the interactions between a leaderboard and a training pool with hundreds of agents (pods). More details are available in the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0>`_ and the `paper <https://arxiv.org/abs/2112.05923>`_.
 
     - :raw-html:`<font color="#A52A2A">Can I use a pre-trained model? </font>`
 
-	*Yes, you can load a model to continue the training. A tutorial is coming soon.*
+	Yes, you can load a model to continue the training. A tutorial is coming soon.
 
     - :raw-html:`<font color="#A52A2A">Can I use Tensorboard for logging?  </font>`
 
-	*No, we cannot support Tensorboard.*
+	No, we cannot support Tensorboard.
 
     - :raw-html:`<font color="#A52A2A">Does ElegantRL supports multi-agent reinforcement learning (MARL)? </font>`
 
-	*Yes, we are implementing MARL algorithms and adapting them to the massively parallel framework. Currently, we provide several MARL algorithms, such as QMix, MADDPG, MAPPO, and VDN. The tutorials are coming soon.*
+	Yes, we are implementing MARL algorithms and adapting them to the massively parallel framework. Currently, we provide several MARL algorithms, such as QMix, MADDPG, MAPPO, and VDN. The tutorials are coming soon.
 
     - :raw-html:`<font color="#A52A2A">Does ElegantRL supports GPU training?   </font>`
 
-	*ElegantRL supports flexible resource allocation from zero to hundreds of GPUs.*
+	ElegantRL supports flexible resource allocation from zero to hundreds of GPUs.
 
     - :raw-html:`<font color="#A52A2A">Can I use ElegantRL without GPUs?  </font>`
 
-	*Of course! You can use ElegantRL-helloworld for non-GPU training or use ElegantRL by setting GPU_ids to None (you cannot use GPU-accelerated VecEnv in this case).*
+	Of course! You can use ElegantRL-helloworld for non-GPU training or use ElegantRL by setting GPU_ids to None (you cannot use GPU-accelerated VecEnv in this case).
 
     - :raw-html:`<font color="#A52A2A">How can I contribute to the development?  </font>`
 
-	*participate on the slack channels, check the current issues and the roadmap, and help any way you can (sharing the library with others, testing the library of different applications, contributing with code development, etc)*
+	You can participate on the slack channels, check the current issues and the roadmap, and help any way you can (sharing the library with others, testing the library of different applications, contributing with code development, etc).
 
 
 .. _Section-4:
