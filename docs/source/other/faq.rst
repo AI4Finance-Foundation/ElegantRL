@@ -221,23 +221,23 @@ Subsection 4.2 DRL algorithms
 	.. role:: raw-html(raw)
 	   :format: html
 
-    - David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton, et al. Mastering the game of Go without human knowledge. Nature, 550(7676):354–359, 2017.
+    - David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton, et al. *Mastering the game of Go without human knowledge*. Nature, 550(7676):354–359, 2017.
     
-    - V. Mnih, K. Kavukcuoglu, D. Silver, A. Graves, Ioannis Antonoglou, Daan Wierstra, and Martin A. Riedmiller. Playing atari with deep reinforcement learning. ArXiv, abs/1312.5602, 2013.
+    - V. Mnih, K. Kavukcuoglu, D. Silver, A. Graves, Ioannis Antonoglou, Daan Wierstra, and Martin A. Riedmiller. *Playing atari with deep reinforcement learning*. ArXiv, abs/1312.5602, 2013.
     
-    - H. V. Hasselt, Arthur Guez, and David Silver. Deep reinforcement learning with double q-learning. ArXiv, abs/1509.06461, 2016.
+    - H. V. Hasselt, Arthur Guez, and David Silver. *Deep reinforcement learning with double q-learning*. ArXiv, abs/1509.06461, 2016.
     
-    - Timothy P Lillicrap, Jonathan J Hunt, Alexander Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa, David Silver, and Daan Wierstra. Continuous control with deep reinforcement learning. In ICLR, 2016.
+    - Timothy P Lillicrap, Jonathan J Hunt, Alexander Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa, David Silver, and Daan Wierstra. *Continuous control with deep reinforcement learning*. In ICLR, 2016.
     
-    - J. Schulman, F. Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. Proximal policy optimizationalgorithms.ArXiv, abs/1707.06347, 2017.
+    - J. Schulman, F. Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. *Proximal policy optimizationalgorithms*. ArXiv, abs/1707.06347, 2017.
     
-    - Matteo Hessel, Joseph Modayil, H. V. Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney, Dan Horgan,Bilal Piot, Mohammad Gheshlaghi Azar, and David Silver. Rainbow:  Combining improvements in deepreinforcement learning. In AAAI, 2018.
+    - Matteo Hessel, Joseph Modayil, H. V. Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney, Dan Horgan,Bilal Piot, Mohammad Gheshlaghi Azar, and David Silver. *Rainbow:  Combining improvements in deepreinforcement learning*. In AAAI, 2018.
     
-    - Scott Fujimoto, Herke Hoof, and David Meger. Addressing function approximation error in actor-critic methods. In International Conference on Machine Learning, pages 1587–1596. PMLR, 2018.
+    - Scott Fujimoto, Herke Hoof, and David Meger. *Addressing function approximation error in actor-critic methods*. In International Conference on Machine Learning, pages 1587–1596. PMLR, 2018.
     
-    - Tuomas Haarnoja, Aurick Zhou, P. Abbeel, and Sergey Levine. Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor. In ICML, 2018.
+    - Tuomas Haarnoja, Aurick Zhou, P. Abbeel, and Sergey Levine. *Soft actor-critic: Off-policy maximum entropy deep reinforcement learning with a stochastic actor*. In ICML, 2018.
     
-    - Xinyue Chen, Che Wang, Zijian Zhou, and Keith W. Ross. Randomized ensembled double q-learning: Learning fast without a model. In International Conference on Learning Representations, 2021.
+    - Xinyue Chen, Che Wang, Zijian Zhou, and Keith W. Ross. *Randomized ensembled double q-learning: Learning fast without a model*. In International Conference on Learning Representations, 2021.
   
     
     
@@ -249,23 +249,23 @@ Subsection 4.2 Other resources
 	.. role:: raw-html(raw)
 	   :format: html
 
-    - Richard S. Sutton and Andrew G. Barto. Reinforcement learning: An introduction. IEEE Transactions on Neural Networks, 16:285–286, 2005.
+    - Richard S. Sutton and Andrew G. Barto. *Reinforcement learning: An introduction*. IEEE Transactions on Neural Networks, 16:285–286, 2005.
     
-    - Arun Nair, Praveen Srinivasan, Sam Blackwell, Cagdas Alcicek, Rory Fearon, Alessandro De Maria, Vedavyas Panneershelvam, Mustafa Suleyman, Charlie Beattie, Stig Petersen, Shane Legg, Volodymyr Mnih, Koray Kavukcuoglu, and David Silver. Massively parallel methods for deep reinforcement learning. ArXiv, abs/1507.04296, 2015.
+    - Arun Nair, Praveen Srinivasan, Sam Blackwell, Cagdas Alcicek, Rory Fearon, Alessandro De Maria, Vedavyas Panneershelvam, Mustafa Suleyman, Charlie Beattie, Stig Petersen, Shane Legg, Volodymyr Mnih, Koray Kavukcuoglu, and David Silver. *Massively parallel methods for deep reinforcement learning*. ArXiv, abs/1507.04296, 2015.
     
-    - Philipp Moritz, Robert Nishihara, Stephanie Wang, Alexey Tumanov, Richard Liaw, Eric Liang, Melih Elibol, Zongheng Yang, William Paul, Michael I Jordan, et al. Ray: A distributed framework for emerging ai applications. In 13th USENIX Symposium on Operating Systems Design and Implementation (OSDI), pages 561–577, 2018.
+    - Philipp Moritz, Robert Nishihara, Stephanie Wang, Alexey Tumanov, Richard Liaw, Eric Liang, Melih Elibol, Zongheng Yang, William Paul, Michael I Jordan, et al. *Ray: A distributed framework for emerging ai applications*. In 13th USENIX Symposium on Operating Systems Design and Implementation (OSDI), pages 561–577, 2018.
     
-    - Lasse Espeholt, Rapha¨el Marinier, Piotr Stanczyk, Ke Wang, and Marcin Michalski. Seed rl: Scalable and efficient deep-rl with accelerated central inference. In International Conference on Machine Learning. PMLR, 2019.
+    - Lasse Espeholt, Rapha¨el Marinier, Piotr Stanczyk, Ke Wang, and Marcin Michalski. *Seed rl: Scalable and efficient deep-rl with accelerated central inference*. In International Conference on Machine Learning. PMLR, 2019.
     
-    - Agrim Gupta, Silvio Savarese, Surya Ganguli, and Fei-Fei Li. Embodied intelligence via learning and evolution. Nature Communications, 2021.
+    - Agrim Gupta, Silvio Savarese, Surya Ganguli, and Fei-Fei Li. *Embodied intelligence via learning and evolution*. Nature Communications, 2021.
     
-    - Matteo Hessel, Manuel Kroiss, Aidan Clark, Iurii Kemaev, John Quan, Thomas Keck, Fabio Viola, and Hado van Hasselt. Podracer architectures for scalable reinforcement learning. arXiv preprint arXiv:2104.06272, 2021.
+    - Matteo Hessel, Manuel Kroiss, Aidan Clark, Iurii Kemaev, John Quan, Thomas Keck, Fabio Viola, and Hado van Hasselt. *Podracer architectures for scalable reinforcement learning*. arXiv preprint arXiv:2104.06272, 2021.
     
-    - Zechu Li, Xiao-Yang Liu, Jiahao Zheng, Zhaoran Wang, Anwar Walid, and Jian Guo. FinRL-podracer: High performance and scalable deep reinforcement learning for quantitative finance. ACM International Conference on AI in Finance (ICAIF), 2021.
+    - Zechu Li, Xiao-Yang Liu, Jiahao Zheng, Zhaoran Wang, Anwar Walid, and Jian Guo. *FinRL-podracer: High performance and scalable deep reinforcement learning for quantitative finance*. ACM International Conference on AI in Finance (ICAIF), 2021.
     
-    - Nikita Rudin, David Hoeller, Philipp Reist, and Marco Hutter. Learning to walk in minutes using massively parallel deep reinforcement learning. In Conference on Robot Learning, 2021.
+    - Nikita Rudin, David Hoeller, Philipp Reist, and Marco Hutter. *Learning to walk in minutes using massively parallel deep reinforcement learning*. In Conference on Robot Learning, 2021.
     
-    - Brijen Thananjeyan, Kirthevasan Kandasamy, Ion Stoica, Michael I. Jordan, Ken Goldberg, and Joseph Gonzalez. Resource allocation in multi-armed bandit exploration: Overcoming nonlinear scaling with adaptive parallelism. In ICML, 2021.
+    - Brijen Thananjeyan, Kirthevasan Kandasamy, Ion Stoica, Michael I. Jordan, Ken Goldberg, and Joseph Gonzalez. *Resource allocation in multi-armed bandit exploration: Overcoming nonlinear scaling with adaptive parallelism*. In ICML, 2021.
 
 
 .. _Section-5:
