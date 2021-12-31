@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -14,15 +12,15 @@
     <session id="1417114242">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="13" />
+          <entry key="project.closed" value="16" />
           <entry key="project.open.time.0" value="2" />
-          <entry key="project.open.time.1" value="3" />
+          <entry key="project.open.time.1" value="5" />
           <entry key="project.open.time.4" value="3" />
-          <entry key="project.open.time.5" value="3" />
+          <entry key="project.open.time.5" value="4" />
           <entry key="project.open.time.6" value="1" />
           <entry key="project.open.time.7" value="1" />
           <entry key="project.open.time.8" value="2" />
-          <entry key="project.opened" value="15" />
+          <entry key="project.opened" value="18" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
@@ -43,7 +41,7 @@
         <counts>
           <entry key="jpg" value="1" />
           <entry key="md" value="1" />
-          <entry key="py" value="121" />
+          <entry key="py" value="122" />
           <entry key="rst" value="5" />
         </counts>
       </usages-collector>
@@ -51,7 +49,7 @@
         <counts>
           <entry key="Image" value="1" />
           <entry key="Markdown" value="1" />
-          <entry key="Python" value="121" />
+          <entry key="Python" value="122" />
           <entry key="ReST" value="5" />
         </counts>
       </usages-collector>
@@ -94,11 +92,20 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="199">
-              <caret line="189" column="57" selection-start-line="189" selection-start-column="57" selection-end-line="189" selection-end-column="57" />
+            <state relative-caret-position="3298">
+              <caret line="197" column="7" selection-start-line="197" selection-start-column="7" selection-end-line="197" selection-end-column="7" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="17">
+              <caret line="4" selection-start-line="4" selection-end-line="4" />
             </state>
           </provider>
         </entry>
@@ -237,24 +244,6 @@
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
-              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-              <item name="docs" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
-              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-              <item name="docs" type="462c0819:PsiDirectoryNode" />
-              <item name="source" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
-              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-              <item name="docs" type="462c0819:PsiDirectoryNode" />
-              <item name="source" type="462c0819:PsiDirectoryNode" />
-              <item name="api" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
@@ -598,13 +587,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="68">
-          <caret line="4" selection-start-line="4" selection-end-line="4" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/run_parallel.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="186">
@@ -730,6 +712,13 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3298">
+          <caret line="197" column="7" selection-start-line="197" selection-start-column="7" selection-end-line="197" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="748">
@@ -760,10 +749,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="199">
-          <caret line="189" column="57" selection-start-line="189" selection-start-column="57" selection-end-line="189" selection-end-column="57" />
+        <state relative-caret-position="17">
+          <caret line="4" selection-start-line="4" selection-end-line="4" />
         </state>
       </provider>
     </entry>
