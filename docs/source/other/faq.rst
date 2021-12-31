@@ -27,14 +27,6 @@ Outline
 
     - :ref:`Section-3`
 
-	      - :ref:`Section-3-1`
-
-	      - :ref:`Section-3-2`
-
-	      - :ref:`Section-3-3`
-
-	      - :ref:`Section-3-4`
-
     - :ref:`Section-4`
 
 		- :ref:`Section-4-1`
@@ -87,141 +79,77 @@ Section 2 What to do when you experience problems?
 Section 3 Most frequently asked questions related to the ElegantRL Library
 ---------------------------------------------------------------------------
 
-.. _Section-3-1:
-
-Subsection 3.1  Inputs and datasets
------------------------------------------------------------------
-
 	.. role:: raw-html(raw)
 	   :format: html
 
-    - :raw-html:`<font color="#A52A2A">Can I use FinRL for crypto? </font>`
+    - :raw-html:`<font color="#A52A2A">What kinds of environment can I use? </font>`
 
-	*not yet. We're developing this functionality*
+	*ElegantRL supports any gym-style environment and provides wrappers for MuJoCo and Isaac Gym. *
 
-    - :raw-html:`<font color="#A52A2A">Can I use FinRL for live trading?  </font>`
+    - :raw-html:`<font color="#A52A2A">How can I use a VecEnv? </font>`
 
-	*not yet. We're developing this functionality*
+	*You can use `VecEnv <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_ imported from Isaac Gym or write your own VecEnv by yourself. There is no VecEnv wrapper to process a non-VecEnv to VecEnv.*   
 
-    - :raw-html:`<font color="#A52A2A">Can I use FinRL for forex? </font>`
+    - :raw-html:`<font color="#A52A2A">What is ElegantRL-helloworld? </font>`
 
-	*not yet. We're developing this functionality*
+	*It is a tutorial-level implementation for users (e.g., beginners) who do not have a demand for parallel computing. *
+	
+    - :raw-html:`<font color="#A52A2A">What DRL algorithms can I use with ElegantRL? </font>`
 
-    - :raw-html:`<font color="#A52A2A">Can I use FinRL for futures? </font>`
+	*In the `folder <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/agents>`_, we currently have DQN, DDQN, DDPG, TD3, SAC, A2C, REDQ, and PPO. *
+	
+    - :raw-html:`<font color="#A52A2A">What kinds of parallelism does ElegantRL support? </font>`
 
-	*not yet*
+	*ElegantRL support parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent.*
+	
+    - :raw-html:`<font color="#A52A2A">What is agent parallelism?  </font>`
 
-    -  :raw-html:`<font color="#A52A2A">What is the best data source for free daily data?</font>`
+	*Agent parallelism is to train hundreds of agents in parallel through population-based training (PBT), which offers a flexibility for ensemble methods.*
+	
+    - :raw-html:`<font color="#A52A2A">What is worker parallelism? </font>`
 
-	*Yahoo Finance (through the yfinance library)*
+	*Worker parallelism is to generate transitions in parallel, thus accelerating the data collection. We currently support two different parallelism to adapt different types of environments.*
+	
+		- *use a `VecEnv <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_ to generate transitions in batch.*
+		
+		- *if the environment is not a VecEnv, use multiple workers to generate transitions in parallel.*
 
-    - :raw-html:`<font color="#A52A2A">What is the best data source for minute data? </font>`
+    - :raw-html:`<font color="#A52A2A">What is learner parallelism? </font>`
 
-	*Yahoo Finance (only up to last 7 days), through the yfinance library. It is the only option besides scraping (or paying for a service provider)*
+	*Learner parallelism is to train multiple-critics and multiple actors running in parallel for ensemble DRL methods. Due to the stochastic nature of the training process (e.g., random seeds), an ensemble DRL algorithm increases the diversity of the data collection, improves the stability of the learning process, and reduces the overestimation bias.*
 
-    - :raw-html:`<font color="#A52A2A">Does FinRL support trading with leverage? </font>`
+    - :raw-html:`<font color="#A52A2A">What kinds of ensemble methods can I use?  </font>`
 
-	*no, as this is more of an execution strategy related to risk control. You can use it as part of your system, adding the risk control part as a separate component*
+	*We currently support three ensemble methods, which are weighted average, model fusion, and tournament-based ensemble training scheme.*
 
-    - :raw-html:`<font color="#A52A2A">Can a sentiment feature be added to improve the model's performance? </font>`
+    - :raw-html:`<font color="#A52A2A">What is tournament-based ensemble training scheme?  </font>`
 
-	*yes, you can add it. Remember to check on the code that this additional feature is being fed to the model (state)*
+	*Tournament-based ensemble training scheme is our cloud orchestration mechanism, scheduling the interactions between a leaderboard and a training pool with hundreds of agents (pods). More details are available in the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0>`_ and the `paper <https://arxiv.org/abs/2112.05923>`_.*
 
-    - :raw-html:`<font color="#A52A2A">Is there a good free source for market sentiment to use as a feature?  </font>`
+    - :raw-html:`<font color="#A52A2A">Can I use a pre-trained model? </font>`
 
-	*no, you'll have to use a paid service or library/code to scrape news and obtain the sentiment from them (normally, using deep learning and NLP)*
+	*Yes, you can load a model to continue the training. A tutorial is coming soon.*
 
-.. _Section-3-2:
+    - :raw-html:`<font color="#A52A2A">Can I use Tensorboard for logging?  </font>`
 
-Subsection 3.2 Code and implementation
------------------------------------------------------------------
+	*No, we cannot support Tensorboard.*
 
-	.. role:: raw-html(raw)
-	   :format: html
+    - :raw-html:`<font color="#A52A2A">Does ElegantRL supports multi-agent reinforcement learning (MARL)? </font>`
 
-    - :raw-html:`<font color="#A52A2A">Does FinRL supports GPU training?  </font>`
+	*Yes, we are implementing MARL algorithms and adapting them to the massively parallel framework. Currently, we provide several MARL algorithms, such as QMix, MADDPG, MAPPO, and VDN. The tutorials are coming soon.*
 
-	*yes, it does*
+    - :raw-html:`<font color="#A52A2A">Does ElegantRL supports GPU training?   </font>`
 
-    - :raw-html:`<font color="#A52A2A">The code works for daily data but gives bad results on intraday frequency.</font>`
+	*ElegantRL supports flexible resource allocation from zero to hundreds of GPUs.*
 
-	*yes, because the current parameters are defined for daily data. You'll have to tune the model for intraday trading*
+    - :raw-html:`<font color="#A52A2A">Can I use ElegantRL without GPUs?  </font>`
 
-    - :raw-html:`<font color="#A52A2A">Are there different reward functions available? </font>`
-
-	*not yet, but we're working on providing different reward functions and an easy way to code your own reward function*
-
-    - :raw-html:`<font color="#A52A2A">Can I use a pre-trained model?  </font>`
-
-	*yes, but none is available at the moment. Sometimes in the literature you'll find this referred to as transfer learning*
-
-    - :raw-html:`<font color="#A52A2A">What is the most important hyperparameter to tune on the models?  </font>`
-
-	*each model has its own hyperparameters, but the most important is the total_timesteps (think of it as epochs in a neural network: even if all the other hyperparameters are optimal, with few epochs the model will have a bad performance). The other important hyperparameters, in general, are: learning_rate, batch_size, ent_coef, buffer_size, policy, and reward scaling*
-
-    - :raw-html:`<font color="#A52A2A">What are some libraries I could use to better tune the models? </font>`
-
-	*there are several, such as: ray rllib and optuna. You'll have to implement them by yourself on the code, as this is not supported yet*
-
-    - :raw-html:`<font color="#A52A2A">What DRL models can i use with FinRL?  </font>`
-
-	*all the DRL models on Stable Baselines 3. We tested the following models with success: A2C, A3C, DDPG, PPO, SAC, TD3, TRPO. You can also create your own model, using the OpenAI Gym structure*
-
-    - :raw-html:`<font color="#A52A2A">The model is presenting strange results OR is not training.   </font>`
-
-	*Please update to latest version (https://github.com/AI4Finance-LLC/FinRL-Library), check if the hyperparameters used were not outside a normal range (ex: learning rate too high), and run the code again. If you still have problems, please check Section 2 (What to do when you experience problems)*
-
-.. _Section-3-3:
-
-Subsection 3.3 Model evaluation
------------------------------------------------------------------
-
-	.. role:: raw-html(raw)
-	   :format: html
-
-    - :raw-html:`<font color="#A52A2A">The model did not beat buy and hold (BH) with my data. Is the model or code wrong?  </font>`
-
-	*not exactly. Depending on the period, the asset, the model chosen, and the hyperparameters used, BH may be very difficult to beat (it's almost never beaten on stocks/periods with low volatility and steady growth). Nevertheless, update the library and its dependencies (the github repo has the most recent version), and check the example notebook for the specific environment type (single, multi, portfolio optimization) to see if the code is running correctly*
-
-    - :raw-html:`<font color="#A52A2A">How does backtesting works in the library?  </font>`
-
-	*we use the Pyfolio backtest library from Quantopian ( https://github.com/quantopian/pyfolio ), especially the simple tear sheet and its charts. In general, the most important metrics are: annual returns, cumulative returns, annual volatility, sharpe ratio, calmar ratio, stability, and max drawdown*
-
-    - :raw-html:`<font color="#A52A2A">Which metrics should I use for evaluting the model?  </font>`
-
-	*there are several metrics, but we recommend the following, as they are the most used in the market: annual returns, cumulative returns, annual volatility, sharpe ratio, calmar ratio, stability, and max drawdown*
-
-    - :raw-html:`<font color="#A52A2A">Which models should I use as a baseline for comparison?  </font>`
-
-	*we recommend using buy and hold (BH), as it's a strategy that can be followed on any market and tends to provide good results in the long run. You can also compare with other DRL models and trading strategies such as the minimum variance portfolio*
-
-.. _Section-3-4:
-
-Subsection 3.4 Miscellaneous
------------------------------------------------------------------
-
-	.. role:: raw-html(raw)
-	   :format: html
-
-    - :raw-html:`<font color="#A52A2A">What is the development roadmap for the library?  </font>`
-
-	*this is available on our Github repo* https://github.com/AI4Finance-LLC/FinRL-Library
+	*Of course! You can use ElegantRL-helloworld for non-GPU training or use ElegantRL by setting GPU_ids to None (you cannot use GPU-accelerated VecEnv in this case).*
 
     - :raw-html:`<font color="#A52A2A">How can I contribute to the development?  </font>`
 
-	*participate on the slack channels, check the current issues and the roadmap, and help any way you can (sharing the library with others, testing the library of different markets/models/strategies, contributing with code development, etc)*
+	*participate on the slack channels, check the current issues and the roadmap, and help any way you can (sharing the library with others, testing the library of different applications, contributing with code development, etc)*
 
-    - :raw-html:`<font color="#A52A2A">What are some good references before I start using the library?  </font>`
-
-	*please read* :ref:`Section-1`
-
-    - :raw-html:`<font color="#A52A2A">What are some good RL references for people from finance? What are some good finance references for people from ML? </font>`
-
-	*please read* :ref:`Section-4`
-
-    - :raw-html:`<font color="#A52A2A">What new sota models will be incorporated on FinRL?  </font>`
-
-	*please check our development roadmap at our Github repo: https://github.com/AI4Finance-LLC/FinRL-Library*
 
 .. _Section-4:
 
