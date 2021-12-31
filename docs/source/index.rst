@@ -54,18 +54,6 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
 
 .. toctree::
    :maxdepth: 1
-   :caption: API Reference
-
-   api/config
-   api/run
-   api/worker
-   api/learner
-   api/replay
-   api/evaluator
-   api/leaderboard
-
-.. toctree::
-   :maxdepth: 1
    :caption: Algorithms
    
    algorithms/dqn
@@ -89,6 +77,26 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    examples/Creating_VecEnv
    examples/BipedalWalker-v3
    examples/LunarLanderContinuous-v2
+   
+   
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
+   api/config
+   api/run
+   api/worker
+   api/learner
+   api/replay
+   api/evaluator
+   api/utils
+   
+ 
+.. toctree::
+   :maxdepth: 1
+   :caption: Other
+
+   other/faq
 
 
 Indices and tables
