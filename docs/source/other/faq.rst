@@ -57,7 +57,7 @@ Section 1  Where to start?
         
         - Read the posts (`Part I <https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208>`_, `Part II <https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f>`_) to learn a demo of ElegantRL-helloworld on a stock trading task.
     
-    - Read the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0`_ and the `paper <https://arxiv.org/abs/2112.05923>`_ that describe our cloud solution, ElegantRL-Podracer.
+    - Read the `post <https://towardsdatascience.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0>`_ and the `paper <https://arxiv.org/abs/2112.05923>`_ that describe our cloud solution, ElegantRL-Podracer.
 
     - Run the Colab-based notebooks on simple Gym environments.
     
