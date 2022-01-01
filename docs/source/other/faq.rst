@@ -1,6 +1,3 @@
-:github_url: https://github.com/AI4Finance-LLC/FinRL-Library
-
-
 FAQ
 =============================
 
@@ -275,8 +272,8 @@ Section 5  Common issues/bugs
 - When running Isaac Gym, found error *ImportError: libpython3.7m.so.1.0: cannot open shared object file: No such file or directory*:\
     Run the following code in bash to add the path of Isaac Gym conda environment.
     
-    **export LD_LIBRARY_PATH=$PATH of Isaac Gym conda env$**
+    	**export LD_LIBRARY_PATH=$PATH$**
     
     For example, the name of Isaac Gym conda environment is rlgpu:
     
-    **export LD_LIBRARY_PATH=/xfs/home/podracer_steven/anaconda3/envs/rlgpu/lib**
+    	**export LD_LIBRARY_PATH=/xfs/home/podracer_steven/anaconda3/envs/rlgpu/lib**
