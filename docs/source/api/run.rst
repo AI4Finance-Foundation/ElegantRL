@@ -23,12 +23,12 @@ Let's look at a demo for the simple two-step procedure.
    # Step 2
    train_and_evaluate_mp(args)
 
-Single Process
+Single-process
 ---------------------
 
 .. autofunction:: elegantrl.train.run.train_and_evaluate
    
-Multi Process
+Multi-process
 ---------------------
 
 .. autofunction:: elegantrl.train.run.train_and_evaluate_mp
@@ -37,3 +37,5 @@ Utils
 ---------------------
 
 .. autoclass:: elegantrl.train.run.process_safely_terminate
+
+.. autoclass:: elegantrl.train.run.check_subprocess
