@@ -23,16 +23,6 @@ Implementations
 .. autoclass:: elegantrl.train.evaluator.Evaluator
    :members:
    
-Multiprocessing
----------------------
-
-.. autoclass:: elegantrl.train.evaluator.PipeEvaluator
-   :members:
-   
-Initialization
----------------------
-
-.. autofunction:: elegantrl.train.evaluator.init_evaluator
 
 Utils
 ---------------------
