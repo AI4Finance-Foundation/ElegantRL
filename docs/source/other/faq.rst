@@ -229,7 +229,7 @@ Subsection 4.2 DRL algorithms
     
     - Timothy P Lillicrap, Jonathan J Hunt, Alexander Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa, David Silver, and Daan Wierstra. *Continuous control with deep reinforcement learning*. In ICLR, 2016.
     
-    - J. Schulman, F. Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. *Proximal policy optimizationalgorithms*. ArXiv, abs/1707.06347, 2017.
+    - J. Schulman, F. Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. *Proximal policy optimization algorithms*. ArXiv, abs/1707.06347, 2017.
     
     - Matteo Hessel, Joseph Modayil, H. V. Hasselt, Tom Schaul, Georg Ostrovski, Will Dabney, Dan Horgan,Bilal Piot, Mohammad Gheshlaghi Azar, and David Silver. *Rainbow:  Combining improvements in deepreinforcement learning*. In AAAI, 2018.
     
@@ -272,5 +272,11 @@ Subsection 4.2 Other resources
     
 Section 5  Common issues/bugs
 --------------------------------
-- awaiting:\
-    awaiting.
+- When running Isaac Gym, found error *ImportError: libpython3.7m.so.1.0: cannot open shared object file: No such file or directory*:\
+    Run the following code in bash to add the path of Isaac Gym conda environment.
+    
+    **export LD_LIBRARY_PATH=$PATH of Isaac Gym conda env$**
+    
+    For example, the name of Isaac Gym conda environment is rlgpu:
+    
+    **export LD_LIBRARY_PATH=/xfs/home/podracer_steven/anaconda3/envs/rlgpu/lib**
