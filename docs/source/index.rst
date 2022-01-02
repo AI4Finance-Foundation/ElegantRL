@@ -45,7 +45,7 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
 
 .. toctree::
    :maxdepth: 1
-   :caption: Hellow-World
+   :caption: Hello-World
 
    tutorial/intro
    tutorial/net
