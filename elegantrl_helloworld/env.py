@@ -1,6 +1,8 @@
 import gym
+import numpy as np
 
 gym.logger.set_level(40)  # Block warning
+
 
 class PreprocessEnv(gym.Wrapper):  # environment wrapper
     def __init__(self, env, if_print=True):

@@ -86,7 +86,7 @@ def train_and_evaluate(args, agent_id=0):
     if agent.if_off_policy:
         buffer = ReplayBuffer(max_len=args.max_memo, state_dim=env.state_dim,
                               action_dim=1 if env.if_discrete else env.action_dim)
-        buffer.save_or_load_history(args.cwd, if_save=False)
+        # buffer.save_or_load_history(args.cwd, if_save=False)
 
         def update_buffer(_trajectory):
             ten_state = torch.as_tensor([item[0] for item in _trajectory], dtype=torch.float32)
@@ -240,7 +240,7 @@ def get_episode_return_and_step(env, act, device) -> (float, int):
 
 def demo_continuous_action_off_policy():
     args = Arguments(if_off_policy=True)
-    args.agent = AgentModSAC()  # AgentModSAC AgentSAC AgentTD3 AgentDDPG
+    args.agent = AgentSAC()  # AgentModSAC AgentSAC AgentTD3 AgentDDPG
     args.visible_gpu = '0'
 
     if_train_pendulum = 1

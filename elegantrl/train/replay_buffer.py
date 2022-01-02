@@ -4,7 +4,6 @@ import numpy as np
 import numpy.random as rd
 
 
-
 class ReplayBuffer:
     def __init__(self, max_len, state_dim, action_dim, if_use_per, gpu_id=0, state_type=torch.float32):
         """Experience Replay Buffer

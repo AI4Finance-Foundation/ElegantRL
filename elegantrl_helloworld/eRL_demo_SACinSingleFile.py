@@ -539,7 +539,7 @@ def demo_continuous_action():
     args.agent.cri_target = True
     args.visible_gpu = '2'
 
-    if_train_pendulum = 0
+    if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
         args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
@@ -549,14 +549,6 @@ def demo_continuous_action():
         args.net_dim = 2 ** 7
         args.batch_size = args.net_dim * 2
         args.target_step = args.env.max_step * 8
-
-    if_train_lunar_lander = 1
-    if if_train_lunar_lander:
-        "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
-        args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
-        args.target_step = args.env.max_step * 4
-        args.if_per_or_gae = True
-        args.gamma = 0.98
 
     if_train_bipedal_walker = 0
     if if_train_bipedal_walker:

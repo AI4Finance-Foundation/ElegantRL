@@ -665,33 +665,3 @@ class ReplayBuffer:
 
     def update_now_len(self):
         self.now_len = self.max_len if self.if_full else self.next_idx
-
-    def save_or_load_history(self, cwd, if_save, buffer_id=0):
-        save_path = f"{cwd}/replay_{buffer_id}.npz"
-
-        if if_save:
-            self.update_now_len()
-            state_dim = self.buf_state.shape[1]
-            other_dim = self.buf_other.shape[1]
-            buf_state = np.empty((self.max_len, state_dim), dtype=np.float16)  # sometimes np.uint8
-            buf_other = np.empty((self.max_len, other_dim), dtype=np.float16)
-
-            temp_len = self.max_len - self.now_len
-            buf_state[0:temp_len] = self.buf_state[self.now_len:self.max_len].detach().cpu().numpy()
-            buf_other[0:temp_len] = self.buf_other[self.now_len:self.max_len].detach().cpu().numpy()
-
-            buf_state[temp_len:] = self.buf_state[:self.now_len].detach().cpu().numpy()
-            buf_other[temp_len:] = self.buf_other[:self.now_len].detach().cpu().numpy()
-
-            np.savez_compressed(save_path, buf_state=buf_state, buf_other=buf_other)
-            print(f"| ReplayBuffer save in: {save_path}")
-        elif os.path.isfile(save_path):
-            buf_dict = np.load(save_path)
-            buf_state = buf_dict['buf_state']
-            buf_other = buf_dict['buf_other']
-
-            buf_state = torch.as_tensor(buf_state, dtype=torch.float32, device=self.device)
-            buf_other = torch.as_tensor(buf_other, dtype=torch.float32, device=self.device)
-            self.extend_buffer(buf_state, buf_other)
-            self.update_now_len()
-            print(f"| ReplayBuffer load: {save_path}")
