@@ -7,11 +7,11 @@ Advantages of ElegantRL
 
 One sentence summary: in reinforcement learning (RL), an agent learns by continuously interacting with an unknown environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
 
-Deep reinforcement learning (DRL) has great potential to solve real-world problems that are challenging to humans, such as self-driving cars, gaming, natural language processing (NLP), and financial trading. Starting from the success of AlphaGo, various DRL algorithms and applications are emerging in a disruptive manner. The ElegantRL library enables researchers and practitioners to pipeline the disruptive “design, development and deployment” of DRL technology.
+Deep reinforcement learning (DRL) has great potential to solve real-world problems that are challenging to humans, such as self-driving cars, gaming, natural language processing (NLP), and financial trading. Starting from the success of AlphaGo, various DRL algorithms and applications are emerging in a disruptive manner. The ElegantRL library enables researchers and practitioners to pipeline the disruptive "design, development and deployment" of DRL technology.
 
-The library to be presented is featured with “elegant” in the following aspects:
+The library to be presented is featured with "elegant" in the following aspects:
 
-  - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/tutorial>`_.
+  - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial_Pendulum <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_Pendulum.ipynb>`_.
 
   - **Efficient**: in many testing cases, we find it more efficient than Ray RLlib.
 
@@ -55,7 +55,7 @@ The file structure of ElegantRL is shown in Fig. 1:
       
       - Evaluator
       
-As a high-level overview, the relations among the files are as follows. Initialize an environment from Env.py and an agent from Agent.py. The agent is constructed with Actor and Critic networks from Net.py. In each training step from Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good. 
+As a high-level overview, the relations among the files are as follows. Initialize an environment from Env.py and an agent from Agent.py. The agent is constructed with Actor and Critic networks from Net.py. In each training step from Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
 
       
 Implementations of DRL Algorithms
@@ -159,10 +159,10 @@ Two major steps to train an agent:
 
   2. Then, the training process is controlled by a while-loop:
   
-      - agent.store_transition(…): the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
+      - agent.store_transition(...): the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
       
-      - agent.update_net(…): the agent uses a batch from the ReplayBuffer to update the network parameters.
+      - agent.update_net(...): the agent uses a batch from the ReplayBuffer to update the network parameters.
       
-      - evaluator.evaluate_save(…): evaluates the agent’s performance and keeps the trained model with the highest score.
+      - evaluator.evaluate_save(...): evaluates the agent's performance and keeps the trained model with the highest score.
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manual breaks.
