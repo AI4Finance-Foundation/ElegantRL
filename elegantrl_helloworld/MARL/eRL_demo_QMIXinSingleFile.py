@@ -1,13 +1,9 @@
 import torch as th
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.distributions import Categorical
 import numpy as np
 import os
 from types import SimpleNamespace as SN
 from os.path import dirname, abspath
 import collections
-from collections import defaultdict
 from copy import deepcopy
 from sacred import Experiment, SETTINGS
 from sacred.observers import FileStorageObserver
@@ -19,7 +15,6 @@ import pprint
 import time
 import threading
 from types import SimpleNamespace as SN
-import logging
 import copy
 from torch.optim import RMSprop
 from os.path import dirname, abspath

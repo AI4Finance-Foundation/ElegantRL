@@ -5,24 +5,10 @@ from torch.distributions import Categorical
 import numpy as np
 import os
 from types import SimpleNamespace as SN
-from os.path import dirname, abspath
-import collections
 from collections import defaultdict
-from copy import deepcopy
-from sacred import Experiment, SETTINGS
-from sacred.observers import FileStorageObserver
-from sacred.utils import apply_backspaces_and_linefeeds
 import sys
-import yaml
-import datetime
-import pprint
 import time
-import threading
-from types import SimpleNamespace as SN
 import logging
-import copy
-from torch.optim import RMSprop
-from os.path import dirname, abspath
 from functools import partial
 from smac.env import MultiAgentEnv, StarCraft2Env
 
@@ -30,8 +16,10 @@ def env_fn(env, **kwargs) -> MultiAgentEnv:
     return env(**kwargs)
 
 if sys.platform == "linux":
-    os.environ.setdefault("SC2PATH",
-                          os.path.join(os.path.dirname(os.getcwd()), "sc2", "StarCraftII"))
+    os.environ.setdefault(
+        "SC2PATH",
+        os.path.join(os.path.dirname(os.getcwd()), "sc2", "StarCraftII")
+    )
 
 
 class Transform:
