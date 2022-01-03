@@ -48,13 +48,15 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         Select discrete actions given an array of states.
 
         .. note::
-            Using ϵ-greedy to uniformly random select actions for randomness.
+            Using ϵ-greedy to select uniformly random actions for exploration.
 
         :param states: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_ints = torch.randint(self.action_dim, size=states.shape[0])  # choosing action randomly
+            a_ints = torch.randint(
+                self.action_dim, size=(states.shape[0], )
+            ) # choosing action randomly
         else:
             actions = self.act(states.to(self.device))
             a_ints = actions.argmax(dim=1)
