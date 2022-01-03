@@ -6,6 +6,7 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 from copy import deepcopy
+from typing import Tuple
 
 gym.logger.set_level(40)  # Block warning
 
@@ -450,7 +451,7 @@ class Evaluator:
         return r_avg, r_std, s_avg, s_std
 
 
-def get_episode_return_and_step(env, act, device) -> (float, int):
+def get_episode_return_and_step(env, act, device) -> Tuple[float, int]:
     episode_return = 0.0  # sum of rewards in an episode
     episode_step = 1
     max_step = env.max_step
@@ -483,12 +484,12 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = self.env.reset()
         return state.astype(np.float32)
 
-    def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         state, reward, done, info_dict = self.env.step(action * self.action_max)
         return state.astype(np.float32), reward, done, info_dict
 
 
-def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
+def get_gym_env_info(env, if_print) -> Tuple[str, int, int, int, int, bool, float]:
     assert isinstance(env, gym.Env)
 
     env_name = getattr(env, 'env_name', None)

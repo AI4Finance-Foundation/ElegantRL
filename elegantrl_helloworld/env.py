@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+from typing import Tuple
 
 gym.logger.set_level(40)  # Block warning
 
@@ -16,12 +17,12 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = self.env.reset()
         return state.astype(np.float32)
 
-    def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         state, reward, done, info_dict = self.env.step(action * self.action_max)
         return state.astype(np.float32), reward, done, info_dict
 
 
-def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
+def get_gym_env_info(env, if_print) -> Tuple[str, int, int, int, int, bool, float]:
     assert isinstance(env, gym.Env)
 
     env_name = getattr(env, 'env_name', None)

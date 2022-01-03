@@ -4,8 +4,8 @@ import time
 import torch
 import torch.nn as nn
 import numpy as np
-import numpy.random as rd
 from copy import deepcopy
+from typing import Tuple
 
 gym.logger.set_level(40)  # Block warning
 
@@ -201,7 +201,9 @@ class AgentPPO:
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1))
         return obj_critic.item(), obj_actor.item(), a_std_log.mean().item()  # logging_tuple
 
-    def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_raw(
+        self, buf_len, buf_reward, buf_mask, buf_value
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
 
         pre_r_sum = 0
@@ -211,7 +213,9 @@ class AgentPPO:
         buf_advantage = buf_r_sum - (buf_mask * buf_value[:, 0])
         return buf_r_sum, buf_advantage
 
-    def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_gae(
+        self, buf_len, ten_reward, ten_mask, ten_value
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
         buf_advantage = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
 
@@ -450,7 +454,7 @@ class Evaluator:
         return r_avg, r_std, s_avg, s_std
 
 
-def get_episode_return_and_step(env, act, device) -> (float, int):
+def get_episode_return_and_step(env, act, device) -> Tuple[float, int]:
     episode_return = 0.0  # sum of rewards in an episode
     episode_step = 1
     max_step = env.max_step
@@ -483,12 +487,12 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = self.env.reset()
         return state.astype(np.float32)
 
-    def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         state, reward, done, info_dict = self.env.step(action * self.action_max)
         return state.astype(np.float32), reward, done, info_dict
 
 
-def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
+def get_gym_env_info(env, if_print) -> Tuple[str, int, int, int, int, bool, float]:
     assert isinstance(env, gym.Env)
 
     env_name = getattr(env, 'env_name', None)
