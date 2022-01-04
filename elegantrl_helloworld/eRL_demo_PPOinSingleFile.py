@@ -546,8 +546,8 @@ def demo_continuous_action():
     if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v1'))  # env='Pendulum-v1' is OK.
+        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v1'
         args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.net_dim = 2 ** 7
