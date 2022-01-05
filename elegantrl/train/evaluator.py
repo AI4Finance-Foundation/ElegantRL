@@ -2,11 +2,11 @@ import os
 import time
 import torch
 import numpy as np
-
+from typing import Tuple
 
 class Evaluator:  # [ElegantRL.2021.10.13]
     """
-    An ``evaluator`` evaluates agent’s performance and saves models.
+    An ``evaluator`` evaluates agent's performance and saves models.
 
     :param cwd: directory path to save the model.
     :param agent_id: agent id.
@@ -40,7 +40,7 @@ class Evaluator:  # [ElegantRL.2021.10.13]
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> Tuple[bool, bool]:  # 2021-09-09
         """
         Evaluate and save the model.
 
@@ -136,7 +136,10 @@ class Evaluator:  # [ElegantRL.2021.10.13]
         if len(self.recorder) == 0:
             print("| save_npy_draw_plot() WARNNING: len(self.recorder)==0")
             return None
-
+        # before saving, ensure that each component in self.recorder is not a tensor, otherwise, numpy
+        # will fail to save the recorded data
+        if contains_tensors(self.recorder):
+            force_no_tensors(self.recorder)
         np.save(self.recorder_path, self.recorder)
 
         '''draw plot and save as png'''
@@ -146,8 +149,34 @@ class Evaluator:  # [ElegantRL.2021.10.13]
 
         save_learning_curve(self.recorder, self.cwd, save_title)
 
+def contains_tensors(record_list: "list[tuple]") -> bool:
+    """
+    Checks if the passed-in list of tuples contains any Tensors
+    
+    :param record_list: a list of tuple objects, each of which could contain a Tensor(s)
+    """
+    for tupe in record_list:
+        for item in tupe:
+            if isinstance(item, torch.Tensor):
+                return True
+    return False
 
-def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
+def force_no_tensors(record_list: "list[tuple]") -> None:
+    """
+    Forces all elements in the passed-in list of tuples to be non-Tensors (i.e. floats)
+
+    :param record_list: a list of tuple objects, each of which could contain a Tensor(s)
+    """
+    for idx, tupe in enumerate(record_list):
+        new_tupe = []
+        for possible_tensor in tupe:
+            if isinstance(possible_tensor, torch.Tensor):
+                new_tupe.append(possible_tensor.item())
+            else:
+                new_tupe.append(possible_tensor)
+        record_list[idx] = tuple(new_tupe)
+
+def get_episode_return_and_step(env, act) -> Tuple[float, int]:  # [ElegantRL.2021.10.13]
     """
     Evaluate the actor (policy) network on testing environment.
 

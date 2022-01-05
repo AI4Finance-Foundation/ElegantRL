@@ -18,7 +18,7 @@ DQN
 
 
 .. warning::
-    PER leads to a faster learning speed and is also critical for environmnets with sparse rewards. However, a replay buffer with small size may hurt the performance of PER. 
+    PER leads to a faster learning speed and is also critical for environments with sparse rewards. However, a replay buffer with small size may hurt the performance of PER. 
 
 
 Code Snippet

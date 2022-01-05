@@ -1,6 +1,7 @@
 import time
-from elegantrl_helloworld.agent import *
-from elegantrl_helloworld.env import *
+from agent import *
+from env import *
+from typing import Tuple
 
 gym.logger.set_level(40)  # Block warning
 
@@ -16,7 +17,7 @@ class Arguments:
         self.if_allow_break = True  # terminate training when reaching a target reward
 
         self.visible_gpu = '0'  # e.g., os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2,'
-        self.worker_num = 2  # #rollout workers per GPU
+        self.worker_num = 2  # rollout workers per GPU
         self.num_threads = 8  # cpu_num to evaluate model, torch.set_num_threads(self.num_threads)
 
         '''Arguments for training'''
@@ -217,7 +218,7 @@ class Evaluator:
         return r_avg, r_std, s_avg, s_std
 
 
-def get_episode_return_and_step(env, act, device) -> (float, int):
+def get_episode_return_and_step(env, act, device) -> Tuple[float, int]:
     episode_return = 0.0  # sum of rewards in an episode
     episode_step = 1
     max_step = env.max_step
@@ -246,8 +247,8 @@ def demo_continuous_action_off_policy():
     if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 2e5, TargetReward: -200, UsedTime: 200s"
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v1'))  # env='Pendulum-v1' is OK.
+        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v1'
         args.reward_scale = 2 ** -2  # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.target_step = args.env.max_step * 8
@@ -277,8 +278,8 @@ def demo_continuous_action_on_policy():
     if_train_pendulum = 1
     if if_train_pendulum:
         "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v0'))  # env='Pendulum-v0' is OK.
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v0'
+        args.env = PreprocessEnv(env=gym.make('Pendulum-v1'))  # env='Pendulum-v1' is OK.
+        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v1'
         args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.net_dim = 2 ** 7

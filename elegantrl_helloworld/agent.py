@@ -1,8 +1,8 @@
 import os
 import numpy.random as rd
 from copy import deepcopy
-from elegantrl_helloworld.net import *
-
+from net import *
+from typing import Tuple
 
 class AgentBase:
     def __init__(self):
@@ -188,7 +188,7 @@ class AgentDQN(AgentBase):
             self.soft_update(self.cri_target, self.cri, soft_update_tau)
         return obj_critic.item(), q_value.mean().item()
 
-    def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic(self, buffer, batch_size) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the loss of the network and predict Q values with **uniform sampling**.
         
@@ -223,7 +223,7 @@ class AgentDoubleDQN(AgentDQN):
             a_int = action.argmax(dim=0).detach().cpu().numpy()
         return a_int
 
-    def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic(self, buffer, batch_size) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
@@ -242,7 +242,9 @@ class AgentDDPG(AgentBase):
         self.ClassCri = Critic
         self.ClassAct = Actor
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+    def update_net(
+        self, buffer, batch_size, repeat_times, soft_update_tau
+    ) -> Tuple[float, float]:
         buffer.update_now_len()
         obj_critic = obj_actor = None
         for _ in range(int(buffer.now_len / batch_size * repeat_times)):
@@ -256,7 +258,7 @@ class AgentDDPG(AgentBase):
             self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_actor.item(), obj_critic.item()
 
-    def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic(self, buffer, batch_size) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s, self.act_target(next_s))
@@ -291,7 +293,7 @@ class AgentTD3(AgentBase):
                 self.soft_update(self.act_target, self.act, soft_update_tau)
         return obj_critic.item() / 2, obj_actor.item()
 
-    def get_obj_critic(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic(self, buffer, batch_size) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
@@ -545,7 +547,9 @@ class AgentPPO(AgentBase):
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1))
         return obj_critic.item(), obj_actor.item(), a_std_log.mean().item()  # logging_tuple
 
-    def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_raw(
+        self, buf_len, buf_reward, buf_mask, buf_value
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the **reward-to-go** and **advantage estimation**.
         
@@ -564,7 +568,9 @@ class AgentPPO(AgentBase):
         buf_advantage = buf_r_sum - (buf_mask * buf_value[:, 0])
         return buf_r_sum, buf_advantage
 
-    def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_gae(
+        self, buf_len, ten_reward, ten_mask, ten_value
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the **reward-to-go** and **advantage estimation** using GAE.
         

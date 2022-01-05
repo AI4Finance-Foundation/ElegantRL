@@ -98,8 +98,10 @@ class AgentBase:  # [ElegantRL.2021.11.11]
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
         s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
-        a_tensor = self.act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()
+        a_tensor: torch.Tensor = self.act(s_tensor)
+        # have to "squeeze" the action along the new dimension created by np.newaxis
+        # two lines above ^^
+        action = a_tensor.squeeze(0).detach().cpu().numpy()
         return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
