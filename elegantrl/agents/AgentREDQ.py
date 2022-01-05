@@ -1,3 +1,9 @@
+import numpy as np
+import torch
+from copy import deepcopy
+from elegantrl.agents import AgentBase
+from elegantrl.agents.net import ActorSAC, Critic
+
 class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     """Modified SAC
     - reliable_lambda and TTUR (Two Time-scale Update Rule)
@@ -109,7 +115,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
                 obj_alpha = -(self.alpha_log * (logprob - 1).detach()).mean()
                 self.optim_update(self.alpha_optim, obj_alpha)
                 #print(obj_critic, obj_actor, obj_alpha)
-       	    for q_i in range(self.N):
+            for q_i in range(self.N):
                 self.cri_optim_list[q_i].step()
             if((i + 1) % self.G == 0) or i == self.G - 1:
                 self.act_optim.step()
