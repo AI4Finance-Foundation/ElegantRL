@@ -1,4 +1,5 @@
 import datetime
+import numpy as np
 import os
 import pprint
 import time
@@ -13,12 +14,7 @@ from envs.starcraft import StarCraft2Env
 from agents.net import RNNAgent
 from envs.utils.marl_utils import *
 
-import numpy as np
-import torch as th
-import numpy as np
-from types import SimpleNamespace as SN
-from elegantrl.envs.utils.marl_utils import SumSegmentTree,MinSegmentTree
-import random
+
 class EpisodeBatch:
     def __init__(self,
                  scheme,

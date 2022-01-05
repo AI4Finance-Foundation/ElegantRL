@@ -14,14 +14,10 @@ import datetime
 import pprint
 import time
 import threading
-from types import SimpleNamespace as SN
 import copy
 from torch.optim import RMSprop
 from os.path import dirname, abspath
-from functools import partial
-from smac.env import MultiAgentEnv, StarCraft2Env
 from marl_utils import *
-
 
 
 class AgentQmix:

@@ -1,8 +1,6 @@
 import torch
-import numpy as np
-import numpy.random as rd
 from elegantrl.agents import AgentBase,AgentDDPG
-from elegantrl.agents.net import Actor, Critic, CriticTwin
+from elegantrl.agents.net import Actor, CriticTwin
 
 class AgentMADDPG(AgentBase):
     def __init__(self):

@@ -2,7 +2,6 @@ import numpy as np
 import torch as th
 import torch.nn as nn
 from torch.distributions import Categorical
-from torch.distributions.one_hot_categorical import OneHotCategorical
 import operator
 from collections import defaultdict
 import logging

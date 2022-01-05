@@ -1,10 +1,11 @@
 import copy
 from train.replay_buffer import EpisodeBatch
-from agents.net import QMix,VDN
-from envs.utils.marl_utils import build_td_lambda_targets, build_q_lambda_targets,get_parameters_num
+from agents.net import QMix
+from envs.utils.marl_utils import\
+    build_td_lambda_targets, build_q_lambda_targets, get_parameters_num
 import torch as th
 from torch.optim import RMSprop, Adam
-import numpy as np
+
 
 class AgentQMix:
     def __init__(self, mac, scheme, logger, args):
