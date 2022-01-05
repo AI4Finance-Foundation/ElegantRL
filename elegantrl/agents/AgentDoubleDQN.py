@@ -2,7 +2,7 @@ import torch
 import numpy.random as rd
 from elegantrl.agents.AgentDQN import AgentDQN
 from elegantrl.agents.net import QNetTwin, QNetTwinDuel
-
+from typing import Tuple
 
 class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     """
@@ -57,7 +57,7 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
             a_ints = actions.argmax(dim=1)
         return a_ints.detach().cpu()
 
-    def get_obj_critic_raw(self, buffer, batch_size) -> (torch.Tensor, torch.Tensor):
+    def get_obj_critic_raw(self, buffer, batch_size) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the loss of the network and predict Q values with **uniform sampling**.
         

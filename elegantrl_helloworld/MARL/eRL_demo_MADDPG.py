@@ -12,6 +12,10 @@ from net import Actor
 from net import Critic
 import time
 from tqdm import tqdm
+from typing import Tuple
+from elegantrl.envs.Gym import get_avg_std__for_state_norm
+from elegantrl.train.replay_buffer import BinarySearchTree
+
 """[ElegantRL.2021.09.09](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig_name='plot_learning_curve.jpg'):
@@ -56,7 +60,7 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     plt.title(save_title, y=2.3)
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
-def get_episode_return_and_step_marl(env, agent, device) -> (float, int):
+def get_episode_return_and_step_marl(env, agent, device) -> Tuple[float, int]:
     episode_step = 1
     episode_return = 0.0  # sum of rewards in an episode
 
@@ -343,7 +347,9 @@ class AgentDDPG(AgentBase):
         
         return actions[0]
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+    def update_net(
+        self, buffer, batch_size, repeat_times, soft_update_tau
+    ) -> Tuple[float, float]:
         buffer.update_now_len()
 
         obj_critic = None
@@ -584,7 +590,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = (state + self.neg_state_avg) * self.div_state_std
         return state.astype(np.float32)
 
-    def step_norm(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):
+    def step_norm(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, dict]:
         """convert the data type of state from float64 to float32,
         adjust action range to (-action_max, +action_max)
         do normalization on state
@@ -600,7 +606,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
     
     
 
-def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
+def get_gym_env_info(env, if_print) -> Tuple[str, int, int, int, int, bool, float]:
     """get information of a standard OpenAI gym env.
 
     The DRL algorithm AgentXXX need these env information for building networks and training.
@@ -679,7 +685,7 @@ class Evaluator:
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> Tuple[bool, bool]:  # 2021-09-09
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
@@ -729,7 +735,7 @@ class Evaluator:
             self.draw_plot()
         return if_reach_goal, if_save
 
-    def evaluate_and_save_marl(self,  agent, steps, r_exp) -> (bool, bool):  # 2021-09-09
+    def evaluate_and_save_marl(self,  agent, steps, r_exp) -> Tuple[bool, bool]:  # 2021-09-09
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:

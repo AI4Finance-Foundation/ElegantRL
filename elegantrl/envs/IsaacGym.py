@@ -3,6 +3,7 @@ from elegantrl.envs.utils.parse_task import parse_task
 import numpy as np
 import torch  # import torch after isaacgym modules
 import multiprocessing as mp
+from typing import Tuple
 
 """[ElegantRL.2021.11.04](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
@@ -77,7 +78,9 @@ class PreprocessIsaacVecEnv:  # environment wrapper
     def reset(self) -> torch.Tensor:
         return self.env.reset()
 
-    def step(self, actions: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, None):
+    def step(
+        self, actions: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None]:
         return self.env.step(actions)[:3]
 
 
@@ -97,7 +100,9 @@ class PreprocessIsaacOneEnv(PreprocessIsaacVecEnv):  # environment wrapper
         state = self.env.reset()
         return state[0].detach().numpy()
 
-    def step(self, action: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray, None):
+    def step(
+        self, action: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, None]:
         ten_action = torch.as_tensor(action, dtype=torch.float32).unsqueeze(0)
         ten_state, ten_reward, ten_done, info_dict = self.env.step(ten_action)
 

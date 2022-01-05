@@ -2,7 +2,7 @@ import os
 import gym  # not necessary
 import numpy as np
 from copy import deepcopy
-
+from typing import Tuple
 
 gym.logger.set_level(40)  # Block warning
 
@@ -180,7 +180,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
     def reset_type(self):
         return self.env.reset()
 
-    def step_type(self, action) -> (np.ndarray, float, bool, dict):
+    def step_type(self, action) -> Tuple[np.ndarray, float, bool, dict]:
         return self.env.step(action)
 
     def reset_norm(self):
@@ -192,7 +192,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state = self.env.reset()
         return (state + self.neg_state_avg) * self.div_state_std
 
-    def step_norm(self, action) -> (np.ndarray, float, bool, dict):
+    def step_norm(self, action) -> Tuple[np.ndarray, float, bool, dict]:
         """convert the data type of state from float64 to float32,
         do normalization on state
 
@@ -206,7 +206,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         return state, reward, done, info
 
 
-def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [ElegantRL.2021.10.10]
+def get_gym_env_info(env, if_print) -> Tuple[str, int, int, int, bool, float]:  # [ElegantRL.2021.10.10]
     """get information of a standard OpenAI gym env.
 
     The DRL algorithm AgentXXX need these env information for building networks and training.
@@ -268,7 +268,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, bool, float):  # [El
     return env_name, state_dim, action_dim, max_step, if_discrete, target_return
 
 
-def get_avg_std__for_state_norm(env_name) -> (np.ndarray, np.ndarray):
+def get_avg_std__for_state_norm(env_name) -> Tuple[np.ndarray, np.ndarray]:
     """return the state normalization data: neg_avg and div_std
 
     ReplayBuffer.print_state_norm() will print `neg_avg` and `div_std`
