@@ -10,24 +10,32 @@ Welcome to ElegantRL!
    :width: 50%
    :align: center
    :target: https://github.com/AI4Finance-Foundation/ElegantRL
+   
+   
 
-`ElegantRL <https://github.com/AI4Finance-Foundation/ElegantRL>`_ is developed for researchers and practitioners with the following features:
+`ElegantRL <https://github.com/AI4Finance-Foundation/ElegantRL>`_ is an open-source massively parallel framework for DRL algorithms implemented in PyTorch. We aim to provide a *next-generation* framework that embraces recent breakthroughs in massively parallel simulation, ensemble methods, and population-based training. 
 
-   - **Lightweight**: The core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env), NumPy, Matplotlib (plot).
 
+ElegantRL features strong **scalability**, **elasticity** and **lightweightness**, and allows users to conduct **efficient** training on either one GPU or hundreds of GPUs: 
+
+   - **Scalability**: ElegantRL fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, thousands of GPUs.
+   
+   - **Elasticity**: ElegantRL can elastically allocate computing resources, which helps adapt to available resources and prevents over-provisioning and under-provisioning on the cloud.
+   
+   - **Lightweightness**: The core codes <1,000 lines (check `elegantrl_helloworld <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld>`_).
+   
    - **Efficient**: in many testing cases, we find it more efficient than `Ray RLlib <https://github.com/ray-project/ray>`_.
 
-   - **Stable**: much more stable than `Stable Baseline 3 <https://github.com/DLR-RM/stable-baselines3>`_.
+ElegantRL implements the following deep reinforcement learning (DRL) algorithms:
 
-ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
-
-   - **DDPG, TD3, SAC, A2C, PPO (GAE) for continuous actions**
+   - **DDPG, TD3, SAC, A2C, PPO, REDQ for continuous actions**
    
-   - **DQN, DoubleDQN, D3QN for discrete actions**
+   - **DQN, DoubleDQN, D3QN, PPO-Discrete for discrete actions**
    
-   - **QMIX, VDN; MADDPG, MAPPO, MATD3** for multi-agent environment
+   - **QMIX, VDN; MADDPG, MAPPO, MATD3 for multi-agent RL**
 
-For DRL algorithms, please check out the OpenAI's educational webpage `Spinning Up <https://spinningup.openai.com/en/latest/>`_. 
+
+For beginners, we maintain `*ElegantRL-HelloWorld* <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld>`_ as a tutorial. It is a lightweight DRL implementation with <1,000 lines of core codes. More details are available `here <https://elegantrl.readthedocs.io/en/latest/tutorial/intro.html>`_.
 
 .. toctree::
     :maxdepth: 1
@@ -65,9 +73,9 @@ For DRL algorithms, please check out the OpenAI's educational webpage `Spinning 
    algorithms/sac
    algorithms/a2c
    algorithms/ppo
+   algorithms/redq
    algorithms/maddpg
    algorithms/qmix
-   algorithms/redq
    algorithms/mappo
    algorithms/vdn
    
