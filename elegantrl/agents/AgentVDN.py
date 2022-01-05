@@ -17,7 +17,7 @@ class VDN:
 
         self.mixer = None
         if args.mixer is not None:
-            args.mixer == "vdn":
+            args.mixer == "vdn"
             self.mixer = VDNMixer()
             self.params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
