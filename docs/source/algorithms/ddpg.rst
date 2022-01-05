@@ -22,14 +22,13 @@ Code Snippet
 
 .. code-block:: python
 
-    import torch
-    from elegantrl.run import train_and_evaluate
-    from elegantrl.config import Arguments
-    from elegantrl.envs.gym import build_env
+    from elegantrl.train.run_tutorial import train_and_evaluate
+    from elegantrl.train.config import Arguments
+    from elegantrl.envs.Gym import build_env
     from elegantrl.agents.AgentDDPG import AgentDDPG
     
     # train and save
-    args = Arguments(env=build_env('Pendulum-v0'), agent=AgentDDPG())
+    args = Arguments(env=build_env('Pendulum-v1'), agent=AgentDDPG())
     args.cwd = 'demo_Pendulum_DDPG'
     args.env.target_return = -200
     args.reward_scale = 2 ** -2
@@ -40,7 +39,7 @@ Code Snippet
     agent.init(args.net_dim, args.state_dim, args.action_dim)
     agent.save_or_load_agent(cwd=args.cwd, if_save=False)
     
-    env = build_env('Pendulum-v0')
+    env = build_env('Pendulum-v1')
     state = env.reset()
     episode_reward = 0
     for i in range(2 ** 10):
