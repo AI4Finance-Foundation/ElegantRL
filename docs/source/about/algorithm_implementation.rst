@@ -16,13 +16,21 @@ As shown in the figure, the inheritance hierarchy of the DQN-series algorithms i
   
   - **AgentBase**: the base class.
   
-  - **AgentDQN**: a standard DQN agent.
+  - **AgentDQN**: a standard DQN agent, inheriting from AgentBase.
   
   - **AgentDoubleDQN**: a Double-DQN agent with two Q-Nets for reducing overestimation, inheriting from AgentDQN.
   
+  - **AgentDuelingDQN**: a DQN agent with a different Q-value calculation, inheriting from AgentDQN.
+  
+  - **AgentD3QN**: a combination of AgentDoubleDQN and AgentDuelingDQN, inheriting from AgentDoubleDQN.
+
+
+An overwiew of functions in each class:
+
 .. code-block:: python
    
     class AgentBase:
+      def __init__();
       def init(net_dim, state_dim, action_dim, reward_scale, gamma,
              learning_rate, if_per_or_gae, env_num, gpu_id);
       def select_action(state);
@@ -36,6 +44,7 @@ As shown in the figure, the inheritance hierarchy of the DQN-series algorithms i
       def convert_trajectory(traj_list);
    
     class AgentDQN(AgentBase):
+      def __init__();
       def init(net_dim, state_dim, action_dim, reward_scale, gamma,
              learning_rate, if_per_or_gae, env_num, gpu_id);
       def select_actions(states);
@@ -46,9 +55,14 @@ As shown in the figure, the inheritance hierarchy of the DQN-series algorithms i
       def get_obj_critic_per(buffer, batch_size);
 
     class AgentDoubleDQN(AgentDQN):
-      def init(net_dim, state_dim, action_dim, reward_scale, gamma,
-             learning_rate, if_per_or_gae, env_num, gpu_id);
+      def __init__();
       def select_actions(states);
       def get_obj_critic_raw(buffer, batch_size);
       def get_obj_critic_per(buffer, batch_size);
+      
+    class AgentDuelingDQN(AgentDQN):
+      def __init__();
+      
+    class AgentD3QN(AgentDoubleDQN):
+      def __init__();
    
