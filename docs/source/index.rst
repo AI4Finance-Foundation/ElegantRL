@@ -79,6 +79,7 @@ Or install with the newest version through GitHub:
    about/algorithm_implementation
    about/parallel
    about/ensemble
+   about/quickstart
 
 .. toctree::
    :maxdepth: 1

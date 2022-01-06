@@ -52,7 +52,6 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-                self.action_dim, size=(states.shape[0], )
             a_ints = torch.randint(self.action_dim, size=states.shape[0])  # choosing action randomly
         else:
             actions = self.act(states.to(self.device))
@@ -180,6 +179,12 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
 
 
 class AgentDuelingDQN(AgentDQN):  # [ElegantRL.2021.12.12]
+    """
+        Bases: ``AgentDQN``
+
+        Dueling network.
+
+        """
     def __init__(self):
         AgentDQN.__init__(self)
         self.ClassCri = QNetDuel

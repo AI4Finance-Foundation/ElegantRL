@@ -2,60 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/docs/source/about/ensemble.rst" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/source/api/learner.rst" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/elegantrl/envs/ChasingEnv.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/elegantrl/envs/DownLinkEnv.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/elegantrl/train/learner.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/elegantrl/train/run.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/elegantrl/train/utils.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/elegantrl/train/worker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/about/installation.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/about/algorithm_implementation.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/about/quickstart.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/about/parallel.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/cloud/agent.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/cloud/env.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/cloud/net.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/cloud/run.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/run.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/examples/BipedalWalker-v3.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/tutorial/BipedalWalker-v3.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/tutorial/Creating_VecEnv.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/examples/LunarLanderContinuous-v2.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/tutorial/LunarLanderContinuous-v2.rst" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/source/about/quickstart.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/about/parallel.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/about/parallel.rst" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/index.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/server/agent.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/server/env.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/server/net.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/server/run.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/agent.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/agent.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/content.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/env.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/env.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/intro.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/intro.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/net.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/net.rst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/run.rst" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py" beforeDir="false" afterPath="$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_PyBullet_Ant.py" beforeDir="false" afterPath="$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_SMAC.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentBase.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentBase.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentPPO.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentPPO.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentSAC.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentSAC.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/agents/net.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/net.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/Chasing.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/DownLink.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/Gym.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/Gym.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/starcraft/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/starcraft/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/envs/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/utils/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/evaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/evaluator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_ensemble.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_parallel.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_smac.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_tutorial.py" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -81,15 +31,15 @@
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="dummy" value="81" />
-          <entry key="py" value="4020" />
-          <entry key="rst" value="177" />
+          <entry key="py" value="4053" />
+          <entry key="rst" value="198" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="PLAIN_TEXT" value="81" />
-          <entry key="Python" value="4020" />
-          <entry key="ReST" value="177" />
+          <entry key="Python" value="4053" />
+          <entry key="ReST" value="198" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
@@ -97,7 +47,7 @@
           <entry key="jpg" value="1" />
           <entry key="md" value="1" />
           <entry key="py" value="167" />
-          <entry key="rst" value="12" />
+          <entry key="rst" value="15" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
@@ -105,7 +55,7 @@
           <entry key="Image" value="1" />
           <entry key="Markdown" value="1" />
           <entry key="Python" value="167" />
-          <entry key="ReST" value="12" />
+          <entry key="ReST" value="15" />
         </counts>
       </usages-collector>
     </session>
@@ -115,8 +65,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="249">
-              <caret line="32" column="27" lean-forward="true" selection-start-line="32" selection-start-column="27" selection-end-line="32" selection-end-column="27" />
+            <state relative-caret-position="334">
+              <caret line="36" lean-forward="true" selection-start-line="36" selection-end-line="36" />
               <folding>
                 <element signature="e#0#46#0" expanded="true" />
               </folding>
@@ -136,7 +86,7 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="136">
@@ -181,11 +131,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDQN.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1348">
-              <caret line="48" column="78" selection-start-line="48" selection-start-column="78" selection-end-line="48" selection-end-column="78" />
+            <state relative-caret-position="266">
+              <caret line="184" column="24" selection-start-line="184" selection-start-column="24" selection-end-line="184" selection-end-column="24" />
             </state>
           </provider>
         </entry>
@@ -216,8 +166,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/elegantrl/replay_buffer.py" />
-        <option value="$PROJECT_DIR$/elegantrl/config.py" />
         <option value="$PROJECT_DIR$/elegantrl/agents/AgentSAC.py" />
         <option value="$PROJECT_DIR$/elegantrl/agents/AgentDDPG.py" />
         <option value="$PROJECT_DIR$/elegantrl/run.py" />
@@ -248,7 +196,6 @@
         <option value="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py" />
         <option value="$PROJECT_DIR$/elegantrl_helloworld/agent.py" />
         <option value="$PROJECT_DIR$/elegantrl_helloworld/run.py" />
-        <option value="$PROJECT_DIR$/docs/source/index.rst" />
         <option value="$PROJECT_DIR$/elegantrl/train/run.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/utils.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/worker.py" />
@@ -260,17 +207,20 @@
         <option value="$PROJECT_DIR$/elegantrl/envs/Gym.py" />
         <option value="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" />
         <option value="$PROJECT_DIR$/elegantrl/agents/AgentA2C.py" />
-        <option value="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" />
         <option value="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/learner.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/config.py" />
         <option value="$PROJECT_DIR$/Examples/Demo_Gym_Pendulum.py" />
-        <option value="$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py" />
         <option value="$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py" />
+        <option value="$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py" />
+        <option value="$PROJECT_DIR$/docs/source/about/parallel.rst" />
+        <option value="$PROJECT_DIR$/docs/source/about/quickstart.rst" />
+        <option value="$PROJECT_DIR$/docs/source/index.rst" />
+        <option value="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="7">
     <option name="x" value="105" />
     <option name="width" value="810" />
     <option name="height" value="735" />
@@ -289,6 +239,24 @@
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+              <item name="source" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="docs" type="462c0819:PsiDirectoryNode" />
+              <item name="source" type="462c0819:PsiDirectoryNode" />
+              <item name="about" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
@@ -487,7 +455,8 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-6" y="-6" width="1549" height="837" extended-state="6" />
+    <frame x="-6" y="-6" width="1549" height="837" extended-state="7" />
+    <editor active="true" />
     <layout>
       <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.27278733" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -555,17 +524,6 @@
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_parallel.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="186">
-          <caret line="20" column="41" selection-start-line="20" selection-start-column="41" selection-end-line="20" selection-end-column="41" />
-          <folding>
-            <element signature="e#0#9#0" expanded="true" />
-            <element signature="e#13413#13461#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/eRL_demo_PPOinSingleFile.py" />
     <entry file="file://$PROJECT_DIR$/elegantrl/agents/net.py">
       <provider selected="true" editor-type-id="text-editor">
@@ -635,12 +593,6 @@
       <provider selected="true" editor-type-id="restructured-text-editor" />
     </entry>
     <entry file="file://$PROJECT_DIR$/docs/source/about/ensemble.rst">
-      <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/docs/source/about/parallel.rst">
-      <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/docs/source/index.rst">
       <provider selected="true" editor-type-id="restructured-text-editor" />
     </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/run.py">
@@ -904,13 +856,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDQN.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1348">
-          <caret line="48" column="78" selection-start-line="48" selection-start-column="78" selection-end-line="48" selection-end-column="78" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-1144">
@@ -992,16 +937,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="249">
-          <caret line="32" column="27" lean-forward="true" selection-start-line="32" selection-start-column="27" selection-end-line="32" selection-end-column="27" />
-          <folding>
-            <element signature="e#0#46#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="136">
@@ -1009,6 +944,32 @@
           <folding>
             <element signature="e#0#49#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/about/quickstart.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/about/parallel.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/index.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="334">
+          <caret line="36" lean-forward="true" selection-start-line="36" selection-end-line="36" />
+          <folding>
+            <element signature="e#0#46#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDQN.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="266">
+          <caret line="184" column="24" selection-start-line="184" selection-start-column="24" selection-end-line="184" selection-end-column="24" />
         </state>
       </provider>
     </entry>
