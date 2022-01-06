@@ -3,7 +3,7 @@ How to create a VecEnv on GPUs
 
 ElegantRL supports massively parallel simulation through GPU-accelerated VecEnv.
 
-Here, we talk about how to create a VecEnv on GPUs from scratch and go through a simple Chasing example, a deterministic environment with continuous actions and continuous state space. The goal is to move an agent to chase a randomly moving robot. The reward depends on the distance between agent and robot. The environment terminates when the agent catches the robot or the max step is reached.
+Here, we talk about how to create a VecEnv on GPUs from scratch and go through a simple chasing example, a deterministic environment with continuous actions and continuous state space. The goal is to move an agent to chase a randomly moving robot. The reward depends on the distance between agent and robot. The environment terminates when the agent catches the robot or the max step is reached.
 
 To keep the example simple, we only use two packages, PyTorch and Numpy.
 
@@ -110,6 +110,6 @@ The last function is the **step function**, that includes a transition function 
         next_states = self.get_state()
         return next_states, rewards, dones, None
         
-For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/Chasing.py>`_.  
+For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/ChasingEnv.py>`_.
 
 
