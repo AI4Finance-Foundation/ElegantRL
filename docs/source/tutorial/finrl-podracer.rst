@@ -15,7 +15,7 @@ A generational evolution mechanism with an ensemble method is a way to coordinat
 In the generational evolution, we periodically update every agent in parallel to form generations, where each period can be a certain number of training steps or a certain amount of training time. For each generation, it is composed of population ranking and model ensemble, as shown in the figure below.
 
 .. image:: ../images/framework.png
-   :width: 70%
+   :width: 100%
    :align: center
 
 
@@ -59,18 +59,18 @@ Example: stock trading
 
 Finance is a promising and challenging real-world application of DRL algorithms. Therefore, we select a stock trading task as an example, which aims to train a DRL agent that decides *where to trade*, *at what price and what quantity* in a stock market. 
 
-We select the minute-level dataset of the NASDAQ-100 constituent stocks and follow a training-backtesting pipeline to split the dataset into two sets: the data from 01/01/2016 to 05/25/2019 for training, and the data from 05/26/2019 to 05/26/2021 for backtesting. To ensure that we do not use any future information from backtesting dataset, we store the model snapshots at different training time, say every $100$ seconds, then later we use each snapshot model to perform inference on the backtesting dataset and obtain the generalization performance, namely, the cumulative return. 
+We select the minute-level dataset of the NASDAQ-100 constituent stocks and follow a training-backtesting pipeline to split the dataset into two sets: the data from 01/01/2016 to 05/25/2019 for training, and the data from 05/26/2019 to 05/26/2021 for backtesting. To ensure that we do not use any future information from backtesting dataset, we store the model snapshots at different training time, say every 100 seconds, then later we use each snapshot model to perform inference on the backtesting dataset and obtain the generalization performance, namely, the cumulative return.
 
 First, we empirically investigate the generational evolution mechanism. The figure below explicitly demonstrates an evolution of N (= 10) agents on 80 A100 GPUs, where the selector chooses the best agent to train in the next generation every 800 seconds. The inner figure depicts the generalization curves of the ten agents in the first generation (without using the agent evolution mechanism). The curve with the generational evolution mechanism (the thick green curve) is substantially higher than the other ten curves. 
 
-.. image:: ../images/learning_curve.pdf
-   :width: 50%
+.. image:: ../images/learning_curve.png
+   :width: 80%
    :align: center
 
 We compare our generational evolution mechanism with RLlib on a varying number of A100 GPUs, i.e., 8, 16, 32, and 80.
 
-.. image:: ../images/efficiency.pdf
-   :width: 50%
+.. image:: ../images/efficiency.png
+   :width: 80%
    :align: center
 
 
