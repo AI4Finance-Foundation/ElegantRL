@@ -7,11 +7,11 @@ Since its resurgence in 2013, DRL has revolutionized learning and actuation in g
 
 ElegantRL is an open-source massively parallel framework for DRL algorithms implemented in PyTorch. 
 
-- We fully exploit the parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent. 
+  - We fully exploit the parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent. 
 
-- We emphasize the importance of ensemble methods, e.g., adaptive parallelism and weighted average, which perform remarkably well in practice. 
+  - We emphasize the importance of ensemble methods, e.g., adaptive parallelism and weighted average, which perform remarkably well in practice. 
 
-- We follow the cloud-native paradigm, implement the training process as a synergy of microservices, and achieve containerization, ensuring fast and robust execution on cloud platforms. 
+  - We follow the cloud-native paradigm, implement the training process as a synergy of microservices, and achieve containerization, ensuring fast and robust execution on cloud platforms. 
 
 Features
 -----------------------------------------------
