@@ -3,11 +3,7 @@ Algorithm Implementation
 
 ElegantRL implements DRL algorithms as different agents, where each agent follows a hierarchy from the base class ``AgentBase``. Such an hierarchical implementation effectively reduces code duplication, making our implementations lightweight. 
 
-Here, we describe DQN-series algorithms. 
-
-
-DQN-series
---------------------------------------------
+Here, we describe DQN-series algorithms.
 
 .. image:: ../images/overview_2.png
    :alt: Fig. 2
