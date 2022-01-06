@@ -1,0 +1,5 @@
+# Ignore all pycache files
+**/__pycache__
+
+# .idea folder
+.idea/
