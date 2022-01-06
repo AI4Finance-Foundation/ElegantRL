@@ -1,168 +1,37 @@
 Overview
 =============
 
+One sentence summary: in deep reinforcement learning (DRL), an agent learns by continuously interacting with an unknown environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (of uncharted territory) and exploitation (of current knowledge).
 
-Advantages of ElegantRL
-----------------------------
+Since its resurgence in 2013, DRL has revolutionized learning and actuation in game playing and robot control. However, it may take months to adapt DRL methods to real-world applications, e.g., recommendation systems, autonomous driving, algorithmic trading, and computer networks. A major challenge is to balance the exploration and exploitation during the training process, which are compute-intensive and time-consuming. 
 
-One sentence summary: in reinforcement learning (RL), an agent learns by continuously interacting with an unknown environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (new territory) and exploitation (using knowledge learned from experiences).
+ElegantRL is an open-source massively parallel framework for DRL algorithms implemented in PyTorch. 
 
-Deep reinforcement learning (DRL) has great potential to solve real-world problems that are challenging to humans, such as self-driving cars, gaming, natural language processing (NLP), and financial trading. Starting from the success of AlphaGo, various DRL algorithms and applications are emerging in a disruptive manner. The ElegantRL library enables researchers and practitioners to pipeline the disruptive "design, development and deployment" of DRL technology.
+- We fully exploit the parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent. 
 
-The library to be presented is featured with "elegant" in the following aspects:
+- We emphasize the importance of ensemble methods, e.g., adaptive parallelism and weighted average, which perform remarkably well in practice. 
 
-  - **Lightweight**: core codes have less than 1,000 lines, e.g., `tutorial_Pendulum <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_Pendulum.ipynb>`_.
+- We follow the cloud-native paradigm, implement the training process as a synergy of microservices, and achieve containerization, ensuring fast and robust execution on cloud platforms. 
 
-  - **Efficient**: in many testing cases, we find it more efficient than Ray RLlib.
+Features
+-----------------------------------------------
 
-  - **Stable**: more stable than Stable baseline 3.
- 
-ElegantRL supports state-of-the-art DRL algorithms, including discrete and continuous ones, and provides user-friendly tutorials in Jupyter notebooks.
+**Scalable**: the multi-level parallelism results in high scalability. E.g., we can train hundreds of DRL agents, where each agent is allocated with fixed computing resources, and perform a tournament-based evolution among the agents via adaptive scheduling. The training processes of agents are asynchronous and distributed, eliminating the agent-to-agent communication. In this way, ElegantRL can easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, thousands of GPUs.
 
-The ElegantRL implements DRL algorithms under the Actor-Critic framework, where an Agent (a.k.a, a DRL algorithm) consists of an Actor network and a Critic network. Due to the completeness and simplicity of code structure, users are able to easily customize their own agents.
+**Elastic**: ElegantRL can elastically allocate computing resources by adjusting the number of agents. We provide an orchestrator to monitor the current training status and the available computing resources, enabling the dynamic resource management on a cloud. For example, when the resources are limited, the orchestrator can automatically kill agents with low performance, which helps the application adapt to available resources and prevents over-provisioning and under-provisioning.
 
+**Flexible**: ElegantRL allows a flexible combination of the number of workers, learners, and agents, with only a few lines of change in the configuration. Such flexibility accommodates the demands of users with different training purposes. For example,
 
-Overview: File Structure and Functions
-------------------------------------------
+  - To accelerate data collection for complex simulations, e.g., robotic control, users can use multiple workers to generate transitions in parallel. 
 
-.. image:: ../images/overview.jpg
-   :alt: Fig. 1
+  - To improve the sample efficiency and/or stabilize the learning process, users can use multiple learners to update network parameters in parallel. 
 
-The file structure of ElegantRL is shown in Fig. 1:
+  - To employ ensemble methods on the cloud, users can train multiple agents in parallel that are initialized with different DRL algorithms and hyper-parameters, e.g., population-based training and tournament-based ensemble training.
 
-  1. **Env.py**: it contains the environments, with which the agent interacts. 
-  
-      - A prep_env() function for gym-environment modification.
-      
-      - A self-created stock trading environment as an example for user customization.
-      
-  2. **Net.py**: There are three types of networks:(*Each includes a base network for inheritance and a set of variations for different algorithms.*)
+**Efficient**: ElegantRL can efficiently train a powerful DRL agent by scheduling the multi-level parallelism and ensemble methods onto GPU devices. For Ant and Humanoid tasks, we demonstrate that ElegantRL outperforms popular libraries on one DGX-2 server, e.g., a 5~10x speed-up in training time over RLlib. For stock trading tasks, we successfully obtain a profitable trading agent in 10 minutes on an NVIDIA DGX SuperPOD cloud with 80 A100 GPUs, for a stock trading task on NASDAQ-100 constituent stocks with minute-level data over 5 years.
 
-      - Q-Net
-      
-      - Actor Network
-      
-      - Critic Network
+**Accessible**: ElegantRL connects microservices via simple but clearly defined API, allowing users to safely use and customize the framework without understanding its every detail. In addition, we exploit the hierarchical development of DRL algorithms (e.g., from DDPG, TD3 to SAC) to reduce code duplication, making our implementations lightweight. We also help users overcome the learning curve by providing API documentations, Colab tutorials, frequently asked questions (FAQs), and demos, e.g., on OpenAI Gym, MuJoCo, Isaac Gym.
 
-
-  3. **Agent.py**: it contains agents for different DRL algorithms.
-
-  4. **Run.py**: it provides basic functions for the training and evaluating process:
-  
-      - Parameter initialization
-      
-      - Training loop
-      
-      - Evaluator
-      
-As a high-level overview, the relations among the files are as follows. Initialize an environment from Env.py and an agent from Agent.py. The agent is constructed with Actor and Critic networks from Net.py. In each training step from Run.py, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent's performance and saves the agent if the performance is good.
-
-      
-Implementations of DRL Algorithms
-------------------------------------
-
-This part describes DQN-series algorithms and DDPG-series algorithms, respectively. Each DRL algorithm agent follows a hierarchy from its base class.
-
-.. image:: ../images/overview_2.png
-   :alt: Fig. 2
-
-As shown in Fig. 2, the inheritance hierarchy of the DQN-series algorithms is as follows: 
-  
-  - **AgentDQN**: a standard DQN agent.
-  
-  - **AgentDoubleDQN**: a Double-DQN agent with two Q-Nets for reducing overestimation, inheriting from AgentDQN.
-  
-  - **AgentDuelingDQN**: a DQN agent with a different Q-value calculation, inheriting from AgentDQN.
-  
-  - **AgentD3QN**: a combination of AgentDoubleDQN and AgentDuelingDQN, inheriting from AgentDoubleDQN.
-  
-.. code-block:: python
-   :linenos:
-   
-    class AgentDQN:
-      def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-      def select_actions(states);  # for discrete action space
-      def update_buffer(env, buffer, target_step, reward_scale, gamma);
-      def update_net(buffer, max_step, batch_size, repeat_times);
-
-    class AgentDuelingDQN(AgentDQN):
-        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-
-    class AgentDoubleDQN(AgentDQN):
-        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-        def select_actions(states);  # for discrete action space
-        def update_net(buffer, max_step, batch_size, repeat_times);
-
-    class AgentD3QN(AgentDoubleDQN):  # D3QN: Dueling Double DQN
-        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-   
-   
-.. image:: ../images/overview_3.png
- 
-As shown in Fig. 3, the inheritance hierarchy of the DDPG-series algorithms is as follows:
-
-  - **AgentBase**: a base class for all Actor-Critic agents.
-  
-  - **AgentDDPG**: a DDPG agent, inheriting from AgentBase.
-  
-  - **AgentTD3**: a TD3 agent with a new updating method, inheriting from AgentDDPG. 
-
-.. code-block:: python
-   :linenos:
-   
-    class AgentBase:
-        def __init__(self);
-        def select_actions(states);  # states = (state, ...)
-        def update_buffer(env, buffer, target_step, reward_scale, gamma);
-        def save_or_load_model(cwd, if_save);
-
-    class AgentDDPG(AgentBase):
-        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-        def select_actions(states);  # states = (state, ...)
-        def update_net(buffer, max_step, batch_size, repeat_times);
-
-    class AgentTD3(AgentDDPG):
-        def __init__(net_dim, state_dim, action_dim, learning_rate=1e-4);
-        def update_net(buffer, max_step, batch_size, repeat_times);
-  
-
-Applying such a hierarchy in building DRL agents effectively improves lightweightness and effectiveness. Users can easily design and implement new agents in a similar flow.
-  
-.. image:: ../images/overview_4.png
-   :alt: Fig. 4
-
-Basically, an agent has two fundamental functions, and the data flow is shown in Fig. 4:
-
-  - **store_transition()**: it allows the agent to interact with the environment and generates transitions for training networks.
-  
-  - **update_net()**: it first fetches a batch of transitions from the Replay Buffer, and then train the network with backpropagation.
   
 
 
-Training Pipeline
---------------------
-
-Two major steps to train an agent:
-
-  1. Initialization:
-  
-      - hyper-parameters args.
-      
-      - env = prep_env() : creates an environment (in the OpenAI gym format).
-      
-      - agent = agent.XXX : creates an agent for a DRL algorithm.
-      
-      - evaluator = Evaluator() : evaluates and stores the trained model.
-      
-      - buffer = ReplayBuffer() : stores the transitions.
-
-
-  2. Then, the training process is controlled by a while-loop:
-  
-      - agent.store_transition(...): the agent explores the environment within target steps, generates transitions, and stores them into the ReplayBuffer.
-      
-      - agent.update_net(...): the agent uses a batch from the ReplayBuffer to update the network parameters.
-      
-      - evaluator.evaluate_save(...): evaluates the agent's performance and keeps the trained model with the highest score.
-
-The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manual breaks.
