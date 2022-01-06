@@ -28,7 +28,6 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.gamma = None
         self.states = None
         self.device = None
-        self.traj_list = None
         self.action_dim = None
         self.reward_scale = None
         self.if_off_policy = True
@@ -79,7 +78,6 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.action_dim = action_dim
         self.reward_scale = reward_scale
         # self.amp_scale = torch.cuda.amp.GradScaler()
-        self.traj_list = [list() for _ in range(env_num)]
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
@@ -90,6 +88,16 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
 
+        def get_optim_param(optim):  # optim = torch.optim.Adam(network_param, learning_rate)
+            params_list = list()
+            for params_dict in optim.state_dict()['state'].values():
+                params_list.extend([t for t in params_dict.values() if isinstance(t, torch.Tensor)])
+            return params_list
+
+        from types import MethodType
+        self.act_optim.parameters = MethodType(get_optim_param, self.act_optim)
+        self.cri_optim.parameters = MethodType(get_optim_param, self.cri_optim)
+
         assert isinstance(if_per_or_gae, bool)
         if env_num == 1:
             self.explore_env = self.explore_one_env
@@ -97,11 +105,14 @@ class AgentBase:  # [ElegantRL.2021.11.11]
             self.explore_env = self.explore_vec_env
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
+        """Select an action via a given state.
+
+        :param state: a state in a shape (state_dim, ).
+        :return: action [array], action.shape == (action_dim, ) where each action is clipped into range(-1, 1).
+        """
         s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
-        a_tensor: torch.Tensor = self.act(s_tensor)
-        # have to "squeeze" the action along the new dimension created by np.newaxis
-        # two lines above ^^
-        action = a_tensor.squeeze(0).detach().cpu().numpy()
+        a_tensor = self.act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()
         return action
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:

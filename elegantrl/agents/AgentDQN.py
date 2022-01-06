@@ -4,7 +4,7 @@ from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import QNet, QNetDuel
 
 
-class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
+class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
     """
     Bases: ``AgentBase``
 
@@ -18,10 +18,10 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentBase.__init__(self)
-        self.ClassCri = None  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
-        self.if_use_dueling = True  # self.ClassCri = QNetDuel if self.if_use_dueling else QNet
+        self.ClassCri = QNet
         self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
@@ -29,8 +29,6 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
         """
-        if self.ClassCri is None:
-            self.ClassCri = QNetDuel if self.if_use_dueling else QNet
         AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
                        reward_scale=reward_scale, gamma=gamma,
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
@@ -54,9 +52,8 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_ints = torch.randint(
                 self.action_dim, size=(states.shape[0], )
-            ) # choosing action randomly
+            a_ints = torch.randint(self.action_dim, size=states.shape[0])  # choosing action randomly
         else:
             actions = self.act(states.to(self.device))
             a_ints = actions.argmax(dim=1)
@@ -180,3 +177,9 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.10.25]
 
         buffer.td_error_update(td_error.detach())
         return obj_critic, q_value
+
+
+class AgentDuelingDQN(AgentDQN):  # [ElegantRL.2021.12.12]
+    def __init__(self):
+        AgentDQN.__init__(self)
+        self.ClassCri = QNetDuel

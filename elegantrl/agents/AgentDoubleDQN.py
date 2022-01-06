@@ -18,33 +18,19 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentDQN.__init__(self)
+        self.ClassCri = QNetTwin
         self.soft_max = torch.nn.Softmax(dim=1)
-
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        """
-        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
-        """
-        self.ClassCri = QNetTwinDuel if self.if_use_dueling else QNetTwin
-        AgentDQN.init(self, net_dim, state_dim, action_dim, learning_rate, reward_scale, gamma,
-                      if_per_or_gae, env_num, gpu_id)
-
-        if if_per_or_gae:  # if_use_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
-            self.get_obj_critic = self.get_obj_critic_per
-        else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
-            self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, states: torch.Tensor) -> torch.Tensor:  # for discrete action space
         """
         Select discrete actions given an array of states.
         
         .. note::
-            Using softmax to random select actions with proportional probabilities for randomness.
-        
+            Using ϵ-greedy to select uniformly random actions for exploration.
+
         :param states: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
@@ -93,3 +79,9 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
 
         buffer.td_error_update(td_error.detach())
         return obj_critic, q1
+
+
+class AgentD3QN(AgentDoubleDQN):  # D3QN: DuelingDoubleDQN
+    def __init__(self):
+        AgentDoubleDQN.__init__(self)
+        self.ClassCri = QNetTwinDuel

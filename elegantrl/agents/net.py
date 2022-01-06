@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-"""[ElegantRL.2021.09.01](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+"""[ElegantRL.2021.12.12](https://github.com/AI4Finance-Foundation/ElegantRL)"""
 
 '''Q Network'''
 
@@ -15,6 +15,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -26,7 +27,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
         """
         The forward function for **Q-network**.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         return self.net(state)  # Q value
@@ -40,6 +41,7 @@ class QNetDuel(nn.Module):  # Dueling DQN
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -53,7 +55,7 @@ class QNetDuel(nn.Module):  # Dueling DQN
         """
         The forward function for **Dueling Q-network**.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         t_tmp = self.net_state(state)  # tensor of encoded state
@@ -70,6 +72,7 @@ class QNetTwin(nn.Module):  # Double DQN
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -83,7 +86,7 @@ class QNetTwin(nn.Module):  # Double DQN
         """
         The forward function for **Double DQN**.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         tmp = self.net_state(state)
@@ -105,6 +108,7 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -122,7 +126,7 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
         """
         The forward function for **Dueling Double DQN**.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         t_tmp = self.net_state(state)
@@ -157,6 +161,7 @@ class Actor(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -168,7 +173,7 @@ class Actor(nn.Module):
         """
         The forward function.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         return self.net(state).tanh()  # action.tanh()
@@ -177,8 +182,8 @@ class Actor(nn.Module):
         """
         The forward function with Gaussian noise.
         
-        :param state[np.array]: the input state.
-        :param action_std[float]: the standard deviation of the Gaussian distribution.
+        :param state: [tensor] the input state.
+        :param action_std: [float] the standard deviation of the Gaussian distribution.
         :return: the output tensor.
         """
         action = self.net(state).tanh()
@@ -194,6 +199,7 @@ class ActorSAC(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
         if if_use_dn:
@@ -219,7 +225,7 @@ class ActorSAC(nn.Module):
         """
         The forward function.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         tmp = self.net_state(state)
@@ -229,7 +235,7 @@ class ActorSAC(nn.Module):
         """
         The forward function with noise.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the action and added noise.
         """
         t_tmp = self.net_state(state)
@@ -241,7 +247,7 @@ class ActorSAC(nn.Module):
         """
         Compute the action and log of probability with current network.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the action and log of probability.
         """
         t_tmp = self.net_state(state)
@@ -291,6 +297,7 @@ class ActorPPO(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -312,7 +319,7 @@ class ActorPPO(nn.Module):
         """
         The forward function.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         return self.net(state).tanh()  # action.tanh()
@@ -321,7 +328,7 @@ class ActorPPO(nn.Module):
         """
         The forward function with Gaussian noise.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the action and added noise.
         """
         a_avg = self.net(state)
@@ -335,8 +342,8 @@ class ActorPPO(nn.Module):
         """
         Compute the log of probability with current network.
         
-        :param state[np.array]: the input state.
-        :param action[float]: the action.
+        :param state: [tensor] the input state.
+        :param action: [tensor] the action.
         :return: the log of probability and entropy.
         """
         a_avg = self.net(state)
@@ -352,12 +359,50 @@ class ActorPPO(nn.Module):
         """
         Compute the log of probability with old network.
         
-        :param _action[float]: the action.
-        :param noise[float]: the added noise when exploring.
+        :param _action: [tensor] the action.
+        :param noise: [tensor] the added noise when exploring.
         :return: the log of probability with old network.
         """
         delta = noise.pow(2) * 0.5
         return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
+
+
+class ActorDiscreteSAC(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                 nn.Linear(mid_dim, action_dim))
+        self.action_dim = action_dim
+
+        self.soft_max = nn.Softmax(dim=-1)
+        self.Categorical = torch.distributions.Categorical
+
+    def forward(self, state):
+        return self.net(state)  # action_prob without softmax
+
+    def get_action(self, state):
+        # print(self.net(state).shape)
+        # exit()
+        a_prob = self.soft_max(self.net(state))
+        # action = Categorical(a_prob).sample()
+        # print(a_prob.shape)
+        samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
+        action = samples_2d.reshape(state.size(0))
+        z = a_prob == 0.0
+        z = z.float() * 1e-8
+        log_action_probabilities = torch.log(a_prob + z)
+        return action, a_prob, log_action_probabilities
+
+    def get_logprob_entropy(self, state, a_int):
+        a_prob = self.soft_max(self.net(state))
+        dist = self.Categorical(a_prob)
+        return dist.log_prob(a_int), dist.entropy().mean()
+
+    def get_old_logprob(self, a_int, a_prob):
+        dist = self.Categorical(a_prob)
+        return dist.log_prob(a_int)
 
 
 class ActorDiscretePPO(nn.Module):
@@ -368,6 +413,7 @@ class ActorDiscretePPO(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -389,7 +435,7 @@ class ActorDiscretePPO(nn.Module):
         """
         The forward function.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         return self.net(state)  # action_prob without softmax
@@ -398,7 +444,7 @@ class ActorDiscretePPO(nn.Module):
         """
         The forward function with Softmax.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the action index and probabilities.
         """
         a_prob = self.soft_max(self.net(state))
@@ -413,8 +459,8 @@ class ActorDiscretePPO(nn.Module):
         """
         Compute the log of probability with current network.
         
-        :param state[np.array]: the input state.
-        :param a_int[int]: the action.
+        :param state: [tensor] the input state.
+        :param a_int: [tensor] the action.
         :return: the log of probability and entropy.
         """
         a_prob = self.soft_max(self.net(state))
@@ -425,8 +471,8 @@ class ActorDiscretePPO(nn.Module):
         """
         Compute the log of probability with old network.
         
-        :param a_int[int]: the action.
-        :param a_prob[float]: the action probability.
+        :param a_int: [tensor] the action.
+        :param a_prob: [tensor] the action probability.
         :return: the log of probability with old network.
         """
         dist = self.Categorical(a_prob)
@@ -466,6 +512,7 @@ class Critic(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
@@ -477,8 +524,8 @@ class Critic(nn.Module):
         """
         The forward function.
         
-        :param state[np.array]: the input state.
-        :param action[float]: the input action.
+        :param state: [tensor] the input state.
+        :param action: [tensor] the input action.
         :return: the output tensor.
         """
         return self.net(torch.cat((state, action), dim=1))  # Q value
@@ -492,6 +539,7 @@ class CriticTwin(nn.Module):  # shared parameter
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
         if if_use_dn:
@@ -515,8 +563,8 @@ class CriticTwin(nn.Module):  # shared parameter
         """
         The forward function to ouput a single Q-value.
         
-        :param state[np.array]: the input state.
-        :param action[float]: the input action.
+        :param state: [tensor] the input state.
+        :param action: [tensor] the input action.
         :return: the output tensor.
         """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
@@ -526,8 +574,8 @@ class CriticTwin(nn.Module):  # shared parameter
         """
         The forward function to output two Q-values from two shared-paramter networks.
         
-        :param state[np.array]: the input state.
-        :param action[float]: the input action.
+        :param state: [tensor] the input state.
+        :param action: [tensor] the input action.
         :return: the output tensor.
         """
         tmp = self.net_sa(torch.cat((state, action), dim=1))
@@ -596,6 +644,7 @@ class CriticPPO(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, _action_dim):
         super().__init__()
         if isinstance(state_dim, int):
@@ -613,36 +662,39 @@ class CriticPPO(nn.Module):
         """
         The forward function to ouput the value of the state.
         
-        :param state[np.array]: the input state.
+        :param state: [tensor] the input state.
         :return: the output tensor.
         """
         return self.net(state)  # advantage value
 
 
-class CriticTwinPPO(nn.Module):
-    def __init__(self, mid_dim, state_dim, _action_dim):
+class CriticDiscreteTwin(nn.Module):  # shared parameter
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
-        if isinstance(state_dim, int):
-            nn_middle = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+        if if_use_dn:
+            nn_middle = DenseNet(mid_dim // 2)
+            inp_dim = nn_middle.inp_dim
+            out_dim = nn_middle.out_dim
         else:
-            nn_middle = ConvNet(inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0])
+            nn_middle = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
+                                      nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
+            inp_dim = mid_dim
+            out_dim = mid_dim
 
-        self.net = nn.Sequential(nn_middle, )
-        self.net_v1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, 1))  # advantage value1
-        self.net_v2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, 1))  # advantage value2
+        self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, inp_dim), nn.ReLU(),
+                                    nn_middle, )  # concat(state, action)
+        self.net_q1 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim))  # q1 value
+        self.net_q2 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
+                                    nn.Linear(mid_dim, action_dim))  # q2 value
 
-        layer_norm(self.net[-1], std=0.5)  # output layer for advantage value
-
-    def forward(self, state):
-        tmp = self.net(state)
-        return self.net_v1(tmp)  # one advantage value
+    def forward(self, state, action):
+        tmp = self.net_sa(torch.cat((state, action), dim=1))
+        return self.net_q1(tmp)  # one Q value
 
     def get_q1_q2(self, state):
-        tmp = self.net(state)
-        return self.net_v1(tmp), self.net_v2(tmp)  # two advantage values
+        tmp = self.net_sa(state)
+        return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
 
 class CriticBiConv(nn.Module):
@@ -676,7 +728,7 @@ class CriticBiConv(nn.Module):
         return self.out_net(xs + xa)  # Q value
 
 
-'''Parameter sharing Network'''
+'''Parameter Sharing Network'''
 
 
 class ShareDPG(nn.Module):  # DPG means deterministic policy gradient
@@ -953,6 +1005,256 @@ class ShareBiConv(nn.Module):
         return action * torch.pow((action ** 2).sum(), -0.5)  # action / sqrt(L2_norm(action))
 
 
+"""MARL (QMix: Q value and Mixing network)"""
+
+
+class QMix(nn.Module):
+    def __init__(self, args):
+        super(QMix, self).__init__()
+
+        self.args = args
+        self.n_agents = args.n_agents
+        self.state_dim = int(np.prod(args.state_shape))
+
+        self.embed_dim = args.mixing_embed_dim
+        self.abs = getattr(self.args, 'abs', True)
+
+        if getattr(args, "hypernet_layers", 1) == 1:
+            self.hyper_w_1 = nn.Linear(self.state_dim, self.embed_dim * self.n_agents)
+            self.hyper_w_final = nn.Linear(self.state_dim, self.embed_dim)
+        elif getattr(args, "hypernet_layers", 1) == 2:
+            hypernet_embed = self.args.hypernet_embed
+            self.hyper_w_1 = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
+                                           nn.ReLU(inplace=True),
+                                           nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
+            self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
+                                               nn.ReLU(inplace=True),
+                                               nn.Linear(hypernet_embed, self.embed_dim))
+        elif getattr(args, "hypernet_layers", 1) > 2:
+            raise Exception("Sorry >2 hypernet layers is not implemented!")
+        else:
+            raise Exception("Error setting number of hypernet layers.")
+
+        # State dependent bias for hidden layer
+        self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
+
+        # V(s) instead of a bias for the last layers
+        self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
+                               nn.ReLU(inplace=True),
+                               nn.Linear(self.embed_dim, 1))
+
+    def forward(self, agent_qs, states):
+        bs = agent_qs.size(0)
+        states = states.reshape(-1, self.state_dim)
+        agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
+        # First layer
+        w1 = self.hyper_w_1(states).abs() if self.abs else self.hyper_w_1(states)
+        b1 = self.hyper_b_1(states)
+        w1 = w1.view(-1, self.n_agents, self.embed_dim)
+        b1 = b1.view(-1, 1, self.embed_dim)
+        hidden = F.elu(torch.bmm(agent_qs, w1) + b1)
+
+        # Second layer
+        w_final = self.hyper_w_final(states).abs() if self.abs else self.hyper_w_final(states)
+        w_final = w_final.view(-1, self.embed_dim, 1)
+        # State-dependent bias
+        v = self.V(states).view(-1, 1, 1)
+        # Compute final output
+        y = torch.bmm(hidden, w_final) + v
+        # Reshape and return
+        q_tot = y.view(bs, -1, 1)
+
+        return q_tot
+
+    def k(self, states):
+        bs = states.size(0)
+        w1 = torch.abs(self.hyper_w_1(states))
+        w_final = torch.abs(self.hyper_w_final(states))
+        w1 = w1.view(-1, self.n_agents, self.embed_dim)
+        w_final = w_final.view(-1, self.embed_dim, 1)
+        k = torch.bmm(w1, w_final).view(bs, -1, self.n_agents)
+        k = k / torch.sum(k, dim=2, keepdim=True)
+        return k
+
+    def b(self, states):
+        # bs = states.size(0)
+        w_final = torch.abs(self.hyper_w_final(states))
+        w_final = w_final.view(-1, self.embed_dim, 1)
+        b1 = self.hyper_b_1(states)
+        b1 = b1.view(-1, 1, self.embed_dim)
+        v = self.V(states).view(-1, 1, 1)
+        b = torch.bmm(b1, w_final) + v
+        return b
+
+
+class VDNMix(nn.Module):
+    def __init__(self):
+        super(VDNMix, self).__init__()
+
+    @staticmethod
+    def forward(agent_qs, _batch):
+        return torch.sum(agent_qs, dim=2, keepdim=True)
+
+
+"""MARL (CTDE: Centralized Training with Decentralized Execution)"""
+
+
+class ActorMAPPO(nn.Module):
+    """
+    Actor network class for MAPPO. Outputs actions given observations.
+    :param args: (argparse.Namespace) arguments containing relevant model information.
+    :param obs_space: (gym.Space) observation space.
+    :param action_space: (gym.Space) action space.
+    :param device: (torch.device) specifies the device to run on (cpu/gpu).
+    """
+
+    def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
+        super(ActorMAPPO, self).__init__()
+        self.hidden_size = args.hidden_size
+
+        self._gain = args.gain
+        self._use_orthogonal = args.use_orthogonal
+        self._use_policy_active_masks = args.use_policy_active_masks
+        self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
+        self._use_recurrent_policy = args.use_recurrent_policy
+        self._recurrent_N = args.recurrent_N
+        self.tpdv = dict(dtype=torch.float32, device=device)
+
+        obs_shape = get_shape_from_obs_space(obs_space)
+        base = CNNBase if len(obs_shape) == 3 else MLPBase
+        self.base = base(args, obs_shape)
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+
+        self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
+
+        self.to(device)
+
+    def forward(self, obs, rnn_states, masks, available_actions=None, deterministic=False):
+        """
+        Compute actions from the given inputs.
+        :param obs: [tensor] observation inputs into network.
+        :param rnn_states: [tensor] if RNN network, hidden states for RNN.
+        :param masks: [tensor] mask tensor denoting if hidden states should be reinitialized to zeros.
+        :param available_actions: [tensor] denotes which actions are available to agent
+                                                              (if None, all actions available)
+        :param deterministic: (bool) whether to sample from action distribution or return the mode.
+
+        :return actions: (torch.Tensor) actions to take.
+        :return action_log_probs: (torch.Tensor) log probabilities of taken actions.
+        :return rnn_states: (torch.Tensor) updated RNN hidden states.
+        """
+        obs = check(obs).to(**self.tpdv)
+        rnn_states = check(rnn_states).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        if available_actions is not None:
+            available_actions = check(available_actions).to(**self.tpdv)
+
+        actor_features = self.base(obs)
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
+
+        actions, action_log_probs = self.act(actor_features, available_actions, deterministic)
+
+        return actions, action_log_probs, rnn_states
+
+    def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
+        """
+        Compute log probability and entropy of given actions.
+        :param obs: (torch.Tensor) observation inputs into network.
+        :param action: (torch.Tensor) actions whose entropy and log probability to evaluate.
+        :param rnn_states: (torch.Tensor) if RNN network, hidden states for RNN.
+        :param masks: (torch.Tensor) mask tensor denoting if hidden states should be reinitialized to zeros.
+        :param available_actions: (torch.Tensor) denotes which actions are available to agent
+                                                              (if None, all actions available)
+        :param active_masks: (torch.Tensor) denotes whether an agent is active or dead.
+
+        :return action_log_probs: (torch.Tensor) log probabilities of the input actions.
+        :return dist_entropy: (torch.Tensor) action distribution entropy for the given inputs.
+        """
+        obs = check(obs).to(**self.tpdv)
+        rnn_states = check(rnn_states).to(**self.tpdv)
+        action = check(action).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        if available_actions is not None:
+            available_actions = check(available_actions).to(**self.tpdv)
+
+        if active_masks is not None:
+            active_masks = check(active_masks).to(**self.tpdv)
+
+        actor_features = self.base(obs)
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
+
+        action_log_probs, dist_entropy = self.act.evaluate_actions(
+            actor_features, action, available_actions,
+            active_masks=active_masks if self._use_policy_active_masks else None)
+
+        return action_log_probs, dist_entropy
+
+
+class CriticMAPPO(nn.Module):
+    """
+    Critic network class for MAPPO. Outputs value function predictions given centralized input (MAPPO) or
+                            local observations (IPPO).
+    :param args: (argparse.Namespace) arguments containing relevant model information.
+    :param cent_obs_space: (gym.Space) (centralized) observation space.
+    :param device: (torch.device) specifies the device to run on (cpu/gpu).
+    """
+
+    def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
+        super(CriticMAPPO, self).__init__()
+        self.hidden_size = args.hidden_size
+        self._use_orthogonal = args.use_orthogonal
+        self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
+        self._use_recurrent_policy = args.use_recurrent_policy
+        self._recurrent_N = args.recurrent_N
+        self._use_popart = args.use_popart
+        self.tpdv = dict(dtype=torch.float32, device=device)
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
+
+        cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
+        base = CNNBase if len(cent_obs_shape) == 3 else MLPBase
+        self.base = base(args, cent_obs_shape)
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0))
+
+        if self._use_popart:
+            self.v_out = init_(PopArt(self.hidden_size, 1, device=device))
+        else:
+            self.v_out = init_(nn.Linear(self.hidden_size, 1))
+
+        self.to(device)
+
+    def forward(self, cent_obs, rnn_states, masks):
+        """
+        Compute actions from the given inputs.
+        :param cent_obs: [tensor] observation inputs into network.
+        :param rnn_states: [tensor] if RNN network, hidden states for RNN.
+        :param masks: [tensor] mask tensor denoting if RNN states should be reinitialized to zeros.
+
+        :return values: (torch.Tensor) value function predictions.
+        :return rnn_states: (torch.Tensor) updated RNN hidden states.
+        """
+        cent_obs = check(cent_obs).to(**self.tpdv)
+        rnn_states = check(rnn_states).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+
+        critic_features = self.base(cent_obs)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
+        values = self.v_out(critic_features)
+
+        return values, rnn_states
+
+
 """utils"""
 
 
@@ -1073,11 +1375,6 @@ class BiConvNet(nn.Module):
         return xw + xh
 
 
-def layer_norm(layer, std=1.0, bias_const=1e-6):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-
-
 class ActorSimplify:
     def __init__(self, gpu_id, actor_net):
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and gpu_id >= 0) else 'cpu')
@@ -1088,13 +1385,9 @@ class ActorSimplify:
         action = self.actor_net(states)[0]
         return action.detach().cpu().numpy()
 
+
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        """
-        Actor network class for Qmix. Outputs decentralized independent q value.
-        :param args: (argparse) arguments containing relevant model information.
-        :param input_shape: (argparse) observation shape.
-        """
         super(RNNAgent, self).__init__()
         self.args = args
 
@@ -1104,7 +1397,7 @@ class RNNAgent(nn.Module):
 
         if getattr(args, "use_layer_norm", False):
             self.layer_norm = LayerNorm(args.rnn_hidden_dim)
-        
+
         if getattr(args, "use_orthogonal", False):
             orthogonal_init_(self.fc1)
             orthogonal_init_(self.fc2, gain=args.gain)
@@ -1114,14 +1407,6 @@ class RNNAgent(nn.Module):
         return self.fc1.weight.new(1, self.args.rnn_hidden_dim).zero_()
 
     def forward(self, inputs, hidden_state):
-        """
-        Compute q value from the given inputs.
-        :param inputs: input for RNNAgent.
-        :param hidden_states: hidden states for RNN.
-
-        :return q: (torch.Tensor) value function.
-        :return hh: (torch.Tensor) updated RNN hidden states.
-        """
         b, a, e = inputs.size()
 
         inputs = inputs.view(-1, e)
@@ -1137,335 +1422,6 @@ class RNNAgent(nn.Module):
         return q.view(b, a, -1), hh.view(b, a, -1)
 
 
-class ActorDiscreteSAC(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
-        super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                 nn.Linear(mid_dim, action_dim))
-        self.action_dim = action_dim
-
-        self.soft_max = nn.Softmax(dim=-1)
-        self.Categorical = torch.distributions.Categorical
-
-    def forward(self, state):
-        return self.net(state)  # action_prob without softmax
-
-    def get_action(self, state):
-        # print(self.net(state).shape)
-        #exit()
-        a_prob = self.soft_max(self.net(state))
-        # action = Categorical(a_prob).sample()
-        # print(a_prob.shape)
-        samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
-        action = samples_2d.reshape(state.size(0))
-        z = a_prob == 0.0
-        z = z.float() * 1e-8
-        log_action_probabilities = torch.log(a_prob + z)
-        return action, a_prob,log_action_probabilities
-
-    def get_logprob_entropy(self, state, a_int):
-        a_prob = self.soft_max(self.net(state))
-        dist = self.Categorical(a_prob)
-        return dist.log_prob(a_int), dist.entropy().mean()
-
-    def get_old_logprob(self, a_int, a_prob):
-        dist = self.Categorical(a_prob)
-        return dist.log_prob(a_int)
-
-class DiscreteCriTwin(nn.Module):  # shared parameter
-    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
-        super().__init__()
-        if if_use_dn:
-            nn_middle = DenseNet(mid_dim // 2)
-            inp_dim = nn_middle.inp_dim
-            out_dim = nn_middle.out_dim
-        else:
-            nn_middle = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                      nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-            inp_dim = mid_dim
-            out_dim = mid_dim
-
-        self.net_sa = nn.Sequential(nn.Linear(state_dim, inp_dim), nn.ReLU(),
-                                    nn_middle, )  # concat(state, action)
-        self.net_q1 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, action_dim))  # q1 value
-        self.net_q2 = nn.Sequential(nn.Linear(out_dim, mid_dim), nn.Hardswish(),
-                                    nn.Linear(mid_dim, action_dim))  # q2 value
-
-    def forward(self, state, action):
-        tmp = self.net_sa(state)
-        return self.net_q1(tmp)  # one Q value
-
-    def get_q1_q2(self, state):
-        tmp = self.net_sa(state)
-        return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
-
-import torch as th
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import torch as th
-import torch.nn as nn
-
-import torch as th
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-
-
-class VDN(nn.Module):
-    def __init__(self):
-        super(VDN, self).__init__()
-
-    def forward(self, agent_qs, batch):
-        return th.sum(agent_qs, dim=2, keepdim=True)
-        
-class QMix(nn.Module):
-    def __init__(self, args):
-        """
-        Critic network class for Qmix. Outputs centralized value function predictions given independent q value.
-        :param args: (argparse) arguments containing relevant model information.
-        """
-        super(QMix, self).__init__()
-
-        self.args = args
-        self.n_agents = args.n_agents
-        self.state_dim = int(np.prod(args.state_shape))
-
-        self.embed_dim = args.mixing_embed_dim
-        self.abs = getattr(self.args, 'abs', True)
-
-        if getattr(args, "hypernet_layers", 1) == 1:
-            self.hyper_w_1 = nn.Linear(self.state_dim, self.embed_dim * self.n_agents)
-            self.hyper_w_final = nn.Linear(self.state_dim, self.embed_dim)
-        elif getattr(args, "hypernet_layers", 1) == 2:
-            hypernet_embed = self.args.hypernet_embed
-            self.hyper_w_1 = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(inplace=True),
-                                           nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
-            self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(inplace=True),
-                                           nn.Linear(hypernet_embed, self.embed_dim))
-        elif getattr(args, "hypernet_layers", 1) > 2:
-            raise Exception("Sorry >2 hypernet layers is not implemented!")
-        else:
-            raise Exception("Error setting number of hypernet layers.")
-
-        # State dependent bias for hidden layer
-        self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
-
-        # V(s) instead of a bias for the last layers
-        self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
-                               nn.ReLU(inplace=True),
-                               nn.Linear(self.embed_dim, 1))
-        
-
-    def forward(self, agent_qs, states):
-        """
-        Compute actions from the given inputs.
-        :param agent_qs: q value inputs into network.
-        :param states: state observation.
-
-        :return q_tot: (torch.Tensor) return q-total .
-        """
-        bs = agent_qs.size(0)
-        states = states.reshape(-1, self.state_dim)
-        agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
-        # First layer
-        w1 = self.hyper_w_1(states).abs() if self.abs else self.hyper_w_1(states)
-        b1 = self.hyper_b_1(states)
-        w1 = w1.view(-1, self.n_agents, self.embed_dim)
-        b1 = b1.view(-1, 1, self.embed_dim)
-        hidden = F.elu(th.bmm(agent_qs, w1) + b1)
-        
-        # Second layer
-        w_final = self.hyper_w_final(states).abs() if self.abs else self.hyper_w_final(states)
-        w_final = w_final.view(-1, self.embed_dim, 1)
-        # State-dependent bias
-        v = self.V(states).view(-1, 1, 1)
-        # Compute final output
-        y = th.bmm(hidden, w_final) + v
-        # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-        
-        return q_tot
-
-    def k(self, states):
-        bs = states.size(0)
-        w1 = th.abs(self.hyper_w_1(states))
-        w_final = th.abs(self.hyper_w_final(states))
-        w1 = w1.view(-1, self.n_agents, self.embed_dim)
-        w_final = w_final.view(-1, self.embed_dim, 1)
-        k = th.bmm(w1,w_final).view(bs, -1, self.n_agents)
-        k = k / th.sum(k, dim=2, keepdim=True)
-        return k
-
-    def b(self, states):
-        bs = states.size(0)
-        w_final = th.abs(self.hyper_w_final(states))
-        w_final = w_final.view(-1, self.embed_dim, 1)
-        b1 = self.hyper_b_1(states)
-        b1 = b1.view(-1, 1, self.embed_dim)
-        v = self.V(states).view(-1, 1, 1)
-        b = th.bmm(b1, w_final) + v
-        return b
-
-
-class ActorMAPPO(nn.Module):
-    """
-    Actor network class for MAPPO. Outputs actions given observations.
-    :param args: (argparse.Namespace) arguments containing relevant model information.
-    :param obs_space: (gym.Space) observation space.
-    :param action_space: (gym.Space) action space.
-    :param device: (torch.device) specifies the device to run on (cpu/gpu).
-    """
-    def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
-        super(ActorMAPPO, self).__init__()
-        self.hidden_size = args.hidden_size
-
-        self._gain = args.gain
-        self._use_orthogonal = args.use_orthogonal
-        self._use_policy_active_masks = args.use_policy_active_masks
-        self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
-        self._use_recurrent_policy = args.use_recurrent_policy
-        self._recurrent_N = args.recurrent_N
-        self.tpdv = dict(dtype=torch.float32, device=device)
-
-        obs_shape = get_shape_from_obs_space(obs_space)
-        base = CNNBase if len(obs_shape) == 3 else MLPBase
-        self.base = base(args, obs_shape)
-
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
-
-        self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
-
-        self.to(device)
-
-    def forward(self, obs, rnn_states, masks, available_actions=None, deterministic=False):
-        """
-        Compute actions from the given inputs.
-        :param obs: (np.ndarray / torch.Tensor) observation inputs into network.
-        :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
-        :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if hidden states should be reinitialized to zeros.
-        :param available_actions: (np.ndarray / torch.Tensor) denotes which actions are available to agent
-                                                              (if None, all actions available)
-        :param deterministic: (bool) whether to sample from action distribution or return the mode.
-
-        :return actions: (torch.Tensor) actions to take.
-        :return action_log_probs: (torch.Tensor) log probabilities of taken actions.
-        :return rnn_states: (torch.Tensor) updated RNN hidden states.
-        """
-        obs = check(obs).to(**self.tpdv)
-        rnn_states = check(rnn_states).to(**self.tpdv)
-        masks = check(masks).to(**self.tpdv)
-        if available_actions is not None:
-            available_actions = check(available_actions).to(**self.tpdv)
-
-        actor_features = self.base(obs)
-
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
-
-        actions, action_log_probs = self.act(actor_features, available_actions, deterministic)
-
-        return actions, action_log_probs, rnn_states
-
-    def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
-        """
-        Compute log probability and entropy of given actions.
-        :param obs: (torch.Tensor) observation inputs into network.
-        :param action: (torch.Tensor) actions whose entropy and log probability to evaluate.
-        :param rnn_states: (torch.Tensor) if RNN network, hidden states for RNN.
-        :param masks: (torch.Tensor) mask tensor denoting if hidden states should be reinitialized to zeros.
-        :param available_actions: (torch.Tensor) denotes which actions are available to agent
-                                                              (if None, all actions available)
-        :param active_masks: (torch.Tensor) denotes whether an agent is active or dead.
-
-        :return action_log_probs: (torch.Tensor) log probabilities of the input actions.
-        :return dist_entropy: (torch.Tensor) action distribution entropy for the given inputs.
-        """
-        obs = check(obs).to(**self.tpdv)
-        rnn_states = check(rnn_states).to(**self.tpdv)
-        action = check(action).to(**self.tpdv)
-        masks = check(masks).to(**self.tpdv)
-        if available_actions is not None:
-            available_actions = check(available_actions).to(**self.tpdv)
-
-        if active_masks is not None:
-            active_masks = check(active_masks).to(**self.tpdv)
-
-        actor_features = self.base(obs)
-
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
-
-        action_log_probs, dist_entropy = self.act.evaluate_actions(actor_features,
-                                                                   action, available_actions,
-                                                                   active_masks=
-                                                                   active_masks if self._use_policy_active_masks
-                                                                   else None)
-
-        return action_log_probs, dist_entropy
-
-
-class CriticMAPPO(nn.Module):
-    """
-    Critic network class for MAPPO. Outputs value function predictions given centralized input (MAPPO) or
-                            local observations (IPPO).
-    :param args: (argparse.Namespace) arguments containing relevant model information.
-    :param cent_obs_space: (gym.Space) (centralized) observation space.
-    :param device: (torch.device) specifies the device to run on (cpu/gpu).
-    """
-    def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
-        super(CriticMAPPO, self).__init__()
-        self.hidden_size = args.hidden_size
-        self._use_orthogonal = args.use_orthogonal
-        self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
-        self._use_recurrent_policy = args.use_recurrent_policy
-        self._recurrent_N = args.recurrent_N
-        self._use_popart = args.use_popart
-        self.tpdv = dict(dtype=torch.float32, device=device)
-        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
-
-        cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
-        base = CNNBase if len(cent_obs_shape) == 3 else MLPBase
-        self.base = base(args, cent_obs_shape)
-
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
-
-        def init_(m):
-            return init(m, init_method, lambda x: nn.init.constant_(x, 0))
-
-        if self._use_popart:
-            self.v_out = init_(PopArt(self.hidden_size, 1, device=device))
-        else:
-            self.v_out = init_(nn.Linear(self.hidden_size, 1))
-
-        self.to(device)
-
-    def forward(self, cent_obs, rnn_states, masks):
-        """
-        Compute actions from the given inputs.
-        :param cent_obs: (np.ndarray / torch.Tensor) observation inputs into network.
-        :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
-        :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if RNN states should be reinitialized to zeros.
-
-        :return values: (torch.Tensor) value function predictions.
-        :return rnn_states: (torch.Tensor) updated RNN hidden states.
-        """
-        cent_obs = check(cent_obs).to(**self.tpdv)
-        rnn_states = check(rnn_states).to(**self.tpdv)
-        masks = check(masks).to(**self.tpdv)
-
-        critic_features = self.base(cent_obs)
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
-        values = self.v_out(critic_features)
-
-        return values, rnn_states
-
-    
+def layer_norm(layer, std=1.0, bias_const=1e-6):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)

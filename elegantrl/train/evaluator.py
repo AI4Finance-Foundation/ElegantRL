@@ -2,21 +2,9 @@ import os
 import time
 import torch
 import numpy as np
-from typing import Tuple
+
 
 class Evaluator:  # [ElegantRL.2021.10.13]
-    """
-    An ``evaluator`` evaluates agent's performance and saves models.
-
-    :param cwd: directory path to save the model.
-    :param agent_id: agent id.
-    :param eval_env: environment object for model evaluation.
-    :param eval_gap: time gap for periodical evaluation (in seconds).
-    :param eval_times1: number of times that get episode return in first.
-    :param eval_times2: number of times that get episode return in second.
-    :param target_return: target average episodic return.
-    :param if_overwrite: save policy networks with different episodic return separately or overwrite.
-    """
     def __init__(self, cwd, agent_id, eval_env, eval_gap, eval_times1, eval_times2, target_return, if_overwrite):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
@@ -40,16 +28,7 @@ class Evaluator:  # [ElegantRL.2021.10.13]
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> Tuple[bool, bool]:  # 2021-09-09
-        """
-        Evaluate and save the model.
-
-        :param act: Actor (policy) network.
-        :param steps: training steps for last update.
-        :param r_exp: mean reward.
-        :param log_tuple: log information.
-        :return: a boolean for whether terminates the training process and a boolean for whether save the model.
-        """
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
@@ -74,7 +53,7 @@ class Evaluator:  # [ElegantRL.2021.10.13]
             if if_save:  # save checkpoint with highest episode return
                 self.r_max = r_avg  # update max reward (episode return)
 
-                act_name = 'actor' if self.if_overwrite else f'actor.{self.r_max:08.2f}'
+                act_name = 'actor' if self.if_overwrite else f'actor.{self.r_max:09.3f}'
                 act_path = f"{self.cwd}/{act_name}.pth"
                 torch.save(act.state_dict(), act_path)  # save policy network in *.pth
 
@@ -104,23 +83,12 @@ class Evaluator:  # [ElegantRL.2021.10.13]
 
     @staticmethod
     def get_r_avg_std_s_avg_std(rewards_steps_list):
-        """
-        Compute the average and standard deviation of episodic reward and step.
-
-        :param rewards_steps_list: the trajectory of evaluation.
-        :return: average and standard deviation of episodic reward and step.
-        """
         rewards_steps_ary = np.array(rewards_steps_list, dtype=np.float32)
         r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
         r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
         return r_avg, r_std, s_avg, s_std
 
     def save_or_load_recoder(self, if_save):
-        """
-        If ``if_save`` is true, save the recorder. If ``if_save`` is false and recorder exists, load the recorder.
-
-        :param if_save: save or not.
-        """
         if if_save:
             np.save(self.recorder_path, self.recorder)
         elif os.path.exists(self.recorder_path):
@@ -129,17 +97,10 @@ class Evaluator:  # [ElegantRL.2021.10.13]
             self.total_step = self.recorder[-1][0]
 
     def draw_plot(self):
-        """
-        Draw learning curve.
-
-        """
         if len(self.recorder) == 0:
             print("| save_npy_draw_plot() WARNNING: len(self.recorder)==0")
             return None
-        # before saving, ensure that each component in self.recorder is not a tensor, otherwise, numpy
-        # will fail to save the recorded data
-        if contains_tensors(self.recorder):
-            force_no_tensors(self.recorder)
+
         np.save(self.recorder_path, self.recorder)
 
         '''draw plot and save as png'''
@@ -149,41 +110,11 @@ class Evaluator:  # [ElegantRL.2021.10.13]
 
         save_learning_curve(self.recorder, self.cwd, save_title)
 
-def contains_tensors(record_list: "list[tuple]") -> bool:
-    """
-    Checks if the passed-in list of tuples contains any Tensors
-    
-    :param record_list: a list of tuple objects, each of which could contain a Tensor(s)
-    """
-    for tupe in record_list:
-        for item in tupe:
-            if isinstance(item, torch.Tensor):
-                return True
-    return False
 
-def force_no_tensors(record_list: "list[tuple]") -> None:
-    """
-    Forces all elements in the passed-in list of tuples to be non-Tensors (i.e. floats)
+"""private util"""
 
-    :param record_list: a list of tuple objects, each of which could contain a Tensor(s)
-    """
-    for idx, tupe in enumerate(record_list):
-        new_tupe = []
-        for possible_tensor in tupe:
-            if isinstance(possible_tensor, torch.Tensor):
-                new_tupe.append(possible_tensor.item())
-            else:
-                new_tupe.append(possible_tensor)
-        record_list[idx] = tuple(new_tupe)
 
-def get_episode_return_and_step(env, act) -> Tuple[float, int]:  # [ElegantRL.2021.10.13]
-    """
-    Evaluate the actor (policy) network on testing environment.
-
-    :param env: environment object in ElegantRL.
-    :param act: Actor (policy) network.
-    :return: episodic reward and number of steps needed.
-    """
+def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
     device_id = next(act.parameters()).get_device()  # net.parameters() is a python generator.
     device = torch.device('cpu' if device_id == -1 else f'cuda:{device_id}')
 
@@ -217,14 +148,6 @@ def get_episode_return_and_step(env, act) -> Tuple[float, int]:  # [ElegantRL.20
 
 
 def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig_name='plot_learning_curve.jpg'):
-    """
-    Draw learning curve.
-
-    :param recorder: recorder.
-    :param cwd: saving directory.
-    :param save_title: learning curve title.
-    :param fig_name: figure name.
-    """
     if recorder is None:
         recorder = np.load(f"{cwd}/recorder.npy")
 

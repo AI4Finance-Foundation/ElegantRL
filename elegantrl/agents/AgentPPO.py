@@ -1,15 +1,18 @@
 import torch
 import numpy as np
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
+from elegantrl.agents.net import ActorPPO, CriticPPO
+from elegantrl.agents.net import ActorDiscretePPO, SharePPO
+
+'''[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 
 class AgentPPO(AgentBase):
     """
     Bases: ``AgentBase``
-    
+
     PPO algorithm. “Proximal Policy Optimization Algorithms”. John Schulman. et al.. 2017.
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -18,6 +21,7 @@ class AgentPPO(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassAct = ActorPPO
@@ -29,17 +33,21 @@ class AgentPPO(AgentBase):
         self.lambda_a_value = 1.00  # could be 0.25~8.00, the lambda of advantage value
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
         self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
+        self.if_use_old_traj = True
+        self.traj_list = None
 
     def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
              learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
         """
-        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
         """
         AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
                        reward_scale=reward_scale, gamma=gamma,
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
                        env_num=env_num, gpu_id=gpu_id, )
-        self.traj_list = [list() for _ in range(env_num)]
+
+        self.traj_list = [[list() for _ in range(5)] for _ in range(env_num)]
+
         self.env_num = env_num
 
         if if_per_or_gae:  # if_use_gae
@@ -53,99 +61,115 @@ class AgentPPO(AgentBase):
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
         """
-        Select an action given a state.
-        
+        Select an action via a given state.
+
         :param state: a state in a shape (state_dim, ).
-        :return: a action in a shape (action_dim, ) where each action is clipped into range(-1, 1).
+        :return: action [array], action.shape == (action_dim, ) where each action is clipped into range(-1, 1).
         """
         s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
         a_tensor = self.act(s_tensor)
         action = a_tensor.detach().cpu().numpy()
-        return action
+        return np.tanh(action)  # the only different
 
-    def select_actions(self, state: torch.Tensor) -> tuple:
+    def explore_one_env(self, env, target_step) -> list:  # 247 second
         """
-        Select actions given an array of states.
-        
-        :param state: an array of states in a shape (batch_size, state_dim, ).
-        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
-        """
-        state = state.to(self.device)
-        action, noise = self.act.get_action(state)
-        return action.detach().cpu(), noise.detach().cpu()
+        Collect trajectories through the actor-environment interaction.
 
-    def explore_one_env(self, env, target_step):
-        """
-        Collect trajectories through the actor-environment interaction for a **single** environment instance.
-        
         :param env: the DRL environment instance.
         :param target_step: the total step for the interaction.
-        :param reward_scale: a reward scalar to clip the reward.
-        :param gamma: the discount factor.
-        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
+        traj_list = list()
+
         state = self.states[0]
 
+        '''get traj_list and last_done'''
+        step = 0
+        done = False
         last_done = 0
-        traj = list()
-        for step_i in range(target_step):
-            ten_states = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_actions, ten_noises = self.select_actions(ten_states)
-            action = ten_actions[0].numpy()
-            next_s, reward, done, _ = env.step(np.tanh(action))
+        while step < target_step or not done:
+            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            ten_a, ten_n = [ten.cpu() for ten in self.act.get_action(ten_s.to(self.device))]
+            next_s, reward, done, _ = env.step(np.tanh(ten_a[0].numpy()))
 
-            traj.append((ten_states, reward, done, ten_actions, ten_noises))
+            traj_list.append((ten_s, reward, done, ten_a, ten_n))
+
+            step += 1
             if done:
                 state = env.reset()
-                last_done = step_i
+                last_done = step  # behind `step += 1`
             else:
                 state = next_s
 
+        last_done = (last_done,)
         self.states[0] = state
+        # assert len(traj_list) == step
+        # assert len(traj_list[0]) == 5
+        # assert len(traj_list[0][0]) == self.env_num
 
-        traj_list = self.splice_trajectory([traj, ], [last_done, ])
-        return self.convert_trajectory(traj_list)  # [traj_env_0, ]
+        '''convert traj_list -> buf_srdan'''
+        buf_srdan = list(map(list, zip(*traj_list)))  # srdan: state, reward, done, action, noise
+        del traj_list
+        # assert len(buf_srdan) == 5
+        # assert len(buf_srdan[0]) == step
+        # assert len(buf_srdan[0][0]) == self.env_num
+        buf_srdan = [
+            torch.stack(buf_srdan[0]),
+            (torch.tensor(buf_srdan[1], dtype=torch.float32) * self.reward_scale).unsqueeze(0).unsqueeze(1),
+            ((1 - torch.tensor(buf_srdan[2], dtype=torch.float32)) * self.gamma).unsqueeze(0).unsqueeze(1),
+            torch.stack(buf_srdan[3]),
+            torch.stack(buf_srdan[4]),
+        ]
+        # assert all([buf_item.shape[:2] == (step, self.env_num) for buf_item in buf_srdan])
+        return self.splice_trajectory(buf_srdan, last_done)
 
-    def explore_vec_env(self, env, target_step):
-        """
-        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
-        
-        :param env: the DRL environment instance.
-        :param target_step: the total step for the interaction.
-        :param reward_scale: a reward scalar to clip the reward.
-        :param gamma: the discount factor.
-        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
-        """
-        ten_states = self.states
+    def explore_vec_env(self, env, target_step) -> list:
+        traj_list = list()
 
-        env_num = len(self.traj_list)
-        traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
-        last_done_list = [0 for _ in range(env_num)]
+        ten_s = self.states
 
-        for step_i in range(target_step):
-            ten_actions, ten_noises = self.select_actions(ten_states)
-            tem_next_states, ten_rewards, ten_dones = env.step(ten_actions.tanh())
+        step = 0
+        last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        while step < target_step:
+            ten_a, ten_n = self.act.get_action(ten_s)
+            ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a.tanh())
 
-            for env_i in range(env_num):
-                traj_list[env_i].append((ten_states[env_i], ten_rewards[env_i], ten_dones[env_i],
-                                         ten_actions[env_i], ten_noises[env_i]))
-                if ten_dones[env_i]:
-                    last_done_list[env_i] = step_i
+            traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a, ten_n))
 
-            ten_states = tem_next_states
+            ten_s = ten_s_next
 
-        self.states = ten_states
+            step += 1
+            last_done[torch.where(ten_dones)[0]] = step  # behind `step+=1`
+            # if step % 64 == 0:
+            #     print(';;', last_done.detach().cpu().numpy())
 
-        traj_list = self.splice_trajectory(traj_list, last_done_list)
-        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
+        self.states = ten_s
+        # assert len(traj_list) == step
+        # assert len(traj_list[0]) == 5
+        # assert len(traj_list[0][0]) == self.env_num
+
+        buf_srdan = list(map(list, zip(*traj_list)))
+        del traj_list
+        # assert len(buf_srdan) == 5
+        # assert len(buf_srdan[0]) == step
+        # assert len(buf_srdan[0][0]) == self.env_num
+        buf_srdan[0] = torch.stack(buf_srdan[0])
+        buf_srdan[1] = (torch.stack(buf_srdan[1]) * self.reward_scale).unsqueeze(2)
+        buf_srdan[2] = ((1 - torch.stack(buf_srdan[2])) * self.gamma).unsqueeze(2)
+        buf_srdan[3] = torch.stack(buf_srdan[3])
+        buf_srdan[4] = torch.stack(buf_srdan[4])
+        # assert all([buf_item.shape[:2] == (step, self.env_num)
+        #             for buf_item in buf_srdan])
+
+        return self.splice_trajectory(buf_srdan, last_done)
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         """
-        Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
+        Update the neural networks by sampling batch data from `ReplayBuffer`.
+
         .. note::
             Using advantage normalization and entropy loss.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param repeat_times: the re-using times of each trajectory.
@@ -153,8 +177,8 @@ class AgentPPO(AgentBase):
         :return: a tuple of the log information.
         """
         with torch.no_grad():
-            buf_len = buffer[0].shape[0]
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
+            buf_len = buf_state.shape[0]
 
             '''get buf_r_sum, buf_logprob'''
             bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
@@ -165,10 +189,12 @@ class AgentPPO(AgentBase):
             buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
             buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / (buf_adv_v.std() + 1e-5))
             # buf_adv_v: buffer data of adv_v value
-            del buf_noise, buffer[:]
+            del buf_noise
 
         obj_critic = None
         obj_actor = None
+
+        assert buf_len >= batch_size
         update_times = int(buf_len / batch_size * repeat_times)
         for update_i in range(1, update_times + 1):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
@@ -189,18 +215,17 @@ class AgentPPO(AgentBase):
             self.optim_update(self.act_optim, obj_actor)
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
-            obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
-            self.optim_update(self.cri_optim, obj_critic)
+            obj_critic = self.criterion(value, r_sum)
+            self.optim_update(self.cri_optim, obj_critic / (r_sum.std() + 1e-6))
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
-
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
     def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
         """
         Calculate the **reward-to-go** and **advantage estimation**.
-        
+
         :param buf_len: the length of the ``ReplayBuffer``.
         :param buf_reward: a list of rewards for the state-action pairs.
         :param buf_mask: a list of masks computed by the product of done signal and discount factor.
@@ -219,11 +244,11 @@ class AgentPPO(AgentBase):
     def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
         """
         Calculate the **reward-to-go** and **advantage estimation** using GAE.
-        
+
         :param buf_len: the length of the ``ReplayBuffer``.
-        :param buf_reward: a list of rewards for the state-action pairs.
-        :param buf_mask: a list of masks computed by the product of done signal and discount factor.
-        :param buf_value: a list of state values estimiated by the ``Critic`` network.
+        :param ten_reward: a list of rewards for the state-action pairs.
+        :param ten_mask: a list of masks computed by the product of done signal and discount factor.
+        :param ten_value: a list of state values estimated by the ``Critic`` network.
         :return: the reward-to-go and advantage estimation.
         """
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
@@ -231,50 +256,38 @@ class AgentPPO(AgentBase):
 
         pre_r_sum = 0
         pre_adv_v = 0  # advantage value of previous step
-        ten_bool = torch.not_equal(ten_mask, 0).float()
-        for i in range(buf_len - 1, -1, -1):
+        for i in range(buf_len - 1, -1, -1):  # Notice: mask = (1-done) * gamma
             buf_r_sum[i] = ten_reward[i] + ten_mask[i] * pre_r_sum
             pre_r_sum = buf_r_sum[i]
-            buf_adv_v[i] = ten_reward[i] + ten_bool[i] * (pre_adv_v - ten_value[i])
+
+            buf_adv_v[i] = ten_reward[i] + ten_mask[i] * pre_adv_v - ten_value[i]
             pre_adv_v = ten_value[i] + buf_adv_v[i] * self.lambda_gae_adv
+            # ten_mask[i] * pre_adv_v == (1-done) * gamma * pre_adv_v
         return buf_r_sum, buf_adv_v
 
-    def splice_trajectory(self, traj_list, last_done_list):
-        """
-        Splice and concatenate trajectories.
-        
-        :param traj_list: a list of trajectories.
-        :param last_done_list: a list of indexes of done signals.
-        :return: a trajectory list.
-        """
-        for env_i in range(self.env_num):
-            last_done = last_done_list[env_i]
-            traj_temp = traj_list[env_i]
+    def splice_trajectory(self, buf_srdan, last_done):
+        out_srdan = list()
+        for j in range(5):
+            cur_items = list()
+            buf_items = buf_srdan.pop(0)  # buf_srdan[j]
 
-            traj_list[env_i] = self.traj_list[env_i] + traj_temp[:last_done + 1]
-            self.traj_list[env_i] = traj_temp[last_done:]
-        return traj_list
+            for env_i in range(self.env_num):
+                last_step = last_done[env_i]
 
-    def convert_trajectory(self, traj_list):
-        """
-        Process the trajectory list, rescale the rewards and calculate the masks.
-        
-        :param traj_list: a list of trajectories.
-        :param reward_scale: a reward scalar to clip the reward.
-        :param gamma: the discount factor.
-        :return: a trajectory list.
-        """
-        for traj in traj_list:
-            temp = list(map(list, zip(*traj)))  # 2D-list transpose
+                pre_item = self.traj_list[env_i][j]
+                if len(pre_item):
+                    cur_items.append(pre_item)
 
-            ten_state = torch.stack(temp[0])
-            ten_reward = torch.as_tensor(temp[1], dtype=torch.float32) * self.reward_scale
-            ten_mask = (1.0 - torch.as_tensor(temp[2], dtype=torch.float32)) * self.gamma
-            ten_action = torch.stack(temp[3])
-            ten_noise = torch.stack(temp[4])
+                cur_items.append(buf_items[:last_step, env_i])
 
-            traj[:] = (ten_state, ten_reward, ten_mask, ten_action, ten_noise)
-        return traj_list
+                if self.if_use_old_traj:
+                    self.traj_list[env_i][j] = buf_items[last_step:, env_i]
+
+            out_srdan.append(torch.vstack(cur_items))
+
+        # print(';;;3', last_done.sum().item() / self.env_num, out_srdan[0].shape[0] / self.env_num)
+        # print(';;;4', out_srdan[1][-4:, -3:])
+        return [out_srdan, ]  # = [states, rewards, dones, actions, noises], len(states) == traj_len
 
 
 class AgentDiscretePPO(AgentPPO):
@@ -289,6 +302,7 @@ class AgentDiscretePPO(AgentPPO):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentPPO.__init__(self)
         self.ClassAct = ActorDiscretePPO
@@ -296,70 +310,77 @@ class AgentDiscretePPO(AgentPPO):
     def explore_one_env(self, env, target_step):
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
-        
-        :param env[object]: the DRL environment instance.
-        :param target_step[int]: the total step for the interaction.
-        :param reward_scale[float]: a reward scalar to clip the reward.
-        :param gamma[float]: the discount factor.
-        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
         state = self.states[0]
 
         last_done = 0
         traj = list()
-        for step_i in range(target_step):
-            ten_states = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a_ints, ten_probs = self.select_actions(ten_states)
-            a_int = ten_a_ints[0].numpy()
-            next_s, reward, done, _ = env.step(a_int)  # only different
 
-            traj.append((ten_states, reward, done, ten_a_ints, ten_probs))
+        step = 0
+        done = False
+        while step < target_step or not done:
+            ten_states = torch.as_tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
+            ten_actions, ten_noises = self.act.get_action(ten_states)  # ten_a_ints, ten_probs
+            action = ten_actions.cpu().numpy()[0]
+            # next_s, reward, done, _ = env.step(np.tanh(action))
+            next_s, reward, done, _ = env.step(action)  # only different
+
+            traj.append((ten_states, reward, done, ten_actions, ten_noises))
+
             if done:
                 state = env.reset()
-                last_done = step_i
+                last_done = step
             else:
                 state = next_s
+
+            step += 1
 
         self.states[0] = state
 
         traj_list = self.splice_trajectory([traj, ], [last_done, ])
-        return self.convert_trajectory(traj_list)
+        return self.convert_trajectory(traj_list)  # [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step):
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
-        
-        :param env[object]: the DRL environment instance.
-        :param target_step[int]: the total step for the interaction.
-        :param reward_scale[float]: a reward scalar to clip the reward.
-        :param gamma[float]: the discount factor.
-        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
         ten_states = self.states
+        assert env.device.index == self.device.index
 
         env_num = len(self.traj_list)
         traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
         last_done_list = [0 for _ in range(env_num)]
 
-        for step_i in range(target_step):
-            ten_a_ints, ten_probs = self.select_actions(ten_states)
-            tem_next_states, ten_rewards, ten_dones = env.step(ten_a_ints.numpy())
+        step = 0
+        ten_dones = [False, ] * self.env_num
+        while step < target_step and not any(ten_dones):
+            ten_actions, ten_noises = self.act.get_action(ten_states)  # ten_a_ints, ten_probs
+            # tem_next_states, ten_rewards, ten_dones, _ = env.step(ten_actions.tanh())
+            tem_next_states, ten_rewards, ten_dones, _ = env.step(ten_actions)  # only different
 
             for env_i in range(env_num):
                 traj_list[env_i].append((ten_states[env_i], ten_rewards[env_i], ten_dones[env_i],
-                                         ten_a_ints[env_i], ten_probs[env_i]))
+                                         ten_actions[env_i], ten_noises[env_i]))
                 if ten_dones[env_i]:
-                    last_done_list[env_i] = step_i
-
+                    last_done_list[env_i] = step
             ten_states = tem_next_states
 
-        self.states = ten_states
+            step += 1
 
+        self.states = ten_states
         traj_list = self.splice_trajectory(traj_list, last_done_list)
         return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
 
-class AgentSharePPO(AgentPPO):
+class AgentSharePPO(AgentPPO):  # [plan to]
     def __init__(self):
         AgentPPO.__init__(self)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
@@ -411,7 +432,8 @@ class AgentSharePPO(AgentPPO):
             logprob = buf_logprob[indices]
 
             '''PPO: Surrogate objective of Trust Region'''
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
+            # it is obj_actor  # todo net.py sharePPO
             ratio = (new_logprob - logprob.detach()).exp()
             surrogate1 = adv_v * ratio
             surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)

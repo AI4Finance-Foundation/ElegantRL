@@ -63,10 +63,7 @@ Or install with the newest version through GitHub:
    git clone https://github.com/AI4Finance-LLC/ElegantRL.git
    cd ElegantRL
    pip3 install .
-   
-   
-Directives
-----------------------------------------------------
+
 
 .. toctree::
     :maxdepth: 1
@@ -79,18 +76,19 @@ Directives
    :caption: Overview
 
    about/overview
-   about/installation
-   about/quickstart
+   about/algorithm_implementation
+   about/parallel
+   about/ensemble
 
 .. toctree::
    :maxdepth: 1
-   :caption: Hello-World
+   :caption: ElegantRL-HelloWorld
 
-   tutorial/intro
-   tutorial/net
-   tutorial/agent
-   tutorial/env
-   tutorial/run
+   helloworld/intro
+   helloworld/net
+   helloworld/agent
+   helloworld/env
+   helloworld/run
    
 
 .. toctree::
@@ -115,9 +113,9 @@ Directives
    :maxdepth: 1
    :caption: Tutorials
    
-   examples/Creating_VecEnv
-   examples/BipedalWalker-v3
-   examples/LunarLanderContinuous-v2
+   tutorial/Creating_VecEnv
+   tutorial/BipedalWalker-v3
+   tutorial/LunarLanderContinuous-v2
    
    
 .. toctree::

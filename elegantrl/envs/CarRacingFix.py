@@ -8,8 +8,6 @@ from gym.envs.box2d.car_dynamics import Car
 import pyglet
 from pyglet import gl  # must gym<=0.17.1, pyglet==1.5.0
 
-"""[ElegantRL.2021.11.03](https://github.com/AI4Finance-Foundation/ElegantRL)"""
-
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
 # Discrete control is reasonable in this environment as well, on/off discretization is
 # fine.

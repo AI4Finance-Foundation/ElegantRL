@@ -2,15 +2,60 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5c2b9fa2-2d7f-43ce-b69b-a5e87e450a23" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/elegantrl_helloworld/MARL/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/source/about/ensemble.rst" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/source/api/learner.rst" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/envs/ChasingEnv.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/envs/DownLinkEnv.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/train/learner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/train/run.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/train/utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/elegantrl/train/worker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/about/installation.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/about/algorithm_implementation.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/about/quickstart.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/about/parallel.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/cloud/agent.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/cloud/env.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/cloud/net.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/cloud/run.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/run.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/examples/BipedalWalker-v3.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/tutorial/BipedalWalker-v3.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/tutorial/Creating_VecEnv.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/examples/LunarLanderContinuous-v2.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/tutorial/LunarLanderContinuous-v2.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/index.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/index.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/server/agent.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/server/env.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/server/net.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/server/run.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/agent.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/agent.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/content.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/env.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/env.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/intro.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/intro.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/net.rst" beforeDir="false" afterPath="$PROJECT_DIR$/docs/source/helloworld/net.rst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/source/tutorial/run.rst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py" beforeDir="false" afterPath="$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_PyBullet_Ant.py" beforeDir="false" afterPath="$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/Demo_SMAC.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentBase.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentBase.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentPPO.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentPPO.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/agents/AgentSAC.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/AgentSAC.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/agents/net.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/agents/net.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/Chasing.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/DownLink.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/Gym.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/Gym.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/starcraft/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/starcraft/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/envs/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/envs/utils/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/evaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/evaluator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/agent.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_MADDPG.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/MARL/eRL_demo_MADDPG.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_QMIXinSingleFile.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/MARL/eRL_demo_QMIXinSingleFile.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/marl_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/MARL/marl_utils.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/elegantrl_helloworld/run.py" beforeDir="false" afterPath="$PROJECT_DIR$/elegantrl_helloworld/run.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_ensemble.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_parallel.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_smac.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/elegantrl/train/run_tutorial.py" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -22,45 +67,45 @@
     <session id="1417114242">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="16" />
+          <entry key="project.closed" value="17" />
           <entry key="project.open.time.0" value="2" />
           <entry key="project.open.time.1" value="5" />
           <entry key="project.open.time.4" value="4" />
           <entry key="project.open.time.5" value="4" />
-          <entry key="project.open.time.6" value="1" />
-          <entry key="project.open.time.7" value="1" />
+          <entry key="project.open.time.6" value="2" />
+          <entry key="project.open.time.7" value="2" />
           <entry key="project.open.time.8" value="2" />
-          <entry key="project.opened" value="19" />
+          <entry key="project.opened" value="21" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
           <entry key="dummy" value="81" />
-          <entry key="py" value="3864" />
-          <entry key="rst" value="82" />
+          <entry key="py" value="4020" />
+          <entry key="rst" value="177" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="PLAIN_TEXT" value="81" />
-          <entry key="Python" value="3864" />
-          <entry key="ReST" value="82" />
+          <entry key="Python" value="4020" />
+          <entry key="ReST" value="177" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
           <entry key="jpg" value="1" />
           <entry key="md" value="1" />
-          <entry key="py" value="128" />
-          <entry key="rst" value="5" />
+          <entry key="py" value="167" />
+          <entry key="rst" value="12" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Image" value="1" />
           <entry key="Markdown" value="1" />
-          <entry key="Python" value="128" />
-          <entry key="ReST" value="5" />
+          <entry key="Python" value="167" />
+          <entry key="ReST" value="12" />
         </counts>
       </usages-collector>
     </session>
@@ -68,30 +113,22 @@
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
+        <entry file="file://$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="32">
-              <caret line="5" selection-start-line="5" selection-end-line="5" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/MARL/eRL_demo_QMIXinSingleFile.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-408">
+            <state relative-caret-position="249">
+              <caret line="32" column="27" lean-forward="true" selection-start-line="32" selection-start-column="27" selection-end-line="32" selection-end-column="27" />
               <folding>
-                <element signature="e#0#18#0" expanded="true" />
+                <element signature="e#0#46#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_PPOinSingleFile.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/run.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="488">
-              <caret line="591" selection-start-line="591" selection-end-line="591" />
+            <state relative-caret-position="153">
+              <caret line="118" column="19" selection-start-line="118" selection-start-column="19" selection-end-line="118" selection-end-column="19" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -99,258 +136,32 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/agent.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="307">
-              <caret line="666" column="70" selection-start-line="666" selection-start-column="70" selection-end-line="666" selection-end-column="70" />
-              <folding>
-                <element signature="e#124#5596#0" />
-                <element signature="e#152#668#0" />
-                <element signature="e#152#230#1" />
-                <element signature="e#782#2173#0" />
-                <element signature="e#782#1371#1" />
-                <element signature="e#2233#2694#0" />
-                <element signature="e#2233#2441#1" />
-                <element signature="e#2757#3453#0" />
-                <element signature="e#2757#3073#1" />
-                <element signature="e#3184#3395#0" />
-                <element signature="e#3525#3898#0" />
-                <element signature="e#3525#3814#1" />
-                <element signature="e#3977#4465#0" />
-                <element signature="e#3977#4317#1" />
-                <element signature="e#4523#5596#0" />
-                <element signature="e#4523#4730#1" />
-                <element signature="e#4795#4923#0" />
-                <element signature="e#4949#5147#0" />
-                <element signature="e#5268#5403#0" />
-                <element signature="e#5316#5403#0" />
-                <element signature="e#5430#5596#0" />
-                <element signature="e#5478#5596#0" />
-                <element signature="e#5630#9485#0" />
-                <element signature="e#5630#5777#1" />
-                <element signature="e#5810#6096#0" />
-                <element signature="e#5810#5904#1" />
-                <element signature="e#6178#6913#0" />
-                <element signature="e#6178#6549#1" />
-                <element signature="e#6712#6892#0" />
-                <element signature="e#6976#7739#0" />
-                <element signature="e#6976#7326#1" />
-                <element signature="e#7437#7681#0" />
-                <element signature="e#7835#8677#0" />
-                <element signature="e#7835#8275#1" />
-                <element signature="e#8429#8621#0" />
-                <element signature="e#8769#9485#0" />
-                <element signature="e#8769#9106#1" />
-                <element signature="e#9149#9336#0" />
-                <element signature="e#9524#10725#0" />
-                <element signature="e#9552#9650#0" />
-                <element signature="e#9732#10197#0" />
-                <element signature="e#9915#10066#0" />
-                <element signature="e#10093#10176#0" />
-                <element signature="e#10289#10725#0" />
-                <element signature="e#10323#10532#0" />
-                <element signature="e#10760#12171#0" />
-                <element signature="e#10788#10990#0" />
-                <element signature="e#11095#11732#0" />
-                <element signature="e#11242#11681#0" />
-                <element signature="e#11824#12171#0" />
-                <element signature="e#11858#12042#0" />
-                <element signature="e#12205#14059#0" />
-                <element signature="e#12233#12580#0" />
-                <element signature="e#12676#13457#0" />
-                <element signature="e#12830#13402#0" />
-                <element signature="e#13265#13402#0" />
-                <element signature="e#13549#14059#0" />
-                <element signature="e#13583#13879#0" />
-                <element signature="e#14093#19433#0" />
-                <element signature="e#14093#14298#1" />
-                <element signature="e#14331#14695#0" />
-                <element signature="e#14331#14425#1" />
-                <element signature="e#14817#15805#0" />
-                <element signature="e#14817#15394#1" />
-                <element signature="e#15851#16317#0" />
-                <element signature="e#15851#16138#1" />
-                <element signature="e#16372#17115#0" />
-                <element signature="e#16372#16742#1" />
-                <element signature="e#16848#17062#0" />
-                <element signature="e#17202#19433#0" />
-                <element signature="e#17202#17738#1" />
-                <element signature="e#17941#19367#0" />
-                <element signature="e#18043#18349#0" />
-                <element signature="e#19467#27984#0" />
-                <element signature="e#19467#19599#1" />
-                <element signature="e#19632#20192#0" />
-                <element signature="e#19632#19726#1" />
-                <element signature="e#20313#21113#0" />
-                <element signature="e#20313#20890#1" />
-                <element signature="e#21159#21667#0" />
-                <element signature="e#21159#21446#1" />
-                <element signature="e#21722#22772#0" />
-                <element signature="e#21722#22092#1" />
-                <element signature="e#22225#22547#0" />
-                <element signature="e#22445#22494#0" />
-                <element signature="e#22859#25744#0" />
-                <element signature="e#22859#23395#1" />
-                <element signature="e#23438#24248#0" />
-                <element signature="e#24421#25583#0" />
-                <element signature="e#25862#26709#0" />
-                <element signature="e#25862#26336#1" />
-                <element signature="e#26513#26604#0" />
-                <element signature="e#26827#27984#0" />
-                <element signature="e#26827#27311#1" />
-                <element signature="e#27661#27944#0" />
-                <element signature="e#28025#29070#0" />
-                <element signature="e#28053#28112#0" />
-                <element signature="e#28167#29070#0" />
-                <element signature="e#28291#28845#0" />
-                <element signature="e#28291#28334#0" />
-                <element signature="e#28743#28792#0" />
-                <element signature="e#29097#32646#0" />
-                <element signature="e#29167#29967#0" />
-                <element signature="e#30046#30691#0" />
-                <element signature="e#30153#30526#0" />
-                <element signature="e#30553#30658#0" />
-                <element signature="e#30750#31023#0" />
-                <element signature="e#30862#31022#0" />
-                <element signature="e#31063#31125#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/run.py">
+        <entry file="file://$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="188">
-              <caret line="350" column="28" lean-forward="true" selection-start-line="350" selection-start-column="28" selection-end-line="350" selection-end-column="28" />
+            <state relative-caret-position="136">
+              <caret line="8" column="57" selection-start-line="8" selection-start-column="57" selection-end-line="8" selection-end-column="57" />
               <folding>
-                <element signature="e#158#3489#0" />
-                <element signature="e#228#2612#0" />
-                <element signature="e#1226#1712#0" />
-                <element signature="e#1739#2240#0" />
-                <element signature="e#2667#3489#0" />
-                <element signature="e#2700#2822#0" />
-                <element signature="e#2856#3240#0" />
-                <element signature="e#3097#3191#0" />
-                <element signature="e#4918#5653#0" />
-                <element signature="e#4987#5653#0" />
-                <element signature="e#6061#6143#0" />
-                <element signature="e#6465#6738#0" />
-                <element signature="e#6979#9986#0" />
-                <element signature="e#7059#7748#0" />
-                <element signature="e#7566#7747#0" />
-                <element signature="e#7829#9592#0" />
-                <element signature="e#8052#8171#0" />
-                <element signature="e#8349#8653#0" />
-                <element signature="e#8906#9345#0" />
-                <element signature="e#8976#9344#0" />
-                <element signature="e#9361#9562#0" />
-                <element signature="e#9673#9986#0" />
-                <element signature="e#10060#10762#0" />
-                <element signature="e#10270#10654#0" />
-                <element signature="e#10810#11988#0" />
-                <element signature="e#11009#11391#0" />
-                <element signature="e#11461#11662#0" />
-                <element signature="e#11736#11881#0" />
-                <element signature="e#12035#13408#0" />
-                <element signature="e#12251#12706#0" />
-                <element signature="e#12776#13011#0" />
-                <element signature="e#13085#13301#0" />
-                <element signature="e#13454#14213#0" />
-                <element signature="e#13642#13829#0" />
-                <element signature="e#13899#14106#0" />
-                <element signature="e#14258#15055#0" />
-                <element signature="e#14484#14671#0" />
-                <element signature="e#14741#14948#0" />
+                <element signature="e#0#49#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/learner.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1003">
-              <caret line="336" selection-start-line="336" selection-end-line="383" selection-end-column="70" />
-              <folding>
-                <element signature="e#229#1911#0" />
-                <element signature="e#289#884#0" />
-                <element signature="e#924#1003#0" />
-                <element signature="e#1046#1278#0" />
-                <element signature="e#1329#1911#0" />
-                <element signature="e#1967#2856#0" />
-                <element signature="e#2027#2541#0" />
-                <element signature="e#2589#2688#0" />
-                <element signature="e#2738#2856#0" />
-                <element signature="e#2896#7438#0" />
-                <element signature="e#2924#3519#0" />
-                <element signature="e#3630#4653#0" />
-                <element signature="e#4699#4869#0" />
-                <element signature="e#4924#5288#0" />
-                <element signature="e#5021#5235#0" />
-                <element signature="e#5375#7061#0" />
-                <element signature="e#5569#6995#0" />
-                <element signature="e#5671#5977#0" />
-                <element signature="e#7133#7208#0" />
-                <element signature="e#7287#7438#0" />
-                <element signature="e#7550#9949#0" />
-                <element signature="e#7578#7738#0" />
-                <element signature="e#7825#9949#0" />
-                <element signature="e#8037#9891#0" />
-                <element signature="e#8139#8446#0" />
-                <element signature="e#9592#9891#0" />
-                <element signature="e#9988#12724#0" />
-                <element signature="e#10038#11847#0" />
-                <element signature="e#11902#12724#0" />
-                <element signature="e#11935#12057#0" />
-                <element signature="e#12091#12475#0" />
-                <element signature="e#12332#12426#0" />
-                <element signature="e#14381#14926#0" />
-                <element signature="e#14415#14516#0" />
-                <element signature="e#14653#14926#0" />
-                <element signature="e#15038#17066#0" />
-                <element signature="e#15108#15908#0" />
-                <element signature="e#15987#16632#0" />
-                <element signature="e#16094#16467#0" />
-                <element signature="e#16494#16599#0" />
-                <element signature="e#16691#16964#0" />
-                <element signature="e#16803#16963#0" />
-                <element signature="e#17004#17066#0" />
-                <element signature="e#17090#20097#0" />
-                <element signature="e#17170#17859#0" />
-                <element signature="e#17677#17858#0" />
-                <element signature="e#17940#19703#0" />
-                <element signature="e#18163#18282#0" />
-                <element signature="e#18460#18764#0" />
-                <element signature="e#19017#19456#0" />
-                <element signature="e#19087#19455#0" />
-                <element signature="e#19472#19673#0" />
-                <element signature="e#19784#20097#0" />
-                <element signature="e#20171#20872#0" />
-                <element signature="e#20381#20764#0" />
-                <element signature="e#20936#21583#0" />
-                <element signature="e#20984#21252#0" />
-                <element signature="e#21087#21212#0" />
-                <element signature="e#21297#21361#0" />
-                <element signature="e#21446#21583#0" />
-                <element signature="e#21669#23616#0" />
-                <element signature="e#22810#22869#0" />
-                <element signature="e#22976#23136#0" />
-                <element signature="e#23272#23500#0" />
-                <element signature="e#23669#24945#0" />
-                <element signature="e#23902#24357#0" />
-                <element signature="e#24736#24915#0" />
-              </folding>
+            <state relative-caret-position="221">
+              <caret line="16" column="72" selection-start-line="16" selection-start-column="72" selection-end-line="16" selection-end-column="72" />
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/env.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/train/worker.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="85">
-              <caret line="5" selection-start-line="5" selection-end-line="5" />
+            <state relative-caret-position="17">
+              <caret line="18" column="32" selection-start-line="18" selection-start-column="32" selection-end-line="18" selection-end-column="32" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -359,23 +170,10 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl/train/run_tutorial.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="153">
-              <caret line="9" column="43" selection-start-line="9" selection-start-column="43" selection-end-line="9" selection-end-column="43" />
-              <folding>
-                <element signature="e#0#9#0" expanded="true" />
-                <element signature="e#278#4293#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/elegantrl/train/config.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1377">
-              <caret line="83" column="92" selection-start-line="83" selection-start-column="16" selection-end-line="83" selection-end-column="92" />
+            <state relative-caret-position="153">
+              <caret line="152" column="30" selection-start-line="152" selection-start-column="30" selection-end-line="152" selection-end-column="30" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -384,13 +182,10 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/elegantrl/envs/IsaacGym.py">
+        <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDQN.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1785">
-              <caret line="109" column="13" selection-start-line="109" selection-start-column="13" selection-end-line="109" selection-end-column="13" />
-              <folding>
-                <element signature="e#0#86#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="-1348">
+              <caret line="48" column="78" selection-start-line="48" selection-start-column="78" selection-end-line="48" selection-end-column="78" />
             </state>
           </provider>
         </entry>
@@ -412,6 +207,7 @@
       <find>Ensemble</find>
       <find>build_isaac</find>
       <find>steps</find>
+      <find>torch.device</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -420,17 +216,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentBase.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentA2C.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentDDPG.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentDoubleDQN.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentDQN.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentModSAC.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentPPO.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentSAC.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentStep1AC.py" />
-        <option value="$PROJECT_DIR$/elegantrl/Agents/AgentTD3.py" />
-        <option value="$PROJECT_DIR$/elegantrl/evaluator.py" />
         <option value="$PROJECT_DIR$/elegantrl/replay_buffer.py" />
         <option value="$PROJECT_DIR$/elegantrl/config.py" />
         <option value="$PROJECT_DIR$/elegantrl/agents/AgentSAC.py" />
@@ -438,20 +223,16 @@
         <option value="$PROJECT_DIR$/elegantrl/run.py" />
         <option value="$PROJECT_DIR$/elegantrl/run_parallel.py" />
         <option value="$PROJECT_DIR$/elegantrl/run_tutorial.py" />
-        <option value="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" />
         <option value="$PROJECT_DIR$/elegantrl/envs/gym.py" />
         <option value="$PROJECT_DIR$/elegantrl/run_em.py" />
         <option value="$PROJECT_DIR$/elegantrl/run_ensemble.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/run_ensemble.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/run_parallel.py" />
-        <option value="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" />
-        <option value="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" />
         <option value="$PROJECT_DIR$/elegantrl/tutorial_LunarLander.py" />
         <option value="$PROJECT_DIR$/elegantrl/tutorial_CartPole.py" />
         <option value="$PROJECT_DIR$/elegantrl/tutorial_BipedalWalker.py" />
         <option value="$PROJECT_DIR$/elegantrl/tutorial_Pendulum.py" />
         <option value="$PROJECT_DIR$/elegantrl/single_GPU_MuJoCo_Ant.py" />
-        <option value="$PROJECT_DIR$/elegantrl/envs/Gym.py" />
         <option value="$PROJECT_DIR$/setup.py" />
         <option value="$PROJECT_DIR$/elegantrl/IsaacGym_Ant_1.py" />
         <option value="$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py" />
@@ -459,18 +240,33 @@
         <option value="$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py" />
         <option value="$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py" />
         <option value="$PROJECT_DIR$/elegantrl/Demo_PyBullet_Ant.py" />
-        <option value="$PROJECT_DIR$/docs/source/index.rst" />
-        <option value="$PROJECT_DIR$/elegantrl/train/config.py" />
         <option value="$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst" />
         <option value="$PROJECT_DIR$/elegantrl/envs/Chasing.py" />
         <option value="$PROJECT_DIR$/docs/source/api/evaluator.rst" />
-        <option value="$PROJECT_DIR$/elegantrl/train/evaluator.py" />
         <option value="$PROJECT_DIR$/elegantrl/train/run_tutorial.py" />
-        <option value="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" />
         <option value="$PROJECT_DIR$/elegantrl_helloworld/env.py" />
         <option value="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py" />
         <option value="$PROJECT_DIR$/elegantrl_helloworld/agent.py" />
         <option value="$PROJECT_DIR$/elegantrl_helloworld/run.py" />
+        <option value="$PROJECT_DIR$/docs/source/index.rst" />
+        <option value="$PROJECT_DIR$/elegantrl/train/run.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/utils.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/worker.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/replay_buffer.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/evaluator.py" />
+        <option value="$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py" />
+        <option value="$PROJECT_DIR$/elegantrl/envs/ChasingEnv.py" />
+        <option value="$PROJECT_DIR$/elegantrl/envs/DownLinkEnv.py" />
+        <option value="$PROJECT_DIR$/elegantrl/envs/Gym.py" />
+        <option value="$PROJECT_DIR$/elegantrl/envs/IsaacGym.py" />
+        <option value="$PROJECT_DIR$/elegantrl/agents/AgentA2C.py" />
+        <option value="$PROJECT_DIR$/elegantrl/agents/AgentDQN.py" />
+        <option value="$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/learner.py" />
+        <option value="$PROJECT_DIR$/elegantrl/train/config.py" />
+        <option value="$PROJECT_DIR$/Examples/Demo_Gym_Pendulum.py" />
+        <option value="$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py" />
+        <option value="$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py" />
       </list>
     </option>
   </component>
@@ -503,12 +299,18 @@
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
               <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
+              <item name="envs" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
+              <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
+              <item name="elegantrl" type="462c0819:PsiDirectoryNode" />
               <item name="train" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ElegantRL" type="b2602c69:ProjectViewProjectNode" />
               <item name="ElegantRL" type="462c0819:PsiDirectoryNode" />
-              <item name="elegantrl_helloworld" type="462c0819:PsiDirectoryNode" />
+              <item name="Examples" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -522,17 +324,18 @@
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\train" />
-      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl" />
-      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\envs" />
-      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\demos" />
-      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\Agents" />
-    </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\Examples" />
       <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl_helloworld\MARL" />
       <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL" />
       <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\train" />
+    </key>
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\agents" />
+      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\envs\starcraft" />
+      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\envs\utils" />
+      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\envs" />
+      <recent name="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -547,8 +350,8 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.run">
-    <configuration name="Chasing" type="PythonConfigurationType" factoryName="Python" temporary="true">
+  <component name="RunManager" selected="Python.Demo_Gym_Pendulum">
+    <configuration name="CarRacingFix" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="ElegantRL" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -560,7 +363,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/elegantrl/envs/Chasing.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -569,7 +372,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Demo_PyBullet_Ant" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="Demo_Gym_BipedalWalker" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="ElegantRL" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -577,11 +380,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/elegantrl" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Examples" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/elegantrl/Demo_PyBullet_Ant.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -590,7 +393,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="eRL_demo_SACinSingleFile" type="PythonConfigurationType" factoryName="Python" temporary="true">
+    <configuration name="Demo_Gym_Pendulum" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="ElegantRL" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -598,11 +401,32 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/elegantrl_helloworld" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Examples" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Examples/Demo_Gym_Pendulum.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Demo_PyBullet_Ant (1)" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="ElegantRL" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Examples" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -632,41 +456,20 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="tutorial_LunarLander" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="ElegantRL" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/elegantrl" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\Steven Li\Desktop\ElegantRL\ElegantRL\elegantrl\Demo_Gym_Pendulum.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <list>
-      <item itemvalue="Python.tutorial_LunarLander" />
-      <item itemvalue="Python.Demo_PyBullet_Ant" />
-      <item itemvalue="Python.Chasing" />
       <item itemvalue="Python.run" />
-      <item itemvalue="Python.eRL_demo_SACinSingleFile" />
+      <item itemvalue="Python.Demo_Gym_BipedalWalker" />
+      <item itemvalue="Python.Demo_PyBullet_Ant (1)" />
+      <item itemvalue="Python.CarRacingFix" />
+      <item itemvalue="Python.Demo_Gym_Pendulum" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.Demo_Gym_Pendulum" />
+        <item itemvalue="Python.Demo_Gym_BipedalWalker" />
+        <item itemvalue="Python.Demo_PyBullet_Ant (1)" />
+        <item itemvalue="Python.CarRacingFix" />
         <item itemvalue="Python.run" />
-        <item itemvalue="Python.eRL_demo_SACinSingleFile" />
-        <item itemvalue="Python.Chasing" />
-        <item itemvalue="Python.Demo_PyBullet_Ant" />
-        <item itemvalue="Python.tutorial_LunarLander" />
       </list>
     </recent_temporary>
   </component>
@@ -686,12 +489,12 @@
   <component name="ToolWindowManager">
     <frame x="-6" y="-6" width="1549" height="837" extended-state="6" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.24966975" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.27278733" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3286119" />
-      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.3286119" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.26628897" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -705,12 +508,12 @@
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
     </layout>
     <layout-to-restore>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.24966975" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.27278733" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3286119" />
-      <window_info anchor="bottom" id="Run" order="2" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.26628897" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -741,93 +544,17 @@
           <option name="timeStamp" value="3" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/elegantrl/train/run_parallel.py</url>
-          <line>40</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py</url>
           <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py</url>
+          <option name="timeStamp" value="8" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/__init__.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/demos/__init__.py" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/server/run.py" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/env.py" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/agent.py" />
-    <entry file="file://$PROJECT_DIR$/docs/source/algorithms/a2c.rst">
-      <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentModSAC.py" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentA2C.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2380">
-          <caret line="194" column="87" lean-forward="true" selection-start-line="194" selection-start-column="87" selection-end-line="194" selection-end-column="87" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDDPG.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="386">
-          <caret line="66" column="11" lean-forward="true" selection-start-line="66" selection-start-column="11" selection-end-line="66" selection-end-column="11" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentTD3.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1348" />
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentSAC.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1071">
-          <caret line="102" column="28" selection-start-line="102" selection-start-column="28" selection-end-line="102" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/DownLink.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="256">
-          <caret line="140" column="94" lean-forward="true" selection-start-line="140" selection-start-column="94" selection-end-line="140" selection-end-column="94" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/parse_task.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="306">
-          <caret line="18" lean-forward="true" selection-start-line="18" selection-end-line="18" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/process_ppo.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/torch_jit_utils.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/demo.py" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/config.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-561">
-          <folding>
-            <element signature="e#425#434#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/run_em.py" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_ensemble.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="221">
-          <caret line="13" column="6" selection-start-line="13" selection-start-column="6" selection-end-line="13" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/train/run_parallel.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="186">
@@ -839,20 +566,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-272">
-          <caret line="38" column="57" selection-start-line="38" selection-start-column="57" selection-end-line="38" selection-end-column="57" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDQN.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1615">
-          <caret line="31" column="27" selection-start-line="31" selection-start-column="27" selection-end-line="31" selection-end-column="27" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/eRL_demo_PPOinSingleFile.py" />
     <entry file="file://$PROJECT_DIR$/elegantrl/agents/net.py">
       <provider selected="true" editor-type-id="text-editor">
@@ -861,23 +574,9 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1207">
-          <caret line="71" column="21" selection-start-line="71" selection-start-column="21" selection-end-line="71" selection-end-column="21" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl/Demo_IsaacGym_Ant_1.py" />
     <entry file="file://$PROJECT_DIR$/elegantrl/AgentModSAC_AntBulletEnv-v0_(0,)/plot_learning_curve.jpg" />
-    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_BipedalWalker.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="102">
-          <caret line="6" column="41" selection-start-line="6" selection-start-column="41" selection-end-line="6" selection-end-column="41" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_MuJoCo_Ant.py">
+    <entry file="file://$PROJECT_DIR$/Examples/Demo_MuJoCo_Ant.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="187">
           <caret line="11" column="10" selection-start-line="11" selection-start-column="10" selection-end-line="11" selection-end-column="10" />
@@ -891,50 +590,23 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/docs/source/index.rst">
+    <entry file="file://$PROJECT_DIR$/docs/source/tutorial/Creating_VecEnv.rst">
       <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_Gym_Pendulum.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="340">
-          <caret line="20" lean-forward="true" selection-start-line="20" selection-end-line="20" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_PyBullet_Ant.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="272">
-          <caret line="16" lean-forward="true" selection-start-line="16" selection-end-line="16" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/docs/source/examples/Creating_VecEnv.rst">
-      <provider selected="true" editor-type-id="restructured-text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentPPO.py">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentBase.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="731">
-          <caret line="88" selection-start-line="88" selection-end-line="88" />
-        </state>
-      </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/docs/source/api/evaluator.rst">
       <provider selected="true" editor-type-id="restructured-text-editor" />
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
+    <entry file="file://$PROJECT_DIR$/Examples/Demo_SMAC.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/Chasing.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="782">
-          <caret line="49" column="29" selection-start-line="49" selection-start-column="29" selection-end-line="49" selection-end-column="29" />
-          <folding>
-            <element signature="e#0#9#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="221">
+          <caret line="14" selection-start-line="14" selection-end-line="14" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/Demo_SMAC.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/MARL/eRL_demo_QMIXinSingleFile.py">
       <provider selected="true" editor-type-id="text-editor">
         <state>
           <folding>
@@ -943,76 +615,80 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/Chasing.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="221">
-          <caret line="14" selection-start-line="14" selection-end-line="14" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3298">
-          <caret line="197" column="7" selection-start-line="197" selection-start-column="7" selection-end-line="197" selection-end-column="7" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/config.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1377">
-          <caret line="83" column="92" selection-start-line="83" selection-start-column="16" selection-end-line="83" selection-end-column="92" />
-          <folding>
-            <element signature="e#0#9#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/envs/IsaacGym.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1785">
-          <caret line="109" column="13" selection-start-line="109" selection-start-column="13" selection-end-line="109" selection-end-column="13" />
-          <folding>
-            <element signature="e#0#86#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="32">
-          <caret line="5" selection-start-line="5" selection-end-line="5" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/MARL/eRL_demo_QMIXinSingleFile.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-408">
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_PPOinSingleFile.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="488">
-          <caret line="591" selection-start-line="591" selection-end-line="591" />
+        <state relative-caret-position="9928">
+          <caret line="595" selection-start-line="595" selection-end-line="595" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/tutorial/content.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/helloworld/net.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/api/learner.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/about/ensemble.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/about/parallel.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/docs/source/index.rst">
+      <provider selected="true" editor-type-id="restructured-text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/run.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5899">
+          <caret line="347" column="34" lean-forward="true" selection-start-line="347" selection-start-column="34" selection-end-line="347" selection-end-column="34" />
+          <folding>
+            <element signature="e#0#11#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/agent.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1139">
+          <caret line="672" column="70" selection-start-line="672" selection-start-column="70" selection-end-line="672" selection-end-column="70" />
+          <folding>
+            <element signature="e#26827#27984#0" />
+            <element signature="e#26827#27311#1" />
+            <element signature="e#27661#27944#0" />
+            <element signature="e#28025#29070#0" />
+            <element signature="e#28053#28112#0" />
+            <element signature="e#28167#29070#0" />
+            <element signature="e#28291#28845#0" />
+            <element signature="e#28291#28334#0" />
+            <element signature="e#28743#28792#0" />
+            <element signature="e#29167#29967#0" />
+            <element signature="e#30046#30691#0" />
+            <element signature="e#30153#30526#0" />
+            <element signature="e#30553#30658#0" />
+            <element signature="e#30750#31023#0" />
+            <element signature="e#30862#31022#0" />
+            <element signature="e#31063#31125#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="624">
+          <caret line="337" selection-start-line="337" selection-end-line="337" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/env.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="85">
-          <caret line="5" selection-start-line="5" selection-end-line="5" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="68">
+          <caret line="6" selection-start-line="6" selection-end-line="6" />
         </state>
       </provider>
     </entry>
@@ -1027,243 +703,311 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/agent.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/run_smac.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="307">
-          <caret line="666" column="70" selection-start-line="666" selection-start-column="70" selection-end-line="666" selection-end-column="70" />
+        <state>
           <folding>
-            <element signature="e#124#5596#0" />
-            <element signature="e#152#668#0" />
-            <element signature="e#152#230#1" />
-            <element signature="e#782#2173#0" />
-            <element signature="e#782#1371#1" />
-            <element signature="e#2233#2694#0" />
-            <element signature="e#2233#2441#1" />
-            <element signature="e#2757#3453#0" />
-            <element signature="e#2757#3073#1" />
-            <element signature="e#3184#3395#0" />
-            <element signature="e#3525#3898#0" />
-            <element signature="e#3525#3814#1" />
-            <element signature="e#3977#4465#0" />
-            <element signature="e#3977#4317#1" />
-            <element signature="e#4523#5596#0" />
-            <element signature="e#4523#4730#1" />
-            <element signature="e#4795#4923#0" />
-            <element signature="e#4949#5147#0" />
-            <element signature="e#5268#5403#0" />
-            <element signature="e#5316#5403#0" />
-            <element signature="e#5430#5596#0" />
-            <element signature="e#5478#5596#0" />
-            <element signature="e#5630#9485#0" />
-            <element signature="e#5630#5777#1" />
-            <element signature="e#5810#6096#0" />
-            <element signature="e#5810#5904#1" />
-            <element signature="e#6178#6913#0" />
-            <element signature="e#6178#6549#1" />
-            <element signature="e#6712#6892#0" />
-            <element signature="e#6976#7739#0" />
-            <element signature="e#6976#7326#1" />
-            <element signature="e#7437#7681#0" />
-            <element signature="e#7835#8677#0" />
-            <element signature="e#7835#8275#1" />
-            <element signature="e#8429#8621#0" />
-            <element signature="e#8769#9485#0" />
-            <element signature="e#8769#9106#1" />
-            <element signature="e#9149#9336#0" />
-            <element signature="e#9524#10725#0" />
-            <element signature="e#9552#9650#0" />
-            <element signature="e#9732#10197#0" />
-            <element signature="e#9915#10066#0" />
-            <element signature="e#10093#10176#0" />
-            <element signature="e#10289#10725#0" />
-            <element signature="e#10323#10532#0" />
-            <element signature="e#10760#12171#0" />
-            <element signature="e#10788#10990#0" />
-            <element signature="e#11095#11732#0" />
-            <element signature="e#11242#11681#0" />
-            <element signature="e#11824#12171#0" />
-            <element signature="e#11858#12042#0" />
-            <element signature="e#12205#14059#0" />
-            <element signature="e#12233#12580#0" />
-            <element signature="e#12676#13457#0" />
-            <element signature="e#12830#13402#0" />
-            <element signature="e#13265#13402#0" />
-            <element signature="e#13549#14059#0" />
-            <element signature="e#13583#13879#0" />
-            <element signature="e#14093#19433#0" />
-            <element signature="e#14093#14298#1" />
-            <element signature="e#14331#14695#0" />
-            <element signature="e#14331#14425#1" />
-            <element signature="e#14817#15805#0" />
-            <element signature="e#14817#15394#1" />
-            <element signature="e#15851#16317#0" />
-            <element signature="e#15851#16138#1" />
-            <element signature="e#16372#17115#0" />
-            <element signature="e#16372#16742#1" />
-            <element signature="e#16848#17062#0" />
-            <element signature="e#17202#19433#0" />
-            <element signature="e#17202#17738#1" />
-            <element signature="e#17941#19367#0" />
-            <element signature="e#18043#18349#0" />
-            <element signature="e#19467#27984#0" />
-            <element signature="e#19467#19599#1" />
-            <element signature="e#19632#20192#0" />
-            <element signature="e#19632#19726#1" />
-            <element signature="e#20313#21113#0" />
-            <element signature="e#20313#20890#1" />
-            <element signature="e#21159#21667#0" />
-            <element signature="e#21159#21446#1" />
-            <element signature="e#21722#22772#0" />
-            <element signature="e#21722#22092#1" />
-            <element signature="e#22225#22547#0" />
-            <element signature="e#22445#22494#0" />
-            <element signature="e#22859#25744#0" />
-            <element signature="e#22859#23395#1" />
-            <element signature="e#23438#24248#0" />
-            <element signature="e#24421#25583#0" />
-            <element signature="e#25862#26709#0" />
-            <element signature="e#25862#26336#1" />
-            <element signature="e#26513#26604#0" />
-            <element signature="e#26827#27984#0" />
-            <element signature="e#26827#27311#1" />
-            <element signature="e#27661#27944#0" />
-            <element signature="e#28025#29070#0" />
-            <element signature="e#28053#28112#0" />
-            <element signature="e#28167#29070#0" />
-            <element signature="e#28291#28845#0" />
-            <element signature="e#28291#28334#0" />
-            <element signature="e#28743#28792#0" />
-            <element signature="e#29097#32646#0" />
-            <element signature="e#29167#29967#0" />
-            <element signature="e#30046#30691#0" />
-            <element signature="e#30153#30526#0" />
-            <element signature="e#30553#30658#0" />
-            <element signature="e#30750#31023#0" />
-            <element signature="e#30862#31022#0" />
-            <element signature="e#31063#31125#0" />
+            <element signature="e#0#15#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/eRL_demo_SACinSingleFile.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/evaluator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1003">
-          <caret line="336" selection-start-line="336" selection-end-line="383" selection-end-column="70" />
+        <state relative-caret-position="272">
+          <caret line="213" selection-start-line="213" selection-end-line="213" />
           <folding>
-            <element signature="e#229#1911#0" />
-            <element signature="e#289#884#0" />
-            <element signature="e#924#1003#0" />
-            <element signature="e#1046#1278#0" />
-            <element signature="e#1329#1911#0" />
-            <element signature="e#1967#2856#0" />
-            <element signature="e#2027#2541#0" />
-            <element signature="e#2589#2688#0" />
-            <element signature="e#2738#2856#0" />
-            <element signature="e#2896#7438#0" />
-            <element signature="e#2924#3519#0" />
-            <element signature="e#3630#4653#0" />
-            <element signature="e#4699#4869#0" />
-            <element signature="e#4924#5288#0" />
-            <element signature="e#5021#5235#0" />
-            <element signature="e#5375#7061#0" />
-            <element signature="e#5569#6995#0" />
-            <element signature="e#5671#5977#0" />
-            <element signature="e#7133#7208#0" />
-            <element signature="e#7287#7438#0" />
-            <element signature="e#7550#9949#0" />
-            <element signature="e#7578#7738#0" />
-            <element signature="e#7825#9949#0" />
-            <element signature="e#8037#9891#0" />
-            <element signature="e#8139#8446#0" />
-            <element signature="e#9592#9891#0" />
-            <element signature="e#9988#12724#0" />
-            <element signature="e#10038#11847#0" />
-            <element signature="e#11902#12724#0" />
-            <element signature="e#11935#12057#0" />
-            <element signature="e#12091#12475#0" />
-            <element signature="e#12332#12426#0" />
-            <element signature="e#14381#14926#0" />
-            <element signature="e#14415#14516#0" />
-            <element signature="e#14653#14926#0" />
-            <element signature="e#15038#17066#0" />
-            <element signature="e#15108#15908#0" />
-            <element signature="e#15987#16632#0" />
-            <element signature="e#16094#16467#0" />
-            <element signature="e#16494#16599#0" />
-            <element signature="e#16691#16964#0" />
-            <element signature="e#16803#16963#0" />
-            <element signature="e#17004#17066#0" />
-            <element signature="e#17090#20097#0" />
-            <element signature="e#17170#17859#0" />
-            <element signature="e#17677#17858#0" />
-            <element signature="e#17940#19703#0" />
-            <element signature="e#18163#18282#0" />
-            <element signature="e#18460#18764#0" />
-            <element signature="e#19017#19456#0" />
-            <element signature="e#19087#19455#0" />
-            <element signature="e#19472#19673#0" />
-            <element signature="e#19784#20097#0" />
-            <element signature="e#20171#20872#0" />
-            <element signature="e#20381#20764#0" />
-            <element signature="e#20936#21583#0" />
-            <element signature="e#20984#21252#0" />
-            <element signature="e#21087#21212#0" />
-            <element signature="e#21297#21361#0" />
-            <element signature="e#21446#21583#0" />
-            <element signature="e#21669#23616#0" />
-            <element signature="e#22810#22869#0" />
-            <element signature="e#22976#23136#0" />
-            <element signature="e#23272#23500#0" />
-            <element signature="e#23669#24945#0" />
-            <element signature="e#23902#24357#0" />
-            <element signature="e#24736#24915#0" />
+            <element signature="e#0#9#0" expanded="true" />
+            <element signature="e#176#5127#0" />
+            <element signature="e#294#1039#0" />
+            <element signature="e#857#1038#0" />
+            <element signature="e#1142#3863#0" />
+            <element signature="e#1268#1317#0" />
+            <element signature="e#1344#3825#0" />
+            <element signature="e#1445#1561#0" />
+            <element signature="e#1804#2060#0" />
+            <element signature="e#1826#1966#0" />
+            <element signature="e#2232#2633#0" />
+            <element signature="e#2955#3418#0" />
+            <element signature="e#3029#3417#0" />
+            <element signature="e#3438#3647#0" />
+            <element signature="e#3944#4257#0" />
+            <element signature="e#4312#4611#0" />
+            <element signature="e#4440#4611#0" />
+            <element signature="e#4646#5127#0" />
+            <element signature="e#4686#4773#0" />
+            <element signature="e#5240#6377#0" />
+            <element signature="e#5578#5826#0" />
+            <element signature="e#5614#5826#0" />
+            <element signature="e#5845#6049#0" />
+            <element signature="e#5881#6049#0" />
+            <element signature="e#6124#6269#0" />
+            <element signature="e#6498#8598#0" />
+            <element signature="e#9857#10051#1" />
+            <element signature="e#11153#11256#0" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/elegantrl_helloworld/run.py">
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/replay_buffer.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="188">
-          <caret line="350" column="28" lean-forward="true" selection-start-line="350" selection-start-column="28" selection-end-line="350" selection-end-column="28" />
+        <state relative-caret-position="204">
+          <caret line="385" column="43" selection-start-line="385" selection-start-column="43" selection-end-line="385" selection-end-column="43" />
           <folding>
-            <element signature="e#158#3489#0" />
-            <element signature="e#228#2612#0" />
-            <element signature="e#1226#1712#0" />
-            <element signature="e#1739#2240#0" />
-            <element signature="e#2667#3489#0" />
-            <element signature="e#2700#2822#0" />
-            <element signature="e#2856#3240#0" />
-            <element signature="e#3097#3191#0" />
-            <element signature="e#4918#5653#0" />
-            <element signature="e#4987#5653#0" />
-            <element signature="e#6061#6143#0" />
-            <element signature="e#6465#6738#0" />
-            <element signature="e#6979#9986#0" />
-            <element signature="e#7059#7748#0" />
-            <element signature="e#7566#7747#0" />
-            <element signature="e#7829#9592#0" />
-            <element signature="e#8052#8171#0" />
-            <element signature="e#8349#8653#0" />
-            <element signature="e#8906#9345#0" />
-            <element signature="e#8976#9344#0" />
-            <element signature="e#9361#9562#0" />
-            <element signature="e#9673#9986#0" />
-            <element signature="e#10060#10762#0" />
-            <element signature="e#10270#10654#0" />
-            <element signature="e#10810#11988#0" />
-            <element signature="e#11009#11391#0" />
-            <element signature="e#11461#11662#0" />
-            <element signature="e#11736#11881#0" />
-            <element signature="e#12035#13408#0" />
-            <element signature="e#12251#12706#0" />
-            <element signature="e#12776#13011#0" />
-            <element signature="e#13085#13301#0" />
-            <element signature="e#13454#14213#0" />
-            <element signature="e#13642#13829#0" />
-            <element signature="e#13899#14106#0" />
-            <element signature="e#14258#15055#0" />
-            <element signature="e#14484#14671#0" />
-            <element signature="e#14741#14948#0" />
+            <element signature="e#0#9#0" expanded="true" />
+            <element signature="e#128#9905#0" />
+            <element signature="e#236#1676#0" />
+            <element signature="e#236#959#1" />
+            <element signature="e#1755#2042#0" />
+            <element signature="e#1994#2042#0" />
+            <element signature="e#2095#2855#0" />
+            <element signature="e#2324#2693#0" />
+            <element signature="e#2720#2823#0" />
+            <element signature="e#2914#4557#0" />
+            <element signature="e#2914#3449#1" />
+            <element signature="e#3488#4205#0" />
+            <element signature="e#3757#4174#0" />
+            <element signature="e#4232#4557#0" />
+            <element signature="e#4352#4556#0" />
+            <element signature="e#4625#5487#0" />
+            <element signature="e#4655#5226#0" />
+            <element signature="e#4924#5195#0" />
+            <element signature="e#5253#5487#0" />
+            <element signature="e#5373#5486#0" />
+            <element signature="e#5527#5692#0" />
+            <element signature="e#5779#7851#0" />
+            <element signature="e#5779#6290#1" />
+            <element signature="e#6465#6578#0" />
+            <element signature="e#7064#7185#0" />
+            <element signature="e#7552#7629#0" />
+            <element signature="e#7902#7941#0" />
+            <element signature="e#8040#9905#0" />
+            <element signature="e#8140#9138#0" />
+            <element signature="e#9191#9775#0" />
+            <element signature="e#9406#9658#0" />
+            <element signature="e#9802#9882#0" />
+            <element signature="e#9934#13042#0" />
+            <element signature="e#10028#11325#0" />
+            <element signature="e#10028#10809#1" />
+            <element signature="e#10819#10958#1" />
+            <element signature="e#11120#11325#0" />
+            <element signature="e#11383#11813#0" />
+            <element signature="e#11439#11527#0" />
+            <element signature="e#11536#11591#0" />
+            <element signature="e#11880#12319#0" />
+            <element signature="e#11936#12033#0" />
+            <element signature="e#12042#12097#0" />
+            <element signature="e#12359#12490#0" />
+            <element signature="e#12424#12490#0" />
+            <element signature="e#12577#12666#0" />
+            <element signature="e#12717#12874#0" />
+            <element signature="e#12934#13042#0" />
+            <element signature="e#13073#17044#0" />
+            <element signature="e#13073#13321#1" />
+            <element signature="e#13365#13967#0" />
+            <element signature="e#13687#13735#0" />
+            <element signature="e#14038#14411#0" />
+            <element signature="e#14305#14411#0" />
+            <element signature="e#14484#15210#0" />
+            <element signature="e#14834#15063#0" />
+            <element signature="e#15250#16156#0" />
+            <element signature="e#15250#15531#1" />
+            <element signature="e#15587#16097#0" />
+            <element signature="e#15783#15826#0" />
+            <element signature="e#15922#16097#0" />
+            <element signature="e#16033#16097#0" />
+            <element signature="e#16226#16818#0" />
+            <element signature="e#16905#17044#0" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/ChasingEnv.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-3490">
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/__init__.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/starcraft/__init__.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/__init__.py">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/marl_utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/IsaacGym.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-2300">
+          <caret line="33" lean-forward="true" selection-start-line="33" selection-end-line="33" />
+          <folding>
+            <element signature="e#0#28#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/DownLinkEnv.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="204">
+          <caret line="22" column="32" lean-forward="true" selection-start-line="22" selection-start-column="32" selection-end-line="22" selection-end-column="32" />
+          <folding>
+            <element signature="e#0#14#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/utils/config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3179">
+          <caret line="334" column="22" selection-start-line="334" selection-start-column="22" selection-end-line="334" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentBase.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="647">
+          <caret line="88" selection-start-line="88" selection-end-line="88" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentA2C.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="981">
+          <caret line="204" selection-start-line="204" selection-end-line="204" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentPPO.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-918" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDDPG.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-561">
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDQN.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1348">
+          <caret line="48" column="78" selection-start-line="48" selection-start-column="78" selection-end-line="48" selection-end-column="78" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/Gym.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-1144">
+          <caret line="9" column="31" selection-start-line="9" selection-start-column="31" selection-end-line="9" selection-end-column="31" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/agents/AgentDoubleDQN.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="459">
+          <caret line="81" selection-start-line="81" selection-end-line="81" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/learner.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="221">
+          <caret line="16" column="72" selection-start-line="16" selection-start-column="72" selection-end-line="16" selection-end-column="72" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="153">
+          <caret line="152" column="30" selection-start-line="152" selection-start-column="30" selection-end-line="152" selection-end-column="30" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/envs/CarRacingFix.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="181">
+          <caret line="567" column="22" lean-forward="true" selection-start-line="567" selection-start-column="22" selection-end-line="567" selection-end-column="22" />
+          <folding>
+            <element signature="e#0#11#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="146">
+          <caret line="140" column="82" selection-start-line="140" selection-start-column="70" selection-end-line="140" selection-end-column="82" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/worker.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="17">
+          <caret line="18" column="32" selection-start-line="18" selection-start-column="32" selection-end-line="18" selection-end-column="32" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/elegantrl/train/run.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="153">
+          <caret line="118" column="19" selection-start-line="118" selection-start-column="19" selection-end-line="118" selection-end-column="19" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Examples/Demo_Gym_Pendulum.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="238">
+          <caret line="14" column="17" lean-forward="true" selection-start-line="14" selection-start-column="17" selection-end-line="14" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#46#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Examples/Demo_Gym_BipedalWalker.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="249">
+          <caret line="32" column="27" lean-forward="true" selection-start-line="32" selection-start-column="27" selection-end-line="32" selection-end-column="27" />
+          <folding>
+            <element signature="e#0#46#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Examples/Demo_PyBullet_Ant.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="136">
+          <caret line="8" column="57" selection-start-line="8" selection-start-column="57" selection-end-line="8" selection-end-column="57" />
+          <folding>
+            <element signature="e#0#49#0" expanded="true" />
           </folding>
         </state>
       </provider>
