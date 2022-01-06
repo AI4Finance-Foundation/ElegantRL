@@ -19,6 +19,7 @@ At the bottom, an worker generates transitions (collect training data) from inte
   For VecEnv, if users want to increase the degree of parallelism, we recommend to increase #sub-environments and make #workers unchaged. In pratice, there is no need to set #workers > 1 for GPU-accelerated VecEnv. 
   
 We highly recommend users to use GPU-accelerated VecEnv to achieve massively parallel simulations. A GPU-accelerated VecEnv can:
+
   - Running thousands of parallel simulations, since the manycore GPU architecture is natually suited for parallel simulations.
   - Speeding up the matrix computations of each simulation using GPU tensor cores.
   - Reducing the communication overhead by bypassing the bottleneck between CPUs and GPUs.
