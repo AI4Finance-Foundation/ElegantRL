@@ -76,9 +76,9 @@ Or install with the newest version through GitHub:
    :caption: Overview
 
    about/overview
-   about/algorithm_implementation
    about/parallel
    about/ensemble
+   about/algorithm_implementation
    about/quickstart
 
 .. toctree::
@@ -113,10 +113,14 @@ Or install with the newest version through GitHub:
 .. toctree::
    :maxdepth: 1
    :caption: Tutorials
-   
-   tutorial/Creating_VecEnv
+
    tutorial/BipedalWalker-v3
    tutorial/LunarLanderContinuous-v2
+   tutorial/Creating_VecEnv
+   tutorial/isaacgym
+   tutorial/redq
+   tutorial/finrl-podracer
+   tutorial/elegantrl-podracer
    
    
 .. toctree::

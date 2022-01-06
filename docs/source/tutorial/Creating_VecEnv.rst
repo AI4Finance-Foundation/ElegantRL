@@ -1,28 +1,9 @@
 How to create a VecEnv on GPUs
 ===============================
 
-For GPU-accelerated VecEnv, ElegantRL supports both external GPU-accelerated VecEnv, e.g., NVIDIA Isaac Gym, and user-customized VecEnv. Next, we explain in detail how to use Isaac Gym and how to define your own VecEnv in ElegantRL. 
+ElegantRL supports massively parallel simulation through GPU-accelerated VecEnv.
 
-Running a VecEnv environment from NVIDIA Isaac Gym
-------------------------------------------
-
-Isaac Gym is NVIDIA’s prototype physics simulators for reinforcement learning research. Isaac Gym includes typical RL tasks, e.g., Cartpole, Ant, Humanoid, Shadow Hand Object Manipulation, and also supports user-customization. Please follow the instructions at https://developer.nvidia.com/isaac-gym. 
-
-ElegantRL provides a wrapper ``PreprocessIsaacVecEnv`` to process an Isaac Gym environment:
-
-.. code-block:: python
-
-    from elegantrl.envs.IsaacGym import PreprocessIsaacVecEnv
-
-    env_name = 'Ant'
-    
-    env = PreprocessIsaacVecEnv(env_name, if_print=False, env_num=4096, device_id=0)
-
-
-Building a VecEnv environment from scratch
-------------------------------------------
-
-We show an example of how to construct a VecEnv from scratch. We create a simple chasing environment, a deterministic environment with continuous actions and continuous state space. The goal is to move an agent to chase a randomly moving robot. The reward depends on the distance between agent and robot. The environment terminates when the agent catches the robot or the max step is reached.
+Here, we talk about how to create a VecEnv on GPUs from scratch and go through a simple Chasing example, a deterministic environment with continuous actions and continuous state space. The goal is to move an agent to chase a randomly moving robot. The reward depends on the distance between agent and robot. The environment terminates when the agent catches the robot or the max step is reached.
 
 To keep the example simple, we only use two packages, PyTorch and Numpy.
 
