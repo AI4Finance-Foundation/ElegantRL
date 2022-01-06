@@ -502,10 +502,7 @@ class AgentMADDPG(AgentBase):
     def save_or_load_agent(self, cwd, if_save):
         for i in range(self.n_agents):
             self.agents[i].save_or_load_agent(cwd+'/'+str(i),if_save)
-    def load_actor(self, cwd):
-        for i in range(self.n_agents):
-            self.agents[i].act.load_state_dict(torch.load(cwd+'/actor'+str(i) + '.pth', map_location ='cpu'))
-
+    
 
 
 class OrnsteinUhlenbeckNoise:  # NOT suggest to use it

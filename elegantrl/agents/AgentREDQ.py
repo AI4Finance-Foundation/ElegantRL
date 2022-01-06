@@ -1,7 +1,22 @@
 class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
-    """Modified SAC
-    - reliable_lambda and TTUR (Two Time-scale Update Rule)
-    - modified REDQ (Randomized Ensemble Double Q-learning)
+    """"
+    Bases: ``AgentBase``
+    
+    Randomized Ensemble Double Q-learning algorithm. “Randomized Ensembled Double Q-Learning: Learning Fast Without A Model”. Xinyue Chen et al.. 2021.
+    
+    :param net_dim[int]: the dimension of networks (the width of neural networks)
+    :param state_dim[int]: the dimension of state (the number of state vector)
+    :param action_dim[int]: the dimension of action (the number of discrete action)
+    :param reward_scale: scale the reward to get a appropriate scale Q value
+    :param gamma: the discount factor of Reinforcement Learning
+
+    :param learning_rate: learning rate of optimizer
+    :param if_per_or_gae: PER (off-policy) or GAE (on-policy) for sparse reward
+    :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
+    :param G: Update to date ratio
+    :param M: subset size of critics
+    :param N: ensemble number of critics
     """
     def __init__(self):
         AgentBase.__init__(self)
@@ -43,6 +58,14 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         self.criterion = torch.nn.MSELoss()
          
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param alpha: the trade-off coefficient of entropy regularization.
+        :return: the loss of the network and states.
+        """
         with torch.no_grad():
             batch = buffer.sample_batch(batch_size)
             state  = torch.Tensor(batch['obs1']).to(self.device)
@@ -71,6 +94,11 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         #return y_q, state,action
 
     def select_actions(self, state,size, env):
+        """Select continuous actions for exploration
+
+        :param state: states.shape==(batch_size, state_dim, )
+        :return: actions.shape==(batch_size, action_dim, ),  -1 < action < +1
+        """
         state = state.to(self.device)
         actions = self.act.get_action(state)
         return actions.detach().cpu()
@@ -84,6 +112,14 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     
     def update_net(self, buffer, batch_size, soft_update_tau):
         #buffer.update_now_len()
+        """
+        Update the neural networks by sampling batch data from ``ReplayBuffer``.
+        
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :param soft_update_tau: the soft update parameter.
+        :return: a tuple of the log information.
+        """
         for i in range(self.G):
             alpha = self.alpha_log.cpu().exp().item()
             '''objective of critic (loss function of critic)'''
