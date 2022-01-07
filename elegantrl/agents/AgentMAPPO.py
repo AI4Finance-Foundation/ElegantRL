@@ -6,7 +6,9 @@ import math
 
 class AgentMAPPO():
     """
-    class for MAPPO to update policies and .
+    
+    Multi-Agent PPO Algorithm.
+    
     :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
     :param policy: (R_MAPPO_Policy) policy to update.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
