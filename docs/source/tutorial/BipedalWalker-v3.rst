@@ -9,77 +9,97 @@ Step 1: Install ElegantRL
 ------------------------------
 
 .. code-block:: python
-   :linenos:
    
      pip install git+https://github.com/AI4Finance-LLC/ElegantRL.git
   
-Step 2: Import Packages
+Step 2: Import packages
 -------------------------------
 
    - ElegantRL
    
-   - OpenAI Gym: a toolkit for developing and comparing reinforcement learning algorithms.
+   - OpenAI Gym: a toolkit for developing and comparing reinforcement learning algorithms (collections of environments).
    
-   - PyBullet Gym: an open-source implementation of the OpenAI Gym MuJoCo environments.
+.. code-block:: python
+   
+   import gym
+
+   from elegantrl.agents.AgentPPO import AgentPPO
+   from elegantrl.envs.Gym import get_gym_env_args
+   from elegantrl.train.config import Arguments
+   from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
+
+Step 3: Get environment information
+--------------------------------------------------
 
 .. code-block:: python
-   :linenos:
    
-      from elegantrl.run import *
-      from elegantrl.agent import AgentGaePPO
-      from elegantrl.env import PreprocessEnv
-      import gym
-      gym.logger.set_level(40) # Block warning
+   get_gym_env_args(gym.make('BipedalWalker-v3'), if_print=True)
+   
+
+Output: 
+
+.. example-code::
+
+   env_args = {
+       'env_num': 1,
+       'env_name': 'BipedalWalker-v3',
+       'max_step': 1600,
+       'state_dim': 24,
+       'action_dim': 4,
+       'if_discrete': False,
+       'target_return': 300,
+   }
 
 
-Step 3: Specify Agent and Environment
+Step 4: Initialize agent and environment
 ---------------------------------------------
 
-   - args.agent: firstly chooses a DRL algorithm, and the user is able to choose one from a set of agents in agent.py
+   - agent: chooses a agent (DRL algorithm) from a set of agents in the `directory <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/agents>`_.
    
-   - args.env: creates and preprocesses an environment, and the user can either customize own environment or preprocess environments from OpenAI Gym and PyBullet Gym in env.py.
+   - env_func: the function to create an environment, in this case, we use ``gym.make`` to create BipedalWalker-v3.
+   
+   - env_args: the environment information.
 
 .. code-block:: python
-   :linenos:
    
-      args = Arguments(if_off_policy=True)
-      args.agent = AgentGaePPO() # AgentSAC(), AgentTD3(), AgentDDPG()
-      args.env = PreprocessEnv(env=gym.make(‘BipedalWalker-v3’))
-      args.reward_scale = 2 ** -1 # RewardRange: -200 < -150 < 300 < 334
-      args.gamma = 0.95
-      args.rollout_num = 2 # the number of rollout workers (larger is not always faster)
+   env_func = gym.make
+   env_args = {
+       'env_num': 1,
+       'env_name': 'BipedalWalker-v3',
+       'max_step': 1600,
+       'state_dim': 24,
+       'action_dim': 4,
+       'if_discrete': False,
+       'target_return': 300,
+       'id': 'BipedalWalker-v3',
+   }
 
-Step 4: Train and Evaluate the Agent
+   args = Arguments(agent=AgentPPO, env_func=env_func, env_args=env_args)
+
+Step 5: Specify hyper-parameters
 ----------------------------------------
 
-The training and evaluating processes are inside function **train_and_evaluate__multiprocessing(args)**, and the parameter is args. It includes two fundamental objects in DRL:
-
-   - agent
-   
-   - environment (env)
-
-And the parameters for training:
-
-   - batch_size
-   
-   - target_step
-   
-   - reward_scale
-   
-   - gamma, etc
-
-Also the parameters for evaluation:
-
-   - break_step
-   
-   - random_seed, etc
+A list of hyper-parameters is available `here <https://elegantrl.readthedocs.io/en/latest/api/config.html>`_.
 
 .. code-block:: python
-   :linenos:
-   
-      train_and_evaluate__multiprocessing(args) # the training process will terminate once it reaches the target reward.
 
-Step 5: Testing Results
+   args.net_dim = 2 ** 8
+   args.batch_size = args.net_dim * 2
+   args.target_step = args.max_step * 2
+   args.worker_num = 4
+
+   args.save_gap = 2 ** 9
+   args.eval_gap = 2 ** 8
+   args.eval_times1 = 2 ** 4
+   args.eval_times2 = 2 ** 5
+   args.worker_num = 2
+   
+
+Step 6: Train your agent
+----------------------------------------
+
+
+Step 6: Testing Results
 ----------------------------------------
 
 After reaching the target reward, we generate the frame for each state and compose frames as a video result. From the video, the walker is able to move forward constantly.
