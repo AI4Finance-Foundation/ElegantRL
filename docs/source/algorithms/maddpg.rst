@@ -30,7 +30,7 @@ Code Snippet
 Parameters
 ---------------------
 
-.. autoclass:: elegantrl.agents.AgentMADDPG.AgentMADDPG
+.. autoclass:: elegantrl.agents.AgentQMix.AgentQMix
    :members:
    
 .. _maddpg_networks:
