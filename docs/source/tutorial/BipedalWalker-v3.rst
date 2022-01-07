@@ -1,4 +1,4 @@
-Example 1: BipedalWalker-v3
+Example 2: BipedalWalker-v3
 ===============================
 
 BipedalWalker-v3 is a classic task in robotics that performs a fundamental skill: moving. The goal is to get a 2D biped walker to walk through rough terrain. BipedalWalker is considered to be a difficult task in the continuous action space, and there are only a few RL implementations that can reach the target reward.

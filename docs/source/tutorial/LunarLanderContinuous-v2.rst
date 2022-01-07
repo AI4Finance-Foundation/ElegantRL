@@ -1,4 +1,4 @@
-Example 2: LunarLanderContinuous-v2
+Example 1: LunarLanderContinuous-v2
 ========================================
 
 .. image:: ../images/LunarLanderTwinDelay3.gif
