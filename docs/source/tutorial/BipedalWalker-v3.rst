@@ -38,7 +38,7 @@ Step 3: Get environment information
 
 Output: 
 
-.. example-code::
+.. code-block:: python
 
    env_args = {
        'env_num': 1,
@@ -92,33 +92,75 @@ A list of hyper-parameters is available `here <https://elegantrl.readthedocs.io/
    args.eval_gap = 2 ** 8
    args.eval_times1 = 2 ** 4
    args.eval_times2 = 2 ** 5
-   args.worker_num = 2
    
 
 Step 6: Train your agent
 ----------------------------------------
 
+In this tutorial, we provide four different modes to train an agent:
 
-Step 6: Testing Results
+   - **Single-process**: utilize one GPU for a single-process training. No parallelism.
+   
+   - **Multi-process**: utilize one GPU for a multi-process training. Support worker and learner parallelism.
+
+   - **Multi-GPU**: utilize multi-GPUs to train an agent through model fusion. Specify the GPU ids you want to use. 
+   
+   - **Tournament-based ensemble training**: utilize multi-GPUs to run tournament-based ensemble training.
+   
+   
+.. code-block:: python
+
+   flag = 'SingleProcess'
+
+   if flag == 'SingleProcess':
+       args.learner_gpus = 0
+       train_and_evaluate(args)
+       
+   elif flag == 'MultiProcess':
+       args.learner_gpus = 0
+       train_and_evaluate_mp(args)
+       
+   elif flag == 'MultiGPU':
+       args.learner_gpus = [0, 1, 2, 3]
+       train_and_evaluate_mp(args)
+       
+   elif flag == 'Tournament-based':
+       args.learner_gpus = [[i, ] for i in range(4)]  # [[0,], [1, ], [2, ]] or [[0, 1], [2, 3]]
+       python_path = '.../bin/python3'
+       train_and_evaluate_mp(args, python_path)
+       
+   else:
+       raise ValueError(f"Unknown flag: {flag}")
+   
+   
+Step 7: Testing Results
 ----------------------------------------
 
 After reaching the target reward, we generate the frame for each state and compose frames as a video result. From the video, the walker is able to move forward constantly.
 
 .. code-block:: python
-   :linenos:
 
-      for i in range(1024):
-          frame = gym_env.render('rgb_array')
-          cv2.imwrite(f'{save_dir}/{i:06}.png', frame)
+   for i in range(1024):
+      frame = gym_env.render('rgb_array')
+      cv2.imwrite(f'{save_dir}/{i:06}.png', frame)
 
-          states = torch.as_tensor((state,), dtype=torch.float32, device=device)
-          actions = agent.act(states)
-          action = actions.detach().cpu().numpy()[0]
-          next_state, reward, done, _ = env.step(action)
-          if done:
-              state = env.reset()
-          else:
-              state = next_state
+      states = torch.as_tensor((state,), dtype=torch.float32, device=device)
+      actions = agent.act(states)
+      action = actions.detach().cpu().numpy()[0]
+      next_state, reward, done, _ = env.step(action)
+      if done:
+         state = env.reset()
+      else:
+         state = next_state
+
+Random action:
 
 .. image:: ../images/BipedalWalker-v3_1.gif
+   :width: 80%
+   :align: center
+
+After training:
+
 .. image:: ../images/BipedalWalker-v3_2.gif
+   :width: 80%
+   :align: center
