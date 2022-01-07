@@ -6,7 +6,6 @@ from elegantrl.agents.net import Actor, Critic
 
 class AgentMADDPG(AgentBase):
     """
-    Bases: ``AgentBase``
     
     Multi-Agent DDPG algorithm. “Multi-Agent Actor-Critic for Mixed Cooperative-Competitive”. R Lowe. et al.. 2017.
     
