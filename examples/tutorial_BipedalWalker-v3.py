@@ -16,7 +16,6 @@ env_args = {
     'action_dim': 4,
     'if_discrete': False,
     'target_return': 300,
-
     'id': 'BipedalWalker-v3',
 }
 
@@ -31,12 +30,8 @@ args.save_gap = 2 ** 9
 args.eval_gap = 2 ** 8
 args.eval_times1 = 2 ** 4
 args.eval_times2 = 2 ** 5
-args.worker_num = 2
 
-flag = ['SingleProcess',
-        'MultiProcess',
-        'MultiGPU',
-        'Tournament-based', ][1]
+flag = 'SingleProcess'
 
 if flag == 'SingleProcess':
     args.learner_gpus = 0
@@ -49,7 +44,7 @@ elif flag == 'MultiGPU':
     train_and_evaluate_mp(args)
 elif flag == 'Tournament-based':
     args.learner_gpus = [[i, ] for i in range(4)]  # [[0,], [1, ], [2, ]] or [[0, 1], [2, 3]]
-    python_path = '/mnt/sdb1/yonv/conda3/envs/python38/bin/python3'
+    python_path = '../bin/python3'
     train_and_evaluate_mp(args, python_path)  # multiple processing
 else:
     raise ValueError(f"Unknown flag: {flag}")
