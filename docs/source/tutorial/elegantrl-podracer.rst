@@ -5,7 +5,7 @@ In this section, we provide a tutorial of *tournament-based ensemble training*, 
 
 For detailed description, please check our recent paper: 
 
-Xiao-Yang Liu, Zechu Li, Zhuoran Yang, Jiahao Zheng, Zhaoran Wang, Anwar Walid, Jiang Guo, and Michael I. Jordan. `ElegantRL-Podracer: Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning <https://arxiv.org/abs/2112.05923>`_ *Deep Reinforcement Learning Workshop at NeurIPS*, 2021.  
+Xiao-Yang Liu, Zechu Li, Zhuoran Yang, Jiahao Zheng, Zhaoran Wang, Anwar Walid, Jiang Guo, and Michael I. Jordan. `ElegantRL-Podracer: Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning. <https://arxiv.org/abs/2112.05923>`_ *Deep Reinforcement Learning Workshop at NeurIPS*, 2021.  
 
 What is a tournament-based ensemble training?
 ------------------------------------------------------------
