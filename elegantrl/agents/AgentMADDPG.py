@@ -8,7 +8,7 @@ class AgentMADDPG(AgentBase):
     """
     Bases: ``AgentBase``
     
-    Multi-Agent DDPG algorithm. “Addressing Function Approximation Error in Actor-Critic Methods”. Scott Fujimoto. et al.. 2015.
+    Multi-Agent DDPG algorithm. “Multi-Agent Actor-Critic for Mixed Cooperative-Competitive”. R Lowe. et al.. 2017.
     
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
