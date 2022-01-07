@@ -3,7 +3,9 @@ Cloud Example 1: Generational Evolution
 
 In this section, we provide a tutorial of *generational evolution mechanism* with an ensemble method, to show ElegantRL's scalability on hundreds of computing nodes on a cloud platform, say, hundreds of GPUs.
 
-For detailed description, please check our recent paper, presented at 2nd ACM International Conference on AI in Finance (ICAIF'21): `FinRL-Podracer: High Performance and Scalable Deep Reinforcement Learning for Quantitative Finance <https://arxiv.org/abs/2111.05188>`_.  
+For detailed description, please check our recent paper: 
+
+`Zechu Li, Xiao-Yang Liu, Jiahao Zheng, Zhaoran Wang, Anwar Walid, and Jian Guo. FinRL-podracer: High performance and scalable deep reinforcement learning for quantitative finance. ACM International Conference on AI in Finance (ICAIF), 2021. <https://arxiv.org/abs/2111.05188>`_.  
 
 The codes are available on `GitHub <https://github.com/AI4Finance-Foundation/FinRL_Podracer>`_.  
 
