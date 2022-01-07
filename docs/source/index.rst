@@ -114,8 +114,8 @@ Or install with the newest version through GitHub:
    :maxdepth: 1
    :caption: Tutorials
 
-   tutorial/BipedalWalker-v3
    tutorial/LunarLanderContinuous-v2
+   tutorial/BipedalWalker-v3
    tutorial/Creating_VecEnv
    tutorial/isaacgym
    tutorial/redq
