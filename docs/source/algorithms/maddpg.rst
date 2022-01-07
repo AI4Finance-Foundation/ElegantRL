@@ -32,7 +32,6 @@ Parameters
 
 .. autoclass:: elegantrl.agents.AgentQMix.AgentQMix
    :members:
-   
 .. _maddpg_networks:
    
 Networks

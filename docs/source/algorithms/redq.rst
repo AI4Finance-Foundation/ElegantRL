@@ -48,7 +48,6 @@ Parameters
 
 .. autoclass:: elegantrl.agents.AgentREDQ.AgentREDQ
    :members:
-   
 .. _redq_networks:
    
 Networks

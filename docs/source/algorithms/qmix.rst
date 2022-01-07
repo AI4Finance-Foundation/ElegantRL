@@ -60,7 +60,6 @@ Parameters
 
 .. autoclass:: elegantrl.agents.AgentQMix.AgentQMix
    :members:
-   
 .. _qmix_networks:
    
 Networks

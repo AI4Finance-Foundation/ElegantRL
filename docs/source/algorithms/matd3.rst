@@ -39,7 +39,6 @@ Parameters
 
 .. autoclass:: elegantrl.agents.AgentMATD3.AgentMATD3
    :members:
-   
 .. _matd3_networks:
    
 Networks
