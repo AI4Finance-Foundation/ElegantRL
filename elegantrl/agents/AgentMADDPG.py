@@ -158,7 +158,8 @@ class AgentMADDPG(AgentBase):
         return actions
 
     def save_or_load_agent(self, cwd, if_save):
-        """save or load training files for Agent
+        """
+        save or load training files for Agent
 
         :param cwd: Current Working Directory. ElegantRL save training files in CWD.
         :param if_save: True: save files. False: load files.
