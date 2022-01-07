@@ -20,6 +20,7 @@ class AgentMADDPG(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+    
     def __init__(self):
         super().__init__()
         self.ClassAct = Actor
