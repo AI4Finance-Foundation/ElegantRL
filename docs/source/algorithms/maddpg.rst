@@ -14,15 +14,6 @@ Code Snippet
 .. code-block:: python
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
-        """
-        Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
-        :param buffer: the ReplayBuffer instance that stores the trajectories.
-        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :param repeat_times: the re-using times of each trajectory.
-        :param soft_update_tau: the soft update parameter.
-        :return Nonetype
-        """
         buffer.update_now_len()
         self.batch_size = batch_size
         self.update_tau = soft_update_tau
