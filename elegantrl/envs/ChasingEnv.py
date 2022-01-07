@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import numpy.random as rd
 
+
 TargetReturnDict = {
     2: 5.5,
     3: 3.5,
@@ -68,7 +69,7 @@ class ChasingEnv:
         '''done'''
         self.cur_step += 1
 
-        done = distance < self.dim or self.cur_step == self.max_step
+        done = (distance < self.dim) or (self.cur_step == self.max_step)
         return next_state, reward, done, None
 
     def get_state(self):
@@ -164,6 +165,7 @@ class ChasingVecEnv:
         for env_i in range(self.env_num):
             if dones[env_i]:
                 self.reset_env_i(env_i)
+        dones = dones.type(torch.float32)
 
         '''next_state'''
         next_states = self.get_state()
