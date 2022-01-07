@@ -10,6 +10,7 @@ MADDPG
 
 Code Snippet
 ------------
+
 .. code-block:: python
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
