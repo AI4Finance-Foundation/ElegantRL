@@ -3,7 +3,9 @@ Cloud Example 2: Tournament-based Ensemble Training
 
 In this section, we provide a tutorial of *tournament-based ensemble training*, to show ElegantRL's scalability on hundreds of computing nodes on a cloud platform, say, hundreds of GPUs.
 
-For detailed description, please check our recent paper, presented at NeurIPS 2021: Deep RL Workshop: `ElegantRL-Podracer: Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning <https://arxiv.org/abs/2112.05923>`_.  
+For detailed description, please check our recent paper: 
+
+Xiao-Yang Liu, Zechu Li, Zhuoran Yang, Jiahao Zheng, Zhaoran Wang, Anwar Walid, Jiang Guo, and Michael I. Jordan. `ElegantRL-Podracer: Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning <https://arxiv.org/abs/2112.05923>`_ *Deep Reinforcement Learning Workshop at NeurIPS*, 2021.  
 
 What is a tournament-based ensemble training?
 ------------------------------------------------------------
@@ -65,6 +67,7 @@ Run tournament-based ensemble training in ElegantRL
 Here, we provide a demo code to run the Isaac Gym Ant with tournament-based ensemble training in ElegantRL.
 
 .. code-block:: python
+
    import isaacgym
    import torch  # import torch after import IsaacGym modules
    from elegantrl.train.config import Arguments
