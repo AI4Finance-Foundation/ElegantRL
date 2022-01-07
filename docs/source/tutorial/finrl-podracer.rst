@@ -5,7 +5,7 @@ In this section, we provide a tutorial of *generational evolution mechanism* wit
 
 For detailed description, please check our recent paper: 
 
-Zechu Li, Xiao-Yang Liu, Jiahao Zheng, Zhaoran Wang, Anwar Walid, and Jian Guo. `FinRL-podracer: High performance and scalable deep reinforcement learning for quantitative finance. <https://arxiv.org/abs/2111.05188>`_ ACM International Conference on AI in Finance (ICAIF), 2021.  
+Zechu Li, Xiao-Yang Liu, Jiahao Zheng, Zhaoran Wang, Anwar Walid, and Jian Guo. `FinRL-podracer: High performance and scalable deep reinforcement learning for quantitative finance. <https://arxiv.org/abs/2111.05188>`_ *ACM International Conference on AI in Finance (ICAIF)*, 2021.  
 
 The codes are available on `GitHub <https://github.com/AI4Finance-Foundation/FinRL_Podracer>`_.  
 
