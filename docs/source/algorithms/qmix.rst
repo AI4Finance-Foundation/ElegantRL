@@ -1,4 +1,4 @@
-.. _ddpg:
+.. _qmix:
 
 
 QMix

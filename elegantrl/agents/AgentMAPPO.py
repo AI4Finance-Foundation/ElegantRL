@@ -79,6 +79,7 @@ class AgentMAPPO():
                     deterministic=False):
         """
         Compute actions and value function predictions for the given inputs.
+        
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param obs (np.ndarray): local agent inputs to the actor.
         :param rnn_states_actor: (np.ndarray) if actor is RNN, RNN states for actor.
@@ -87,7 +88,6 @@ class AgentMAPPO():
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
         :param deterministic: (bool) whether the action should be mode of distribution or should be sampled.
-
         :return values: (torch.Tensor) value function predictions.
         :return actions: (torch.Tensor) actions to take.
         :return action_log_probs: (torch.Tensor) log probabilities of chosen actions.
@@ -106,10 +106,10 @@ class AgentMAPPO():
     def get_values(self, cent_obs, rnn_states_critic, masks):
         """
         Get value function predictions.
+        
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param rnn_states_critic: (np.ndarray) if critic is RNN, RNN states for critic.
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
-
         :return values: (torch.Tensor) value function predictions.
         """
         values, _ = self.critic(cent_obs, rnn_states_critic, masks)
@@ -119,6 +119,7 @@ class AgentMAPPO():
                          available_actions=None, active_masks=None):
         """
         Get action logprobs / entropy and value function predictions for actor update.
+        
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param obs (np.ndarray): local agent inputs to the actor.
         :param rnn_states_actor: (np.ndarray) if actor is RNN, RNN states for actor.
@@ -128,7 +129,6 @@ class AgentMAPPO():
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
         :param active_masks: (torch.Tensor) denotes whether an agent is active or dead.
-
         :return values: (torch.Tensor) value function predictions.
         :return action_log_probs: (torch.Tensor) log probabilities of the input actions.
         :return dist_entropy: (torch.Tensor) action distribution entropy for the given inputs.
@@ -146,6 +146,7 @@ class AgentMAPPO():
     def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
         """
         Compute actions using the given inputs.
+        
         :param obs (np.ndarray): local agent inputs to the actor.
         :param rnn_states_actor: (np.ndarray) if actor is RNN, RNN states for actor.
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
@@ -159,11 +160,11 @@ class AgentMAPPO():
     def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch):
         """
         Calculate value function loss.
+        
         :param values: (torch.Tensor) value function predictions.
         :param value_preds_batch: (torch.Tensor) "old" value  predictions from data batch (used for value clip loss)
         :param return_batch: (torch.Tensor) reward to go returns.
         :param active_masks_batch: (torch.Tensor) denotes if agent is active or dead at a given timesep.
-
         :return value_loss: (torch.Tensor) value function loss.
         """
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param,
@@ -198,9 +199,9 @@ class AgentMAPPO():
     def ppo_update(self, sample, update_actor=True):
         """
         Update actor and critic networks.
+        
         :param sample: (Tuple) contains data batch with which to update networks.
         :update_actor: (bool) whether to update actor network.
-
         :return value_loss: (torch.Tensor) value function loss.
         :return critic_grad_norm: (torch.Tensor) gradient norm from critic up9date.
         ;return policy_loss: (torch.Tensor) actor(policy) loss value.
@@ -270,9 +271,9 @@ class AgentMAPPO():
     def update_net(self, buffer, update_actor=True):
         """
         Perform a training update using minibatch GD.
+        
         :param buffer: (SharedReplayBuffer) buffer containing training data.
         :param update_actor: (bool) whether to update actor network.
-
         :return train_info: (dict) contains information regarding training update (e.g. loss, grad norms, etc).
         """
         if self._use_popart or self._use_valuenorm:

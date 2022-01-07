@@ -45,7 +45,6 @@ class AgentMADDPG(AgentBase):
 
         
     def update_agent(self, rewards, dones, actions, observations, next_obs, index):
-        #rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
         """
         Update the single agent neural networks, called by update_net.
         
@@ -55,7 +54,7 @@ class AgentMADDPG(AgentBase):
         :param observations: observation list of the sampled buffer 
         :param next_obs: next_observation list of the sample buffer
         :param index: ID of the agent
-        :return Nonetype
+        :return: Nonetype
         """
         curr_agent = self.agents[index]
         curr_agent.cri_optim.zero_grad()
@@ -97,7 +96,7 @@ class AgentMADDPG(AgentBase):
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param repeat_times: the re-using times of each trajectory.
         :param soft_update_tau: the soft update parameter.
-        :return Nonetype
+        :return: Nonetype
         """
         buffer.update_now_len()
         self.batch_size = batch_size
