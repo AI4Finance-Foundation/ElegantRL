@@ -80,6 +80,7 @@ Or install with the newest version through GitHub:
    helloworld/agent
    helloworld/env
    helloworld/run
+   helloworld/quickstart
 
 .. toctree::
    :maxdepth: 1
@@ -89,7 +90,6 @@ Or install with the newest version through GitHub:
    about/parallel
    about/ensemble
    about/algorithm_implementation
-   about/quickstart
    
 .. toctree::
    :maxdepth: 1
