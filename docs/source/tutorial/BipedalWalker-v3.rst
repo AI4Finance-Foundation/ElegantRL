@@ -9,7 +9,6 @@ When a biped walker takes random action:
    :width: 80%
    :align: center
 
-Check out our **video** on bilibili: `Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC <https://www.bilibili.com/video/BV1wi4y187tC>`_.
 
 Step 1: Install ElegantRL
 ------------------------------
@@ -165,3 +164,6 @@ Performance of a trained agent:
 .. image:: ../images/BipedalWalker-v3_2.gif
    :width: 80%
    :align: center
+   
+   
+Check out our **video** on bilibili: `Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC <https://www.bilibili.com/video/BV1wi4y187tC>`_.
