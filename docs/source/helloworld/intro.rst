@@ -126,4 +126,4 @@ Inside one of the four functions, choose the task you want to train on by settin
         args.if_per_or_gae = True
         args.agent.cri_target = True
 
-If everything works fine, congratulations!  Enjoy your journey to the DRL world with ElegantRL!
+If everything works, congratulations!  Enjoy your journey to the DRL world with ElegantRL!
