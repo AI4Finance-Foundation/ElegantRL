@@ -3,7 +3,7 @@ Example 2: BipedalWalker-v3
 
 BipedalWalker-v3 is a classic task in robotics that performs a fundamental skill: moving forward as fast as possible. The goal is to get a 2D biped walker to walk through rough terrain. BipedalWalker is considered to be a difficult task in the continuous action space, and there are only a few RL implementations that can reach the target reward.
 
-When a biped walker takes random action:
+When a biped walker takes random actions:
 
 .. image:: ../images/BipedalWalker-v3_1.gif
    :width: 80%
