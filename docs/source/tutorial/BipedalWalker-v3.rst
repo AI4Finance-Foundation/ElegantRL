@@ -1,9 +1,15 @@
 Example 2: BipedalWalker-v3
 ===============================
 
-BipedalWalker-v3 is a classic task in robotics that performs a fundamental skill: moving. The goal is to get a 2D biped walker to walk through rough terrain. BipedalWalker is considered to be a difficult task in the continuous action space, and there are only a few RL implementations that can reach the target reward.
+BipedalWalker-v3 is a classic task in robotics that performs a fundamental skill: moving forward as fast as possible. The goal is to get a 2D biped walker to walk through rough terrain. BipedalWalker is considered to be a difficult task in the continuous action space, and there are only a few RL implementations that can reach the target reward.
 
-Check out a **video** on bilibili: `Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC <https://www.bilibili.com/video/BV1wi4y187tC>`_.
+When a biped walker takes random action:
+
+.. image:: ../images/BipedalWalker-v3_1.gif
+   :width: 80%
+   :align: center
+
+Check out our **video** on bilibili: `Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC <https://www.bilibili.com/video/BV1wi4y187tC>`_.
 
 Step 1: Install ElegantRL
 ------------------------------
@@ -153,13 +159,8 @@ After reaching the target reward, we generate the frame for each state and compo
       else:
          state = next_state
 
-Random action:
 
-.. image:: ../images/BipedalWalker-v3_1.gif
-   :width: 80%
-   :align: center
-
-After training:
+Performance of a trained agent::
 
 .. image:: ../images/BipedalWalker-v3_2.gif
    :width: 80%
