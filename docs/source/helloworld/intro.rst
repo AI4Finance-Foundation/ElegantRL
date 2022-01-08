@@ -9,7 +9,7 @@ We will help you understand and get hands-on experience with [ElegantRL-HelloWor
 .. contents:: Table of Contents
     :depth: 3
 
-Structure
+"Net-Agent-Env-Run" Structure
 =========
 
 .. figure:: ../images/File_structure.png
