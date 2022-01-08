@@ -5,7 +5,6 @@ The environment part is straightforward.  env.py is constructed by an environmen
 
 The environment wrapper class *PreprocessEnv* inherits *gym.wrapper*. It has an *init()* that takes an gym environment (OpenAI style) and creates things we need, a re-write of *reset()* and *step()* that make the return as we want.
 
-Listed below, we include 5 different tasks (3 continuous, 2 discrete) in the helloworld setup. Feel free to modify the code and try more tasks using different environments.
 
 Continuous action tasks
 -----------------------
