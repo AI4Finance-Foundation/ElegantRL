@@ -3,6 +3,12 @@ Example 1: LunarLanderContinuous-v2
 
 LunarLanderContinuous-v2 is a robotic control task. The goal is to get a Lander to rest on the landing pad. If lander moves away from landing pad it loses reward back. Episode finishes if the lander crashes or comes to rest, receiving additional -100 or +100 points. Detailed description from `OpenAI Gym <https://gym.openai.com/envs/LunarLanderContinuous-v2/>`_.
 
+When a Lander taks actions:
+
+.. image:: ../images/LunarLander.gif
+   :width: 80%
+   :align: center
+
 The Python code is available `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/examples/tutorial_LunarLanderContinous-v2.py>`_.
 
 Step 1: Install ElegantRL
@@ -129,14 +135,7 @@ After reaching the target reward, we generate the frame for each state and compo
       else:
          state = next_state
 
-
-Random actions:
-
-.. image:: ../images/LunarLander.gif
-   :width: 80%
-   :align: center
-
-After training:
+Performance of a trained agent:
 
 .. image:: ../images/LunarLanderTwinDelay3.gif
    :width: 80%
