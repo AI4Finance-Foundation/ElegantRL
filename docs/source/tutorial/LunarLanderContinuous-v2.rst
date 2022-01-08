@@ -3,7 +3,7 @@ Example 1: LunarLanderContinuous-v2
 
 LunarLanderContinuous-v2 is a robotic control task. The goal is to get a Lander to rest on the landing pad. If lander moves away from landing pad it loses reward back. Episode finishes if the lander crashes or comes to rest, receiving additional -100 or +100 points. Detailed description of the task can be found at `OpenAI Gym <https://gym.openai.com/envs/LunarLanderContinuous-v2/>`_.
 
-When a Lander takes actions:
+When a Lander takes random actions:
 
 .. image:: ../images/LunarLander.gif
    :width: 80%
