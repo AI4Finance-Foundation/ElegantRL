@@ -2,7 +2,9 @@
 File Structure
 ====================
 
-Hello, World!  We will help you understand and get hands-on experience with ElegantRL-HelloWorld.
+Hello, World!  
+
+We will help you understand and get hands-on experience with ElegantRL-HelloWorld.
 
 .. contents:: Table of Contents
     :depth: 3
