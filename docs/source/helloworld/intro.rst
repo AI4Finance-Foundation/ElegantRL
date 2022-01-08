@@ -2,7 +2,7 @@
 File Structure
 ====================
 
-Welcome to ElegantRL HelloWorld! In this page, we will help you understand and use ElegantRL by introducing its tutorial version ElegantRL-HelloWorld.
+Welcome to ElegantRL HelloWorld! In this page, we will help you understand and test the tutorial version ElegantRL-HelloWorld.
 
 .. contents:: Table of Contents
     :depth: 3
@@ -13,14 +13,14 @@ Structure
 .. figure:: ../images/File_structure.png
     :align: center
 
-As a high-level overview, the relations among the files are as follows. Initialize an environment from *env.py* and an agent from *agent.py*. The agent is constructed with Actor and Critic networks from *net.py*. In each training step from *run.py*, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good.
-
 One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*) is trained (*run.py*) by interacting with an environment (*env.py*).
+
+As a high-level overview, the relations among the files are as follows. Initialize an environment from *env.py* and an agent from *agent.py*. The agent is constructed with Actor and Critic networks from *net.py*. In each training step from *run.py*, the agent interacts with the environment, generating transitions that are stored into a Replay Buffer. Then, the agent fetches transitions from the Replay Buffer to train its networks. After each update, an evaluator evaluates the agent’s performance and saves the agent if the performance is good.
 
 net.py
 ------
 
-Our `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/net.py>`_ contains three types of networks. Each type of networks includes a base network for inheritance and a set of variations for different algorithms.
+Our `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/net.py>`_ contains three types of networks. Each type of networks includes a base network for inheritance and a set of variations for algorithms.
 
     - Q-Net
       
@@ -80,7 +80,7 @@ In *run.py*, we also provide an evluator for model evaluation and four demo func
     - continuous action using on-policy algorithm
     
 
-Run The Code
+Run the Code
 ============
 
 In `run.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/run.py>`_, there are four functions that are available to run in the main function. You can see ``demo_continuous_action_on_policy()`` called at the bottom of the file.
