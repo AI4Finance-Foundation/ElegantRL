@@ -70,17 +70,7 @@ Or install with the newest version through GitHub:
     :hidden:
 
     Home <self>
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Overview
-
-   about/overview
-   about/parallel
-   about/ensemble
-   about/algorithm_implementation
-   about/quickstart
-
+    
 .. toctree::
    :maxdepth: 1
    :caption: ElegantRL-HelloWorld
@@ -90,7 +80,28 @@ Or install with the newest version through GitHub:
    helloworld/agent
    helloworld/env
    helloworld/run
+
+.. toctree::
+   :maxdepth: 1
+   :caption: ElegantRL
+
+   about/overview
+   about/parallel
+   about/ensemble
+   about/algorithm_implementation
+   about/quickstart
    
+.. toctree::
+   :maxdepth: 1
+   :caption: Tutorials
+
+   tutorial/LunarLanderContinuous-v2
+   tutorial/BipedalWalker-v3
+   tutorial/Creating_VecEnv
+   tutorial/isaacgym
+   tutorial/redq
+   tutorial/finrl-podracer
+   tutorial/elegantrl-podracer   
 
 .. toctree::
    :maxdepth: 1
@@ -108,19 +119,6 @@ Or install with the newest version through GitHub:
    algorithms/qmix
    algorithms/mappo
    algorithms/vdn
-   
-   
-.. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
-
-   tutorial/LunarLanderContinuous-v2
-   tutorial/BipedalWalker-v3
-   tutorial/Creating_VecEnv
-   tutorial/isaacgym
-   tutorial/redq
-   tutorial/finrl-podracer
-   tutorial/elegantrl-podracer
    
    
 .. toctree::
