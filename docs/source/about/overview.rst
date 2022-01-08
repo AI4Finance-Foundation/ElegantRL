@@ -13,9 +13,6 @@ ElegantRL is an open-source massively parallel framework for DRL algorithms impl
 
   - We follow the cloud-native paradigm, implement the training process as a synergy of microservices, and achieve containerization, ensuring fast and robust execution on cloud platforms. 
 
-Features
------------------------------------------------
-
 **Scalable**: the multi-level parallelism results in high scalability. E.g., we can train hundreds of DRL agents, where each agent is allocated with fixed computing resources, and perform a tournament-based evolution among the agents via adaptive scheduling. The training processes of agents are asynchronous and distributed, eliminating the agent-to-agent communication. In this way, ElegantRL can easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, thousands of GPUs.
 
 **Elastic**: ElegantRL can elastically allocate computing resources by adjusting the number of agents. We provide an orchestrator to monitor the current training status and the available computing resources, enabling the dynamic resource management on a cloud. For example, when the resources are limited, the orchestrator can automatically kill agents with low performance, which helps the application adapt to available resources and prevents over-provisioning and under-provisioning.
