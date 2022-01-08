@@ -1,7 +1,7 @@
 Networks: *net.py*
 ==================
 
-Here we are listing three kinds of basic networks. For different kinds of algorithms, there are variations network classes that inherit from these basic classes for specific functionality. Feel free to read through `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/net.py>`_ for details.
+Here we list three types of basic networks. For different algorithms, their networks inherit from the three basic classes. Feel free to read through `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/net.py>`_ for details.
 
 Q Net
 -----
