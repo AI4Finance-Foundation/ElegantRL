@@ -1,15 +1,13 @@
 ====================
-File Structure
-====================
-
-Hello, World!  
+Hellow, World!
+==================== 
 
 We will help you understand and get hands-on experience with `ElegantRL-HelloWorld <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworldL>`_.
 
 .. contents:: Table of Contents
     :depth: 3
 
-"Net-Agent-Env-Run" Structure
+"Net-Agent-Env-Run" File Structure
 =========
 
 .. figure:: ../images/File_structure.png
