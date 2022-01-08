@@ -13,18 +13,18 @@ Welcome to ElegantRL!
    
    
 
-`ElegantRL <https://github.com/AI4Finance-Foundation/ElegantRL>`_ is an open-source massively parallel framework for deep reinforcement learning (DRL) algorithms implemented in PyTorch. We aim to provide a *next-generation* framework that embraces recent breakthroughs in massively parallel simulation, ensemble methods, and population-based training. 
+`ElegantRL <https://github.com/AI4Finance-Foundation/ElegantRL>`_ is an open-source massively parallel framework for deep reinforcement learning (DRL) algorithms implemented in PyTorch. We aim to provide a *next-generation* framework that embraces recent breakthroughs, e.g., massively parallel simulation, ensemble methods, population-based training, etc.
 
 
 ElegantRL features strong **scalability**, **elasticity** and **lightweightness**, and allows users to conduct **efficient** training on either one GPU or hundreds of GPUs: 
 
-   - **Scalability**: ElegantRL fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, thousands of GPUs.
+   - **Scalability**: ElegantRL fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a SuperPOD platform with thousands of GPUs.
    
-   - **Elasticity**: ElegantRL can elastically allocate computing resources, which helps adapt to available resources and prevents over-provisioning and under-provisioning on the cloud.
+   - **Elasticity**: ElegantRL can elastically allocate computing resources on the cloud, which helps adapt to available resources and prevents over/under-provisioning/under-provisioning.
    
    - **Lightweightness**: The core codes <1,000 lines (check `elegantrl_helloworld <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld>`_).
    
-   - **Efficient**: in many testing cases, we find it more efficient than `Ray RLlib <https://github.com/ray-project/ray>`_.
+   - **Efficient**: in many testing cases, it is more efficient than `Ray RLlib <https://github.com/ray-project/ray>`_.
 
 ElegantRL implements the following DRL algorithms:
 
@@ -48,7 +48,7 @@ ElegantRL generally requires:
 
 - gym, matplotlib, numpy, pybullet, torch, opencv-python, box2d-py.
 
-You can simply install Tianshou from PyPI with the following command:
+You can simply install ElegantRL from PyPI with the following command:
 
 .. code-block:: bash
    :linenos:
@@ -60,7 +60,7 @@ Or install with the newest version through GitHub:
 .. code-block:: bash
    :linenos:
 
-   git clone https://github.com/AI4Finance-LLC/ElegantRL.git
+   git clone https://github.com/AI4Finance-Foundation/ElegantRL.git
    cd ElegantRL
    pip3 install .
 
