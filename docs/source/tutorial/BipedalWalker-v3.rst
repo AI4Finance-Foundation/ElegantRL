@@ -160,7 +160,7 @@ After reaching the target reward, we generate the frame for each state and compo
          state = next_state
 
 
-Performance of a trained agent::
+Performance of a trained agent:
 
 .. image:: ../images/BipedalWalker-v3_2.gif
    :width: 80%
