@@ -4,7 +4,7 @@ File Structure
 
 Hello, World!  
 
-We will help you understand and get hands-on experience with ElegantRL-HelloWorld.
+We will help you understand and get hands-on experience with [ElegantRL-HelloWorld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld).
 
 .. contents:: Table of Contents
     :depth: 3
