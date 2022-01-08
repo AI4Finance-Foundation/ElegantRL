@@ -73,7 +73,7 @@ Or install with the newest version through GitHub:
     
 .. toctree::
    :maxdepth: 1
-   :caption: ElegantRL-HelloWorld
+   :caption: HelloWorld
 
    helloworld/intro
    helloworld/net
@@ -83,7 +83,7 @@ Or install with the newest version through GitHub:
 
 .. toctree::
    :maxdepth: 1
-   :caption: ElegantRL
+   :caption: Overview
 
    about/overview
    about/parallel
