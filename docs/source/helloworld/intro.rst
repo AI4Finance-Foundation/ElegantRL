@@ -1,5 +1,5 @@
 ====================
-ElegantRL HelloWorld
+File Structure
 ====================
 
 Welcome to ElegantRL HelloWorld! In this page, we will help you understand and use ElegantRL by introducing its tutorial version ElegantRL-HelloWorld.
