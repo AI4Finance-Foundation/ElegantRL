@@ -60,7 +60,7 @@ class Arguments:
         self.if_allow_break = True  # allow break training when reach goal (early termination)
 
         '''Arguments for evaluate'''
-        self.eval_gap = 2 ** 8  # evaluate the agent per eval_gap seconds
+        self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
         self.eval_times1 = 2 ** 2  # number of times that get episode return in first
         self.eval_times2 = 2 ** 4  # number of times that get episode return in second
 
@@ -104,31 +104,28 @@ def train_and_evaluate(args):
     env = build_env(args.env, args.env_func, args.env_args)
 
     agent = init_agent(args, gpu_id, env)
+    buffer = init_buffer(args, gpu_id)
     evaluator = init_evaluator(args, gpu_id)
-    buffer, update_buffer = init_replay_buffer(args, gpu_id)
 
     agent.state = env.reset()
     if args.if_off_policy:
         trajectory = agent.explore_env(env, args.target_step)
-        update_buffer(trajectory)
+        buffer.update_buffer((trajectory, ))
 
     '''start training'''
     cwd = args.cwd
     break_step = args.break_step
-    batch_size = args.batch_size
     target_step = args.target_step
-    repeat_times = args.repeat_times
     if_allow_break = args.if_allow_break
-    soft_update_tau = args.soft_update_tau
     del args
 
     if_train = True
     while if_train:
-        with torch.no_grad():
+        with torch.no_grad():  # todo
             trajectory = agent.explore_env(env, target_step)
-            steps, r_exp = update_buffer(trajectory)
+            steps, r_exp = buffer.update_buffer((trajectory, ))
 
-        logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
+        logging_tuple = agent.update_net(buffer)
 
         with torch.no_grad():
             if_reach_goal = evaluator.evaluate_and_save(agent.act, steps, r_exp, logging_tuple)
@@ -164,42 +161,17 @@ def init_evaluator(args, gpu_id):
     return evaluator
 
 
-def init_replay_buffer(args, gpu_id):
-    def get_step_r_exp(ten_reward):
-        return len(ten_reward), ten_reward.mean().item()
-
+def init_buffer(args, gpu_id):
     if args.if_off_policy:
         buffer = ReplayBuffer(gpu_id=gpu_id,
                               max_len=args.max_memo,
                               state_dim=args.state_dim,
                               action_dim=1 if args.if_discrete else args.action_dim, )
-
-        buffer.save_or_load_history(args.cwd, if_save=False)
-
-        def update_buffer(traj_list):
-            steps_r_exp_list = list()
-            for ten_item in traj_list:
-                buffer.extend_buffer(state=ten_item[0], other=torch.hstack(ten_item[1:]))
-                steps_r_exp_list.append(get_step_r_exp(ten_reward=ten_item[1]))
-
-            steps_r_exp_list = np.array(steps_r_exp_list)
-            steps, r_exp = steps_r_exp_list.mean(axis=0)
-            return steps, r_exp
-
         buffer.save_or_load_history(args.cwd, if_save=False)
 
     else:
-        buffer = list()
-
-        def update_buffer(traj_list):
-            cur_items = list(map(list, zip(*traj_list)))
-            cur_items = [torch.cat(item, dim=0) for item in cur_items]
-            buffer[:] = cur_items
-
-            steps, r_exp = get_step_r_exp(ten_reward=buffer[1])
-            return steps, r_exp
-
-    return buffer, update_buffer
+        buffer = ReplayBufferList()
+    return buffer
 
 
 '''train multiple process'''
@@ -222,7 +194,7 @@ def train_and_evaluate_mp(args):
     process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe)))
 
     [p.start() for p in process]
-    process[2].join()  # waiting for learner
+    process[-1].join()  # waiting for learner
     process_safely_terminate(process)
 
 
@@ -274,33 +246,25 @@ class PipeLearner:
 
         '''init'''
         agent = init_agent(args, gpu_id)
-        buffer, update_buffer = init_replay_buffer(args, gpu_id)
+        buffer = init_buffer(args, gpu_id)
 
         '''loop'''
-        cwd = args.cwd
-        batch_size = args.batch_size
-        repeat_times = args.repeat_times
-        soft_update_tau = args.soft_update_tau
-        del args
-
         if_train = True
         while if_train:
-            traj_lists = comm_exp.explore(agent)
-            traj_list = sum(traj_lists, list())
-
-            steps, r_exp = update_buffer(traj_list)
+            traj_list = comm_exp.explore(agent)
+            steps, r_exp = buffer.update_buffer(traj_list)
 
             torch.set_grad_enabled(True)
-            logging_tuple = agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
+            logging_tuple = agent.update_net(buffer)
             torch.set_grad_enabled(False)
 
             if_train = comm_eva.evaluate_and_save_mp(agent, steps, r_exp, logging_tuple)
-
-        agent.save_or_load_agent(cwd, if_save=True)
+        agent.save_or_load_agent(args.cwd, if_save=True)
+        print(f'| Learner: Save in {args.cwd}')
 
         if hasattr(buffer, 'save_or_load_history'):
-            print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
-            buffer.save_or_load_history(cwd, if_save=True)
+            print(f"| LearnerPipe.run: ReplayBuffer saving in {args.cwd}")
+            buffer.save_or_load_history(args.cwd, if_save=True)
 
 
 class PipeEvaluator:
@@ -310,7 +274,6 @@ class PipeEvaluator:
     def evaluate_and_save_mp(self, agent, steps, r_exp, logging_tuple):
         if self.pipe1.poll():  # if_evaluator_idle
             if_train = self.pipe1.recv()
-            # act_cpu_dict = act_dict_to_device(agent.act.state_dict(), torch.device('cpu'))
             act_cpu_dict = deepcopy(agent.act.state_dict())
         else:
             if_train = True
@@ -334,7 +297,6 @@ class PipeEvaluator:
         if_allow_break = args.if_allow_break
         del args
 
-        torch.set_grad_enabled(False)
         if_train = True
         if_reach_goal = False
         while if_train:
@@ -349,20 +311,9 @@ class PipeEvaluator:
             if_train = not ((if_allow_break and if_reach_goal)
                             or evaluator.total_step > break_step
                             or os.path.exists(f'{cwd}/stop'))
-            self.pipe0.send((if_train,))
+            self.pipe0.send(if_train)
 
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
-
-
-def act_dict_to_device(act_dict, device):
-    """
-    :param act_dict: net.state_dict()
-    :param device: torch.device(f"cuda:{int}")
-    :return: act_dict: net.state_dict()
-    """
-    for key, value in act_dict.items():
-        act_dict[key] = value.to(device)
-    return act_dict
 
 
 def process_safely_terminate(process):
@@ -454,7 +405,7 @@ def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2022.01
     episode_step = None
     episode_return = 0.0  # sum of rewards in an episode
     for episode_step in range(max_step):
-        s_tensor = torch.as_tensor((state,), device=device)
+        s_tensor = torch.as_tensor((state,), dtype=torch.float32, device=device)
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
