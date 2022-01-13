@@ -7,7 +7,6 @@ from elegantrl.net import *
 class AgentBase:
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
         self.gamma = args.gamma
-        self.action_dim = action_dim
         self.batch_size = args.batch_size
         self.repeat_times = args.repeat_times
         self.reward_scale = args.reward_scale
@@ -104,6 +103,8 @@ class AgentBase:
         '''stack items'''
         buf_items[0] = torch.stack(buf_items[0])
         buf_items[3:] = [torch.stack(item) for item in buf_items[3:]]
+        if len(buf_items[3].shape) == 2:
+            buf_items[3] = buf_items[3].unsqueeze(2)
         if self.env_num > 1:
             buf_items[1] = (torch.stack(buf_items[1]) * self.reward_scale
                             ).unsqueeze(2)
@@ -150,11 +151,13 @@ class AgentBase:
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_a = self.act_target.get_action_for_critic(next_s)  # policy noise
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+            next_a = self.act_target(next_s)
+            next_q = torch.min(*self.cri_target(next_s, next_a))
             q_label = reward + mask * next_q
-        q1, q2 = self.cri.get_q1_q2(state, action)
-        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
+
+        q = self.cri(state, action)
+        obj_critic = self.criterion(q, q_label)
+
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size):
@@ -167,12 +170,12 @@ class AgentBase:
         """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            next_a = self.act_target.get_action_for_critic(next_s)  # policy noise
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+            next_a = self.act_target(next_s)
+            next_q = torch.min(*self.cri_target(next_s, next_a))  # twin critics
             q_label = reward + mask * next_q
 
-        q1, q2 = self.cri.get_q1_q2(state, action)
-        td_error = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+        q = self.cri(state, action)
+        td_error = self.criterion(q, q_label)
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())
@@ -255,11 +258,12 @@ class AgentBase:
 
 class AgentDQN(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', QNet)
         self.cri_class = None  # = act_class
         AgentBase.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
-
-        self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
+        self.act.explore_rate = getattr(args, 'explore_rate', 0.125)
+        # the probability of choosing action randomly in epsilon-greedy
 
     def explore_one_env(self, env, target_step) -> list:
         traj_list = list()
@@ -270,11 +274,8 @@ class AgentDQN(AgentBase):
         done = False
         while step_i < target_step or not done:
             ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            if rd.rand() > self.explore_rate:  # epsilon-greedy
-                ten_a = self.act(ten_s).detach().argmax(dim=0, keepdim=True)
-            else:
-                ten_a = torch.randint(self.action_dim, size=(1, 1))  # choosing action randomly
-            next_s, reward, done, _ = env.step(ten_a[0].numpy())  # different
+            ten_a = self.act.get_action(ten_s.to(self.device)).detach().cpu()
+            next_s, reward, done, _ = env.step(ten_a[0, 0].numpy())  # different
 
             traj_list.append((ten_s, reward, done, ten_a))  # different
 
@@ -293,11 +294,7 @@ class AgentDQN(AgentBase):
         step_i = 0
         ten_dones = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         while step_i < target_step or not any(ten_dones):
-            # ten_a = self.act.get_action(ten_s, self.explore_noise).detach()  # different
-            if rd.rand() > self.explore_rate:  # epsilon-greedy
-                ten_a = self.act(ten_s).detach().argmax(dim=1)
-            else:
-                ten_a = torch.randint(self.action_dim, size=(self.env_num, 1))  # choosing action randomly
+            ten_a = self.act.get_action(ten_s).detach()
             ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a)  # different
 
             traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a))  # different
@@ -352,18 +349,6 @@ class AgentDoubleDQN(AgentDQN):
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.act_class = getattr(self, 'act_class', QNetTwin)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
-        self.softMax = torch.nn.Softmax(dim=1)
-
-    def select_action(self, state) -> int:  # for discrete action space # todo plan to explore_env
-        states = torch.as_tensor((state,), dtype=torch.float32, device=self.device)
-        actions = self.act(states)
-        if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_prob = self.softMax(actions)[0].detach().cpu().numpy()
-            a_int = rd.choice(self.action_dim, p=a_prob)  # choose action according to Q value
-        else:
-            action = actions[0]
-            a_int = action.argmax(dim=0).detach().cpu().numpy()
-        return a_int
 
     def get_obj_critic_raw(self, buffer, batch_size):
         """
@@ -414,9 +399,11 @@ class AgentD3QN(AgentDoubleDQN):  # D3QN: DuelingDoubleDQN
 
 class AgentDDPG(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', ActorSAC)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
+        self.act.explore_noise = getattr(args, 'explore_noise', 0.1)  # set for `get_action()`
 
     def update_net(self, buffer):
         buffer.update_now_len()
@@ -438,9 +425,8 @@ class AgentTD3(AgentDDPG):
         self.act_class = getattr(self, 'act_class', Actor)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
-        self.explore_noise = 0.1  # standard deviation of exploration noise
-        self.policy_noise = 0.15  # standard deviation of policy noise
-        self.update_freq = 2  # delay update frequency
+        self.policy_noise = getattr(args, 'policy_noise', 0.15)  # standard deviation of policy noise
+        self.update_freq = getattr(args, 'update_freq', 2)  # delay update frequency
 
         if self.env_num == 1:
             self.explore_env = self.explore_one_env
@@ -479,7 +465,7 @@ class AgentTD3(AgentDDPG):
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
+            next_a = self.act_target.get_action_noise(next_s, self.policy_noise)  # policy noise
             next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
             q_label = reward + mask * next_q
         q1, q2 = self.cri.get_q1_q2(state, action)
@@ -496,7 +482,7 @@ class AgentTD3(AgentDDPG):
         """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            next_a = self.act_target.get_action(next_s, self.policy_noise)  # policy noise
+            next_a = self.act_target.get_action_noise(next_s, self.policy_noise)  # policy noise
             next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
             q_label = reward + mask * next_q
 
@@ -510,6 +496,7 @@ class AgentTD3(AgentDDPG):
 
 class AgentSAC(AgentBase):
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', ActorSAC)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
@@ -634,11 +621,11 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 
 class AgentPPO(AgentBase):
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+        self.if_off_policy = False
         self.act_class = getattr(self, 'act_class', ActorPPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
         self.if_cri_target = getattr(args, 'if_cri_target', False)
         AgentBase.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
-        self.if_off_policy = False
 
         self.ratio_clip = getattr(args, 'ratio_clip', 0.25)  # could be 0.00 ~ 0.50 `ratio.clamp(1 - clip, 1 + clip)`
         self.lambda_entropy = getattr(args, 'lambda_entropy', 0.02)  # could be 0.00~0.10
@@ -784,7 +771,7 @@ class AgentPPO(AgentBase):
 
 class AgentDiscretePPO(AgentPPO):
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
-        self.act_class = getattr(self, 'act_class', ActorPPO)
+        self.act_class = getattr(self, 'act_class', ActorDiscretePPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
 

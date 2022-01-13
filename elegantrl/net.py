@@ -1,6 +1,9 @@
+import time
+
 import torch
 import torch.nn as nn
 import numpy as np
+import numpy.random as rd
 
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
@@ -10,9 +13,18 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim))
+        self.explore_rate = 0.125
+        self.action_dim = action_dim
 
     def forward(self, state):
         return self.net(state)  # Q values for multiple actions
+
+    def get_action(self, state):
+        if rd.rand() > self.explore_rate:
+            action = self.net(state).argmax(dim=1, keepdim=True)
+        else:
+            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
+        return action
 
 
 class QNetDuel(nn.Module):  # Dueling DQN
@@ -32,6 +44,8 @@ class QNetDuel(nn.Module):  # Dueling DQN
                                      nn.Linear(mid_dim, 1))  # advantage function value 1
         self.net_val = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
                                      nn.Linear(mid_dim, action_dim))  # Q value
+        self.explore_rate = 0.125
+        self.action_dim = action_dim
 
     def forward(self, state):
         """
@@ -40,10 +54,19 @@ class QNetDuel(nn.Module):  # Dueling DQN
         :param state: [tensor] the input state.
         :return: the output tensor.
         """
-        t_tmp = self.net_state(state)  # tensor of encoded state
-        q_adv = self.net_adv(t_tmp)
-        q_val = self.net_val(t_tmp)
-        return q_adv + q_val - q_val.mean(dim=1, keepdim=True)  # dueling Q value
+        s_tmp = self.net_state(state)  # encoded state
+        q_val = self.net_val(s_tmp)
+        q_adv = self.net_adv(s_tmp)
+        return q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
+
+    def get_action(self, state):
+        if rd.rand() > self.explore_rate:
+            s_tmp = self.net_state(state)
+            q_val = self.net_val(s_tmp)
+            action = q_val.argmax(dim=1, keepdim=True)
+        else:
+            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
+        return action
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -55,6 +78,9 @@ class QNetTwin(nn.Module):  # Double DQN
                                     nn.Linear(mid_dim, action_dim))  # q1 value
         self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                     nn.Linear(mid_dim, action_dim))  # q2 value
+        self.explore_rate = 0.125
+        self.action_dim = action_dim
+        self.soft_max = nn.Softmax(dim=1)
 
     def forward(self, state):
         tmp = self.net_state(state)
@@ -63,6 +89,16 @@ class QNetTwin(nn.Module):  # Double DQN
     def get_q1_q2(self, state):
         tmp = self.net_state(state)
         return self.net_q1(tmp), self.net_q2(tmp)  # two groups of Q values
+
+    def get_action(self, state):
+        s = self.net_state(state)
+        q = self.net_q1(s)
+        if rd.rand() > self.explore_rate:
+            action = q.argmax(dim=1, keepdim=True)
+        else:
+            a_prob = self.soft_max(q)
+            action = torch.multinomial(a_prob, num_samples=1)
+        return action
 
 
 class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
@@ -78,14 +114,17 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
                                        nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, 1))  # q1 value
-        self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, 1))  # q2 value
         self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
+                                      nn.Linear(mid_dim, action_dim))  # q1 value
         self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, action_dim))  # advantage function value 1
+                                      nn.Linear(mid_dim, action_dim))  # q2 value
+        self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                      nn.Linear(mid_dim, 1))  # advantage function value 1
+        self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
+                                      nn.Linear(mid_dim, 1))  # advantage function value 1
+        self.explore_rate = 0.125
+        self.action_dim = action_dim
+        self.soft_max = nn.Softmax(dim=1)
 
     def forward(self, state):
         """
@@ -95,24 +134,34 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
         :return: the output tensor.
         """
         t_tmp = self.net_state(state)
-        q_adv = self.net_adv1(t_tmp)
         q_val = self.net_val1(t_tmp)
-        return q_adv + q_val - q_val.mean(dim=1, keepdim=True)  # one dueling Q value
+        q_adv = self.net_adv1(t_tmp)
+        return q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # one dueling Q value
 
     def get_q1_q2(self, state):
         """
         TBD
         """
-        tmp = self.net_state(state)
+        s_tmp = self.net_state(state)
 
-        adv1 = self.net_adv1(tmp)
-        val1 = self.net_val1(tmp)
-        q1 = adv1 + val1 - val1.mean(dim=1, keepdim=True)
+        q_val1 = self.net_val1(s_tmp)
+        q_adv1 = self.net_adv1(s_tmp)
+        q_duel1 = q_val1 - q_val1.mean(dim=1, keepdim=True) + q_adv1
 
-        adv2 = self.net_adv2(tmp)
-        val2 = self.net_val2(tmp)
-        q2 = adv2 + val2 - val2.mean(dim=1, keepdim=True)
-        return q1, q2  # two dueling Q values
+        q_val2 = self.net_val2(s_tmp)
+        q_adv2 = self.net_adv2(s_tmp)
+        q_duel2 = q_val2 - q_val2.mean(dim=1, keepdim=True) + q_adv2
+        return q_duel1, q_duel2  # two dueling Q values
+
+    def get_action(self, state):
+        s = self.net_state(state)
+        q = self.net_val1(s)
+        if rd.rand() > self.explore_rate:
+            action = q.argmax(dim=1, keepdim=True)
+        else:
+            a_prob = self.soft_max(q)
+            action = torch.multinomial(a_prob, num_samples=1)
+        return action
 
 
 class Actor(nn.Module):
@@ -122,8 +171,7 @@ class Actor(nn.Module):
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, mid_dim), nn.ReLU(),
                                  nn.Linear(mid_dim, action_dim))
-        self.explore_noise = 0.1  # standard deviation of exploration noise
-        self.policy_noise = 0.15  # standard deviation of policy noise
+        self.explore_noise = 0.1  # standard deviation of exploration action noise
 
     def forward(self, state):
         return self.net(state).tanh()  # action.tanh()
@@ -133,9 +181,9 @@ class Actor(nn.Module):
         noise = (torch.randn_like(action) * self.explore_noise).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
 
-    def get_action_for_critic(self, state):  # for Q value estimation
+    def get_action_noise(self, state, action_std):
         action = self.net(state).tanh()
-        noise = (torch.randn_like(action) * self.policy_noise).clamp(-0.5, 0.5)
+        noise = (torch.randn_like(action) * action_std).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
 
 
@@ -300,13 +348,15 @@ class ActorDiscretePPO(nn.Module):
         return action, a_prob
 
     def get_logprob_entropy(self, state, a_int):
+        # assert a_int.shape == (batch_size, 1)
         a_prob = self.soft_max(self.net(state))
         dist = self.Categorical(a_prob)
-        return dist.log_prob(a_int), dist.entropy().mean()
+        return dist.log_prob(a_int.squeeze(1)), dist.entropy().mean()
 
     def get_old_logprob(self, a_int, a_prob):
+        # assert a_int.shape == (batch_size, 1)
         dist = self.Categorical(a_prob)
-        return dist.log_prob(a_int)
+        return dist.log_prob(a_int.squeeze(1))
 
     @staticmethod
     def get_a_to_e(action):

@@ -110,7 +110,7 @@ def train_and_evaluate(args):
     agent.state = env.reset()
     if args.if_off_policy:
         trajectory = agent.explore_env(env, args.target_step)
-        buffer.update_buffer((trajectory, ))
+        buffer.update_buffer((trajectory,))
 
     '''start training'''
     cwd = args.cwd
@@ -123,7 +123,7 @@ def train_and_evaluate(args):
     while if_train:
         with torch.no_grad():  # todo
             trajectory = agent.explore_env(env, target_step)
-            steps, r_exp = buffer.update_buffer((trajectory, ))
+            steps, r_exp = buffer.update_buffer((trajectory,))
 
         logging_tuple = agent.update_net(buffer)
 
@@ -314,6 +314,9 @@ class PipeEvaluator:
             self.pipe0.send(if_train)
 
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+
+        while True:  # wait for the forced stop from main process
+            time.sleep(1943)
 
 
 def process_safely_terminate(process):
@@ -514,7 +517,7 @@ def build_env(env=None, env_func=None, env_args=None):  # [ElegantRL.2021.12.12]
     elif env_func.__module__ == 'gym.envs.registration':
         import gym
         gym.logger.set_level(40)  # Block warning
-        env = env_func(id=env_args['id'])
+        env = env_func(id=env_args['env_name'])
     else:
         env = env_func(**kwargs_filter(env_func.__init__, env_args.copy()))
 
