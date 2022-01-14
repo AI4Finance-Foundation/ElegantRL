@@ -1,7 +1,9 @@
 Networks: *net.py*
 ==================
 
-Here we list three types of basic networks. For different algorithms, their networks inherit from the three basic classes. Feel free to read through `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/net.py>`_ for details.
+In ElegantRL, there are three basic network classes: Q-net, Actor, and Critic. Here, we list several examples, which are the networks used by DQN, SAC, and PPO algorithms. 
+
+The full list of networks are available `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/agents/net.py>`_
 
 Q Net
 -----
