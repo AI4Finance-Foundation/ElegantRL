@@ -173,6 +173,9 @@ class Arguments:
         self.save_dir = './LeaderBoard'  # a directory to save the `pod_save_{episode_returns}` for ensemble DRL
 
     def init_before_training(self, agent_id=0):
+        """
+        Check parameters before training.
+        """
         np.random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
         torch.set_num_threads(self.thread_num)

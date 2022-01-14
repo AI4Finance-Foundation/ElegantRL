@@ -1,8 +1,17 @@
 from elegantrl_helloworld.agent import *
 from elegantrl_helloworld.env import *
+import time
 
 
 class Arguments:
+    """
+    Configuration map. Detailed explanation please refer to https://elegantrl.readthedocs.io/en/latest/api/config.html.
+
+    :param agent[object]: the agent object in ElegantRL.
+    :param env: an existed environment. (please pass None for now)
+    :param env_func: the function for creating an env.
+    :param env_args: the args for the env. Please take look at the demo.
+    """
     def __init__(self, agent, env=None, env_func=None, env_args=None):
         self.env = env  # the environment for training
         self.env_func = env_func  # env = env_func(*env_args)
@@ -60,6 +69,9 @@ class Arguments:
         self.eval_times2 = 2 ** 4  # number of times that get episode return in second
 
     def init_before_training(self):
+        """
+        Check parameters before training.
+        """
         np.random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
         torch.set_num_threads(self.thread_num)
@@ -89,6 +101,11 @@ class Arguments:
 
 
 def train_and_evaluate(args):
+    """
+    The training and evaluating loop.
+
+    :param args: an object of ``Arguments`` class, which contains all hyper-parameters.
+    """
     args.init_before_training()
     gpu_id = args.learner_gpus
 
@@ -113,7 +130,7 @@ def train_and_evaluate(args):
 
     if_train = True
     while if_train:
-        with torch.no_grad():  # todo
+        with torch.no_grad():
             trajectory = agent.explore_env(env, target_step)
             steps, r_exp = buffer.update_buffer((trajectory,))
 
@@ -130,6 +147,14 @@ def train_and_evaluate(args):
 
 
 def init_agent(args, gpu_id, env=None):
+    """
+    Initialize an ``Agent``.
+
+    :param args: an object of ``Arguments`` class, which contains all hyper-parameters.
+    :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
+    :param env: an object of environment.
+    :return: an Agent.
+    """
     agent = args.agent(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
     agent.save_or_load_agent(args.cwd, if_save=False)
 
@@ -148,12 +173,26 @@ def init_agent(args, gpu_id, env=None):
 
 
 def init_evaluator(args, gpu_id):
+    """
+    Initialize an ``Evaluator``.
+
+    :param args: an object of ``Arguments`` class, which contains all hyper-parameters.
+    :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
+    :return: an Evaluator.
+    """
     eval_env = build_env(args.env, args.env_func, args.env_args)
     evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
     return evaluator
 
 
 def init_buffer(args, gpu_id):
+    """
+    Initialize an ``ReplayBuffer``.
+
+    :param args: an object of ``Arguments`` class, which contains all hyper-parameters.
+    :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
+    :return: a ReplayBuffer.
+    """
     if args.if_off_policy:
         buffer = ReplayBuffer(gpu_id=gpu_id,
                               max_len=args.max_memo,
@@ -169,7 +208,15 @@ def init_buffer(args, gpu_id):
 '''evaluator'''
 
 
-class Evaluator:  # [ElegantRL.2022.01.01]
+class Evaluator:
+    """
+    An ``evaluator`` evaluates agent’s performance and saves models.
+
+    :param cwd: directory path to save the model.
+    :param agent_id: agent id.
+    :param eval_env: environment object for model evaluation.
+    :param args: an object of ``Arguments`` class.
+    """
     def __init__(self, cwd, agent_id, eval_env, args):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
@@ -191,7 +238,16 @@ class Evaluator:  # [ElegantRL.2022.01.01]
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):
+        """
+        Evaluate and save the model.
+
+        :param act: Actor (policy) network.
+        :param steps: training steps for last update.
+        :param r_exp: mean reward.
+        :param log_tuple: log information.
+        :return: a boolean for whether terminates the training process and a boolean for whether save the model.
+        """
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
@@ -238,7 +294,14 @@ class Evaluator:  # [ElegantRL.2022.01.01]
         return if_reach_goal
 
 
-def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2022.01.01]
+def get_episode_return_and_step(env, act) -> (float, int):
+    """
+    Evaluate the actor (policy) network on testing environment.
+
+    :param env: environment object in ElegantRL.
+    :param act: Actor (policy) network.
+    :return: episodic reward and number of steps needed.
+    """
     max_step = env.max_step
     if_discrete = env.if_discrete
     device = next(act.parameters()).device  # net.parameters() is a Python generator.

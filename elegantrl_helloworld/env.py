@@ -5,7 +5,8 @@ gym.logger.set_level(40)  # Block warning
 
 
 def get_gym_env_args(env, if_print) -> dict:
-    """get a dict `env_args` about a standard OpenAI gym env information.
+    """
+    Get a dict ``env_args`` about a standard OpenAI gym env information.
 
     env_args = {
         'env_num': 1,
@@ -17,11 +18,10 @@ def get_gym_env_args(env, if_print) -> dict:
         'target_return': target_return,  # [float] We train agent to reach this target episode return.
     }
 
-    :param env: a standard OpenAI gym env
-    :param if_print: [bool] print the dict about env inforamtion.
-    :return: env_args [dict]
+    :param env: a standard OpenAI gym env.
+    :param if_print: print the dict about env information.
+    :return: a dict of env_args.
     """
-
     env_num = getattr(env, 'env_num') if hasattr(env, 'env_num') else 1
 
     if isinstance(env, gym.Env):
@@ -81,6 +81,13 @@ def get_gym_env_args(env, if_print) -> dict:
 
 
 def kwargs_filter(func, kwargs: dict):
+    """
+    Filter the variable in env func.
+
+    :param func: the function for creating an env.
+    :param kwargs: args for the env.
+    :return: filtered args.
+    """
     import inspect
 
     sign = inspect.signature(func).parameters.values()
@@ -91,6 +98,14 @@ def kwargs_filter(func, kwargs: dict):
 
 
 def build_env(env=None, env_func=None, env_args=None):
+    """
+    Create an environment. If pass an existed env, copy a new one.
+
+    :param env: an existed environment. (please pass None for now)
+    :param env_func: the function for creating an env.
+    :param env_args: the args for the env. Please take look at the demo.
+    :return: an environment.
+    """
     if env is not None:
         env = deepcopy(env)
     elif env_func.__module__ == 'gym.envs.registration':
