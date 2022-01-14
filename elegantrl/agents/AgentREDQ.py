@@ -9,7 +9,6 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param reward_scale: scale the reward to get a appropriate scale Q value
     :param gamma: the discount factor of Reinforcement Learning
-
     :param learning_rate: learning rate of optimizer
     :param if_per_or_gae: PER (off-policy) or GAE (on-policy) for sparse reward
     :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
@@ -94,7 +93,8 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         #return y_q, state,action
 
     def select_actions(self, state,size, env):
-        """Select continuous actions for exploration
+        """
+        Select continuous actions for exploration
 
         :param state: states.shape==(batch_size, state_dim, )
         :return: actions.shape==(batch_size, action_dim, ),  -1 < action < +1
@@ -144,8 +144,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
                     self.cri_list[j].requires_grad_(True)
                 obj_alpha = -(self.alpha_log * (logprob - 1).detach()).mean()
                 self.optim_update(self.alpha_optim, obj_alpha)
-                #print(obj_critic, obj_actor, obj_alpha)
-       	    for q_i in range(self.N):
+            for q_i in range(self.N):
                 self.cri_optim_list[q_i].step()
             if((i + 1) % self.G == 0) or i == self.G - 1:
                 self.act_optim.step()
