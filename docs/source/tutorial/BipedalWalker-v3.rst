@@ -26,19 +26,16 @@ Step 2: Import packages
    
 .. code-block:: python
    
-   import gym
+   from elegantrl.run import *
 
-   from elegantrl.agents.AgentPPO import AgentPPO
-   from elegantrl.envs.Gym import get_gym_env_args
-   from elegantrl.train.config import Arguments
-   from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
+   gym.logger.set_level(40) # Block warning
 
 Step 3: Get environment information
 --------------------------------------------------
 
 .. code-block:: python
    
-   get_gym_env_args(gym.make('BipedalWalker-v3'), if_print=True)
+   get_gym_env_args(gym.make('BipedalWalker-v3'), if_print=False)
    
 
 Output: 
@@ -79,7 +76,7 @@ Step 4: Initialize agent and environment
        'id': 'BipedalWalker-v3',
    }
 
-   args = Arguments(agent=AgentPPO, env_func=env_func, env_args=env_args)
+   args = Arguments(AgentPPO, env_func=env_func, env_args=env_args)
 
 Step 5: Specify hyper-parameters
 ----------------------------------------
@@ -88,15 +85,9 @@ A list of hyper-parameters is available `here <https://elegantrl.readthedocs.io/
 
 .. code-block:: python
 
-   args.net_dim = 2 ** 8
-   args.batch_size = args.net_dim * 2
-   args.target_step = args.max_step * 2
-   args.worker_num = 4
-
-   args.save_gap = 2 ** 9
-   args.eval_gap = 2 ** 8
-   args.eval_times1 = 2 ** 4
-   args.eval_times2 = 2 ** 5
+   args.target_step = args.max_step * 4
+   args.gamma = 0.98
+   args.eval_times = 2 ** 4
    
 
 Step 6: Train your agent
@@ -138,26 +129,7 @@ In this tutorial, we provide four different modes to train an agent:
        raise ValueError(f"Unknown flag: {flag}")
    
    
-Step 7: Testing Results
-----------------------------------------
-
-After reaching the target reward, we generate the frame for each state and compose frames as a video result. From the video, the walker is able to move forward constantly.
-
-.. code-block:: python
-
-   for i in range(1024):
-      frame = gym_env.render('rgb_array')
-      cv2.imwrite(f'{save_dir}/{i:06}.png', frame)
-
-      states = torch.as_tensor((state,), dtype=torch.float32, device=device)
-      actions = agent.act(states)
-      action = actions.detach().cpu().numpy()[0]
-      next_state, reward, done, _ = env.step(action)
-      if done:
-         state = env.reset()
-      else:
-         state = next_state
-
+Try by yourself through this `Colab <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_BipedalWalker_v3.ipynb>`_!
 
 Performance of a trained agent:
 
