@@ -110,6 +110,6 @@ The last function is the **step function**, that includes a transition function 
         next_states = self.get_state()
         return next_states, rewards, dones, None
         
-For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/ChasingVecEnv.ipynb>`_ to play with, and its code can be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/ChasingEnv.py>`_.
+For more information about the chasing environment, we provide a `Colab version <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_Creating_ChasingVecEnv.ipynb>`_ to play with, and its code can be found `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/envs/ChasingEnv.py>`_.
 
 
