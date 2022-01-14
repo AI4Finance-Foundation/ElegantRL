@@ -12,11 +12,20 @@ Q Net
 Actor Network
 -------------
 
-.. autoclass:: elegantrl_helloworld.net.Actor
+.. autoclass:: elegantrl_helloworld.net.ActorSAC
+   :members:
+
+.. autoclass:: elegantrl_helloworld.net.ActorPPO
+   :members:
+
+.. autoclass:: elegantrl_helloworld.net.ActorDiscretePPO
    :members:
 
 Critic Network
 --------------
 
-.. autoclass:: elegantrl_helloworld.net.Critic
+.. autoclass:: elegantrl_helloworld.net.CriticTwin
+   :members:
+
+.. autoclass:: elegantrl_helloworld.net.CriticPPO
    :members:

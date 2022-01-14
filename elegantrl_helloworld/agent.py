@@ -565,7 +565,7 @@ class AgentPPO(AgentBase):
             state = env.reset() if done else next_s
         self.states[0] = state
         last_done[0] = step_i
-        return self.convert_trajectory(traj_list, last_done)  # traj_list
+        return self.convert_trajectory(traj_list, last_done)
 
     def explore_vec_env(self, env, target_step) -> list:
         """

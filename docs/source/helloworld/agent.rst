@@ -16,6 +16,9 @@ Agents
 .. autoclass:: elegantrl_helloworld.agent.AgentPPO
    :members:
 
+.. autoclass:: elegantrl_helloworld.agent.AgentDiscretePPO
+   :members:
+
 
 Replay Buffer
 ---------------------------------------------
