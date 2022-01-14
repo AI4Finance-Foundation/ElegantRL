@@ -1,7 +1,7 @@
 Example 2: BipedalWalker-v3
 ===============================
 
-BipedalWalker-v3 is a classic task in robotics that performs a fundamental skill: moving forward as fast as possible. The goal is to get a 2D biped walker to walk through rough terrain. BipedalWalker is considered to be a difficult task in the continuous action space, and there are only a few RL implementations that can reach the target reward.
+BipedalWalker-v3 is a classic task in robotics that performs a fundamental skill: moving forward as fast as possible. The goal is to get a 2D biped walker to walk through rough terrain. BipedalWalker is considered to be a difficult task in the continuous action space, and there are only a few RL implementations that can reach the target reward. Our Python code is available `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/examples/tutorial_BipedalWalker-v3.py>`_.
 
 When a biped walker takes random actions:
 
