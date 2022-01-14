@@ -1,6 +1,9 @@
 Agents: *agent.py*
 ==================
 
+Agents
+------------------------------
+
 .. autoclass:: elegantrl_helloworld.agent.AgentBase
    :members:
 
@@ -11,4 +14,14 @@ Agents: *agent.py*
    :members:
 
 .. autoclass:: elegantrl_helloworld.agent.AgentPPO
+   :members:
+
+
+Replay Buffer
+---------------------------------------------
+
+.. autoclass:: elegantrl_helloworld.agent.ReplayBuffer
+   :members:
+
+.. autoclass:: elegantrl_helloworld.agent.ReplayBufferList
    :members:

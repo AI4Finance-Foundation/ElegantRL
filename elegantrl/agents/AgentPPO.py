@@ -124,6 +124,13 @@ class AgentPPO(AgentBase):
         return self.splice_trajectory(buf_srdan, last_done)
 
     def explore_vec_env(self, env, target_step) -> list:
+        """
+        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
+
+        :param env: the DRL environment instance.
+        :param target_step: the total step for the interaction.
+        :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
+        """
         traj_list = list()
 
         ten_s = self.states
