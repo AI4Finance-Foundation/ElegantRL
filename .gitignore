@@ -1,5 +1,8 @@
 # Ignore all pycache files
 **/__pycache__
 
+# Ignore all .pth files
+*.pth
+
 # .idea folder
 .idea/
