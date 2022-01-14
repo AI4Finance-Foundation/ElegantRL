@@ -1,6 +1,9 @@
 import os
 import numpy.random as rd
 from copy import deepcopy
+
+import torch
+
 from elegantrl.net import *
 
 
@@ -39,10 +42,10 @@ class AgentBase:
             self.explore_env = self.explore_vec_env
 
         if getattr(args, 'if_use_per', False):  # PER (Prioritized Experience Replay) for sparse reward
-            self.criterion = torch.nn.MSELoss(reduction='none')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.MSELoss(reduction='mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
             self.get_obj_critic = self.get_obj_critic_raw
 
         if getattr(args, 'if_use_gae', False):  # GAE (Generalized Advantage Estimation) for sparse reward
@@ -428,18 +431,6 @@ class AgentTD3(AgentDDPG):
         self.policy_noise = getattr(args, 'policy_noise', 0.15)  # standard deviation of policy noise
         self.update_freq = getattr(args, 'update_freq', 2)  # delay update frequency
 
-        if self.env_num == 1:
-            self.explore_env = self.explore_one_env
-        else:
-            self.explore_env = self.explore_vec_env
-
-        if getattr(args, 'if_use_per', False):
-            self.criterion = torch.nn.MSELoss(reduction='none')
-            self.get_obj_critic = self.get_obj_critic_per
-        else:
-            self.criterion = torch.nn.MSELoss(reduction='mean')
-            self.get_obj_critic = self.get_obj_critic_raw
-
     def update_net(self, buffer) -> tuple:
         buffer.update_now_len()
         obj_critic = obj_actor = None
@@ -517,7 +508,7 @@ class AgentSAC(AgentBase):
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
             '''objective of alpha (temperature parameter automatic adjustment)'''
-            action_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
             obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
             self.optim_update(self.alpha_optim, obj_alpha)
 
@@ -525,25 +516,20 @@ class AgentSAC(AgentBase):
             alpha = self.alpha_log.exp().detach()
             with torch.no_grad():
                 self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
-            obj_actor = -(torch.min(*self.cri_target.get_q1_q2(state, action_pg)) + log_prob * alpha).mean()
+
+            q_value_pg = self.cri(state, a_noise_pg)
+            obj_actor = -(q_value_pg + log_prob * alpha).mean()
             self.optim_update(self.act_optim, obj_actor)
-            # self.soft_update(self.act_target, self.act, self.soft_update_tau)
+            # self.soft_update(self.act_target, self.act, self.soft_update_tau) # SAC don't use act_target network
 
         return obj_critic.item(), -obj_actor.item(), self.alpha_log.exp().detach().item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
-        """
-        Calculate the loss of networks with **uniform sampling**.
-
-        :param buffer: the ReplayBuffer instance that stores the trajectories.
-        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and states.
-        """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
 
             next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+            next_q = self.cri_target.get_q_min(next_s, next_a)
 
             alpha = self.alpha_log.exp().detach()
             q_label = reward + mask * (next_q + next_log_prob * alpha)
@@ -552,18 +538,11 @@ class AgentSAC(AgentBase):
         return obj_critic, state
 
     def get_obj_critic_per(self, buffer, batch_size):
-        """
-        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
-
-        :param buffer: the ReplayBuffer instance that stores the trajectories.
-        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and states.
-        """
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
 
             next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s, next_a))  # twin critics
+            next_q = self.cri_target.get_q_min(next_s, next_a)
 
             alpha = self.alpha_log.exp().detach()
             q_label = reward + mask * (next_q + next_log_prob * alpha)
@@ -609,11 +588,161 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
             if if_update_a:  # auto TTUR
                 update_a += 1
 
-                q_value_pg = torch.min(*self.cri.get_q1_q2(state, a_noise_pg))
+                q_value_pg = self.cri(state, a_noise_pg)
                 obj_actor = -(q_value_pg + log_prob * alpha).mean()
                 self.optim_update(self.act_optim, obj_actor)
                 self.soft_update(self.act_target, self.act, self.soft_update_tau)
         return self.obj_c, -obj_actor.item(), alpha.item()
+
+
+class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.act_class = getattr(self, 'act_class', ActorFixSAC)
+        self.cri_class = getattr(self, 'cri_class', CriticREDQ)
+        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
+    def get_obj_critic_raw(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri.get_q_values(state, action)
+        obj_critic = self.criterion(qs, q_label * torch.ones_like(qs))
+        # todo plan to mage ModSAC
+        # todo plan to update ModSAC to CriticQs
+        return obj_critic, state
+
+    def get_obj_critic_per(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri.get_q_values(state, action)
+        td_error = self.criterion(qs, q_label * torch.ones_like(qs)).mean(dim=1)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, state
+
+
+class CriticAsyncREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.critic_num = 8
+
+        max_gpu_num = 2  # todo
+        cri_name_dev_list = list()
+        for critic_id in range(self.critic_num):
+            critic_name = f'critic{critic_id:02}'
+            critic_value = Critic(mid_dim, state_dim, action_dim)
+            critic_dev = torch.device(f"cuda:{critic_id % max_gpu_num}")
+
+            setattr(self, critic_name, critic_value)
+            cri_name_dev_list.append((critic_name, critic_dev))
+        self.cri_name_dev_list = cri_name_dev_list
+
+    def forward(self, state, action):
+        return self.get_q_values(state, action).mean(dim=1, keepdim=True)  # mean Q value
+
+    def get_q_min(self, state, action):
+        tensor_qs = self.get_q_values(state, action)
+        q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
+        q_mean = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
+        return (q_min * (self.critic_num * 0.5) + q_mean) / (self.critic_num * 1.5)
+
+    def get_q_values(self, state, action):
+        cur_dev = state.device
+        tensor_qs = [getattr(self, name)(state.to(dev), action.to(dev)).to(cur_dev)
+                     for name, dev in self.cri_name_dev_list]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs  # multiple Q values
+
+
+class AgentAsyncREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.act_class = getattr(self, 'act_class', ActorFixSAC)
+        self.cri_class = getattr(self, 'cri_class', CriticAsyncREDQ)
+        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
+        # Asynchronous REDq
+        for cri_net in (self.cri, self.cri_target):
+            cri_name_dev_list = cri_net.cri_name_dev_list
+            for name, dev in cri_name_dev_list:
+                setattr(cri_net, name, getattr(cri_net, name).to(dev))
+
+    def update_net(self, buffer):
+        buffer.update_now_len()
+
+        alpha = self.alpha_log.exp().detach()
+        update_a = 0
+        obj_actor = None
+        for update_c in range(1, int(2 + buffer.now_len * self.repeat_times / self.batch_size)):
+            '''objective of critic (loss function of critic)'''
+            obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
+            self.optim_update(self.cri_optim, obj_critic)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+            self.obj_c = 0.995 * self.obj_c + 0.005 * obj_critic.item()  # for reliable_lambda
+
+            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            self.optim_update(self.alpha_optim, obj_alpha)
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
+            alpha = self.alpha_log.exp().detach()
+
+            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
+            reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
+            if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
+            if if_update_a:  # auto TTUR
+                update_a += 1
+
+                q_value_pg = self.cri(state, a_noise_pg)
+                obj_actor = -(q_value_pg + log_prob * alpha).mean()
+                self.optim_update(self.act_optim, obj_actor)
+                self.soft_update(self.act_target, self.act, self.soft_update_tau)
+        return self.obj_c, -obj_actor.item(), alpha.item()
+
+    def get_obj_critic_raw(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri.get_q_values(state, action)
+        obj_critic = self.criterion(qs, q_label * torch.ones_like(qs))
+        # todo plan to mage ModSAC
+        # todo plan to update ModSAC to CriticQs
+        return obj_critic, state
+
+    def get_obj_critic_per(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri.get_q_values(state, action)
+        td_error = self.criterion(qs, q_label * torch.ones_like(qs)).mean(dim=1)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, state
 
 
 '''on-policy'''
@@ -692,8 +821,6 @@ class AgentPPO(AgentBase):
             del buf_noise
 
         '''update network'''
-        # with torch.enable_grad():  # todo
-        # torch.set_grad_enabled(True)
         obj_critic = None
         obj_actor = None
         assert buf_len >= self.batch_size
@@ -720,7 +847,6 @@ class AgentPPO(AgentBase):
             self.optim_update(self.cri_optim, obj_critic / (r_sum.std() + 1e-6))
             if self.if_cri_target:
                 self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-        # torch.set_grad_enabled(False) # todo
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), -obj_actor.item(), a_std_log.item()  # logging_tuple

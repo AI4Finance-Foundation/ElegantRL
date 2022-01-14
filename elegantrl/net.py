@@ -5,6 +5,8 @@ import torch.nn as nn
 import numpy as np
 import numpy.random as rd
 
+'''DQN'''
+
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     def __init__(self, mid_dim, state_dim, action_dim):
@@ -162,6 +164,9 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
             a_prob = self.soft_max(q)
             action = torch.multinomial(a_prob, num_samples=1)
         return action
+
+
+'''Actor (policy network)'''
 
 
 class Actor(nn.Module):
@@ -363,6 +368,9 @@ class ActorDiscretePPO(nn.Module):
         return action.int()
 
 
+'''Critic (value network)'''
+
+
 class Critic(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
@@ -398,9 +406,35 @@ class CriticTwin(nn.Module):  # shared parameter
                                     nn.Linear(mid_dim, 1))  # q2 value
 
     def forward(self, state, action):
-        tmp = self.net_sa(torch.cat((state, action), dim=1))
-        return self.net_q1(tmp)  # one Q value
+        return torch.add(*self.get_q1_q2(state, action)) / 2.  # mean Q value
+
+    def get_q_min(self, state, action):
+        return torch.min(*self.get_q1_q2(state, action))  # min Q value
 
     def get_q1_q2(self, state, action):
         tmp = self.net_sa(torch.cat((state, action), dim=1))
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
+
+
+class CriticREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
+    def __init__(self, mid_dim, state_dim, action_dim):
+        super().__init__()
+        self.critic_num = 8
+        for critic_id in range(self.critic_num):
+            setattr(self, f'critic{critic_id:02}', Critic(mid_dim, state_dim, action_dim))
+
+    def forward(self, state, action):
+        return self.get_q_values(state, action).mean(dim=1, keepdim=True)  # mean Q value
+
+    def get_q_min(self, state, action):
+        tensor_qs = self.get_q_values(state, action)
+        q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
+        q_mean = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
+        return (q_min * (self.critic_num * 0.5) + q_mean) / (self.critic_num * 1.5)
+
+    def get_q_values(self, state, action):
+        tensor_sa = torch.cat((state, action), dim=1)
+        tensor_qs = [getattr(self, f'critic{critic_id:02}').net(tensor_sa)  # criticID.net(tensor_sa)
+                     for critic_id in range(self.critic_num)]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs  # multiple Q values

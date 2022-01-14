@@ -155,12 +155,6 @@ def init_agent(args, gpu_id, env=None):
     return agent
 
 
-def init_evaluator(args, gpu_id):
-    eval_env = build_env(args.env, args.env_func, args.env_args)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
-    return evaluator
-
-
 def init_buffer(args, gpu_id):
     if args.if_off_policy:
         buffer = ReplayBuffer(gpu_id=gpu_id,
@@ -172,6 +166,12 @@ def init_buffer(args, gpu_id):
     else:
         buffer = ReplayBufferList()
     return buffer
+
+
+def init_evaluator(args, gpu_id):
+    eval_env = build_env(args.env, args.env_func, args.env_args)
+    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
+    return evaluator
 
 
 '''train multiple process'''
