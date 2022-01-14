@@ -1,5 +1,5 @@
 class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
-    """"
+    """
     Bases: ``AgentBase``
     
     Randomized Ensemble Double Q-learning algorithm. “Randomized Ensembled Double Q-Learning: Learning Fast Without A Model”. Xinyue Chen et al.. 2021.
