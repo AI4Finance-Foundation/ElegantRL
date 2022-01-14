@@ -8,15 +8,19 @@ def get_gym_env_args(env, if_print) -> dict:
     """
     Get a dict ``env_args`` about a standard OpenAI gym env information.
 
-    env_args = {
-        'env_num': 1,
-        'env_name': env_name,            # [str] the environment name, such as XxxXxx-v0
-        'max_step': max_step,            # [int] the steps in an episode. (from env.reset to done).
-        'state_dim': state_dim,          # [int] the dimension of state
-        'action_dim': action_dim,        # [int] the dimension of action
-        'if_discrete': if_discrete,      # [bool] action space is discrete or continuous
-        'target_return': target_return,  # [float] We train agent to reach this target episode return.
-    }
+    'env_num': 1,
+
+    'env_name': env_name,            # [str] the environment name, such as XxxXxx-v0
+
+    'max_step': max_step,            # [int] the steps in an episode. (from env.reset to done).
+
+    'state_dim': state_dim,          # [int] the dimension of state
+
+    'action_dim': action_dim,        # [int] the dimension of action
+
+    'if_discrete': if_discrete,      # [bool] action space is discrete or continuous
+
+    'target_return': target_return,  # [float] We train agent to reach this target episode return.
 
     :param env: a standard OpenAI gym env.
     :param if_print: print the dict about env information.

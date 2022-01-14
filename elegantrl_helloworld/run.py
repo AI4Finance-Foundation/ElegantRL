@@ -45,25 +45,21 @@ class Arguments:
             self.repeat_times = 2 ** 4  # collect target_step, then update network
             self.if_per_or_gae = False  # use PER: GAE (Generalized Advantage Estimation) for sparse reward
 
-        '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
         self.learning_rate = 2 ** -15  # 2 ** -14 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
 
-        '''Arguments for device'''
         self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
         self.thread_num = 8  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
         self.random_seed = 0  # initialize random seed in self.init_before_training()
         self.learner_gpus = 0  # `int` means the ID of single GPU, -1 means CPU
 
-        '''Arguments for evaluate'''
         self.cwd = None  # current work directory to save model. None means set automatically
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = +np.inf  # break training if 'total_step > break_step'
         self.if_allow_break = True  # allow break training when reach goal (early termination)
 
-        '''Arguments for evaluate'''
         self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
         self.eval_times1 = 2 ** 2  # number of times that get episode return in first
         self.eval_times2 = 2 ** 4  # number of times that get episode return in second
