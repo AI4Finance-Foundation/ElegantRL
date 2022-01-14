@@ -72,57 +72,41 @@ run.py
 
 The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manual breaks.
 
-In *run.py*, we also provide an evluator for model evaluation and four demo functions:
+In **run.py**, we also provide an evaluator to periodically evaluate and save the model.
 
-    - discrete action using off-policy algorithm
-    - discrete action using on-policy algorithm
-    - continuous action using off-policy algorithm
-    - continuous action using on-policy algorithm
+demo.py
+---------------------
+
+`demo.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/demo.py>`_ contains four demo functions:
+
+    - discrete action    +   off-policy algorithm
+    - discrete action    +   on-policy algorithm
+    - continuous action  +   off-policy algorithm
+    - continuous action  +   on-policy algorithm
     
 
 Run the Code
 ============
 
-In `run.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/run.py>`_, there are four functions that are available to run in the main function. You can see ``demo_continuous_action_on_policy()`` called at the bottom of the file.
+In `demo.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/demo.py>`_, there are four functions that are available to run in the main function. You can see ``demo_continuous_action_on_policy()`` called at the bottom of the file.
 
 .. code-block:: python
 
     if __name__ == '__main__':
-      # demo_continuous_action_off_policy()
-      demo_continuous_action_on_policy()
-      # demo_discrete_action_off_policy()
-      # demo_discrete_action_on_policy()
-
-Inside one of the four functions, choose the task you want to train on by setting its boolean to 1. Then uncomment that function and run it. 
-
-.. code-block:: python
     
-    if_train_pendulum = 1  # here!
-    if if_train_pendulum:
-        "TotalStep: 4e5, TargetReward: -200, UsedTime: 400s"
-        args.env = PreprocessEnv(env=gym.make('Pendulum-v1'))  # env='Pendulum-v1' is OK.
-        args.env.target_return = -200  # set target_reward manually for env 'Pendulum-v1'
-        args.reward_scale = 2 ** -3  # RewardRange: -1800 < -200 < -50 < 0
-        args.gamma = 0.97
-        args.net_dim = 2 ** 7
-        args.batch_size = args.net_dim * 2
-        args.target_step = args.env.max_step * 8
+        ENV_ID = 3  # int(sys.argv[2])
+        # demo_continuous_action_off_policy()
+        demo_continuous_action_on_policy()
+        # demo_discrete_action_off_policy()
+        # demo_discrete_action_on_policy()
 
-    if_train_lunar_lander = 0  # here!
-    if if_train_lunar_lander:
-        "TotalStep: 4e5, TargetReward: 200, UsedTime: 900s"
-        args.env = PreprocessEnv(env=gym.make('LunarLanderContinuous-v2'))
-        args.target_step = args.env.max_step * 4
-        args.gamma = 0.98
-        args.if_per_or_gae = True
+Inside each of the four functions, we provide three tasks as demos to help you get start. You can choose the task you want to train on by setting the ``env_id``.
 
-    if_train_bipedal_walker = 0  # here!
-    if if_train_bipedal_walker:
-        "TotalStep: 8e5, TargetReward: 300, UsedTime: 1800s"
-        args.env = PreprocessEnv(env=gym.make('BipedalWalker-v3'))
-        args.gamma = 0.98
-        args.if_per_or_gae = True
-        args.agent.cri_target = True
+    - Pendulum id: 1
+    
+    - LunarLanderContinuous-v2 id: 2
+    
+    - BipedalWalker-v3 id: 3
 
 If everything works, congratulations!  
 
