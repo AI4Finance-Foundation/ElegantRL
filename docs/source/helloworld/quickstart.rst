@@ -1,44 +1,50 @@
 Quickstart
 =============
 
-Inside ``./elegantrl_helloworld/run.py``, you will find some demo code that looks like this:
+As a quickstart, we select the Pendulum task from the demo.py to show how to train a DRL agent in ElegantRL. 
+
+Step 1: Import packages
+-------------------------------
 
 .. code-block:: python
-   :linenos:
+   
+   from elegantrl_helloworld.demo import *
 
-    import time
-    from agent import *
-    from env import *
-    from typing import Tuple
-
-    gym.logger.set_level(40)  # Block warning: 'WARN: Box bound precision lowered by casting to float32'
-
-    '''MORE DEMO CODE FOLLOWS'''
-
-
-If you run the file in your terminal, you'll see an agent training live:
+   gym.logger.set_level(40) # Block warning
+   
+Step 2: Specify Agent and Environment
+--------------------------------------
 
 .. code-block:: python
 
-  python run.py
-
-You can see ``demo_continuous_action_on_policy()`` called at the bottom of the file.
+   env = PendulumEnv('Pendulum-v0', target_return=-500)
+   args = Arguments(AgentSAC, env)
+   
+Part 3: Specify hyper-parameters
+--------------------------------------
 
 .. code-block:: python
-   :linenos:
 
-    if __name__ == '__main__':
-      # demo_continuous_action_off_policy()
-      demo_continuous_action_on_policy()
-      # demo_discrete_action_off_policy()
-      # demo_discrete_action_on_policy()
+   args.reward_scale = 2 ** -1  # RewardRange: -1800 < -200 < -50 < 0
+   args.gamma = 0.97
+   args.target_step = args.max_step * 2
+   args.eval_times = 2 ** 3
+   
+Step 4: Train and Evaluate the Agent
+--------------------------------------
+
+.. code-block:: python
+
+   train_and_evaluate(args)
+   
+Try by yourself through this `Colab <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/quickstart_Pendulum_v1.ipynb>`_!
 
 .. tip::
-    - By default, it will train a stable-PPO agent in the Pendulum-v1 environment for 400 seconds.
+    - By default, it will train a stable-SAC agent in the Pendulum-v0 environment for 400 seconds.
 
     - It will choose to utilize the CPU or GPU automatically. Don't worry, we never use ``.cuda()``.
 
-    - It will save the log and model parameters file in ``'./{Agent}_{Environment}_0'``.
+    - It will save the log and model parameters file in ``'./{Environment}_{Agent}_{GPU_ID}'``.
 
     - It will print the total reward while training. (Maybe we should use TensorBoardX?)
 
