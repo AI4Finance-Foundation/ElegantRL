@@ -634,51 +634,21 @@ class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Tw
         return obj_critic, state
 
 
-class CriticAsyncREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
-    def __init__(self, mid_dim, state_dim, action_dim):
-        super().__init__()
-        self.critic_num = 8
-
-        max_gpu_num = 2  # todo
-        cri_name_dev_list = list()
-        for critic_id in range(self.critic_num):
-            critic_name = f'critic{critic_id:02}'
-            critic_value = Critic(mid_dim, state_dim, action_dim)
-            critic_dev = torch.device(f"cuda:{critic_id % max_gpu_num}")
-
-            setattr(self, critic_name, critic_value)
-            cri_name_dev_list.append((critic_name, critic_dev))
-        self.cri_name_dev_list = cri_name_dev_list
-
-    def forward(self, state, action):
-        return self.get_q_values(state, action).mean(dim=1, keepdim=True)  # mean Q value
-
-    def get_q_min(self, state, action):
-        tensor_qs = self.get_q_values(state, action)
-        q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
-        q_mean = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
-        return (q_min * (self.critic_num * 0.5) + q_mean) / (self.critic_num * 1.5)
-
-    def get_q_values(self, state, action):
-        cur_dev = state.device
-        tensor_qs = [getattr(self, name)(state.to(dev), action.to(dev)).to(cur_dev)
-                     for name, dev in self.cri_name_dev_list]
-        tensor_qs = torch.cat(tensor_qs, dim=1)
-        return tensor_qs  # multiple Q values
-
-
-class AgentAsyncREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+class AgentSyncREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.act_class = getattr(self, 'act_class', ActorFixSAC)
-        self.cri_class = getattr(self, 'cri_class', CriticAsyncREDQ)
+        self.cri_class = getattr(self, 'cri_class', CriticSyncREDQ)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
         # Asynchronous REDq
+        max_gpu_num = 4
         for cri_net in (self.cri, self.cri_target):
             cri_name_dev_list = cri_net.cri_name_dev_list
-            for name, dev in cri_name_dev_list:
+            for critic_id, (name, dev) in enumerate(cri_name_dev_list):
+                dev = torch.device(f'cuda:{critic_id % max_gpu_num}')
                 setattr(cri_net, name, getattr(cri_net, name).to(dev))
+                cri_name_dev_list[critic_id][1] = dev
 
     def update_net(self, buffer):
         buffer.update_now_len()

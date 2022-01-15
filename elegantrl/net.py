@@ -438,3 +438,65 @@ class CriticREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
                      for critic_id in range(self.critic_num)]
         tensor_qs = torch.cat(tensor_qs, dim=1)
         return tensor_qs  # multiple Q values
+
+
+class CriticSyncREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
+    def __init__(self, mid_dim, state_dim, action_dim, critic_num=8):
+        super().__init__()
+        self.critic_num = critic_num
+
+        cri_name_dev_list = list()
+        for critic_id in range(self.critic_num):
+            critic_name = f'critic{critic_id:02}'
+            critic_value = Critic(mid_dim, state_dim, action_dim)
+            critic_dev = torch.device(f"cuda:{critic_id}")
+
+            setattr(self, critic_name, critic_value)
+            cri_name_dev_list.append([critic_name, critic_dev])
+        self.cri_name_dev_list = cri_name_dev_list
+
+    def forward(self, state, action):
+        return self.get_q_values(state, action).mean(dim=1, keepdim=True)  # mean Q value
+
+    def get_q_min(self, state, action):
+        tensor_qs = self.get_q_values(state, action)
+        q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
+        q_mean = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
+        return (q_min * (self.critic_num * 0.5) + q_mean) / (self.critic_num * 1.5)
+
+    def get_q_values(self, state, action):
+        cur_dev = state.device
+        tensor_qs = [getattr(self, name)(state.to(dev), action.to(dev)).to(cur_dev)
+                     for name, dev in self.cri_name_dev_list]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs  # multiple Q values
+
+
+class CriticAsyncREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
+    def __init__(self, mid_dim, state_dim, action_dim, critic_num=8):
+        super().__init__()
+        self.critic_num = critic_num
+
+        cri_name_list = list()
+        for critic_id in range(self.critic_num):
+            critic_name = f'critic{critic_id:02}'
+            critic_value = Critic(mid_dim, state_dim, action_dim)
+
+            setattr(self, critic_name, critic_value)
+            cri_name_list.append(critic_name)
+        self.cri_name_list = cri_name_list
+
+    def forward(self, state, action):
+        return self.get_q_values(state, action).mean(dim=1, keepdim=True)  # mean Q value
+
+    def get_q_min(self, state, action):
+        tensor_qs = self.get_q_values(state, action)
+        q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
+        q_mean = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
+        return (q_min * (self.critic_num * 0.5) + q_mean) / (self.critic_num * 1.5)
+
+    def get_q_values(self, state, action):
+        tensor_qs = [getattr(self, name)(state, action)
+                     for name in self.cri_name_list]
+        tensor_qs = torch.cat(tensor_qs, dim=1)
+        return tensor_qs  # multiple Q values
