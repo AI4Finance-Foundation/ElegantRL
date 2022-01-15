@@ -2,9 +2,15 @@ import gym
 import time
 import multiprocessing as mp
 
+import torch
+
 from elegantrl.agent import *
 
 '''[ElegantRL.2022.01.01](github.com/AI4Fiance-Foundation/ElegantRL)'''
+
+"""
+todo eval_times12
+"""
 
 
 class Arguments:
@@ -325,6 +331,205 @@ def process_safely_terminate(process):
             p.kill()
         except OSError as e:
             print(e)
+
+
+'''train asynchronous'''
+
+
+class AgentAsyncREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.act_class = getattr(self, 'act_class', ActorFixSAC)
+        self.cri_class = getattr(self, 'cri_class', Critic)
+        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
+        critic_num = getattr(args, 'critic_num')
+        self.cri_redq = CriticAsyncREDQ(args.net_dim, args.state_dim, args.action_dim,
+                                        critic_num).to(self.device)
+        self.delay_gap = 2 ** 3
+
+    def update_net_act(self, buffer, pipes):
+        buffer.update_now_len()
+        for pipe in pipes:
+            pipe.send(buffer.now_len)
+
+        obj_critic = obj_actor = None
+        for j in range(int(1 + buffer.now_len * self.repeat_times / self.batch_size)):
+            with torch.no_grad():
+                reward, mask, action, state, next_s = buffer.sample_batch(self.batch_size)
+                act_target_state_dict = self.act_target.state_dict()
+
+                for pipe in pipes:
+                    pipe.send((act_target_state_dict, reward, mask, action, state, next_s))
+
+            # '''objective of critic (loss function of critic)''' # todo
+            # obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
+            # self.optim_update(self.cri_optim, obj_critic)
+            # self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+
+            '''objective of alpha (temperature parameter automatic adjustment)'''
+            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            self.optim_update(self.alpha_optim, obj_alpha)
+
+            '''objective of actor'''
+            alpha = self.alpha_log.exp().detach()
+            with torch.no_grad():
+                self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+
+            # q_value_pg = self.cri(state, a_noise_pg) # todo
+            if j * self.delay_gap == 0:
+                for critic_id, pipe in enumerate(pipes):
+                    cri_state_dict = pipe.recv()
+                    cri_net = getattr(self.cri_redq, f"critic{critic_id:02}")
+                    cri_net.load_state_dict(cri_state_dict)
+            q_value_pg = self.cri_redq(state, a_noise_pg)
+
+            obj_actor = -(q_value_pg + log_prob * alpha).mean()
+            self.optim_update(self.act_optim, obj_actor)
+            # self.soft_update(self.act_target, self.act, self.soft_update_tau) # SAC don't use act_target network
+        return self.obj_c, -obj_actor.item(), self.alpha_log.exp().detach().item()
+        # return obj_critic.item(), -obj_actor.item(), self.alpha_log.exp().detach().item()
+
+    def update_net_cri(self, pipe):
+        # buffer.update_now_len()
+        buffer_now_len = pipe.recv()
+
+        # obj_critic = obj_actor = None
+        # for _ in range(int(1 + buffer.now_len * self.repeat_times / self.batch_size)):
+        for j in range(int(1 + buffer_now_len * self.repeat_times / self.batch_size)):
+            act_target_state_dict, reward, mask, action, state, next_s = pipe.recv()
+            self.act_target.load_state_dict(act_target_state_dict)
+
+            '''objective of critic (loss function of critic)'''
+            obj_critic, state = self.get_obj_critic((reward, mask, action, state, next_s), self.batch_size)
+            self.optim_update(self.cri_optim, obj_critic)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+
+            if j * self.delay_gap == 0:
+                pipe.send(self.cri.state_dict())
+
+            # '''objective of alpha (temperature parameter automatic adjustment)'''
+            # a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
+            # obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
+            # self.optim_update(self.alpha_optim, obj_alpha)
+            #
+            # '''objective of actor'''
+            # alpha = self.alpha_log.exp().detach()
+            # with torch.no_grad():
+            #     self.alpha_log[:] = self.alpha_log.clamp(-20, 2)
+            #
+            # q_value_pg = self.cri(state, a_noise_pg)
+            #
+            # obj_actor = -(q_value_pg + log_prob * alpha).mean()
+            # self.optim_update(self.act_optim, obj_actor)
+            # # self.soft_update(self.act_target, self.act, self.soft_update_tau) # SAC don't use act_target network
+
+        # return obj_critic, -obj_actor.item(), self.alpha_log.exp().detach().item()
+        # return obj_critic.item(), -obj_actor.item(), self.alpha_log.exp().detach().item()
+
+    def get_obj_critic_raw(self, buffer, batch_size):
+        with torch.no_grad():
+            # reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s = buffer
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+
+            # next_q = self.cri_target.get_q_min(next_s, next_a)  # slow than below
+            next_q = self.cri_target(next_s, next_a)  # higher data efficiency than above
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri(state, action)
+        obj_critic = self.criterion(qs, q_label)
+        return obj_critic, state
+
+
+class PipeLearnerAsync:
+    def __init__(self, critic_num=8):
+        pipes = [mp.Pipe() for _ in range(critic_num)]
+        pipes = list(map(list, zip(*pipes)))
+        self.pipe0s = pipes[0]  # for actor
+        self.pipe1s = pipes[1]  # for critic
+
+    def run_act(self, args, comm_eva, comm_exp):
+        torch.set_grad_enabled(False)
+        gpu_id = args.learner_gpus
+
+        '''init'''
+        agent = init_agent(args, gpu_id)
+        buffer = init_buffer(args, gpu_id)
+
+        '''loop'''
+        if_train = True
+        while if_train:
+            traj_list = comm_exp.explore(agent)
+            steps, r_exp = buffer.update_buffer(traj_list)
+
+            torch.set_grad_enabled(True)
+            logging_tuple = agent.update_net_act(buffer, self.pipe0s)
+            torch.set_grad_enabled(False)
+
+            if_train = comm_eva.evaluate_and_save_mp(agent, steps, r_exp, logging_tuple)
+        agent.save_or_load_agent(args.cwd, if_save=True)
+        print(f'| Learner: Save in {args.cwd}')
+
+        if hasattr(buffer, 'save_or_load_history'):
+            print(f"| LearnerPipe.run: ReplayBuffer saving in {args.cwd}")
+            buffer.save_or_load_history(args.cwd, if_save=True)
+
+    def run_cri(self, args, critic_id):  # def run_cri(args, comm_eva, comm_exp):
+        torch.set_grad_enabled(False)
+        gpu_id = args.learner_gpus
+
+        '''init'''
+        agent = init_agent(args, gpu_id)
+        # buffer = init_buffer(args, gpu_id)
+
+        '''loop'''
+        torch.set_grad_enabled(True)
+        if_train = True
+        pipe1 = self.pipe1s[critic_id]
+        while if_train:
+            # traj_list = comm_exp.explore(agent)
+            # steps, r_exp = buffer.update_buffer(traj_list)
+
+            # torch.set_grad_enabled(True)
+            # logging_tuple = agent.update_net_cri(buffer)
+            # torch.set_grad_enabled(False)
+            agent.update_net_cri(pipe1)
+
+        #     if_train = comm_eva.evaluate_and_save_mp(agent, steps, r_exp, logging_tuple)
+        # agent.save_or_load_agent(args.cwd, if_save=True)
+        # print(f'| Learner: Save in {args.cwd}')
+        #
+        # if hasattr(buffer, 'save_or_load_history'):
+        #     print(f"| LearnerPipe.run: ReplayBuffer saving in {args.cwd}")
+        #     buffer.save_or_load_history(args.cwd, if_save=True)
+
+
+def train_and_evaluate_async(args):
+    args.init_before_training()
+    args.critic_num = 4  # todo
+
+    process = list()
+    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
+
+    evaluator_pipe = PipeEvaluator()
+    process.append(mp.Process(target=evaluator_pipe.run, args=(args,)))
+
+    worker_pipe = PipeWorker(args.worker_num)
+    process.extend([mp.Process(target=worker_pipe.run, args=(args, worker_id))
+                    for worker_id in range(args.worker_num)])
+
+    learner_pipe = PipeLearnerAsync(args.critic_num)
+    for critic_id in range(args.critic_num):
+        process.append(mp.Process(target=learner_pipe.run_cri, args=(args, critic_id)))
+    process.append(mp.Process(target=learner_pipe.run_act, args=(args, evaluator_pipe, worker_pipe)))
+
+    [p.start() for p in process]
+    process[-1].join()  # waiting for learner
+    process_safely_terminate(process)
 
 
 '''evaluator'''
