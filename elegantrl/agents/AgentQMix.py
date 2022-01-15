@@ -7,7 +7,16 @@ from torch.optim import RMSprop, Adam
 import numpy as np
 
 class AgentQMix:
+    """
+    “QMIX: Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning”. Tabish Rashid. et al.. 2018.
+    
+    :param mac: multi agent controller
+    :param scheme: data scheme stored in the buffer
+    :param logger: log object, record training information
+    :param args: parameters related to training
+    """
     def __init__(self, mac, scheme, logger, args):
+        
         self.args = args
         self.mac = mac
         self.logger = logger
@@ -39,6 +48,13 @@ class AgentQMix:
             self.priority_min = float('inf')
         
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int, per_weight=None):
+        """
+        Update the neural networks.
+        
+        :param batch: episodebatch.
+        :param per_weight: prioritized experience replay weights.
+        :return: log information.
+        """
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
         terminated = batch["terminated"][:, :-1].float()
