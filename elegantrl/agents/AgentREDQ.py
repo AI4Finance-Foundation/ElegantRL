@@ -1,3 +1,5 @@
+from elegantrl.agents.AgentBase import AgentBase
+
 class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     """
     Bases: ``AgentBase``
