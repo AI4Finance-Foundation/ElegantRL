@@ -17,18 +17,7 @@ Code Snippet
 .. code-block:: python
 
    def ppo_update(self, sample, update_actor=True):
-      """
-      Update actor and critic networks.
-      
-      :param sample: (Tuple) contains data batch with which to update networks.
-      :update_actor: (bool) whether to update actor network.
-      :return value_loss: (torch.Tensor) value function loss.
-      :return critic_grad_norm: (torch.Tensor) gradient norm from critic up9date.
-      :return policy_loss: (torch.Tensor) actor(policy) loss value.
-      :return dist_entropy: (torch.Tensor) action entropies.
-      :return actor_grad_norm: (torch.Tensor) gradient norm from actor update.
-      :return imp_weights: (torch.Tensor) importance sampling weights.
-      """
+
       share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
       value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
       adv_targ, available_actions_batch = sample
