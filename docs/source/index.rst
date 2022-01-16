@@ -116,9 +116,10 @@ Or install with the newest version through GitHub:
    algorithms/ppo
    algorithms/redq
    algorithms/maddpg
+   algorithms/matd3
    algorithms/qmix
-   algorithms/mappo
    algorithms/vdn
+   algorithms/mappo
    
    
 .. toctree::
