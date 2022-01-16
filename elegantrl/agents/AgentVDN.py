@@ -1,11 +1,21 @@
 import torch as th
 import copy
-from net import VDNMixer,QMixer
+from elegantrl.agents.net import VDN
 import torch as th
 from torch.optim import RMSprop
 
 
-class VDN:
+class AgentVDN:
+    """
+    AgentVDN
+    
+    “Value-Decomposition Networks For Cooperative Multi-Agent Learning”. Peter Sunehag. et al.. 2017.
+    
+    :param mac: multi agent controller
+    :param scheme: data scheme stored in the buffer
+    :param logger: log object, record training information
+    :param args: parameters related to training
+    """
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.mac = mac
@@ -17,8 +27,8 @@ class VDN:
 
         self.mixer = None
         if args.mixer is not None:
-            args.mixer == "vdn":
-            self.mixer = VDNMixer()
+            args.mixer == "vdn"
+            self.mixer = VDN()
             self.params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
@@ -30,6 +40,13 @@ class VDN:
         self.log_stats_t = -self.args.learner_log_interval - 1
 
     def train(self, batch, t_env: int, episode_num: int):
+        """
+        Update the neural networks.
+        
+        :param batch: episodebatch.
+        :param per_weight: prioritized experience replay weights.
+        :return: log information.
+        """
         # Get the relevant quantities
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]

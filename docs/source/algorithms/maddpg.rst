@@ -4,9 +4,10 @@
 MADDPG
 ==========
 
-`Multi-Agent Deep Deterministic Policy Gradient (MADDPG) <https://arxiv.org/abs/1706.02275>` is an multi-agent reinforcement learning algorithm for continuous action space.
--  Implement is based on DDPG ✔️
--  Init n DDPG Agent in MADDPG: ✔️
+`Multi-Agent Deep Deterministic Policy Gradient (MADDPG) <https://arxiv.org/abs/1706.02275>`_ is a multi-agent reinforcement learning algorithm for continuous action space:
+
+-  Implementation is based on DDPG ✔️
+-  Initialize n DDPG Agent in MADDPG: ✔️
 
 Code Snippet
 ------------

@@ -4,7 +4,7 @@
 MATD3
 ==========
 
-`Multi-Agent TD3 is based on MADDPG. The critic network for MATD3 is Critic Twin similar to double Q learning:
+`Multi-Agent TD3(MATD3) <https://arxiv.org/abs/1910.01465>`_ uses double centralized critics to reduce overestimation bias in multi-agent domains.
 
 
 Code Snippet

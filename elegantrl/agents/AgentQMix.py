@@ -1,13 +1,15 @@
 import copy
-from train.replay_buffer import EpisodeBatch
-from agents.net import QMix,VDN
-from envs.utils.marl_utils import build_td_lambda_targets, build_q_lambda_targets,get_parameters_num
+
+from elegantrl.agents.net import QMix
+from elegantrl.envs.utils.marl_utils import build_td_lambda_targets, build_q_lambda_targets,get_parameters_num
 import torch as th
 from torch.optim import RMSprop, Adam
 import numpy as np
 
 class AgentQMix:
     """
+    AgentQMix
+    
     “QMIX: Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning”. Tabish Rashid. et al.. 2018.
     
     :param mac: multi agent controller
@@ -47,7 +49,7 @@ class AgentQMix:
             self.priority_max = float('-inf')
             self.priority_min = float('inf')
         
-    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int, per_weight=None):
+    def train(self, batch, t_env: int, episode_num: int, per_weight=None):
         """
         Update the neural networks.
         

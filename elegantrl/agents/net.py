@@ -1009,6 +1009,9 @@ class ShareBiConv(nn.Module):
 
 
 class QMix(nn.Module):
+    """
+    Mixer network for QMix. Outputs total q value given independent q value and states.
+    """
     def __init__(self, args):
         super(QMix, self).__init__()
 
@@ -1044,6 +1047,13 @@ class QMix(nn.Module):
                                nn.Linear(self.embed_dim, 1))
 
     def forward(self, agent_qs, states):
+        """
+        Compute total q value for QMix.
+        
+        :param agent_qs: independent q value.
+        :param states: state of agents
+        :return total q value:
+        """
         bs = agent_qs.size(0)
         states = states.reshape(-1, self.state_dim)
         agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
@@ -1087,12 +1097,21 @@ class QMix(nn.Module):
         return b
 
 
-class VDNMix(nn.Module):
+class VDN(nn.Module):
+    """
+    Mixer network for VDN. Outputs total q value given independent q value.
+    """
     def __init__(self):
-        super(VDNMix, self).__init__()
+        super(VDN, self).__init__()
 
     @staticmethod
     def forward(agent_qs, _batch):
+        """
+        Compute total q value for VDN.
+        
+        :param agent_qs: independent q value.
+        :return total q value:
+        """
         return torch.sum(agent_qs, dim=2, keepdim=True)
 
 
