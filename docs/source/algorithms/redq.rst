@@ -4,7 +4,14 @@
 REDQ
 ==========
 
-`REDQ <https://arxiv.org/abs/2101.05982>`_ REDQ has three carefully integrated ingredients which allow it to achieve its high performance: (i) a UTD ratio >> 1; (ii) an ensemble of Q functions; (iii) in-target minimization across a random subset of Q functions from the ensemble. This implementation is based on SAC and supports the following extensions:
+`Randomized Ensembled Double Q-Learning: Learning Fast Without a Model (REDQ) <https://arxiv.org/abs/2101.05982>`_ has 
+three carefully integrated ingredients which allow it to achieve its high performance:  
+
+-  up-to-date (UTD) ratio >> 1.
+-  an ensemble of Q functions.
+-  in-target minimization across a random subset of Q functions from the ensemble.
+
+This implementation is based on SAC.
 
 
 Code Snippet
