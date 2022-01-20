@@ -1,10 +1,12 @@
 import os
-import numpy.random as rd
-from copy import deepcopy
-
 import torch
 
-from elegantrl.net import *
+import numpy as np
+
+from copy import deepcopy
+from elegantrl.net import Actor, ActorSAC, ActorFixSAC, CriticTwin, CriticREDq
+from elegantrl.net import ActorPPO, ActorDiscretePPO, CriticPPO
+from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
 
 
 class AgentBase:
@@ -598,90 +600,9 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two
 class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.act_class = getattr(self, 'act_class', ActorFixSAC)
-        self.cri_class = getattr(self, 'cri_class', CriticREDQ)
+        self.cri_class = getattr(self, 'cri_class', CriticREDq)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
-
-    def get_obj_critic_raw(self, buffer, batch_size):
-        with torch.no_grad():
-            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-
-            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
-            next_q = self.cri_target.get_q_min(next_s, next_a)
-
-            alpha = self.alpha_log.exp().detach()
-            q_label = reward + mask * (next_q + next_log_prob * alpha)
-        qs = self.cri.get_q_values(state, action)
-        obj_critic = self.criterion(qs, q_label * torch.ones_like(qs))
-        # todo plan to mage ModSAC
-        # todo plan to update ModSAC to CriticQs
-        return obj_critic, state
-
-    def get_obj_critic_per(self, buffer, batch_size):
-        with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-
-            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
-            next_q = self.cri_target.get_q_min(next_s, next_a)
-
-            alpha = self.alpha_log.exp().detach()
-            q_label = reward + mask * (next_q + next_log_prob * alpha)
-        qs = self.cri.get_q_values(state, action)
-        td_error = self.criterion(qs, q_label * torch.ones_like(qs)).mean(dim=1)
-        obj_critic = (td_error * is_weights).mean()
-
-        buffer.td_error_update(td_error.detach())
-        return obj_critic, state
-
-
-class AgentSyncREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
-    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
-        self.act_class = getattr(self, 'act_class', ActorFixSAC)
-        self.cri_class = getattr(self, 'cri_class', CriticSyncREDQ)
-        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
-        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
-
-        # Asynchronous REDq
-        max_gpu_num = 4
-        for cri_net in (self.cri, self.cri_target):
-            cri_name_dev_list = cri_net.cri_name_dev_list
-            for critic_id, (name, dev) in enumerate(cri_name_dev_list):
-                dev = torch.device(f'cuda:{critic_id % max_gpu_num}')
-                setattr(cri_net, name, getattr(cri_net, name).to(dev))
-                cri_name_dev_list[critic_id][1] = dev
-
-    def update_net(self, buffer):
-        buffer.update_now_len()
-
-        alpha = self.alpha_log.exp().detach()
-        update_a = 0
-        obj_actor = None
-        for update_c in range(1, int(2 + buffer.now_len * self.repeat_times / self.batch_size)):
-            '''objective of critic (loss function of critic)'''
-            obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
-            self.optim_update(self.cri_optim, obj_critic)
-            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-            self.obj_c = 0.995 * self.obj_c + 0.005 * obj_critic.item()  # for reliable_lambda
-
-            a_noise_pg, log_prob = self.act.get_action_logprob(state)  # policy gradient
-            '''objective of alpha (temperature parameter automatic adjustment)'''
-            obj_alpha = (self.alpha_log * (log_prob - self.target_entropy).detach()).mean()
-            self.optim_update(self.alpha_optim, obj_alpha)
-            with torch.no_grad():
-                self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
-            alpha = self.alpha_log.exp().detach()
-
-            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
-            reliable_lambda = np.exp(-self.obj_c ** 2)  # for reliable_lambda
-            if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
-            if if_update_a:  # auto TTUR
-                update_a += 1
-
-                q_value_pg = self.cri(state, a_noise_pg)
-                obj_actor = -(q_value_pg + log_prob * alpha).mean()
-                self.optim_update(self.act_optim, obj_actor)
-                self.soft_update(self.act_target, self.act, self.soft_update_tau)
-        return self.obj_c, -obj_actor.item(), alpha.item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
         with torch.no_grad():
@@ -870,104 +791,3 @@ class AgentDiscretePPO(AgentPPO):
         self.act_class = getattr(self, 'act_class', ActorDiscretePPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
-
-
-'''replay buffer'''
-
-
-class ReplayBuffer:  # for off-policy
-    def __init__(self, max_len, state_dim, action_dim, gpu_id=0):
-        self.now_len = 0
-        self.next_idx = 0
-        self.if_full = False
-        self.max_len = max_len
-        self.action_dim = action_dim
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-
-        other_dim = 1 + 1 + self.action_dim
-        self.buf_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
-
-        buf_state_size = (max_len, state_dim) if isinstance(state_dim, int) else (max_len, *state_dim)
-        self.buf_state = torch.empty(buf_state_size, dtype=torch.float32, device=self.device)
-
-    def extend_buffer(self, state, other):  # CPU array to CPU array
-        size = len(other)
-        next_idx = self.next_idx + size
-
-        if next_idx > self.max_len:
-            self.buf_state[self.next_idx:self.max_len] = state[:self.max_len - self.next_idx]
-            self.buf_other[self.next_idx:self.max_len] = other[:self.max_len - self.next_idx]
-            self.if_full = True
-
-            next_idx = next_idx - self.max_len
-            self.buf_state[0:next_idx] = state[-next_idx:]
-            self.buf_other[0:next_idx] = other[-next_idx:]
-        else:
-            self.buf_state[self.next_idx:next_idx] = state
-            self.buf_other[self.next_idx:next_idx] = other
-        self.next_idx = next_idx
-
-    def update_buffer(self, traj_lists):
-        steps = 0
-        r_exp = 0.
-        for traj_list in traj_lists:
-            self.extend_buffer(state=traj_list[0], other=torch.hstack(traj_list[1:]))
-
-            steps += traj_list[1].shape[0]
-            r_exp += traj_list[1].mean().item()
-        return steps, r_exp / len(traj_lists)
-
-    def sample_batch(self, batch_size) -> tuple:
-        indices = rd.randint(self.now_len - 1, size=batch_size)
-        r_m_a = self.buf_other[indices]
-        return (r_m_a[:, 0:1],
-                r_m_a[:, 1:2],
-                r_m_a[:, 2:],
-                self.buf_state[indices],
-                self.buf_state[indices + 1])
-
-    def update_now_len(self):
-        self.now_len = self.max_len if self.if_full else self.next_idx
-
-    def save_or_load_history(self, cwd, if_save, buffer_id=0):
-        save_path = f"{cwd}/replay_{buffer_id}.npz"
-
-        if if_save:
-            self.update_now_len()
-            state_dim = self.buf_state.shape[1]
-            other_dim = self.buf_other.shape[1]
-            buf_state = np.empty((self.max_len, state_dim), dtype=np.float16)  # sometimes np.uint8
-            buf_other = np.empty((self.max_len, other_dim), dtype=np.float16)
-
-            temp_len = self.max_len - self.now_len
-            buf_state[0:temp_len] = self.buf_state[self.now_len:self.max_len].detach().cpu().numpy()
-            buf_other[0:temp_len] = self.buf_other[self.now_len:self.max_len].detach().cpu().numpy()
-
-            buf_state[temp_len:] = self.buf_state[:self.now_len].detach().cpu().numpy()
-            buf_other[temp_len:] = self.buf_other[:self.now_len].detach().cpu().numpy()
-
-            np.savez_compressed(save_path, buf_state=buf_state, buf_other=buf_other)
-            print(f"| ReplayBuffer save in: {save_path}")
-        elif os.path.isfile(save_path):
-            buf_dict = np.load(save_path)
-            buf_state = buf_dict['buf_state']
-            buf_other = buf_dict['buf_other']
-
-            buf_state = torch.as_tensor(buf_state, dtype=torch.float32, device=self.device)
-            buf_other = torch.as_tensor(buf_other, dtype=torch.float32, device=self.device)
-            self.extend_buffer(buf_state, buf_other)
-            self.update_now_len()
-            print(f"| ReplayBuffer load: {save_path}")
-
-
-class ReplayBufferList(list):  # for on-policy
-    def __init__(self):
-        list.__init__(self)
-
-    def update_buffer(self, traj_list):
-        cur_items = list(map(list, zip(*traj_list)))
-        self[:] = [torch.cat(item, dim=0) for item in cur_items]
-
-        steps = self[1].shape[0]
-        r_exp = self[1].mean().item()
-        return steps, r_exp
