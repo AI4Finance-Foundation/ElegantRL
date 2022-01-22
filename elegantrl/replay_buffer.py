@@ -8,12 +8,13 @@ class ReplayBuffer:  # for off-policy
     def __init__(self, max_len, state_dim, action_dim, gpu_id=0):
         self.now_len = 0
         self.next_idx = 0
+        self.prev_idx = 0
         self.if_full = False
         self.max_len = max_len
         self.action_dim = action_dim
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
-        other_dim = 1 + 1 + self.action_dim
+        other_dim = 1 + 1 + self.action_dim  # reward_dim + mask_dim + action_dim
         self.buf_other = torch.empty((max_len, other_dim), dtype=torch.float32, device=self.device)
 
         buf_state_size = (max_len, state_dim) if isinstance(state_dim, int) else (max_len, *state_dim)
@@ -48,12 +49,35 @@ class ReplayBuffer:  # for off-policy
 
     def sample_batch(self, batch_size) -> tuple:
         indices = rd.randint(self.now_len - 1, size=batch_size)
-        r_m_a = self.buf_other[indices]
-        return (r_m_a[:, 0:1],
-                r_m_a[:, 1:2],
-                r_m_a[:, 2:],
+        # r_m_a = self.buf_other[indices]
+        # return (r_m_a[:, 0:1],
+        #         r_m_a[:, 1:2],
+        #         r_m_a[:, 2:],
+        #         self.buf_state[indices],
+        #         self.buf_state[indices + 1])
+        return (self.buf_other[indices, 0:1],
+                self.buf_other[indices, 1:2],
+                self.buf_other[indices, 2:],
                 self.buf_state[indices],
                 self.buf_state[indices + 1])
+
+    def sample_batch_r_m_a_s(self):
+        if self.prev_idx <= self.next_idx:
+            r = self.buf_other[self.prev_idx:self.next_idx, 0:1]
+            m = self.buf_other[self.prev_idx:self.next_idx, 1:2]
+            a = self.buf_other[self.prev_idx:self.next_idx, 2:]
+            s = self.buf_state[self.prev_idx:self.next_idx]
+        else:
+            r = torch.vstack((self.buf_other[self.prev_idx:, 0:1],
+                              self.buf_other[:self.next_idx, 0:1]))
+            m = torch.vstack((self.buf_other[self.prev_idx:, 1:2],
+                              self.buf_other[:self.next_idx, 1:2]))
+            a = torch.vstack((self.buf_other[self.prev_idx:, 2:],
+                              self.buf_other[:self.next_idx, 2:]))
+            s = torch.vstack((self.buf_state[self.prev_idx:],
+                              self.buf_state[:self.next_idx],))
+        self.prev_idx = self.next_idx
+        return r, m, a, s  # reward, mask, action, state
 
     def update_now_len(self):
         self.now_len = self.max_len if self.if_full else self.next_idx

@@ -43,6 +43,7 @@ def demo_continuous_action_off_policy():
                 'LunarLanderContinuous-v2',
                 'BipedalWalker-v3',
                 ''][ENV_ID]
+    agent = [AgentTD3, AgentSAC, AgentModSAC][2]
     gpu_id = GPU_ID  # >=0 means GPU ID, -1 means CPU
 
     if env_name in {'Pendulum-v0', 'Pendulum-v1'}:
@@ -61,7 +62,7 @@ def demo_continuous_action_off_policy():
         1  1.47e+05 -135.20 | -135.20   92.1    200     0 |   -0.31   0.14 -15.65   0.29
         | UsedTime:     783 | 
         """
-        args = Arguments(AgentModSAC, env)
+        args = Arguments(agent, env)
         args.reward_scale = 2 ** -1  # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.target_step = args.max_step * 2
@@ -107,7 +108,7 @@ def demo_continuous_action_off_policy():
                     'target_return': 200,
 
                     'id': 'LunarLanderContinuous-v2'}
-        args = Arguments(AgentModSAC, env_func=env_func, env_args=env_args)
+        args = Arguments(agent, env_func=env_func, env_args=env_args)
 
         args.target_step = args.max_step
         args.gamma = 0.99
@@ -146,6 +147,20 @@ def demo_continuous_action_off_policy():
         3  6.93e+05  254.40 |  252.74  121.1    992   280 |    0.21   0.12   7.34   0.06
         3  7.11e+05  304.79 |  304.79   73.4   1015   151 |    0.21   0.12   5.69   0.06
         | UsedTime:    3215 | 
+        
+        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+        1  7.08e+03 -106.48 | -106.48    6.0    170    17 |   -0.14   0.70   0.03   0.02
+        1  2.38e+05  -89.62 |  -89.62   29.8    775   728 |   -0.30   0.31 -13.44   0.04
+        1  4.12e+05  -33.40 |  -34.50   27.6   1342   516 |   -0.01   0.20   1.34   0.06
+        1  5.05e+05    2.54 |  -47.29   20.9   1342   516 |    0.02   0.17   0.24   0.05
+        1  5.43e+05   52.93 |   52.93  107.6   1084   540 |   -0.21   0.15   0.32   0.05
+        1  5.80e+05  138.30 |  136.60   77.6   1460   176 |    0.10   0.16   2.14   0.05
+        1  6.16e+05  188.98 |  171.72   99.2   1386   305 |    0.12   0.16  -0.40   0.05
+        1  7.06e+05  250.72 |  231.97  142.9   1247   448 |    0.12   0.13   2.81   0.05
+        1  8.06e+05  287.28 |  -68.06    5.9    211    19 |   -0.08   0.12   7.83   0.06
+        1  8.56e+05  291.10 |  286.19   56.0   1181    63 |    0.17   0.13   6.37   0.06
+        1  8.83e+05  314.54 |  314.54    1.0   1252    19 |    0.11   0.12   7.23   0.06
+        | UsedTime:    5008 | 
         """
         env_func = gym.make
         env_args = {'env_num': 1,
@@ -157,7 +172,7 @@ def demo_continuous_action_off_policy():
                     'target_return': 300,
 
                     'id': 'BipedalWalker-v3', }
-        args = Arguments(AgentModSAC, env_func=env_func, env_args=env_args)
+        args = Arguments(agent, env_func=env_func, env_args=env_args)
         args.target_step = args.max_step
         args.gamma = 0.98
         args.eval_times = 2 ** 4
@@ -192,19 +207,30 @@ def demo_continuous_action_on_policy():
     elif env_name == 'LunarLanderContinuous-v2':
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        2  8.40e+03 -167.99 | -167.99  119.9     96    13 |   -1.408795.41   0.02  -0.50
-        2  1.27e+05 -167.99 | -185.92   44.3    187    77 |    0.07 396.60   0.02  -0.51
-        2  2.27e+05  191.79 |  191.79   83.7    401    96 |    0.16  39.93   0.06  -0.52
-        2  3.40e+05  220.93 |  220.93   87.7    375    99 |    0.19 121.32  -0.01  -0.53
-        | UsedTime:     418 |
+        1  8.25e+03 -223.00 | -223.00  116.2    142   155 |   -0.66  12.99  -0.03  -0.50
+        1  1.08e+05  109.04 |  109.04  165.5    434    79 |    0.03   5.25   0.03  -0.52
+        1  2.10e+05  200.78 |  200.78   65.8    419   115 |    0.10   3.94  -0.01  -0.54
+        | UsedTime:     293 |
+        
+        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+        2  8.10e+03 -122.51 | -122.51   34.8     71    13 |   -0.69  14.24   0.00  -0.50
+        2  1.26e+05   55.94 |   55.94  185.2    441   105 |    0.07   2.32   0.03  -0.53
+        2  2.25e+05   55.94 |  -39.64   22.8   1000     0 |    0.07   1.57  -0.02  -0.56
+        2  3.33e+05  246.37 |  246.37   69.0    326    90 |    0.12   2.29   0.05  -0.58
+        | UsedTime:     407 |
+        
+        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+        3  8.21e+03 -124.41 | -124.41   71.6     72    12 |   -0.68  15.99  -0.01  -0.50
+        3  1.13e+05  -90.54 |  -90.54  112.4    226   110 |    0.01   8.06   0.05  -0.52
+        3  2.12e+05  213.84 |  213.84  107.6    318   110 |    0.07   1.19  -0.04  -0.53
+        | UsedTime:     284 | 
 
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        2  8.31e+03  -90.85 |  -90.85   49.2     72    12 |   -1.295778.93   0.01  -0.50
-        2  1.16e+05  -90.85 | -126.58   92.2    312   271 |    0.03 215.40  -0.01  -0.50
-        2  1.96e+05  133.57 |  133.57  156.4    380   108 |    0.04 227.81   0.04  -0.51
-        2  3.85e+05  195.56 |  195.56   78.4    393    87 |    0.14  26.79  -0.05  -0.54
-        2  4.97e+05  212.20 |  212.20   90.5    383    72 |    0.18 357.67  -0.01  -0.55
-        | UsedTime:     681 |
+        0  8.32e+03 -152.99 | -152.99   95.1    106    24 |   -0.71  18.27  -0.04  -0.50
+        0  2.31e+05  -61.64 | -134.70  216.8    615   327 |    0.08   1.12   0.02  -0.53
+        0  3.43e+05  112.90 |  112.90  188.2    497   232 |    0.09   3.25  -0.00  -0.55
+        0  4.60e+05  232.59 |  232.59   49.8    379   149 |    0.09   1.46   0.03  -0.59
+        | UsedTime:     548 |
         """
         # env = gym.make('LunarLanderContinuous-v2')
         # get_gym_env_args(env=env, if_print=True)
@@ -221,6 +247,8 @@ def demo_continuous_action_on_policy():
         args = Arguments(AgentPPO, env_func=env_func, env_args=env_args)
 
         args.target_step = args.max_step * 2
+        args.reward_scale = 2 ** -1
+        args.repeat_times = 2 ** 5
         args.gamma = 0.99
         args.eval_times = 2 ** 5
     elif env_name == 'BipedalWalker-v3':
@@ -245,6 +273,17 @@ def demo_continuous_action_on_policy():
         4  2.40e+06  293.55 |  293.55    1.7   1485    32 |    0.16   3.38  -0.00  -0.82
         4  3.31e+06  300.05 |  300.05    1.6   1290    29 |    0.20   2.43   0.04  -0.90
         | UsedTime:    2036 |
+        
+        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+        2  2.71e+04  -92.72 |  -92.72    0.1    101     2 |   -0.08   1.58   0.03  -0.50
+        2  2.52e+05  -25.49 |  -25.49    0.1   1600     0 |   -0.02   0.06   0.00  -0.50
+        2  4.70e+05   22.99 |   22.99   20.1   1600     0 |   -0.00   0.02   0.00  -0.55
+        2  9.11e+05  205.80 |  183.21  127.8   1310   417 |    0.06   0.10   0.05  -0.61
+        2  1.57e+06  266.54 |  193.28  110.9   1197   272 |    0.07   0.32  -0.01  -0.66
+        2  2.70e+06  282.49 |  225.92  140.4    943   337 |    0.11   0.24   0.03  -0.72
+        2  3.58e+06  299.76 |  249.94   94.7    913   158 |    0.13   0.49   0.01  -0.75
+        2  5.39e+06  301.93 |  301.93    0.9    928    11 |    0.13   0.38   0.02  -0.80
+        | UsedTime:    3201 | 
 
         1  1.81e+06  301.14 |  301.14    0.7   1067    11 |    0.11   3.73  -0.02  -0.68 | UsedTime:    1099 |
         0  2.54e+06  307.66 |  307.66    1.9   1163    34 |    0.19   5.40   0.02  -0.75 | UsedTime:    1641 |

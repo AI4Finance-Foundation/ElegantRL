@@ -220,9 +220,9 @@ class ActorSAC(nn.Module):
         noise = torch.randn_like(a_avg, requires_grad=True)
         a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
 
-        log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
-        log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
-        return a_tan, log_prob.sum(1, keepdim=True)
+        logprob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
+        logprob = logprob + (-a_tan.pow(2) + 1.000001).log()  # fix logprob using the derivative of action.tanh()
+        return a_tan, logprob.sum(1, keepdim=True)  # todo negative logprob
 
 
 class ActorFixSAC(nn.Module):
@@ -246,6 +246,20 @@ class ActorFixSAC(nn.Module):
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it is a_avg without .tanh()
         a_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
+
+    def get_logprob(self, state, action):
+        t_tmp = self.net_state(state)
+        a_avg = self.net_a_avg(t_tmp)  # NOTICE! it needs a_avg.tanh()
+        a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
+        a_std = a_std_log.exp()
+
+        '''add noise to a_noise in stochastic policy'''
+        a_noise = a_avg + a_std * torch.randn_like(a_avg, requires_grad=True)
+        noise = a_noise - action  # todo
+
+        log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
+        log_prob += (np.log(2.) - a_noise - self.soft_plus(-2. * a_noise)) * 2.  # better than below
+        return log_prob
 
     def get_action_logprob(self, state):
         t_tmp = self.net_state(state)
@@ -309,6 +323,15 @@ class ActorPPO(nn.Module):
         noise = torch.randn_like(a_avg)
         action = a_avg + noise * a_std
         return action, noise
+
+    def get_logprob(self, state, action):
+        a_avg = self.net(state)
+        a_std = self.a_std_log.exp()
+
+        delta = ((a_avg - action) / a_std).pow(2) * 0.5
+        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)  # new_logprob
+
+        return log_prob
 
     def get_logprob_entropy(self, state, action):
         a_avg = self.net(state)
