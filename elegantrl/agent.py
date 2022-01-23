@@ -649,7 +649,7 @@ class AgentHtermModSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR
 
         self.lambda_a_log_std = getattr(args, 'lambda_a_log_std', 2 ** -4)
         self.traj_n_h_term = getattr(args, 'traj_n_h_term', 8)
-        self.lambda_h_term = getattr(args, 'lambda_h_term', 2 ** -12)  # todo could be ?
+        self.lambda_h_term = getattr(args, 'lambda_h_term', 2 ** -12)
         print(';;;;;lambda_h_term', self.lambda_h_term,
               'lambda_a_log_std', self.lambda_a_log_std)
 
