@@ -247,6 +247,11 @@ class ActorFixSAC(nn.Module):
         a_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
         return torch.normal(a_avg, a_std).tanh()  # re-parameterize
 
+    def get_a_log_std(self, state):
+        t_tmp = self.net_state(state)
+        a_log_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
+        return a_log_std
+
     def get_logprob(self, state, action):
         t_tmp = self.net_state(state)
         a_avg = self.net_a_avg(t_tmp)  # NOTICE! it needs a_avg.tanh()
