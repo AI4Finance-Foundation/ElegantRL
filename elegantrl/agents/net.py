@@ -942,11 +942,8 @@ class SharePPO(nn.Module):  # Pixel-level state version
     def get_q1_q2_logprob(self, state, action):
         s_ = self.enc_s(state)
 
-        q1 = self.dec_q1(s_)
-        q2 = self.dec_q2(s_)
-
-        a_avg = self.dec_a(s_)
-        a_std = self.a_std_log.exp()
+        q1 , q2 , a_avg , a_std  = self.dec_q1(s_), self.dec_q2(s_), self.dec_a(s_), self.a_std_log.exp()
+        
         logprob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
         return q1, q2, logprob
 
