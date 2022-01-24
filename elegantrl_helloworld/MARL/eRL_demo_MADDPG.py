@@ -205,7 +205,7 @@ class AgentBase:
         `int target_step` explored target_step number of step in env
         return `[traj, ...]` for off-policy ReplayBuffer, `traj = [(state, other), ...]`
         """
-        traj = list()
+        traj = []
         state = self.states[0]
         for _ in range(target_step):
             action = self.select_actions((state,))[0]
@@ -233,7 +233,7 @@ class AgentBase:
             actions = self.select_actions(states)
             s_r_d_list = env.step(actions)
 
-            next_states = list()
+            next_states = []
             for env_i in range(env_num):
                 next_state, reward, done = s_r_d_list[env_i]
                 traj_list[env_i].append(
@@ -656,7 +656,7 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
 
 class Evaluator:
     def __init__(self, cwd, agent_id, device, eval_env, eval_gap, eval_times1, eval_times2, ):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = []  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
         self.cwd = cwd
         self.device = device
