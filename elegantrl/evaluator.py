@@ -1,12 +1,13 @@
 import os
 import time
-import torch
+
 import numpy as np
+import torch
 
 
 class Evaluator:  # [ElegantRL.2022.01.01]
     def __init__(self, cwd, agent_id, eval_env, args):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = []  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
         self.cwd = cwd

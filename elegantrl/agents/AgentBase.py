@@ -1,8 +1,9 @@
 import os
-import torch
+from copy import deepcopy
+
 import numpy as np
 import numpy.random as rd
-from copy import deepcopy
+import torch
 from torch.nn.utils import clip_grad_norm_
 
 
@@ -89,7 +90,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
 
         def get_optim_param(optim):  # optim = torch.optim.Adam(network_param, learning_rate)
-            params_list = list()
+            params_list = []
             for params_dict in optim.state_dict()['state'].values():
                 params_list.extend([t for t in params_dict.values() if isinstance(t, torch.Tensor)])
             return params_list
@@ -112,8 +113,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
         a_tensor = self.act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()
-        return action
+        return a_tensor.detach().cpu().numpy()
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         """Select continuous actions for exploration
@@ -137,7 +137,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         `traj_env_0 = [(state, other), ...]` for off-policy
         """
         state = self.states[0]
-        traj = list()
+        traj = []
         for _ in range(target_step):
             ten_state = torch.as_tensor(state, dtype=torch.float32)
             ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
@@ -170,7 +170,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         ten_states = self.states
 
-        traj = list()
+        traj = []
         for _ in range(target_step):
             ten_actions = self.select_actions(ten_states)
             ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)

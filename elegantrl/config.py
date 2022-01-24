@@ -1,7 +1,8 @@
 import os
-import torch
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+import torch
 
 '''config for agent'''
 
@@ -165,7 +166,7 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
                 'target_return': target_return, }
     if if_print:
         env_args_repr = repr(env_args)
-        env_args_repr = env_args_repr.replace(',', f",\n   ")
+        env_args_repr = env_args_repr.replace(',', ',\n   ')
         env_args_repr = env_args_repr.replace('{', "{\n    ")
         env_args_repr = env_args_repr.replace('}', ",\n}")
         print(f"env_args = {env_args_repr}")
@@ -176,7 +177,7 @@ def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
     import inspect
 
     sign = inspect.signature(func).parameters.values()
-    sign = set([val.name for val in sign])
+    sign = {val.name for val in sign}
 
     common_args = sign.intersection(kwargs.keys())
     return {key: kwargs[key] for key in common_args}  # filtered kwargs

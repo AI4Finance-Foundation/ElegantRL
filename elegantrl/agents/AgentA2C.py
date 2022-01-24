@@ -1,4 +1,5 @@
 import torch
+
 from elegantrl.agents.AgentPPO import AgentPPO, AgentSharePPO
 from elegantrl.agents.net import ActorDiscretePPO
 
@@ -17,6 +18,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentPPO.__init__(self)
         print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
@@ -53,7 +55,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
         obj_critic = None
         obj_actor = None
         update_times = int(buf_len / batch_size * repeat_times)
-        for update_i in range(1, update_times + 1):
+        for _ in range(1, update_times + 1):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
@@ -89,6 +91,7 @@ class AgentDiscreteA2C(AgentA2C):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentA2C.__init__(self)
         self.ClassAct = ActorDiscretePPO
@@ -106,7 +109,7 @@ class AgentDiscreteA2C(AgentA2C):
         state = self.states[0]
 
         last_done = 0
-        traj = list()
+        traj = []
         for step_i in range(target_step):
             ten_states = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
             ten_a_ints, ten_probs = self.select_actions(ten_states)
@@ -138,7 +141,7 @@ class AgentDiscreteA2C(AgentA2C):
         ten_states = self.states
 
         env_num = len(self.traj_list)
-        traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
+        traj_list = [[] for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
         last_done_list = [0 for _ in range(env_num)]
 
         for step_i in range(target_step):

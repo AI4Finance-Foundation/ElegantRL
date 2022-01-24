@@ -1,8 +1,9 @@
-import torch
 import numpy as np
+import torch
+
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import ActorPPO, CriticPPO
 from elegantrl.agents.net import ActorDiscretePPO, SharePPO
+from elegantrl.agents.net import ActorPPO, CriticPPO
 
 '''[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
@@ -46,7 +47,7 @@ class AgentPPO(AgentBase):
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
                        env_num=env_num, gpu_id=gpu_id, )
 
-        self.traj_list = [[list() for _ in range(5)] for _ in range(env_num)]
+        self.traj_list = [[[] for _ in range(5)] for _ in range(env_num)]
 
         self.env_num = env_num
 
@@ -79,7 +80,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
-        traj_list = list()
+        traj_list = []
 
         state = self.states[0]
 
@@ -131,7 +132,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
 
         ten_s = self.states
 
@@ -203,7 +204,7 @@ class AgentPPO(AgentBase):
 
         assert buf_len >= batch_size
         update_times = int(buf_len / batch_size * repeat_times)
-        for update_i in range(1, update_times + 1):
+        for _ in range(1, update_times + 1):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
@@ -273,9 +274,9 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def splice_trajectory(self, buf_srdan, last_done):
-        out_srdan = list()
+        out_srdan = []
         for j in range(5):
-            cur_items = list()
+            cur_items = []
             buf_items = buf_srdan.pop(0)  # buf_srdan[j]
 
             for env_i in range(self.env_num):
@@ -325,7 +326,7 @@ class AgentDiscretePPO(AgentPPO):
         state = self.states[0]
 
         last_done = 0
-        traj = list()
+        traj = []
 
         step = 0
         done = False
@@ -363,7 +364,7 @@ class AgentDiscretePPO(AgentPPO):
         assert env.device.index == self.device.index
 
         env_num = len(self.traj_list)
-        traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
+        traj_list = [[] for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
         last_done_list = [0 for _ in range(env_num)]
 
         step = 0

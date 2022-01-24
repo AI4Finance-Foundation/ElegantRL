@@ -1,8 +1,10 @@
 import sys
+
 import gym
-from elegantrl.run import *
+
 from elegantrl.agent import *
 from elegantrl.config import Arguments
+from elegantrl.run import *
 
 '''custom env'''
 
@@ -12,7 +14,7 @@ class PendulumEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         # Pendulum-v0 gym.__version__ == 0.17.0
         # Pendulum-v1 gym.__version__ == 0.21.0
         gym.logger.set_level(40)  # Block warning
-        super(PendulumEnv, self).__init__(env=gym.make(gym_env_id))
+        super().__init__(env=gym.make(gym_env_id))
 
         # from elegantrl.envs.Gym import get_gym_env_info
         # get_gym_env_info(env, if_print=True)  # use this function to print the env information

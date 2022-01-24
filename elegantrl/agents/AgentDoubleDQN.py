@@ -1,5 +1,6 @@
-import torch
 import numpy.random as rd
+import torch
+
 from elegantrl.agents.AgentDQN import AgentDQN
 from elegantrl.agents.net import QNetTwin, QNetTwinDuel
 

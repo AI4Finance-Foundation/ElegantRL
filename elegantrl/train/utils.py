@@ -1,10 +1,11 @@
+import multiprocessing as mp
 import os
-import time
-import torch
 import shutil
+import time
+
 import numpy as np
 import numpy.random as rd
-import multiprocessing as mp
+import torch
 
 from elegantrl.train.config import build_env
 from elegantrl.train.evaluator import Evaluator
@@ -67,7 +68,7 @@ def init_replay_buffer(args, learner_gpu, agent=None, env=None):
         buffer.save_or_load_history(args.cwd, if_save=False)
 
         def update_buffer(traj_list):
-            steps_r_exp_list = list()
+            steps_r_exp_list = []
             for ten_state, ten_other in traj_list:
                 buffer.extend_buffer(ten_state, ten_other)
 
@@ -82,7 +83,7 @@ def init_replay_buffer(args, learner_gpu, agent=None, env=None):
             update_buffer(agent.explore_env(env, args.target_step))
 
     else:
-        buffer = list()
+        buffer = []
 
         def update_buffer(traj_list):
             cur_items = list(map(list, zip(*traj_list)))
@@ -221,10 +222,9 @@ def get_epi_returns(cwd):
 
     if os.path.exists(recorder_path):
         recorder = np.load(recorder_path)
-        episode_return = recorder[-4:, 1].mean()
+        return recorder[-4:, 1].mean()
     else:
-        episode_return = None
-    return episode_return
+        return None
 
 
 def find_load_dir(cwd):
@@ -300,7 +300,7 @@ def sort_str_list_inplace(str_list):
 
 
 def get_nd_list(nd_list):
-    print_str = f'| check_nd_list:'
+    print_str = '| check_nd_list:'
 
     item = nd_list
     if hasattr(item, 'shape'):
@@ -323,10 +323,10 @@ def get_nd_list(nd_list):
                         print_str += f' {len(item)}'
 
                     else:
-                        print_str += f' END'
+                        print_str += ' END'
             else:
-                print_str += f' END'
+                print_str += ' END'
     else:
-        print_str += f' END'
+        print_str += ' END'
 
     return print_str

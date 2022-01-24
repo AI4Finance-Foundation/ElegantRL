@@ -1,7 +1,9 @@
-import torch
+from copy import deepcopy
+
 import numpy as np
 import numpy.random as rd
-from copy import deepcopy
+import torch
+
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import ActorSAC, CriticTwin, ShareSPG, CriticMultiple
 
@@ -20,6 +22,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassCri = CriticTwin
@@ -162,6 +165,7 @@ class AgentModSAC(AgentSAC):  # [ElegantRL.2021.11.11]
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentSAC.__init__(self)
         self.ClassCri = CriticMultiple  # REDQ ensemble (parameter sharing)

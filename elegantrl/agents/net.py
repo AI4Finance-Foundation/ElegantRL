@@ -758,8 +758,7 @@ class ShareDPG(nn.Module):  # DPG means deterministic policy gradient
         mask = torch.tensor(mask, dtype=torch.float32).cuda()
 
         noise_uniform = torch.rand_like(a)
-        a_noise = noise_uniform * mask + a_temp * (-mask + 1)
-        return a_noise
+        return noise_uniform * mask + a_temp * (-mask + 1)
 
     def forward(self, s, noise_std=0.0):  # actor
         s_ = self.enc_s(s)
@@ -771,8 +770,7 @@ class ShareDPG(nn.Module):  # DPG means deterministic policy gradient
         s_ = self.enc_s(s)
         a_ = self.enc_a(a)
         q_ = self.net(s_ + a_)
-        q = self.dec_q(q_)
-        return q
+        return self.dec_q(q_)
 
     def next_q_action(self, s, s_next, noise_std):
         s_ = self.enc_s(s)
@@ -942,8 +940,8 @@ class SharePPO(nn.Module):  # Pixel-level state version
     def get_q1_q2_logprob(self, state, action):
         s_ = self.enc_s(state)
 
-        q1 , q2 , a_avg , a_std  = self.dec_q1(s_), self.dec_q2(s_), self.dec_a(s_), self.a_std_log.exp()
-        
+        q1, q2, a_avg, a_std = self.dec_q1(s_), self.dec_q2(s_), self.dec_a(s_), self.a_std_log.exp()
+
         logprob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
         return q1, q2, logprob
 
@@ -1009,8 +1007,9 @@ class QMix(nn.Module):
     """
     Mixer network for QMix. Outputs total q value given independent q value and states.
     """
+
     def __init__(self, args):
-        super(QMix, self).__init__()
+        super().__init__()
 
         self.args = args
         self.n_agents = args.n_agents
@@ -1069,9 +1068,7 @@ class QMix(nn.Module):
         # Compute final output
         y = torch.bmm(hidden, w_final) + v
         # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-
-        return q_tot
+        return y.view(bs, -1, 1)
 
     def k(self, states):
         bs = states.size(0)
@@ -1090,16 +1087,16 @@ class QMix(nn.Module):
         b1 = self.hyper_b_1(states)
         b1 = b1.view(-1, 1, self.embed_dim)
         v = self.V(states).view(-1, 1, 1)
-        b = torch.bmm(b1, w_final) + v
-        return b
+        return torch.bmm(b1, w_final) + v
 
 
 class VDN(nn.Module):
     """
     Mixer network for VDN. Outputs total q value given independent q value.
     """
+
     def __init__(self):
-        super(VDN, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(agent_qs, _batch):
@@ -1126,7 +1123,7 @@ class ActorMAPPO(nn.Module):
     """
 
     def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
-        super(ActorMAPPO, self).__init__()
+        super().__init__()
         self.hidden_size = args.hidden_size
 
         self._gain = args.gain
@@ -1222,7 +1219,7 @@ class CriticMAPPO(nn.Module):
     """
 
     def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
-        super(CriticMAPPO, self).__init__()
+        super().__init__()
         self.hidden_size = args.hidden_size
         self._use_orthogonal = args.use_orthogonal
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
@@ -1293,8 +1290,7 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number
 
     def forward(self, x1):  # x1.shape==(-1, lay_dim*1)
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
-        x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        return x3  # x2.shape==(-1, lay_dim*4)
+        return torch.cat((x2, self.dense2(x2)), dim=1)  # x3  # x2.shape==(-1, lay_dim*4)
 
 
 class ConcatNet(nn.Module):  # concatenate
@@ -1404,7 +1400,7 @@ class ActorSimplify:
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        super(RNNAgent, self).__init__()
+        super().__init__()
         self.args = args
 
         self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)

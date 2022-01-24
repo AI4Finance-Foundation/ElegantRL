@@ -1,7 +1,8 @@
 import os
-import torch
+
 import numpy as np
 import numpy.random as rd
+import torch
 
 
 class ReplayBuffer:
@@ -168,7 +169,7 @@ class ReplayBuffer:
             ary_avg = ary_avg - neg_avg / div_std
             ary_std = fix_std / div_std
 
-        print(f"print_state_norm: state_avg, state_std (fixed)")
+        print('print_state_norm: state_avg, state_std (fixed)')
         print(f"avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
         print(f"std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 

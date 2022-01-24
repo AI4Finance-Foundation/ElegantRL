@@ -5,28 +5,14 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-from rlgpu.tasks.cartpole import Cartpole
-from rlgpu.tasks.cartpole_y_up import CartpoleYUp
-from rlgpu.tasks.ball_balance import BallBalance
-from rlgpu.tasks.quadcopter import Quadcopter
-from rlgpu.tasks.ant import Ant
-from rlgpu.tasks.humanoid import Humanoid
-from rlgpu.tasks.franka import FrankaCabinet
-from rlgpu.tasks.shadow_hand import ShadowHand
-from rlgpu.tasks.ingenuity import Ingenuity
-from rlgpu.tasks.anymal import Anymal
-from rlgpu.tasks.base.vec_task import VecTaskCPU, VecTaskGPU, VecTaskPython
-
-from rlgpu.utils.config import warn_task_name
+import json
 
 from isaacgym import rlgpu
+from rlgpu.tasks.base.vec_task import VecTaskCPU, VecTaskGPU, VecTaskPython
 from rlgpu.utils.config import warn_task_name
-
-import json
 
 
 def parse_task(args, cfg, cfg_train, sim_params):
-
     # create native task and pass custom config
     device_id = args.device_id
     rl_device = args.rl_device
@@ -45,7 +31,8 @@ def parse_task(args, cfg, cfg_train, sim_params):
                 task.init(device_id, -1, args.physics_engine, sim_params)
             else:
                 task.init(device_id, device_id, args.physics_engine, sim_params)
-            env = VecTaskCPU(task, rl_device, False, cfg_train.get("clip_observations", 5.0), cfg_train.get("clip_actions", 1.0))
+            env = VecTaskCPU(task, rl_device, False, cfg_train.get("clip_observations", 5.0),
+                             cfg_train.get("clip_actions", 1.0))
         else:
             print("C++ GPU")
 
@@ -56,7 +43,8 @@ def parse_task(args, cfg, cfg_train, sim_params):
                 task.init(device_id, -1, args.physics_engine, sim_params)
             else:
                 task.init(device_id, device_id, args.physics_engine, sim_params)
-            env = VecTaskGPU(task, rl_device, cfg_train.get("clip_observations", 5.0), cfg_train.get("clip_actions", 1.0))
+            env = VecTaskGPU(task, rl_device, cfg_train.get("clip_observations", 5.0),
+                             cfg_train.get("clip_actions", 1.0))
 
     elif args.task_type == "Python":
         print("Python")

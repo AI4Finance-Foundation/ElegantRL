@@ -6,13 +6,12 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 import torch
-import numpy as np
 from isaacgym.torch_utils import *
 
 
 @torch.jit.script
 def compute_heading_and_up(
-    torso_rotation, inv_start_rot, to_target, vec0, vec1, up_idx
+        torso_rotation, inv_start_rot, to_target, vec0, vec1, up_idx
 ):
     # type: (Tensor, Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]
     num_envs = torso_rotation.shape[0]

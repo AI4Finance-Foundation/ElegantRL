@@ -1,5 +1,6 @@
-import gym
 from copy import deepcopy
+
+import gym
 
 gym.logger.set_level(40)  # Block warning
 
@@ -77,7 +78,7 @@ def get_gym_env_args(env, if_print) -> dict:
                 'target_return': target_return, }
     if if_print:
         env_args_repr = repr(env_args)
-        env_args_repr = env_args_repr.replace(',', f",\n   ")
+        env_args_repr = env_args_repr.replace(',', ',\n   ')
         env_args_repr = env_args_repr.replace('{', "{\n    ")
         env_args_repr = env_args_repr.replace('}', ",\n}")
         print(f"env_args = {env_args_repr}")
@@ -95,7 +96,7 @@ def kwargs_filter(func, kwargs: dict):
     import inspect
 
     sign = inspect.signature(func).parameters.values()
-    sign = set([val.name for val in sign])
+    sign = {val.name for val in sign}
 
     common_args = sign.intersection(kwargs.keys())
     return {key: kwargs[key] for key in common_args}  # filtered kwargs

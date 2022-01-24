@@ -245,11 +245,10 @@ class DownLinkEnv1:  # [ElegantRL.2021.11.11]
         # (state, bases_n, users_n, power, csi_noise_var)
         h_noisy = state[0] + state[1] * 1j
         w_mmse = func_mmse(h_noisy, self.bases_n, self.users_n, self.power, self.csi_noise_var)
-        action = np.stack((w_mmse.real, w_mmse.imag))
-        return action
+        return np.stack((w_mmse.real, w_mmse.imag))
 
     def get_curr_schedule(self):
-        with open(self.curr_txt_path, 'r') as f:
+        with open(self.curr_txt_path) as f:
             curr_schedule = float(eval(f.readlines()[-1]))
         assert 0.0 <= curr_schedule <= 1.0
         return curr_schedule
@@ -263,11 +262,7 @@ class DownLinkEnv1:  # [ElegantRL.2021.11.11]
             return
 
         '''update curriculum learning tau in disk'''
-        if self.curr_schedules:
-            self.curr_schedule = self.curr_schedules.pop(0)
-        else:
-            self.curr_schedule = 1.0
-
+        self.curr_schedule = self.curr_schedules.pop(0) if self.curr_schedules else 1.0
         with open(self.curr_txt_path, 'w+') as f:
             f.write(f'{self.curr_schedule}\n')
 
@@ -518,7 +513,7 @@ class DownLinkEnv3(DownLinkEnv1):
     def get_reward(self, action):
         phi = action[:self.relay_n] + action[self.relay_n:] * 1j
 
-        temp_list = list()
+        temp_list = []
         j_opt = 0
         for i in range(self.users_n):
             h_irs_i = self.ur_rl[:, i].reshape(self.relay_n, 1)
@@ -587,7 +582,7 @@ class DownLinkEnv3(DownLinkEnv1):
                     h_dk_m = self.ur_bs[:, m].reshape(self.bases_n, 1)
                     h_dk_m_h = h_dk_m.transpose().conjugate()
                     c_mat += self.power * (1 / e_i) * h_irs_m.dot(h_dk_m_h).dot(w_i_mat).dot(w_i_mat_h).dot(self.bs_rl)
-            # self.var_i_mid_list_phi = list()
+            # self.var_i_mid_list_phi = []
             psi = a_mat * b_mat.transpose()
             v = np.diag(c_mat - d_mat)
             eig_val, eig_vct = np.linalg.eig(psi)
@@ -755,7 +750,7 @@ class DownLinkEnv4(DownLinkEnv1):
     def get_reward(self, action):
         phi = action[:self.relay_n] + action[self.relay_n:] * 1j
 
-        temp_list = list()
+        temp_list = []
         j_opt = 0
         for i in range(self.users_n):
             h_irs_i = self.ur_rl[:, i].reshape(self.relay_n, 1)
@@ -1008,7 +1003,7 @@ class DownLinkEnv5(DownLinkEnv1):
     def get_reward(self, action):
         phi = action[:self.relay_n] + action[self.relay_n:] * 1j
 
-        temp_list = list()
+        temp_list = []
         j_opt = 0
         for i in range(self.users_n):
             h_irs_i = self.ur_rl[:, i].reshape(self.relay_n, 1)
@@ -1268,9 +1263,8 @@ def get_sum_rate_mimo(h, w, sigma=1.0) -> float:
     w1c = w1.conj().transpose((0, 2, 1))
     rate0 = u_ant_eye + np.linalg.inv(sigma_k) @ h @ w1 @ w1c @ h_c
     # assert rate0.shape == (users_n, u_ant_n, u_ant_n)
-    rate1 = np.abs(np.log2(np.linalg.det(rate0))).sum()
     # assert np.linalg.det(rate0).shape == (users_n, )
-    return rate1
+    return np.abs(np.log2(np.linalg.det(rate0))).sum()
 
 
 def get_sum_rate_miso_torch(h, w, sigma=1.0) -> torch.tensor:
@@ -1318,7 +1312,7 @@ def get_min_rate_miso_torch_vec(h, w, sigma=1.0) -> torch.tensor:
 
 
 def func_slnr_max(h, eta, user_k, antennas_n):
-    w_slnr_max_list = list()
+    w_slnr_max_list = []
 
     for k in range(user_k):
         effective_channel = h.conj().T  # h'
@@ -1357,8 +1351,7 @@ def func_mmse_vec(h_noisy, bases_n, users_n, power, csi_noise_var):
     #
     # w_mmse = np.power(power_mmse, 0.5) * np.ones((bases_n, 1))
     # w_mmse = w_mmse * w_mmse_norm
-    w_mmse = func_slnr_max_vec(h_tilde, eta)
-    return w_mmse  # action
+    return func_slnr_max_vec(h_tilde, eta)  # action
 
 
 def func_slnr_max_vec(h_vec, eta_vec: float):
@@ -1532,7 +1525,7 @@ def check__mmse_on_env():
     if if_change_power:
         power_db_ary = np.arange(-10, 30 + 5, 5)  # SNR (dB)
         power_ary = 10 ** (power_db_ary / 10)
-        show_ary = list()
+        show_ary = []
         for j, power in enumerate(power_ary):
             # env = DownLinkEnv0(bases_n=bases_n, users_n=users_n, power=power, csi_noise_var=csi_noise_var)
             env.power = power
@@ -1585,7 +1578,7 @@ def check__mmse_on_env():
     if_change_users_num = True
     if if_change_users_num:
         user_ary = [i for i in range(1, 8 + 1)]
-        show_ary = list()
+        show_ary = []
         for j, users_n in enumerate(user_ary):
             env = DownLinkEnv1(bases_n=bases_n, users_n=users_n, power=1.0, csi_noise_var=csi_noise_var)
             env.save_fixed_data_in_disk()
@@ -1641,7 +1634,7 @@ def check__mmse_on_random_data():
     power_ary = 10 ** (power_db_ary / 10)
 
     timer = time.time()
-    show_ary = list()
+    show_ary = []
     for j, power in enumerate(power_ary):
         '''generate state'''
         hall_ary = rd.randn(sim_times, users_n, bases_n) + rd.randn(sim_times, users_n, bases_n) * 1j
@@ -1690,7 +1683,7 @@ def check__down_link_relay():
     env.curr_schedule = 1.0
 
     from tqdm import trange
-    episode_returns = list()
+    episode_returns = []
     for _ in trange(simulate_times):
         env.reset()
 
@@ -1706,7 +1699,7 @@ def check__down_link_relay():
     print('Reward(Random)', np.mean(episode_returns), np.std(episode_returns))
 
     from tqdm import trange
-    episode_returns = list()
+    episode_returns = []
     for simulate_time in range(simulate_times):
         env.reset()
 

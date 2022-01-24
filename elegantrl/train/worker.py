@@ -1,11 +1,11 @@
-import sys
-import time
-import torch
 import multiprocessing as mp
+import sys
+
+import torch
 
 from elegantrl.train.config import build_env
-from elegantrl.train.utils import init_agent
 from elegantrl.train.utils import act_dict_to_device, trajectory_to_device
+from elegantrl.train.utils import init_agent
 
 
 class PipeWorker:
@@ -23,8 +23,7 @@ class PipeWorker:
         for worker_id in range(self.worker_num):
             self.pipe1s[worker_id].send(act_dict)
 
-        traj_lists = [pipe1.recv() for pipe1 in self.pipe1s]
-        return traj_lists
+        return [pipe1.recv() for pipe1 in self.pipe1s]  # traj_lists
 
     def run(self, args, worker_id, learner_id):
         gpu_id = args.learner_gpus[learner_id]

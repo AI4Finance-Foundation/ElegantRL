@@ -1,11 +1,11 @@
 import math
+
 import Box2D
+import gym
 import numpy as np
 import numpy.random as rd
-
-import gym
-from gym.envs.box2d.car_dynamics import Car
 import pyglet
+from gym.envs.box2d.car_dynamics import Car
 from pyglet import gl  # must gym<=0.17.1, pyglet==1.5.0
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.
@@ -118,12 +118,11 @@ class CarRacingFix:
             state, reward1, done, info_dict = self.old_step(action[3:], if_draw=True)
             reward = reward0 + reward1
         except Exception as error:
-            print(f"| CarRacingFix Error: {error}")
+            print(f'| CarRacingFix Error: {error}')
             state = np.stack((self.state_temp, self.state_temp))
             reward = 0
             done = True
-            info_dict = dict()
-
+            info_dict = {}
         self.num_step += 1
         if self.num_step == self.max_step:
             done = True
@@ -541,8 +540,8 @@ def check_pyglet():
             s, r, done, info = env.step(a)
             total_reward += r
             if steps % 200 == 0 or done:
-                print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
-                print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+                print("\naction " + str([f"{x:+0.2f}" for x in a]))
+                print(f"step {steps} total_reward {total_reward:+0.2f}")
                 # import matplotlib.pyplot as plt
                 # plt.imshow(s)
                 # plt.savefig("test.jpeg")

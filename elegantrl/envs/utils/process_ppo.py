@@ -47,10 +47,10 @@ def process_ppo(args, env, cfg_train, logdir):
               )
 
     if is_testing:
-        print("Loading model from {}/model_{}.pt".format(logdir, chkpt))
-        ppo.test("{}/model_{}.pt".format(logdir, chkpt))
+        print(f"Loading model from {logdir}/model_{chkpt}.pt")
+        ppo.test(f"{logdir}/model_{chkpt}.pt")
     elif chkpt > 0:
-        print("Loading model from {}/model_{}.pt".format(logdir, chkpt))
-        ppo.load("{}/model_{}.pt".format(logdir, chkpt))
+        print(f"Loading model from {logdir}/model_{chkpt}.pt")
+        ppo.load(f"{logdir}/model_{chkpt}.pt")
 
     return ppo

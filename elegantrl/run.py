@@ -1,8 +1,9 @@
+import multiprocessing as mp
 import os
 import time
-import torch
+
 import numpy as np
-import multiprocessing as mp
+import torch
 
 from elegantrl.config import build_env
 from elegantrl.evaluator import Evaluator
@@ -86,8 +87,7 @@ def init_buffer(args, gpu_id):
 
 def init_evaluator(args, gpu_id):
     eval_env = build_env(args.env, args.env_func, args.env_args)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
-    return evaluator
+    return Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
 
 
 '''train multiple process'''
@@ -96,12 +96,10 @@ def init_evaluator(args, gpu_id):
 def train_and_evaluate_mp(args):
     args.init_before_training()
 
-    process = list()
     mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 
     evaluator_pipe = PipeEvaluator()
-    process.append(mp.Process(target=evaluator_pipe.run, args=(args,)))
-
+    process = [mp.Process(target=evaluator_pipe.run, args=(args,))]
     worker_pipe = PipeWorker(args.worker_num)
     process.extend([mp.Process(target=worker_pipe.run, args=(args, worker_id))
                     for worker_id in range(args.worker_num)])
@@ -126,8 +124,7 @@ class PipeWorker:
         for worker_id in range(self.worker_num):
             self.pipe1s[worker_id].send(act_dict)
 
-        traj_lists = [pipe1.recv() for pipe1 in self.pipe1s]
-        return traj_lists
+        return [pipe1.recv() for pipe1 in self.pipe1s]  # traj_lists
 
     def run(self, args, worker_id):
         torch.set_grad_enabled(False)

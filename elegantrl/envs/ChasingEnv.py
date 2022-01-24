@@ -1,7 +1,6 @@
-import torch
 import numpy as np
 import numpy.random as rd
-
+import torch
 
 TargetReturnDict = {
     2: 5.5,
@@ -80,8 +79,7 @@ class ChasingEnv:
         states_reshape = state.reshape((4, -1))
         p0 = states_reshape[0]
         p1 = states_reshape[2]
-        action = p0 - p1
-        return action
+        return p0 - p1
 
 
 class ChasingVecEnv:
@@ -183,15 +181,14 @@ class ChasingVecEnv:
         states_reshape = states.reshape((states.shape[0], 4, -1))
         p0s = states_reshape[:, 0]
         p1s = states_reshape[:, 2]
-        actions = p0s - p1s
-        return actions
+        return p0s - p1s
 
 
 def check_chasing_env():
     env = ChasingEnv()
 
     reward_sum = 0.0  # episode return
-    reward_sum_list = list()
+    reward_sum_list = []
 
     state = env.reset()
     for _ in range(env.max_step * 4):

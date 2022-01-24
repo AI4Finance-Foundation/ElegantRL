@@ -1,6 +1,7 @@
+import time
+
 from elegantrl_helloworld.agent import *
 from elegantrl_helloworld.env import *
-import time
 
 
 class Arguments:
@@ -12,6 +13,7 @@ class Arguments:
     :param env_func: the function for creating an env.
     :param env_args: the args for the env. Please take look at the demo.
     """
+
     def __init__(self, agent, env=None, env_func=None, env_args=None):
         self.env = env  # the environment for training
         self.env_func = env_func  # env = env_func(*env_args)
@@ -177,8 +179,7 @@ def init_evaluator(args, gpu_id):
     :return: an Evaluator.
     """
     eval_env = build_env(args.env, args.env_func, args.env_args)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
-    return evaluator
+    return Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
 
 
 def init_buffer(args, gpu_id):
@@ -213,8 +214,9 @@ class Evaluator:
     :param eval_env: environment object for model evaluation.
     :param args: an object of ``Arguments`` class.
     """
+
     def __init__(self, cwd, agent_id, eval_env, args):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = []  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
         self.cwd = cwd

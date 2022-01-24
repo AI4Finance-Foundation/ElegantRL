@@ -1,6 +1,8 @@
-import torch
-import numpy as np
 import multiprocessing as mp
+
+import numpy as np
+import torch
+
 from elegantrl.train.utils import init_agent, init_replay_buffer, trajectory_to_device
 
 
@@ -34,13 +36,12 @@ class PipeLearner:
             exit()
 
     def comm_data(self, data, learner_id, round_id):
+        learner_jd = self.idx_l[learner_id][round_id]
         if round_id == -1:
-            learner_jd = self.idx_l[learner_id][round_id]
             data = [trajectory_to_device(item, torch.device('cpu')) for item in data]
             self.pipes[learner_jd][0].send(data)
             return self.pipes[learner_id][1].recv()
         else:
-            learner_jd = self.idx_l[learner_id][round_id]
             self.pipe0s[learner_jd].send(data)
             return self.pipe1s[learner_id].recv()
 
@@ -81,7 +82,7 @@ class PipeLearner:
             # if self.learner_num > 1:
             #     data = self.comm_data(traj_lists, learner_id, round_id=-1)
             #     traj_lists.extend(data)
-            traj_list = sum(traj_lists, list())
+            traj_list = sum(traj_lists, [])
 
             steps, r_exp = update_buffer(traj_list)
 
@@ -121,4 +122,3 @@ class PipeLearner:
         for dst, src in zip(dst_optim_param, src_optim_param):
             dst.data.copy_((dst.data + src.data.to(device)) * 0.5)
             # dst.data.copy_(src.data * tau + dst.data * (1 - tau))
-

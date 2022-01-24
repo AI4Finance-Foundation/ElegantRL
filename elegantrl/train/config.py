@@ -1,9 +1,10 @@
-import os
 import inspect
+import os
 from copy import deepcopy
-import torch
+
 import numpy as np
 import numpy.random as rd
+import torch
 
 
 class Arguments:
@@ -185,10 +186,10 @@ class Arguments:
         assert isinstance(self.env_num, int)
         assert isinstance(self.env_name, str)
         assert isinstance(self.max_step, int)
-        assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
-        assert isinstance(self.action_dim, int) or isinstance(self.action_dim, tuple)
-        assert isinstance(self.if_discrete, int) or isinstance(self.if_discrete, bool)
-        assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
+        assert isinstance(self.state_dim, (int, tuple))
+        assert isinstance(self.action_dim, (int, tuple))
+        assert isinstance(self.if_discrete, (int, bool))
+        assert isinstance(self.target_return, (int, float))
 
         '''agent'''
         assert hasattr(self.agent, 'init')
@@ -231,11 +232,11 @@ class Arguments:
         return src
 
     def update_attr(self, attr: str):
-        if self.env_args is None:
-            value = getattr(self.env, attr)
-        else:
-            value = self.env_args[attr]
-        return value
+        return (
+            getattr(self.env, attr)
+            if self.env_args is None
+            else self.env_args[attr]
+        )
 
 
 def build_env(env=None, env_func=None, env_args=None, gpu_id=-1):  # [ElegantRL.2021.12.12]
@@ -249,14 +250,14 @@ def build_env(env=None, env_func=None, env_args=None, gpu_id=-1):  # [ElegantRL.
 
             env = env_func(**env_args1)
         except TypeError as error:
-            if repr(error) == "TypeError(\"make() missing 1 required positional argument: 'id'\")":
-                import gym
-                gym.logger.set_level(40)
-                env = env_func(id=env_args['id'])
-            else:
-                raise TypeError(f"Meet ERROR: {error}\n"
-                                f"Check env_args: {env_args}")
-
+            if (
+                    repr(error)
+                    != """TypeError("make() missing 1 required positional argument: 'id'")"""
+            ):
+                raise TypeError(f'Meet ERROR: {error}\nCheck env_args: {env_args}')
+            import gym
+            gym.logger.set_level(40)
+            env = env_func(id=env_args['id'])
     env.max_step = env.max_step if hasattr(env, 'max_step') else env_args['max_step']
     env.if_discrete = env.if_discrete if hasattr(env, 'if_discrete') else env_args['if_discrete']
     return env
@@ -300,7 +301,7 @@ def check_env(env=None, env_func=None, env_args=None, gpu_id=-1):
                 _action = torch.rand(size=(env_num, action_dim), dtype=torch.float32, device=device)
                 return _action * 2 - 1
 
-    dones = list()
+    dones = []
     state = env.reset()
     if len(state.shape) == 1:
         assert state.shape == (state_dim,)
@@ -354,7 +355,7 @@ def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
     """
 
     sign = inspect.signature(func).parameters.values()
-    sign = set([val.name for val in sign])
+    sign = {val.name for val in sign}
 
     common_args = sign.intersection(kwargs.keys())
     return {key: kwargs[key] for key in common_args}  # filtered kwargs

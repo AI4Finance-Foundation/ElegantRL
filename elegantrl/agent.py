@@ -1,10 +1,10 @@
 import os
-import torch
+from copy import deepcopy
 
 import numpy as np
 import numpy.random as rd
+import torch
 
-from copy import deepcopy
 from elegantrl.net import Actor, ActorSAC, ActorFixSAC, CriticTwin, CriticREDq
 from elegantrl.net import ActorPPO, ActorDiscretePPO, CriticPPO
 from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel
@@ -27,7 +27,7 @@ class AgentBase:
 
         self.states = None
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-        self.traj_list = [[list() for _ in range(4 if args.if_off_policy else 5)]
+        self.traj_list = [[[] for _ in range(4 if args.if_off_policy else 5)]
                           for _ in range(self.env_num)]  # set for `self.explore_vec_env()`
 
         act_class = getattr(self, 'act_class', None)
@@ -61,7 +61,7 @@ class AgentBase:
             self.get_reward_sum = self.get_reward_sum_raw
 
     def explore_one_env(self, env, target_step) -> list:
-        traj_list = list()
+        traj_list = []
         last_done = [0, ]
         state = self.states[0]
 
@@ -82,7 +82,7 @@ class AgentBase:
         return self.convert_trajectory(traj_list, last_done)  # traj_list
 
     def explore_vec_env(self, env, target_step) -> list:
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 
@@ -129,7 +129,7 @@ class AgentBase:
 
         '''splice items'''
         for j in range(len(buf_items)):
-            cur_item = list()
+            cur_item = []
             buf_item = buf_items[j]
 
             for env_i in range(self.env_num):
@@ -242,7 +242,7 @@ class AgentBase:
         traj_n = min(done_list_len // 2, self.traj_n_h_term)
         rd_done_list = rd.choice(done_list_len, replace=False, size=traj_n)
 
-        indices = list()
+        indices = []
         for i in rd_done_list:
             indices.extend(np.arange(done_list[i], done_list[i + 1]))
 
@@ -296,7 +296,7 @@ class AgentDQN(AgentBase):
         # the probability of choosing action randomly in epsilon-greedy
 
     def explore_one_env(self, env, target_step) -> list:
-        traj_list = list()
+        traj_list = []
         last_done = [0, ]
         state = self.states[0]
 
@@ -317,7 +317,7 @@ class AgentDQN(AgentBase):
         return self.convert_trajectory(traj_list, last_done)  # traj_list
 
     def explore_vec_env(self, env, target_step) -> list:
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 
@@ -771,7 +771,7 @@ class AgentPPO(AgentBase):
         self.lambda_gae_adv = getattr(args, 'lambda_entropy', 0.98)  # could be 0.95~0.99, GAE (ICLR.2016.)
 
     def explore_one_env(self, env, target_step) -> list:
-        traj_list = list()
+        traj_list = []
         last_done = [0, ]
         state = self.states[0]
 
@@ -793,7 +793,7 @@ class AgentPPO(AgentBase):
         return self.convert_trajectory(traj_list, last_done)  # traj_list
 
     def explore_vec_env(self, env, target_step) -> list:
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 
@@ -935,7 +935,7 @@ class AgentHtermPPO(AgentPPO):
         obj_critic = None
         obj_actor = None
         assert buf_len >= self.batch_size
-        for i in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
+        for _ in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
             indices = torch.randint(buf_len, size=(self.batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]

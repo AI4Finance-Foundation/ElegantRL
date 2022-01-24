@@ -1,19 +1,22 @@
+import logging
+import os
+import sys
+import time
+from collections import defaultdict
+from functools import partial
+from types import SimpleNamespace as SN
+
+import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical
-import numpy as np
-import os
-from types import SimpleNamespace as SN
-from collections import defaultdict
-import sys
-import time
-import logging
-from functools import partial
 from smac.env import MultiAgentEnv, StarCraft2Env
+from torch.distributions import Categorical
+
 
 def env_fn(env, **kwargs) -> MultiAgentEnv:
     return env(**kwargs)
+
 
 if sys.platform == "linux":
     os.environ.setdefault(
@@ -42,16 +45,19 @@ class OneHot(Transform):
     def infer_output_info(self, vshape_in, dtype_in):
         return (self.out_dim,), th.float32
 
+
 def print_time(start_time, T, t_max, episode, episode_rewards):
     time_elapsed = time.time() - start_time
     T = max(1, T)
     time_left = time_elapsed * (t_max - T) / T
     # Just in case its over 100 days
     time_left = min(time_left, 60 * 60 * 24 * 100)
-    last_reward = "N\A"
+    last_reward = r"N\A"
     if len(episode_rewards) > 5:
-        last_reward = "{:.2f}".format(np.mean(episode_rewards[-50:]))
-    print("\033[F\033[F\x1b[KEp: {:,}, T: {:,}/{:,}, Reward: {}, \n\x1b[KElapsed: {}, Left: {}\n".format(episode, T, t_max, last_reward, time_str(time_elapsed), time_str(time_left)), " " * 10, end="\r")
+        last_reward = f"{np.mean(episode_rewards[-50:]):.2f}"
+    print(
+        f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n",
+        " " * 10, end="\r")
 
 
 def time_left(start_time, t_start, t_current, t_max):
@@ -74,12 +80,12 @@ def time_str(s):
     minutes, seconds = divmod(remainder, 60)
     string = ""
     if days > 0:
-        string += "{:d} days, ".format(int(days))
+        string += f"{int(days):d} days, "
     if hours > 0:
-        string += "{:d} hours, ".format(int(hours))
+        string += f"{int(hours):d} hours, "
     if minutes > 0:
-        string += "{:d} minutes, ".format(int(minutes))
-    string += "{:d} seconds".format(int(seconds))
+        string += f"{int(minutes):d} minutes, "
+    string += f"{int(seconds):d} seconds"
     return string
 
 
@@ -112,10 +118,10 @@ class Logger:
 
         if self.use_sacred and to_sacred:
             if key in self.sacred_info:
-                self.sacred_info["{}_T".format(key)].append(t)
+                self.sacred_info[f"{key}_T"].append(t)
                 self.sacred_info[key].append(value)
             else:
-                self.sacred_info["{}_T".format(key)] = [t]
+                self.sacred_info[f"{key}_T"] = [t]
                 self.sacred_info[key] = [value]
 
     def print_recent_stats(self):
@@ -126,8 +132,8 @@ class Logger:
                 continue
             i += 1
             window = 5 if k != "epsilon" else 1
-            item = "{:.4f}".format(np.mean([x[1] for x in self.stats[k][-window:]]))
-            log_str += "{:<25}{:>8}".format(k + ":", item)
+            item = f"{np.mean([x[1] for x in self.stats[k][-window:]]):.4f}"
+            log_str += f"{k + ':':<25}{item:>8}"
             log_str += "\n" if i % 4 == 0 else "\t"
         self.console_logger.info(log_str)
 
@@ -143,7 +149,6 @@ def get_logger():
     logger.setLevel('DEBUG')
 
     return logger
-
 
 
 class DecayThenFlatSchedule():
@@ -168,11 +173,13 @@ class DecayThenFlatSchedule():
             return max(self.finish, self.start - self.delta * T)
         elif self.decay in ["exp"]:
             return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+
     pass
+
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        super(RNNAgent, self).__init__()
+        super().__init__()
         self.args = args
 
         self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
@@ -190,6 +197,7 @@ class RNNAgent(nn.Module):
         q = self.fc2(h)
         return q, h
 
+
 class EpsilonGreedyActionSelector():
 
     def __init__(self, args):
@@ -200,7 +208,6 @@ class EpsilonGreedyActionSelector():
         self.epsilon = self.schedule.eval(0)
 
     def select_action(self, agent_inputs, avail_actions, t_env, test_mode=False):
-
         # Assuming agent_inputs is a batch of Q-Values for each agent bav
         self.epsilon = self.schedule.eval(t_env)
 
@@ -216,8 +223,11 @@ class EpsilonGreedyActionSelector():
         pick_random = (random_numbers < self.epsilon).long()
         random_actions = Categorical(avail_actions.float()).sample().long()
 
-        picked_actions = pick_random * random_actions + (1 - pick_random) * masked_q_values.max(dim=2)[1]
-        return picked_actions
+        return (
+                pick_random * random_actions
+                + (1 - pick_random) * masked_q_values.max(dim=2)[1]
+        )  # picked_actions
+
 
 class BasicMAC:
     def __init__(self, scheme, groups, args):
@@ -235,8 +245,9 @@ class BasicMAC:
         # Only select actions for the selected batch elements in bs
         avail_actions = ep_batch["avail_actions"][:, t_ep]
         agent_outputs = self.forward(ep_batch, t_ep, test_mode=test_mode)
-        chosen_actions = self.action_selector.select_action(agent_outputs[bs], avail_actions[bs], t_env, test_mode=test_mode)
-        return chosen_actions
+        return self.action_selector.select_action(
+            agent_outputs[bs], avail_actions[bs], t_env, test_mode=test_mode
+        )  # choosen action
 
     def forward(self, ep_batch, t, test_mode=False):
         agent_inputs = self._build_inputs(ep_batch, t)
@@ -260,7 +271,7 @@ class BasicMAC:
                     epsilon_action_num = reshaped_avail_actions.sum(dim=1, keepdim=True).float()
 
                 agent_outs = ((1 - self.action_selector.epsilon) * agent_outs
-                               + th.ones_like(agent_outs) * self.action_selector.epsilon/epsilon_action_num)
+                              + th.ones_like(agent_outs) * self.action_selector.epsilon / epsilon_action_num)
 
                 if getattr(self.args, "mask_before_softmax", True):
                     # Zero out the unavailable actions
@@ -281,10 +292,10 @@ class BasicMAC:
         self.agent.cuda()
 
     def save_models(self, path):
-        th.save(self.agent.state_dict(), "{}/agent.th".format(path))
+        th.save(self.agent.state_dict(), f"{path}/agent.th")
 
     def load_models(self, path):
-        self.agent.load_state_dict(th.load("{}/agent.th".format(path), map_location=lambda storage, loc: storage))
+        self.agent.load_state_dict(th.load(f"{path}/agent.th", map_location=lambda storage, loc: storage))
 
     def _build_agents(self, input_shape):
         self.agent = RNNAgent(input_shape, self.args)
@@ -293,17 +304,16 @@ class BasicMAC:
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size
-        inputs = []
-        inputs.append(batch["obs"][:, t])  # b1av
+        inputs = [batch["obs"][:, t]]  # b1av
         if self.args.obs_last_action:
             if t == 0:
                 inputs.append(th.zeros_like(batch["actions_onehot"][:, t]))
             else:
-                inputs.append(batch["actions_onehot"][:, t-1])
+                inputs.append(batch["actions_onehot"][:, t - 1])
         if self.args.obs_agent_id:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
 
-        inputs = th.cat([x.reshape(bs*self.n_agents, -1) for x in inputs], dim=1)
+        inputs = th.cat([x.reshape(bs * self.n_agents, -1) for x in inputs], dim=1)
         return inputs
 
     def _get_input_shape(self, scheme):
@@ -366,7 +376,6 @@ class Runner:
         self.mac.init_hidden(batch_size=self.batch_size)
 
         while not terminated:
-
             pre_transition_data = {
                 "state": [self.env.get_state()],
                 "avail_actions": [self.env.get_avail_actions()],
@@ -432,11 +441,13 @@ class Runner:
 
         for k, v in stats.items():
             if k != "n_episodes":
-                self.logger.log_stat(prefix + k + "_mean" , v/stats["n_episodes"], self.t_env)
+                self.logger.log_stat(prefix + k + "_mean", v / stats["n_episodes"], self.t_env)
         stats.clear()
+
+
 class QMixer(nn.Module):
     def __init__(self, args):
-        super(QMixer, self).__init__()
+        super().__init__()
 
         self.args = args
         self.n_agents = args.n_agents
@@ -453,8 +464,8 @@ class QMixer(nn.Module):
                                            nn.ReLU(),
                                            nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
             self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
-                                           nn.Linear(hypernet_embed, self.embed_dim))
+                                               nn.ReLU(),
+                                               nn.Linear(hypernet_embed, self.embed_dim))
         elif getattr(args, "hypernet_layers", 1) > 2:
             raise Exception("Sorry >2 hypernet layers is not implemented!")
         else:
@@ -486,8 +497,7 @@ class QMixer(nn.Module):
         # Compute final output
         y = th.bmm(hidden, w_final) + v
         # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-        return q_tot
+        return y.view(bs, -1, 1)
 
 
 class eBatch:
@@ -541,7 +551,7 @@ class eBatch:
         })
 
         for field_key, field_info in scheme.items():
-            assert "vshape" in field_info, "Scheme must define vshape for {}".format(field_key)
+            assert "vshape" in field_info, f"Scheme must define vshape for {field_key}"
             vshape = field_info["vshape"]
             episode_const = field_info.get("episode_const", False)
             group = field_info.get("group", None)
@@ -551,7 +561,7 @@ class eBatch:
                 vshape = (vshape,)
 
             if group:
-                assert group in groups, "Group {} must have its number of members defined in _groups_".format(group)
+                assert group in groups, f"Group {group} must have its number of members defined in _groups_"
                 shape = (groups[group], *vshape)
             else:
                 shape = vshape
@@ -559,7 +569,8 @@ class eBatch:
             if episode_const:
                 self.data.episode_data[field_key] = th.zeros((batch_size, *shape), dtype=dtype, device=self.device)
             else:
-                self.data.transition_data[field_key] = th.zeros((batch_size, max_seq_length, *shape), dtype=dtype, device=self.device)
+                self.data.transition_data[field_key] = th.zeros((batch_size, max_seq_length, *shape), dtype=dtype,
+                                                                device=self.device)
 
     def extend(self, scheme, groups=None):
         self._setup_data(scheme, self.groups if groups is None else groups, self.batch_size, self.max_seq_length)
@@ -584,7 +595,7 @@ class eBatch:
                 target = self.data.episode_data
                 _slices = slices[0]
             else:
-                raise KeyError("{} not found in transition or episode data".format(k))
+                raise KeyError(f"{k} not found in transition or episode data")
 
             dtype = self.scheme[k].get("dtype", th.float32)
             v = th.tensor(v, dtype=dtype, device=self.device)
@@ -601,11 +612,10 @@ class eBatch:
     def _check_safe_view(self, v, dest):
         idx = len(v.shape) - 1
         for s in dest.shape[::-1]:
-            if v.shape[idx] != s:
-                if s != 1:
-                    raise ValueError("Unsafe reshape of {} to {}".format(v.shape, dest.shape))
-            else:
+            if v.shape[idx] == s:
                 idx -= 1
+            elif s != 1:
+                raise ValueError(f"Unsafe reshape of {v.shape} to {dest.shape}")
 
     def __getitem__(self, item):
         if isinstance(item, str):
@@ -615,7 +625,7 @@ class eBatch:
                 return self.data.transition_data[item]
             else:
                 raise ValueError
-        elif isinstance(item, tuple) and all([isinstance(it, str) for it in item]):
+        elif isinstance(item, tuple) and all(isinstance(it, str) for it in item):
             new_data = self._new_data_sn()
             for key in item:
                 if key in self.data.transition_data:
@@ -623,13 +633,14 @@ class eBatch:
                 elif key in self.data.episode_data:
                     new_data.episode_data[key] = self.data.episode_data[key]
                 else:
-                    raise KeyError("Unrecognised key {}".format(key))
+                    raise KeyError(f"Unrecognised key {key}")
 
             # Update the scheme to only have the requested keys
             new_scheme = {key: self.scheme[key] for key in item}
             new_groups = {self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
                           for key in item if "group" in self.scheme[key]}
-            ret = eBatch(new_scheme, new_groups, self.batch_size, self.max_seq_length, data=new_data, device=self.device)
+            ret = eBatch(new_scheme, new_groups, self.batch_size, self.max_seq_length, data=new_data,
+                         device=self.device)
             return ret
         else:
             item = self._parse_slices(item)
@@ -646,11 +657,11 @@ class eBatch:
             return ret
 
     def _get_num_items(self, indexing_item, max_size):
-        if isinstance(indexing_item, list) or isinstance(indexing_item, np.ndarray):
+        if isinstance(indexing_item, (list, np.ndarray)):
             return len(indexing_item)
         elif isinstance(indexing_item, slice):
             _range = indexing_item.indices(max_size)
-            return 1 + (_range[1] - _range[0] - 1)//_range[2]
+            return 1 + (_range[1] - _range[0] - 1) // _range[2]
 
     def _new_data_sn(self):
         new_data = SN()
@@ -662,9 +673,9 @@ class eBatch:
         parsed = []
         # Only batch slice given, add full time slice
         if (isinstance(items, slice)  # slice a:b
-            or isinstance(items, int)  # int i
-            or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))  # [a,b,c]
-            ):
+                or isinstance(items, int)  # int i
+                or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))  # [a,b,c]
+        ):
             items = (items, slice(None))
 
         # Need the time indexing to be contiguous
@@ -672,10 +683,10 @@ class eBatch:
             raise IndexError("Indexing across Time must be contiguous")
 
         for item in items:
-            #TODO: stronger checks to ensure only supported options get through
+            # TODO: stronger checks to ensure only supported options get through
             if isinstance(item, int):
                 # Convert single indices to slices
-                parsed.append(slice(item, item+1))
+                parsed.append(slice(item, item + 1))
             else:
                 # Leave slices and lists as is
                 parsed.append(item)
@@ -685,15 +696,12 @@ class eBatch:
         return th.sum(self.data.transition_data["filled"], 1).max(0)[0]
 
     def __repr__(self):
-        return "eBatch. Batch Size:{} Max_seq_len:{} Keys:{} Groups:{}".format(self.batch_size,
-                                                                                     self.max_seq_length,
-                                                                                     self.scheme.keys(),
-                                                                                     self.groups.keys())
+        return f"eBatch. Batch Size:{self.batch_size} Max_seq_len:{self.max_seq_length} Keys:{self.scheme.keys()} Groups:{self.groups.keys()}"
 
 
 class ReplayBuffer(eBatch):
     def __init__(self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"):
-        super(ReplayBuffer, self).__init__(scheme, groups, buffer_size, max_seq_length, preprocess=preprocess, device=device)
+        super().__init__(scheme, groups, buffer_size, max_seq_length, preprocess=preprocess, device=device)
         self.buffer_size = buffer_size  # same as self.batch_size but more explicit
         self.buffer_index = 0
         self.episodes_in_buffer = 0
@@ -722,14 +730,9 @@ class ReplayBuffer(eBatch):
         assert self.can_sample(batch_size)
         if self.episodes_in_buffer == batch_size:
             return self[:batch_size]
-        else:
-            # Uniform sampling only atm
-            ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
-            return self[ep_ids]
+        # Uniform sampling only atm
+        ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
+        return self[ep_ids]
 
     def __repr__(self):
-        return "ReplayBuffer. {}/{} episodes. Keys:{} Groups:{}".format(self.episodes_in_buffer,
-                                                                        self.buffer_size,
-                                                                        self.scheme.keys(),
-                                                                        self.groups.keys())
-
+        return f"ReplayBuffer. {self.episodes_in_buffer}/{self.buffer_size} episodes. Keys:{self.scheme.keys()} Groups:{self.groups.keys()}"

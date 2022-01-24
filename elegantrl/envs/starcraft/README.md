@@ -1,4 +1,5 @@
-This repo is for SMAC (StarcraftII Multi Agent Challenge) installation and config. More details about SMAC (https://github.com/oxwhirl/smac) 
+This repo is for SMAC (StarcraftII Multi Agent Challenge) installation and config. More details about
+SMAC (https://github.com/oxwhirl/smac)
 
 SMAC Installation:
 

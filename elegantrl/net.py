@@ -1,7 +1,7 @@
-import torch
-import torch.nn as nn
 import numpy as np
 import numpy.random as rd
+import torch
+import torch.nn as nn
 
 '''DQN'''
 
@@ -20,11 +20,11 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
         return self.net(state)  # Q values for multiple actions
 
     def get_action(self, state):
-        if rd.rand() > self.explore_rate:
-            action = self.net(state).argmax(dim=1, keepdim=True)
-        else:
-            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+        return (
+            self.net(state).argmax(dim=1, keepdim=True)
+            if rd.rand() > self.explore_rate
+            else torch.randint(self.action_dim, size=(state.shape[0], 1))
+        )
 
 
 class QNetDuel(nn.Module):  # Dueling DQN
@@ -60,13 +60,11 @@ class QNetDuel(nn.Module):  # Dueling DQN
         return q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
 
     def get_action(self, state):
-        if rd.rand() > self.explore_rate:
-            s_tmp = self.net_state(state)
-            q_val = self.net_val(s_tmp)
-            action = q_val.argmax(dim=1, keepdim=True)
-        else:
-            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+        if rd.rand() <= self.explore_rate:
+            return torch.randint(self.action_dim, size=(state.shape[0], 1))
+        s_tmp = self.net_state(state)
+        q_val = self.net_val(s_tmp)
+        return q_val.argmax(dim=1, keepdim=True)
 
 
 class QNetTwin(nn.Module):  # Double DQN
@@ -94,11 +92,9 @@ class QNetTwin(nn.Module):  # Double DQN
         s = self.net_state(state)
         q = self.net_q1(s)
         if rd.rand() > self.explore_rate:
-            action = q.argmax(dim=1, keepdim=True)
-        else:
-            a_prob = self.soft_max(q)
-            action = torch.multinomial(a_prob, num_samples=1)
-        return action
+            return q.argmax(dim=1, keepdim=True)
+        a_prob = self.soft_max(q)
+        return torch.multinomial(a_prob, num_samples=1)
 
 
 class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
@@ -157,11 +153,9 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
         s = self.net_state(state)
         q = self.net_val1(s)
         if rd.rand() > self.explore_rate:
-            action = q.argmax(dim=1, keepdim=True)
-        else:
-            a_prob = self.soft_max(q)
-            action = torch.multinomial(a_prob, num_samples=1)
-        return action
+            return q.argmax(dim=1, keepdim=True)
+        a_prob = self.soft_max(q)
+        return torch.multinomial(a_prob, num_samples=1)
 
 
 '''Actor (policy network)'''
@@ -249,8 +243,7 @@ class ActorFixSAC(nn.Module):
 
     def get_a_log_std(self, state):
         t_tmp = self.net_state(state)
-        a_log_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
-        return a_log_std
+        return self.net_a_std(t_tmp).clamp(-20, 2).exp()
 
     def get_logprob(self, state, action):
         t_tmp = self.net_state(state)
@@ -334,9 +327,8 @@ class ActorPPO(nn.Module):
         a_std = self.a_std_log.exp()
 
         delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)  # new_logprob
 
-        return log_prob
+        return -(self.a_std_log + self.sqrt_2pi_log + delta)  # new_logprob
 
     def get_logprob_entropy(self, state, action):
         a_avg = self.net(state)
@@ -446,7 +438,7 @@ class CriticREDq(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.critic_num = 8
-        self.critic_list = list()
+        self.critic_list = []
         for critic_id in range(self.critic_num):
             child_cri_net = Critic(mid_dim, state_dim, action_dim).net
             setattr(self, f'critic{critic_id:02}', child_cri_net)
