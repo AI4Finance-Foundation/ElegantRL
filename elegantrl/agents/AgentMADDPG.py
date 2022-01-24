@@ -117,10 +117,10 @@ class AgentMADDPG(AgentBase):
         param env: the Environment instance to be explored.
         param target_step: target steps to explore.
         """
-        traj_temp = list()
+        traj_temp = []
         k = 0
         for _ in range(target_step):
-            k = k + 1
+            k += 1
             actions = []
             for i in range(self.n_agents):
                 action = self.agents[i].select_actions(self.states[i])
@@ -128,19 +128,14 @@ class AgentMADDPG(AgentBase):
             #print(actions)
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((self.states, reward, done, actions))
-            global_done = True
-            for i in range(self.n_agents):
-                if done[i] is not True:
-                    global_done = False
-                    break
+            global_done = all(done[i] is True for i in range(self.n_agents))
             if global_done or k >100:
-                state = env.reset() 
+                state = env.reset()
                 k = 0
-            else: 
+            else:
                 state = next_s
         self.states = state
-        traj_list = traj_temp
-        return traj_list
+        return traj_temp
     
     def select_actions(self, states):
         """
