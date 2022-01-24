@@ -335,7 +335,7 @@ def check_env(env=None, env_func=None, env_args=None, gpu_id=-1):
 """private utils"""
 
 
-def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
+def kwargs_filter(func, kwargs: dict):    # [ElegantRL.2021.12.12]
     """How does one ignore `unexpected keyword arguments passed to a function`?
     https://stackoverflow.com/a/67713935/9293137
 
@@ -354,7 +354,7 @@ def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
     """
 
     sign = inspect.signature(func).parameters.values()
-    sign = set([val.name for val in sign])
+    sign = {val.name for val in sign}
 
     common_args = sign.intersection(kwargs.keys())
     return {key: kwargs[key] for key in common_args}  # filtered kwargs
