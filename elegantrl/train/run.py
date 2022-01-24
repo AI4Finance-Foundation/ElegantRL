@@ -57,15 +57,15 @@ def train_and_evaluate_mp(args, python_path=''):
     import multiprocessing as mp
 
     if_from_ensemble = sys.argv[-1] == 'FromEnsemble'
-    agent_id = int(sys.argv[-2]) if if_from_ensemble else 0
-
     from collections.abc import Iterable
     if isinstance(args.learner_gpus, int):
         args.learner_gpus = (args.learner_gpus, )
+    process = []
     if (not isinstance(args.learner_gpus[0], Iterable)) or if_from_ensemble:
+        agent_id = int(sys.argv[-2]) if if_from_ensemble else 0
+
         args.init_before_training(agent_id=agent_id)  # necessary!
 
-        process = list()
         mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 
         '''evaluator'''
@@ -86,11 +86,10 @@ def train_and_evaluate_mp(args, python_path=''):
         [(p.start(), time.sleep(0.1)) for p in process]
         process[0].join()
         process_safely_terminate(process)
-
     else:
         from subprocess import Popen
 
-        python_path = python_path if python_path else get_python_path()
+        python_path = python_path or get_python_path()
         python_proc = sys.argv[0]
 
         ensemble_dir = args.save_dir
@@ -103,7 +102,6 @@ def train_and_evaluate_mp(args, python_path=''):
         proc_leaderboard.start()
 
         print('subprocess Start')
-        process = list()
         for agent_id in range(ensemble_num):
             command_str = f"{python_path} {python_proc} {agent_id} FromEnsemble"
             command_list = command_str.split(' ')
