@@ -231,11 +231,11 @@ class Arguments:
         return src
 
     def update_attr(self, attr: str):
-        if self.env_args is None:
-            value = getattr(self.env, attr)
-        else:
-            value = self.env_args[attr]
-        return value
+        return (
+            getattr(self.env, attr)
+            if self.env_args is None
+            else self.env_args[attr]
+        )
 
 
 def build_env(env=None, env_func=None, env_args=None, gpu_id=-1):  # [ElegantRL.2021.12.12]
