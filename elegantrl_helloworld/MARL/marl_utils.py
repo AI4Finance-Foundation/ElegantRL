@@ -486,8 +486,7 @@ class QMixer(nn.Module):
         # Compute final output
         y = th.bmm(hidden, w_final) + v
         # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-        return q_tot
+        return y.view(bs, -1, 1)
 
 
 class eBatch:
