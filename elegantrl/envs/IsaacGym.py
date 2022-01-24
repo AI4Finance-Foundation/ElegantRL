@@ -140,11 +140,7 @@ class IsaacOneEnv(IsaacVecEnv):
 def run_isaac_env(env_name='Ant', if_vec_env=True):
     # from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
     # env = IsaacVecEnv(env_name='Ant', env_num=32, device_id=0, if_print=True)
-    if if_vec_env:
-        env_func = IsaacVecEnv
-    else:
-        env_func = IsaacOneEnv
-
+    env_func = IsaacVecEnv if if_vec_env else IsaacOneEnv
     if env_name == 'Ant':
         env_args = {
             'env_num': 32,
