@@ -1,3 +1,6 @@
+import gym
+from elegantrl.agent import AgentModSAC
+from elegantrl.config import get_gym_env_args, Arguments
 from elegantrl.run import *
 
 gym.logger.set_level(40)  # Block warning
