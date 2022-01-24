@@ -35,27 +35,26 @@ class IsaacVecEnv:
         '''env_name'''
         sys_argv = sys.argv  # build a pure sys.argv for IsaacGym args = get_args()
         sys.argv = sys.argv[:1]  # build a pure sys.argv for IsaacGym args = get_args()
-        if True:  # build a pure sys.argv for IsaacGym args = get_args()
-            env_target_return_dict = {
-                'Ant': 14e3,  # 16e3
-                'Humanoid': 9e3,  # 11e3
-            }
-            assert env_name in env_target_return_dict.keys()
-            args = get_args(task_name=env_name, headless=True)
+        env_target_return_dict = {
+            'Ant': 14e3,  # 16e3
+            'Humanoid': 9e3,  # 11e3
+        }
+        assert env_name in env_target_return_dict
+        args = get_args(task_name=env_name, headless=True)
 
-            # set after `args = get_args()`  # get_args()  in .../utils/config.py
-            rl_device_id = device_id if rl_device_id is None else rl_device_id
-            args.rl_device = f"cuda:{rl_device_id}" if rl_device_id >= 0 else 'cpu'
-            args.device_id = device_id  # PhyX device
-            args.num_envs = env_num  # in `.../cfg/train/xxx.yaml`, `numEnvs`
-            # set before load_cfg()
+        # set after `args = get_args()`  # get_args()  in .../utils/config.py
+        rl_device_id = device_id if rl_device_id is None else rl_device_id
+        args.rl_device = f"cuda:{rl_device_id}" if rl_device_id >= 0 else 'cpu'
+        args.device_id = device_id  # PhyX device
+        args.num_envs = env_num  # in `.../cfg/train/xxx.yaml`, `numEnvs`
+        # set before load_cfg()
 
-            cfg, cfg_train, log_dir = load_cfg(args)
-            sim_params = parse_sim_params(args, cfg, cfg_train)
-            set_seed(cfg_train["seed"])
+        cfg, cfg_train, log_dir = load_cfg(args)
+        sim_params = parse_sim_params(args, cfg, cfg_train)
+        set_seed(cfg_train["seed"])
 
-            task, env = parse_task(args, cfg, cfg_train, sim_params)
-            assert env_num == env.num_environments
+        task, env = parse_task(args, cfg, cfg_train, sim_params)
+        assert env_num == env.num_environments
         sys.argv = sys_argv  # build a pure sys.argv for IsaacGym args = get_args()
 
         '''max_step'''
@@ -66,7 +65,7 @@ class IsaacVecEnv:
         '''if_discrete'''
         # import gym
         # if_discrete = isinstance(env.act_space, gym.spaces.Discrete)
-        if_discrete = str(env.action_space.dtype).find('float') == -1
+        if_discrete = 'float' not in str(env.action_space.dtype)
 
         '''state_dim'''
         state_dim = task.num_obs
@@ -101,7 +100,7 @@ class IsaacVecEnv:
                         'if_discrete': if_discrete,
                         'target_return': target_return, }
             env_args_repr = repr(env_args)
-            env_args_repr = env_args_repr.replace(',', f",\n   ")
+            env_args_repr = env_args_repr.replace(',', ',\n   ')
             env_args_repr = env_args_repr.replace('{', "{\n    ")
             env_args_repr = env_args_repr.replace('}', ",\n}")
             print(f"env_args = {env_args_repr}")
