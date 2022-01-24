@@ -141,6 +141,6 @@ def check_subprocess():
     timer = time.time()
     print('subprocess Start')
 
-    process = [subprocess.Popen(f"sleep 3".split(' ')) for _ in range(4)]
+    process = [subprocess.Popen('sleep 3'.split(' ')) for _ in range(4)]
     [proc.communicate() for proc in process]
     print('subprocess Stop:', time.time() - timer)
