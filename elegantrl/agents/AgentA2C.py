@@ -106,7 +106,7 @@ class AgentDiscreteA2C(AgentA2C):
         state = self.states[0]
 
         last_done = 0
-        traj = list()
+        traj = []
         for step_i in range(target_step):
             ten_states = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
             ten_a_ints, ten_probs = self.select_actions(ten_states)

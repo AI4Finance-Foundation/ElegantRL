@@ -186,7 +186,7 @@ def run_isaac_env(env_name='Ant', if_vec_env=True):
 
 
 def run_isaac_gym_multiple_process():
-    process_list = list()
+    process_list = []
     process_list.append(mp.Process(target=run_isaac_env, args=('Ant', True), ))  # VecEnv
     process_list.append(mp.Process(target=run_isaac_env, args=('Ant', False), ))  # OneEnv
 

@@ -446,7 +446,7 @@ class CriticREDq(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.critic_num = 8
-        self.critic_list = list()
+        self.critic_list = []
         for critic_id in range(self.critic_num):
             child_cri_net = Critic(mid_dim, state_dim, action_dim).net
             setattr(self, f'critic{critic_id:02}', child_cri_net)

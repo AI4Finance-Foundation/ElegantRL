@@ -65,7 +65,7 @@ class AgentBase:
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
         last_done = [0, ]
         state = self.states[0]
 
@@ -93,7 +93,7 @@ class AgentBase:
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 
@@ -133,7 +133,7 @@ class AgentBase:
 
         '''splice items'''
         for j in range(len(buf_items)):
-            cur_item = list()
+            cur_item = []
             buf_item = buf_items[j]
 
             for env_i in range(self.env_num):
@@ -313,7 +313,7 @@ class AgentDQN(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
         last_done = [0, ]
         state = self.states[0]
 
@@ -341,7 +341,7 @@ class AgentDQN(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 
@@ -546,7 +546,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
-        traj_list = list()
+        traj_list = []
         last_done = [0, ]
         state = self.states[0]
 
@@ -575,7 +575,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 

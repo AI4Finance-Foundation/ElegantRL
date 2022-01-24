@@ -518,7 +518,7 @@ class DownLinkEnv3(DownLinkEnv1):
     def get_reward(self, action):
         phi = action[:self.relay_n] + action[self.relay_n:] * 1j
 
-        temp_list = list()
+        temp_list = []
         j_opt = 0
         for i in range(self.users_n):
             h_irs_i = self.ur_rl[:, i].reshape(self.relay_n, 1)
@@ -755,7 +755,7 @@ class DownLinkEnv4(DownLinkEnv1):
     def get_reward(self, action):
         phi = action[:self.relay_n] + action[self.relay_n:] * 1j
 
-        temp_list = list()
+        temp_list = []
         j_opt = 0
         for i in range(self.users_n):
             h_irs_i = self.ur_rl[:, i].reshape(self.relay_n, 1)
@@ -1008,7 +1008,7 @@ class DownLinkEnv5(DownLinkEnv1):
     def get_reward(self, action):
         phi = action[:self.relay_n] + action[self.relay_n:] * 1j
 
-        temp_list = list()
+        temp_list = []
         j_opt = 0
         for i in range(self.users_n):
             h_irs_i = self.ur_rl[:, i].reshape(self.relay_n, 1)
@@ -1318,7 +1318,7 @@ def get_min_rate_miso_torch_vec(h, w, sigma=1.0) -> torch.tensor:
 
 
 def func_slnr_max(h, eta, user_k, antennas_n):
-    w_slnr_max_list = list()
+    w_slnr_max_list = []
 
     for k in range(user_k):
         effective_channel = h.conj().T  # h'
@@ -1706,7 +1706,7 @@ def check__down_link_relay():
     print('Reward(Random)', np.mean(episode_returns), np.std(episode_returns))
 
     from tqdm import trange
-    episode_returns = list()
+    episode_returns = []
     for simulate_time in range(simulate_times):
         env.reset()
 

@@ -191,7 +191,7 @@ def check_chasing_env():
     env = ChasingEnv()
 
     reward_sum = 0.0  # episode return
-    reward_sum_list = list()
+    reward_sum_list = []
 
     state = env.reset()
     for _ in range(env.max_step * 4):

@@ -79,7 +79,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
-        traj_list = list()
+        traj_list = []
 
         state = self.states[0]
 
@@ -131,7 +131,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
 
         ten_s = self.states
 
@@ -275,7 +275,7 @@ class AgentPPO(AgentBase):
     def splice_trajectory(self, buf_srdan, last_done):
         out_srdan = list()
         for j in range(5):
-            cur_items = list()
+            cur_items = []
             buf_items = buf_srdan.pop(0)  # buf_srdan[j]
 
             for env_i in range(self.env_num):
@@ -325,7 +325,7 @@ class AgentDiscretePPO(AgentPPO):
         state = self.states[0]
 
         last_done = 0
-        traj = list()
+        traj = []
 
         step = 0
         done = False

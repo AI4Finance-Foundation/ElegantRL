@@ -89,7 +89,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
 
         def get_optim_param(optim):  # optim = torch.optim.Adam(network_param, learning_rate)
-            params_list = list()
+            params_list = []
             for params_dict in optim.state_dict()['state'].values():
                 params_list.extend([t for t in params_dict.values() if isinstance(t, torch.Tensor)])
             return params_list
@@ -137,7 +137,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         `traj_env_0 = [(state, other), ...]` for off-policy
         """
         state = self.states[0]
-        traj = list()
+        traj = []
         for _ in range(target_step):
             ten_state = torch.as_tensor(state, dtype=torch.float32)
             ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
@@ -170,7 +170,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         ten_states = self.states
 
-        traj = list()
+        traj = []
         for _ in range(target_step):
             ten_actions = self.select_actions(ten_states)
             ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)

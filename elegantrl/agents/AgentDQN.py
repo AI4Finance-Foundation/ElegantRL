@@ -68,7 +68,7 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :param gamma: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj = list()
+        traj = []
         state = self.states[0]
         for _ in range(target_step):
             ten_state = torch.as_tensor(state, dtype=torch.float32)
@@ -102,7 +102,7 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         """
         ten_states = self.states
 
-        traj = list()
+        traj = []
         for _ in range(target_step):
             ten_actions = self.select_actions(ten_states)
             ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)

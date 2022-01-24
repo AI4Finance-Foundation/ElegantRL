@@ -67,7 +67,7 @@ def init_replay_buffer(args, learner_gpu, agent=None, env=None):
         buffer.save_or_load_history(args.cwd, if_save=False)
 
         def update_buffer(traj_list):
-            steps_r_exp_list = list()
+            steps_r_exp_list = []
             for ten_state, ten_other in traj_list:
                 buffer.extend_buffer(ten_state, ten_other)
 
@@ -82,7 +82,7 @@ def init_replay_buffer(args, learner_gpu, agent=None, env=None):
             update_buffer(agent.explore_env(env, args.target_step))
 
     else:
-        buffer = list()
+        buffer = []
 
         def update_buffer(traj_list):
             cur_items = list(map(list, zip(*traj_list)))
