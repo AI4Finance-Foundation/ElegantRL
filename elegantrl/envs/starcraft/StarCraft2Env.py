@@ -758,11 +758,11 @@ class StarCraft2Env(MultiAgentEnv):
 
     def unit_max_shield(self, unit):
         """Returns maximal shield for a given unit."""
-        if unit.unit_type == 74 or unit.unit_type == self.stalker_id:
+        if unit.unit_type in [74, self.stalker_id]:
             return 80  # Protoss's Stalker
-        if unit.unit_type == 73 or unit.unit_type == self.zealot_id:
+        if unit.unit_type in [73, self.zealot_id]:
             return 50  # Protoss's Zaelot
-        if unit.unit_type == 4 or unit.unit_type == self.colossus_id:
+        if unit.unit_type in [4, self.colossus_id]:
             return 150  # Protoss's Colossus
 
     def can_move(self, unit, direction):
