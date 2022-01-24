@@ -563,8 +563,7 @@ class StarCraft2Env(MultiAgentEnv):
                 logging.debug("Agent {} {}s unit # {}".format(
                     a_id, action_name, target_id))
 
-        sc_action = sc_pb.Action(action_raw=r_pb.ActionRaw(unit_command=cmd))
-        return sc_action
+        return sc_pb.Action(action_raw=r_pb.ActionRaw(unit_command=cmd))
 
     def get_agent_action_heuristic(self, a_id, action):
         unit = self.get_unit_by_id(a_id)
