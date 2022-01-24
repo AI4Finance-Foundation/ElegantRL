@@ -60,13 +60,11 @@ class QNetDuel(nn.Module):  # Dueling DQN
         return q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
 
     def get_action(self, state):
-        if rd.rand() > self.explore_rate:
-            s_tmp = self.net_state(state)
-            q_val = self.net_val(s_tmp)
-            action = q_val.argmax(dim=1, keepdim=True)
-        else:
-            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+        if rd.rand() <= self.explore_rate:
+            return torch.randint(self.action_dim, size=(state.shape[0], 1))
+        s_tmp = self.net_state(state)
+        q_val = self.net_val(s_tmp)
+        return q_val.argmax(dim=1, keepdim=True)
 
 
 class QNetTwin(nn.Module):  # Double DQN
