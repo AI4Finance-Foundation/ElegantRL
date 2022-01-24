@@ -263,11 +263,7 @@ class DownLinkEnv1:  # [ElegantRL.2021.11.11]
             return
 
         '''update curriculum learning tau in disk'''
-        if self.curr_schedules:
-            self.curr_schedule = self.curr_schedules.pop(0)
-        else:
-            self.curr_schedule = 1.0
-
+        self.curr_schedule = self.curr_schedules.pop(0) if self.curr_schedules else 1.0
         with open(self.curr_txt_path, 'w+') as f:
             f.write(f'{self.curr_schedule}\n')
 
