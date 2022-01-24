@@ -54,94 +54,58 @@ def set_seed(seed, torch_deterministic=False):
 
 
 def retrieve_cfg(args, use_rlg_config=False):
-    if use_rlg_config:
-        if args.task == "BallBalance":
+    if args.task == "BallBalance":
+        if use_rlg_config:
             return os.path.join(args.logdir, "ball_balance"), "cfg/train/rlg/rlg_ball.yaml", "cfg/ball_balance.yaml"
-        elif args.task == "Cartpole":
-            return os.path.join(args.logdir, "cartpole"), "cfg/train/rlg/rlg_cartpole.yaml", "cfg/cartpole.yaml"
-        elif args.task == "CartpoleYUp":
-            return os.path.join(args.logdir, "cartpole_y_up"), "cfg/train/rlg/rlg_cartpole.yaml", "cfg/cartpole.yaml"
-        elif args.task == "Ant":
-            return os.path.join(args.logdir, "ant"), "cfg/train/rlg/rlg_ant.yaml", "cfg/ant.yaml"
-        elif args.task == "Humanoid":
-            return os.path.join(args.logdir, "humanoid"), "cfg/train/rlg/rlg_humanoid.yaml", "cfg/humanoid.yaml"
-        elif args.task == "FrankaCabinet":
-            return os.path.join(args.logdir,
-                                "franka_cabinet"), "cfg/train/rlg/rlg_franka_cabinet.yaml", "cfg/franka_cabinet.yaml"
-        elif args.task == "Quadcopter":
-            return os.path.join(args.logdir, "quadcopter"), "cfg/train/rlg/rlg_quadcopter.yaml", "cfg/quadcopter.yaml"
-        elif args.task == "Anymal":
-            return os.path.join(args.logdir, "anymal"), "cfg/train/rlg/rlg_anymal.yaml", "cfg/anymal.yaml"
-        elif args.task == "ShadowHand":
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand.yaml", "cfg/shadow_hand.yaml"
-        elif args.task == "ShadowHandLSTM":
-            args.task = "ShadowHand"
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_lstm.yaml", "cfg/shadow_hand_lstm.yaml"
-        elif args.task == "ShadowHandFFOpenAI":
-            # Asymmetric FF policy and value functions with OpenAI observations
-            args.task = "ShadowHand"
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm.yaml", "cfg/shadow_hand_openai.yaml"
-        elif args.task == "ShadowHandFFOpenAITest":
-            # Testing the asymmetric FF policy with OpenAI observations
-            args.task = "ShadowHand"
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm.yaml", "cfg/shadow_hand_test.yaml"
-        elif args.task == "ShadowHandOpenAI":
-            args.task = "ShadowHand"
-            # Asymmetric LSTM policy and value functions with OpenAI observations
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml", "cfg/shadow_hand_openai.yaml"
-        elif args.task == "ShadowHandOpenAITest":
-            # Testing the asymmetric LSTM policy with OpenAI observations
-            args.task = "ShadowHand"
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml", "cfg/shadow_hand_test.yaml"
-        elif args.task == "Ingenuity":
-            return os.path.join(args.logdir, "ingenuity"), "cfg/train/rlg/rlg_ingenuity.yaml", "cfg/ingenuity.yaml"
         else:
-            warn_task_name()
-    else:
-        if args.task == "BallBalance":
             return os.path.join(args.logdir,
                                 "ball_balance"), "cfg/train/rlpt/pytorch_ppo_ball_balance.yaml", "cfg/ball_balance.yaml"
-        elif args.task == "Cartpole":
-            return os.path.join(args.logdir,
-                                "cartpole"), "cfg/train/rlpt/pytorch_ppo_cartpole.yaml", "cfg/cartpole.yaml"
-        elif args.task == "CartpoleYUp":
-            return os.path.join(args.logdir,
-                                "cartpole_y_up"), "cfg/train/rlpt/pytorch_ppo_cartpole.yaml", "cfg/cartpole.yaml"
-        elif args.task == "Ant":
-            return os.path.join(args.logdir, "ant"), "cfg/train/rlpt/pytorch_ppo_ant.yaml", "cfg/ant.yaml"
-        elif args.task == "Humanoid":
-            return os.path.join(args.logdir,
-                                "humanoid"), "cfg/train/rlpt/pytorch_ppo_humanoid.yaml", "cfg/humanoid.yaml"
-        elif args.task == "FrankaCabinet":
-            return os.path.join(args.logdir,
-                                "franka_cabinet"), "cfg/train/rlpt/pytorch_ppo_franka_cabinet.yaml", "cfg/franka_cabinet.yaml"
-        elif args.task == "Quadcopter":
-            return os.path.join(args.logdir,
-                                "quadcopter"), "cfg/train/rlpt/pytorch_ppo_quadcopter.yaml", "cfg/quadcopter.yaml"
-        elif args.task == "Anymal":
-            return os.path.join(args.logdir, "anymal"), "cfg/train/rlpt/pytorch_ppo_anymal.yaml", "cfg/anymal.yaml"
-        elif args.task == "ShadowHand":
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlpt/pytorch_ppo_shadow_hand.yaml", "cfg/shadow_hand.yaml"
-        elif args.task == "ShadowHandFFOpenAI":
-            args.task = "ShadowHand"
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlpt/pytorch_ppo_shadow_hand.yaml", "cfg/shadow_hand_openai.yaml"
-        elif args.task == "ShadowHandFFOpenAITest":
-            args.task = "ShadowHand"
-            return os.path.join(args.logdir,
-                                "shadow_hand"), "cfg/train/rlpt/pytorch_ppo_shadow_hand.yaml", "cfg/shadow_hand_test.yaml"
-        elif args.task == "Ingenuity":
-            return os.path.join(args.logdir,
-                                "ingenuity"), "cfg/train/rlpt/pytorch_ppo_ingenuity.yaml", "cfg/ingenuity.yaml"
-        else:
-            warn_task_name()
+    elif args.task == "Cartpole":
+        return os.path.join(args.logdir, "cartpole"), "cfg/train/rlg/rlg_cartpole.yaml", "cfg/cartpole.yaml"
+    elif args.task == "CartpoleYUp":
+        return os.path.join(args.logdir, "cartpole_y_up"), "cfg/train/rlg/rlg_cartpole.yaml", "cfg/cartpole.yaml"
+    elif args.task == "Ant":
+        return os.path.join(args.logdir, "ant"), "cfg/train/rlg/rlg_ant.yaml", "cfg/ant.yaml"
+    elif args.task == "Humanoid":
+        return os.path.join(args.logdir, "humanoid"), "cfg/train/rlg/rlg_humanoid.yaml", "cfg/humanoid.yaml"
+    elif args.task == "FrankaCabinet":
+        return os.path.join(args.logdir,
+                            "franka_cabinet"), "cfg/train/rlg/rlg_franka_cabinet.yaml", "cfg/franka_cabinet.yaml"
+    elif args.task == "Quadcopter":
+        return os.path.join(args.logdir, "quadcopter"), "cfg/train/rlg/rlg_quadcopter.yaml", "cfg/quadcopter.yaml"
+    elif args.task == "Anymal":
+        return os.path.join(args.logdir, "anymal"), "cfg/train/rlg/rlg_anymal.yaml", "cfg/anymal.yaml"
+    elif args.task == "ShadowHand":
+        return os.path.join(args.logdir,
+                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand.yaml", "cfg/shadow_hand.yaml"
+    elif args.task == "ShadowHandLSTM":
+        args.task = "ShadowHand"
+        return os.path.join(args.logdir,
+                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_lstm.yaml", "cfg/shadow_hand_lstm.yaml"
+    elif args.task == "ShadowHandFFOpenAI":
+        # Asymmetric FF policy and value functions with OpenAI observations
+        args.task = "ShadowHand"
+        return os.path.join(args.logdir,
+                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm.yaml", "cfg/shadow_hand_openai.yaml"
+    elif args.task == "ShadowHandFFOpenAITest":
+        # Testing the asymmetric FF policy with OpenAI observations
+        args.task = "ShadowHand"
+        return os.path.join(args.logdir,
+                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm.yaml", "cfg/shadow_hand_test.yaml"
+    elif args.task == "ShadowHandOpenAI":
+        args.task = "ShadowHand"
+        # Asymmetric LSTM policy and value functions with OpenAI observations
+        return os.path.join(args.logdir,
+                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml", "cfg/shadow_hand_openai.yaml"
+    elif args.task == "ShadowHandOpenAITest":
+        # Testing the asymmetric LSTM policy with OpenAI observations
+        args.task = "ShadowHand"
+        return os.path.join(args.logdir,
+                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml", "cfg/shadow_hand_test.yaml"
+    elif args.task == "Ingenuity":
+        return os.path.join(args.logdir, "ingenuity"), "cfg/train/rlg/rlg_ingenuity.yaml", "cfg/ingenuity.yaml"
+    else:
+        warn_task_name()
 
 
 def load_cfg(args, use_rlg_config=False):
