@@ -185,10 +185,10 @@ class Arguments:
         assert isinstance(self.env_num, int)
         assert isinstance(self.env_name, str)
         assert isinstance(self.max_step, int)
-        assert isinstance(self.state_dim, int) or isinstance(self.state_dim, tuple)
-        assert isinstance(self.action_dim, int) or isinstance(self.action_dim, tuple)
-        assert isinstance(self.if_discrete, int) or isinstance(self.if_discrete, bool)
-        assert isinstance(self.target_return, int) or isinstance(self.target_return, float)
+        assert isinstance(self.state_dim, (int, tuple))
+        assert isinstance(self.action_dim, (int, tuple))
+        assert isinstance(self.if_discrete, (int, bool))
+        assert isinstance(self.target_return, (int, float))
 
         '''agent'''
         assert hasattr(self.agent, 'init')
