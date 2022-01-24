@@ -601,11 +601,10 @@ class eBatch:
     def _check_safe_view(self, v, dest):
         idx = len(v.shape) - 1
         for s in dest.shape[::-1]:
-            if v.shape[idx] != s:
-                if s != 1:
-                    raise ValueError("Unsafe reshape of {} to {}".format(v.shape, dest.shape))
-            else:
+            if v.shape[idx] == s:
                 idx -= 1
+            elif s != 1:
+                raise ValueError("Unsafe reshape of {} to {}".format(v.shape, dest.shape))
 
     def __getitem__(self, item):
         if isinstance(item, str):
