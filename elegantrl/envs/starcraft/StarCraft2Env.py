@@ -712,11 +712,9 @@ class StarCraft2Env(MultiAgentEnv):
                     delta_enemy += prev_health - e_unit.health - e_unit.shield
 
         if self.reward_only_positive:
-            reward = abs(delta_enemy + delta_deaths)  # shield regeneration
+            return abs(delta_enemy + delta_deaths)
         else:
-            reward = delta_enemy + delta_deaths - delta_ally
-
-        return reward
+            return delta_enemy + delta_deaths - delta_ally
 
     def get_total_actions(self):
         """Returns the total number of actions an agent could ever take."""
