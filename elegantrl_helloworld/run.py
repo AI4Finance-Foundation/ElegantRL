@@ -177,8 +177,7 @@ def init_evaluator(args, gpu_id):
     :return: an Evaluator.
     """
     eval_env = build_env(args.env, args.env_func, args.env_args)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
-    return evaluator
+    return Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
 
 
 def init_buffer(args, gpu_id):
