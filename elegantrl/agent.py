@@ -935,7 +935,7 @@ class AgentHtermPPO(AgentPPO):
         obj_critic = None
         obj_actor = None
         assert buf_len >= self.batch_size
-        for i in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
+        for _ in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
             indices = torch.randint(buf_len, size=(self.batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]

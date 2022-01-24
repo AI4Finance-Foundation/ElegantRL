@@ -203,7 +203,7 @@ class AgentPPO(AgentBase):
 
         assert buf_len >= batch_size
         update_times = int(buf_len / batch_size * repeat_times)
-        for update_i in range(1, update_times + 1):
+        for _ in range(1, update_times + 1):
             indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
 
             state = buf_state[indices]
