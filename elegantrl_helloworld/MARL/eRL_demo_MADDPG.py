@@ -215,8 +215,7 @@ class AgentBase:
             state = env.reset() if done else next_s
         self.states[0] = state
 
-        traj_list = [traj, ]
-        return traj_list  # [traj_env_0, ]
+        return [traj, ]  # traj_list [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step):
         """actor explores in VectorEnv, then returns the trajectory (env transition)
