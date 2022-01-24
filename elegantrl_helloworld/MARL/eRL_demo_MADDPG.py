@@ -1145,11 +1145,19 @@ def mpe_make_env(scenario_name, benchmark=False):
     # create world
     world = scenario.make_world()
     # create multiagent environment
-    if benchmark:        
-        env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, scenario.benchmark_data)
-    else:
-        env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation)
-    return env
+    return (
+        MultiAgentEnv(
+            world,
+            scenario.reset_world,
+            scenario.reward,
+            scenario.observation,
+            scenario.benchmark_data,
+        )
+        if benchmark
+        else MultiAgentEnv(
+            world, scenario.reset_world, scenario.reward, scenario.observation
+        )
+    )
 
 def train_and_evaluate(args, agent_id=0):
     args.init_before_training(if_main=True)
