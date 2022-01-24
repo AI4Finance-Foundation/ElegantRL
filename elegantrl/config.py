@@ -176,7 +176,7 @@ def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
     import inspect
 
     sign = inspect.signature(func).parameters.values()
-    sign = set([val.name for val in sign])
+    sign = {val.name for val in sign}
 
     common_args = sign.intersection(kwargs.keys())
     return {key: kwargs[key] for key in common_args}  # filtered kwargs
