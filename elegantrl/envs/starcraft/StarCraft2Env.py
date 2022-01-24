@@ -1238,45 +1238,34 @@ class StarCraft2Env(MultiAgentEnv):
         """Returns the ID of unit type in the given scenario."""
         if ally:  # use new SC2 unit types
             type_id = unit.unit_type - self._min_unit_type
-        else:  # use default SC2 unit types
-            if self.map_type == "stalkers_and_zealots":
-                # id(Stalker) = 74, id(Zealot) = 73
-                type_id = unit.unit_type - 73
-            elif self.map_type == "colossi_stalkers_zealots":
-                # id(Stalker) = 74, id(Zealot) = 73, id(Colossus) = 4
-                if unit.unit_type == 4:
-                    type_id = 0
-                elif unit.unit_type == 74:
-                    type_id = 1
-                else:
-                    type_id = 2
-            elif self.map_type == "bane":
-                if unit.unit_type == 9:
-                    type_id = 0
-                else:
-                    type_id = 1
-            elif self.map_type == "MMM":
-                if unit.unit_type == 51:
-                    type_id = 0
-                elif unit.unit_type == 48:
-                    type_id = 1
-                else:
-                    type_id = 2
-            # for communication
-            elif self.map_type == "overload_roach":
-                # roach
+        # use default SC2 unit types
+        elif self.map_type == "MMM":
+            if unit.unit_type == 48:
+                type_id = 1
+            elif unit.unit_type == 51:
                 type_id = 0
-            elif self.map_type == "overload_bane":
-                # baneling
+            else:
+                type_id = 2
+        elif self.map_type == "bZ_hM":
+            # medivacs = 1  hydralisk = 0
+            type_id = 0 if unit.unit_type == 107 else 1
+        elif self.map_type == "bane":
+            type_id = 0 if unit.unit_type == 9 else 1
+        elif self.map_type == "colossi_stalkers_zealots":
+            # id(Stalker) = 74, id(Zealot) = 73, id(Colossus) = 4
+            if unit.unit_type == 4:
                 type_id = 0
-            elif self.map_type == "bZ_hM":
-                if unit.unit_type == 107:
-                    # hydralisk
-                    type_id = 0
-                else:
-                    # medivacs
-                    type_id = 1
-
+            elif unit.unit_type == 74:
+                type_id = 1
+            else:
+                type_id = 2
+        # for communication
+        elif self.map_type in ["overload_roach", "overload_bane"]:
+            # roach # baneling
+            type_id = 0
+        elif self.map_type == "stalkers_and_zealots":
+            # id(Stalker) = 74, id(Zealot) = 73
+            type_id = unit.unit_type - 73
         return type_id
 
     def get_avail_agent_actions(self, agent_id):
