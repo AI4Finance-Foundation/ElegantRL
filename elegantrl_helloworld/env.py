@@ -77,7 +77,7 @@ def get_gym_env_args(env, if_print) -> dict:
                 'target_return': target_return, }
     if if_print:
         env_args_repr = repr(env_args)
-        env_args_repr = env_args_repr.replace(',', f",\n   ")
+        env_args_repr = env_args_repr.replace(',', ',\n   ')
         env_args_repr = env_args_repr.replace('{', "{\n    ")
         env_args_repr = env_args_repr.replace('}', ",\n}")
         print(f"env_args = {env_args_repr}")
