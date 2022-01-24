@@ -92,11 +92,9 @@ class QNetTwin(nn.Module):  # Double DQN
         s = self.net_state(state)
         q = self.net_q1(s)
         if rd.rand() > self.explore_rate:
-            action = q.argmax(dim=1, keepdim=True)
-        else:
-            a_prob = self.soft_max(q)
-            action = torch.multinomial(a_prob, num_samples=1)
-        return action
+            return q.argmax(dim=1, keepdim=True)
+        a_prob = self.soft_max(q)
+        return torch.multinomial(a_prob, num_samples=1)
 
 
 class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
