@@ -579,8 +579,7 @@ class StarCraft2Env(MultiAgentEnv):
                 for al_id, al_unit in self.agents.items():
                     if al_unit.unit_type == self.medivac_id:
                         continue
-                    if (al_unit.health != 0 and
-                        al_unit.health != al_unit.health_max):
+                    if al_unit.health not in [0, al_unit.health_max]:
                         dist = self.distance(unit.pos.x, unit.pos.y,
                                              al_unit.pos.x, al_unit.pos.y)
                         if dist < min_dist:
@@ -637,15 +636,14 @@ class StarCraft2Env(MultiAgentEnv):
                     target_pos=sc_common.Point2D(
                         x=unit.pos.x - self._move_amount, y=unit.pos.y)
                     action_num = 5
-            else: # north or south
-                if delta_y > 0: # north
-                    target_pos=sc_common.Point2D(
-                        x=unit.pos.x, y=unit.pos.y + self._move_amount)
-                    action_num = 2
-                else: # south
-                    target_pos=sc_common.Point2D(
-                        x=unit.pos.x, y=unit.pos.y - self._move_amount)
-                    action_num = 3
+            elif delta_y > 0: # north
+                target_pos=sc_common.Point2D(
+                    x=unit.pos.x, y=unit.pos.y + self._move_amount)
+                action_num = 2
+            else: # south
+                target_pos=sc_common.Point2D(
+                    x=unit.pos.x, y=unit.pos.y - self._move_amount)
+                action_num = 3
 
             cmd = r_pb.ActionRawUnitCommand(
                 ability_id = actions['move'],
