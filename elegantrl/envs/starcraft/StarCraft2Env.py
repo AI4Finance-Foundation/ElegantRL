@@ -364,8 +364,7 @@ class StarCraft2Env(MultiAgentEnv):
             self.full_restart()
 
         if self.debug:
-            logging.debug("Started Episode {}"
-                          .format(self._episode_count).center(60, "*"))
+            logging.debug(f"Started Episode {self._episode_count}".center(60, "*"))
 
         return self.get_obs(), self.get_state()
 
@@ -556,8 +555,7 @@ class StarCraft2Env(MultiAgentEnv):
                 queue_command=False)
 
             if self.debug:
-                logging.debug("Agent {} {}s unit # {}".format(
-                    a_id, action_name, target_id))
+                logging.debug(f"Agent {a_id} {action_name}s unit # {target_id}")
 
         return sc_pb.Action(action_raw=r_pb.ActionRaw(unit_command=cmd))
 
@@ -749,7 +747,7 @@ class StarCraft2Env(MultiAgentEnv):
         replay_dir = self.replay_dir or ""
         replay_path = self._run_config.save_replay(
             self._controller.save_replay(), replay_dir=replay_dir, prefix=prefix)
-        logging.info("Replay saved at: %s" % replay_path)
+        logging.info(f"Replay saved at: {replay_path}")
 
     def unit_max_shield(self, unit):
         """Returns maximal shield for a given unit."""
@@ -986,8 +984,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         if self.debug:
             logging.debug(f"Obs Agent: {agent_id}".center(60, "-"))
-            logging.debug("Avail. actions {}".format(
-                self.get_avail_agent_actions(agent_id)))
+            logging.debug(f"Avail. actions {self.get_avail_agent_actions(agent_id)}")
             logging.debug(f"Move feats {move_feats}")
             logging.debug(f"Enemy feats {enemy_feats}")
             logging.debug(f"Ally feats {ally_feats}")
@@ -1357,12 +1354,7 @@ class StarCraft2Env(MultiAgentEnv):
                 self.agents[i] = ally_units_sorted[i]
                 if self.debug:
                     logging.debug(
-                        "Unit {} is {}, x = {}, y = {}".format(
-                            len(self.agents),
-                            self.agents[i].unit_type,
-                            self.agents[i].pos.x,
-                            self.agents[i].pos.y,
-                        )
+                        f"Unit {len(self.agents)} is {self.agents[i].unit_type}, x = {self.agents[i].pos.x}, y = {self.agents[i].pos.y}"
                     )
 
             for unit in self._obs.observation.raw_data.units:

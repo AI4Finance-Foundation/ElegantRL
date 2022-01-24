@@ -170,7 +170,7 @@ def run(_run, _config, _log):
     _log.info("\n\n" + experiment_params + "\n")
 
     # configure tensorboard logger
-    unique_token = "{}__{}".format(args.name, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    unique_token = f"{args.name}__{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     args.unique_token = unique_token
     if args.use_tensorboard:
         tb_logs_direc = os.path.join(dirname(dirname(abspath(__file__))), "results", "tb_logs")
@@ -318,8 +318,7 @@ def run_sequential(args, logger):
         if (runner.t_env - last_test_T) / args.test_interval >= 1.0:
 
             logger.console_logger.info(f"t_env: {runner.t_env} / {args.t_max}")
-            logger.console_logger.info("Estimated time left: {}. Time passed: {}".format(
-                time_left(last_time, last_test_T, runner.t_env, args.t_max), time_str(time.time() - start_time)))
+            logger.console_logger.info(f"Estimated time left: {time_left(last_time, last_test_T, runner.t_env, args.t_max)}. Time passed: {time_str(time.time() - start_time)}")
             last_time = time.time()
 
             last_test_T = runner.t_env

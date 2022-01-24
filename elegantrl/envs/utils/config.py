@@ -145,8 +145,7 @@ def load_cfg(args, use_rlg_config=False):
 
         if args.experiment != 'Base':
             if args.metadata:
-                exp_name = "{}_{}_{}_{}".format(args.experiment, args.task_type, args.device,
-                                                str(args.physics_engine).split("_")[-1])
+                exp_name = f"{args.experiment}_{args.task_type}_{args.device}_{str(args.physics_engine).split('_')[-1]}"
 
                 if cfg["task"]["randomize"]:
                     exp_name += "_DR"
@@ -188,8 +187,7 @@ def load_cfg(args, use_rlg_config=False):
         log_id = args.logdir
         if args.experiment != 'Base':
             if args.metadata:
-                log_id = args.logdir + "_{}_{}_{}_{}".format(args.experiment, args.task_type, args.device,
-                                                             str(args.physics_engine).split("_")[-1])
+                log_id = args.logdir + f"_{args.experiment}_{args.task_type}_{args.device}_{str(args.physics_engine).split('_')[-1]}"
                 if cfg["task"]["randomize"]:
                     log_id += "_DR"
             else:
