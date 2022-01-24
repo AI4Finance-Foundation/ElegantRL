@@ -417,13 +417,13 @@ class AgentMADDPG(AgentBase):
                 action = self.agents[i].act_target(next_obs[:, i])
                 all_target_actions.append(action)
         action_target_all = torch.cat(all_target_actions, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])
-        
+
         target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), action_target_all).detach().squeeze(dim = 1)
         #vf_in = torch.cat((observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1],actions.shape[2])), dim = 2)
         actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1]*actions.shape[2])).squeeze(dim = 1)
         vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
-        
-        
+
+
         #vf_loss.backward()
         #curr_agent.cri_optim.step()
 
@@ -431,7 +431,7 @@ class AgentMADDPG(AgentBase):
         curr_pol_out = curr_agent.act(observations[:, index])
         curr_pol_vf_in = curr_pol_out
         all_pol_acs = []
-        for i in range(0, self.n_agents):
+        for i in range(self.n_agents):
             if i == index:
                 all_pol_acs.append(curr_pol_vf_in)
             else:
@@ -439,10 +439,10 @@ class AgentMADDPG(AgentBase):
         #vf_in = torch.cat((observations, torch.cat(all_pol_acs, dim = 0).to(self.device).reshape(actions.size()[0], actions.size()[1], actions.size()[2])), dim = 2)
 
         pol_loss = -torch.mean(curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1]*observations.shape[2]), torch.cat(all_pol_acs, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])))
-        
+
         curr_agent.act_optim.zero_grad()
         pol_loss.backward()
-        curr_agent.act_optim.step()     
+        curr_agent.act_optim.step()
         curr_agent.cri_optim.zero_grad()
         vf_loss.backward()
         curr_agent.cri_optim.step()
