@@ -615,7 +615,7 @@ class eBatch:
                 return self.data.transition_data[item]
             else:
                 raise ValueError
-        elif isinstance(item, tuple) and all([isinstance(it, str) for it in item]):
+        elif isinstance(item, tuple) and all(isinstance(it, str) for it in item):
             new_data = self._new_data_sn()
             for key in item:
                 if key in self.data.transition_data:
