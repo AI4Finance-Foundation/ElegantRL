@@ -95,7 +95,7 @@ class Arguments:
 '''config for env(simulator)'''
 
 
-def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
+def get_gym_env_args(env, if_print) -> dict:    # [ElegantRL.2021.12.12]
     """get a dict `env_args` about a standard OpenAI gym env information.
 
     env_args = {
@@ -165,7 +165,7 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
                 'target_return': target_return, }
     if if_print:
         env_args_repr = repr(env_args)
-        env_args_repr = env_args_repr.replace(',', f",\n   ")
+        env_args_repr = env_args_repr.replace(',', ',\n   ')
         env_args_repr = env_args_repr.replace('{', "{\n    ")
         env_args_repr = env_args_repr.replace('}', ",\n}")
         print(f"env_args = {env_args_repr}")
