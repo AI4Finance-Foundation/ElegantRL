@@ -813,20 +813,18 @@ class StarCraft2Env(MultiAgentEnv):
     def get_surrounding_pathing(self, unit):
         """Returns pathing values of the grid surrounding the given unit."""
         points = self.get_surrounding_points(unit, include_self=False)
-        vals = [
+        return [
             self.pathing_grid[x, y] if self.check_bounds(x, y) else 1
             for x, y in points
         ]
-        return vals
 
     def get_surrounding_height(self, unit):
         """Returns height values of the grid surrounding the given unit."""
         points = self.get_surrounding_points(unit, include_self=True)
-        vals = [
+        return [
             self.terrain_height[x, y] if self.check_bounds(x, y) else 1
             for x, y in points
         ]
-        return vals
 
     def get_obs_agent(self, agent_id):
         """Returns observation for agent_id. The observation is composed of:
@@ -1007,8 +1005,7 @@ class StarCraft2Env(MultiAgentEnv):
         NOTE: Agents should have access only to their local observations
         during decentralised execution.
         """
-        agents_obs = [self.get_obs_agent(i) for i in range(self.n_agents)]
-        return agents_obs
+        return [self.get_obs_agent(i) for i in range(self.n_agents)]
 
     def get_state(self):
         """Returns the global state.
@@ -1502,7 +1499,7 @@ class StarCraft2Env(MultiAgentEnv):
         return self.agents[a_id]
 
     def get_stats(self):
-        stats = {
+        return {
             "battles_won": self.battles_won,
             "battles_game": self.battles_game,
             "battles_draw": self.timeouts,
@@ -1510,4 +1507,3 @@ class StarCraft2Env(MultiAgentEnv):
             "timeouts": self.timeouts,
             "restarts": self.force_restarts,
         }
-        return stats

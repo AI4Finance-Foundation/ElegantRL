@@ -20,11 +20,11 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
         return self.net(state)  # Q values for multiple actions
 
     def get_action(self, state):
-        if rd.rand() > self.explore_rate:
-            action = self.net(state).argmax(dim=1, keepdim=True)
-        else:
-            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+        return (
+            self.net(state).argmax(dim=1, keepdim=True)
+            if rd.rand() > self.explore_rate
+            else torch.randint(self.action_dim, size=(state.shape[0], 1))
+        )
 
 
 class QNetDuel(nn.Module):  # Dueling DQN
@@ -243,8 +243,7 @@ class ActorFixSAC(nn.Module):
 
     def get_a_log_std(self, state):
         t_tmp = self.net_state(state)
-        a_log_std = self.net_a_std(t_tmp).clamp(-20, 2).exp()
-        return a_log_std
+        return self.net_a_std(t_tmp).clamp(-20, 2).exp()
 
     def get_logprob(self, state, action):
         t_tmp = self.net_state(state)
@@ -328,9 +327,8 @@ class ActorPPO(nn.Module):
         a_std = self.a_std_log.exp()
 
         delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)  # new_logprob
 
-        return log_prob
+        return -(self.a_std_log + self.sqrt_2pi_log + delta)  # new_logprob
 
     def get_logprob_entropy(self, state, action):
         a_avg = self.net(state)

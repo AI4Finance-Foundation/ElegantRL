@@ -245,8 +245,7 @@ class DownLinkEnv1:  # [ElegantRL.2021.11.11]
         # (state, bases_n, users_n, power, csi_noise_var)
         h_noisy = state[0] + state[1] * 1j
         w_mmse = func_mmse(h_noisy, self.bases_n, self.users_n, self.power, self.csi_noise_var)
-        action = np.stack((w_mmse.real, w_mmse.imag))
-        return action
+        return np.stack((w_mmse.real, w_mmse.imag))
 
     def get_curr_schedule(self):
         with open(self.curr_txt_path, 'r') as f:
@@ -1264,9 +1263,8 @@ def get_sum_rate_mimo(h, w, sigma=1.0) -> float:
     w1c = w1.conj().transpose((0, 2, 1))
     rate0 = u_ant_eye + np.linalg.inv(sigma_k) @ h @ w1 @ w1c @ h_c
     # assert rate0.shape == (users_n, u_ant_n, u_ant_n)
-    rate1 = np.abs(np.log2(np.linalg.det(rate0))).sum()
     # assert np.linalg.det(rate0).shape == (users_n, )
-    return rate1
+    return np.abs(np.log2(np.linalg.det(rate0))).sum()
 
 
 def get_sum_rate_miso_torch(h, w, sigma=1.0) -> torch.tensor:
@@ -1353,8 +1351,7 @@ def func_mmse_vec(h_noisy, bases_n, users_n, power, csi_noise_var):
     #
     # w_mmse = np.power(power_mmse, 0.5) * np.ones((bases_n, 1))
     # w_mmse = w_mmse * w_mmse_norm
-    w_mmse = func_slnr_max_vec(h_tilde, eta)
-    return w_mmse  # action
+    return func_slnr_max_vec(h_tilde, eta)  # action
 
 
 def func_slnr_max_vec(h_vec, eta_vec: float):

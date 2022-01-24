@@ -758,8 +758,7 @@ class ShareDPG(nn.Module):  # DPG means deterministic policy gradient
         mask = torch.tensor(mask, dtype=torch.float32).cuda()
 
         noise_uniform = torch.rand_like(a)
-        a_noise = noise_uniform * mask + a_temp * (-mask + 1)
-        return a_noise
+        return noise_uniform * mask + a_temp * (-mask + 1)
 
     def forward(self, s, noise_std=0.0):  # actor
         s_ = self.enc_s(s)
@@ -771,8 +770,7 @@ class ShareDPG(nn.Module):  # DPG means deterministic policy gradient
         s_ = self.enc_s(s)
         a_ = self.enc_a(a)
         q_ = self.net(s_ + a_)
-        q = self.dec_q(q_)
-        return q
+        return self.dec_q(q_)
 
     def next_q_action(self, s, s_next, noise_std):
         s_ = self.enc_s(s)
@@ -1069,9 +1067,7 @@ class QMix(nn.Module):
         # Compute final output
         y = torch.bmm(hidden, w_final) + v
         # Reshape and return
-        q_tot = y.view(bs, -1, 1)
-
-        return q_tot
+        return y.view(bs, -1, 1)
 
     def k(self, states):
         bs = states.size(0)
@@ -1090,8 +1086,7 @@ class QMix(nn.Module):
         b1 = self.hyper_b_1(states)
         b1 = b1.view(-1, 1, self.embed_dim)
         v = self.V(states).view(-1, 1, 1)
-        b = torch.bmm(b1, w_final) + v
-        return b
+        return torch.bmm(b1, w_final) + v
 
 
 class VDN(nn.Module):
@@ -1293,8 +1288,7 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number
 
     def forward(self, x1):  # x1.shape==(-1, lay_dim*1)
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
-        x3 = torch.cat((x2, self.dense2(x2)), dim=1)
-        return x3  # x2.shape==(-1, lay_dim*4)
+        return torch.cat((x2, self.dense2(x2)), dim=1) # x3  # x2.shape==(-1, lay_dim*4)
 
 
 class ConcatNet(nn.Module):  # concatenate

@@ -112,8 +112,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
         a_tensor = self.act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()
-        return action
+        return a_tensor.detach().cpu().numpy()
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         """Select continuous actions for exploration
