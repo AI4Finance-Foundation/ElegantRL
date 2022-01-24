@@ -173,7 +173,7 @@ class AgentBase:
         """
         self.action_dim = action_dim
         # self.amp_scale = torch.cuda.amp.GradScaler()
-        self.traj_list = [list() for _ in range(env_num)]
+        self.traj_list = [[] for _ in range(env_num)]
         self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
         # assert 0
         if not marl:
@@ -235,7 +235,7 @@ class AgentBase:
         env_num = len(self.traj_list)
         states = self.states
 
-        traj_list = [list() for _ in range(env_num)]
+        traj_list = [[] for _ in range(env_num)]
         for _ in range(target_step):
             actions = self.select_actions(states)
             s_r_d_list = env.step(actions)
@@ -1242,7 +1242,7 @@ def train_and_evaluate(args, agent_id=0):
         if cnt_train % 100 == 0 and cnt_train > 0:
             state = env.reset()
         with torch.no_grad():
-            traj_temp = list()
+            traj_temp = []
             actions = []
             for i in range(agent.n_agents):
                 action = agent.agents[i].select_actions(state[i])

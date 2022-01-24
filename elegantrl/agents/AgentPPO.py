@@ -47,7 +47,7 @@ class AgentPPO(AgentBase):
                        learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
                        env_num=env_num, gpu_id=gpu_id, )
 
-        self.traj_list = [[list() for _ in range(5)] for _ in range(env_num)]
+        self.traj_list = [[[] for _ in range(5)] for _ in range(env_num)]
 
         self.env_num = env_num
 
@@ -274,7 +274,7 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def splice_trajectory(self, buf_srdan, last_done):
-        out_srdan = list()
+        out_srdan = []
         for j in range(5):
             cur_items = []
             buf_items = buf_srdan.pop(0)  # buf_srdan[j]
@@ -364,7 +364,7 @@ class AgentDiscretePPO(AgentPPO):
         assert env.device.index == self.device.index
 
         env_num = len(self.traj_list)
-        traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
+        traj_list = [[] for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
         last_done_list = [0 for _ in range(env_num)]
 
         step = 0

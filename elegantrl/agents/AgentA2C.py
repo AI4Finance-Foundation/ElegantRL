@@ -141,7 +141,7 @@ class AgentDiscreteA2C(AgentA2C):
         ten_states = self.states
 
         env_num = len(self.traj_list)
-        traj_list = [list() for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
+        traj_list = [[] for _ in range(env_num)]  # [traj_env_0, ..., traj_env_i]
         last_done_list = [0 for _ in range(env_num)]
 
         for step_i in range(target_step):

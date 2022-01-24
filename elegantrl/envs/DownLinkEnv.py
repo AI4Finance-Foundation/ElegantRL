@@ -582,7 +582,7 @@ class DownLinkEnv3(DownLinkEnv1):
                     h_dk_m = self.ur_bs[:, m].reshape(self.bases_n, 1)
                     h_dk_m_h = h_dk_m.transpose().conjugate()
                     c_mat += self.power * (1 / e_i) * h_irs_m.dot(h_dk_m_h).dot(w_i_mat).dot(w_i_mat_h).dot(self.bs_rl)
-            # self.var_i_mid_list_phi = list()
+            # self.var_i_mid_list_phi = []
             psi = a_mat * b_mat.transpose()
             v = np.diag(c_mat - d_mat)
             eig_val, eig_vct = np.linalg.eig(psi)
@@ -1525,7 +1525,7 @@ def check__mmse_on_env():
     if if_change_power:
         power_db_ary = np.arange(-10, 30 + 5, 5)  # SNR (dB)
         power_ary = 10 ** (power_db_ary / 10)
-        show_ary = list()
+        show_ary = []
         for j, power in enumerate(power_ary):
             # env = DownLinkEnv0(bases_n=bases_n, users_n=users_n, power=power, csi_noise_var=csi_noise_var)
             env.power = power
@@ -1578,7 +1578,7 @@ def check__mmse_on_env():
     if_change_users_num = True
     if if_change_users_num:
         user_ary = [i for i in range(1, 8 + 1)]
-        show_ary = list()
+        show_ary = []
         for j, users_n in enumerate(user_ary):
             env = DownLinkEnv1(bases_n=bases_n, users_n=users_n, power=1.0, csi_noise_var=csi_noise_var)
             env.save_fixed_data_in_disk()
@@ -1634,7 +1634,7 @@ def check__mmse_on_random_data():
     power_ary = 10 ** (power_db_ary / 10)
 
     timer = time.time()
-    show_ary = list()
+    show_ary = []
     for j, power in enumerate(power_ary):
         '''generate state'''
         hall_ary = rd.randn(sim_times, users_n, bases_n) + rd.randn(sim_times, users_n, bases_n) * 1j
@@ -1683,7 +1683,7 @@ def check__down_link_relay():
     env.curr_schedule = 1.0
 
     from tqdm import trange
-    episode_returns = list()
+    episode_returns = []
     for _ in trange(simulate_times):
         env.reset()
 

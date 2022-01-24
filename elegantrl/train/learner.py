@@ -82,7 +82,7 @@ class PipeLearner:
             # if self.learner_num > 1:
             #     data = self.comm_data(traj_lists, learner_id, round_id=-1)
             #     traj_lists.extend(data)
-            traj_list = sum(traj_lists, list())
+            traj_list = sum(traj_lists, [])
 
             steps, r_exp = update_buffer(traj_list)
 

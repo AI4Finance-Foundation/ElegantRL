@@ -301,7 +301,7 @@ def check_env(env=None, env_func=None, env_args=None, gpu_id=-1):
                 _action = torch.rand(size=(env_num, action_dim), dtype=torch.float32, device=device)
                 return _action * 2 - 1
 
-    dones = list()
+    dones = []
     state = env.reset()
     if len(state.shape) == 1:
         assert state.shape == (state_dim,)

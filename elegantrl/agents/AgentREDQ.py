@@ -39,7 +39,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.reward_scale = reward_scale
-        self.traj_list = [list() for _ in range(env_num)]
+        self.traj_list = [[] for _ in range(env_num)]
         self.G = G
         self.M = M
         self.N = N
