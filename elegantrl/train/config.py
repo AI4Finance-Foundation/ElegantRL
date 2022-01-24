@@ -249,14 +249,14 @@ def build_env(env=None, env_func=None, env_args=None, gpu_id=-1):  # [ElegantRL.
 
             env = env_func(**env_args1)
         except TypeError as error:
-            if repr(error) == "TypeError(\"make() missing 1 required positional argument: 'id'\")":
-                import gym
-                gym.logger.set_level(40)
-                env = env_func(id=env_args['id'])
-            else:
-                raise TypeError(f"Meet ERROR: {error}\n"
-                                f"Check env_args: {env_args}")
-
+            if (
+                repr(error)
+                != """TypeError("make() missing 1 required positional argument: 'id'")"""
+            ):
+                raise TypeError(f'Meet ERROR: {error}\nCheck env_args: {env_args}')
+            import gym
+            gym.logger.set_level(40)
+            env = env_func(id=env_args['id'])
     env.max_step = env.max_step if hasattr(env, 'max_step') else env_args['max_step']
     env.if_discrete = env.if_discrete if hasattr(env, 'if_discrete') else env_args['if_discrete']
     return env
