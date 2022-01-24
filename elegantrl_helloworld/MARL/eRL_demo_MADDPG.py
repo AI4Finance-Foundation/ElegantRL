@@ -466,10 +466,10 @@ class AgentMADDPG(AgentBase):
             self.soft_update(agent.act_target, agent.act, self.update_tau)
     
     def explore_one_env(self, env, target_step) -> list:
-        traj_temp = list()
+        traj_temp = []
         k = 0
         for _ in range(target_step):
-            k = k + 1
+            k += 1
             actions = []
             for i in range(self.n_agents):
                 action = self.agents[i].select_actions(self.states[i])
@@ -477,19 +477,14 @@ class AgentMADDPG(AgentBase):
             #print(actions)
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((self.states, reward, done, actions))
-            global_done = True
-            for i in range(self.n_agents):
-                if global_done is not True:
-                    global_done = False
-                    break
+            global_done = all(global_done for _ in range(self.n_agents))
             if global_done or k >100:
-                state = env.reset() 
+                state = env.reset()
                 k = 0
-            else: 
+            else:
                 state = next_s
         self.states = state
-        traj_list = traj_temp
-        return traj_list
+        return traj_temp
     
     def select_actions(self, states):
         actions = []
