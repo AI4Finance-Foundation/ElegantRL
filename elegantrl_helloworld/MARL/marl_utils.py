@@ -722,10 +722,9 @@ class ReplayBuffer(eBatch):
         assert self.can_sample(batch_size)
         if self.episodes_in_buffer == batch_size:
             return self[:batch_size]
-        else:
-            # Uniform sampling only atm
-            ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
-            return self[ep_ids]
+        # Uniform sampling only atm
+        ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
+        return self[ep_ids]
 
     def __repr__(self):
         return "ReplayBuffer. {}/{} episodes. Keys:{} Groups:{}".format(self.episodes_in_buffer,
