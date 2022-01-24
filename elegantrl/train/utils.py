@@ -221,10 +221,9 @@ def get_epi_returns(cwd):
 
     if os.path.exists(recorder_path):
         recorder = np.load(recorder_path)
-        episode_return = recorder[-4:, 1].mean()
+        return recorder[-4:, 1].mean()
     else:
-        episode_return = None
-    return episode_return
+        return None
 
 
 def find_load_dir(cwd):
