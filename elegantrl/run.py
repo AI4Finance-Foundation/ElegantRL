@@ -96,12 +96,10 @@ def init_evaluator(args, gpu_id):
 def train_and_evaluate_mp(args):
     args.init_before_training()
 
-    process = list()
     mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 
     evaluator_pipe = PipeEvaluator()
-    process.append(mp.Process(target=evaluator_pipe.run, args=(args,)))
-
+    process = [mp.Process(target=evaluator_pipe.run, args=(args,))]
     worker_pipe = PipeWorker(args.worker_num)
     process.extend([mp.Process(target=worker_pipe.run, args=(args, worker_id))
                     for worker_id in range(args.worker_num)])
