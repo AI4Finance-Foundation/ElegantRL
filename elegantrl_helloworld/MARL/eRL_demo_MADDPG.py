@@ -1080,19 +1080,24 @@ class Arguments:
 
         '''env'''
         if self.env is None:
-            raise RuntimeError(f'\n| Why env=None? For example:'
-                               f'\n| args.env = XxxEnv()'
-                               f'\n| args.env = str(env_name)'
-                               f'\n| args.env = build_env(env_name), from elegantrl.env import build_env')
+            raise RuntimeError(
+                '\n| Why env=None? For example:\n| args.env = XxxEnv()\n| args.env = str(env_name)\n| args.env = build_env(env_name), from elegantrl.env import build_env'
+            )
+
         if not (isinstance(self.env, str) or hasattr(self.env, 'env_name')):
             raise RuntimeError('\n| What is env.env_name? use env=PreprocessEnv(env).')
 
         '''agent'''
         if self.agent is None:
-            raise RuntimeError(f'\n| Why agent=None? Assignment `args.agent = AgentXXX` please.')
+            raise RuntimeError(
+                '\n| Why agent=None? Assignment `args.agent = AgentXXX` please.'
+            )
+
         if not hasattr(self.agent, 'init'):
-            raise RuntimeError(f"\n| why hasattr(self.agent, 'init') == False"
-                               f'\n| Should be `agent=AgentXXX()` instead of `agent=AgentXXX`.')
+            raise RuntimeError(
+                "\n| why hasattr(self.agent, 'init') == False\n| Should be `agent=AgentXXX()` instead of `agent=AgentXXX`."
+            )
+
         if self.agent.if_on_policy != self.if_on_policy:
             raise RuntimeError(f'\n| Why bool `if_on_policy` is not consistent?'
                                f'\n| self.if_on_policy: {self.if_on_policy}'
