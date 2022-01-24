@@ -1,27 +1,19 @@
 import torch as th
 import numpy as np
-import os
 from types import SimpleNamespace as SN
-from os.path import dirname, abspath
 import collections
 from copy import deepcopy
 from sacred import Experiment, SETTINGS
 from sacred.observers import FileStorageObserver
 from sacred.utils import apply_backspaces_and_linefeeds
-import sys
 import yaml
 import datetime
 import pprint
-import time
 import threading
-from types import SimpleNamespace as SN
 import copy
 from torch.optim import RMSprop
 from os.path import dirname, abspath
-from functools import partial
-from smac.env import MultiAgentEnv, StarCraft2Env
 from marl_utils import *
-
 
 
 class AgentQmix:
@@ -123,9 +115,11 @@ class AgentQmix:
             self.logger.log_stat("loss", loss.item(), t_env)
             self.logger.log_stat("grad_norm", grad_norm, t_env)
             mask_elems = mask.sum().item()
-            self.logger.log_stat("td_error_abs", (masked_td_error.abs().sum().item()/mask_elems), t_env)
-            self.logger.log_stat("q_taken_mean", (chosen_action_qvals * mask).sum().item()/(mask_elems * self.args.n_agents), t_env)
-            self.logger.log_stat("target_mean", (targets * mask).sum().item()/(mask_elems * self.args.n_agents), t_env)
+            self.logger.log_stat("td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env)
+            self.logger.log_stat("q_taken_mean",
+                                 (chosen_action_qvals * mask).sum().item() / (mask_elems * self.args.n_agents), t_env)
+            self.logger.log_stat("target_mean", (targets * mask).sum().item() / (mask_elems * self.args.n_agents),
+                                 t_env)
             self.log_stats_t = t_env
 
     def _update_targets(self):
@@ -154,6 +148,7 @@ class AgentQmix:
         if self.mixer is not None:
             self.mixer.load_state_dict(th.load(f"{path}/mixer.th", map_location=lambda storage, loc: storage))
         self.optimiser.load_state_dict(th.load(f"{path}/opt.th", map_location=lambda storage, loc: storage))
+
 
 def run(_run, _config, _log):
     if _config["use_cuda"] and not th.cuda.is_available():
@@ -199,7 +194,6 @@ def run(_run, _config, _log):
 
 
 def evaluate_sequential(args, runner):
-
     for _ in range(args.test_nepisode):
         runner.run(test_mode=True)
 
@@ -208,8 +202,8 @@ def evaluate_sequential(args, runner):
 
     runner.close_env()
 
-def run_sequential(args, logger):
 
+def run_sequential(args, logger):
     # Init runner so we can get env info
     runner = Runner(args=args, logger=logger)
 
@@ -318,7 +312,8 @@ def run_sequential(args, logger):
         if (runner.t_env - last_test_T) / args.test_interval >= 1.0:
 
             logger.console_logger.info(f"t_env: {runner.t_env} / {args.t_max}")
-            logger.console_logger.info(f"Estimated time left: {time_left(last_time, last_test_T, runner.t_env, args.t_max)}. Time passed: {time_str(time.time() - start_time)}")
+            logger.console_logger.info(
+                f"Estimated time left: {time_left(last_time, last_test_T, runner.t_env, args.t_max)}. Time passed: {time_str(time.time() - start_time)}")
             last_time = time.time()
 
             last_test_T = runner.t_env
@@ -328,7 +323,7 @@ def run_sequential(args, logger):
         if args.save_model and (runner.t_env - model_save_time >= args.save_model_interval or model_save_time == 0):
             model_save_time = runner.t_env
             save_path = os.path.join(args.local_results_path, "models", args.unique_token, str(runner.t_env))
-            #"results/models/{}".format(unique_token)
+            # "results/models/{}".format(unique_token)
             os.makedirs(save_path, exist_ok=True)
             logger.console_logger.info(f"Saving models to {save_path}")
 
@@ -346,7 +341,8 @@ def run_sequential(args, logger):
     runner.close_env()
     logger.console_logger.info("Finished Training")
 
-SETTINGS['CAPTURE_MODE'] = "fd" # set to "no" if you want to see stdout/stderr in console
+
+SETTINGS['CAPTURE_MODE'] = "fd"  # set to "no" if you want to see stdout/stderr in console
 logger = get_logger()
 
 ex = Experiment("qmix")
@@ -376,7 +372,8 @@ def _get_config(params, arg_name, subfolder):
             break
 
     if config_name is not None:
-        with open(os.path.join(os.path.dirname(__file__),"..", "elegantrl","envs", "SMAC", subfolder, f"{config_name}.yaml")) as f:
+        with open(os.path.join(os.path.dirname(__file__), "..", "elegantrl", "envs", "SMAC", subfolder,
+                               f"{config_name}.yaml")) as f:
             try:
                 config_dict = yaml.load(f)
             except yaml.YAMLError as exc:
@@ -404,9 +401,9 @@ def config_copy(config):
 
 if __name__ == '__main__':
     params = deepcopy(sys.argv)
-    
+
     # Get the defaults from default.yaml
-    with open(os.path.join(os.path.dirname(__file__),"..", "elegantrl","envs","SMAC", "default.yaml")) as f:
+    with open(os.path.join(os.path.dirname(__file__), "..", "elegantrl", "envs", "SMAC", "default.yaml")) as f:
         try:
             config_dict = yaml.load(f)
         except yaml.YAMLError as exc:
@@ -427,5 +424,3 @@ if __name__ == '__main__':
     file_obs_path = os.path.join(results_path, "sacred")
     ex.observers.append(FileStorageObserver.create(file_obs_path))
     ex.run_commandline(params)
-    
-

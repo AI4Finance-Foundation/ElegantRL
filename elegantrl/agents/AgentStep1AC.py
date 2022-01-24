@@ -1,6 +1,8 @@
-import torch
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+import torch
+
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import ActorBiConv, CriticBiConv, ShareBiConv
 

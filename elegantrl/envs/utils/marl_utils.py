@@ -1,12 +1,11 @@
-import numpy as np
+import logging
+import operator
+from collections import defaultdict
+
 import torch as th
 import torch.nn as nn
 from torch.distributions import Categorical
-from torch.distributions.one_hot_categorical import OneHotCategorical
-import operator
-from collections import defaultdict
-import logging
-import numpy as np
+
 
 class DecayThenFlatSchedule():
 
@@ -31,13 +30,13 @@ class DecayThenFlatSchedule():
         elif self.decay in ["exp"]:
             return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
 
+
 class LinearIncreaseSchedule():
 
     def __init__(self,
                  start,
                  finish,
                  time_length):
-
         self.start = start
         self.finish = finish
         self.time_length = time_length
@@ -67,6 +66,7 @@ class OneHot(Transform):
     def infer_output_info(self, vshape_in, dtype_in):
         return (self.out_dim,), th.float32
 
+
 class DecayThenFlatSchedule():
 
     def __init__(self,
@@ -90,13 +90,13 @@ class DecayThenFlatSchedule():
         elif self.decay in ["exp"]:
             return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
 
+
 class LinearIncreaseSchedule():
 
     def __init__(self,
                  start,
                  finish,
                  time_length):
-
         self.start = start
         self.finish = finish
         self.time_length = time_length
@@ -104,6 +104,7 @@ class LinearIncreaseSchedule():
 
     def eval(self, T):
         return min(self.finish, self.start - self.delta * T)
+
 
 # Directly from OpenAI Baseline implementation (https://github.com/openai/baselines)
 class SegmentTree:
@@ -188,8 +189,8 @@ class MinSegmentTree(SegmentTree):
         """Returns min(arr[start], ...,  arr[end])"""
 
         return super().reduce(start, end)
-    
-    
+
+
 class Logger:
     def __init__(self, console_logger):
         self.console_logger = console_logger
@@ -253,6 +254,7 @@ def get_logger():
 
     return logger
 
+
 import time
 import numpy as np
 
@@ -266,7 +268,9 @@ def print_time(start_time, T, t_max, episode, episode_rewards):
     last_reward = r"N\A"
     if len(episode_rewards) > 5:
         last_reward = f"{np.mean(episode_rewards[-50:]):.2f}"
-    print(f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n", " " * 10, end="\r")
+    print(
+        f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n",
+        " " * 10, end="\r")
 
 
 def time_left(start_time, t_start, t_current, t_max):
@@ -297,24 +301,23 @@ def time_str(s):
     string += f"{int(seconds):d} seconds"
     return string
 
+
 class EpsilonGreedyActionSelector():
-    
+
     def __init__(self, args):
         self.args = args
 
         self.schedule = DecayThenFlatSchedule(args.epsilon_start, args.epsilon_finish, args.epsilon_anneal_time,
                                               decay="linear")
         self.epsilon = self.schedule.eval(0)
-        
 
     def select_action(self, agent_inputs, avail_actions, t_env, test_mode=False):
-
         # Assuming agent_inputs is a batch of Q-Values for each agent bav
         self.epsilon = self.schedule.eval(t_env)
 
         if test_mode:
             # Greedy action selection only
-            self.epsilon  = getattr(self.args, "test_noise", 0.0)
+            self.epsilon = getattr(self.args, "test_noise", 0.0)
 
         # mask actions that are excluded from selection
         masked_q_values = agent_inputs.clone()
@@ -325,10 +328,9 @@ class EpsilonGreedyActionSelector():
         random_actions = Categorical(avail_actions.float()).sample().long()
 
         return (
-            pick_random * random_actions
-            + (1 - pick_random) * masked_q_values.max(dim=2)[1]
+                pick_random * random_actions
+                + (1 - pick_random) * masked_q_values.max(dim=2)[1]
         )
-
 
 
 # This multi-agent controller shares parameters between agents
@@ -340,7 +342,7 @@ def build_td_lambda_targets(rewards, terminated, mask, target_qs, n_agents, gamm
     ret = target_qs.new_zeros(*target_qs.shape)
     ret[:, -1] = target_qs[:, -1] * (1 - th.sum(terminated, dim=1))
     # Backwards  recursive  update  of the "forward  view"
-    for t in range(ret.shape[1] - 2, -1,  -1):
+    for t in range(ret.shape[1] - 2, -1, -1):
         ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] \
                     * (rewards[:, t] + (1 - td_lambda) * gamma * target_qs[:, t + 1] * (1 - terminated[:, t]))
     # Returns lambda-return from t=0 to t=T-1, i.e. in B*T-1*A
@@ -349,12 +351,12 @@ def build_td_lambda_targets(rewards, terminated, mask, target_qs, n_agents, gamm
 
 def build_gae_targets(rewards, masks, values, gamma, lambd):
     B, T, A, _ = values.size()
-    T-=1
+    T -= 1
     advantages = th.zeros(B, T, A, 1).to(device=values.device)
     advantage_t = th.zeros(B, A, 1).to(device=values.device)
 
     for t in reversed(range(T)):
-        delta = rewards[:, t] + values[:, t+1] * gamma * masks[:, t] - values[:, t]
+        delta = rewards[:, t] + values[:, t + 1] * gamma * masks[:, t] - values[:, t]
         advantage_t = delta + advantage_t * gamma * lambd * masks[:, t]
         advantages[:, t] = advantage_t
 
@@ -368,8 +370,8 @@ def build_q_lambda_targets(rewards, terminated, mask, exp_qvals, qvals, gamma, t
     ret = exp_qvals.new_zeros(*exp_qvals.shape)
     ret[:, -1] = exp_qvals[:, -1] * (1 - th.sum(terminated, dim=1))
     # Backwards  recursive  update  of the "forward  view"
-    for t in range(ret.shape[1] - 2, -1,  -1):
-        reward = rewards[:, t] + exp_qvals[:, t] - qvals[:, t] #off-policy correction
+    for t in range(ret.shape[1] - 2, -1, -1):
+        reward = rewards[:, t] + exp_qvals[:, t] - qvals[:, t]  # off-policy correction
         ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] \
                     * (reward + (1 - td_lambda) * gamma * exp_qvals[:, t + 1] * (1 - terminated[:, t]))
     # Returns lambda-return from t=0 to t=T-1, i.e. in B*T-1*A
@@ -379,7 +381,7 @@ def build_q_lambda_targets(rewards, terminated, mask, exp_qvals, qvals, gamma, t
 def build_target_q(td_q, target_q, mac, mask, gamma, td_lambda, n):
     aug = th.zeros_like(td_q[:, :1])
 
-    #Tree diagram
+    # Tree diagram
     mac = mac[:, :-1]
     tree_q_vals = th.zeros_like(td_q)
     coeff = 1.0
@@ -389,6 +391,7 @@ def build_target_q(td_q, target_q, mac, mask, gamma, td_lambda, n):
         t1 = th.cat(((t1 * mac)[:, 1:], aug), dim=1)
         coeff *= gamma * td_lambda
     return target_q + tree_q_vals
+
 
 class RunningMeanStd:
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
@@ -418,9 +421,9 @@ class RunningMeanStd:
         self.mean = new_mean
         self.var = new_var
         self.count = new_count
-        
-        
-def clip_by_tensor(t,t_min,t_max):
+
+
+def clip_by_tensor(t, t_min, t_max):
     """
     clip_by_tensor
     :param t: tensor
@@ -428,13 +431,14 @@ def clip_by_tensor(t,t_min,t_max):
     :param t_max: max
     :return: cliped tensor
     """
-    t=t.float()
-    t_min=t_min.float()
-    t_max=t_max.float()
- 
+    t = t.float()
+    t_min = t_min.float()
+    t_max = t_max.float()
+
     result = (t >= t_min).float() * t + (t < t_min).float() * t_min
     result = (result <= t_max).float() * result + (result > t_max).float() * t_max
     return result
+
 
 def get_parameters_num(param_list):
     return str(sum(p.numel() for p in param_list) / 1000) + 'K'
@@ -449,4 +453,4 @@ def init(module, weight_init, bias_init, gain=1):
 def orthogonal_init_(m, gain=1):
     if isinstance(m, nn.Linear):
         init(m, nn.init.orthogonal_,
-                    lambda x: nn.init.constant_(x, 0), gain=gain)
+             lambda x: nn.init.constant_(x, 0), gain=gain)

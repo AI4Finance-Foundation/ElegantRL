@@ -12,7 +12,8 @@
 
 [5] Evolution Strategies as a Scalable Alternative to Reinforcement Learning (ES).
 
-[6] Deep Neuroevolution: Genetic Algorithms Are a Competitive Alternative for Training Deep Neural Networks for Reinforcement Learning (ES).
+[6] Deep Neuroevolution: Genetic Algorithms Are a Competitive Alternative for Training Deep Neural Networks for
+Reinforcement Learning (ES).
 
 [7] RLlib: Abstractions for Distributed Reinforcement Learning (Library)
 
@@ -26,5 +27,4 @@
 
 [12] GPU-Accelerated Robotic Simulation for Distributed Reinforcement Learning (Simulation Acceleration).
 
-
-## 
+##  

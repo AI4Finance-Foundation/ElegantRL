@@ -14,9 +14,9 @@
 #
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('../../'))
 sys.path.insert(0, os.path.abspath(os.path.join("../..", "elegantrl")))  # Important
-
 
 # -- Project information -----------------------------------------------------
 
@@ -28,7 +28,6 @@ author = u'ElegantRL'
 version = u''
 # The full version, including alpha/beta/rc tags
 release = u'0.3.1'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -47,17 +46,18 @@ extensions = [
 ]
 
 autodoc_mock_imports = [
-    'gym', 
-    'matplotlib', 
-    'numpy', 
-    'pybullet', 
-    'torch', 
+    'gym',
+    'matplotlib',
+    'numpy',
+    'pybullet',
+    'torch',
     'opencv-python'
 ]
 
 pygments_style = 'sphinx'
 
 import sphinx_rtd_theme
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -85,7 +85,6 @@ exclude_patterns = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -95,7 +94,6 @@ pygments_style = None
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_logo = '../img/logo.jpg'
-
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -123,7 +121,6 @@ html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'ElegantRLdoc'
-
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -153,7 +150,6 @@ latex_documents = [
      u'ElegantRL', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
@@ -162,7 +158,6 @@ man_pages = [
     (master_doc, 'elegantrl', u'ElegantRL Documentation',
      [author], 1)
 ]
-
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -174,7 +169,6 @@ texinfo_documents = [
      author, 'ElegantRL', 'One line description of project.',
      'Miscellaneous'),
 ]
-
 
 # -- Options for Epub output -------------------------------------------------
 
@@ -192,6 +186,5 @@ epub_title = project
 
 # A list of files that should not be packed into the epub file.
 epub_exclude_files = ['search.html']
-
 
 # -- Extension configuration -------------------------------------------------

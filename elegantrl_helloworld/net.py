@@ -1,7 +1,7 @@
-import torch
-import torch.nn as nn
 import numpy as np
 import numpy.random as rd
+import torch
+import torch.nn as nn
 
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
@@ -12,6 +12,7 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -52,6 +53,7 @@ class ActorSAC(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -112,6 +114,7 @@ class ActorPPO(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -187,6 +190,7 @@ class ActorDiscretePPO(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -243,6 +247,7 @@ class CriticPPO(nn.Module):
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, _action_dim):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
@@ -268,6 +273,7 @@ class CriticTwin(nn.Module):  # shared parameter
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
     """
+
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),

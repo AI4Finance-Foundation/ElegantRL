@@ -1,8 +1,9 @@
-from elegantrl.agents.net import ActorMAPPO,CriticMAPPO
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import math
+
+from elegantrl.agents.net import ActorMAPPO, CriticMAPPO
+
 
 class AgentMAPPO():
     """
@@ -13,6 +14,7 @@ class AgentMAPPO():
     :param policy: (R_MAPPO_Policy) policy to update.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
+
     def __init__(self,
                  args,
                  obs_space, cent_obs_space, act_space, device=torch.device("cpu")):
@@ -26,7 +28,7 @@ class AgentMAPPO():
         self.data_chunk_length = args.data_chunk_length
         self.value_loss_coef = args.value_loss_coef
         self.entropy_coef = args.entropy_coef
-        self.max_grad_norm = args.max_grad_norm       
+        self.max_grad_norm = args.max_grad_norm
         self.huber_delta = args.huber_delta
 
         self._use_recurrent_policy = args.use_recurrent_policy
@@ -38,7 +40,7 @@ class AgentMAPPO():
         self._use_valuenorm = args.use_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
-        
+
         self.lr = args.lr
         self.critic_lr = args.critic_lr
         self.opti_eps = args.opti_eps
@@ -59,15 +61,13 @@ class AgentMAPPO():
                                                  eps=self.opti_eps,
                                                  weight_decay=self.weight_decay)
 
-        
-
-        
         if self._use_popart:
             self.value_normalizer = self.critic.v_out
         elif self._use_valuenorm:
-            self.value_normalizer = ValueNorm(1, device = self.device)
+            self.value_normalizer = ValueNorm(1, device=self.device)
         else:
             self.value_normalizer = None
+
     def lr_decay(self, episode, episodes):
         """
         Decay the actor and critic learning rates.
@@ -171,7 +171,7 @@ class AgentMAPPO():
         :return value_loss: (torch.Tensor) value function loss.
         """
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param,
-                                                                                        self.clip_param)
+                                                                                    self.clip_param)
         if self._use_popart or self._use_valuenorm:
             self.value_normalizer.update(return_batch)
             error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
@@ -224,11 +224,11 @@ class AgentMAPPO():
 
         # Reshape to do in a single forward pass for all steps
         values, action_log_probs, dist_entropy = self.policy.evaluate_actions(share_obs_batch,
-                                                                              obs_batch, 
-                                                                              rnn_states_batch, 
-                                                                              rnn_states_critic_batch, 
-                                                                              actions_batch, 
-                                                                              masks_batch, 
+                                                                              obs_batch,
+                                                                              rnn_states_batch,
+                                                                              rnn_states_critic_batch,
+                                                                              actions_batch,
+                                                                              masks_batch,
                                                                               available_actions_batch,
                                                                               active_masks_batch)
         # actor update
@@ -251,7 +251,6 @@ class AgentMAPPO():
         if update_actor:
             (policy_loss - dist_entropy * self.entropy_coef).backward()
 
-
         actor_grad_norm = nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
 
         self.actor_optimizer.step()
@@ -263,9 +262,7 @@ class AgentMAPPO():
 
         (value_loss * self.value_loss_coef).backward()
 
-
         critic_grad_norm = nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
-
 
         self.critic_optimizer.step()
 
@@ -289,7 +286,6 @@ class AgentMAPPO():
         std_advantages = np.nanstd(advantages_copy)
         advantages = (advantages - mean_advantages) / (std_advantages + 1e-5)
 
-
         train_info = {
             'value_loss': 0,
             'policy_loss': 0,
@@ -298,7 +294,6 @@ class AgentMAPPO():
             'critic_grad_norm': 0,
             'ratio': 0,
         }
-
 
         for _ in range(self.ppo_epoch):
             if self._use_recurrent_policy:
@@ -309,7 +304,6 @@ class AgentMAPPO():
                 data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
 
             for sample in data_generator:
-
                 value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights \
                     = self.ppo_update(sample, update_actor)
 
@@ -334,4 +328,3 @@ class AgentMAPPO():
     def prep_rollout(self):
         self.actor.eval()
         self.critic.eval()
-

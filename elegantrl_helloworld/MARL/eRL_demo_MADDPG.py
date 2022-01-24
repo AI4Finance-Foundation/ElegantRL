@@ -1,18 +1,20 @@
-import torch
-#from elegantrl.agents.AgentMADDPG import AgentMADDPG
-import shutil
-import gym
+# from elegantrl.agents.AgentMADDPG import AgentMADDPG
 import os
-import torch
+import shutil
+import time
+from copy import deepcopy
+
+import gym
 import numpy as np
 import numpy.random as rd
-from torch import nn
-from copy import deepcopy
+import torch
 from net import Actor
 from net import Critic
-import time
+from torch import nn
 from tqdm import tqdm
+
 """[ElegantRL.2021.09.09](https://github.com/AI4Finance-Foundation/ElegantRL)"""
+
 
 def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig_name='plot_learning_curve.jpg'):
     if recorder is None:
@@ -23,8 +25,8 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     r_avg = recorder[:, 1]
     r_std = recorder[:, 2]
     r_exp = recorder[:, 3]
-    #obj_c = recorder[:, 4]
-    #obj_a = recorder[:, 5]
+    # obj_c = recorder[:, 4]
+    # obj_a = recorder[:, 5]
 
     '''plot subplots'''
     import matplotlib as mpl
@@ -56,6 +58,8 @@ def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig
     plt.title(save_title, y=2.3)
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
+
+
 def get_episode_return_and_step_marl(env, agent, device) -> (float, int):
     episode_step = 1
     episode_return = 0.0  # sum of rewards in an episode
@@ -66,15 +70,15 @@ def get_episode_return_and_step_marl(env, agent, device) -> (float, int):
     state = env.reset()
     for episode_step in range(100):
         action = agent.select_actions(state)
-        
+
         state, reward, done, _ = env.step(action)
-        #for i in range(agent.n_agents):
-        episode_return += reward[0] 
+        # for i in range(agent.n_agents):
+        episode_return += reward[0]
         global_done = True
-    
 
     episode_return = getattr(env, 'episode_return', episode_return)
     return episode_return, episode_step
+
 
 def build_env(env, if_print=False):
     env_name = getattr(env, 'env_name', env)
@@ -103,6 +107,7 @@ def build_env(env, if_print=False):
         # raise ValueError(f'| build_env_from_env_name: need register: {env_name}')
     return env
 
+
 class Actor(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
@@ -118,6 +123,8 @@ class Actor(nn.Module):
         action = self.net(state).tanh()
         noise = (torch.randn_like(action) * action_std).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
+
+
 class Critic(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
@@ -128,6 +135,7 @@ class Critic(nn.Module):
 
     def forward(self, state, action):
         return self.net(torch.cat((state, action), dim=1))  # Q value
+
 
 class AgentBase:
     def __init__(self):
@@ -148,8 +156,8 @@ class AgentBase:
         self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
         self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4,marl=False, n_agents = 1,
-             if_per_or_gae=False,  env_num=1, agent_id=0):
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, marl=False, n_agents=1,
+             if_per_or_gae=False, env_num=1, agent_id=0):
         """initialize the self.object in `__init__()`
 
         replace by different DRL algorithms
@@ -167,13 +175,13 @@ class AgentBase:
         # self.amp_scale = torch.cuda.amp.GradScaler()
         self.traj_list = [list() for _ in range(env_num)]
         self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
-        #assert 0
+        # assert 0
         if not marl:
             self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
         else:
             self.cri = self.ClassCri(int(net_dim * 1.25), state_dim * n_agents, action_dim * n_agents).to(self.device)
         self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
-        
+
         self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
         self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
 
@@ -321,8 +329,9 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4,marl=False, n_agents=1, if_use_per=False, env_num=1,  agent_id=0):
-        super().init(net_dim, state_dim, action_dim, learning_rate,marl, n_agents, if_use_per, env_num, agent_id)
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, marl=False, n_agents=1, if_use_per=False,
+             env_num=1, agent_id=0):
+        super().init(net_dim, state_dim, action_dim, learning_rate, marl, n_agents, if_use_per, env_num, agent_id)
         self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
         self.loss_td = torch.nn.MSELoss()
         if if_use_per:
@@ -335,11 +344,11 @@ class AgentDDPG(AgentBase):
     def select_actions(self, states) -> np.ndarray:
         states = torch.as_tensor(states, dtype=torch.float32, device=self.device)
         actions = self.act(states).detach().cpu().numpy()
-        
+
         if rd.rand() < self.explore_rate:  # epsilon-greedy
             ou_noise = self.ou_noise()
             actions = (actions + ou_noise[np.newaxis]).clip(-1, 1)
-        
+
         return actions[0]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
@@ -387,25 +396,26 @@ class AgentMADDPG(AgentBase):
         self.ClassCri = Critic
         self.if_use_cri_target = True
         self.if_use_act_target = True
-        
-    def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1,   if_use_per=False, env_num=1, agent_id=0,gamma=0.95):
+
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, marl=True, n_agents=1, if_use_per=False,
+             env_num=1, agent_id=0, gamma=0.95):
         self.agents = [AgentDDPG() for i in range(n_agents)]
         self.explore_env = self.explore_one_env
         self.if_on_policy = False
         self.n_agents = n_agents
         for i in range(self.n_agents):
-            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = self.n_agents,   if_use_per=False, env_num=1, agent_id=0)
+            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4, marl=True, n_agents=self.n_agents,
+                                if_use_per=False, env_num=1, agent_id=0)
         self.n_states = state_dim
         self.n_actions = action_dim
-        
+
         self.batch_size = net_dim
         self.gamma = gamma
         self.update_tau = 0
         self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
 
-        
     def update_agent(self, rewards, dones, actions, observations, next_obs, index):
-        #rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
+        # rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
         curr_agent = self.agents[index]
         curr_agent.cri_optim.zero_grad()
         all_target_actions = []
@@ -415,16 +425,21 @@ class AgentMADDPG(AgentBase):
             if i != index:
                 action = self.agents[i].act_target(next_obs[:, i])
                 all_target_actions.append(action)
-        action_target_all = torch.cat(all_target_actions, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])
+        action_target_all = torch.cat(all_target_actions, dim=1).to(self.device).reshape(actions.shape[0],
+                                                                                         actions.shape[1] *
+                                                                                         actions.shape[2])
 
-        target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), action_target_all).detach().squeeze(dim = 1)
-        #vf_in = torch.cat((observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1],actions.shape[2])), dim = 2)
-        actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1]*actions.shape[2])).squeeze(dim = 1)
+        target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(
+            next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]),
+            action_target_all).detach().squeeze(dim=1)
+        # vf_in = torch.cat((observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1],actions.shape[2])), dim = 2)
+        actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]),
+                                      actions.reshape(actions.shape[0], actions.shape[1] * actions.shape[2])).squeeze(
+            dim=1)
         vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
 
-
-        #vf_loss.backward()
-        #curr_agent.cri_optim.step()
+        # vf_loss.backward()
+        # curr_agent.cri_optim.step()
 
         curr_agent.act_optim.zero_grad()
         curr_pol_out = curr_agent.act(observations[:, index])
@@ -435,9 +450,12 @@ class AgentMADDPG(AgentBase):
                 all_pol_acs.append(curr_pol_vf_in)
             else:
                 all_pol_acs.append(actions[:, i])
-        #vf_in = torch.cat((observations, torch.cat(all_pol_acs, dim = 0).to(self.device).reshape(actions.size()[0], actions.size()[1], actions.size()[2])), dim = 2)
+        # vf_in = torch.cat((observations, torch.cat(all_pol_acs, dim = 0).to(self.device).reshape(actions.size()[0], actions.size()[1], actions.size()[2])), dim = 2)
 
-        pol_loss = -torch.mean(curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1]*observations.shape[2]), torch.cat(all_pol_acs, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])))
+        pol_loss = -torch.mean(
+            curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1] * observations.shape[2]),
+                           torch.cat(all_pol_acs, dim=1).to(self.device).reshape(actions.shape[0],
+                                                                                 actions.shape[1] * actions.shape[2])))
 
         curr_agent.act_optim.zero_grad()
         pol_loss.backward()
@@ -446,14 +464,13 @@ class AgentMADDPG(AgentBase):
         vf_loss.backward()
         curr_agent.cri_optim.step()
 
-
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         buffer.update_now_len()
         self.batch_size = batch_size
         self.update_tau = soft_update_tau
         self.update(buffer)
         self.update_all_agents()
-        return 
+        return
 
     def update(self, buffer):
         rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
@@ -464,7 +481,7 @@ class AgentMADDPG(AgentBase):
         for agent in self.agents:
             self.soft_update(agent.cri_target, agent.cri, self.update_tau)
             self.soft_update(agent.act_target, agent.act, self.update_tau)
-    
+
     def explore_one_env(self, env, target_step) -> list:
         traj_temp = []
         k = 0
@@ -474,18 +491,18 @@ class AgentMADDPG(AgentBase):
             for i in range(self.n_agents):
                 action = self.agents[i].select_actions(self.states[i])
                 actions.append(action)
-            #print(actions)
+            # print(actions)
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((self.states, reward, done, actions))
             global_done = all(global_done for _ in range(self.n_agents))
-            if global_done or k >100:
+            if global_done or k > 100:
                 state = env.reset()
                 k = 0
             else:
                 state = next_s
         self.states = state
         return traj_temp
-    
+
     def select_actions(self, states):
         actions = []
         for i in range(self.n_agents):
@@ -495,8 +512,7 @@ class AgentMADDPG(AgentBase):
 
     def save_or_load_agent(self, cwd, if_save):
         for i in range(self.n_agents):
-            self.agents[i].save_or_load_agent(cwd+'/'+str(i),if_save)
-    
+            self.agents[i].save_or_load_agent(cwd + '/' + str(i), if_save)
 
 
 class OrnsteinUhlenbeckNoise:  # NOT suggest to use it
@@ -524,7 +540,8 @@ class OrnsteinUhlenbeckNoise:  # NOT suggest to use it
         """
         noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
         self.ou_noise -= self.theta * self.ou_noise * self.dt + noise
-        return self.ou_noise    
+        return self.ou_noise
+
 
 class PreprocessEnv(gym.Wrapper):  # environment wrapper
     def __init__(self, env, if_print=True, if_norm=False):
@@ -555,14 +572,14 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
 
     def reset_type(self):
         tmp = self.env.reset()
-        return [tmp[0].astype(np.float32), tmp[1].astype(np.float32),tmp[2].astype(np.float32)]
+        return [tmp[0].astype(np.float32), tmp[1].astype(np.float32), tmp[2].astype(np.float32)]
 
     def step_type(self, action):
-        #print(self.action_max)
-        #assert 0 
-        #print(action * self.action_max)
+        # print(self.action_max)
+        # assert 0
+        # print(action * self.action_max)
         state, reward, done, info = self.env.step(action * self.action_max)
-        #return state.astype(np.float32), reward, done, info
+        # return state.astype(np.float32), reward, done, info
         return state, reward, done, info
 
     def reset_norm(self) -> np.ndarray:
@@ -588,8 +605,7 @@ class PreprocessEnv(gym.Wrapper):  # environment wrapper
         state, reward, done, info = self.env.step(action * self.action_max)
         state = (state + self.neg_state_avg) * self.div_state_std
         return state.astype(np.float32), reward, done, info
-    
-    
+
 
 def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     """get information of a standard OpenAI gym env.
@@ -608,9 +624,9 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     """
     assert isinstance(env, gym.Env)
 
-    #env_name = getattr(env, 'env_name', None)
+    # env_name = getattr(env, 'env_name', None)
     env_name = 'simple_spread'
-    #env_name = env.unwrapped.spec.id if env_name is None else env_name
+    # env_name = env.unwrapped.spec.id if env_name is None else env_name
 
     state_shape = env.observation_space[0].shape
     state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
@@ -629,7 +645,6 @@ def get_gym_env_info(env, if_print) -> (str, int, int, int, int, bool, float):
     if max_step is None:
         max_step = 2 ** 10
 
- 
     if_discrete = isinstance(env.action_space[0], gym.spaces.Discrete)
     if if_discrete:  # make sure it is discrete action space
         action_dim = env.action_space[0].n
@@ -700,7 +715,7 @@ class Evaluator:
                 torch.save(act.state_dict(), act_save_path)  # save policy network in *.pth
 
                 print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
-            
+
             self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
 
             '''print some information to Terminal'''
@@ -720,7 +735,7 @@ class Evaluator:
             self.draw_plot()
         return if_reach_goal, if_save
 
-    def evaluate_and_save_marl(self,  agent, steps, r_exp) -> (bool, bool):  # 2021-09-09
+    def evaluate_and_save_marl(self, agent, steps, r_exp) -> (bool, bool):  # 2021-09-09
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
@@ -748,10 +763,9 @@ class Evaluator:
                     act_save_path = f'{self.cwd}/actor{i}.pth'
                     torch.save(agent.agents[i].act.state_dict(), act_save_path)  # save policy network in *.pth
 
-
                 print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
             self.recorder.append((self.total_step, r_avg, r_std, r_exp))  # update recorder    
-            #self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
+            # self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
 
             '''print some information to Terminal'''
             if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
@@ -766,16 +780,10 @@ class Evaluator:
 
             print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |"
                   f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |")
-                  #f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
+            # f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
             self.draw_plot()
         return if_reach_goal, if_save
 
-    
-    
-    
-    
-    
-    
     @staticmethod
     def get_r_avg_std_s_avg_std(rewards_steps_list):
         rewards_steps_ary = np.array(rewards_steps_list, dtype=np.float32)
@@ -804,9 +812,10 @@ class Evaluator:
         save_title = f"step_time_maxR_{int(total_step)}_{int(train_time)}_{self.r_max:.3f}"
 
         save_learning_curve(self.recorder, self.cwd, save_title)
-        
+
+
 class ReplayBufferMARL:
-    def __init__(self, max_len, state_dim, action_dim, n_agents,if_use_per, gpu_id=0):
+    def __init__(self, max_len, state_dim, action_dim, n_agents, if_use_per, gpu_id=0):
         """Experience Replay Buffer
         save environment transition in a continuous RAM for high performance training
         we save trajectory in order and save state and other (action, reward, mask, ...) separately.
@@ -827,17 +836,17 @@ class ReplayBufferMARL:
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
         self.per_tree = BinarySearchTree(max_len) if if_use_per else None
         self.buf_action = torch.empty((max_len, n_agents, action_dim), dtype=torch.float32, device=self.device)
-        self.buf_reward = torch.empty((max_len, n_agents),dtype=torch.float32, device=self.device)
-        self.buf_done = torch.empty((max_len, n_agents),dtype=torch.float32, device=self.device)
+        self.buf_reward = torch.empty((max_len, n_agents), dtype=torch.float32, device=self.device)
+        self.buf_done = torch.empty((max_len, n_agents), dtype=torch.float32, device=self.device)
         if isinstance(state_dim, int):  # state is pixel
             self.buf_state = torch.empty((max_len, n_agents, state_dim), dtype=torch.float32, device=self.device)
-            
+
         elif isinstance(state_dim, tuple):
             self.buf_state = torch.empty((max_len, n_agents, *state_dim), dtype=torch.uint8, device=self.device)
-            
+
         else:
             raise ValueError('state_dim')
-        
+
     def append_buffer(self, state, reward, done, action):  # CPU array to CPU array
         self.buf_state[self.next_idx] = state
         self.buf_reward[self.next_idx] = reward
@@ -912,7 +921,7 @@ class ReplayBufferMARL:
         """
         self.now_len = self.max_len if self.if_full else self.next_idx
 
-    def print_state_norm(self, neg_avg=None, div_std=None):    # non-essential
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         """print the state norm information: state_avg, state_std
 
         We don't suggest to use running stat state.
@@ -986,7 +995,6 @@ class ReplayBufferMARL:
             buf_done = np.empty((self.max_len, done_dim), dtype=np.float16)
             buf_action = np.empty((self.max_len, action_dim), dtype=np.float16)
 
-
             temp_len = self.max_len - self.now_len
             buf_state[0:temp_len] = self.buf_state[self.now_len:self.max_len].detach().cpu().numpy()
             buf_reward[0:temp_len] = self.buf_reward[self.now_len:self.max_len].detach().cpu().numpy()
@@ -997,9 +1005,9 @@ class ReplayBufferMARL:
             buf_reward[temp_len:] = self.buf_reward[:self.now_len].detach().cpu().numpy()
             buf_done[temp_len:] = self.buf_done[:self.now_len].detach().cpu().numpy()
             buf_action[temp_len:] = self.buf_action[:self.now_len].detach().cpu().numpy()
-            
 
-            np.savez_compressed(save_path, buf_state=buf_state, buf_reward = buf_reward, buf_done = buf_done, buf_action = buf_action)
+            np.savez_compressed(save_path, buf_state=buf_state, buf_reward=buf_reward, buf_done=buf_done,
+                                buf_action=buf_action)
             print(f"| ReplayBuffer save in: {save_path}")
         elif os.path.isfile(save_path):
             buf_dict = np.load(save_path)
@@ -1007,7 +1015,6 @@ class ReplayBufferMARL:
             buf_reward = buf_dict['buf_reward']
             buf_done = buf_dict['buf_done']
             buf_action = buf_dict['buf_action']
-
 
             buf_state = torch.as_tensor(buf_state, dtype=torch.float32, device=self.device)
             buf_reward = torch.as_tensor(buf_reward, dtype=torch.float32, device=self.device)
@@ -1022,8 +1029,8 @@ class ReplayBufferMARL:
             # print(f"| ReplayBuffer FileNotFound: {save_path}")
             if_load = False
         return if_load
-    
-    
+
+
 class Arguments:
     def __init__(self, if_on_policy=False):
         self.env = None  # the environment for training
@@ -1120,6 +1127,7 @@ class Arguments:
 
 '''single processing training'''
 
+
 def mpe_make_env(scenario_name, benchmark=False):
     '''
     Creates a MultiAgentEnv object as env. This can be used similar to a gym
@@ -1159,22 +1167,24 @@ def mpe_make_env(scenario_name, benchmark=False):
         )
     )
 
+
 def train_and_evaluate(args, agent_id=0):
     args.init_before_training(if_main=True)
 
     env = build_env(args.env, if_print=False)
     '''init: Agent'''
     agent = args.agent
-    agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate,args.marl, args.n_agents, args.if_per_or_gae, args.env_num)
+    agent.init(args.net_dim, env.state_dim, env.action_dim, args.learning_rate, args.marl, args.n_agents,
+               args.if_per_or_gae, args.env_num)
     '''init Evaluator'''
     eval_env = build_env(env) if args.eval_env is None else args.eval_env
-    evaluator = Evaluator(args.cwd, agent_id,  agent.device, eval_env,
+    evaluator = Evaluator(args.cwd, agent_id, agent.device, eval_env,
                           args.eval_gap, args.eval_times1, args.eval_times2)
     evaluator.save_or_load_recoder(if_save=False)
     '''init ReplayBuffer'''
     buffer = ReplayBufferMARL(max_len=args.max_memo, state_dim=env.state_dim,
-                            action_dim= env.action_dim,n_agents = 3,
-                            if_use_per=args.if_per_or_gae)
+                              action_dim=env.action_dim, n_agents=3,
+                              if_use_per=args.if_per_or_gae)
     buffer.save_or_load_history(args.cwd, if_save=False)
 
     """start training"""
@@ -1190,19 +1200,20 @@ def train_and_evaluate(args, agent_id=0):
     del args
 
     '''choose update_buffer()'''
+
     def update_buffer(_trajectory_list):
         _steps = 0
         _r_exp = 0
-        #print(_trajectory_list.shape)
+        # print(_trajectory_list.shape)
         for _trajectory in _trajectory_list:
             ten_state = torch.as_tensor([item[0] for item in _trajectory], dtype=torch.float32)
-            
+
             ten_reward = torch.as_tensor([item[1] for item in _trajectory])
 
             ten_done = torch.as_tensor([item[2] for item in _trajectory])
             ten_action = torch.as_tensor([item[3] for item in _trajectory])
             ten_reward = ten_reward * reward_scale  # ten_reward
-            ten_mask = (1.0 - ten_done *1) * gamma  # ten_mask = (1.0 - ary_done) * gamma
+            ten_mask = (1.0 - ten_done * 1) * gamma  # ten_mask = (1.0 - ary_done) * gamma
             buffer.extend_buffer(ten_state, ten_reward, ten_mask, ten_action)
             _steps += ten_state.shape[0]
             _r_exp += ten_reward.mean()  # other = (reward, mask, action)
@@ -1212,34 +1223,34 @@ def train_and_evaluate(args, agent_id=0):
     agent.states = env.reset()
     agent.if_on_policy = True
     if not agent.if_on_policy:
-        #if_load = buffer.save_or_load_history(cwd, if_save=False)
+        # if_load = buffer.save_or_load_history(cwd, if_save=False)
         if_load = 0
         if not if_load:
             trajectory = explore_before_training(env, target_step)
             trajectory = [trajectory, ]
-            
+
             steps, r_exp = update_buffer(trajectory)
-            
+
             evaluator.total_step += steps
 
     '''start training loop'''
     if_train = True
-    #cnt_train = 0
+    # cnt_train = 0
     state = env.reset()
     for cnt_train in tqdm(range(2000000)):
         #    while if_train or cnt_train < 2000000:
-        if cnt_train % 100 ==0  and cnt_train > 0:
+        if cnt_train % 100 == 0 and cnt_train > 0:
             state = env.reset()
         with torch.no_grad():
             traj_temp = list()
             actions = []
             for i in range(agent.n_agents):
-                 action = agent.agents[i].select_actions(state[i])
-                 actions.append(action)
+                action = agent.agents[i].select_actions(state[i])
+                actions.append(action)
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((state, reward, done, actions))
             state = next_s
-            steps, r_exp = update_buffer([traj_temp,])
+            steps, r_exp = update_buffer([traj_temp, ])
         if cnt_train > agent.batch_size:
             agent.update_net(buffer, batch_size, repeat_times, soft_update_tau)
         if cnt_train % 1000 == 0:
@@ -1259,17 +1270,15 @@ def train_and_evaluate(args, agent_id=0):
 
 
 if __name__ == "__main__":
-    gym.logger.set_level(40) # Block warning    
+    gym.logger.set_level(40)  # Block warning
     env = mpe_make_env('simple_spread')
     args = Arguments(if_on_policy=False)  # AgentSAC(), AgentTD3(), AgentDDPG()
     args.agent = AgentMADDPG()
     args.env = PreprocessEnv(env)
     args.reward_scale = 2 ** -1  # RewardRange: -200 < -150 < 300 < 334
     args.gamma = 0.95
-    args.marl=True
+    args.marl = True
     args.max_step = 100
     args.n_agents = 3
-    args.rollout_num = 2# the number of rollout workers (larger is not always faster)
-    train_and_evaluate(args) # the training process will terminate once it reaches the target reward.
-    
-
+    args.rollout_num = 2  # the number of rollout workers (larger is not always faster)
+    train_and_evaluate(args)  # the training process will terminate once it reaches the target reward.

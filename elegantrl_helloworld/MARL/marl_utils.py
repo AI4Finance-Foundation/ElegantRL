@@ -1,19 +1,22 @@
+import logging
+import os
+import sys
+import time
+from collections import defaultdict
+from functools import partial
+from types import SimpleNamespace as SN
+
+import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical
-import numpy as np
-import os
-from types import SimpleNamespace as SN
-from collections import defaultdict
-import sys
-import time
-import logging
-from functools import partial
 from smac.env import MultiAgentEnv, StarCraft2Env
+from torch.distributions import Categorical
+
 
 def env_fn(env, **kwargs) -> MultiAgentEnv:
     return env(**kwargs)
+
 
 if sys.platform == "linux":
     os.environ.setdefault(
@@ -42,6 +45,7 @@ class OneHot(Transform):
     def infer_output_info(self, vshape_in, dtype_in):
         return (self.out_dim,), th.float32
 
+
 def print_time(start_time, T, t_max, episode, episode_rewards):
     time_elapsed = time.time() - start_time
     T = max(1, T)
@@ -51,7 +55,9 @@ def print_time(start_time, T, t_max, episode, episode_rewards):
     last_reward = r"N\A"
     if len(episode_rewards) > 5:
         last_reward = f"{np.mean(episode_rewards[-50:]):.2f}"
-    print(f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n", " " * 10, end="\r")
+    print(
+        f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n",
+        " " * 10, end="\r")
 
 
 def time_left(start_time, t_start, t_current, t_max):
@@ -145,7 +151,6 @@ def get_logger():
     return logger
 
 
-
 class DecayThenFlatSchedule():
 
     def __init__(self,
@@ -168,7 +173,9 @@ class DecayThenFlatSchedule():
             return max(self.finish, self.start - self.delta * T)
         elif self.decay in ["exp"]:
             return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+
     pass
+
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
@@ -190,6 +197,7 @@ class RNNAgent(nn.Module):
         q = self.fc2(h)
         return q, h
 
+
 class EpsilonGreedyActionSelector():
 
     def __init__(self, args):
@@ -200,7 +208,6 @@ class EpsilonGreedyActionSelector():
         self.epsilon = self.schedule.eval(0)
 
     def select_action(self, agent_inputs, avail_actions, t_env, test_mode=False):
-
         # Assuming agent_inputs is a batch of Q-Values for each agent bav
         self.epsilon = self.schedule.eval(t_env)
 
@@ -217,9 +224,10 @@ class EpsilonGreedyActionSelector():
         random_actions = Categorical(avail_actions.float()).sample().long()
 
         return (
-            pick_random * random_actions
-            + (1 - pick_random) * masked_q_values.max(dim=2)[1]
-        ) # picked_actions
+                pick_random * random_actions
+                + (1 - pick_random) * masked_q_values.max(dim=2)[1]
+        )  # picked_actions
+
 
 class BasicMAC:
     def __init__(self, scheme, groups, args):
@@ -239,7 +247,7 @@ class BasicMAC:
         agent_outputs = self.forward(ep_batch, t_ep, test_mode=test_mode)
         return self.action_selector.select_action(
             agent_outputs[bs], avail_actions[bs], t_env, test_mode=test_mode
-        ) # choosen action
+        )  # choosen action
 
     def forward(self, ep_batch, t, test_mode=False):
         agent_inputs = self._build_inputs(ep_batch, t)
@@ -263,7 +271,7 @@ class BasicMAC:
                     epsilon_action_num = reshaped_avail_actions.sum(dim=1, keepdim=True).float()
 
                 agent_outs = ((1 - self.action_selector.epsilon) * agent_outs
-                               + th.ones_like(agent_outs) * self.action_selector.epsilon/epsilon_action_num)
+                              + th.ones_like(agent_outs) * self.action_selector.epsilon / epsilon_action_num)
 
                 if getattr(self.args, "mask_before_softmax", True):
                     # Zero out the unavailable actions
@@ -296,16 +304,16 @@ class BasicMAC:
         # Assumes homogenous agents with flat observations.
         # Other MACs might want to e.g. delegate building inputs to each agent
         bs = batch.batch_size
-        inputs = [batch["obs"][:, t]] # b1av
+        inputs = [batch["obs"][:, t]]  # b1av
         if self.args.obs_last_action:
             if t == 0:
                 inputs.append(th.zeros_like(batch["actions_onehot"][:, t]))
             else:
-                inputs.append(batch["actions_onehot"][:, t-1])
+                inputs.append(batch["actions_onehot"][:, t - 1])
         if self.args.obs_agent_id:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
 
-        inputs = th.cat([x.reshape(bs*self.n_agents, -1) for x in inputs], dim=1)
+        inputs = th.cat([x.reshape(bs * self.n_agents, -1) for x in inputs], dim=1)
         return inputs
 
     def _get_input_shape(self, scheme):
@@ -368,7 +376,6 @@ class Runner:
         self.mac.init_hidden(batch_size=self.batch_size)
 
         while not terminated:
-
             pre_transition_data = {
                 "state": [self.env.get_state()],
                 "avail_actions": [self.env.get_avail_actions()],
@@ -434,8 +441,10 @@ class Runner:
 
         for k, v in stats.items():
             if k != "n_episodes":
-                self.logger.log_stat(prefix + k + "_mean" , v/stats["n_episodes"], self.t_env)
+                self.logger.log_stat(prefix + k + "_mean", v / stats["n_episodes"], self.t_env)
         stats.clear()
+
+
 class QMixer(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -455,8 +464,8 @@ class QMixer(nn.Module):
                                            nn.ReLU(),
                                            nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
             self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
-                                           nn.Linear(hypernet_embed, self.embed_dim))
+                                               nn.ReLU(),
+                                               nn.Linear(hypernet_embed, self.embed_dim))
         elif getattr(args, "hypernet_layers", 1) > 2:
             raise Exception("Sorry >2 hypernet layers is not implemented!")
         else:
@@ -560,7 +569,8 @@ class eBatch:
             if episode_const:
                 self.data.episode_data[field_key] = th.zeros((batch_size, *shape), dtype=dtype, device=self.device)
             else:
-                self.data.transition_data[field_key] = th.zeros((batch_size, max_seq_length, *shape), dtype=dtype, device=self.device)
+                self.data.transition_data[field_key] = th.zeros((batch_size, max_seq_length, *shape), dtype=dtype,
+                                                                device=self.device)
 
     def extend(self, scheme, groups=None):
         self._setup_data(scheme, self.groups if groups is None else groups, self.batch_size, self.max_seq_length)
@@ -629,7 +639,8 @@ class eBatch:
             new_scheme = {key: self.scheme[key] for key in item}
             new_groups = {self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
                           for key in item if "group" in self.scheme[key]}
-            ret = eBatch(new_scheme, new_groups, self.batch_size, self.max_seq_length, data=new_data, device=self.device)
+            ret = eBatch(new_scheme, new_groups, self.batch_size, self.max_seq_length, data=new_data,
+                         device=self.device)
             return ret
         else:
             item = self._parse_slices(item)
@@ -650,7 +661,7 @@ class eBatch:
             return len(indexing_item)
         elif isinstance(indexing_item, slice):
             _range = indexing_item.indices(max_size)
-            return 1 + (_range[1] - _range[0] - 1)//_range[2]
+            return 1 + (_range[1] - _range[0] - 1) // _range[2]
 
     def _new_data_sn(self):
         new_data = SN()
@@ -662,9 +673,9 @@ class eBatch:
         parsed = []
         # Only batch slice given, add full time slice
         if (isinstance(items, slice)  # slice a:b
-            or isinstance(items, int)  # int i
-            or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))  # [a,b,c]
-            ):
+                or isinstance(items, int)  # int i
+                or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))  # [a,b,c]
+        ):
             items = (items, slice(None))
 
         # Need the time indexing to be contiguous
@@ -672,10 +683,10 @@ class eBatch:
             raise IndexError("Indexing across Time must be contiguous")
 
         for item in items:
-            #TODO: stronger checks to ensure only supported options get through
+            # TODO: stronger checks to ensure only supported options get through
             if isinstance(item, int):
                 # Convert single indices to slices
-                parsed.append(slice(item, item+1))
+                parsed.append(slice(item, item + 1))
             else:
                 # Leave slices and lists as is
                 parsed.append(item)
@@ -725,4 +736,3 @@ class ReplayBuffer(eBatch):
 
     def __repr__(self):
         return f"ReplayBuffer. {self.episodes_in_buffer}/{self.buffer_size} episodes. Keys:{self.scheme.keys()} Groups:{self.groups.keys()}"
-

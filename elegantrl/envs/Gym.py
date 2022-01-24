@@ -1,8 +1,5 @@
-import os
 import gym  # not necessary
 import numpy as np
-from copy import deepcopy
-
 
 gym.logger.set_level(40)  # Block warning
 
@@ -32,7 +29,7 @@ class PendulumEnv(gym.Wrapper):
         return self.env.step(action * 2)  # state, reward, done, info_dict
 
 
-def get_gym_env_args(env, if_print) -> dict:    # [ElegantRL.2021.12.12]
+def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
     """get a dict `env_args` about a standard OpenAI gym env information.
 
     env_args = {
@@ -106,4 +103,3 @@ def get_gym_env_args(env, if_print) -> dict:    # [ElegantRL.2021.12.12]
         env_args_repr = env_args_repr.replace('}', ",\n}")
         print(f"env_args = {env_args_repr}")
     return env_args
-

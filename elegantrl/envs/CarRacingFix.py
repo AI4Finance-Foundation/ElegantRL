@@ -1,11 +1,11 @@
 import math
+
 import Box2D
+import gym
 import numpy as np
 import numpy.random as rd
-
-import gym
-from gym.envs.box2d.car_dynamics import Car
 import pyglet
+from gym.envs.box2d.car_dynamics import Car
 from pyglet import gl  # must gym<=0.17.1, pyglet==1.5.0
 
 # Easiest continuous control task to learn from pixels, a top-down racing environment.

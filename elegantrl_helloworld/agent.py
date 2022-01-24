@@ -1,5 +1,6 @@
 import os
 from copy import deepcopy
+
 from elegantrl_helloworld.net import *
 
 
@@ -12,6 +13,7 @@ class AgentBase:
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param gpu_id[int]: the gpu_id of the training device. Use CPU when cuda is not available
     """
+
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
         self.gamma = args.gamma
         self.batch_size = args.batch_size
@@ -266,6 +268,7 @@ class AgentBase:
         :param cwd: the directory path.
         :param if_save: if true, save the model; else then load the model.
         """
+
         def load_torch_file(model_or_optim, _path):
             state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
             model_or_optim.load_state_dict(state_dict)
@@ -297,6 +300,7 @@ class AgentDQN(AgentBase):
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param gpu_id[int]: gpu id
     """
+
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', QNet)
@@ -427,6 +431,7 @@ class AgentSAC(AgentBase):
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param gpu_id[int]: gpu id
     """
+
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', ActorSAC)
@@ -527,6 +532,7 @@ class AgentPPO(AgentBase):
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param gpu_id[int]: gpu id
     """
+
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
         self.if_off_policy = False
         self.act_class = getattr(self, 'act_class', ActorPPO)
@@ -710,6 +716,7 @@ class AgentDiscretePPO(AgentPPO):
     :param action_dim[int]: the dimension of action (the number of discrete action)
     :param gpu_id[int]: gpu id
     """
+
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
         self.act_class = getattr(self, 'act_class', ActorDiscretePPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
@@ -730,6 +737,7 @@ class ReplayBuffer:  # for off-policy
     :param action_dim[int]: the dimension of action (action_dim==1 for discrete action)
     :param gpu_id[int]: create buffer space on CPU RAM or GPU, `-1` denotes create on CPU
     """
+
     def __init__(self, max_len, state_dim, action_dim, gpu_id=0):
         self.now_len = 0
         self.next_idx = 0
@@ -846,6 +854,7 @@ class ReplayBufferList(list):  # for on-policy
     """
     Experience Replay Buffer for on-policy algorithms (a list).
     """
+
     def __init__(self):
         list.__init__(self)
 

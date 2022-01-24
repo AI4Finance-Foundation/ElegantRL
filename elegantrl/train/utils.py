@@ -1,10 +1,11 @@
+import multiprocessing as mp
 import os
-import time
-import torch
 import shutil
+import time
+
 import numpy as np
 import numpy.random as rd
-import multiprocessing as mp
+import torch
 
 from elegantrl.train.config import build_env
 from elegantrl.train.evaluator import Evaluator

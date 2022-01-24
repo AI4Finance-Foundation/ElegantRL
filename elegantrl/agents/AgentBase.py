@@ -1,8 +1,9 @@
 import os
-import torch
+from copy import deepcopy
+
 import numpy as np
 import numpy.random as rd
-from copy import deepcopy
+import torch
 from torch.nn.utils import clip_grad_norm_
 
 

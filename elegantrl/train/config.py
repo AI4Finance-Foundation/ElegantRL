@@ -1,9 +1,10 @@
-import os
 import inspect
+import os
 from copy import deepcopy
-import torch
+
 import numpy as np
 import numpy.random as rd
+import torch
 
 
 class Arguments:
@@ -250,8 +251,8 @@ def build_env(env=None, env_func=None, env_args=None, gpu_id=-1):  # [ElegantRL.
             env = env_func(**env_args1)
         except TypeError as error:
             if (
-                repr(error)
-                != """TypeError("make() missing 1 required positional argument: 'id'")"""
+                    repr(error)
+                    != """TypeError("make() missing 1 required positional argument: 'id'")"""
             ):
                 raise TypeError(f'Meet ERROR: {error}\nCheck env_args: {env_args}')
             import gym
@@ -335,7 +336,7 @@ def check_env(env=None, env_func=None, env_args=None, gpu_id=-1):
 """private utils"""
 
 
-def kwargs_filter(func, kwargs: dict):    # [ElegantRL.2021.12.12]
+def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
     """How does one ignore `unexpected keyword arguments passed to a function`?
     https://stackoverflow.com/a/67713935/9293137
 

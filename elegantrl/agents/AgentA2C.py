@@ -1,4 +1,5 @@
 import torch
+
 from elegantrl.agents.AgentPPO import AgentPPO, AgentSharePPO
 from elegantrl.agents.net import ActorDiscretePPO
 
@@ -17,6 +18,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentPPO.__init__(self)
         print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
@@ -89,6 +91,7 @@ class AgentDiscreteA2C(AgentA2C):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         AgentA2C.__init__(self)
         self.ClassAct = ActorDiscretePPO

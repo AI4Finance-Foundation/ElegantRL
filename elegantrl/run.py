@@ -1,8 +1,9 @@
+import multiprocessing as mp
 import os
 import time
-import torch
+
 import numpy as np
-import multiprocessing as mp
+import torch
 
 from elegantrl.config import build_env
 from elegantrl.evaluator import Evaluator
@@ -123,7 +124,7 @@ class PipeWorker:
         for worker_id in range(self.worker_num):
             self.pipe1s[worker_id].send(act_dict)
 
-        return [pipe1.recv() for pipe1 in self.pipe1s] # traj_lists
+        return [pipe1.recv() for pipe1 in self.pipe1s]  # traj_lists
 
     def run(self, args, worker_id):
         torch.set_grad_enabled(False)

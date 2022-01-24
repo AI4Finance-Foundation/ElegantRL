@@ -1,10 +1,10 @@
 import os
-import torch
+from copy import deepcopy
 
 import numpy as np
 import numpy.random as rd
+import torch
 
-from copy import deepcopy
 from elegantrl.net import Actor, ActorSAC, ActorFixSAC, CriticTwin, CriticREDq
 from elegantrl.net import ActorPPO, ActorDiscretePPO, CriticPPO
 from elegantrl.net import QNet, QNetDuel, QNetTwin, QNetTwinDuel

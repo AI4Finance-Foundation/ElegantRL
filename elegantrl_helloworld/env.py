@@ -1,5 +1,6 @@
-import gym
 from copy import deepcopy
+
+import gym
 
 gym.logger.set_level(40)  # Block warning
 

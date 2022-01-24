@@ -1,6 +1,8 @@
-import torch
-import numpy as np
 import multiprocessing as mp
+
+import numpy as np
+import torch
+
 from elegantrl.train.utils import init_agent, init_replay_buffer, trajectory_to_device
 
 
@@ -120,4 +122,3 @@ class PipeLearner:
         for dst, src in zip(dst_optim_param, src_optim_param):
             dst.data.copy_((dst.data + src.data.to(device)) * 0.5)
             # dst.data.copy_(src.data * tau + dst.data * (1 - tau))
-

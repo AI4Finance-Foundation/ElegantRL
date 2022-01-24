@@ -1,7 +1,6 @@
-import torch
 import numpy as np
 import numpy.random as rd
-
+import torch
 
 TargetReturnDict = {
     2: 5.5,

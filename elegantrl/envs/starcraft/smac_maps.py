@@ -1,4 +1,3 @@
-from pysc2.maps import lib
 from smac.env.starcraft2.maps import smac_maps
 
 map_param_registry = {
@@ -20,7 +19,7 @@ map_param_registry = {
         "unit_type_bits": 2,
         "map_type": "overload_roach"
     },
-        "bane_vs_hM": {
+    "bane_vs_hM": {
         "n_agents": 3,
         "n_enemies": 2,
         "limit": 30,
@@ -31,8 +30,8 @@ map_param_registry = {
     }
 }
 
-
 smac_maps.map_param_registry.update(map_param_registry)
+
 
 def get_map_params(map_name):
     map_param_registry = smac_maps.get_smac_map_registry()

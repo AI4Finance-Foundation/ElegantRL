@@ -1,7 +1,8 @@
 import os
-import torch
+
 import numpy as np
 import numpy.random as rd
+import torch
 
 
 class ReplayBuffer:
@@ -121,7 +122,7 @@ class ReplayBuffer:
         """
         self.now_len = self.max_len if self.if_full else self.next_id
 
-    def print_state_norm(self, neg_avg=None, div_std=None):    # non-essential
+    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
         """print the state norm information: state_avg, state_std
 
         We don't suggest to use running stat state.

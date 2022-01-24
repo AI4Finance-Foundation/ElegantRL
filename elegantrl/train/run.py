@@ -1,14 +1,15 @@
 import os
+import shutil
 import sys
 import time
-import torch
-import shutil
 
+import torch
+
+from elegantrl.train.config import build_env
+from elegantrl.train.learner import PipeLearner
 from elegantrl.train.utils import init_agent, init_evaluator, init_replay_buffer
 from elegantrl.train.utils import server_leaderboard, PipeEvaluator
-from elegantrl.train.config import build_env
 from elegantrl.train.worker import PipeWorker
-from elegantrl.train.learner import PipeLearner
 
 
 def train_and_evaluate(args):
@@ -59,7 +60,7 @@ def train_and_evaluate_mp(args, python_path=''):
     if_from_ensemble = sys.argv[-1] == 'FromEnsemble'
     from collections.abc import Iterable
     if isinstance(args.learner_gpus, int):
-        args.learner_gpus = (args.learner_gpus, )
+        args.learner_gpus = (args.learner_gpus,)
     process = []
     if (not isinstance(args.learner_gpus[0], Iterable)) or if_from_ensemble:
         agent_id = int(sys.argv[-2]) if if_from_ensemble else 0

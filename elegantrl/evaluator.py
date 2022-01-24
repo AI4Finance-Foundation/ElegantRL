@@ -1,7 +1,8 @@
 import os
 import time
-import torch
+
 import numpy as np
+import torch
 
 
 class Evaluator:  # [ElegantRL.2022.01.01]

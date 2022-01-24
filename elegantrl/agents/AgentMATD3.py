@@ -1,8 +1,8 @@
 import torch
-import numpy as np
-import numpy.random as rd
-from elegantrl.agents import AgentBase,AgentDDPG
-from elegantrl.agents.net import Actor, Critic, CriticTwin
+
+from elegantrl.agents import AgentBase, AgentDDPG
+from elegantrl.agents.net import Actor, CriticTwin
+
 
 class AgentTD3(AgentBase):
     """
@@ -20,30 +20,32 @@ class AgentTD3(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
+
     def __init__(self):
         super().__init__()
         self.ClassAct = Actor
         self.ClassCri = CriticTwin
         self.if_use_cri_target = True
         self.if_use_act_target = True
-        
-    def init(self,net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = 1,   if_use_per=False, env_num=1, agent_id=0):
+
+    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, marl=True, n_agents=1, if_use_per=False,
+             env_num=1, agent_id=0):
         self.agents = [AgentDDPG() for i in range(n_agents)]
         self.explore_env = self.explore_one_env
         self.if_off_policy = True
         self.n_agents = n_agents
         for i in range(self.n_agents):
             self.agents[i].cri = CriticTwin
-            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4,marl=True, n_agents = self.n_agents,   if_use_per=False, env_num=1, agent_id=0)
+            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4, marl=True, n_agents=self.n_agents,
+                                if_use_per=False, env_num=1, agent_id=0)
         self.n_states = state_dim
         self.n_actions = action_dim
-        
+
         self.batch_size = net_dim
         self.gamma = 0.95
         self.update_tau = 0
         self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
 
-        
     def update_agent(self, rewards, dones, actions, observations, next_obs, index):
         """
         Update the single agent neural networks, called by update_net.
@@ -65,10 +67,16 @@ class AgentTD3(AgentBase):
             if i != index:
                 action = self.agents[i].act_target(next_obs[:, i])
                 all_target_actions.append(action)
-        action_target_all = torch.cat(all_target_actions, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])
+        action_target_all = torch.cat(all_target_actions, dim=1).to(self.device).reshape(actions.shape[0],
+                                                                                         actions.shape[1] *
+                                                                                         actions.shape[2])
 
-        target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), action_target_all).detach().squeeze(dim = 1)
-        actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]), actions.reshape(actions.shape[0], actions.shape[1]*actions.shape[2])).squeeze(dim = 1)
+        target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(
+            next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]),
+            action_target_all).detach().squeeze(dim=1)
+        actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]),
+                                      actions.reshape(actions.shape[0], actions.shape[1] * actions.shape[2])).squeeze(
+            dim=1)
         vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
         curr_agent.act_optim.zero_grad()
         curr_pol_out = curr_agent.act(observations[:, index])
@@ -80,7 +88,10 @@ class AgentTD3(AgentBase):
             else:
                 all_pol_acs.append(actions[:, i])
 
-        pol_loss = -torch.mean(curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1]*observations.shape[2]), torch.cat(all_pol_acs, dim = 1).to(self.device).reshape(actions.shape[0], actions.shape[1] *actions.shape[2])))
+        pol_loss = -torch.mean(
+            curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1] * observations.shape[2]),
+                           torch.cat(all_pol_acs, dim=1).to(self.device).reshape(actions.shape[0],
+                                                                                 actions.shape[1] * actions.shape[2])))
 
         curr_agent.act_optim.zero_grad()
         pol_loss.backward()
@@ -88,7 +99,6 @@ class AgentTD3(AgentBase):
         curr_agent.cri_optim.zero_grad()
         vf_loss.backward()
         curr_agent.cri_optim.step()
-
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         """
@@ -109,8 +119,8 @@ class AgentTD3(AgentBase):
         for agent in self.agents:
             self.soft_update(agent.cri_target, agent.cri, self.update_tau)
             self.soft_update(agent.act_target, agent.act, self.update_tau)
-    
-        return 
+
+        return
 
     def explore_one_env(self, env, target_step) -> list:
         """
@@ -130,14 +140,14 @@ class AgentTD3(AgentBase):
             next_s, reward, done, _ = env.step(actions)
             traj_temp.append((self.states, reward, done, actions))
             global_done = all(done[i] is True for i in range(self.n_agents))
-            if global_done or k >100:
+            if global_done or k > 100:
                 state = env.reset()
                 k = 0
             else:
                 state = next_s
         self.states = state
         return traj_temp
-    
+
     def select_actions(self, states):
         """
         Select continuous actions for exploration
@@ -158,4 +168,4 @@ class AgentTD3(AgentBase):
         :param if_save: True: save files. False: load files.
         """
         for i in range(self.n_agents):
-            self.agents[i].save_or_load_agent(cwd+'/'+str(i),if_save)
+            self.agents[i].save_or_load_agent(cwd + '/' + str(i), if_save)

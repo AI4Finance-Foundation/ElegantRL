@@ -1,8 +1,10 @@
 import sys
+
 import gym
-from elegantrl.run import *
+
 from elegantrl.agent import *
 from elegantrl.config import Arguments
+from elegantrl.run import *
 
 '''custom env'''
 

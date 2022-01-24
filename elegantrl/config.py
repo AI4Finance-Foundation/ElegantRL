@@ -1,7 +1,8 @@
 import os
-import torch
-import numpy as np
 from copy import deepcopy
+
+import numpy as np
+import torch
 
 '''config for agent'''
 
@@ -95,7 +96,7 @@ class Arguments:
 '''config for env(simulator)'''
 
 
-def get_gym_env_args(env, if_print) -> dict:    # [ElegantRL.2021.12.12]
+def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
     """get a dict `env_args` about a standard OpenAI gym env information.
 
     env_args = {

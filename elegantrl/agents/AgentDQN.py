@@ -1,5 +1,6 @@
-import torch
 import numpy.random as rd
+import torch
+
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import QNet, QNetDuel
 
@@ -185,6 +186,7 @@ class AgentDuelingDQN(AgentDQN):  # [ElegantRL.2021.12.12]
         Dueling network.
 
         """
+
     def __init__(self):
         AgentDQN.__init__(self)
         self.ClassCri = QNetDuel

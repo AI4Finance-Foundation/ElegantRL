@@ -1,8 +1,9 @@
-import torch
 import numpy as np
+import torch
+
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import ActorPPO, CriticPPO
 from elegantrl.agents.net import ActorDiscretePPO, SharePPO
+from elegantrl.agents.net import ActorPPO, CriticPPO
 
 '''[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 

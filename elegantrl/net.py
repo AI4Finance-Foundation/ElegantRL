@@ -1,7 +1,7 @@
-import torch
-import torch.nn as nn
 import numpy as np
 import numpy.random as rd
+import torch
+import torch.nn as nn
 
 '''DQN'''
 

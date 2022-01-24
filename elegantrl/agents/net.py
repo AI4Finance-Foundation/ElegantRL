@@ -940,8 +940,8 @@ class SharePPO(nn.Module):  # Pixel-level state version
     def get_q1_q2_logprob(self, state, action):
         s_ = self.enc_s(state)
 
-        q1 , q2 , a_avg , a_std  = self.dec_q1(s_), self.dec_q2(s_), self.dec_a(s_), self.a_std_log.exp()
-        
+        q1, q2, a_avg, a_std = self.dec_q1(s_), self.dec_q2(s_), self.dec_a(s_), self.a_std_log.exp()
+
         logprob = -(((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
         return q1, q2, logprob
 
@@ -1007,6 +1007,7 @@ class QMix(nn.Module):
     """
     Mixer network for QMix. Outputs total q value given independent q value and states.
     """
+
     def __init__(self, args):
         super().__init__()
 
@@ -1093,6 +1094,7 @@ class VDN(nn.Module):
     """
     Mixer network for VDN. Outputs total q value given independent q value.
     """
+
     def __init__(self):
         super().__init__()
 
@@ -1288,7 +1290,7 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number
 
     def forward(self, x1):  # x1.shape==(-1, lay_dim*1)
         x2 = torch.cat((x1, self.dense1(x1)), dim=1)
-        return torch.cat((x2, self.dense2(x2)), dim=1) # x3  # x2.shape==(-1, lay_dim*4)
+        return torch.cat((x2, self.dense2(x2)), dim=1)  # x3  # x2.shape==(-1, lay_dim*4)
 
 
 class ConcatNet(nn.Module):  # concatenate
