@@ -1271,48 +1271,46 @@ class StarCraft2Env(MultiAgentEnv):
     def get_avail_agent_actions(self, agent_id):
         """Returns the available actions for agent_id."""
         unit = self.get_unit_by_id(agent_id)
-        if unit.health > 0:
-            # cannot choose no-op when alive
-            avail_actions = [0] * self.n_actions
-
-            # stop should be allowed
-            avail_actions[1] = 1
-
-            # see if we can move
-            if self.can_move(unit, Direction.NORTH):
-                avail_actions[2] = 1
-            if self.can_move(unit, Direction.SOUTH):
-                avail_actions[3] = 1
-            if self.can_move(unit, Direction.EAST):
-                avail_actions[4] = 1
-            if self.can_move(unit, Direction.WEST):
-                avail_actions[5] = 1
-
-            # Can attack only alive units that are alive in the shooting range
-            shoot_range = self.unit_shoot_range(agent_id)
-
-            target_items = self.enemies.items()
-            if self.map_type == "MMM" and unit.unit_type == self.medivac_id:
-                # Medivacs cannot heal themselves or other flying units
-                target_items = [
-                    (t_id, t_unit)
-                    for (t_id, t_unit) in self.agents.items()
-                    if t_unit.unit_type != self.medivac_id
-                ]
-
-            for t_id, t_unit in target_items:
-                if t_unit.health > 0:
-                    dist = self.distance(
-                        unit.pos.x, unit.pos.y, t_unit.pos.x, t_unit.pos.y
-                    )
-                    if dist <= shoot_range:
-                        avail_actions[t_id + self.n_actions_no_attack] = 1
-
-            return avail_actions
-
-        else:
+        if unit.health <= 0:
             # only no-op allowed
             return [1] + [0] * (self.n_actions - 1)
+        # cannot choose no-op when alive
+        avail_actions = [0] * self.n_actions
+
+        # stop should be allowed
+        avail_actions[1] = 1
+
+        # see if we can move
+        if self.can_move(unit, Direction.NORTH):
+            avail_actions[2] = 1
+        if self.can_move(unit, Direction.SOUTH):
+            avail_actions[3] = 1
+        if self.can_move(unit, Direction.EAST):
+            avail_actions[4] = 1
+        if self.can_move(unit, Direction.WEST):
+            avail_actions[5] = 1
+
+        # Can attack only alive units that are alive in the shooting range
+        shoot_range = self.unit_shoot_range(agent_id)
+
+        target_items = self.enemies.items()
+        if self.map_type == "MMM" and unit.unit_type == self.medivac_id:
+            # Medivacs cannot heal themselves or other flying units
+            target_items = [
+                (t_id, t_unit)
+                for (t_id, t_unit) in self.agents.items()
+                if t_unit.unit_type != self.medivac_id
+            ]
+
+        for t_id, t_unit in target_items:
+            if t_unit.health > 0:
+                dist = self.distance(
+                    unit.pos.x, unit.pos.y, t_unit.pos.x, t_unit.pos.y
+                )
+                if dist <= shoot_range:
+                    avail_actions[t_id + self.n_actions_no_attack] = 1
+
+        return avail_actions
 
     def get_avail_actions(self):
         """Returns the available actions of all agents in a list."""
