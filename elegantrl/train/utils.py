@@ -300,7 +300,7 @@ def sort_str_list_inplace(str_list):
 
 
 def get_nd_list(nd_list):
-    print_str = f'| check_nd_list:'
+    print_str = '| check_nd_list:'
 
     item = nd_list
     if hasattr(item, 'shape'):
@@ -323,10 +323,10 @@ def get_nd_list(nd_list):
                         print_str += f' {len(item)}'
 
                     else:
-                        print_str += f' END'
+                        print_str += ' END'
             else:
-                print_str += f' END'
+                print_str += ' END'
     else:
-        print_str += f' END'
+        print_str += ' END'
 
     return print_str
