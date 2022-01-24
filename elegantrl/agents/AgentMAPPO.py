@@ -288,16 +288,17 @@ class AgentMAPPO():
         mean_advantages = np.nanmean(advantages_copy)
         std_advantages = np.nanstd(advantages_copy)
         advantages = (advantages - mean_advantages) / (std_advantages + 1e-5)
-        
 
-        train_info = {}
 
-        train_info['value_loss'] = 0
-        train_info['policy_loss'] = 0
-        train_info['dist_entropy'] = 0
-        train_info['actor_grad_norm'] = 0
-        train_info['critic_grad_norm'] = 0
-        train_info['ratio'] = 0
+        train_info = {
+            'value_loss': 0,
+            'policy_loss': 0,
+            'dist_entropy': 0,
+            'actor_grad_norm': 0,
+            'critic_grad_norm': 0,
+            'ratio': 0,
+        }
+
 
         for _ in range(self.ppo_epoch):
             if self._use_recurrent_policy:
@@ -321,9 +322,9 @@ class AgentMAPPO():
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
-        for k in train_info.keys():
-            train_info[k] /= num_updates
- 
+        for k, v in train_info.items():
+            v /= num_updates
+
         return train_info
 
     def prep_training(self):
