@@ -133,7 +133,6 @@ def process_safely_terminate(process):
             p.kill()
         except OSError as e:
             print(e)
-            pass
 
 
 def check_subprocess():
