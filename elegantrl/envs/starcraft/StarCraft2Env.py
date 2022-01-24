@@ -457,7 +457,7 @@ class StarCraft2Env(MultiAgentEnv):
             self.timeouts += 1
 
         if self.debug:
-            logging.debug("Reward = {}".format(reward).center(60, '-'))
+            logging.debug(f"Reward = {reward}".center(60, '-'))
 
         if terminated:
             self._episode_count += 1
@@ -471,7 +471,7 @@ class StarCraft2Env(MultiAgentEnv):
         """Construct the action for agent a_id."""
         avail_actions = self.get_avail_agent_actions(a_id)
         assert avail_actions[action] == 1, \
-                "Agent {} cannot perform action {}".format(a_id, action)
+                f"Agent {a_id} cannot perform action {action}"
 
         unit = self.get_unit_by_id(a_id)
         tag = unit.tag
@@ -482,7 +482,7 @@ class StarCraft2Env(MultiAgentEnv):
             # no-op (valid only when dead)
             assert unit.health == 0, "No-op only available for dead agents."
             if self.debug:
-                logging.debug("Agent {}: Dead".format(a_id))
+                logging.debug(f"Agent {a_id}: Dead")
             return None
         elif action == 1:
             # stop
@@ -491,7 +491,7 @@ class StarCraft2Env(MultiAgentEnv):
                 unit_tags=[tag],
                 queue_command=False)
             if self.debug:
-                logging.debug("Agent {}: Stop".format(a_id))
+                logging.debug(f"Agent {a_id}: Stop")
 
         elif action == 2:
             # move north
@@ -502,7 +502,7 @@ class StarCraft2Env(MultiAgentEnv):
                 unit_tags=[tag],
                 queue_command=False)
             if self.debug:
-                logging.debug("Agent {}: Move North".format(a_id))
+                logging.debug(f"Agent {a_id}: Move North")
 
         elif action == 3:
             # move south
@@ -513,7 +513,7 @@ class StarCraft2Env(MultiAgentEnv):
                 unit_tags=[tag],
                 queue_command=False)
             if self.debug:
-                logging.debug("Agent {}: Move South".format(a_id))
+                logging.debug(f"Agent {a_id}: Move South")
 
         elif action == 4:
             # move east
@@ -524,7 +524,7 @@ class StarCraft2Env(MultiAgentEnv):
                 unit_tags=[tag],
                 queue_command=False)
             if self.debug:
-                logging.debug("Agent {}: Move East".format(a_id))
+                logging.debug(f"Agent {a_id}: Move East")
 
         elif action == 5:
             # move west
@@ -535,7 +535,7 @@ class StarCraft2Env(MultiAgentEnv):
                 unit_tags=[tag],
                 queue_command=False)
             if self.debug:
-                logging.debug("Agent {}: Move West".format(a_id))
+                logging.debug(f"Agent {a_id}: Move West")
         else:
             # attack/heal units that are in range
             target_id = action - self.n_actions_no_attack
@@ -985,13 +985,13 @@ class StarCraft2Env(MultiAgentEnv):
                                   self._episode_steps / self.episode_limit)
 
         if self.debug:
-            logging.debug("Obs Agent: {}".format(agent_id).center(60, "-"))
+            logging.debug(f"Obs Agent: {agent_id}".center(60, "-"))
             logging.debug("Avail. actions {}".format(
                 self.get_avail_agent_actions(agent_id)))
-            logging.debug("Move feats {}".format(move_feats))
-            logging.debug("Enemy feats {}".format(enemy_feats))
-            logging.debug("Ally feats {}".format(ally_feats))
-            logging.debug("Own feats {}".format(own_feats))
+            logging.debug(f"Move feats {move_feats}")
+            logging.debug(f"Enemy feats {enemy_feats}")
+            logging.debug(f"Ally feats {ally_feats}")
+            logging.debug(f"Own feats {own_feats}")
 
         return agent_obs
 
@@ -1096,10 +1096,10 @@ class StarCraft2Env(MultiAgentEnv):
 
         if self.debug:
             logging.debug("STATE".center(60, "-"))
-            logging.debug("Ally state {}".format(ally_state))
-            logging.debug("Enemy state {}".format(enemy_state))
+            logging.debug(f"Ally state {ally_state}")
+            logging.debug(f"Enemy state {enemy_state}")
             if self.state_last_action:
-                logging.debug("Last actions {}".format(self.last_action))
+                logging.debug(f"Last actions {self.last_action}")
 
         return state
 

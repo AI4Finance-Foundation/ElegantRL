@@ -112,10 +112,10 @@ class Logger:
 
         if self.use_sacred and to_sacred:
             if key in self.sacred_info:
-                self.sacred_info["{}_T".format(key)].append(t)
+                self.sacred_info[f"{key}_T"].append(t)
                 self.sacred_info[key].append(value)
             else:
-                self.sacred_info["{}_T".format(key)] = [t]
+                self.sacred_info[f"{key}_T"] = [t]
                 self.sacred_info[key] = [value]
 
     def print_recent_stats(self):
@@ -284,10 +284,10 @@ class BasicMAC:
         self.agent.cuda()
 
     def save_models(self, path):
-        th.save(self.agent.state_dict(), "{}/agent.th".format(path))
+        th.save(self.agent.state_dict(), f"{path}/agent.th")
 
     def load_models(self, path):
-        self.agent.load_state_dict(th.load("{}/agent.th".format(path), map_location=lambda storage, loc: storage))
+        self.agent.load_state_dict(th.load(f"{path}/agent.th", map_location=lambda storage, loc: storage))
 
     def _build_agents(self, input_shape):
         self.agent = RNNAgent(input_shape, self.args)
@@ -542,7 +542,7 @@ class eBatch:
         })
 
         for field_key, field_info in scheme.items():
-            assert "vshape" in field_info, "Scheme must define vshape for {}".format(field_key)
+            assert "vshape" in field_info, f"Scheme must define vshape for {field_key}"
             vshape = field_info["vshape"]
             episode_const = field_info.get("episode_const", False)
             group = field_info.get("group", None)
@@ -552,7 +552,7 @@ class eBatch:
                 vshape = (vshape,)
 
             if group:
-                assert group in groups, "Group {} must have its number of members defined in _groups_".format(group)
+                assert group in groups, f"Group {group} must have its number of members defined in _groups_"
                 shape = (groups[group], *vshape)
             else:
                 shape = vshape
@@ -585,7 +585,7 @@ class eBatch:
                 target = self.data.episode_data
                 _slices = slices[0]
             else:
-                raise KeyError("{} not found in transition or episode data".format(k))
+                raise KeyError(f"{k} not found in transition or episode data")
 
             dtype = self.scheme[k].get("dtype", th.float32)
             v = th.tensor(v, dtype=dtype, device=self.device)
@@ -605,7 +605,7 @@ class eBatch:
             if v.shape[idx] == s:
                 idx -= 1
             elif s != 1:
-                raise ValueError("Unsafe reshape of {} to {}".format(v.shape, dest.shape))
+                raise ValueError(f"Unsafe reshape of {v.shape} to {dest.shape}")
 
     def __getitem__(self, item):
         if isinstance(item, str):
@@ -623,7 +623,7 @@ class eBatch:
                 elif key in self.data.episode_data:
                     new_data.episode_data[key] = self.data.episode_data[key]
                 else:
-                    raise KeyError("Unrecognised key {}".format(key))
+                    raise KeyError(f"Unrecognised key {key}")
 
             # Update the scheme to only have the requested keys
             new_scheme = {key: self.scheme[key] for key in item}

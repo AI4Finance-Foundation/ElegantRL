@@ -31,7 +31,7 @@ def warn_task_name():
 def set_seed(seed, torch_deterministic=False):
     if seed == -1:
         seed = 42 if torch_deterministic else np.random.randint(0, 10000)
-    print("Setting seed: {}".format(seed))
+    print(f"Setting seed: {seed}")
 
     random.seed(seed)
     np.random.seed(seed)
@@ -193,7 +193,7 @@ def load_cfg(args, use_rlg_config=False):
                 if cfg["task"]["randomize"]:
                     log_id += "_DR"
             else:
-                log_id = args.logdir + "_{}".format(args.experiment)
+                log_id = args.logdir + f"_{args.experiment}"
 
         logdir = os.path.realpath(log_id)
         os.makedirs(logdir, exist_ok=True)

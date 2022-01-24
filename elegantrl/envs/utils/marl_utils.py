@@ -219,10 +219,10 @@ class Logger:
 
         if self.use_sacred and to_sacred:
             if key in self.sacred_info:
-                self.sacred_info["{}_T".format(key)].append(t)
+                self.sacred_info[f"{key}_T"].append(t)
                 self.sacred_info[key].append(value)
             else:
-                self.sacred_info["{}_T".format(key)] = [t]
+                self.sacred_info[f"{key}_T"] = [t]
                 self.sacred_info[key] = [value]
 
     def print_recent_stats(self):

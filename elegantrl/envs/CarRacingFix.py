@@ -540,8 +540,8 @@ def check_pyglet():
             s, r, done, info = env.step(a)
             total_reward += r
             if steps % 200 == 0 or done:
-                print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
-                print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+                print("\naction " + str([f"{x:+0.2f}" for x in a]))
+                print(f"step {steps} total_reward {total_reward:+0.2f}")
                 # import matplotlib.pyplot as plt
                 # plt.imshow(s)
                 # plt.savefig("test.jpeg")

@@ -144,16 +144,16 @@ class AgentQmix:
     def save_models(self, path):
         self.mac.save_models(path)
         if self.mixer is not None:
-            th.save(self.mixer.state_dict(), "{}/mixer.th".format(path))
-        th.save(self.optimiser.state_dict(), "{}/opt.th".format(path))
+            th.save(self.mixer.state_dict(), f"{path}/mixer.th")
+        th.save(self.optimiser.state_dict(), f"{path}/opt.th")
 
     def load_models(self, path):
         self.mac.load_models(path)
         # Not quite right but I don't want to save target networks
         self.target_mac.load_models(path)
         if self.mixer is not None:
-            self.mixer.load_state_dict(th.load("{}/mixer.th".format(path), map_location=lambda storage, loc: storage))
-        self.optimiser.load_state_dict(th.load("{}/opt.th".format(path), map_location=lambda storage, loc: storage))
+            self.mixer.load_state_dict(th.load(f"{path}/mixer.th", map_location=lambda storage, loc: storage))
+        self.optimiser.load_state_dict(th.load(f"{path}/opt.th", map_location=lambda storage, loc: storage))
 
 def run(_run, _config, _log):
     if _config["use_cuda"] and not th.cuda.is_available():
@@ -188,7 +188,7 @@ def run(_run, _config, _log):
     print("Stopping all threads")
     for t in threading.enumerate():
         if t.name != "MainThread":
-            print("Thread {} is alive! Is daemon: {}".format(t.name, t.daemon))
+            print(f"Thread {t.name} is alive! Is daemon: {t.daemon}")
             t.join(timeout=1)
             print("Thread joined")
 
@@ -257,7 +257,7 @@ def run_sequential(args, logger):
         timestep_to_load = 0
 
         if not os.path.isdir(args.checkpoint_path):
-            logger.console_logger.info("Checkpoint directiory {} doesn't exist".format(args.checkpoint_path))
+            logger.console_logger.info(f"Checkpoint directiory {args.checkpoint_path} doesn't exist")
             return
 
         # Go through all files in args.checkpoint_path
@@ -276,7 +276,7 @@ def run_sequential(args, logger):
 
         model_path = os.path.join(args.checkpoint_path, str(timestep_to_load))
 
-        logger.console_logger.info("Loading model from {}".format(model_path))
+        logger.console_logger.info(f"Loading model from {model_path}")
         learner.load_models(model_path)
         runner.t_env = timestep_to_load
 
@@ -293,7 +293,7 @@ def run_sequential(args, logger):
     start_time = time.time()
     last_time = start_time
 
-    logger.console_logger.info("Beginning training for {} timesteps".format(args.t_max))
+    logger.console_logger.info(f"Beginning training for {args.t_max} timesteps")
 
     while runner.t_env <= args.t_max:
 
@@ -317,7 +317,7 @@ def run_sequential(args, logger):
         n_test_runs = max(1, args.test_nepisode // runner.batch_size)
         if (runner.t_env - last_test_T) / args.test_interval >= 1.0:
 
-            logger.console_logger.info("t_env: {} / {}".format(runner.t_env, args.t_max))
+            logger.console_logger.info(f"t_env: {runner.t_env} / {args.t_max}")
             logger.console_logger.info("Estimated time left: {}. Time passed: {}".format(
                 time_left(last_time, last_test_T, runner.t_env, args.t_max), time_str(time.time() - start_time)))
             last_time = time.time()
@@ -331,7 +331,7 @@ def run_sequential(args, logger):
             save_path = os.path.join(args.local_results_path, "models", args.unique_token, str(runner.t_env))
             #"results/models/{}".format(unique_token)
             os.makedirs(save_path, exist_ok=True)
-            logger.console_logger.info("Saving models to {}".format(save_path))
+            logger.console_logger.info(f"Saving models to {save_path}")
 
             # learner should handle saving/loading -- delegate actor save/load to mac,
             # use appropriate filenames to do critics, optimizer states
@@ -377,11 +377,11 @@ def _get_config(params, arg_name, subfolder):
             break
 
     if config_name is not None:
-        with open(os.path.join(os.path.dirname(__file__),"..", "elegantrl","envs", "SMAC", subfolder, "{}.yaml".format(config_name))) as f:
+        with open(os.path.join(os.path.dirname(__file__),"..", "elegantrl","envs", "SMAC", subfolder, f"{config_name}.yaml")) as f:
             try:
                 config_dict = yaml.load(f)
             except yaml.YAMLError as exc:
-                assert False, "{}.yaml error: {}".format(config_name, exc)
+                assert False, f"{config_name}.yaml error: {exc}"
         return config_dict
 
 
@@ -411,7 +411,7 @@ if __name__ == '__main__':
         try:
             config_dict = yaml.load(f)
         except yaml.YAMLError as exc:
-            assert False, "default.yaml error: {}".format(exc)
+            assert False, f"default.yaml error: {exc}"
 
     # Load algorithm and env base configs
     env_config = _get_config(params, "--env-config", "envs")
