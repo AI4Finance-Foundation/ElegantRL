@@ -1485,9 +1485,8 @@ class StarCraft2Env(MultiAgentEnv):
                 for a in self.agents.values()
                 if (a.health > 0 and a.unit_type != self.medivac_id)
             ]
-            if len(units_alive) == 0:
+            if not units_alive:
                 return True
-            return False
         else:
             units_alive = [
                 a
@@ -1496,7 +1495,7 @@ class StarCraft2Env(MultiAgentEnv):
             ]
             if len(units_alive) == 1 and units_alive[0].unit_type == 54:
                 return True
-            return False
+        return False
 
     def get_unit_by_id(self, a_id):
         """Get unit by ID."""
