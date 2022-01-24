@@ -121,7 +121,7 @@ class ReplayBuffer:
         """
         self.now_len = self.max_len if self.if_full else self.next_id
 
-    def print_state_norm(self, neg_avg=None, div_std=None):  # non-essential
+    def print_state_norm(self, neg_avg=None, div_std=None):    # non-essential
         """print the state norm information: state_avg, state_std
 
         We don't suggest to use running stat state.
@@ -168,7 +168,7 @@ class ReplayBuffer:
             ary_avg = ary_avg - neg_avg / div_std
             ary_std = fix_std / div_std
 
-        print(f"print_state_norm: state_avg, state_std (fixed)")
+        print('print_state_norm: state_avg, state_std (fixed)')
         print(f"avg = np.{repr(ary_avg).replace('=float32', '=np.float32')}")
         print(f"std = np.{repr(ary_std).replace('=float32', '=np.float32')}")
 
