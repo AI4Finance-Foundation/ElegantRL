@@ -118,12 +118,11 @@ class CarRacingFix:
             state, reward1, done, info_dict = self.old_step(action[3:], if_draw=True)
             reward = reward0 + reward1
         except Exception as error:
-            print(f"| CarRacingFix Error: {error}")
+            print(f'| CarRacingFix Error: {error}')
             state = np.stack((self.state_temp, self.state_temp))
             reward = 0
             done = True
-            info_dict = dict()
-
+            info_dict = {}
         self.num_step += 1
         if self.num_step == self.max_step:
             done = True
