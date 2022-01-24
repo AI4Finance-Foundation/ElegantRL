@@ -1222,7 +1222,7 @@ class StarCraft2Env(MultiAgentEnv):
                     al_id for al_id in range(self.n_agents) 
                     if al_id > agent_id
                 ]
-                for i, al_id in enumerate(al_ids):
+                for al_id in al_ids:
                     al_unit = self.get_unit_by_id(al_id)
                     al_x = al_unit.pos.x
                     al_y = al_unit.pos.y
