@@ -489,7 +489,7 @@ class AgentMADDPG(AgentBase):
     def select_actions(self, states):
         actions = []
         for i in range(self.n_agents):
-            action = self.agents[i].select_actions((states[i]))
+            action = self.agents[i].select_actions(states[i])
             actions.append(action)
         return actions
 

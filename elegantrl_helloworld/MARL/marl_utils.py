@@ -48,7 +48,7 @@ def print_time(start_time, T, t_max, episode, episode_rewards):
     time_left = time_elapsed * (t_max - T) / T
     # Just in case its over 100 days
     time_left = min(time_left, 60 * 60 * 24 * 100)
-    last_reward = "N\A"
+    last_reward = r"N\A"
     if len(episode_rewards) > 5:
         last_reward = "{:.2f}".format(np.mean(episode_rewards[-50:]))
     print("\033[F\033[F\x1b[KEp: {:,}, T: {:,}/{:,}, Reward: {}, \n\x1b[KElapsed: {}, Left: {}\n".format(episode, T, t_max, last_reward, time_str(time_elapsed), time_str(time_left)), " " * 10, end="\r")
@@ -172,7 +172,7 @@ class DecayThenFlatSchedule():
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        super(RNNAgent, self).__init__()
+        super().__init__()
         self.args = args
 
         self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
@@ -438,7 +438,7 @@ class Runner:
         stats.clear()
 class QMixer(nn.Module):
     def __init__(self, args):
-        super(QMixer, self).__init__()
+        super().__init__()
 
         self.args = args
         self.n_agents = args.n_agents
@@ -693,7 +693,7 @@ class eBatch:
 
 class ReplayBuffer(eBatch):
     def __init__(self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"):
-        super(ReplayBuffer, self).__init__(scheme, groups, buffer_size, max_seq_length, preprocess=preprocess, device=device)
+        super().__init__(scheme, groups, buffer_size, max_seq_length, preprocess=preprocess, device=device)
         self.buffer_size = buffer_size  # same as self.batch_size but more explicit
         self.buffer_index = 0
         self.episodes_in_buffer = 0
