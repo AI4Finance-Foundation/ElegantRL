@@ -248,7 +248,7 @@ class DownLinkEnv1:  # [ElegantRL.2021.11.11]
         return np.stack((w_mmse.real, w_mmse.imag))
 
     def get_curr_schedule(self):
-        with open(self.curr_txt_path, 'r') as f:
+        with open(self.curr_txt_path) as f:
             curr_schedule = float(eval(f.readlines()[-1]))
         assert 0.0 <= curr_schedule <= 1.0
         return curr_schedule

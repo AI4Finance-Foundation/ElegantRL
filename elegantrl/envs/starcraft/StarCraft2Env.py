@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from smac.env.multiagentenv import MultiAgentEnv
 from envs.starcraft.smac_maps import get_map_params
 

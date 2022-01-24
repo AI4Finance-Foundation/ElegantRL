@@ -147,7 +147,7 @@ class AgentTD3(AgentBase):
         """
         actions = []
         for i in range(self.n_agents):
-            action = self.agents[i].select_actions((states[i]))
+            action = self.agents[i].select_actions(states[i])
             actions.append(action)
         return actions
 
@@ -159,4 +159,3 @@ class AgentTD3(AgentBase):
         """
         for i in range(self.n_agents):
             self.agents[i].save_or_load_agent(cwd+'/'+str(i),if_save)
-    

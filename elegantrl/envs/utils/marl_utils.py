@@ -106,7 +106,7 @@ class LinearIncreaseSchedule():
         return min(self.finish, self.start - self.delta * T)
 
 # Directly from OpenAI Baseline implementation (https://github.com/openai/baselines)
-class SegmentTree(object):
+class SegmentTree:
     def __init__(self, capacity, operation, neutral_element):
         assert capacity > 0 and capacity & (capacity - 1) == 0, "capacity must be positive and a power of 2."
         self._capacity = capacity
@@ -154,7 +154,7 @@ class SegmentTree(object):
 
 class SumSegmentTree(SegmentTree):
     def __init__(self, capacity):
-        super(SumSegmentTree, self).__init__(
+        super().__init__(
             capacity=capacity,
             operation=operator.add,
             neutral_element=0.0
@@ -162,7 +162,7 @@ class SumSegmentTree(SegmentTree):
 
     def sum(self, start=0, end=None):
         """Returns arr[start] + ... + arr[end]"""
-        return super(SumSegmentTree, self).reduce(start, end)
+        return super().reduce(start, end)
 
     def find_prefixsum_idx(self, prefixsum):
         assert 0 <= prefixsum <= self.sum() + 1e-5
@@ -178,7 +178,7 @@ class SumSegmentTree(SegmentTree):
 
 class MinSegmentTree(SegmentTree):
     def __init__(self, capacity):
-        super(MinSegmentTree, self).__init__(
+        super().__init__(
             capacity=capacity,
             operation=min,
             neutral_element=float('inf')
@@ -187,7 +187,7 @@ class MinSegmentTree(SegmentTree):
     def min(self, start=0, end=None):
         """Returns min(arr[start], ...,  arr[end])"""
 
-        return super(MinSegmentTree, self).reduce(start, end)
+        return super().reduce(start, end)
     
     
 class Logger:
@@ -263,7 +263,7 @@ def print_time(start_time, T, t_max, episode, episode_rewards):
     time_left = time_elapsed * (t_max - T) / T
     # Just in case its over 100 days
     time_left = min(time_left, 60 * 60 * 24 * 100)
-    last_reward = "N\A"
+    last_reward = r"N\A"
     if len(episode_rewards) > 5:
         last_reward = "{:.2f}".format(np.mean(episode_rewards[-50:]))
     print("\033[F\033[F\x1b[KEp: {:,}, T: {:,}/{:,}, Reward: {}, \n\x1b[KElapsed: {}, Left: {}\n".format(episode, T, t_max, last_reward, time_str(time_elapsed), time_str(time_left)), " " * 10, end="\r")
@@ -390,7 +390,7 @@ def build_target_q(td_q, target_q, mac, mask, gamma, td_lambda, n):
         coeff *= gamma * td_lambda
     return target_q + tree_q_vals
 
-class RunningMeanStd(object):
+class RunningMeanStd:
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
     def __init__(self, epsilon=1e-4, shape=()):
         self.mean = np.zeros(shape, 'float64')

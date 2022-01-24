@@ -109,10 +109,10 @@ def retrieve_cfg(args, use_rlg_config=False):
 
 
 def load_cfg(args, use_rlg_config=False):
-    with open(os.path.join(os.getcwd(), args.cfg_train), 'r') as f:
+    with open(os.path.join(os.getcwd(), args.cfg_train)) as f:
         cfg_train = yaml.load(f, Loader=yaml.SafeLoader)
 
-    with open(os.path.join(os.getcwd(), args.cfg_env), 'r') as f:
+    with open(os.path.join(os.getcwd(), args.cfg_env)) as f:
         cfg = yaml.load(f, Loader=yaml.SafeLoader)
 
     # Override number of environments if passed on the command line

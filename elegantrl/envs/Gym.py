@@ -11,7 +11,7 @@ class PendulumEnv(gym.Wrapper):
     def __init__(self, gym_env_id='Pendulum-v1', target_return=-200):
         # Pendulum-v0 gym.__version__ == 0.17.0
         # Pendulum-v1 gym.__version__ == 0.21.0
-        super(PendulumEnv, self).__init__(env=gym.make(gym_env_id))
+        super().__init__(env=gym.make(gym_env_id))
 
         # from elegantrl.envs.Gym import get_gym_env_info
         # get_gym_env_info(env, if_print=True)  # use this function to print the env information

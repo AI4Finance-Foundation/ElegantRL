@@ -1008,7 +1008,7 @@ class QMix(nn.Module):
     Mixer network for QMix. Outputs total q value given independent q value and states.
     """
     def __init__(self, args):
-        super(QMix, self).__init__()
+        super().__init__()
 
         self.args = args
         self.n_agents = args.n_agents
@@ -1094,7 +1094,7 @@ class VDN(nn.Module):
     Mixer network for VDN. Outputs total q value given independent q value.
     """
     def __init__(self):
-        super(VDN, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(agent_qs, _batch):
@@ -1121,7 +1121,7 @@ class ActorMAPPO(nn.Module):
     """
 
     def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
-        super(ActorMAPPO, self).__init__()
+        super().__init__()
         self.hidden_size = args.hidden_size
 
         self._gain = args.gain
@@ -1217,7 +1217,7 @@ class CriticMAPPO(nn.Module):
     """
 
     def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
-        super(CriticMAPPO, self).__init__()
+        super().__init__()
         self.hidden_size = args.hidden_size
         self._use_orthogonal = args.use_orthogonal
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
@@ -1398,7 +1398,7 @@ class ActorSimplify:
 
 class RNNAgent(nn.Module):
     def __init__(self, input_shape, args):
-        super(RNNAgent, self).__init__()
+        super().__init__()
         self.args = args
 
         self.fc1 = nn.Linear(input_shape, args.rnn_hidden_dim)
