@@ -37,11 +37,11 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
         :param state: the input state.
         :return: the action.
         """
-        if rd.rand() > self.explore_rate:
-            action = self.net(state).argmax(dim=1, keepdim=True)
-        else:
-            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+        return (
+            self.net(state).argmax(dim=1, keepdim=True)
+            if rd.rand() > self.explore_rate
+            else torch.randint(self.action_dim, size=(state.shape[0], 1))
+        )
 
 
 class ActorSAC(nn.Module):
