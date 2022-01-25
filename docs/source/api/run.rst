@@ -36,6 +36,6 @@ Multi-process
 Utils
 ---------------------
 
-.. autoclass:: elegantrl.train.run.process_safely_terminate
+.. autoclass:: elegantrl.train.run.safely_terminate_process
 
 .. autoclass:: elegantrl.train.run.check_subprocess

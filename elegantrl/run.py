@@ -4,15 +4,16 @@ import time
 
 import numpy as np
 import torch
+from elegantrl.agent import AgentBase
 
-from elegantrl.config import build_env
+from elegantrl.config import build_env, Arguments
 from elegantrl.evaluator import Evaluator
 from elegantrl.replay_buffer import ReplayBuffer, ReplayBufferList
 
 '''[ElegantRL.2022.01.01](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 
-def train_and_evaluate(args):
+def train_and_evaluate(args: Arguments):
     torch.set_grad_enabled(False)
     args.init_before_training()
     gpu_id = args.learner_gpus
@@ -45,16 +46,21 @@ def train_and_evaluate(args):
         logging_tuple = agent.update_net(buffer)
         torch.set_grad_enabled(False)
 
-        if_reach_goal = evaluator.evaluate_save_and_plot(agent.act, steps, r_exp, logging_tuple)
-        if_train = not ((if_allow_break and if_reach_goal)
-                        or evaluator.total_step > break_step
-                        or os.path.exists(f'{cwd}/stop'))
+        (if_reach_goal, if_save_agent) = evaluator.evaluate_save_and_plot(
+            agent.act, steps, r_exp, logging_tuple
+        )
+        dont_break = not if_allow_break
+        not_reached_goal = not if_reach_goal
+        stop_dir_absent = not os.path.exists(f'{cwd}/stop')
+        if_train = (dont_break or not_reached_goal)\
+            and evaluator.total_step <= break_step\
+            and stop_dir_absent
     print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
-    agent.save_or_load_agent(cwd, if_save=True)
+    agent.save_or_load_agent(cwd, if_save=if_save_agent)
     buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
 
 
-def init_agent(args, gpu_id, env=None):
+def init_agent(args: Arguments, gpu_id, env=None) -> AgentBase:
     agent = args.agent(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
     agent.save_or_load_agent(args.cwd, if_save=False)
 
@@ -74,10 +80,12 @@ def init_agent(args, gpu_id, env=None):
 
 def init_buffer(args, gpu_id):
     if args.if_off_policy:
-        buffer = ReplayBuffer(gpu_id=gpu_id,
-                              max_len=args.max_memo,
-                              state_dim=args.state_dim,
-                              action_dim=1 if args.if_discrete else args.action_dim, )
+        buffer = ReplayBuffer(
+            gpu_id=gpu_id,
+            max_len=args.max_memo,
+            state_dim=args.state_dim,
+            action_dim=1 if args.if_discrete else args.action_dim,
+        )
         buffer.save_or_load_history(args.cwd, if_save=False)
 
     else:
@@ -93,23 +101,30 @@ def init_evaluator(args, gpu_id):
 '''train multiple process'''
 
 
-def train_and_evaluate_mp(args):
+def train_and_evaluate_mp(args: Arguments):
     args.init_before_training()
 
-    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
+    # force all the multiprocessing to 'spawn' methods
+    mp.set_start_method(method='spawn', force=True)  
 
     evaluator_pipe = PipeEvaluator()
     process = [mp.Process(target=evaluator_pipe.run, args=(args,))]
     worker_pipe = PipeWorker(args.worker_num)
-    process.extend([mp.Process(target=worker_pipe.run, args=(args, worker_id))
-                    for worker_id in range(args.worker_num)])
+    process.extend(
+        [
+            mp.Process(target=worker_pipe.run, args=(args, worker_id))
+                for worker_id in range(args.worker_num)
+        ]
+    )
 
     learner_pipe = PipeLearner()
     process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe)))
 
     [p.start() for p in process]
-    process[-1].join()  # waiting for learner
-    process_safely_terminate(process)
+    
+    # waiting for learner
+    process[-1].join()
+    safely_terminate_process(process)
 
 
 class PipeWorker:
@@ -124,7 +139,8 @@ class PipeWorker:
         for worker_id in range(self.worker_num):
             self.pipe1s[worker_id].send(act_dict)
 
-        return [pipe1.recv() for pipe1 in self.pipe1s]  # traj_lists
+        # traj_lists
+        return [pipe1.recv() for pipe1 in self.pipe1s]
 
     def run(self, args, worker_id):
         torch.set_grad_enabled(False)
@@ -219,13 +235,19 @@ class PipeEvaluator:
 
             if act_dict:
                 act.load_state_dict(act_dict)
-                if_reach_goal, if_save_agent = evaluator.evaluate_save_and_plot(act, steps, r_exp, logging_tuple)
+                if_reach_goal, if_save_agent = evaluator.evaluate_save_and_plot(
+                    act, steps, r_exp, logging_tuple
+                )
             else:
                 evaluator.total_step += steps
-
-            if_train = not ((if_allow_break and if_reach_goal)
-                            or evaluator.total_step > break_step
-                            or os.path.exists(f'{cwd}/stop'))
+                
+            dont_break = not if_allow_break
+            not_reached_goal = not if_reach_goal
+            stop_dir_absent = not os.path.exists(f'{cwd}/stop')
+            if_train = (dont_break or not_reached_goal)\
+                and evaluator.total_step <= break_step\
+                and stop_dir_absent
+            
             self.pipe0.send((if_train, if_save_agent))
 
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
@@ -234,7 +256,7 @@ class PipeEvaluator:
             time.sleep(1943)
 
 
-def process_safely_terminate(process):
+def safely_terminate_process(process):
     for p in process:
         try:
             p.kill()

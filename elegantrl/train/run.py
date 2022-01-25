@@ -86,7 +86,7 @@ def train_and_evaluate_mp(args, python_path=''):
 
         [(p.start(), time.sleep(0.1)) for p in process]
         process[0].join()
-        process_safely_terminate(process)
+        safely_terminate_process(process)
     else:
         from subprocess import Popen
 
@@ -126,7 +126,7 @@ def get_python_path():  # useless
     return python_path
 
 
-def process_safely_terminate(process):
+def safely_terminate_process(process):
     for p in process:
         try:
             p.kill()
