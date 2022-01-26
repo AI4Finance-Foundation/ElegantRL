@@ -4,6 +4,8 @@ import time
 import numpy as np
 import torch
 
+from typing import Tuple
+
 
 class Evaluator:
     """
@@ -42,7 +44,7 @@ class Evaluator:
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> Tuple[bool, bool]:  # 2021-09-09
         """
         Evaluate and save the model.
 
@@ -151,7 +153,7 @@ class Evaluator:
 """private util"""
 
 
-def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2021.10.13]
+def get_episode_return_and_step(env, act) -> Tuple[float, int]:  # [ElegantRL.2021.10.13]
     """
     Evaluate the actor (policy) network on testing environment.
 

@@ -5,6 +5,7 @@ import torch
 
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import ActorBiConv, CriticBiConv, ShareBiConv
+from typing import Tuple
 
 
 class AgentStep1AC(AgentBase):
@@ -35,7 +36,7 @@ class AgentStep1AC(AgentBase):
         action = self.act.get_action(state.to(self.device), self.explore_noise)
         return action.detach().cpu()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> Tuple[float, float]:
         buffer.update_now_len()
 
         obj_actor = None
@@ -124,7 +125,7 @@ class AgentShareStep1AC(AgentBase):
         action = self.act.get_action(state.to(self.device), self.explore_noise)
         return action.detach().cpu()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> Tuple[float, float]:
         buffer.update_now_len()
 
         obj_critic = None

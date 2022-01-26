@@ -4,6 +4,8 @@ import time
 import numpy as np
 import torch
 
+from typing import Tuple
+
 
 class Evaluator:  # [ElegantRL.2022.01.01]
     def __init__(self, cwd, agent_id, eval_env, args):
@@ -28,7 +30,7 @@ class Evaluator:  # [ElegantRL.2022.01.01]
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_save_and_plot(self, act, steps, r_exp, log_tuple) -> (bool, bool):  # 2021-09-09
+    def evaluate_save_and_plot(self, act, steps, r_exp, log_tuple) -> Tuple[bool, bool]:  # 2021-09-09
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
@@ -112,7 +114,7 @@ class Evaluator:  # [ElegantRL.2022.01.01]
 """util"""
 
 
-def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2022.01.01]
+def get_episode_return_and_step(env, act) -> Tuple[float, int]:  # [ElegantRL.2022.01.01]
     max_step = env.max_step
     if_discrete = env.if_discrete
     device = next(act.parameters()).device  # net.parameters() is a Python generator.

@@ -1,5 +1,6 @@
 import os
 from copy import deepcopy
+from typing import Tuple
 
 from elegantrl_helloworld.net import *
 
@@ -661,7 +662,9 @@ class AgentPPO(AgentBase):
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), -obj_actor.item(), a_std_log.item()  # logging_tuple
 
-    def get_reward_sum_raw(self, buf_len, buf_reward, buf_mask, buf_value) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_raw(
+        self, buf_len, buf_reward, buf_mask, buf_value
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the **reward-to-go** and **advantage estimation**.
 
@@ -680,7 +683,9 @@ class AgentPPO(AgentBase):
         buf_adv_v = buf_r_sum - buf_value[:, 0]
         return buf_r_sum, buf_adv_v
 
-    def get_reward_sum_gae(self, buf_len, ten_reward, ten_mask, ten_value) -> (torch.Tensor, torch.Tensor):
+    def get_reward_sum_gae(
+        self, buf_len, ten_reward, ten_mask, ten_value
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the **reward-to-go** and **advantage estimation** using GAE.
 

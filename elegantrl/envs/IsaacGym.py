@@ -7,6 +7,7 @@ import torch  # import torch after import IsaacGym modules
 
 from elegantrl.envs.utils.config import set_seed, get_args, parse_sim_params, load_cfg
 from elegantrl.envs.utils.parse_task import parse_task
+from typing import Tuple
 
 dir((isaacgym, torch))
 """
@@ -108,7 +109,7 @@ class IsaacVecEnv:
     def reset(self) -> torch.Tensor:
         return self.env.reset()
 
-    def step(self, actions: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor, None):
+    def step(self, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, None]:
         return self.env.step(actions)
 
 
@@ -124,7 +125,7 @@ class IsaacOneEnv(IsaacVecEnv):
         ten_states = self.env.reset()
         return ten_states[0].detach().numpy()  # state
 
-    def step(self, action: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray, None):
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, None]:
         ten_action = torch.as_tensor(action, dtype=torch.float32).unsqueeze(0)
         ten_state, ten_reward, ten_done, info_dict = self.env.step(ten_action)
 

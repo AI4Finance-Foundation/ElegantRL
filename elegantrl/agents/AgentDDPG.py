@@ -4,6 +4,7 @@ import torch
 
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, Critic
+from typing import Tuple
 
 
 class AgentDDPG(AgentBase):
@@ -54,7 +55,7 @@ class AgentDDPG(AgentBase):
         Select actions given an array of states.
         
         .. note::
-            Using ϵ-greedy with Ornstein–Uhlenbeck noise to add noise to actions for randomness.
+            Using ϵ-greedy with Ornstein-Uhlenbeck noise to add noise to actions for randomness.
         
         :param states: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
@@ -65,7 +66,9 @@ class AgentDDPG(AgentBase):
             action = (action + ou_noise).clamp(-1, 1)
         return action.detach().cpu()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> (float, float):
+    def update_net(
+        self, buffer, batch_size, repeat_times, soft_update_tau
+    ) -> Tuple[float, float]:
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
         

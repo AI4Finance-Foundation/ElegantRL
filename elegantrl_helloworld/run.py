@@ -2,7 +2,7 @@ import time
 
 from elegantrl_helloworld.agent import *
 from elegantrl_helloworld.env import *
-
+from typing import Tuple
 
 class Arguments:
     """
@@ -207,7 +207,7 @@ def init_buffer(args, gpu_id):
 
 class Evaluator:
     """
-    An ``evaluator`` evaluates agent’s performance and saves models.
+    An ``evaluator`` evaluates agent's performance and saves models.
 
     :param cwd: directory path to save the model.
     :param agent_id: agent id.
@@ -236,7 +236,7 @@ class Evaluator:
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> (bool, bool):
+    def evaluate_and_save(self, act, steps, r_exp, log_tuple) -> Tuple[bool, bool]:
         """
         Evaluate and save the model.
 
@@ -292,7 +292,7 @@ class Evaluator:
         return if_reach_goal
 
 
-def get_episode_return_and_step(env, act) -> (float, int):
+def get_episode_return_and_step(env, act) -> Tuple[float, int]:
     """
     Evaluate the actor (policy) network on testing environment.
 
