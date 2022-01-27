@@ -123,7 +123,8 @@ def get_episode_return_and_step(env, act) -> Tuple[float, int]:  # [ElegantRL.20
     episode_step = None
     episode_return = 0.0  # sum of rewards in an episode
     for episode_step in range(max_step):
-        s_tensor = torch.as_tensor((state,), dtype=torch.float32, device=device)
+        row_state = np.reshape(state, (1, *state.shape))
+        s_tensor = torch.as_tensor(row_state, dtype=torch.float32, device=device)
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
