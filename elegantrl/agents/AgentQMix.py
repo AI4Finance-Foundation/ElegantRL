@@ -33,9 +33,6 @@ class AgentQMix:
         self.target_mixer = copy.deepcopy(self.mixer)
         self.params += list(self.mixer.parameters())
 
-        print('Mixer Size: ')
-        print(get_parameters_num(self.mixer.parameters()))
-
         if self.args.optimizer == 'adam':
             self.optimiser = Adam(params=self.params, lr=args.lr, weight_decay=getattr(args, "weight_decay", 0))
         else:
