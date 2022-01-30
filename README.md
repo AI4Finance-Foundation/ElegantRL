@@ -18,7 +18,7 @@
 [ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for researchers and practitioners with
 the following advantages:
 
-+ **Lightweight**: the core codes  <1,000 lines (check elegantrl/tutorial), using PyTorch (train), OpenAI Gym (env),
++ **Lightweight**: the core codes  <1,000 lines (check [elegantrl_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)), using PyTorch (train), OpenAI Gym (env),
   NumPy, Matplotlib (plot).
 
 + **Efficient**: in many testing cases, we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
