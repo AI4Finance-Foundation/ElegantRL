@@ -7,7 +7,7 @@ REDQ
 `Randomized Ensembled Double Q-Learning: Learning Fast Without a Model (REDQ) <https://arxiv.org/abs/2101.05982>`_ has 
 three carefully integrated ingredients which allow it to achieve its high performance:  
 
--  updata-to-date (UTD) ratio >> 1.
+-  update-to-date (UTD) ratio >> 1.
 -  an ensemble of Q functions.
 -  in-target minimization across a random subset of Q functions from the ensemble.
 
