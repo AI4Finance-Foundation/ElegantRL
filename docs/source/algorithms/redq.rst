@@ -9,7 +9,7 @@ three carefully integrated ingredients which allow it to achieve its high perfor
 
 -  update-to-date (UTD) ratio >> 1.
 -  an ensemble of Q functions.
--  in-target minimization across a random subset of Q functions from the ensemble.
+-  in-target minimization across a random subset of Q functions.
 
 This implementation is based on SAC.
 
