@@ -1,5 +1,6 @@
 import os
 from copy import deepcopy
+from pprint import pprint
 
 import numpy as np
 import torch
@@ -92,6 +93,9 @@ class Arguments:
         name = self.agent.__name__
         return all((name.find('PPO') == -1, name.find('A2C') == -1))  # if_off_policy
 
+    def print(self):
+        # prints out args in a neat, readable format
+        pprint(vars(self))
 
 '''config for env(simulator)'''
 
