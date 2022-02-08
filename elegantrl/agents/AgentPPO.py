@@ -6,7 +6,7 @@ from elegantrl.agents.net import ActorDiscretePPO, SharePPO
 from elegantrl.agents.net import ActorPPO, CriticPPO
 from typing import Tuple
 
-'''[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
+"""[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)"""
 
 
 class AgentPPO(AgentBase):
@@ -34,19 +34,39 @@ class AgentPPO(AgentBase):
         self.lambda_entropy = 0.02  # could be 0.00~0.10
         self.lambda_a_value = 1.00  # could be 0.25~8.00, the lambda of advantage value
         self.lambda_gae_adv = 0.98  # could be 0.95~0.99, GAE (Generalized Advantage Estimation. ICLR.2016.)
-        self.get_reward_sum = None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
+        self.get_reward_sum = (
+            None  # self.get_reward_sum_gae if if_use_gae else self.get_reward_sum_raw
+        )
         self.if_use_old_traj = True
         self.traj_list = None
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
         """
-        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
-                       reward_scale=reward_scale, gamma=gamma,
-                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
-                       env_num=env_num, gpu_id=gpu_id, )
+        AgentBase.init(
+            self,
+            net_dim=net_dim,
+            state_dim=state_dim,
+            action_dim=action_dim,
+            reward_scale=reward_scale,
+            gamma=gamma,
+            learning_rate=learning_rate,
+            if_per_or_gae=if_per_or_gae,
+            env_num=env_num,
+            gpu_id=gpu_id,
+        )
 
         self.traj_list = [[[] for _ in range(5)] for _ in range(env_num)]
 
@@ -85,13 +105,15 @@ class AgentPPO(AgentBase):
 
         state = self.states[0]
 
-        '''get traj_list and last_done'''
+        """get traj_list and last_done"""
         step = 0
         done = False
         last_done = 0
         while step < target_step or not done:
             ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a, ten_n = [ten.cpu() for ten in self.act.get_action(ten_s.to(self.device))]
+            ten_a, ten_n = [
+                ten.cpu() for ten in self.act.get_action(ten_s.to(self.device))
+            ]
             next_s, reward, done, _ = env.step(np.tanh(ten_a[0].numpy()))
 
             traj_list.append((ten_s, reward, done, ten_a, ten_n))
@@ -109,16 +131,22 @@ class AgentPPO(AgentBase):
         # assert len(traj_list[0]) == 5
         # assert len(traj_list[0][0]) == self.env_num
 
-        '''convert traj_list -> buf_srdan'''
-        buf_srdan = list(map(list, zip(*traj_list)))  # srdan: state, reward, done, action, noise
+        """convert traj_list -> buf_srdan"""
+        buf_srdan = list(
+            map(list, zip(*traj_list))
+        )  # srdan: state, reward, done, action, noise
         del traj_list
         # assert len(buf_srdan) == 5
         # assert len(buf_srdan[0]) == step
         # assert len(buf_srdan[0][0]) == self.env_num
         buf_srdan = [
             torch.stack(buf_srdan[0]),
-            (torch.tensor(buf_srdan[1], dtype=torch.float32) * self.reward_scale).unsqueeze(0).unsqueeze(1),
-            ((1 - torch.tensor(buf_srdan[2], dtype=torch.float32)) * self.gamma).unsqueeze(0).unsqueeze(1),
+            (torch.tensor(buf_srdan[1], dtype=torch.float32) * self.reward_scale)
+            .unsqueeze(0)
+            .unsqueeze(1),
+            ((1 - torch.tensor(buf_srdan[2], dtype=torch.float32)) * self.gamma)
+            .unsqueeze(0)
+            .unsqueeze(1),
             torch.stack(buf_srdan[3]),
             torch.stack(buf_srdan[4]),
         ]
@@ -143,7 +171,9 @@ class AgentPPO(AgentBase):
             ten_a, ten_n = self.act.get_action(ten_s)
             ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a.tanh())
 
-            traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a, ten_n))
+            traj_list.append(
+                (ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a, ten_n)
+            )
 
             ten_s = ten_s_next
 
@@ -186,17 +216,25 @@ class AgentPPO(AgentBase):
         :return: a tuple of the log information.
         """
         with torch.no_grad():
-            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
+            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [
+                ten.to(self.device) for ten in buffer
+            ]
             buf_len = buf_state.shape[0]
 
-            '''get buf_r_sum, buf_logprob'''
-            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-            buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
+            """get buf_r_sum, buf_logprob"""
+            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [
+                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+            ]
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / (buf_adv_v.std() + 1e-5))
+            buf_r_sum, buf_adv_v = self.get_reward_sum(
+                buf_len, buf_reward, buf_mask, buf_value
+            )  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (
+                self.lambda_a_value / (buf_adv_v.std() + 1e-5)
+            )
             # buf_adv_v: buffer data of adv_v value
             del buf_noise
 
@@ -206,7 +244,9 @@ class AgentPPO(AgentBase):
         assert buf_len >= batch_size
         update_times = int(buf_len / batch_size * repeat_times)
         for _ in range(1, update_times + 1):
-            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+            indices = torch.randint(
+                buf_len, size=(batch_size,), requires_grad=False, device=self.device
+            )
 
             state = buf_state[indices]
             r_sum = buf_r_sum[indices]
@@ -214,8 +254,10 @@ class AgentPPO(AgentBase):
             action = buf_action[indices]
             logprob = buf_logprob[indices]
 
-            '''PPO: Surrogate objective of Trust Region'''
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
+            """PPO: Surrogate objective of Trust Region"""
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(
+                state, action
+            )  # it is obj_actor
             ratio = (new_logprob - logprob.detach()).exp()
             surrogate1 = adv_v * ratio
             surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
@@ -223,12 +265,14 @@ class AgentPPO(AgentBase):
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
             self.optim_update(self.act_optim, obj_actor)
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state).squeeze(
+                1
+            )  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum)
             self.optim_update(self.cri_optim, obj_critic / (r_sum.std() + 1e-6))
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
-        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
     def get_reward_sum_raw(
@@ -243,7 +287,9 @@ class AgentPPO(AgentBase):
         :param buf_value: a list of state values estimiated by the ``Critic`` network.
         :return: the reward-to-go and advantage estimation.
         """
-        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
+        buf_r_sum = torch.empty(
+            buf_len, dtype=torch.float32, device=self.device
+        )  # reward sum
 
         pre_r_sum = 0
         for i in range(buf_len - 1, -1, -1):
@@ -264,8 +310,12 @@ class AgentPPO(AgentBase):
         :param ten_value: a list of state values estimated by the ``Critic`` network.
         :return: the reward-to-go and advantage estimation.
         """
-        buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # old policy value
-        buf_adv_v = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # advantage value
+        buf_r_sum = torch.empty(
+            buf_len, dtype=torch.float32, device=self.device
+        )  # old policy value
+        buf_adv_v = torch.empty(
+            buf_len, dtype=torch.float32, device=self.device
+        )  # advantage value
 
         pre_r_sum = 0
         pre_adv_v = 0  # advantage value of previous step
@@ -300,13 +350,15 @@ class AgentPPO(AgentBase):
 
         # print(';;;3', last_done.sum().item() / self.env_num, out_srdan[0].shape[0] / self.env_num)
         # print(';;;4', out_srdan[1][-4:, -3:])
-        return [out_srdan, ]  # = [states, rewards, dones, actions, noises], len(states) == traj_len
+        return [
+            out_srdan,
+        ]  # = [states, rewards, dones, actions, noises], len(states) == traj_len
 
 
 class AgentDiscretePPO(AgentPPO):
     """
     Bases: ``AgentPPO``
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -336,8 +388,12 @@ class AgentDiscretePPO(AgentPPO):
         step = 0
         done = False
         while step < target_step or not done:
-            ten_states = torch.as_tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
-            ten_actions, ten_noises = self.act.get_action(ten_states)  # ten_a_ints, ten_probs
+            ten_states = torch.as_tensor(
+                state, dtype=torch.float32, device=self.device
+            ).unsqueeze(0)
+            ten_actions, ten_noises = self.act.get_action(
+                ten_states
+            )  # ten_a_ints, ten_probs
             action = ten_actions.cpu().numpy()[0]
             # next_s, reward, done, _ = env.step(np.tanh(action))
             next_s, reward, done, _ = env.step(action)  # only different
@@ -354,7 +410,14 @@ class AgentDiscretePPO(AgentPPO):
 
         self.states[0] = state
 
-        traj_list = self.splice_trajectory([traj, ], [last_done, ])
+        traj_list = self.splice_trajectory(
+            [
+                traj,
+            ],
+            [
+                last_done,
+            ],
+        )
         return self.convert_trajectory(traj_list)  # [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step):
@@ -373,15 +436,28 @@ class AgentDiscretePPO(AgentPPO):
         last_done_list = [0 for _ in range(env_num)]
 
         step = 0
-        ten_dones = [False, ] * self.env_num
+        ten_dones = [
+            False,
+        ] * self.env_num
         while step < target_step and not any(ten_dones):
-            ten_actions, ten_noises = self.act.get_action(ten_states)  # ten_a_ints, ten_probs
+            ten_actions, ten_noises = self.act.get_action(
+                ten_states
+            )  # ten_a_ints, ten_probs
             # tem_next_states, ten_rewards, ten_dones, _ = env.step(ten_actions.tanh())
-            tem_next_states, ten_rewards, ten_dones, _ = env.step(ten_actions)  # only different
+            tem_next_states, ten_rewards, ten_dones, _ = env.step(
+                ten_actions
+            )  # only different
 
             for env_i in range(env_num):
-                traj_list[env_i].append((ten_states[env_i], ten_rewards[env_i], ten_dones[env_i],
-                                         ten_actions[env_i], ten_noises[env_i]))
+                traj_list[env_i].append(
+                    (
+                        ten_states[env_i],
+                        ten_rewards[env_i],
+                        ten_dones[env_i],
+                        ten_actions[env_i],
+                        ten_noises[env_i],
+                    )
+                )
                 if ten_dones[env_i]:
                     last_done_list[env_i] = step
             ten_states = tem_next_states
@@ -398,9 +474,21 @@ class AgentSharePPO(AgentPPO):  # [plan to]
         AgentPPO.__init__(self)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        self.device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
+        self.device = torch.device(
+            f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
+        )
         if if_per_or_gae:
             self.get_reward_sum = self.get_reward_sum_gae
         else:
@@ -408,35 +496,56 @@ class AgentSharePPO(AgentPPO):  # [plan to]
 
         self.act = self.cri = SharePPO(state_dim, action_dim, net_dim).to(self.device)
 
-        self.cri_optim = torch.optim.Adam([
-            {'params': self.act.enc_s.parameters(), 'lr': learning_rate * 0.9},
-            {'params': self.act.dec_a.parameters(), },
-            {'params': self.act.a_std_log, },
-            {'params': self.act.dec_q1.parameters(), },
-            {'params': self.act.dec_q2.parameters(), },
-        ], lr=learning_rate)
+        self.cri_optim = torch.optim.Adam(
+            [
+                {"params": self.act.enc_s.parameters(), "lr": learning_rate * 0.9},
+                {
+                    "params": self.act.dec_a.parameters(),
+                },
+                {
+                    "params": self.act.a_std_log,
+                },
+                {
+                    "params": self.act.dec_q1.parameters(),
+                },
+                {
+                    "params": self.act.dec_q2.parameters(),
+                },
+            ],
+            lr=learning_rate,
+        )
         self.criterion = torch.nn.SmoothL1Loss()
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
-            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [ten.to(self.device) for ten in buffer]
+            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [
+                ten.to(self.device) for ten in buffer
+            ]
             # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
 
-            '''get buf_r_sum, buf_logprob'''
-            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-            buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
+            """get buf_r_sum, buf_logprob"""
+            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [
+                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+            ]
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / torch.std(buf_adv_v) + 1e-5)
+            buf_r_sum, buf_adv_v = self.get_reward_sum(
+                buf_len, buf_reward, buf_mask, buf_value
+            )  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (
+                self.lambda_a_value / torch.std(buf_adv_v) + 1e-5
+            )
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
         obj_critic = obj_actor = None
         for _ in range(int(buf_len / batch_size * repeat_times)):
-            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+            indices = torch.randint(
+                buf_len, size=(batch_size,), requires_grad=False, device=self.device
+            )
 
             state = buf_state[indices]
             r_sum = buf_r_sum[indices]
@@ -444,7 +553,7 @@ class AgentSharePPO(AgentPPO):  # [plan to]
             action = buf_action[indices]
             logprob = buf_logprob[indices]
 
-            '''PPO: Surrogate objective of Trust Region'''
+            """PPO: Surrogate objective of Trust Region"""
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
             # it is obj_actor  # todo net.py sharePPO
             ratio = (new_logprob - logprob.detach()).exp()
@@ -453,7 +562,9 @@ class AgentSharePPO(AgentPPO):  # [plan to]
             obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state).squeeze(
+                1
+            )  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
 
             obj_united = obj_critic + obj_actor
@@ -461,5 +572,5 @@ class AgentSharePPO(AgentPPO):  # [plan to]
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple

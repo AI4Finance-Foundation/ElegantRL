@@ -7,9 +7,9 @@ from elegantrl.agents.net import Actor, CriticTwin
 class AgentTD3(AgentBase):
     """
     Bases: ``AgentBase``
-    
-    Twin Delayed MADDPG algorithm. 
-    
+
+    Twin Delayed MADDPG algorithm.
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -28,32 +28,55 @@ class AgentTD3(AgentBase):
         self.if_use_cri_target = True
         self.if_use_act_target = True
 
-    def init(self, net_dim, state_dim, action_dim, learning_rate=1e-4, marl=True, n_agents=1, if_use_per=False,
-             env_num=1, agent_id=0):
+    def init(
+        self,
+        net_dim,
+        state_dim,
+        action_dim,
+        learning_rate=1e-4,
+        marl=True,
+        n_agents=1,
+        if_use_per=False,
+        env_num=1,
+        agent_id=0,
+    ):
         self.agents = [AgentDDPG() for i in range(n_agents)]
         self.explore_env = self.explore_one_env
         self.if_off_policy = True
         self.n_agents = n_agents
         for i in range(self.n_agents):
             self.agents[i].cri = CriticTwin
-            self.agents[i].init(net_dim, state_dim, action_dim, learning_rate=1e-4, marl=True, n_agents=self.n_agents,
-                                if_use_per=False, env_num=1, agent_id=0)
+            self.agents[i].init(
+                net_dim,
+                state_dim,
+                action_dim,
+                learning_rate=1e-4,
+                marl=True,
+                n_agents=self.n_agents,
+                if_use_per=False,
+                env_num=1,
+                agent_id=0,
+            )
         self.n_states = state_dim
         self.n_actions = action_dim
 
         self.batch_size = net_dim
         self.gamma = 0.95
         self.update_tau = 0
-        self.device = torch.device(f"cuda:{agent_id}" if (torch.cuda.is_available() and (agent_id >= 0)) else "cpu")
+        self.device = torch.device(
+            f"cuda:{agent_id}"
+            if (torch.cuda.is_available() and (agent_id >= 0))
+            else "cpu"
+        )
 
     def update_agent(self, rewards, dones, actions, observations, next_obs, index):
         """
         Update the single agent neural networks, called by update_net.
-        
-        :param rewards: reward list of the sampled buffer 
-        :param dones: done list of the sampled buffer 
-        :param actions: action list of the sampled buffer 
-        :param observations: observation list of the sampled buffer 
+
+        :param rewards: reward list of the sampled buffer
+        :param dones: done list of the sampled buffer
+        :param actions: action list of the sampled buffer
+        :param observations: observation list of the sampled buffer
         :param next_obs: next_observation list of the sample buffer
         :param index: ID of the agent
         :return Nonetype
@@ -67,16 +90,22 @@ class AgentTD3(AgentBase):
             if i != index:
                 action = self.agents[i].act_target(next_obs[:, i])
                 all_target_actions.append(action)
-        action_target_all = torch.cat(all_target_actions, dim=1).to(self.device).reshape(actions.shape[0],
-                                                                                         actions.shape[1] *
-                                                                                         actions.shape[2])
+        action_target_all = (
+            torch.cat(all_target_actions, dim=1)
+            .to(self.device)
+            .reshape(actions.shape[0], actions.shape[1] * actions.shape[2])
+        )
 
         target_value = rewards[:, index] + self.gamma * curr_agent.cri_target(
             next_obs.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]),
-            action_target_all).detach().squeeze(dim=1)
-        actual_value = curr_agent.cri(observations.reshape(next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]),
-                                      actions.reshape(actions.shape[0], actions.shape[1] * actions.shape[2])).squeeze(
-            dim=1)
+            action_target_all,
+        ).detach().squeeze(dim=1)
+        actual_value = curr_agent.cri(
+            observations.reshape(
+                next_obs.shape[0], next_obs.shape[1] * next_obs.shape[2]
+            ),
+            actions.reshape(actions.shape[0], actions.shape[1] * actions.shape[2]),
+        ).squeeze(dim=1)
         vf_loss = curr_agent.loss_td(actual_value, target_value.detach())
         curr_agent.act_optim.zero_grad()
         curr_pol_out = curr_agent.act(observations[:, index])
@@ -89,9 +118,15 @@ class AgentTD3(AgentBase):
                 all_pol_acs.append(actions[:, i])
 
         pol_loss = -torch.mean(
-            curr_agent.cri(observations.reshape(observations.shape[0], observations.shape[1] * observations.shape[2]),
-                           torch.cat(all_pol_acs, dim=1).to(self.device).reshape(actions.shape[0],
-                                                                                 actions.shape[1] * actions.shape[2])))
+            curr_agent.cri(
+                observations.reshape(
+                    observations.shape[0], observations.shape[1] * observations.shape[2]
+                ),
+                torch.cat(all_pol_acs, dim=1)
+                .to(self.device)
+                .reshape(actions.shape[0], actions.shape[1] * actions.shape[2]),
+            )
+        )
 
         curr_agent.act_optim.zero_grad()
         pol_loss.backward()
@@ -103,7 +138,7 @@ class AgentTD3(AgentBase):
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param repeat_times: the re-using times of each trajectory.
@@ -113,7 +148,9 @@ class AgentTD3(AgentBase):
         buffer.update_now_len()
         self.batch_size = batch_size
         self.update_tau = soft_update_tau
-        rewards, dones, actions, observations, next_obs = buffer.sample_batch(self.batch_size)
+        rewards, dones, actions, observations, next_obs = buffer.sample_batch(
+            self.batch_size
+        )
         for index in range(self.n_agents):
             self.update_agent(rewards, dones, actions, observations, next_obs, index)
         for agent in self.agents:
@@ -125,7 +162,7 @@ class AgentTD3(AgentBase):
     def explore_one_env(self, env, target_step) -> list:
         """
         Exploring the environment for target_step.
-        
+
         param env: the Environment instance to be explored.
         param target_step: target steps to explore.
         """
@@ -168,4 +205,4 @@ class AgentTD3(AgentBase):
         :param if_save: True: save files. False: load files.
         """
         for i in range(self.n_agents):
-            self.agents[i].save_or_load_agent(cwd + '/' + str(i), if_save)
+            self.agents[i].save_or_load_agent(cwd + "/" + str(i), if_save)

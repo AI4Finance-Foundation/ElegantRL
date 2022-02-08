@@ -10,9 +10,9 @@ from typing import Tuple
 class AgentDDPG(AgentBase):
     """
     Bases: ``AgentBase``
-    
+
     Deep Deterministic Policy Gradient algorithm. “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -32,37 +32,63 @@ class AgentDDPG(AgentBase):
         self.explore_noise = 0.3  # explore noise of action (OrnsteinUhlenbeckNoise)
         self.ou_noise = None
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
         """
-        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing. 
+        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
         """
-        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
-                       reward_scale=reward_scale, gamma=gamma,
-                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
-                       env_num=env_num, gpu_id=gpu_id, )
-        self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise)
+        AgentBase.init(
+            self,
+            net_dim=net_dim,
+            state_dim=state_dim,
+            action_dim=action_dim,
+            reward_scale=reward_scale,
+            gamma=gamma,
+            learning_rate=learning_rate,
+            if_per_or_gae=if_per_or_gae,
+            env_num=env_num,
+            gpu_id=gpu_id,
+        )
+        self.ou_noise = OrnsteinUhlenbeckNoise(
+            size=action_dim, sigma=self.explore_noise
+        )
 
         if if_per_or_gae:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(
+                reduction="none" if if_per_or_gae else "mean"
+            )
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none' if if_per_or_gae else 'mean')
+            self.criterion = torch.nn.SmoothL1Loss(
+                reduction="none" if if_per_or_gae else "mean"
+            )
             self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, states: torch.Tensor) -> torch.Tensor:
         """
         Select actions given an array of states.
-        
+
         .. note::
             Using ϵ-greedy with Ornstein-Uhlenbeck noise to add noise to actions for randomness.
-        
+
         :param states: an array of states in a shape (batch_size, state_dim, ).
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         action = self.act(states.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            ou_noise = torch.as_tensor(self.ou_noise(), dtype=torch.float32, device=self.device).unsqueeze(0)
+            ou_noise = torch.as_tensor(
+                self.ou_noise(), dtype=torch.float32, device=self.device
+            ).unsqueeze(0)
             action = (action + ou_noise).clamp(-1, 1)
         return action.detach().cpu()
 
@@ -71,7 +97,7 @@ class AgentDDPG(AgentBase):
     ) -> Tuple[float, float]:
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param repeat_times: the re-using times of each trajectory.
@@ -98,7 +124,7 @@ class AgentDDPG(AgentBase):
     def get_obj_critic_raw(self, buffer, batch_size):
         """
         Calculate the loss of networks with **uniform sampling**.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :return: the loss of the network and states.
@@ -114,18 +140,22 @@ class AgentDDPG(AgentBase):
     def get_obj_critic_per(self, buffer, batch_size):
         """
         Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :return: the loss of the network and states.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
             next_q = self.cri_target(next_s, self.act_target(next_s))
             q_label = reward + mask * next_q
 
         q_value = self.cri(state, action)
-        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        td_error = self.criterion(
+            q_value, q_label
+        )  # or td_error = (q_value - q_label).abs()
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())

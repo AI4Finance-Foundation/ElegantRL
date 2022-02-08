@@ -4,9 +4,9 @@ from elegantrl.agents.AgentBase import AgentBase
 class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     """
     Bases: ``AgentBase``
-    
+
     Randomized Ensemble Double Q-learning algorithm. “Randomized Ensembled Double Q-Learning: Learning Fast Without A Model”. Xinyue Chen et al.. 2021.
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -33,8 +33,21 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         self.target_entropy = None
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99, learning_rate=3e-4,
-             if_per_or_gae=False, env_num=1, gpu_id=0, G=20, M=2, N=10):
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=3e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+        G=20,
+        M=2,
+        N=10,
+    ):
         self.gamma = gamma
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -43,18 +56,28 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         self.G = G
         self.M = M
         self.N = N
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-        self.cri_list = [self.ClassCri(net_dim, state_dim, action_dim).to(self.device) for i in range(self.N)]
+        self.device = torch.device(
+            f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu"
+        )
+        self.cri_list = [
+            self.ClassCri(net_dim, state_dim, action_dim).to(self.device)
+            for i in range(self.N)
+        ]
         self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device)
         self.cri_target_list = [deepcopy(self.cri_list[i]) for i in range(N)]
-        self.cri_optim_list = [torch.optim.Adam(self.cri_list[i].parameters(), learning_rate) for i in range(self.N)]
+        self.cri_optim_list = [
+            torch.optim.Adam(self.cri_list[i].parameters(), learning_rate)
+            for i in range(self.N)
+        ]
         self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate)
         assert isinstance(if_per_or_gae, bool)
         if env_num == 1:
             self.explore_env = self.explore_one_env
         else:
             self.explore_env = self.explore_vec_env
-        self.alpha_log = torch.zeros(1, requires_grad=True, device=self.device)  # trainable parameter
+        self.alpha_log = torch.zeros(
+            1, requires_grad=True, device=self.device
+        )  # trainable parameter
         self.alpha_optim = torch.optim.Adam([self.alpha_log], lr=learning_rate)
         self.target_entropy = np.log(action_dim)
         self.criterion = torch.nn.MSELoss()
@@ -62,7 +85,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     def get_obj_critic_raw(self, buffer, batch_size, alpha):
         """
         Calculate the loss of networks with **uniform sampling**.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param alpha: the trade-off coefficient of entropy regularization.
@@ -70,14 +93,16 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         """
         with torch.no_grad():
             batch = buffer.sample_batch(batch_size)
-            state = torch.Tensor(batch['obs1']).to(self.device)
-            next_s = torch.Tensor(batch['obs2']).to(self.device)
-            action = torch.Tensor(batch['acts']).to(self.device)
-            reward = torch.Tensor(batch['rews']).unsqueeze(1).to(self.device)
-            mask = torch.Tensor(batch['done']).unsqueeze(1).to(self.device)
+            state = torch.Tensor(batch["obs1"]).to(self.device)
+            next_s = torch.Tensor(batch["obs2"]).to(self.device)
+            action = torch.Tensor(batch["acts"]).to(self.device)
+            reward = torch.Tensor(batch["rews"]).unsqueeze(1).to(self.device)
+            mask = torch.Tensor(batch["done"]).unsqueeze(1).to(self.device)
             # state, next_s, actions, reward, mask = buffer.sample_batch(batch_size)
             # print(batch_size,reward.shape,mask.shape,action.shape, state.shape, next_s.shape)
-            next_a, next_log_prob = self.act.get_action_logprob(next_s)  # stochastic policy
+            next_a, next_log_prob = self.act.get_action_logprob(
+                next_s
+            )  # stochastic policy
             g = torch.Generator()
             g.manual_seed(torch.randint(high=10000000, size=(1,))[0].item())
             a = torch.randperm(self.N, generator=g)
@@ -88,7 +113,9 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
             min_q, min_indices = torch.min(q_prediction_next_cat, dim=1, keepdim=True)
             next_q_with_log_prob = min_q - alpha * next_log_prob
             y_q = reward + (1 - mask) * self.gamma * next_q_with_log_prob
-        q_values = [self.cri_list[j](state, action) for j in range(self.N)]  # todo ensemble
+        q_values = [
+            self.cri_list[j](state, action) for j in range(self.N)
+        ]  # todo ensemble
         q_values_cat = torch.cat(q_values, dim=1)
         y_q = y_q.expand(-1, self.N) if y_q.shape[1] == 1 else y_q
         obj_critic = self.criterion(q_values_cat, y_q) * self.N
@@ -117,7 +144,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         # buffer.update_now_len()
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param soft_update_tau: the soft update parameter.
@@ -125,15 +152,17 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         """
         for i in range(self.G):
             alpha = self.alpha_log.cpu().exp().item()
-            '''objective of critic (loss function of critic)'''
+            """objective of critic (loss function of critic)"""
             obj_critic, state = self.get_obj_critic(buffer, batch_size, alpha)
             # self.y_q, self.state,self.action = self.get_obj_critic(buffer, batch_size, alpha)
             for q_i in range(self.N):
                 self.cri_optim_list[q_i].zero_grad()
             obj_critic.backward()
             if ((i + 1) % self.G == 0) or i == self.G - 1:
-                a_noise_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-                '''objective of alpha (temperature parameter automatic adjustment)'''
+                a_noise_pg, logprob = self.act.get_action_logprob(
+                    state
+                )  # policy gradient
+                """objective of alpha (temperature parameter automatic adjustment)"""
                 cri_tmp = []
                 for j in range(self.N):
                     self.cri_list[j].requires_grad_(False)
@@ -152,5 +181,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
             if ((i + 1) % self.G == 0) or i == self.G - 1:
                 self.act_optim.step()
             for q_i in range(self.N):
-                self.soft_update(self.cri_target_list[q_i], self.cri_list[q_i], soft_update_tau)
+                self.soft_update(
+                    self.cri_target_list[q_i], self.cri_list[q_i], soft_update_tau
+                )
         return obj_actor, alpha

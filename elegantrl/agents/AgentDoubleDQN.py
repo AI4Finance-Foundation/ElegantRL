@@ -9,9 +9,9 @@ from typing import Tuple
 class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     """
     Bases: ``AgentDQN``
-    
+
     Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. H. V. Hasselt et al.. 2015.
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -26,10 +26,12 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
         self.ClassCri = QNetTwin
         self.soft_max = torch.nn.Softmax(dim=1)
 
-    def select_actions(self, states: torch.Tensor) -> torch.Tensor:  # for discrete action space
+    def select_actions(
+        self, states: torch.Tensor
+    ) -> torch.Tensor:  # for discrete action space
         """
         Select discrete actions given an array of states.
-        
+
         .. note::
             Using ϵ-greedy to select uniformly random actions for exploration.
 
@@ -45,17 +47,21 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
             a_ints = actions.argmax(dim=1)
         return a_ints.detach().cpu()
 
-    def get_obj_critic_raw(self, buffer, batch_size) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_obj_critic_raw(
+        self, buffer, batch_size
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the loss of the network and predict Q values with **uniform sampling**.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(
+                dim=1, keepdim=True
+            )[0]
             q_label = reward + mask * next_q
 
         q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
@@ -65,14 +71,18 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     def get_obj_critic_per(self, buffer, batch_size):
         """
         Calculate the loss of the network and predict Q values with **Prioritized Experience Replay (PER)**.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(
+                dim=1, keepdim=True
+            )[0]
             q_label = reward + mask * next_q
 
         q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]

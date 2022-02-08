@@ -15,20 +15,38 @@ class AgentStep1AC(AgentBase):
         self.ClassCri = CriticBiConv
         self.if_use_cri_target = False
         self.if_use_act_target = False
-        self.explore_noise = 2 ** -8
+        self.explore_noise = 2**-8
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
-                       reward_scale=reward_scale, gamma=gamma,
-                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
-                       env_num=env_num, gpu_id=gpu_id, )
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
+        AgentBase.init(
+            self,
+            net_dim=net_dim,
+            state_dim=state_dim,
+            action_dim=action_dim,
+            reward_scale=reward_scale,
+            gamma=gamma,
+            learning_rate=learning_rate,
+            if_per_or_gae=if_per_or_gae,
+            env_num=env_num,
+            gpu_id=gpu_id,
+        )
         if if_per_or_gae:  # if_use_per
-            self.criterion = torch.nn.MSELoss(reduction='none')
+            self.criterion = torch.nn.MSELoss(reduction="none")
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.MSELoss(reduction='mean')
+            self.criterion = torch.nn.MSELoss(reduction="mean")
             self.get_obj_critic = self.get_obj_critic_raw
         self.get_obj_critic = self.get_obj_critic_raw
 
@@ -36,21 +54,25 @@ class AgentStep1AC(AgentBase):
         action = self.act.get_action(state.to(self.device), self.explore_noise)
         return action.detach().cpu()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> Tuple[float, float]:
+    def update_net(
+        self, buffer, batch_size, repeat_times, soft_update_tau
+    ) -> Tuple[float, float]:
         buffer.update_now_len()
 
         obj_actor = None
         update_a = 0
         for update_c in range(1, int(buffer.now_len / batch_size * repeat_times)):
-            '''objective of critic (loss function of critic)'''
+            """objective of critic (loss function of critic)"""
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
-            self.obj_critic = 0.99 * self.obj_critic + 0.01 * obj_critic.item()  # for reliable_lambda
+            self.obj_critic = (
+                0.99 * self.obj_critic + 0.01 * obj_critic.item()
+            )  # for reliable_lambda
             self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
-            reliable_lambda = np.exp(-self.obj_critic ** 2)  # for reliable_lambda
+            """objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)"""
+            reliable_lambda = np.exp(-self.obj_critic**2)  # for reliable_lambda
             if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
             if if_update_a:  # auto TTUR
                 update_a += 1
@@ -74,10 +96,14 @@ class AgentStep1AC(AgentBase):
     def get_obj_critic_per(self, buffer, batch_size):
         with torch.no_grad():
             # reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            q_label, action, state, is_weights = buffer.sample_batch_one_step(batch_size)
+            q_label, action, state, is_weights = buffer.sample_batch_one_step(
+                batch_size
+            )
 
         q_value = self.cri(state, action)
-        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        td_error = self.criterion(
+            q_value, q_label
+        )  # or td_error = (q_value - q_label).abs()
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())
@@ -93,51 +119,84 @@ class AgentShareStep1AC(AgentBase):
         self.if_use_act_target = True
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
-        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
-                       reward_scale=reward_scale, gamma=gamma,
-                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
-                       env_num=env_num, gpu_id=gpu_id, )
-        self.act = self.cri = self.ClassAct(net_dim, state_dim, action_dim).to(self.device)
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
+        AgentBase.init(
+            self,
+            net_dim=net_dim,
+            state_dim=state_dim,
+            action_dim=action_dim,
+            reward_scale=reward_scale,
+            gamma=gamma,
+            learning_rate=learning_rate,
+            if_per_or_gae=if_per_or_gae,
+            env_num=env_num,
+            gpu_id=gpu_id,
+        )
+        self.act = self.cri = self.ClassAct(net_dim, state_dim, action_dim).to(
+            self.device
+        )
         if self.if_use_act_target:
             self.act_target = self.cri_target = deepcopy(self.act)
         else:
             self.act_target = self.cri_target = self.act
 
         self.cri_optim = torch.optim.Adam(
-            [{'params': self.act.enc_s.parameters(), 'lr': learning_rate * 1.25},
-             {'params': self.act.enc_a.parameters(), },
-             {'params': self.act.mid_n.parameters(), 'lr': learning_rate * 1.25},
-             {'params': self.act.dec_a.parameters(), },
-             {'params': self.act.dec_q.parameters(), },
-             ], lr=learning_rate)
+            [
+                {"params": self.act.enc_s.parameters(), "lr": learning_rate * 1.25},
+                {
+                    "params": self.act.enc_a.parameters(),
+                },
+                {"params": self.act.mid_n.parameters(), "lr": learning_rate * 1.25},
+                {
+                    "params": self.act.dec_a.parameters(),
+                },
+                {
+                    "params": self.act.dec_q.parameters(),
+                },
+            ],
+            lr=learning_rate,
+        )
         self.act_optim = self.cri_optim
 
         if if_per_or_gae:  # if_use_per
-            self.criterion = torch.nn.MSELoss(reduction='none')
+            self.criterion = torch.nn.MSELoss(reduction="none")
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.MSELoss(reduction='mean')
+            self.criterion = torch.nn.MSELoss(reduction="mean")
             self.get_obj_critic = self.get_obj_critic_raw
 
     def select_actions(self, state: torch.Tensor) -> torch.Tensor:
         action = self.act.get_action(state.to(self.device), self.explore_noise)
         return action.detach().cpu()
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> Tuple[float, float]:
+    def update_net(
+        self, buffer, batch_size, repeat_times, soft_update_tau
+    ) -> Tuple[float, float]:
         buffer.update_now_len()
 
         obj_critic = None
         obj_actor = None
         update_a = 0
         for update_c in range(1, int(buffer.now_len / batch_size * repeat_times)):
-            '''objective of critic'''
+            """objective of critic"""
             obj_critic, state = self.get_obj_critic(buffer, batch_size)
-            self.obj_critic = 0.995 * self.obj_critic + 0.005 * obj_critic.item()  # for reliable_lambda
-            reliable_lambda = np.exp(-self.obj_critic ** 2)  # for reliable_lambda
+            self.obj_critic = (
+                0.995 * self.obj_critic + 0.005 * obj_critic.item()
+            )  # for reliable_lambda
+            reliable_lambda = np.exp(-self.obj_critic**2)  # for reliable_lambda
 
-            '''objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)'''
+            """objective of actor using reliable_lambda and TTUR (Two Time-scales Update Rule)"""
             if_update_a = update_a / update_c < 1 / (2 - reliable_lambda)
             if if_update_a:  # auto TTUR
                 update_a += 1
@@ -167,10 +226,14 @@ class AgentShareStep1AC(AgentBase):
     def get_obj_critic_per(self, buffer, batch_size):
         with torch.no_grad():
             # reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            q_label, action, state, is_weights = buffer.sample_batch_one_step(batch_size)
+            q_label, action, state, is_weights = buffer.sample_batch_one_step(
+                batch_size
+            )
 
         q_value = self.act.critic(state, action)
-        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        td_error = self.criterion(
+            q_value, q_label
+        )  # or td_error = (q_value - q_label).abs()
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())

@@ -23,26 +23,48 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
     def __init__(self):
         AgentBase.__init__(self)
         self.ClassCri = QNet
-        self.explore_rate = 0.25  # the probability of choosing action randomly in epsilon-greedy
+        self.explore_rate = (
+            0.25  # the probability of choosing action randomly in epsilon-greedy
+        )
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
         """
         Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
         """
-        AgentBase.init(self, net_dim=net_dim, state_dim=state_dim, action_dim=action_dim,
-                       reward_scale=reward_scale, gamma=gamma,
-                       learning_rate=learning_rate, if_per_or_gae=if_per_or_gae,
-                       env_num=env_num, gpu_id=gpu_id, )
+        AgentBase.init(
+            self,
+            net_dim=net_dim,
+            state_dim=state_dim,
+            action_dim=action_dim,
+            reward_scale=reward_scale,
+            gamma=gamma,
+            learning_rate=learning_rate,
+            if_per_or_gae=if_per_or_gae,
+            env_num=env_num,
+            gpu_id=gpu_id,
+        )
 
         if if_per_or_gae:  # if_use_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
+            self.criterion = torch.nn.SmoothL1Loss(reduction="none")
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction="mean")
             self.get_obj_critic = self.get_obj_critic_raw
 
-    def select_actions(self, states: torch.Tensor) -> torch.Tensor:  # for discrete action space
+    def select_actions(
+        self, states: torch.Tensor
+    ) -> torch.Tensor:  # for discrete action space
         """
         Select discrete actions given an array of states.
 
@@ -53,7 +75,9 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
         """
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_ints = torch.randint(self.action_dim, size=states.shape[0])  # choosing action randomly
+            a_ints = torch.randint(
+                self.action_dim, size=states.shape[0]
+            )  # choosing action randomly
         else:
             actions = self.act(states.to(self.device))
             a_ints = actions.argmax(dim=1)
@@ -88,7 +112,9 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
 
         traj_state = torch.stack([item[0] for item in traj])
         traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [(traj_state, traj_other), ]
+        traj_list = [
+            (traj_state, traj_other),
+        ]
         return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
     def explore_vec_env(self, env, target_step) -> list:
@@ -108,9 +134,13 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
             ten_actions = self.select_actions(ten_states)
             ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
 
-            ten_others = torch.cat((ten_rewards.unsqueeze(0),
-                                    ten_dones.unsqueeze(0),
-                                    ten_actions.unsqueeze(0)))
+            ten_others = torch.cat(
+                (
+                    ten_rewards.unsqueeze(0),
+                    ten_dones.unsqueeze(0),
+                    ten_actions.unsqueeze(0),
+                )
+            )
             traj.append((ten_states, ten_others))
             ten_states = ten_next_states
 
@@ -118,8 +148,10 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
 
         traj_state = torch.stack([item[0] for item in traj])
         traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
-                     for env_i in range(len(self.states))]
+        traj_list = [
+            (traj_state[:, env_i, :], traj_other[:, env_i, :])
+            for env_i in range(len(self.states))
+        ]
         return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
@@ -167,12 +199,16 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
             q_label = reward + mask * next_q
 
         q_value = self.cri(state).gather(1, action.long())
-        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        td_error = self.criterion(
+            q_value, q_label
+        )  # or td_error = (q_value - q_label).abs()
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())
@@ -181,11 +217,11 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
 
 class AgentDuelingDQN(AgentDQN):  # [ElegantRL.2021.12.12]
     """
-        Bases: ``AgentDQN``
+    Bases: ``AgentDQN``
 
-        Dueling network.
+    Dueling network.
 
-        """
+    """
 
     def __init__(self):
         AgentDQN.__init__(self)

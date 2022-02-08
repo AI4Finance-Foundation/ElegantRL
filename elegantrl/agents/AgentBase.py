@@ -8,8 +8,18 @@ from torch.nn.utils import clip_grad_norm_
 
 
 class AgentBase:  # [ElegantRL.2021.11.11]
-    def __init__(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-                 learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def __init__(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
         """initialize
 
         replace by different DRL algorithms
@@ -39,13 +49,17 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.clip_grad_norm = 4.0
         # self.amp_scale = None  # automatic mixed precision
 
-        '''attribute'''
+        """attribute"""
         self.explore_env = None
         self.get_obj_critic = None
 
         self.criterion = torch.nn.SmoothL1Loss()
-        self.cri = self.cri_target = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
-        self.act = self.act_target = self.if_use_act_target = self.act_optim = self.ClassAct = None
+        self.cri = (
+            self.cri_target
+        ) = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
+        self.act = (
+            self.act_target
+        ) = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
         assert isinstance(gpu_id, int)
         assert isinstance(env_num, int)
@@ -57,8 +71,18 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         assert isinstance(reward_scale, float)
         assert isinstance(learning_rate, float)
 
-    def init(self, net_dim=256, state_dim=8, action_dim=2, reward_scale=1.0, gamma=0.99,
-             learning_rate=1e-4, if_per_or_gae=False, env_num=1, gpu_id=0):
+    def init(
+        self,
+        net_dim=256,
+        state_dim=8,
+        action_dim=2,
+        reward_scale=1.0,
+        gamma=0.99,
+        learning_rate=1e-4,
+        if_per_or_gae=False,
+        env_num=1,
+        gpu_id=0,
+    ):
         """initialize the self.object in `__init__()`
 
         replace by different DRL algorithms
@@ -79,23 +103,40 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         self.action_dim = action_dim
         self.reward_scale = reward_scale
         # self.amp_scale = torch.cuda.amp.GradScaler()
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.device = torch.device(
+            f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu"
+        )
 
-        self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(self.device)
-        self.act = self.ClassAct(net_dim, state_dim, action_dim).to(self.device) if self.ClassAct else self.cri
+        self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(
+            self.device
+        )
+        self.act = (
+            self.ClassAct(net_dim, state_dim, action_dim).to(self.device)
+            if self.ClassAct
+            else self.cri
+        )
         self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
         self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
 
         self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
-        self.act_optim = torch.optim.Adam(self.act.parameters(), learning_rate) if self.ClassAct else self.cri
+        self.act_optim = (
+            torch.optim.Adam(self.act.parameters(), learning_rate)
+            if self.ClassAct
+            else self.cri
+        )
 
-        def get_optim_param(optim):  # optim = torch.optim.Adam(network_param, learning_rate)
+        def get_optim_param(
+            optim,
+        ):  # optim = torch.optim.Adam(network_param, learning_rate)
             params_list = []
-            for params_dict in optim.state_dict()['state'].values():
-                params_list.extend([t for t in params_dict.values() if isinstance(t, torch.Tensor)])
+            for params_dict in optim.state_dict()["state"].values():
+                params_list.extend(
+                    [t for t in params_dict.values() if isinstance(t, torch.Tensor)]
+                )
             return params_list
 
         from types import MethodType
+
         self.act_optim.parameters = MethodType(get_optim_param, self.act_optim)
         self.cri_optim.parameters = MethodType(get_optim_param, self.cri_optim)
 
@@ -124,7 +165,9 @@ class AgentBase:  # [ElegantRL.2021.11.11]
 
         action = self.act(state.to(self.device))
         if rd.rand() < self.explore_rate:  # epsilon-greedy
-            action = (action + torch.randn_like(action) * self.explore_noise).clamp(-1, 1)
+            action = (action + torch.randn_like(action) * self.explore_noise).clamp(
+                -1, 1
+            )
         return action.detach().cpu()
 
     def explore_one_env(self, env, target_step: int) -> list:
@@ -156,7 +199,9 @@ class AgentBase:  # [ElegantRL.2021.11.11]
 
         traj_state = torch.stack([item[0] for item in traj])
         traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [(traj_state, traj_other), ]
+        traj_list = [
+            (traj_state, traj_other),
+        ]
         return self.convert_trajectory(traj_list)  # [traj_env_0, ]
 
     def explore_vec_env(self, env, target_step: int) -> list:
@@ -175,7 +220,9 @@ class AgentBase:  # [ElegantRL.2021.11.11]
             ten_actions = self.select_actions(ten_states)
             ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
 
-            ten_others = torch.cat((ten_rewards.unsqueeze(0), ten_dones.unsqueeze(0), ten_actions))
+            ten_others = torch.cat(
+                (ten_rewards.unsqueeze(0), ten_dones.unsqueeze(0), ten_actions)
+            )
             traj.append((ten_states, ten_others))
             ten_states = ten_next_states
 
@@ -184,12 +231,16 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         # traj = [(env_ten, ...), ...], env_ten = (env1_ten, env2_ten, ...)
         traj_state = torch.stack([item[0] for item in traj])
         traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [(traj_state[:, env_i, :], traj_other[:, env_i, :])
-                     for env_i in range(len(self.states))]
+        traj_list = [
+            (traj_state[:, env_i, :], traj_other[:, env_i, :])
+            for env_i in range(len(self.states))
+        ]
         # traj_list = [traj_env_0, ...], traj_env_0 = (ten_state, ten_other)
         return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
 
-    def update_net(self, buffer, batch_size: int, repeat_times: float, soft_update_tau: float) -> tuple:
+    def update_net(
+        self, buffer, batch_size: int, repeat_times: float, soft_update_tau: float
+    ) -> tuple:
         """update the neural network by sampling batch data from ReplayBuffer
 
         :param buffer: Experience replay buffer
@@ -206,8 +257,9 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         optimizer.zero_grad()
         objective.backward()
-        clip_grad_norm_(parameters=optimizer.param_groups[0]['params'],
-                        max_norm=self.clip_grad_norm)
+        clip_grad_norm_(
+            parameters=optimizer.param_groups[0]["params"], max_norm=self.clip_grad_norm
+        )
         optimizer.step()
 
     # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
@@ -252,8 +304,14 @@ class AgentBase:  # [ElegantRL.2021.11.11]
             state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
             model_or_optim.load_state_dict(state_dict)
 
-        name_obj_list = [('actor', self.act), ('act_target', self.act_target), ('act_optim', self.act_optim),
-                         ('critic', self.cri), ('cri_target', self.cri_target), ('cri_optim', self.cri_optim), ]
+        name_obj_list = [
+            ("actor", self.act),
+            ("act_target", self.act_target),
+            ("act_optim", self.act_optim),
+            ("critic", self.cri),
+            ("cri_target", self.cri_target),
+            ("cri_optim", self.cri_optim),
+        ]
         name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
 
         if if_save:
@@ -276,5 +334,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         for ten_state, ten_other in traj_list:
             ten_other[:, 0] = ten_other[:, 0] * self.reward_scale  # ten_reward
-            ten_other[:, 1] = (1.0 - ten_other[:, 1]) * self.gamma  # ten_mask = (1.0 - ary_done) * gamma
+            ten_other[:, 1] = (
+                1.0 - ten_other[:, 1]
+            ) * self.gamma  # ten_mask = (1.0 - ary_done) * gamma
         return traj_list

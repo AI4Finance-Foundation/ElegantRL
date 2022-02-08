@@ -7,9 +7,9 @@ from elegantrl.agents.net import ActorDiscretePPO
 class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
     """
     Bases: ``AgentPPO``
-    
+
     A2C algorithm. “Asynchronous Methods for Deep Reinforcement Learning”. Mnih V. et al.. 2016.
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -21,16 +21,18 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
 
     def __init__(self):
         AgentPPO.__init__(self)
-        print('| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching.'
-              '| Without TrustRegion, A2C needs special hyper-parameters, such as smaller repeat_times.')
+        print(
+            "| AgentA2C: A2C or A3C is worse than PPO. We provide AgentA2C code just for teaching."
+            "| Without TrustRegion, A2C needs special hyper-parameters, such as smaller repeat_times."
+        )
 
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
-        
+
         .. note::
             Using advantage normalization and entropy loss.
-        
+
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :param repeat_times: the re-using times of each trajectory.
@@ -39,16 +41,24 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
         """
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
-            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
+            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [
+                ten.to(self.device) for ten in buffer
+            ]
 
-            '''get buf_r_sum, buf_logprob'''
-            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-            buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
+            """get buf_r_sum, buf_logprob"""
+            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [
+                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+            ]
             buf_value = torch.cat(buf_value, dim=0)
             # buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / (buf_adv_v.std() + 1e-5))
+            buf_r_sum, buf_adv_v = self.get_reward_sum(
+                buf_len, buf_reward, buf_mask, buf_value
+            )  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (
+                self.lambda_a_value / (buf_adv_v.std() + 1e-5)
+            )
             # buf_adv_v: advantage_value in ReplayBuffer
             del buf_noise, buffer[:]
 
@@ -56,7 +66,9 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
         obj_actor = None
         update_times = int(buf_len / batch_size * repeat_times)
         for _ in range(1, update_times + 1):
-            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+            indices = torch.randint(
+                buf_len, size=(batch_size,), requires_grad=False, device=self.device
+            )
 
             state = buf_state[indices]
             r_sum = buf_r_sum[indices]
@@ -64,25 +76,31 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
             action = buf_action[indices]
             # logprob = buf_logprob[indices]
 
-            '''A2C: Advantage function'''
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
-            obj_actor = -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
+            """A2C: Advantage function"""
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(
+                state, action
+            )  # it is obj_actor
+            obj_actor = (
+                -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
+            )
             self.optim_update(self.act_optim, obj_actor)
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state).squeeze(
+                1
+            )  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
             self.optim_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
 
 class AgentDiscreteA2C(AgentA2C):
     """
     Bases: ``AgentA2C``
-    
+
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
     :param action_dim[int]: the dimension of action (the number of discrete action)
@@ -99,7 +117,7 @@ class AgentDiscreteA2C(AgentA2C):
     def explore_one_env(self, env, target_step):
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
-        
+
         :param env: the DRL environment instance.
         :param target_step: the total step for the interaction.
         :param reward_scale: a reward scalar to clip the reward.
@@ -125,13 +143,20 @@ class AgentDiscreteA2C(AgentA2C):
 
         self.states[0] = state
 
-        traj_list = self.splice_trajectory([traj, ], [last_done, ])
+        traj_list = self.splice_trajectory(
+            [
+                traj,
+            ],
+            [
+                last_done,
+            ],
+        )
         return self.convert_trajectory(traj_list)
 
     def explore_vec_env(self, env, target_step):
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
-        
+
         :param env: the DRL environment instance.
         :param target_step: the total step for the interaction.
         :param reward_scale: a reward scalar to clip the reward.
@@ -149,8 +174,15 @@ class AgentDiscreteA2C(AgentA2C):
             tem_next_states, ten_rewards, ten_dones = env.step(ten_a_ints.numpy())
 
             for env_i in range(env_num):
-                traj_list[env_i].append((ten_states[env_i], ten_rewards[env_i], ten_dones[env_i],
-                                         ten_a_ints[env_i], ten_probs[env_i]))
+                traj_list[env_i].append(
+                    (
+                        ten_states[env_i],
+                        ten_rewards[env_i],
+                        ten_dones[env_i],
+                        ten_a_ints[env_i],
+                        ten_probs[env_i],
+                    )
+                )
                 if ten_dones[env_i]:
                     last_done_list[env_i] = step_i
 
@@ -166,23 +198,33 @@ class AgentShareA2C(AgentSharePPO):
     def update_net(self, buffer, batch_size, repeat_times, soft_update_tau):
         with torch.no_grad():
             buf_len = buffer[0].shape[0]
-            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [ten.to(self.device) for ten in buffer]
+            buf_state, buf_action, buf_noise, buf_reward, buf_mask = [
+                ten.to(self.device) for ten in buffer
+            ]
             # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
 
-            '''get buf_r_sum, buf_logprob'''
-            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-            buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
+            """get buf_r_sum, buf_logprob"""
+            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [
+                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+            ]
             buf_value = torch.cat(buf_value, dim=0)
             # buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (self.lambda_a_value / torch.std(buf_adv_v) + 1e-5)
+            buf_r_sum, buf_adv_v = self.get_reward_sum(
+                buf_len, buf_reward, buf_mask, buf_value
+            )  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (
+                self.lambda_a_value / torch.std(buf_adv_v) + 1e-5
+            )
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
 
         obj_critic = obj_actor = None
         for _ in range(int(buf_len / batch_size * repeat_times)):
-            indices = torch.randint(buf_len, size=(batch_size,), requires_grad=False, device=self.device)
+            indices = torch.randint(
+                buf_len, size=(batch_size,), requires_grad=False, device=self.device
+            )
 
             state = buf_state[indices]
             r_sum = buf_r_sum[indices]
@@ -190,12 +232,18 @@ class AgentShareA2C(AgentSharePPO):
             action = buf_action[indices]
             # logprob = buf_logprob[indices]
 
-            '''A2C: Advantage function'''
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
-            obj_actor = -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
+            """A2C: Advantage function"""
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(
+                state, action
+            )  # it is obj_actor
+            obj_actor = (
+                -(adv_v * new_logprob.exp()).mean() + obj_entropy * self.lambda_entropy
+            )
             self.optim_update(self.act_optim, obj_actor)
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state).squeeze(
+                1
+            )  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum) / (r_sum.std() + 1e-6)
 
             obj_united = obj_critic + obj_actor
@@ -203,5 +251,5 @@ class AgentShareA2C(AgentSharePPO):
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
-        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple

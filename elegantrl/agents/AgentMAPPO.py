@@ -5,19 +5,19 @@ import torch.nn as nn
 from elegantrl.agents.net import ActorMAPPO, CriticMAPPO
 
 
-class AgentMAPPO():
+class AgentMAPPO:
     """
-    
+
     Multi-Agent PPO Algorithm.
-    
+
     :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
     :param policy: (R_MAPPO_Policy) policy to update.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
 
-    def __init__(self,
-                 args,
-                 obs_space, cent_obs_space, act_space, device=torch.device("cpu")):
+    def __init__(
+        self, args, obs_space, cent_obs_space, act_space, device=torch.device("cpu")
+    ):
 
         self.device = device
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -53,13 +53,18 @@ class AgentMAPPO():
         self.actor = ActorMAPPO(args, self.obs_space, self.act_space, self.device)
         self.critic = CriticMAPPO(args, self.share_obs_space, self.device)
 
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
-                                                lr=self.lr, eps=self.opti_eps,
-                                                weight_decay=self.weight_decay)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(),
-                                                 lr=self.critic_lr,
-                                                 eps=self.opti_eps,
-                                                 weight_decay=self.weight_decay)
+        self.actor_optimizer = torch.optim.Adam(
+            self.actor.parameters(),
+            lr=self.lr,
+            eps=self.opti_eps,
+            weight_decay=self.weight_decay,
+        )
+        self.critic_optimizer = torch.optim.Adam(
+            self.critic.parameters(),
+            lr=self.critic_lr,
+            eps=self.opti_eps,
+            weight_decay=self.weight_decay,
+        )
 
         if self._use_popart:
             self.value_normalizer = self.critic.v_out
@@ -71,18 +76,26 @@ class AgentMAPPO():
     def lr_decay(self, episode, episodes):
         """
         Decay the actor and critic learning rates.
-        
+
         :param episode: (int) current training episode.
         :param episodes: (int) total number of training episodes.
         """
         update_linear_schedule(self.actor_optimizer, episode, episodes, self.lr)
         update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
 
-    def get_actions(self, cent_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None,
-                    deterministic=False):
+    def get_actions(
+        self,
+        cent_obs,
+        obs,
+        rnn_states_actor,
+        rnn_states_critic,
+        masks,
+        available_actions=None,
+        deterministic=False,
+    ):
         """
         Compute actions and value function predictions for the given inputs.
-        
+
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param obs (np.ndarray): local agent inputs to the actor.
         :param rnn_states_actor: (np.ndarray) if actor is RNN, RNN states for actor.
@@ -97,11 +110,9 @@ class AgentMAPPO():
         :return rnn_states_actor: (torch.Tensor) updated actor network RNN states.
         :return rnn_states_critic: (torch.Tensor) updated critic network RNN states.
         """
-        actions, action_log_probs, rnn_states_actor = self.actor(obs,
-                                                                 rnn_states_actor,
-                                                                 masks,
-                                                                 available_actions,
-                                                                 deterministic)
+        actions, action_log_probs, rnn_states_actor = self.actor(
+            obs, rnn_states_actor, masks, available_actions, deterministic
+        )
 
         values, rnn_states_critic = self.critic(cent_obs, rnn_states_critic, masks)
         return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
@@ -109,7 +120,7 @@ class AgentMAPPO():
     def get_values(self, cent_obs, rnn_states_critic, masks):
         """
         Get value function predictions.
-        
+
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param rnn_states_critic: (np.ndarray) if critic is RNN, RNN states for critic.
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
@@ -118,11 +129,20 @@ class AgentMAPPO():
         values, _ = self.critic(cent_obs, rnn_states_critic, masks)
         return values
 
-    def evaluate_actions(self, cent_obs, obs, rnn_states_actor, rnn_states_critic, action, masks,
-                         available_actions=None, active_masks=None):
+    def evaluate_actions(
+        self,
+        cent_obs,
+        obs,
+        rnn_states_actor,
+        rnn_states_critic,
+        action,
+        masks,
+        available_actions=None,
+        active_masks=None,
+    ):
         """
         Get action logprobs / entropy and value function predictions for actor update.
-        
+
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param obs (np.ndarray): local agent inputs to the actor.
         :param rnn_states_actor: (np.ndarray) if actor is RNN, RNN states for actor.
@@ -136,20 +156,19 @@ class AgentMAPPO():
         :return action_log_probs: (torch.Tensor) log probabilities of the input actions.
         :return dist_entropy: (torch.Tensor) action distribution entropy for the given inputs.
         """
-        action_log_probs, dist_entropy = self.actor.evaluate_actions(obs,
-                                                                     rnn_states_actor,
-                                                                     action,
-                                                                     masks,
-                                                                     available_actions,
-                                                                     active_masks)
+        action_log_probs, dist_entropy = self.actor.evaluate_actions(
+            obs, rnn_states_actor, action, masks, available_actions, active_masks
+        )
 
         values, _ = self.critic(cent_obs, rnn_states_critic, masks)
         return values, action_log_probs, dist_entropy
 
-    def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
+    def act(
+        self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False
+    ):
         """
         Compute actions using the given inputs.
-        
+
         :param obs (np.ndarray): local agent inputs to the actor.
         :param rnn_states_actor: (np.ndarray) if actor is RNN, RNN states for actor.
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
@@ -157,24 +176,31 @@ class AgentMAPPO():
                                   (if None, all actions available)
         :param deterministic: (bool) whether the action should be mode of distribution or should be sampled.
         """
-        actions, _, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
+        actions, _, rnn_states_actor = self.actor(
+            obs, rnn_states_actor, masks, available_actions, deterministic
+        )
         return actions, rnn_states_actor
 
-    def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch):
+    def cal_value_loss(
+        self, values, value_preds_batch, return_batch, active_masks_batch
+    ):
         """
         Calculate value function loss.
-        
+
         :param values: (torch.Tensor) value function predictions.
         :param value_preds_batch: (torch.Tensor) "old" value  predictions from data batch (used for value clip loss)
         :param return_batch: (torch.Tensor) reward to go returns.
         :param active_masks_batch: (torch.Tensor) denotes if agent is active or dead at a given timesep.
         :return value_loss: (torch.Tensor) value function loss.
         """
-        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param,
-                                                                                    self.clip_param)
+        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(
+            -self.clip_param, self.clip_param
+        )
         if self._use_popart or self._use_valuenorm:
             self.value_normalizer.update(return_batch)
-            error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
+            error_clipped = (
+                self.value_normalizer.normalize(return_batch) - value_pred_clipped
+            )
             error_original = self.value_normalizer.normalize(return_batch) - values
         else:
             error_clipped = return_batch - value_pred_clipped
@@ -193,7 +219,9 @@ class AgentMAPPO():
             value_loss = value_loss_original
 
         if self._use_value_active_masks:
-            value_loss = (value_loss * active_masks_batch).sum() / active_masks_batch.sum()
+            value_loss = (
+                value_loss * active_masks_batch
+            ).sum() / active_masks_batch.sum()
         else:
             value_loss = value_loss.mean()
 
@@ -202,7 +230,7 @@ class AgentMAPPO():
     def ppo_update(self, sample, update_actor=True):
         """
         Update actor and critic networks.
-        
+
         :param sample: (Tuple) contains data batch with which to update networks.
         :update_actor: (bool) whether to update actor network.
         :return value_loss: (torch.Tensor) value function loss.
@@ -212,9 +240,20 @@ class AgentMAPPO():
         :return actor_grad_norm: (torch.Tensor) gradient norm from actor update.
         :return imp_weights: (torch.Tensor) importance sampling weights.
         """
-        share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
-        value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
-        adv_targ, available_actions_batch = sample
+        (
+            share_obs_batch,
+            obs_batch,
+            rnn_states_batch,
+            rnn_states_critic_batch,
+            actions_batch,
+            value_preds_batch,
+            return_batch,
+            masks_batch,
+            active_masks_batch,
+            old_action_log_probs_batch,
+            adv_targ,
+            available_actions_batch,
+        ) = sample
 
         old_action_log_probs_batch = check(old_action_log_probs_batch).to(**self.tpdv)
         adv_targ = check(adv_targ).to(**self.tpdv)
@@ -223,26 +262,34 @@ class AgentMAPPO():
         active_masks_batch = check(active_masks_batch).to(**self.tpdv)
 
         # Reshape to do in a single forward pass for all steps
-        values, action_log_probs, dist_entropy = self.policy.evaluate_actions(share_obs_batch,
-                                                                              obs_batch,
-                                                                              rnn_states_batch,
-                                                                              rnn_states_critic_batch,
-                                                                              actions_batch,
-                                                                              masks_batch,
-                                                                              available_actions_batch,
-                                                                              active_masks_batch)
+        values, action_log_probs, dist_entropy = self.policy.evaluate_actions(
+            share_obs_batch,
+            obs_batch,
+            rnn_states_batch,
+            rnn_states_critic_batch,
+            actions_batch,
+            masks_batch,
+            available_actions_batch,
+            active_masks_batch,
+        )
         # actor update
         imp_weights = torch.exp(action_log_probs - old_action_log_probs_batch)
 
         surr1 = imp_weights * adv_targ
-        surr2 = torch.clamp(imp_weights, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
+        surr2 = (
+            torch.clamp(imp_weights, 1.0 - self.clip_param, 1.0 + self.clip_param)
+            * adv_targ
+        )
 
         if self._use_policy_active_masks:
-            policy_action_loss = (-torch.sum(torch.min(surr1, surr2),
-                                             dim=-1,
-                                             keepdim=True) * active_masks_batch).sum() / active_masks_batch.sum()
+            policy_action_loss = (
+                -torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True)
+                * active_masks_batch
+            ).sum() / active_masks_batch.sum()
         else:
-            policy_action_loss = -torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True).mean()
+            policy_action_loss = -torch.sum(
+                torch.min(surr1, surr2), dim=-1, keepdim=True
+            ).mean()
 
         policy_loss = policy_action_loss
 
@@ -251,33 +298,48 @@ class AgentMAPPO():
         if update_actor:
             (policy_loss - dist_entropy * self.entropy_coef).backward()
 
-        actor_grad_norm = nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+        actor_grad_norm = nn.utils.clip_grad_norm_(
+            self.actor.parameters(), self.max_grad_norm
+        )
 
         self.actor_optimizer.step()
 
         # critic update
-        value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
+        value_loss = self.cal_value_loss(
+            values, value_preds_batch, return_batch, active_masks_batch
+        )
 
         self.critic_optimizer.zero_grad()
 
         (value_loss * self.value_loss_coef).backward()
 
-        critic_grad_norm = nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+        critic_grad_norm = nn.utils.clip_grad_norm_(
+            self.critic.parameters(), self.max_grad_norm
+        )
 
         self.critic_optimizer.step()
 
-        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights
+        return (
+            value_loss,
+            critic_grad_norm,
+            policy_loss,
+            dist_entropy,
+            actor_grad_norm,
+            imp_weights,
+        )
 
     def update_net(self, buffer, update_actor=True):
         """
         Perform a training update using minibatch GD.
-        
+
         :param buffer: (SharedReplayBuffer) buffer containing training data.
         :param update_actor: (bool) whether to update actor network.
         :return train_info: (dict) contains information regarding training update (e.g. loss, grad norms, etc).
         """
         if self._use_popart or self._use_valuenorm:
-            advantages = buffer.returns[:-1] - self.value_normalizer.denormalize(buffer.value_preds[:-1])
+            advantages = buffer.returns[:-1] - self.value_normalizer.denormalize(
+                buffer.value_preds[:-1]
+            )
         else:
             advantages = buffer.returns[:-1] - buffer.value_preds[:-1]
         advantages_copy = advantages.copy()
@@ -287,32 +349,44 @@ class AgentMAPPO():
         advantages = (advantages - mean_advantages) / (std_advantages + 1e-5)
 
         train_info = {
-            'value_loss': 0,
-            'policy_loss': 0,
-            'dist_entropy': 0,
-            'actor_grad_norm': 0,
-            'critic_grad_norm': 0,
-            'ratio': 0,
+            "value_loss": 0,
+            "policy_loss": 0,
+            "dist_entropy": 0,
+            "actor_grad_norm": 0,
+            "critic_grad_norm": 0,
+            "ratio": 0,
         }
 
         for _ in range(self.ppo_epoch):
             if self._use_recurrent_policy:
-                data_generator = buffer.recurrent_generator(advantages, self.num_mini_batch, self.data_chunk_length)
+                data_generator = buffer.recurrent_generator(
+                    advantages, self.num_mini_batch, self.data_chunk_length
+                )
             elif self._use_naive_recurrent:
-                data_generator = buffer.naive_recurrent_generator(advantages, self.num_mini_batch)
+                data_generator = buffer.naive_recurrent_generator(
+                    advantages, self.num_mini_batch
+                )
             else:
-                data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
+                data_generator = buffer.feed_forward_generator(
+                    advantages, self.num_mini_batch
+                )
 
             for sample in data_generator:
-                value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights \
-                    = self.ppo_update(sample, update_actor)
+                (
+                    value_loss,
+                    critic_grad_norm,
+                    policy_loss,
+                    dist_entropy,
+                    actor_grad_norm,
+                    imp_weights,
+                ) = self.ppo_update(sample, update_actor)
 
-                train_info['value_loss'] += value_loss.item()
-                train_info['policy_loss'] += policy_loss.item()
-                train_info['dist_entropy'] += dist_entropy.item()
-                train_info['actor_grad_norm'] += actor_grad_norm
-                train_info['critic_grad_norm'] += critic_grad_norm
-                train_info['ratio'] += imp_weights.mean()
+                train_info["value_loss"] += value_loss.item()
+                train_info["policy_loss"] += policy_loss.item()
+                train_info["dist_entropy"] += dist_entropy.item()
+                train_info["actor_grad_norm"] += actor_grad_norm
+                train_info["critic_grad_norm"] += critic_grad_norm
+                train_info["ratio"] += imp_weights.mean()
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
