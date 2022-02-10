@@ -15,11 +15,11 @@ class AgentBase:
     def __init__(
         self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
     ):
-        self.gamma = args.gamma
-        self.batch_size = args.batch_size
-        self.repeat_times = args.repeat_times
-        self.reward_scale = args.reward_scale
-        self.soft_update_tau = args.soft_update_tau
+        self.gamma = getattr(args, "gamma", 0.99)
+        self.batch_size = getattr(args, "batch_size", 2**10)
+        self.repeat_times = getattr(args, "repeat_times", 2**4)
+        self.reward_scale = getattr(args, "reward_scale", 1)
+        self.soft_update_tau = getattr(args, "soft_update_tau", 2**-8)
         self.env_num = getattr(args, "env_num", 1)
 
         # GAE-lambda generally between ~(0.95-0.99), GAE (ICLR.2016.)
@@ -36,6 +36,11 @@ class AgentBase:
         self.device = torch.device(
             f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu"
         )
+
+        if not hasattr(args, "if_off_policy"):
+            raise Exception(
+                "args object passed into AgentBase() constructor must have attribute 'if_off_policy'"
+            )
 
         # set for `self.explore_vec_env()`
         self.traj_list = [
