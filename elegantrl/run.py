@@ -10,7 +10,7 @@ from elegantrl.config import build_env, Arguments
 from elegantrl.evaluator import Evaluator
 from elegantrl.replay_buffer import ReplayBuffer, ReplayBufferList
 
-'''[ElegantRL.2022.01.01](github.com/AI4Fiance-Foundation/ElegantRL)'''
+"""[ElegantRL.2022.01.01](github.com/AI4Fiance-Foundation/ElegantRL)"""
 
 
 def train_and_evaluate(args: Arguments):
@@ -18,7 +18,7 @@ def train_and_evaluate(args: Arguments):
     args.init_before_training()
     gpu_id = args.learner_gpus
 
-    '''init'''
+    """init"""
     env = build_env(args.env, args.env_func, args.env_args)
 
     agent = init_agent(args, gpu_id, env)
@@ -30,7 +30,7 @@ def train_and_evaluate(args: Arguments):
         trajectory = agent.explore_env(env, args.target_step)
         buffer.update_buffer((trajectory,))
 
-    '''start training'''
+    """start training"""
     cwd = args.cwd
     break_step = args.break_step
     target_step = args.target_step
@@ -51,23 +51,29 @@ def train_and_evaluate(args: Arguments):
         )
         dont_break = not if_allow_break
         not_reached_goal = not if_reach_goal
-        stop_dir_absent = not os.path.exists(f'{cwd}/stop')
-        if_train = (dont_break or not_reached_goal)\
-            and evaluator.total_step <= break_step\
+        stop_dir_absent = not os.path.exists(f"{cwd}/stop")
+        if_train = (
+            (dont_break or not_reached_goal)
+            and evaluator.total_step <= break_step
             and stop_dir_absent
-    print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
+        )
+    print(f"| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}")
     agent.save_or_load_agent(cwd, if_save=if_save_agent)
     buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
 
 
 def init_agent(args: Arguments, gpu_id, env=None) -> AgentBase:
-    agent = args.agent(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
+    agent = args.agent(
+        args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args
+    )
     agent.save_or_load_agent(args.cwd, if_save=False)
 
     if env is not None:
-        '''assign `agent.states` for exploration'''
+        """assign `agent.states` for exploration"""
         if args.env_num == 1:
-            states = [env.reset(), ]
+            states = [
+                env.reset(),
+            ]
             assert isinstance(states[0], np.ndarray)
             assert states[0].shape in {(args.state_dim,), args.state_dim}
         else:
@@ -98,14 +104,14 @@ def init_evaluator(args, gpu_id):
     return Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
 
 
-'''train multiple process'''
+"""train multiple process"""
 
 
 def train_and_evaluate_mp(args: Arguments):
     args.init_before_training()
 
     # force all the multiprocessing to 'spawn' methods
-    mp.set_start_method(method='spawn', force=True)  
+    mp.set_start_method(method="spawn", force=True)
 
     evaluator_pipe = PipeEvaluator()
     process = [mp.Process(target=evaluator_pipe.run, args=(args,))]
@@ -113,15 +119,17 @@ def train_and_evaluate_mp(args: Arguments):
     process.extend(
         [
             mp.Process(target=worker_pipe.run, args=(args, worker_id))
-                for worker_id in range(args.worker_num)
+            for worker_id in range(args.worker_num)
         ]
     )
 
     learner_pipe = PipeLearner()
-    process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe)))
+    process.append(
+        mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe))
+    )
 
     [p.start() for p in process]
-    
+
     # waiting for learner
     process[-1].join()
     safely_terminate_process(process)
@@ -146,11 +154,11 @@ class PipeWorker:
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
-        '''init'''
+        """init"""
         env = build_env(args.env, args.env_func, args.env_args)
         agent = init_agent(args, gpu_id, env)
 
-        '''loop'''
+        """loop"""
         target_step = args.target_step
         if args.if_off_policy:
             trajectory = agent.explore_env(env, args.target_step)
@@ -173,11 +181,11 @@ class PipeLearner:
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
-        '''init'''
+        """init"""
         agent = init_agent(args, gpu_id)
         buffer = init_buffer(args, gpu_id)
 
-        '''loop'''
+        """loop"""
         if_train = True
         while if_train:
             traj_list = comm_exp.explore(agent)
@@ -187,11 +195,13 @@ class PipeLearner:
             logging_tuple = agent.update_net(buffer)
             torch.set_grad_enabled(False)
 
-            if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
+            if_train, if_save = comm_eva.evaluate_and_save_mp(
+                agent.act, steps, r_exp, logging_tuple
+            )
         agent.save_or_load_agent(args.cwd, if_save=True)
-        print(f'| Learner: Save in {args.cwd}')
+        print(f"| Learner: Save in {args.cwd}")
 
-        if hasattr(buffer, 'save_or_load_history'):
+        if hasattr(buffer, "save_or_load_history"):
             print(f"| LearnerPipe.run: ReplayBuffer saving in {args.cwd}")
             buffer.save_or_load_history(args.cwd, if_save=True)
 
@@ -216,11 +226,11 @@ class PipeEvaluator:
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
-        '''init'''
+        """init"""
         agent = init_agent(args, gpu_id)
         evaluator = init_evaluator(args, gpu_id)
 
-        '''loop'''
+        """loop"""
         cwd = args.cwd
         act = agent.act
         break_step = args.break_step
@@ -240,17 +250,21 @@ class PipeEvaluator:
                 )
             else:
                 evaluator.total_step += steps
-                
+
             dont_break = not if_allow_break
             not_reached_goal = not if_reach_goal
-            stop_dir_absent = not os.path.exists(f'{cwd}/stop')
-            if_train = (dont_break or not_reached_goal)\
-                and evaluator.total_step <= break_step\
+            stop_dir_absent = not os.path.exists(f"{cwd}/stop")
+            if_train = (
+                (dont_break or not_reached_goal)
+                and evaluator.total_step <= break_step
                 and stop_dir_absent
-            
+            )
+
             self.pipe0.send((if_train, if_save_agent))
 
-        print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+        print(
+            f"| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}"
+        )
 
         while True:  # wait for the forced stop from main process
             time.sleep(1943)

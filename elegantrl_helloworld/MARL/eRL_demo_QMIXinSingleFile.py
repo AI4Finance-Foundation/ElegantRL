@@ -32,7 +32,9 @@ class AgentQmix:
             self.params += list(self.mixer.parameters())
             self.target_mixer = copy.deepcopy(self.mixer)
 
-        self.optimiser = RMSprop(params=self.params, lr=args.lr, alpha=args.optim_alpha, eps=args.optim_eps)
+        self.optimiser = RMSprop(
+            params=self.params, lr=args.lr, alpha=args.optim_alpha, eps=args.optim_eps
+        )
 
         # a little wasteful to deepcopy (e.g. duplicates action selector), but should work for any MAC
         self.target_mac = copy.deepcopy(mac)
@@ -57,7 +59,9 @@ class AgentQmix:
         mac_out = th.stack(mac_out, dim=1)  # Concat over time
 
         # Pick the Q-Values for the actions taken by each agent
-        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
+        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(
+            3
+        )  # Remove the last dim
 
         # Calculate the Q-Values necessary for the target
         target_mac_out = []
@@ -84,14 +88,18 @@ class AgentQmix:
 
         # Mix
         if self.mixer is not None:
-            chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1])
-            target_max_qvals = self.target_mixer(target_max_qvals, batch["state"][:, 1:])
+            chosen_action_qvals = self.mixer(
+                chosen_action_qvals, batch["state"][:, :-1]
+            )
+            target_max_qvals = self.target_mixer(
+                target_max_qvals, batch["state"][:, 1:]
+            )
 
         # Calculate 1-step Q-Learning targets
         targets = rewards + self.args.gamma * (1 - terminated) * target_max_qvals
 
         # Td-error
-        td_error = (chosen_action_qvals - targets.detach())
+        td_error = chosen_action_qvals - targets.detach()
 
         mask = mask.expand_as(td_error)
 
@@ -99,7 +107,7 @@ class AgentQmix:
         masked_td_error = td_error * mask
 
         # Normal L2 loss, take mean over actual data
-        loss = (masked_td_error ** 2).sum() / mask.sum()
+        loss = (masked_td_error**2).sum() / mask.sum()
 
         # Optimise
         self.optimiser.zero_grad()
@@ -107,7 +115,9 @@ class AgentQmix:
         grad_norm = th.nn.utils.clip_grad_norm_(self.params, self.args.grad_norm_clip)
         self.optimiser.step()
 
-        if (episode_num - self.last_target_update_episode) / self.args.target_update_interval >= 1.0:
+        if (
+            episode_num - self.last_target_update_episode
+        ) / self.args.target_update_interval >= 1.0:
             self._update_targets()
             self.last_target_update_episode = episode_num
 
@@ -115,11 +125,20 @@ class AgentQmix:
             self.logger.log_stat("loss", loss.item(), t_env)
             self.logger.log_stat("grad_norm", grad_norm, t_env)
             mask_elems = mask.sum().item()
-            self.logger.log_stat("td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env)
-            self.logger.log_stat("q_taken_mean",
-                                 (chosen_action_qvals * mask).sum().item() / (mask_elems * self.args.n_agents), t_env)
-            self.logger.log_stat("target_mean", (targets * mask).sum().item() / (mask_elems * self.args.n_agents),
-                                 t_env)
+            self.logger.log_stat(
+                "td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env
+            )
+            self.logger.log_stat(
+                "q_taken_mean",
+                (chosen_action_qvals * mask).sum().item()
+                / (mask_elems * self.args.n_agents),
+                t_env,
+            )
+            self.logger.log_stat(
+                "target_mean",
+                (targets * mask).sum().item() / (mask_elems * self.args.n_agents),
+                t_env,
+            )
             self.log_stats_t = t_env
 
     def _update_targets(self):
@@ -146,29 +165,37 @@ class AgentQmix:
         # Not quite right but I don't want to save target networks
         self.target_mac.load_models(path)
         if self.mixer is not None:
-            self.mixer.load_state_dict(th.load(f"{path}/mixer.th", map_location=lambda storage, loc: storage))
-        self.optimiser.load_state_dict(th.load(f"{path}/opt.th", map_location=lambda storage, loc: storage))
+            self.mixer.load_state_dict(
+                th.load(f"{path}/mixer.th", map_location=lambda storage, loc: storage)
+            )
+        self.optimiser.load_state_dict(
+            th.load(f"{path}/opt.th", map_location=lambda storage, loc: storage)
+        )
 
 
 def run(_run, _config, _log):
     if _config["use_cuda"] and not th.cuda.is_available():
         _config["use_cuda"] = False
-        _log.warning("CUDA flag use_cuda was switched OFF automatically because no CUDA devices are available!")
+        _log.warning(
+            "CUDA flag use_cuda was switched OFF automatically because no CUDA devices are available!"
+        )
     args = SN(**_config)
     args.device = "cuda" if args.use_cuda else "cpu"
     # setup loggers
     logger = Logger(_log)
     _log.info("Experiment Parameters:")
-    experiment_params = pprint.pformat(_config,
-                                       indent=4,
-                                       width=1)
+    experiment_params = pprint.pformat(_config, indent=4, width=1)
     _log.info("\n\n" + experiment_params + "\n")
 
     # configure tensorboard logger
-    unique_token = f"{args.name}__{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    unique_token = (
+        f"{args.name}__{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+    )
     args.unique_token = unique_token
     if args.use_tensorboard:
-        tb_logs_direc = os.path.join(dirname(dirname(abspath(__file__))), "results", "tb_logs")
+        tb_logs_direc = os.path.join(
+            dirname(dirname(abspath(__file__))), "results", "tb_logs"
+        )
         tb_exp_direc = os.path.join(tb_logs_direc, "{}").format(unique_token)
         logger.setup_tb(tb_exp_direc)
 
@@ -218,20 +245,25 @@ def run_sequential(args, logger):
         "state": {"vshape": env_info["state_shape"]},
         "obs": {"vshape": env_info["obs_shape"], "group": "agents"},
         "actions": {"vshape": (1,), "group": "agents", "dtype": th.long},
-        "avail_actions": {"vshape": (env_info["n_actions"],), "group": "agents", "dtype": th.int},
+        "avail_actions": {
+            "vshape": (env_info["n_actions"],),
+            "group": "agents",
+            "dtype": th.int,
+        },
         "reward": {"vshape": (1,)},
         "terminated": {"vshape": (1,), "dtype": th.uint8},
     }
-    groups = {
-        "agents": args.n_agents
-    }
-    preprocess = {
-        "actions": ("actions_onehot", [OneHot(out_dim=args.n_actions)])
-    }
+    groups = {"agents": args.n_agents}
+    preprocess = {"actions": ("actions_onehot", [OneHot(out_dim=args.n_actions)])}
 
-    buffer = ReplayBuffer(scheme, groups, args.buffer_size, env_info["episode_limit"] + 1,
-                          preprocess=preprocess,
-                          device="cpu" if args.buffer_cpu_only else args.device)
+    buffer = ReplayBuffer(
+        scheme,
+        groups,
+        args.buffer_size,
+        env_info["episode_limit"] + 1,
+        preprocess=preprocess,
+        device="cpu" if args.buffer_cpu_only else args.device,
+    )
 
     # Setup multiagent controller here
     mac = BasicMAC(buffer.scheme, groups, args)
@@ -251,7 +283,9 @@ def run_sequential(args, logger):
         timestep_to_load = 0
 
         if not os.path.isdir(args.checkpoint_path):
-            logger.console_logger.info(f"Checkpoint directiory {args.checkpoint_path} doesn't exist")
+            logger.console_logger.info(
+                f"Checkpoint directiory {args.checkpoint_path} doesn't exist"
+            )
             return
 
         # Go through all files in args.checkpoint_path
@@ -313,16 +347,22 @@ def run_sequential(args, logger):
 
             logger.console_logger.info(f"t_env: {runner.t_env} / {args.t_max}")
             logger.console_logger.info(
-                f"Estimated time left: {time_left(last_time, last_test_T, runner.t_env, args.t_max)}. Time passed: {time_str(time.time() - start_time)}")
+                f"Estimated time left: {time_left(last_time, last_test_T, runner.t_env, args.t_max)}. Time passed: {time_str(time.time() - start_time)}"
+            )
             last_time = time.time()
 
             last_test_T = runner.t_env
             for _ in range(n_test_runs):
                 runner.run(test_mode=True)
 
-        if args.save_model and (runner.t_env - model_save_time >= args.save_model_interval or model_save_time == 0):
+        if args.save_model and (
+            runner.t_env - model_save_time >= args.save_model_interval
+            or model_save_time == 0
+        ):
             model_save_time = runner.t_env
-            save_path = os.path.join(args.local_results_path, "models", args.unique_token, str(runner.t_env))
+            save_path = os.path.join(
+                args.local_results_path, "models", args.unique_token, str(runner.t_env)
+            )
             # "results/models/{}".format(unique_token)
             os.makedirs(save_path, exist_ok=True)
             logger.console_logger.info(f"Saving models to {save_path}")
@@ -342,7 +382,9 @@ def run_sequential(args, logger):
     logger.console_logger.info("Finished Training")
 
 
-SETTINGS['CAPTURE_MODE'] = "fd"  # set to "no" if you want to see stdout/stderr in console
+SETTINGS[
+    "CAPTURE_MODE"
+] = "fd"  # set to "no" if you want to see stdout/stderr in console
 logger = get_logger()
 
 ex = Experiment("qmix")
@@ -358,7 +400,7 @@ def my_main(_run, _config, _log):
     config = config_copy(_config)
     np.random.seed(config["seed"])
     th.manual_seed(config["seed"])
-    config['env_args']['seed'] = config["seed"]
+    config["env_args"]["seed"] = config["seed"]
     # run the framework
     run(_run, config, _log)
 
@@ -372,8 +414,17 @@ def _get_config(params, arg_name, subfolder):
             break
 
     if config_name is not None:
-        with open(os.path.join(os.path.dirname(__file__), "..", "elegantrl", "envs", "SMAC", subfolder,
-                               f"{config_name}.yaml")) as f:
+        with open(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "elegantrl",
+                "envs",
+                "SMAC",
+                subfolder,
+                f"{config_name}.yaml",
+            )
+        ) as f:
             try:
                 config_dict = yaml.load(f)
             except yaml.YAMLError as exc:
@@ -399,11 +450,15 @@ def config_copy(config):
         return deepcopy(config)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     params = deepcopy(sys.argv)
 
     # Get the defaults from default.yaml
-    with open(os.path.join(os.path.dirname(__file__), "..", "elegantrl", "envs", "SMAC", "default.yaml")) as f:
+    with open(
+        os.path.join(
+            os.path.dirname(__file__), "..", "elegantrl", "envs", "SMAC", "default.yaml"
+        )
+    ) as f:
         try:
             config_dict = yaml.load(f)
         except yaml.YAMLError as exc:

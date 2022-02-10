@@ -7,13 +7,8 @@ import torch.nn as nn
 from torch.distributions import Categorical
 
 
-class DecayThenFlatSchedule():
-
-    def __init__(self,
-                 start,
-                 finish,
-                 time_length,
-                 decay="exp"):
+class DecayThenFlatSchedule:
+    def __init__(self, start, finish, time_length, decay="exp"):
 
         self.start = start
         self.finish = finish
@@ -22,21 +17,19 @@ class DecayThenFlatSchedule():
         self.decay = decay
 
         if self.decay in ["exp"]:
-            self.exp_scaling = (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+            self.exp_scaling = (
+                (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+            )
 
     def eval(self, T):
         if self.decay in ["linear"]:
             return max(self.finish, self.start - self.delta * T)
         elif self.decay in ["exp"]:
-            return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+            return min(self.start, max(self.finish, np.exp(-T / self.exp_scaling)))
 
 
-class LinearIncreaseSchedule():
-
-    def __init__(self,
-                 start,
-                 finish,
-                 time_length):
+class LinearIncreaseSchedule:
+    def __init__(self, start, finish, time_length):
         self.start = start
         self.finish = finish
         self.time_length = time_length
@@ -67,13 +60,8 @@ class OneHot(Transform):
         return (self.out_dim,), th.float32
 
 
-class DecayThenFlatSchedule():
-
-    def __init__(self,
-                 start,
-                 finish,
-                 time_length,
-                 decay="exp"):
+class DecayThenFlatSchedule:
+    def __init__(self, start, finish, time_length, decay="exp"):
 
         self.start = start
         self.finish = finish
@@ -82,21 +70,19 @@ class DecayThenFlatSchedule():
         self.decay = decay
 
         if self.decay in ["exp"]:
-            self.exp_scaling = (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+            self.exp_scaling = (
+                (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+            )
 
     def eval(self, T):
         if self.decay in ["linear"]:
             return max(self.finish, self.start - self.delta * T)
         elif self.decay in ["exp"]:
-            return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+            return min(self.start, max(self.finish, np.exp(-T / self.exp_scaling)))
 
 
-class LinearIncreaseSchedule():
-
-    def __init__(self,
-                 start,
-                 finish,
-                 time_length):
+class LinearIncreaseSchedule:
+    def __init__(self, start, finish, time_length):
         self.start = start
         self.finish = finish
         self.time_length = time_length
@@ -109,7 +95,9 @@ class LinearIncreaseSchedule():
 # Directly from OpenAI Baseline implementation (https://github.com/openai/baselines)
 class SegmentTree:
     def __init__(self, capacity, operation, neutral_element):
-        assert capacity > 0 and capacity & (capacity - 1) == 0, "capacity must be positive and a power of 2."
+        assert (
+            capacity > 0 and capacity & (capacity - 1) == 0
+        ), "capacity must be positive and a power of 2."
         self._capacity = capacity
         self._value = [neutral_element for _ in range(2 * capacity)]
         self._operation = operation
@@ -125,7 +113,7 @@ class SegmentTree:
         else:
             return self._operation(
                 self._reduce_helper(start, mid, 2 * node, node_start, mid),
-                self._reduce_helper(mid + 1, end, 2 * node + 1, mid + 1, node_end)
+                self._reduce_helper(mid + 1, end, 2 * node + 1, mid + 1, node_end),
             )
 
     def reduce(self, start=0, end=None):
@@ -143,8 +131,7 @@ class SegmentTree:
         idx //= 2
         while idx >= 1:
             self._value[idx] = self._operation(
-                self._value[2 * idx],
-                self._value[2 * idx + 1]
+                self._value[2 * idx], self._value[2 * idx + 1]
             )
             idx //= 2
 
@@ -155,11 +142,7 @@ class SegmentTree:
 
 class SumSegmentTree(SegmentTree):
     def __init__(self, capacity):
-        super().__init__(
-            capacity=capacity,
-            operation=operator.add,
-            neutral_element=0.0
-        )
+        super().__init__(capacity=capacity, operation=operator.add, neutral_element=0.0)
 
     def sum(self, start=0, end=None):
         """Returns arr[start] + ... + arr[end]"""
@@ -179,11 +162,7 @@ class SumSegmentTree(SegmentTree):
 
 class MinSegmentTree(SegmentTree):
     def __init__(self, capacity):
-        super().__init__(
-            capacity=capacity,
-            operation=min,
-            neutral_element=float('inf')
-        )
+        super().__init__(capacity=capacity, operation=min, neutral_element=float("inf"))
 
     def min(self, start=0, end=None):
         """Returns min(arr[start], ...,  arr[end])"""
@@ -204,6 +183,7 @@ class Logger:
     def setup_tb(self, directory_name):
         # Import here so it doesn't have to be installed if you don't use it
         from tensorboard_logger import configure, log_value
+
         configure(directory_name)
         self.tb_logger = log_value
         self.use_tb = True
@@ -227,7 +207,9 @@ class Logger:
                 self.sacred_info[key] = [value]
 
     def print_recent_stats(self):
-        log_str = "Recent Stats | t_env: {:>10} | Episode: {:>8}\n".format(*self.stats["episode"][-1])
+        log_str = "Recent Stats | t_env: {:>10} | Episode: {:>8}\n".format(
+            *self.stats["episode"][-1]
+        )
         i = 0
         for (k, v) in sorted(self.stats.items()):
             if k == "episode":
@@ -247,10 +229,12 @@ def get_logger():
     logger = logging.getLogger()
     logger.handlers = []
     ch = logging.StreamHandler()
-    formatter = logging.Formatter('[%(levelname)s %(asctime)s] %(name)s %(message)s', '%H:%M:%S')
+    formatter = logging.Formatter(
+        "[%(levelname)s %(asctime)s] %(name)s %(message)s", "%H:%M:%S"
+    )
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    logger.setLevel('DEBUG')
+    logger.setLevel("DEBUG")
 
     return logger
 
@@ -270,7 +254,9 @@ def print_time(start_time, T, t_max, episode, episode_rewards):
         last_reward = f"{np.mean(episode_rewards[-50:]):.2f}"
     print(
         f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n",
-        " " * 10, end="\r")
+        " " * 10,
+        end="\r",
+    )
 
 
 def time_left(start_time, t_start, t_current, t_max):
@@ -302,13 +288,16 @@ def time_str(s):
     return string
 
 
-class EpsilonGreedyActionSelector():
-
+class EpsilonGreedyActionSelector:
     def __init__(self, args):
         self.args = args
 
-        self.schedule = DecayThenFlatSchedule(args.epsilon_start, args.epsilon_finish, args.epsilon_anneal_time,
-                                              decay="linear")
+        self.schedule = DecayThenFlatSchedule(
+            args.epsilon_start,
+            args.epsilon_finish,
+            args.epsilon_anneal_time,
+            decay="linear",
+        )
         self.epsilon = self.schedule.eval(0)
 
     def select_action(self, agent_inputs, avail_actions, t_env, test_mode=False):
@@ -328,23 +317,27 @@ class EpsilonGreedyActionSelector():
         random_actions = Categorical(avail_actions.float()).sample().long()
 
         return (
-                pick_random * random_actions
-                + (1 - pick_random) * masked_q_values.max(dim=2)[1]
+            pick_random * random_actions
+            + (1 - pick_random) * masked_q_values.max(dim=2)[1]
         )
 
 
 # This multi-agent controller shares parameters between agents
 
 
-def build_td_lambda_targets(rewards, terminated, mask, target_qs, n_agents, gamma, td_lambda):
+def build_td_lambda_targets(
+    rewards, terminated, mask, target_qs, n_agents, gamma, td_lambda
+):
     # Assumes  <target_qs > in B*T*A and <reward >, <terminated >, <mask > in (at least) B*T-1*1
     # Initialise  last  lambda -return  for  not  terminated  episodes
     ret = target_qs.new_zeros(*target_qs.shape)
     ret[:, -1] = target_qs[:, -1] * (1 - th.sum(terminated, dim=1))
     # Backwards  recursive  update  of the "forward  view"
     for t in range(ret.shape[1] - 2, -1, -1):
-        ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] \
-                    * (rewards[:, t] + (1 - td_lambda) * gamma * target_qs[:, t + 1] * (1 - terminated[:, t]))
+        ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] * (
+            rewards[:, t]
+            + (1 - td_lambda) * gamma * target_qs[:, t + 1] * (1 - terminated[:, t])
+        )
     # Returns lambda-return from t=0 to t=T-1, i.e. in B*T-1*A
     return ret[:, 0:-1]
 
@@ -364,7 +357,9 @@ def build_gae_targets(rewards, masks, values, gamma, lambd):
     return advantages, returns
 
 
-def build_q_lambda_targets(rewards, terminated, mask, exp_qvals, qvals, gamma, td_lambda):
+def build_q_lambda_targets(
+    rewards, terminated, mask, exp_qvals, qvals, gamma, td_lambda
+):
     # Assumes  <target_qs > in B*T*A and <reward >, <terminated >, <mask > in (at least) B*T-1*1
     # Initialise  last  lambda -return  for  not  terminated  episodes
     ret = exp_qvals.new_zeros(*exp_qvals.shape)
@@ -372,8 +367,10 @@ def build_q_lambda_targets(rewards, terminated, mask, exp_qvals, qvals, gamma, t
     # Backwards  recursive  update  of the "forward  view"
     for t in range(ret.shape[1] - 2, -1, -1):
         reward = rewards[:, t] + exp_qvals[:, t] - qvals[:, t]  # off-policy correction
-        ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] \
-                    * (reward + (1 - td_lambda) * gamma * exp_qvals[:, t + 1] * (1 - terminated[:, t]))
+        ret[:, t] = td_lambda * gamma * ret[:, t + 1] + mask[:, t] * (
+            reward
+            + (1 - td_lambda) * gamma * exp_qvals[:, t + 1] * (1 - terminated[:, t])
+        )
     # Returns lambda-return from t=0 to t=T-1, i.e. in B*T-1*A
     return ret[:, 0:-1]
 
@@ -396,8 +393,8 @@ def build_target_q(td_q, target_q, mac, mask, gamma, td_lambda, n):
 class RunningMeanStd:
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
     def __init__(self, epsilon=1e-4, shape=()):
-        self.mean = np.zeros(shape, 'float64')
-        self.var = np.ones(shape, 'float64')
+        self.mean = np.zeros(shape, "float64")
+        self.var = np.ones(shape, "float64")
         self.count = epsilon
 
     def update(self, x):
@@ -413,7 +410,11 @@ class RunningMeanStd:
         new_mean = self.mean + delta * batch_count / tot_count
         m_a = self.var * (self.count)
         m_b = batch_var * (batch_count)
-        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        M2 = (
+            m_a
+            + m_b
+            + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        )
         new_var = M2 / (self.count + batch_count)
 
         new_count = batch_count + self.count
@@ -441,7 +442,7 @@ def clip_by_tensor(t, t_min, t_max):
 
 
 def get_parameters_num(param_list):
-    return str(sum(p.numel() for p in param_list) / 1000) + 'K'
+    return str(sum(p.numel() for p in param_list) / 1000) + "K"
 
 
 def init(module, weight_init, bias_init, gain=1):
@@ -452,5 +453,4 @@ def init(module, weight_init, bias_init, gain=1):
 
 def orthogonal_init_(m, gain=1):
     if isinstance(m, nn.Linear):
-        init(m, nn.init.orthogonal_,
-             lambda x: nn.init.constant_(x, 0), gain=gain)
+        init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain=gain)

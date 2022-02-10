@@ -9,7 +9,14 @@ setup(
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=[
-        'gym', 'matplotlib', 'numpy', 'pybullet', 'torch', 'opencv-python', 'box2d-py'],
+        "gym",
+        "matplotlib",
+        "numpy",
+        "pybullet",
+        "torch",
+        "opencv-python",
+        "box2d-py",
+    ],
     description="Lightweight, Efficient and Stable DRL Implementation Using PyTorch",
     classifiers=[
         # Trove classifiers

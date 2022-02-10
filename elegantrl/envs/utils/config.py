@@ -16,14 +16,22 @@ from isaacgym import gymutil
 
 
 def set_np_formatting():
-    np.set_printoptions(edgeitems=30, infstr='inf',
-                        linewidth=4000, nanstr='nan', precision=2,
-                        suppress=False, threshold=10000, formatter=None)
+    np.set_printoptions(
+        edgeitems=30,
+        infstr="inf",
+        linewidth=4000,
+        nanstr="nan",
+        precision=2,
+        suppress=False,
+        threshold=10000,
+        formatter=None,
+    )
 
 
 def warn_task_name():
     raise Exception(
-        "Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]")
+        "Unrecognized task!\nTask should be one of: [BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, ShadowHandLSTM, ShadowHandFFOpenAI, ShadowHandFFOpenAITest, ShadowHandOpenAI, ShadowHandOpenAITest, Ingenuity]"
+    )
 
 
 def set_seed(seed, torch_deterministic=False):
@@ -34,13 +42,13 @@ def set_seed(seed, torch_deterministic=False):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
     if torch_deterministic:
         # refer to https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
-        os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         torch.set_deterministic(True)
@@ -54,54 +62,110 @@ def set_seed(seed, torch_deterministic=False):
 def retrieve_cfg(args, use_rlg_config=False):
     if args.task == "BallBalance":
         if use_rlg_config:
-            return os.path.join(args.logdir, "ball_balance"), "cfg/train/rlg/rlg_ball.yaml", "cfg/ball_balance.yaml"
+            return (
+                os.path.join(args.logdir, "ball_balance"),
+                "cfg/train/rlg/rlg_ball.yaml",
+                "cfg/ball_balance.yaml",
+            )
         else:
-            return os.path.join(args.logdir,
-                                "ball_balance"), "cfg/train/rlpt/pytorch_ppo_ball_balance.yaml", "cfg/ball_balance.yaml"
+            return (
+                os.path.join(args.logdir, "ball_balance"),
+                "cfg/train/rlpt/pytorch_ppo_ball_balance.yaml",
+                "cfg/ball_balance.yaml",
+            )
     elif args.task == "Cartpole":
-        return os.path.join(args.logdir, "cartpole"), "cfg/train/rlg/rlg_cartpole.yaml", "cfg/cartpole.yaml"
+        return (
+            os.path.join(args.logdir, "cartpole"),
+            "cfg/train/rlg/rlg_cartpole.yaml",
+            "cfg/cartpole.yaml",
+        )
     elif args.task == "CartpoleYUp":
-        return os.path.join(args.logdir, "cartpole_y_up"), "cfg/train/rlg/rlg_cartpole.yaml", "cfg/cartpole.yaml"
+        return (
+            os.path.join(args.logdir, "cartpole_y_up"),
+            "cfg/train/rlg/rlg_cartpole.yaml",
+            "cfg/cartpole.yaml",
+        )
     elif args.task == "Ant":
-        return os.path.join(args.logdir, "ant"), "cfg/train/rlg/rlg_ant.yaml", "cfg/ant.yaml"
+        return (
+            os.path.join(args.logdir, "ant"),
+            "cfg/train/rlg/rlg_ant.yaml",
+            "cfg/ant.yaml",
+        )
     elif args.task == "Humanoid":
-        return os.path.join(args.logdir, "humanoid"), "cfg/train/rlg/rlg_humanoid.yaml", "cfg/humanoid.yaml"
+        return (
+            os.path.join(args.logdir, "humanoid"),
+            "cfg/train/rlg/rlg_humanoid.yaml",
+            "cfg/humanoid.yaml",
+        )
     elif args.task == "FrankaCabinet":
-        return os.path.join(args.logdir,
-                            "franka_cabinet"), "cfg/train/rlg/rlg_franka_cabinet.yaml", "cfg/franka_cabinet.yaml"
+        return (
+            os.path.join(args.logdir, "franka_cabinet"),
+            "cfg/train/rlg/rlg_franka_cabinet.yaml",
+            "cfg/franka_cabinet.yaml",
+        )
     elif args.task == "Quadcopter":
-        return os.path.join(args.logdir, "quadcopter"), "cfg/train/rlg/rlg_quadcopter.yaml", "cfg/quadcopter.yaml"
+        return (
+            os.path.join(args.logdir, "quadcopter"),
+            "cfg/train/rlg/rlg_quadcopter.yaml",
+            "cfg/quadcopter.yaml",
+        )
     elif args.task == "Anymal":
-        return os.path.join(args.logdir, "anymal"), "cfg/train/rlg/rlg_anymal.yaml", "cfg/anymal.yaml"
+        return (
+            os.path.join(args.logdir, "anymal"),
+            "cfg/train/rlg/rlg_anymal.yaml",
+            "cfg/anymal.yaml",
+        )
     elif args.task == "ShadowHand":
-        return os.path.join(args.logdir,
-                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand.yaml", "cfg/shadow_hand.yaml"
+        return (
+            os.path.join(args.logdir, "shadow_hand"),
+            "cfg/train/rlg/rlg_shadow_hand.yaml",
+            "cfg/shadow_hand.yaml",
+        )
     elif args.task == "ShadowHandLSTM":
         args.task = "ShadowHand"
-        return os.path.join(args.logdir,
-                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_lstm.yaml", "cfg/shadow_hand_lstm.yaml"
+        return (
+            os.path.join(args.logdir, "shadow_hand"),
+            "cfg/train/rlg/rlg_shadow_hand_lstm.yaml",
+            "cfg/shadow_hand_lstm.yaml",
+        )
     elif args.task == "ShadowHandFFOpenAI":
         # Asymmetric FF policy and value functions with OpenAI observations
         args.task = "ShadowHand"
-        return os.path.join(args.logdir,
-                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm.yaml", "cfg/shadow_hand_openai.yaml"
+        return (
+            os.path.join(args.logdir, "shadow_hand"),
+            "cfg/train/rlg/rlg_shadow_hand_asymm.yaml",
+            "cfg/shadow_hand_openai.yaml",
+        )
     elif args.task == "ShadowHandFFOpenAITest":
         # Testing the asymmetric FF policy with OpenAI observations
         args.task = "ShadowHand"
-        return os.path.join(args.logdir,
-                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm.yaml", "cfg/shadow_hand_test.yaml"
+        return (
+            os.path.join(args.logdir, "shadow_hand"),
+            "cfg/train/rlg/rlg_shadow_hand_asymm.yaml",
+            "cfg/shadow_hand_test.yaml",
+        )
     elif args.task == "ShadowHandOpenAI":
         args.task = "ShadowHand"
         # Asymmetric LSTM policy and value functions with OpenAI observations
-        return os.path.join(args.logdir,
-                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml", "cfg/shadow_hand_openai.yaml"
+        return (
+            os.path.join(args.logdir, "shadow_hand"),
+            "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml",
+            "cfg/shadow_hand_openai.yaml",
+        )
     elif args.task == "ShadowHandOpenAITest":
         # Testing the asymmetric LSTM policy with OpenAI observations
         args.task = "ShadowHand"
-        return os.path.join(args.logdir,
-                            "shadow_hand"), "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml", "cfg/shadow_hand_test.yaml"
+        return (
+            os.path.join(args.logdir, "shadow_hand"),
+            "cfg/train/rlg/rlg_shadow_hand_asymm_lstm.yaml",
+            "cfg/shadow_hand_test.yaml",
+        )
     elif args.task == "Ingenuity":
-        return os.path.join(args.logdir, "ingenuity"), "cfg/train/rlg/rlg_ingenuity.yaml", "cfg/ingenuity.yaml"
+        return (
+            os.path.join(args.logdir, "ingenuity"),
+            "cfg/train/rlg/rlg_ingenuity.yaml",
+            "cfg/ingenuity.yaml",
+        )
     else:
         warn_task_name()
 
@@ -139,9 +203,9 @@ def load_cfg(args, use_rlg_config=False):
         if args.torch_deterministic:
             cfg_train["params"]["torch_deterministic"] = True
 
-        exp_name = cfg_train["params"]["config"]['name']
+        exp_name = cfg_train["params"]["config"]["name"]
 
-        if args.experiment != 'Base':
+        if args.experiment != "Base":
             if args.metadata:
                 exp_name = f"{args.experiment}_{args.task_type}_{args.device}_{str(args.physics_engine).split('_')[-1]}"
 
@@ -151,7 +215,7 @@ def load_cfg(args, use_rlg_config=False):
                 exp_name = args.experiment
 
         # Override config name
-        cfg_train["params"]["config"]['name'] = exp_name
+        cfg_train["params"]["config"]["name"] = exp_name
 
         if args.resume > 0:
             cfg_train["params"]["load_checkpoint"] = True
@@ -161,7 +225,7 @@ def load_cfg(args, use_rlg_config=False):
 
         # Set maximum number of training iterations (epochs)
         if args.max_iterations > 0:
-            cfg_train["params"]["config"]['max_epochs'] = args.max_iterations
+            cfg_train["params"]["config"]["max_epochs"] = args.max_iterations
 
         cfg_train["params"]["config"]["num_actors"] = cfg["env"]["numEnvs"]
 
@@ -183,9 +247,12 @@ def load_cfg(args, use_rlg_config=False):
             cfg_train["seed"] = args.seed
 
         log_id = args.logdir
-        if args.experiment != 'Base':
+        if args.experiment != "Base":
             if args.metadata:
-                log_id = args.logdir + f"_{args.experiment}_{args.task_type}_{args.device}_{str(args.physics_engine).split('_')[-1]}"
+                log_id = (
+                    args.logdir
+                    + f"_{args.experiment}_{args.task_type}_{args.device}_{str(args.physics_engine).split('_')[-1]}"
+                )
                 if cfg["task"]["randomize"]:
                     log_id += "_DR"
             else:
@@ -200,7 +267,7 @@ def load_cfg(args, use_rlg_config=False):
 def parse_sim_params(args, cfg, cfg_train):
     # initialize sim
     sim_params = gymapi.SimParams()
-    sim_params.dt = 1. / 60.
+    sim_params.dt = 1.0 / 60.0
     sim_params.num_client_threads = args.slices
 
     if args.physics_engine == gymapi.SIM_FLEX:
@@ -232,69 +299,160 @@ def parse_sim_params(args, cfg, cfg_train):
     return sim_params
 
 
-def get_args(task_name='Humanoid', headless=True, benchmark=False, use_rlg_config=False):
+def get_args(
+    task_name="Humanoid", headless=True, benchmark=False, use_rlg_config=False
+):
     custom_parameters = [
-        {"name": "--test", "action": "store_true", "default": False,
-         "help": "Run trained policy, no training"},
-        {"name": "--play", "action": "store_true", "default": False,
-         "help": "Run trained policy, the same as test, can be used only by rl_games RL library"},
-        {"name": "--resume", "type": int, "default": 0,
-         "help": "Resume training or start testing from a checkpoint"},
-        {"name": "--checkpoint", "type": str, "default": "Base",
-         "help": "Path to the saved weights, only for rl_games RL library"},
-        {"name": "--headless", "action": "store_true", "default": False,
-         "help": "Force display off at all times"},
-        {"name": "--horovod", "action": "store_true", "default": False,
-         "help": "Use horovod for multi-gpu training, have effect only with rl_games RL library"},
-        {"name": "--task", "type": str, "default": "Humanoid",
-         "help": "Can be BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, Ingenuity"},
-        {"name": "--task_type", "type": str,
-         "default": "Python", "help": "Choose Python or C++"},
-        {"name": "--rl_device", "type": str, "default": "cuda:0",
-         "help": "Choose CPU or GPU device for inferencing policy network"},
+        {
+            "name": "--test",
+            "action": "store_true",
+            "default": False,
+            "help": "Run trained policy, no training",
+        },
+        {
+            "name": "--play",
+            "action": "store_true",
+            "default": False,
+            "help": "Run trained policy, the same as test, can be used only by rl_games RL library",
+        },
+        {
+            "name": "--resume",
+            "type": int,
+            "default": 0,
+            "help": "Resume training or start testing from a checkpoint",
+        },
+        {
+            "name": "--checkpoint",
+            "type": str,
+            "default": "Base",
+            "help": "Path to the saved weights, only for rl_games RL library",
+        },
+        {
+            "name": "--headless",
+            "action": "store_true",
+            "default": False,
+            "help": "Force display off at all times",
+        },
+        {
+            "name": "--horovod",
+            "action": "store_true",
+            "default": False,
+            "help": "Use horovod for multi-gpu training, have effect only with rl_games RL library",
+        },
+        {
+            "name": "--task",
+            "type": str,
+            "default": "Humanoid",
+            "help": "Can be BallBalance, Cartpole, CartpoleYUp, Ant, Humanoid, Anymal, FrankaCabinet, Quadcopter, ShadowHand, Ingenuity",
+        },
+        {
+            "name": "--task_type",
+            "type": str,
+            "default": "Python",
+            "help": "Choose Python or C++",
+        },
+        {
+            "name": "--rl_device",
+            "type": str,
+            "default": "cuda:0",
+            "help": "Choose CPU or GPU device for inferencing policy network",
+        },
         {"name": "--logdir", "type": str, "default": "logs/"},
-        {"name": "--experiment", "type": str, "default": "Base",
-         "help": "Experiment name. If used with --metadata flag an additional information about physics engine, sim device, pipeline and domain randomization will be added to the name"},
-        {"name": "--metadata", "action": "store_true", "default": False,
-         "help": "Requires --experiment flag, adds physics engine, sim device, pipeline info and if domain randomization is used to the experiment name provided by user"},
-        {"name": "--cfg_train", "type": str,
-         "default": "Base"},
+        {
+            "name": "--experiment",
+            "type": str,
+            "default": "Base",
+            "help": "Experiment name. If used with --metadata flag an additional information about physics engine, sim device, pipeline and domain randomization will be added to the name",
+        },
+        {
+            "name": "--metadata",
+            "action": "store_true",
+            "default": False,
+            "help": "Requires --experiment flag, adds physics engine, sim device, pipeline info and if domain randomization is used to the experiment name provided by user",
+        },
+        {"name": "--cfg_train", "type": str, "default": "Base"},
         {"name": "--cfg_env", "type": str, "default": "Base"},
-        {"name": "--num_envs", "type": int, "default": 0,
-         "help": "Number of environments to create - override config file"},
-        {"name": "--episode_length", "type": int, "default": 0,
-         "help": "Episode length, by default is read from yaml config"},
+        {
+            "name": "--num_envs",
+            "type": int,
+            "default": 0,
+            "help": "Number of environments to create - override config file",
+        },
+        {
+            "name": "--episode_length",
+            "type": int,
+            "default": 0,
+            "help": "Episode length, by default is read from yaml config",
+        },
         {"name": "--seed", "type": int, "help": "Random seed"},
-        {"name": "--max_iterations", "type": int, "default": 0,
-         "help": "Set a maximum number of training iterations"},
-        {"name": "--steps_num", "type": int, "default": -1,
-         "help": "Set number of simulation steps per 1 PPO iteration. Supported only by rl_games. If not -1 overrides the config settings."},
-        {"name": "--minibatch_size", "type": int, "default": -1,
-         "help": "Set batch size for PPO optimization step. Supported only by rl_games. If not -1 overrides the config settings."},
-        {"name": "--randomize", "action": "store_true", "default": False,
-         "help": "Apply physics domain randomization"},
-        {"name": "--torch_deterministic", "action": "store_true", "default": False,
-         "help": "Apply additional PyTorch settings for more deterministic behaviour"}]
+        {
+            "name": "--max_iterations",
+            "type": int,
+            "default": 0,
+            "help": "Set a maximum number of training iterations",
+        },
+        {
+            "name": "--steps_num",
+            "type": int,
+            "default": -1,
+            "help": "Set number of simulation steps per 1 PPO iteration. Supported only by rl_games. If not -1 overrides the config settings.",
+        },
+        {
+            "name": "--minibatch_size",
+            "type": int,
+            "default": -1,
+            "help": "Set batch size for PPO optimization step. Supported only by rl_games. If not -1 overrides the config settings.",
+        },
+        {
+            "name": "--randomize",
+            "action": "store_true",
+            "default": False,
+            "help": "Apply physics domain randomization",
+        },
+        {
+            "name": "--torch_deterministic",
+            "action": "store_true",
+            "default": False,
+            "help": "Apply additional PyTorch settings for more deterministic behaviour",
+        },
+    ]
 
     if benchmark:
         custom_parameters += [
-            {"name": "--num_proc", "type": int, "default": 1, "help": "Number of child processes to launch"},
-            {"name": "--random_actions", "action": "store_true",
-             "help": "Run benchmark with random actions instead of inferencing"},
-            {"name": "--bench_len", "type": int, "default": 10,
-             "help": "Number of timing reports"},
-            {"name": "--bench_file", "action": "store", "help": "Filename to store benchmark results"}]
+            {
+                "name": "--num_proc",
+                "type": int,
+                "default": 1,
+                "help": "Number of child processes to launch",
+            },
+            {
+                "name": "--random_actions",
+                "action": "store_true",
+                "help": "Run benchmark with random actions instead of inferencing",
+            },
+            {
+                "name": "--bench_len",
+                "type": int,
+                "default": 10,
+                "help": "Number of timing reports",
+            },
+            {
+                "name": "--bench_file",
+                "action": "store",
+                "help": "Filename to store benchmark results",
+            },
+        ]
 
     # parse arguments
     args = gymutil.parse_arguments(
-        description="RL Policy",
-        custom_parameters=custom_parameters)
+        description="RL Policy", custom_parameters=custom_parameters
+    )
 
     # allignment with examples
     args.task = task_name
     args.headless = headless
     args.device_id = args.compute_device_id
-    args.device = args.sim_device_type if args.use_gpu_pipeline else 'cpu'
+    args.device = args.sim_device_type if args.use_gpu_pipeline else "cpu"
 
     if args.test:
         args.play = args.test
@@ -309,13 +467,20 @@ def get_args(task_name='Humanoid', headless=True, benchmark=False, use_rlg_confi
     if use_rlg_config == False:
         if args.horovod:
             print(
-                "Distributed multi-gpu training with Horovod is not supported by rl-pytorch. Use rl_games for distributed training.")
+                "Distributed multi-gpu training with Horovod is not supported by rl-pytorch. Use rl_games for distributed training."
+            )
         if args.steps_num != -1:
-            print("Setting number of simulation steps per iteration from command line is not supported by rl-pytorch.")
+            print(
+                "Setting number of simulation steps per iteration from command line is not supported by rl-pytorch."
+            )
         if args.minibatch_size != -1:
-            print("Setting minibatch size from command line is not supported by rl-pytorch.")
+            print(
+                "Setting minibatch size from command line is not supported by rl-pytorch."
+            )
         if args.checkpoint != "Base":
-            raise ValueError("--checkpoint is not supported by rl-pytorch. Please use --resume <iteration number>")
+            raise ValueError(
+                "--checkpoint is not supported by rl-pytorch. Please use --resume <iteration number>"
+            )
 
     # use custom parameters if provided by user
     if args.logdir == "logs/":

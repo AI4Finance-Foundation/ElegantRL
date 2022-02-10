@@ -6,11 +6,11 @@ from elegantrl.agent import *
 from elegantrl.config import Arguments
 from elegantrl.run import *
 
-'''custom env'''
+"""custom env"""
 
 
 class PendulumEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
-    def __init__(self, gym_env_id='Pendulum-v1', target_return=-200):
+    def __init__(self, gym_env_id="Pendulum-v1", target_return=-200):
         # Pendulum-v0 gym.__version__ == 0.17.0
         # Pendulum-v1 gym.__version__ == 0.21.0
         gym.logger.set_level(40)  # Block warning
@@ -32,23 +32,27 @@ class PendulumEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
     def step(self, action: np.ndarray):
         # PendulumEnv set its action space as (-2, +2). It is bad.  # https://github.com/openai/gym/wiki/Pendulum-v0
         # I suggest to set action space as (-1, +1) when you design your own env.
-        state, reward, done, info_dict = self.env.step(action * 2)  # state, reward, done, info_dict
+        state, reward, done, info_dict = self.env.step(
+            action * 2
+        )  # state, reward, done, info_dict
         return state.astype(np.float32), reward, done, info_dict
 
 
-'''demo'''
+"""demo"""
 
 
 def demo_continuous_action_off_policy():
-    env_name = ['Pendulum-v0',
-                'Pendulum-v1',
-                'LunarLanderContinuous-v2',
-                'BipedalWalker-v3',
-                ''][ENV_ID]
+    env_name = [
+        "Pendulum-v0",
+        "Pendulum-v1",
+        "LunarLanderContinuous-v2",
+        "BipedalWalker-v3",
+        "",
+    ][ENV_ID]
     agent = [AgentTD3, AgentSAC, AgentModSAC][2]
     gpu_id = GPU_ID  # >=0 means GPU ID, -1 means CPU
 
-    if env_name in {'Pendulum-v0', 'Pendulum-v1'}:
+    if env_name in {"Pendulum-v0", "Pendulum-v1"}:
         env = PendulumEnv(env_name, target_return=-500)
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
@@ -65,11 +69,11 @@ def demo_continuous_action_off_policy():
         | UsedTime:     783 | 
         """
         args = Arguments(agent, env)
-        args.reward_scale = 2 ** -1  # RewardRange: -1800 < -200 < -50 < 0
+        args.reward_scale = 2**-1  # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.target_step = args.max_step * 2
-        args.eval_times = 2 ** 3
-    elif env_name == 'LunarLanderContinuous-v2':
+        args.eval_times = 2**3
+    elif env_name == "LunarLanderContinuous-v2":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         2  4.25e+03 -143.93 | -143.93   29.6     69    12 |   -2.47   1.06   0.13   0.15
@@ -77,7 +81,7 @@ def demo_continuous_action_off_policy():
         2  1.59e+05  170.35 |   80.46  125.0    775   285 |    0.07   1.14  29.92   0.29
         2  1.95e+05  221.39 |  221.39   19.7    449   127 |    0.12   1.09  32.16   0.40
         | UsedTime:     421 |
-        
+
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         1  4.26e+03 -139.77 | -139.77   36.7     67    12 |   -2.16  11.20   0.12   0.15
         1  1.11e+05 -105.09 | -105.09   84.3    821   244 |   -0.14  27.60   1.04   0.21
@@ -101,21 +105,22 @@ def demo_continuous_action_off_policy():
         # env = gym.make('LunarLanderContinuous-v2')
         # get_gym_env_args(env=env, if_print=True)
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'LunarLanderContinuous-v2',
-                    'max_step': 1000,
-                    'state_dim': 8,
-                    'action_dim': 2,
-                    'if_discrete': False,
-                    'target_return': 200,
-
-                    'id': 'LunarLanderContinuous-v2'}
+        env_args = {
+            "env_num": 1,
+            "env_name": "LunarLanderContinuous-v2",
+            "max_step": 1000,
+            "state_dim": 8,
+            "action_dim": 2,
+            "if_discrete": False,
+            "target_return": 200,
+            "id": "LunarLanderContinuous-v2",
+        }
         args = Arguments(agent, env_func=env_func, env_args=env_args)
 
         args.target_step = args.max_step
         args.gamma = 0.99
-        args.eval_times = 2 ** 5
-    elif env_name == 'BipedalWalker-v3':
+        args.eval_times = 2**5
+    elif env_name == "BipedalWalker-v3":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         3  7.51e+03 -111.59 | -111.59    0.2     97     7 |   -0.18   4.23  -0.03   0.02
@@ -137,7 +142,7 @@ def demo_continuous_action_off_policy():
         3  1.02e+06  283.37 |  283.37   86.3   1259   245 |    0.14   0.80   3.96   0.06
         3  1.19e+06  313.36 |  313.36    0.9   1097    20 |    0.21   0.78   6.80   0.06
         | UsedTime:    9354 | SavedDir: ./BipedalWalker-v3_ModSAC_3
-        
+
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         3  6.55e+03 -109.86 | -109.86    4.5    156    30 |   -0.06   0.71  -0.01   0.02
         3  1.24e+05  -88.28 |  -88.28   26.2    475   650 |   -0.15   0.15   0.04   0.02
@@ -148,8 +153,8 @@ def demo_continuous_action_off_policy():
         3  5.31e+05  205.81 |  203.27  143.9   1048   388 |    0.14   0.15   4.00   0.06
         3  6.93e+05  254.40 |  252.74  121.1    992   280 |    0.21   0.12   7.34   0.06
         3  7.11e+05  304.79 |  304.79   73.4   1015   151 |    0.21   0.12   5.69   0.06
-        | UsedTime:    3215 | 
-        
+        | UsedTime:    3215 |
+
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         1  7.08e+03 -106.48 | -106.48    6.0    170    17 |   -0.14   0.70   0.03   0.02
         1  2.38e+05  -89.62 |  -89.62   29.8    775   728 |   -0.30   0.31 -13.44   0.04
@@ -162,24 +167,25 @@ def demo_continuous_action_off_policy():
         1  8.06e+05  287.28 |  -68.06    5.9    211    19 |   -0.08   0.12   7.83   0.06
         1  8.56e+05  291.10 |  286.19   56.0   1181    63 |    0.17   0.13   6.37   0.06
         1  8.83e+05  314.54 |  314.54    1.0   1252    19 |    0.11   0.12   7.23   0.06
-        | UsedTime:    5008 | 
+        | UsedTime:    5008 |
         """
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'BipedalWalker-v3',
-                    'max_step': 1600,
-                    'state_dim': 24,
-                    'action_dim': 4,
-                    'if_discrete': False,
-                    'target_return': 300,
-
-                    'id': 'BipedalWalker-v3', }
+        env_args = {
+            "env_num": 1,
+            "env_name": "BipedalWalker-v3",
+            "max_step": 1600,
+            "state_dim": 24,
+            "action_dim": 4,
+            "if_discrete": False,
+            "target_return": 300,
+            "id": "BipedalWalker-v3",
+        }
         args = Arguments(agent, env_func=env_func, env_args=env_args)
         args.target_step = args.max_step
         args.gamma = 0.98
-        args.eval_times = 2 ** 4
+        args.eval_times = 2**4
     else:
-        raise ValueError('env_name:', env_name)
+        raise ValueError("env_name:", env_name)
 
     args.learner_gpus = gpu_id
     args.random_seed += gpu_id
@@ -192,40 +198,42 @@ def demo_continuous_action_off_policy():
 
 
 def demo_continuous_action_on_policy():
-    env_name = ['Pendulum-v0',
-                'Pendulum-v1',
-                'LunarLanderContinuous-v2',
-                'BipedalWalker-v3'][ENV_ID]
+    env_name = [
+        "Pendulum-v0",
+        "Pendulum-v1",
+        "LunarLanderContinuous-v2",
+        "BipedalWalker-v3",
+    ][ENV_ID]
     gpu_id = GPU_ID  # >=0 means GPU ID, -1 means CPU
 
-    if env_name in {'Pendulum-v0', 'Pendulum-v1'}:
+    if env_name in {"Pendulum-v0", "Pendulum-v1"}:
         env = PendulumEnv(env_name, target_return=-500)
         "TotalStep: 1e5, TargetReward: -200, UsedTime: 600s"
         args = Arguments(AgentPPO, env)
-        args.reward_scale = 2 ** -1  # RewardRange: -1800 < -200 < -50 < 0
+        args.reward_scale = 2**-1  # RewardRange: -1800 < -200 < -50 < 0
         args.gamma = 0.97
         args.target_step = args.max_step * 8
-        args.eval_times = 2 ** 3
-    elif env_name == 'LunarLanderContinuous-v2':
+        args.eval_times = 2**3
+    elif env_name == "LunarLanderContinuous-v2":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         1  8.25e+03 -223.00 | -223.00  116.2    142   155 |   -0.66  12.99  -0.03  -0.50
         1  1.08e+05  109.04 |  109.04  165.5    434    79 |    0.03   5.25   0.03  -0.52
         1  2.10e+05  200.78 |  200.78   65.8    419   115 |    0.10   3.94  -0.01  -0.54
         | UsedTime:     293 |
-        
+
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         2  8.10e+03 -122.51 | -122.51   34.8     71    13 |   -0.69  14.24   0.00  -0.50
         2  1.26e+05   55.94 |   55.94  185.2    441   105 |    0.07   2.32   0.03  -0.53
         2  2.25e+05   55.94 |  -39.64   22.8   1000     0 |    0.07   1.57  -0.02  -0.56
         2  3.33e+05  246.37 |  246.37   69.0    326    90 |    0.12   2.29   0.05  -0.58
         | UsedTime:     407 |
-        
+
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         3  8.21e+03 -124.41 | -124.41   71.6     72    12 |   -0.68  15.99  -0.01  -0.50
         3  1.13e+05  -90.54 |  -90.54  112.4    226   110 |    0.01   8.06   0.05  -0.52
         3  2.12e+05  213.84 |  213.84  107.6    318   110 |    0.07   1.19  -0.04  -0.53
-        | UsedTime:     284 | 
+        | UsedTime:     284 |
 
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         0  8.32e+03 -152.99 | -152.99   95.1    106    24 |   -0.71  18.27  -0.04  -0.50
@@ -237,23 +245,24 @@ def demo_continuous_action_on_policy():
         # env = gym.make('LunarLanderContinuous-v2')
         # get_gym_env_args(env=env, if_print=True)
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'LunarLanderContinuous-v2',
-                    'max_step': 1000,
-                    'state_dim': 8,
-                    'action_dim': 2,
-                    'if_discrete': False,
-                    'target_return': 200,
-
-                    'id': 'LunarLanderContinuous-v2'}
+        env_args = {
+            "env_num": 1,
+            "env_name": "LunarLanderContinuous-v2",
+            "max_step": 1000,
+            "state_dim": 8,
+            "action_dim": 2,
+            "if_discrete": False,
+            "target_return": 200,
+            "id": "LunarLanderContinuous-v2",
+        }
         args = Arguments(AgentPPO, env_func=env_func, env_args=env_args)
 
         args.target_step = args.max_step * 2
-        args.reward_scale = 2 ** -1
-        args.repeat_times = 2 ** 5
+        args.reward_scale = 2**-1
+        args.repeat_times = 2**5
         args.gamma = 0.99
-        args.eval_times = 2 ** 5
-    elif env_name == 'BipedalWalker-v3':
+        args.eval_times = 2**5
+    elif env_name == "BipedalWalker-v3":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         0  2.72e+04  -38.64 |  -38.64   43.7   1236   630 |   -0.11  83.06  -0.03  -0.50
@@ -275,7 +284,7 @@ def demo_continuous_action_on_policy():
         4  2.40e+06  293.55 |  293.55    1.7   1485    32 |    0.16   3.38  -0.00  -0.82
         4  3.31e+06  300.05 |  300.05    1.6   1290    29 |    0.20   2.43   0.04  -0.90
         | UsedTime:    2036 |
-        
+
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         2  2.71e+04  -92.72 |  -92.72    0.1    101     2 |   -0.08   1.58   0.03  -0.50
         2  2.52e+05  -25.49 |  -25.49    0.1   1600     0 |   -0.02   0.06   0.00  -0.50
@@ -285,28 +294,29 @@ def demo_continuous_action_on_policy():
         2  2.70e+06  282.49 |  225.92  140.4    943   337 |    0.11   0.24   0.03  -0.72
         2  3.58e+06  299.76 |  249.94   94.7    913   158 |    0.13   0.49   0.01  -0.75
         2  5.39e+06  301.93 |  301.93    0.9    928    11 |    0.13   0.38   0.02  -0.80
-        | UsedTime:    3201 | 
+        | UsedTime:    3201 |
 
         1  1.81e+06  301.14 |  301.14    0.7   1067    11 |    0.11   3.73  -0.02  -0.68 | UsedTime:    1099 |
         0  2.54e+06  307.66 |  307.66    1.9   1163    34 |    0.19   5.40   0.02  -0.75 | UsedTime:    1641 |
         """
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'BipedalWalker-v3',
-                    'max_step': 1600,
-                    'state_dim': 24,
-                    'action_dim': 4,
-                    'if_discrete': False,
-                    'target_return': 300,
-
-                    'id': 'BipedalWalker-v3', }
+        env_args = {
+            "env_num": 1,
+            "env_name": "BipedalWalker-v3",
+            "max_step": 1600,
+            "state_dim": 24,
+            "action_dim": 4,
+            "if_discrete": False,
+            "target_return": 300,
+            "id": "BipedalWalker-v3",
+        }
         args = Arguments(AgentPPO, env_func=env_func, env_args=env_args)
         args.target_step = args.max_step * 4
-        args.reward_scale = 2 ** -1
+        args.reward_scale = 2**-1
         args.gamma = 0.98
-        args.eval_times = 2 ** 4
+        args.eval_times = 2**4
     else:
-        raise ValueError('env_name:', env_name)
+        raise ValueError("env_name:", env_name)
 
     args.learner_gpus = gpu_id
     args.random_seed += gpu_id
@@ -319,11 +329,13 @@ def demo_continuous_action_on_policy():
 
 
 def demo_discrete_action_off_policy():
-    env_name = ['CartPole-v0',
-                'LunarLander-v2', ][ENV_ID]
+    env_name = [
+        "CartPole-v0",
+        "LunarLander-v2",
+    ][ENV_ID]
     gpu_id = GPU_ID  # >=0 means GPU ID, -1 means CPU
 
-    if env_name == 'CartPole-v0':
+    if env_name == "CartPole-v0":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         1  2.15e+02    9.00 |    9.00    0.7      9     1 |    1.00   1.00   0.02
@@ -334,24 +346,24 @@ def demo_discrete_action_off_policy():
         # get_gym_env_args(env=env, if_print=True)
         env_func = gym.make
         env_args = {
-            'env_num': 1,
-            'env_name': 'CartPole-v0',
-            'max_step': 200,
-            'state_dim': 4,
-            'action_dim': 2,
-            'if_discrete': True,
-            'target_return': 195.0,
+            "env_num": 1,
+            "env_name": "CartPole-v0",
+            "max_step": 200,
+            "state_dim": 4,
+            "action_dim": 2,
+            "if_discrete": True,
+            "target_return": 195.0,
         }
         args = Arguments(AgentDQN, env_func=env_func, env_args=env_args)
 
         args.target_step = args.max_step
-        args.net_dim = 2 ** 7
+        args.net_dim = 2**7
         args.batch_size = args.net_dim
 
         args.gamma = 0.97
-        args.eval_times = 2 ** 3
-        args.eval_gap = 2 ** 4
-    elif env_name == 'LunarLander-v2':
+        args.eval_times = 2**3
+        args.eval_gap = 2**4
+    elif env_name == "LunarLander-v2":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         1  4.17e+03 -571.17 | -571.17  134.8     68     9 |   -1.84  25.04  -0.18
@@ -366,20 +378,22 @@ def demo_discrete_action_off_policy():
         | UsedTime:    3149 |
         """
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'LunarLander-v2',
-                    'max_step': 1000,
-                    'state_dim': 8,
-                    'action_dim': 4,
-                    'if_discrete': True,
-                    'target_return': 200, }
+        env_args = {
+            "env_num": 1,
+            "env_name": "LunarLander-v2",
+            "max_step": 1000,
+            "state_dim": 8,
+            "action_dim": 4,
+            "if_discrete": True,
+            "target_return": 200,
+        }
         args = Arguments(AgentD3QN, env_func=env_func, env_args=env_args)
         args.target_step = args.max_step
-        args.reward_scale = 2 ** -2
+        args.reward_scale = 2**-2
         args.gamma = 0.99
-        args.eval_times = 2 ** 4
+        args.eval_times = 2**4
     else:
-        raise ValueError('env_name:', env_name)
+        raise ValueError("env_name:", env_name)
 
     args.learner_gpus = gpu_id
     args.random_seed += gpu_id
@@ -392,12 +406,13 @@ def demo_discrete_action_off_policy():
 
 
 def demo_discrete_action_on_policy():
-    env_name = ['CartPole-v0',
-                'LunarLander-v2',
-                ][ENV_ID]
+    env_name = [
+        "CartPole-v0",
+        "LunarLander-v2",
+    ][ENV_ID]
     gpu_id = GPU_ID  # >=0 means GPU ID, -1 means CPU
 
-    if env_name == 'CartPole-v0':
+    if env_name == "CartPole-v0":
         """
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         2  3.22e+03   77.00 |   77.00   23.4     77    23 |    1.00 142.04   0.01   0.00
@@ -407,28 +422,30 @@ def demo_discrete_action_on_policy():
         # env = gym.make(env_name)
         # get_gym_env_args(env=env, if_print=True)
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'CartPole-v0',
-                    'max_step': 200,
-                    'state_dim': 4,
-                    'action_dim': 2,
-                    'if_discrete': True,
-                    'target_return': 195.0, }
+        env_args = {
+            "env_num": 1,
+            "env_name": "CartPole-v0",
+            "max_step": 200,
+            "state_dim": 4,
+            "action_dim": 2,
+            "if_discrete": True,
+            "target_return": 195.0,
+        }
         args = Arguments(AgentDiscretePPO, env_func=env_func, env_args=env_args)
 
         args.target_step = args.max_step * 2
-        args.net_dim = 2 ** 6
+        args.net_dim = 2**6
         args.batch_size = args.net_dim * 2
 
         args.gamma = 0.97
-        args.eval_times = 2 ** 3
-        args.eval_gap = 2 ** 4
-    elif env_name == 'LunarLander-v2':
-        """ Hyper-parameter will influence training used time.
+        args.eval_times = 2**3
+        args.eval_gap = 2**4
+    elif env_name == "LunarLander-v2":
+        """Hyper-parameter will influence training used time.
 
         args.repeat_times = 2 ** 5
-        args.reward_scale = 2 ** 0 
-        args.if_cri_target = False 
+        args.reward_scale = 2 ** 0
+        args.if_cri_target = False
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         1  1.61e+04 -155.46 | -155.46   53.9    695   180 |   -1.56 828.09   0.01   0.00
         1  1.51e+05  -48.06 |  -48.06   23.7   1000     0 |    0.05 250.08  -0.04   0.00
@@ -444,8 +461,8 @@ def demo_discrete_action_on_policy():
         | UsedTime:     282 |
 
         args.repeat_times = 2 ** 4
-        args.reward_scale = 2 ** 0 
-        args.if_cri_target = True 
+        args.reward_scale = 2 ** 0
+        args.if_cri_target = True
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         2  1.63e+04  143.77 |  143.77   74.0    801   204 |   -1.322105.17  -0.04   0.00
         2  1.62e+05  143.77 | -129.86  125.4    316   197 |    0.251364.32  -0.01   0.00
@@ -455,7 +472,7 @@ def demo_discrete_action_on_policy():
 
         args.repeat_times = 2 ** 4
         args.reward_scale = 2 ** -2  # slow
-        args.if_cri_target = False 
+        args.if_cri_target = False
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         2  1.63e+04  -28.75 |  -28.75   39.2     82    12 |   -0.37  88.73  -0.03   0.00
         2  3.11e+05   17.93 |   17.93  104.1    879   114 |    0.04  30.11  -0.06   0.00
@@ -468,20 +485,22 @@ def demo_discrete_action_on_policy():
         | UsedTime:   22758 |
         """
         env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'LunarLander-v2',
-                    'max_step': 1000,
-                    'state_dim': 8,
-                    'action_dim': 4,
-                    'if_discrete': True,
-                    'target_return': 200, }
+        env_args = {
+            "env_num": 1,
+            "env_name": "LunarLander-v2",
+            "max_step": 1000,
+            "state_dim": 8,
+            "action_dim": 4,
+            "if_discrete": True,
+            "target_return": 200,
+        }
         args = Arguments(AgentDiscretePPO, env_func=env_func, env_args=env_args)
         args.target_step = args.max_step * 4
-        args.repeat_times = 2 ** 5
+        args.repeat_times = 2**5
         args.gamma = 0.99
-        args.eval_times = 2 ** 4
+        args.eval_times = 2**4
     else:
-        raise ValueError('env_name:', env_name)
+        raise ValueError("env_name:", env_name)
 
     args.learner_gpus = gpu_id
     args.random_seed += gpu_id
@@ -493,7 +512,7 @@ def demo_discrete_action_on_policy():
         train_and_evaluate_mp(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     GPU_ID = int(sys.argv[1])
     ENV_ID = int(sys.argv[2])
 

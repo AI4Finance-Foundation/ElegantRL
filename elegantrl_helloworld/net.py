@@ -15,10 +15,15 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
         self.explore_rate = 0.125
         self.action_dim = action_dim
 
@@ -56,12 +61,18 @@ class ActorSAC(nn.Module):
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        self.net_a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim))  # the average of action
-        self.net_a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim))  # the log_std of action
+        self.net_state = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )
+        self.net_a_avg = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # the average of action
+        self.net_a_std = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # the log_std of action
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
@@ -101,8 +112,12 @@ class ActorSAC(nn.Module):
         noise = torch.randn_like(a_avg, requires_grad=True)
         a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
 
-        log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
-        log_prob = log_prob + (-a_tan.pow(2) + 1.000001).log()  # fix log_prob using the derivative of action.tanh()
+        log_prob = (
+            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+        )  # noise.pow(2) * 0.5
+        log_prob = (
+            log_prob + (-a_tan.pow(2) + 1.000001).log()
+        )  # fix log_prob using the derivative of action.tanh()
         return a_tan, log_prob.sum(1, keepdim=True)
 
 
@@ -117,13 +132,20 @@ class ActorPPO(nn.Module):
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
         # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
-        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
+        self.a_std_log = nn.Parameter(
+            torch.zeros((1, action_dim)) - 0.5, requires_grad=True
+        )
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
@@ -193,10 +215,15 @@ class ActorDiscretePPO(nn.Module):
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
         self.action_dim = action_dim
         self.soft_max = nn.Softmax(dim=-1)
         self.Categorical = torch.distributions.Categorical
@@ -250,10 +277,15 @@ class CriticPPO(nn.Module):
 
     def __init__(self, mid_dim, state_dim, _action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
 
     def forward(self, state):
         """
@@ -276,12 +308,18 @@ class CriticTwin(nn.Module):  # shared parameter
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU())  # concat(state, action)
-        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, 1))  # q1 value
-        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, 1))  # q2 value
+        self.net_sa = nn.Sequential(
+            nn.Linear(state_dim + action_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )  # concat(state, action)
+        self.net_q1 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
+        )  # q1 value
+        self.net_q2 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
+        )  # q2 value
 
     def forward(self, state, action):
         """

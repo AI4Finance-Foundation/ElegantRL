@@ -14,16 +14,25 @@ from elegantrl.train.replay_buffer import ReplayBuffer, ReplayBufferMP
 
 def init_agent(args, gpu_id=0, env=None):
     agent = args.agent
-    agent.init(net_dim=args.net_dim, state_dim=args.state_dim, action_dim=args.action_dim,
-               gamma=args.gamma, reward_scale=args.reward_scale,
-               learning_rate=args.learning_rate, if_per_or_gae=args.if_per_or_gae,
-               env_num=args.env_num, gpu_id=gpu_id, )
+    agent.init(
+        net_dim=args.net_dim,
+        state_dim=args.state_dim,
+        action_dim=args.action_dim,
+        gamma=args.gamma,
+        reward_scale=args.reward_scale,
+        learning_rate=args.learning_rate,
+        if_per_or_gae=args.if_per_or_gae,
+        env_num=args.env_num,
+        gpu_id=gpu_id,
+    )
     agent.save_or_load_agent(args.cwd, if_save=False)
 
     if env is not None:
-        '''init states'''
+        """init states"""
         if args.env_num == 1:
-            states = [env.reset(), ]
+            states = [
+                env.reset(),
+            ]
             assert isinstance(states[0], np.ndarray)
             assert states[0].shape in {(args.state_dim,), args.state_dim}
         else:
@@ -36,12 +45,22 @@ def init_agent(args, gpu_id=0, env=None):
 
 
 def init_evaluator(args, agent_id=0):
-    eval_env = build_env(env=args.eval_env, gpu_id=args.eval_gpu_id,
-                         env_func=args.eval_env_func, env_args=args.eval_env_args)
-    evaluator = Evaluator(cwd=args.cwd, agent_id=agent_id,
-                          eval_env=eval_env, eval_gap=args.eval_gap,
-                          eval_times1=args.eval_times1, eval_times2=args.eval_times2,
-                          target_return=args.target_return, if_overwrite=args.if_overwrite)
+    eval_env = build_env(
+        env=args.eval_env,
+        gpu_id=args.eval_gpu_id,
+        env_func=args.eval_env_func,
+        env_args=args.eval_env_args,
+    )
+    evaluator = Evaluator(
+        cwd=args.cwd,
+        agent_id=agent_id,
+        eval_env=eval_env,
+        eval_gap=args.eval_gap,
+        eval_times1=args.eval_times1,
+        eval_times2=args.eval_times2,
+        target_return=args.target_return,
+        if_overwrite=args.if_overwrite,
+    )
     evaluator.save_or_load_recoder(if_save=False)
     return evaluator
 
@@ -52,18 +71,22 @@ def init_replay_buffer(args, learner_gpu, agent=None, env=None):
 
     if args.if_off_policy:
         if args.worker_num == 1:
-            buffer = ReplayBuffer(gpu_id=learner_gpu,
-                                  max_len=args.max_memo,
-                                  state_dim=args.state_dim,
-                                  action_dim=1 if args.if_discrete else args.action_dim,
-                                  if_use_per=args.if_per_or_gae, )
+            buffer = ReplayBuffer(
+                gpu_id=learner_gpu,
+                max_len=args.max_memo,
+                state_dim=args.state_dim,
+                action_dim=1 if args.if_discrete else args.action_dim,
+                if_use_per=args.if_per_or_gae,
+            )
         else:
-            buffer = ReplayBufferMP(gpu_id=learner_gpu,
-                                    max_len=args.max_memo,
-                                    state_dim=args.state_dim,
-                                    action_dim=1 if args.if_discrete else args.action_dim,
-                                    buffer_num=1,
-                                    if_use_per=args.if_per_or_gae, )
+            buffer = ReplayBufferMP(
+                gpu_id=learner_gpu,
+                max_len=args.max_memo,
+                state_dim=args.state_dim,
+                action_dim=1 if args.if_discrete else args.action_dim,
+                buffer_num=1,
+                if_use_per=args.if_per_or_gae,
+            )
 
         buffer.save_or_load_history(args.cwd, if_save=False)
 
@@ -103,7 +126,7 @@ def add_tensor(p0, dst_tensor, src_tensor):  # for `update_buffer` (on-policy)
     return p1  # pointer
 
 
-'''multiple process (worker.py evaluator.py)'''
+"""multiple process (worker.py evaluator.py)"""
 
 
 def act_dict_to_device(act_dict, device):
@@ -118,13 +141,13 @@ def act_dict_to_device(act_dict, device):
 
 
 def trajectory_to_device(trajectory, device):
-    trajectory[:] = [[item.to(device)
-                      for item in item_list]
-                     for item_list in trajectory]
+    trajectory[:] = [
+        [item.to(device) for item in item_list] for item_list in trajectory
+    ]
     return trajectory
 
 
-'''ensemble DRL (evaluator.py and leaderboard.py)'''
+"""ensemble DRL (evaluator.py and leaderboard.py)"""
 
 
 class PipeEvaluator:  # [ElegantRL.10.21]
@@ -139,7 +162,9 @@ class PipeEvaluator:  # [ElegantRL.10.21]
     def evaluate_and_save_mp(self, agent, steps, r_exp, logging_tuple, cwd):
         if self.pipe1.poll():  # if_evaluator_idle
             if_train, if_save = self.pipe1.recv()
-            act_cpu_dict = act_dict_to_device(agent.act.state_dict(), torch.device('cpu'))
+            act_cpu_dict = act_dict_to_device(
+                agent.act.state_dict(), torch.device("cpu")
+            )
         else:
             if_train, if_save = True, False
             act_cpu_dict = None
@@ -149,17 +174,17 @@ class PipeEvaluator:  # [ElegantRL.10.21]
         if self.save_timer + self.save_gap < time.time() and self.save_dir:
             self.save_timer = time.time()
 
-            '''save'''
+            """save"""
             episode_return = get_epi_returns(cwd)
             if episode_return:
-                '''save training temp files'''
+                """save training temp files"""
                 save_path = f"{self.save_dir}/pod_save_{episode_return:09.3f}"
                 if not os.path.exists(save_path):
                     with DirLock(save_path):
                         os.mkdir(save_path)
                         agent.save_or_load_agent(save_path, if_save=True)
 
-            '''load'''
+            """load"""
             load_dir = find_load_dir(cwd)
             if load_dir:
                 with DirLock(load_dir):
@@ -175,7 +200,7 @@ class PipeEvaluator:  # [ElegantRL.10.21]
         act = agent.act
         del agent
 
-        '''loop'''
+        """loop"""
         cwd = args.cwd
         break_step = args.break_step
         if_allow_break = args.if_allow_break
@@ -190,22 +215,28 @@ class PipeEvaluator:  # [ElegantRL.10.21]
 
             if act_dict:
                 act.load_state_dict(act_dict)
-                if_reach_goal, if_save = evaluator.evaluate_and_save(act, steps, r_exp, logging_tuple)
+                if_reach_goal, if_save = evaluator.evaluate_and_save(
+                    act, steps, r_exp, logging_tuple
+                )
             else:
                 evaluator.total_step += steps
 
-            if_train = not ((if_allow_break and if_reach_goal)
-                            or evaluator.total_step > break_step
-                            or os.path.exists(f'{cwd}/stop'))
+            if_train = not (
+                (if_allow_break and if_reach_goal)
+                or evaluator.total_step > break_step
+                or os.path.exists(f"{cwd}/stop")
+            )
             self.pipe0.send((if_train, if_save))
 
-        print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+        print(
+            f"| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}"
+        )
         evaluator.save_or_load_recoder(if_save=True)
 
 
 class DirLock:
     def __init__(self, dir_path):
-        self.lock_path = f'{dir_path}_lock'
+        self.lock_path = f"{dir_path}_lock"
 
     def __enter__(self):
         while os.path.exists(self.lock_path):
@@ -218,7 +249,7 @@ class DirLock:
 
 
 def get_epi_returns(cwd):
-    recorder_path = f'{cwd}/recorder.npy'
+    recorder_path = f"{cwd}/recorder.npy"
 
     if os.path.exists(recorder_path):
         recorder = np.load(recorder_path)
@@ -230,15 +261,17 @@ def get_epi_returns(cwd):
 def find_load_dir(cwd):
     load_dir = None
     for name in os.listdir(cwd):
-        if name[:9] == 'load_dir_':
+        if name[:9] == "load_dir_":
             load_dir = name[9:]
     return load_dir
 
 
-'''ensemble LeaderBoard'''
+"""ensemble LeaderBoard"""
 
 
-def server_leaderboard(ensemble_num, leaderboard_dir='./LeaderBoard'):  # [ElegantRL.2021.12.12]
+def server_leaderboard(
+    ensemble_num, leaderboard_dir="./LeaderBoard"
+):  # [ElegantRL.2021.12.12]
     torch.set_grad_enabled(False)  # with torch.no_grad():
 
     max_pod_num = ensemble_num * 2
@@ -246,9 +279,12 @@ def server_leaderboard(ensemble_num, leaderboard_dir='./LeaderBoard'):  # [Elega
     while True:
         time.sleep(ensemble_num * 4)
 
-        '''remove pod'''
-        dir_names = [dir_name for dir_name in os.listdir(leaderboard_dir)
-                     if dir_name.find('pod_save_') >= 0]
+        """remove pod"""
+        dir_names = [
+            dir_name
+            for dir_name in os.listdir(leaderboard_dir)
+            if dir_name.find("pod_save_") >= 0
+        ]
         if len(dir_names) > max_pod_num:
             sort_str_list_inplace(dir_names)
             for dir_name in dir_names[:-max_pod_num]:
@@ -257,7 +293,7 @@ def server_leaderboard(ensemble_num, leaderboard_dir='./LeaderBoard'):  # [Elega
                     shutil.rmtree(remove_dir_path)
         dir_names = dir_names[:max_pod_num]
 
-        '''get LeaderBoard'''
+        """get LeaderBoard"""
         if len(dir_names) >= ensemble_num:
             for agent_id in range(ensemble_num):
                 pod_dir = f"{leaderboard_dir}/pod_{agent_id:04}"
@@ -265,7 +301,7 @@ def server_leaderboard(ensemble_num, leaderboard_dir='./LeaderBoard'):  # [Elega
                 if load_dir:
                     continue
 
-                '''create `load_dir_xxx` in pod_dir'''
+                """create `load_dir_xxx` in pod_dir"""
                 epi_returns = np.array([float(name[9:]) for name in dir_names])
                 epi_returns_soft_max = np_soft_max(epi_returns)
                 name_id = rd.choice(len(epi_returns_soft_max), p=epi_returns_soft_max)
@@ -274,7 +310,9 @@ def server_leaderboard(ensemble_num, leaderboard_dir='./LeaderBoard'):  # [Elega
                 dst_epi_returns = get_epi_returns(pod_dir)
                 if src_epi_returns > dst_epi_returns:
                     with DirLock(pod_dir):
-                        os.makedirs(f"{pod_dir}/load_dir_{dir_names[name_id]}", exist_ok=True)
+                        os.makedirs(
+                            f"{pod_dir}/load_dir_{dir_names[name_id]}", exist_ok=True
+                        )
 
 
 def np_soft_max(raw_x):
@@ -288,7 +326,7 @@ def sort_str_list_inplace(str_list):
 
     i = 0
     for str_item in str_list:
-        if str_item[9] != '-':
+        if str_item[9] != "-":
             break
         i += 1
 
@@ -296,37 +334,37 @@ def sort_str_list_inplace(str_list):
     return str_list
 
 
-'''utils'''
+"""utils"""
 
 
 def get_nd_list(nd_list):
-    print_str = '| check_nd_list:'
+    print_str = "| check_nd_list:"
 
     item = nd_list
-    if hasattr(item, 'shape'):
-        print_str += f' {item.shape}'
-    elif hasattr(item, '__len__'):
-        print_str += f' {len(item)}'
+    if hasattr(item, "shape"):
+        print_str += f" {item.shape}"
+    elif hasattr(item, "__len__"):
+        print_str += f" {len(item)}"
 
         if len(nd_list) > 0:
             item = nd_list[0]
-            if hasattr(item, 'shape'):
-                print_str += f' {item.shape}'
-            elif hasattr(item, '__len__'):
-                print_str += f' {len(item)}'
+            if hasattr(item, "shape"):
+                print_str += f" {item.shape}"
+            elif hasattr(item, "__len__"):
+                print_str += f" {len(item)}"
 
                 if len(nd_list[0]) > 0:
                     item = nd_list[0][0]
-                    if hasattr(item, 'shape'):
-                        print_str += f' {item.shape}'
-                    elif hasattr(item, '__len__'):
-                        print_str += f' {len(item)}'
+                    if hasattr(item, "shape"):
+                        print_str += f" {item.shape}"
+                    elif hasattr(item, "__len__"):
+                        print_str += f" {len(item)}"
 
                     else:
-                        print_str += ' END'
+                        print_str += " END"
             else:
-                print_str += ' END'
+                print_str += " END"
     else:
-        print_str += ' END'
+        print_str += " END"
 
     return print_str

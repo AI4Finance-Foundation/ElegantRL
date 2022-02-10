@@ -3,16 +3,21 @@ import numpy.random as rd
 import torch
 import torch.nn as nn
 
-'''DQN'''
+"""DQN"""
 
 
 class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
         self.explore_rate = 0.125
         self.action_dim = action_dim
 
@@ -38,12 +43,18 @@ class QNetDuel(nn.Module):  # Dueling DQN
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_adv = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                     nn.Linear(mid_dim, 1))  # advantage function value 1
-        self.net_val = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                     nn.Linear(mid_dim, action_dim))  # Q value
+        self.net_state = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )
+        self.net_adv = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.Hardswish(), nn.Linear(mid_dim, 1)
+        )  # advantage function value 1
+        self.net_val = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.Hardswish(), nn.Linear(mid_dim, action_dim)
+        )  # Q value
         self.explore_rate = 0.125
         self.action_dim = action_dim
 
@@ -70,12 +81,18 @@ class QNetDuel(nn.Module):  # Dueling DQN
 class QNetTwin(nn.Module):  # Double DQN
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, action_dim))  # q1 value
-        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, action_dim))  # q2 value
+        self.net_state = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )
+        self.net_q1 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # q1 value
+        self.net_q2 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # q2 value
         self.explore_rate = 0.125
         self.action_dim = action_dim
         self.soft_max = nn.Softmax(dim=1)
@@ -108,16 +125,24 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
 
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU())
-        self.net_val1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, action_dim))  # q1 value
-        self.net_val2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, action_dim))  # q2 value
-        self.net_adv1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, 1))  # advantage function value 1
-        self.net_adv2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.Hardswish(),
-                                      nn.Linear(mid_dim, 1))  # advantage function value 1
+        self.net_state = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )
+        self.net_val1 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.Hardswish(), nn.Linear(mid_dim, action_dim)
+        )  # q1 value
+        self.net_val2 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.Hardswish(), nn.Linear(mid_dim, action_dim)
+        )  # q2 value
+        self.net_adv1 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.Hardswish(), nn.Linear(mid_dim, 1)
+        )  # advantage function value 1
+        self.net_adv2 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.Hardswish(), nn.Linear(mid_dim, 1)
+        )  # advantage function value 1
         self.explore_rate = 0.125
         self.action_dim = action_dim
         self.soft_max = nn.Softmax(dim=1)
@@ -158,16 +183,21 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
         return torch.multinomial(a_prob, num_samples=1)
 
 
-'''Actor (policy network)'''
+"""Actor (policy network)"""
 
 
 class Actor(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
         self.explore_noise = 0.1  # standard deviation of exploration action noise
 
     def forward(self, state):
@@ -187,12 +217,18 @@ class Actor(nn.Module):
 class ActorSAC(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        self.net_a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim))  # the average of action
-        self.net_a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim))  # the log_std of action
+        self.net_state = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )
+        self.net_a_avg = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # the average of action
+        self.net_a_std = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # the log_std of action
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
@@ -214,20 +250,30 @@ class ActorSAC(nn.Module):
         noise = torch.randn_like(a_avg, requires_grad=True)
         a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
 
-        logprob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
-        logprob = logprob + (-a_tan.pow(2) + 1.000001).log()  # fix logprob using the derivative of action.tanh()
+        logprob = (
+            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+        )  # noise.pow(2) * 0.5
+        logprob = (
+            logprob + (-a_tan.pow(2) + 1.000001).log()
+        )  # fix logprob using the derivative of action.tanh()
         return a_tan, logprob.sum(1, keepdim=True)  # todo negative logprob
 
 
 class ActorFixSAC(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_state = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, mid_dim), nn.ReLU(), )
-        self.net_a_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim))  # the average of action
-        self.net_a_std = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                       nn.Linear(mid_dim, action_dim))  # the log_std of action
+        self.net_state = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )
+        self.net_a_avg = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # the average of action
+        self.net_a_std = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )  # the log_std of action
         self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
         self.soft_plus = nn.Softplus()
 
@@ -251,12 +297,16 @@ class ActorFixSAC(nn.Module):
         a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
         a_std = a_std_log.exp()
 
-        '''add noise to a_noise in stochastic policy'''
+        """add noise to a_noise in stochastic policy"""
         a_noise = a_avg + a_std * torch.randn_like(a_avg, requires_grad=True)
         noise = a_noise - action  # todo
 
-        log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
-        log_prob += (np.log(2.) - a_noise - self.soft_plus(-2. * a_noise)) * 2.  # better than below
+        log_prob = (
+            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+        )  # noise.pow(2) * 0.5
+        log_prob += (
+            np.log(2.0) - a_noise - self.soft_plus(-2.0 * a_noise)
+        ) * 2.0  # better than below
         return log_prob
 
     def get_action_logprob(self, state):
@@ -265,15 +315,17 @@ class ActorFixSAC(nn.Module):
         a_std_log = self.net_a_std(t_tmp).clamp(-20, 2)
         a_std = a_std_log.exp()
 
-        '''add noise to a_noise in stochastic policy'''
+        """add noise to a_noise in stochastic policy"""
         noise = torch.randn_like(a_avg, requires_grad=True)
         a_noise = a_avg + a_std * noise
         # Can only use above code instead of below, because the tensor need gradients here.
         # a_noise = torch.normal(a_avg, a_std, requires_grad=True)
 
-        '''compute log_prob according to mean and std of a_noise (stochastic policy)'''
+        """compute log_prob according to mean and std of a_noise (stochastic policy)"""
         # self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
-        log_prob = a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)  # noise.pow(2) * 0.5
+        log_prob = (
+            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+        )  # noise.pow(2) * 0.5
         """same as below:
         from torch.distributions.normal import Normal
         log_prob = Normal(a_avg, a_std).log_prob(a_noise)
@@ -282,8 +334,10 @@ class ActorFixSAC(nn.Module):
         log_prob = -a_delta - a_std.log() - np.log(np.sqrt(2 * np.pi))
         """
 
-        '''fix log_prob of action.tanh'''
-        log_prob += (np.log(2.) - a_noise - self.soft_plus(-2. * a_noise)) * 2.  # better than below
+        """fix log_prob of action.tanh"""
+        log_prob += (
+            np.log(2.0) - a_noise - self.soft_plus(-2.0 * a_noise)
+        ) * 2.0  # better than below
         """same as below:
         epsilon = 1e-6
         a_noise_tanh = a_noise.tanh()
@@ -302,13 +356,20 @@ class ActorFixSAC(nn.Module):
 class ActorPPO(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim), )
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
 
         # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
-        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
+        self.a_std_log = nn.Parameter(
+            torch.zeros((1, action_dim)) - 0.5, requires_grad=True
+        )
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
@@ -352,10 +413,15 @@ class ActorPPO(nn.Module):
 class ActorDiscretePPO(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, action_dim))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, action_dim),
+        )
         self.action_dim = action_dim
         self.soft_max = nn.Softmax(dim=-1)
         self.Categorical = torch.distributions.Categorical
@@ -386,16 +452,21 @@ class ActorDiscretePPO(nn.Module):
         return action.int()
 
 
-'''Critic (value network)'''
+"""Critic (value network)"""
 
 
 class Critic(nn.Module):
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim + action_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
 
     def forward(self, state, action):
         return self.net(torch.cat((state, action), dim=1))  # q value
@@ -404,10 +475,15 @@ class Critic(nn.Module):
 class CriticPPO(nn.Module):
     def __init__(self, mid_dim, state_dim, _action_dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                 nn.Linear(mid_dim, 1))
+        self.net = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, 1),
+        )
 
     def forward(self, state):
         return self.net(state)  # advantage value
@@ -416,15 +492,21 @@ class CriticPPO(nn.Module):
 class CriticTwin(nn.Module):  # shared parameter
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
-        self.net_sa = nn.Sequential(nn.Linear(state_dim + action_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, mid_dim), nn.ReLU())  # concat(state, action)
-        self.net_q1 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, 1))  # q1 value
-        self.net_q2 = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(),
-                                    nn.Linear(mid_dim, 1))  # q2 value
+        self.net_sa = nn.Sequential(
+            nn.Linear(state_dim + action_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+            nn.ReLU(),
+        )  # concat(state, action)
+        self.net_q1 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
+        )  # q1 value
+        self.net_q2 = nn.Sequential(
+            nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
+        )  # q2 value
 
     def forward(self, state, action):
-        return torch.add(*self.get_q1_q2(state, action)) / 2.  # mean Q value
+        return torch.add(*self.get_q1_q2(state, action)) / 2.0  # mean Q value
 
     def get_q_min(self, state, action):
         return torch.min(*self.get_q1_q2(state, action))  # min Q value
@@ -441,17 +523,21 @@ class CriticREDq(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
         self.critic_list = []
         for critic_id in range(self.critic_num):
             child_cri_net = Critic(mid_dim, state_dim, action_dim).net
-            setattr(self, f'critic{critic_id:02}', child_cri_net)
+            setattr(self, f"critic{critic_id:02}", child_cri_net)
             self.critic_list.append(child_cri_net)
 
     def forward(self, state, action):
-        return self.get_q_values(state, action).mean(dim=1, keepdim=True)  # mean Q value
+        return self.get_q_values(state, action).mean(
+            dim=1, keepdim=True
+        )  # mean Q value
 
     def get_q_min(self, state, action):
         tensor_qs = self.get_q_values(state, action)
         q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
         q_sum = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
-        return (q_min * (self.critic_num * 0.5) + q_sum) / (self.critic_num * 1.5)  # better than min
+        return (q_min * (self.critic_num * 0.5) + q_sum) / (
+            self.critic_num * 1.5
+        )  # better than min
 
     def get_q_values(self, state, action):
         tensor_sa = torch.cat((state, action), dim=1)

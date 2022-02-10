@@ -20,8 +20,7 @@ def env_fn(env, **kwargs) -> MultiAgentEnv:
 
 if sys.platform == "linux":
     os.environ.setdefault(
-        "SC2PATH",
-        os.path.join(os.path.dirname(os.getcwd()), "sc2", "StarCraftII")
+        "SC2PATH", os.path.join(os.path.dirname(os.getcwd()), "sc2", "StarCraftII")
     )
 
 
@@ -57,7 +56,9 @@ def print_time(start_time, T, t_max, episode, episode_rewards):
         last_reward = f"{np.mean(episode_rewards[-50:]):.2f}"
     print(
         f"[F[F[KEp: {episode:,}, T: {T:,}/{t_max:,}, Reward: {last_reward}, \n[KElapsed: {time_str(time_elapsed)}, Left: {time_str(time_left)}\n",
-        " " * 10, end="\r")
+        " " * 10,
+        end="\r",
+    )
 
 
 def time_left(start_time, t_start, t_current, t_max):
@@ -102,6 +103,7 @@ class Logger:
     def setup_tb(self, directory_name):
         # Import here so it doesn't have to be installed if you don't use it
         from tensorboard_logger import configure, log_value
+
         configure(directory_name)
         self.tb_logger = log_value
         self.use_tb = True
@@ -125,7 +127,9 @@ class Logger:
                 self.sacred_info[key] = [value]
 
     def print_recent_stats(self):
-        log_str = "Recent Stats | t_env: {:>10} | Episode: {:>8}\n".format(*self.stats["episode"][-1])
+        log_str = "Recent Stats | t_env: {:>10} | Episode: {:>8}\n".format(
+            *self.stats["episode"][-1]
+        )
         i = 0
         for (k, v) in sorted(self.stats.items()):
             if k == "episode":
@@ -143,21 +147,18 @@ def get_logger():
     logger = logging.getLogger()
     logger.handlers = []
     ch = logging.StreamHandler()
-    formatter = logging.Formatter('[%(levelname)s %(asctime)s] %(name)s %(message)s', '%H:%M:%S')
+    formatter = logging.Formatter(
+        "[%(levelname)s %(asctime)s] %(name)s %(message)s", "%H:%M:%S"
+    )
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    logger.setLevel('DEBUG')
+    logger.setLevel("DEBUG")
 
     return logger
 
 
-class DecayThenFlatSchedule():
-
-    def __init__(self,
-                 start,
-                 finish,
-                 time_length,
-                 decay="exp"):
+class DecayThenFlatSchedule:
+    def __init__(self, start, finish, time_length, decay="exp"):
 
         self.start = start
         self.finish = finish
@@ -166,13 +167,15 @@ class DecayThenFlatSchedule():
         self.decay = decay
 
         if self.decay in ["exp"]:
-            self.exp_scaling = (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+            self.exp_scaling = (
+                (-1) * self.time_length / np.log(self.finish) if self.finish > 0 else 1
+            )
 
     def eval(self, T):
         if self.decay in ["linear"]:
             return max(self.finish, self.start - self.delta * T)
         elif self.decay in ["exp"]:
-            return min(self.start, max(self.finish, np.exp(- T / self.exp_scaling)))
+            return min(self.start, max(self.finish, np.exp(-T / self.exp_scaling)))
 
     pass
 
@@ -198,13 +201,16 @@ class RNNAgent(nn.Module):
         return q, h
 
 
-class EpsilonGreedyActionSelector():
-
+class EpsilonGreedyActionSelector:
     def __init__(self, args):
         self.args = args
 
-        self.schedule = DecayThenFlatSchedule(args.epsilon_start, args.epsilon_finish, args.epsilon_anneal_time,
-                                              decay="linear")
+        self.schedule = DecayThenFlatSchedule(
+            args.epsilon_start,
+            args.epsilon_finish,
+            args.epsilon_anneal_time,
+            decay="linear",
+        )
         self.epsilon = self.schedule.eval(0)
 
     def select_action(self, agent_inputs, avail_actions, t_env, test_mode=False):
@@ -217,15 +223,17 @@ class EpsilonGreedyActionSelector():
 
         # mask actions that are excluded from selection
         masked_q_values = agent_inputs.clone()
-        masked_q_values[avail_actions == 0.0] = -float("inf")  # should never be selected!
+        masked_q_values[avail_actions == 0.0] = -float(
+            "inf"
+        )  # should never be selected!
 
         random_numbers = th.rand_like(agent_inputs[:, :, 0])
         pick_random = (random_numbers < self.epsilon).long()
         random_actions = Categorical(avail_actions.float()).sample().long()
 
         return (
-                pick_random * random_actions
-                + (1 - pick_random) * masked_q_values.max(dim=2)[1]
+            pick_random * random_actions
+            + (1 - pick_random) * masked_q_values.max(dim=2)[1]
         )  # picked_actions
 
 
@@ -259,7 +267,9 @@ class BasicMAC:
 
             if getattr(self.args, "mask_before_softmax", True):
                 # Make the logits for unavailable actions very negative to minimise their affect on the softmax
-                reshaped_avail_actions = avail_actions.reshape(ep_batch.batch_size * self.n_agents, -1)
+                reshaped_avail_actions = avail_actions.reshape(
+                    ep_batch.batch_size * self.n_agents, -1
+                )
                 agent_outs[reshaped_avail_actions == 0] = -1e10
 
             agent_outs = th.nn.functional.softmax(agent_outs, dim=-1)
@@ -268,10 +278,15 @@ class BasicMAC:
                 epsilon_action_num = agent_outs.size(-1)
                 if getattr(self.args, "mask_before_softmax", True):
                     # With probability epsilon, we will pick an available action uniformly
-                    epsilon_action_num = reshaped_avail_actions.sum(dim=1, keepdim=True).float()
+                    epsilon_action_num = reshaped_avail_actions.sum(
+                        dim=1, keepdim=True
+                    ).float()
 
-                agent_outs = ((1 - self.action_selector.epsilon) * agent_outs
-                              + th.ones_like(agent_outs) * self.action_selector.epsilon / epsilon_action_num)
+                agent_outs = (
+                    1 - self.action_selector.epsilon
+                ) * agent_outs + th.ones_like(
+                    agent_outs
+                ) * self.action_selector.epsilon / epsilon_action_num
 
                 if getattr(self.args, "mask_before_softmax", True):
                     # Zero out the unavailable actions
@@ -280,7 +295,9 @@ class BasicMAC:
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
+        self.hidden_states = (
+            self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)
+        )  # bav
 
     def parameters(self):
         return self.agent.parameters()
@@ -295,7 +312,9 @@ class BasicMAC:
         th.save(self.agent.state_dict(), f"{path}/agent.th")
 
     def load_models(self, path):
-        self.agent.load_state_dict(th.load(f"{path}/agent.th", map_location=lambda storage, loc: storage))
+        self.agent.load_state_dict(
+            th.load(f"{path}/agent.th", map_location=lambda storage, loc: storage)
+        )
 
     def _build_agents(self, input_shape):
         self.agent = RNNAgent(input_shape, self.args)
@@ -311,7 +330,11 @@ class BasicMAC:
             else:
                 inputs.append(batch["actions_onehot"][:, t - 1])
         if self.args.obs_agent_id:
-            inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
+            inputs.append(
+                th.eye(self.n_agents, device=batch.device)
+                .unsqueeze(0)
+                .expand(bs, -1, -1)
+            )
 
         inputs = th.cat([x.reshape(bs * self.n_agents, -1) for x in inputs], dim=1)
         return inputs
@@ -327,7 +350,6 @@ class BasicMAC:
 
 
 class Runner:
-
     def __init__(self, args, logger):
         self.args = args
         self.logger = logger
@@ -350,8 +372,15 @@ class Runner:
         self.log_train_stats_t = -1000000
 
     def setup(self, scheme, groups, preprocess, mac):
-        self.new_batch = partial(eBatch, scheme, groups, self.batch_size, self.episode_limit + 1,
-                                 preprocess=preprocess, device=self.args.device)
+        self.new_batch = partial(
+            eBatch,
+            scheme,
+            groups,
+            self.batch_size,
+            self.episode_limit + 1,
+            preprocess=preprocess,
+            device=self.args.device,
+        )
         self.mac = mac
 
     def get_env_info(self):
@@ -379,14 +408,16 @@ class Runner:
             pre_transition_data = {
                 "state": [self.env.get_state()],
                 "avail_actions": [self.env.get_avail_actions()],
-                "obs": [self.env.get_obs()]
+                "obs": [self.env.get_obs()],
             }
 
             self.batch.update(pre_transition_data, ts=self.t)
 
             # Pass the entire batch of experiences up till now to the agents
             # Receive the actions for each agent at this timestep in a batch of size 1
-            actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
+            actions = self.mac.select_actions(
+                self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode
+            )
 
             reward, terminated, env_info = self.env.step(actions[0])
             episode_return += reward
@@ -404,18 +435,25 @@ class Runner:
         last_data = {
             "state": [self.env.get_state()],
             "avail_actions": [self.env.get_avail_actions()],
-            "obs": [self.env.get_obs()]
+            "obs": [self.env.get_obs()],
         }
         self.batch.update(last_data, ts=self.t)
 
         # Select actions in the last stored state
-        actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
+        actions = self.mac.select_actions(
+            self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode
+        )
         self.batch.update({"actions": actions}, ts=self.t)
 
         cur_stats = self.test_stats if test_mode else self.train_stats
         cur_returns = self.test_returns if test_mode else self.train_returns
         log_prefix = "test_" if test_mode else ""
-        cur_stats.update({k: cur_stats.get(k, 0) + env_info.get(k, 0) for k in set(cur_stats) | set(env_info)})
+        cur_stats.update(
+            {
+                k: cur_stats.get(k, 0) + env_info.get(k, 0)
+                for k in set(cur_stats) | set(env_info)
+            }
+        )
         cur_stats["n_episodes"] = 1 + cur_stats.get("n_episodes", 0)
         cur_stats["ep_length"] = self.t + cur_stats.get("ep_length", 0)
 
@@ -429,7 +467,9 @@ class Runner:
         elif self.t_env - self.log_train_stats_t >= self.args.runner_log_interval:
             self._log(cur_returns, cur_stats, log_prefix)
             if hasattr(self.mac.action_selector, "epsilon"):
-                self.logger.log_stat("epsilon", self.mac.action_selector.epsilon, self.t_env)
+                self.logger.log_stat(
+                    "epsilon", self.mac.action_selector.epsilon, self.t_env
+                )
             self.log_train_stats_t = self.t_env
 
         return self.batch
@@ -441,7 +481,9 @@ class Runner:
 
         for k, v in stats.items():
             if k != "n_episodes":
-                self.logger.log_stat(prefix + k + "_mean", v / stats["n_episodes"], self.t_env)
+                self.logger.log_stat(
+                    prefix + k + "_mean", v / stats["n_episodes"], self.t_env
+                )
         stats.clear()
 
 
@@ -460,12 +502,16 @@ class QMixer(nn.Module):
             self.hyper_w_final = nn.Linear(self.state_dim, self.embed_dim)
         elif getattr(args, "hypernet_layers", 1) == 2:
             hypernet_embed = self.args.hypernet_embed
-            self.hyper_w_1 = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                           nn.ReLU(),
-                                           nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
-            self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-                                               nn.ReLU(),
-                                               nn.Linear(hypernet_embed, self.embed_dim))
+            self.hyper_w_1 = nn.Sequential(
+                nn.Linear(self.state_dim, hypernet_embed),
+                nn.ReLU(),
+                nn.Linear(hypernet_embed, self.embed_dim * self.n_agents),
+            )
+            self.hyper_w_final = nn.Sequential(
+                nn.Linear(self.state_dim, hypernet_embed),
+                nn.ReLU(),
+                nn.Linear(hypernet_embed, self.embed_dim),
+            )
         elif getattr(args, "hypernet_layers", 1) > 2:
             raise Exception("Sorry >2 hypernet layers is not implemented!")
         else:
@@ -475,9 +521,11 @@ class QMixer(nn.Module):
         self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
 
         # V(s) instead of a bias for the last layers
-        self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
-                               nn.ReLU(),
-                               nn.Linear(self.embed_dim, 1))
+        self.V = nn.Sequential(
+            nn.Linear(self.state_dim, self.embed_dim),
+            nn.ReLU(),
+            nn.Linear(self.embed_dim, 1),
+        )
 
     def forward(self, agent_qs, states):
         bs = agent_qs.size(0)
@@ -501,14 +549,16 @@ class QMixer(nn.Module):
 
 
 class eBatch:
-    def __init__(self,
-                 scheme,
-                 groups,
-                 batch_size,
-                 max_seq_length,
-                 data=None,
-                 preprocess=None,
-                 device="cpu"):
+    def __init__(
+        self,
+        scheme,
+        groups,
+        batch_size,
+        max_seq_length,
+        data=None,
+        preprocess=None,
+        device="cpu",
+    ):
         self.scheme = scheme.copy()
         self.groups = groups
         self.batch_size = batch_size
@@ -522,7 +572,9 @@ class eBatch:
             self.data = SN()
             self.data.transition_data = {}
             self.data.episode_data = {}
-            self._setup_data(self.scheme, self.groups, batch_size, max_seq_length, self.preprocess)
+            self._setup_data(
+                self.scheme, self.groups, batch_size, max_seq_length, self.preprocess
+            )
 
     def _setup_data(self, scheme, groups, batch_size, max_seq_length, preprocess):
         if preprocess is not None:
@@ -536,19 +588,20 @@ class eBatch:
                 for transform in transforms:
                     vshape, dtype = transform.infer_output_info(vshape, dtype)
 
-                self.scheme[new_k] = {
-                    "vshape": vshape,
-                    "dtype": dtype
-                }
+                self.scheme[new_k] = {"vshape": vshape, "dtype": dtype}
                 if "group" in self.scheme[k]:
                     self.scheme[new_k]["group"] = self.scheme[k]["group"]
                 if "episode_const" in self.scheme[k]:
-                    self.scheme[new_k]["episode_const"] = self.scheme[k]["episode_const"]
+                    self.scheme[new_k]["episode_const"] = self.scheme[k][
+                        "episode_const"
+                    ]
 
         assert "filled" not in scheme, '"filled" is a reserved key for masking.'
-        scheme.update({
-            "filled": {"vshape": (1,), "dtype": th.long},
-        })
+        scheme.update(
+            {
+                "filled": {"vshape": (1,), "dtype": th.long},
+            }
+        )
 
         for field_key, field_info in scheme.items():
             assert "vshape" in field_info, f"Scheme must define vshape for {field_key}"
@@ -561,19 +614,31 @@ class eBatch:
                 vshape = (vshape,)
 
             if group:
-                assert group in groups, f"Group {group} must have its number of members defined in _groups_"
+                assert (
+                    group in groups
+                ), f"Group {group} must have its number of members defined in _groups_"
                 shape = (groups[group], *vshape)
             else:
                 shape = vshape
 
             if episode_const:
-                self.data.episode_data[field_key] = th.zeros((batch_size, *shape), dtype=dtype, device=self.device)
+                self.data.episode_data[field_key] = th.zeros(
+                    (batch_size, *shape), dtype=dtype, device=self.device
+                )
             else:
-                self.data.transition_data[field_key] = th.zeros((batch_size, max_seq_length, *shape), dtype=dtype,
-                                                                device=self.device)
+                self.data.transition_data[field_key] = th.zeros(
+                    (batch_size, max_seq_length, *shape),
+                    dtype=dtype,
+                    device=self.device,
+                )
 
     def extend(self, scheme, groups=None):
-        self._setup_data(scheme, self.groups if groups is None else groups, self.batch_size, self.max_seq_length)
+        self._setup_data(
+            scheme,
+            self.groups if groups is None else groups,
+            self.batch_size,
+            self.max_seq_length,
+        )
 
     def to(self, device):
         for k, v in self.data.transition_data.items():
@@ -637,10 +702,19 @@ class eBatch:
 
             # Update the scheme to only have the requested keys
             new_scheme = {key: self.scheme[key] for key in item}
-            new_groups = {self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
-                          for key in item if "group" in self.scheme[key]}
-            ret = eBatch(new_scheme, new_groups, self.batch_size, self.max_seq_length, data=new_data,
-                         device=self.device)
+            new_groups = {
+                self.scheme[key]["group"]: self.groups[self.scheme[key]["group"]]
+                for key in item
+                if "group" in self.scheme[key]
+            }
+            ret = eBatch(
+                new_scheme,
+                new_groups,
+                self.batch_size,
+                self.max_seq_length,
+                data=new_data,
+                device=self.device,
+            )
             return ret
         else:
             item = self._parse_slices(item)
@@ -653,7 +727,14 @@ class eBatch:
             ret_bs = self._get_num_items(item[0], self.batch_size)
             ret_max_t = self._get_num_items(item[1], self.max_seq_length)
 
-            ret = eBatch(self.scheme, self.groups, ret_bs, ret_max_t, data=new_data, device=self.device)
+            ret = eBatch(
+                self.scheme,
+                self.groups,
+                ret_bs,
+                ret_max_t,
+                data=new_data,
+                device=self.device,
+            )
             return ret
 
     def _get_num_items(self, indexing_item, max_size):
@@ -672,9 +753,12 @@ class eBatch:
     def _parse_slices(self, items):
         parsed = []
         # Only batch slice given, add full time slice
-        if (isinstance(items, slice)  # slice a:b
-                or isinstance(items, int)  # int i
-                or (isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor)))  # [a,b,c]
+        if (
+            isinstance(items, slice)  # slice a:b
+            or isinstance(items, int)  # int i
+            or (
+                isinstance(items, (list, np.ndarray, th.LongTensor, th.cuda.LongTensor))
+            )  # [a,b,c]
         ):
             items = (items, slice(None))
 
@@ -700,21 +784,34 @@ class eBatch:
 
 
 class ReplayBuffer(eBatch):
-    def __init__(self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"):
-        super().__init__(scheme, groups, buffer_size, max_seq_length, preprocess=preprocess, device=device)
+    def __init__(
+        self, scheme, groups, buffer_size, max_seq_length, preprocess=None, device="cpu"
+    ):
+        super().__init__(
+            scheme,
+            groups,
+            buffer_size,
+            max_seq_length,
+            preprocess=preprocess,
+            device=device,
+        )
         self.buffer_size = buffer_size  # same as self.batch_size but more explicit
         self.buffer_index = 0
         self.episodes_in_buffer = 0
 
     def insert_episode_batch(self, ep_batch):
         if self.buffer_index + ep_batch.batch_size <= self.buffer_size:
-            self.update(ep_batch.data.transition_data,
-                        slice(self.buffer_index, self.buffer_index + ep_batch.batch_size),
-                        slice(0, ep_batch.max_seq_length),
-                        mark_filled=False)
-            self.update(ep_batch.data.episode_data,
-                        slice(self.buffer_index, self.buffer_index + ep_batch.batch_size))
-            self.buffer_index = (self.buffer_index + ep_batch.batch_size)
+            self.update(
+                ep_batch.data.transition_data,
+                slice(self.buffer_index, self.buffer_index + ep_batch.batch_size),
+                slice(0, ep_batch.max_seq_length),
+                mark_filled=False,
+            )
+            self.update(
+                ep_batch.data.episode_data,
+                slice(self.buffer_index, self.buffer_index + ep_batch.batch_size),
+            )
+            self.buffer_index = self.buffer_index + ep_batch.batch_size
             self.episodes_in_buffer = max(self.episodes_in_buffer, self.buffer_index)
             self.buffer_index = self.buffer_index % self.buffer_size
             assert self.buffer_index < self.buffer_size

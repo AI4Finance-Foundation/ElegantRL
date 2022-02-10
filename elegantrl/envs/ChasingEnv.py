@@ -13,7 +13,7 @@ TargetReturnDict = {
 class ChasingEnv:
     def __init__(self, dim=2):
         self.dim = dim
-        self.init_distance = 8.
+        self.init_distance = 8.0
 
         # reset
         self.p0 = None  # position of point 0
@@ -24,11 +24,11 @@ class ChasingEnv:
         self.distance = None  # distance between point0 and point1
         self.cur_step = None  # current step number
 
-        '''env info'''
-        self.env_name = 'ChasingEnv'
+        """env info"""
+        self.env_name = "ChasingEnv"
         self.state_dim = self.dim * 4
         self.action_dim = self.dim
-        self.max_step = 2 ** 10
+        self.max_step = 2**10
         self.if_discrete = False
         self.target_return = TargetReturnDict[dim]
 
@@ -45,8 +45,8 @@ class ChasingEnv:
         return self.get_state()
 
     def step(self, action):
-        action_l2 = (action ** 2).sum() ** 0.5
-        action_l2 = max(action_l2, 1.)
+        action_l2 = (action**2).sum() ** 0.5
+        action_l2 = max(action_l2, 1.0)
         action = action / action_l2
 
         self.v1 *= 0.75
@@ -57,15 +57,15 @@ class ChasingEnv:
         self.v0 += rd.rand(self.dim)
         self.p0 += self.v0 * 0.01
 
-        '''next_state'''
+        """next_state"""
         next_state = self.get_state()
 
-        '''reward'''
+        """reward"""
         distance = ((self.p0 - self.p1) ** 2).sum() ** 0.5
         reward = self.distance - distance - action_l2 * 0.02
         self.distance = distance
 
-        '''done'''
+        """done"""
         self.cur_step += 1
 
         done = (distance < self.dim) or (self.cur_step == self.max_step)
@@ -97,11 +97,11 @@ class ChasingVecEnv:
         self.cur_steps = None  # a tensor of current step number
         # env.step() is a function, so I can't name it `steps`
 
-        '''env info'''
-        self.env_name = 'ChasingVecEnv'
+        """env info"""
+        self.env_name = "ChasingVecEnv"
         self.state_dim = self.dim * 4
         self.action_dim = self.dim
-        self.max_step = 2 ** 10
+        self.max_step = 2**10
         self.if_discrete = False
         self.target_return = TargetReturnDict[dim]
 
@@ -109,12 +109,22 @@ class ChasingVecEnv:
         self.device = torch.device("cpu" if device_id == -1 else f"cuda:{device_id}")
 
     def reset(self):
-        self.p0s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
-        self.v0s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
-        self.p1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
-        self.v1s = torch.zeros((self.env_num, self.dim), dtype=torch.float32, device=self.device)
+        self.p0s = torch.zeros(
+            (self.env_num, self.dim), dtype=torch.float32, device=self.device
+        )
+        self.v0s = torch.zeros(
+            (self.env_num, self.dim), dtype=torch.float32, device=self.device
+        )
+        self.p1s = torch.zeros(
+            (self.env_num, self.dim), dtype=torch.float32, device=self.device
+        )
+        self.v1s = torch.zeros(
+            (self.env_num, self.dim), dtype=torch.float32, device=self.device
+        )
 
-        self.cur_steps = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
+        self.cur_steps = torch.zeros(
+            self.env_num, dtype=torch.float32, device=self.device
+        )
 
         for env_i in range(self.env_num):
             self.reset_env_i(env_i)
@@ -140,7 +150,7 @@ class ChasingVecEnv:
         :return: None [None or dict]
         """
         # assert actions.get_device() == self.device.index
-        actions_l2 = (actions ** 2).sum(dim=1, keepdim=True) ** 0.5
+        actions_l2 = (actions**2).sum(dim=1, keepdim=True) ** 0.5
         actions_l2 = actions_l2.clamp_min(1.0)
         actions = actions / actions_l2
 
@@ -149,15 +159,17 @@ class ChasingVecEnv:
         self.p1s += self.v1s * 0.01
 
         self.v0s *= 0.50
-        self.v0s += torch.rand(size=(self.env_num, self.dim), dtype=torch.float32, device=self.device)
+        self.v0s += torch.rand(
+            size=(self.env_num, self.dim), dtype=torch.float32, device=self.device
+        )
         self.p0s += self.v0s * 0.01
 
-        '''reward'''
+        """reward"""
         distances = ((self.p0s - self.p1s) ** 2).sum(dim=1) ** 0.5
         rewards = self.distances - distances - actions_l2.squeeze(1) * 0.02
         self.distances = distances
 
-        '''done'''
+        """done"""
         self.cur_steps += 1  # array
         dones = (distances < self.dim) | (self.cur_steps == self.max_step)
         for env_i in range(self.env_num):
@@ -165,7 +177,7 @@ class ChasingVecEnv:
                 self.reset_env_i(env_i)
         dones = dones.type(torch.float32)
 
-        '''next_state'''
+        """next_state"""
         next_states = self.get_state()
 
         # assert next_states.get_device() == self.device.index
@@ -202,16 +214,20 @@ def check_chasing_env():
             reward_sum = 0.0
             state = env.reset()
 
-    print('len: ', len(reward_sum_list))
-    print('mean:', np.mean(reward_sum_list))
-    print('std: ', np.std(reward_sum_list))
+    print("len: ", len(reward_sum_list))
+    print("mean:", np.mean(reward_sum_list))
+    print("std: ", np.std(reward_sum_list))
 
 
 def check_chasing_vec_env():
     env = ChasingVecEnv(dim=2, env_num=2, device_id=0)
 
-    reward_sums = [0.0, ] * env.env_num  # episode returns
-    reward_sums_list = [[], ] * env.env_num
+    reward_sums = [
+        0.0,
+    ] * env.env_num  # episode returns
+    reward_sums_list = [
+        [],
+    ] * env.env_num
 
     states = env.reset()
     for _ in range(env.max_step * 4):
@@ -222,16 +238,18 @@ def check_chasing_vec_env():
             reward_sums[env_i] += rewards[env_i].item()
 
             if dones[env_i]:
-                print(f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}")
+                print(
+                    f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}"
+                )
                 reward_sums_list[env_i].append(reward_sums[env_i])
                 reward_sums[env_i] = 0.0
 
     reward_sums_list = np.array(reward_sums_list)
-    print('shape:', reward_sums_list.shape)
-    print('mean: ', np.mean(reward_sums_list, axis=1))
-    print('std:  ', np.std(reward_sums_list, axis=1))
+    print("shape:", reward_sums_list.shape)
+    print("mean: ", np.mean(reward_sums_list, axis=1))
+    print("std:  ", np.std(reward_sums_list, axis=1))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     check_chasing_env()
     check_chasing_vec_env()

@@ -9,7 +9,8 @@ import json
 
 from isaacgym import rlgpu
 from rlgpu.tasks.base.vec_task import VecTaskCPU, VecTaskGPU, VecTaskPython
-from rlgpu.utils.config import warn_task_name
+from IsaacGymEnvs.isaacgymenvs.tasks.base.vec_task import VecTask
+from elegantrl.envs.utils.config import warn_task_name
 
 
 def parse_task(args, cfg, cfg_train, sim_params):
@@ -31,8 +32,13 @@ def parse_task(args, cfg, cfg_train, sim_params):
                 task.init(device_id, -1, args.physics_engine, sim_params)
             else:
                 task.init(device_id, device_id, args.physics_engine, sim_params)
-            env = VecTaskCPU(task, rl_device, False, cfg_train.get("clip_observations", 5.0),
-                             cfg_train.get("clip_actions", 1.0))
+            env = VecTaskCPU(
+                task,
+                rl_device,
+                False,
+                cfg_train.get("clip_observations", 5.0),
+                cfg_train.get("clip_actions", 1.0),
+            )
         else:
             print("C++ GPU")
 
@@ -43,8 +49,12 @@ def parse_task(args, cfg, cfg_train, sim_params):
                 task.init(device_id, -1, args.physics_engine, sim_params)
             else:
                 task.init(device_id, device_id, args.physics_engine, sim_params)
-            env = VecTaskGPU(task, rl_device, cfg_train.get("clip_observations", 5.0),
-                             cfg_train.get("clip_actions", 1.0))
+            env = VecTaskGPU(
+                task,
+                rl_device,
+                cfg_train.get("clip_observations", 5.0),
+                cfg_train.get("clip_actions", 1.0),
+            )
 
     elif args.task_type == "Python":
         print("Python")
@@ -56,7 +66,8 @@ def parse_task(args, cfg, cfg_train, sim_params):
                 physics_engine=args.physics_engine,
                 device_type=args.device,
                 device_id=device_id,
-                headless=args.headless)
+                headless=args.headless,
+            )
         except NameError as e:
             print(e)
             warn_task_name()

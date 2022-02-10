@@ -8,7 +8,7 @@ map_param_registry = {
         "a_race": "Z",
         "b_race": "Z",
         "unit_type_bits": 2,
-        "map_type": "overload_bane"
+        "map_type": "overload_bane",
     },
     "1o_2r_vs_4r": {
         "n_agents": 3,
@@ -17,7 +17,7 @@ map_param_registry = {
         "a_race": "Z",
         "b_race": "Z",
         "unit_type_bits": 2,
-        "map_type": "overload_roach"
+        "map_type": "overload_roach",
     },
     "bane_vs_hM": {
         "n_agents": 3,
@@ -26,8 +26,8 @@ map_param_registry = {
         "a_race": "Z",
         "b_race": "T",
         "unit_type_bits": 2,
-        "map_type": "bZ_hM"
-    }
+        "map_type": "bZ_hM",
+    },
 }
 
 smac_maps.map_param_registry.update(map_param_registry)

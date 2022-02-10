@@ -58,11 +58,13 @@ ROAD_COLOR = [0.4, 0.4, 0.4]
 
 
 class CarRacingFix:
-    assert gym.__version__ <= '0.17.1'
+    assert gym.__version__ <= "0.17.1"
 
     def __init__(self, verbose=1):
         self.contactListener_keep_ref = FrictionDetector(self)
-        self.world = Box2D.b2World((0, 0), contactListener=self.contactListener_keep_ref)
+        self.world = Box2D.b2World(
+            (0, 0), contactListener=self.contactListener_keep_ref
+        )
         self.viewer = None
         self.invisible_state_window = None
         self.invisible_video_window = None
@@ -83,7 +85,7 @@ class CarRacingFix:
         self.t = None
         self.num_step = 0
 
-        self.env_name = 'CarRacingFix'
+        self.env_name = "CarRacingFix"
         self.state_dim = (STATE_W, STATE_H, 3 * 2)
         self.action_dim = 6
         self.if_discrete = False
@@ -118,7 +120,7 @@ class CarRacingFix:
             state, reward1, done, info_dict = self.old_step(action[3:], if_draw=True)
             reward = reward0 + reward1
         except Exception as error:
-            print(f'| CarRacingFix Error: {error}')
+            print(f"| CarRacingFix Error: {error}")
             state = np.stack((self.state_temp, self.state_temp))
             reward = 0
             done = True
@@ -149,7 +151,9 @@ class CarRacingFix:
         #     step_reward = -100  # Ynv1943: it is a bad design
         if if_draw:
             state = self.render("state_pixels")
-            if not (32 < state[16:96, 16:96, 1].mean() < 211):  # penalize when outside of road
+            if not (
+                32 < state[16:96, 16:96, 1].mean() < 211
+            ):  # penalize when outside of road
                 # print(f"{state[16:96, 16:96, 1].mean():.3f}")
                 self.reward -= 2.0
                 done = True
@@ -169,10 +173,11 @@ class CarRacingFix:
             self.viewer.close()
             self.viewer = None
 
-    def render(self, mode='human'):
-        assert mode in ['human', 'state_pixels']
+    def render(self, mode="human"):
+        assert mode in ["human", "state_pixels"]
         if self.viewer is None:
             from gym.envs.classic_control import rendering
+
             self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
             # self.score_label = pyglet.text.Label('0000', font_size=36,
             #                                      x=20, y=WINDOW_H * 2.5 / 40.00, anchor_x='left', anchor_y='center',
@@ -181,7 +186,9 @@ class CarRacingFix:
         if self.t is None:
             return None
 
-        zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)  # Animate zoom first second
+        zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(
+            self.t, 1
+        )  # Animate zoom first second
         scroll_x = self.car.hull.position[0]
         scroll_y = self.car.hull.position[1]
         angle = -self.car.hull.angle
@@ -190,8 +197,11 @@ class CarRacingFix:
             angle = math.atan2(vel[0], vel[1])
         self.transform.set_scale(zoom, zoom)
         self.transform.set_translation(
-            WINDOW_W / 2 - (scroll_x * zoom * math.cos(angle) - scroll_y * zoom * math.sin(angle)),
-            WINDOW_H / 4 - (scroll_x * zoom * math.sin(angle) + scroll_y * zoom * math.cos(angle)))
+            WINDOW_W / 2
+            - (scroll_x * zoom * math.cos(angle) - scroll_y * zoom * math.sin(angle)),
+            WINDOW_H / 4
+            - (scroll_x * zoom * math.sin(angle) + scroll_y * zoom * math.cos(angle)),
+        )
         self.transform.set_rotation(angle)
 
         self.car.draw(self.viewer, mode != "state_pixels")
@@ -202,12 +212,16 @@ class CarRacingFix:
 
         win.clear()
         t = self.transform
-        if mode == 'state_pixels':
+        if mode == "state_pixels":
             vp_w = STATE_W
             vp_h = STATE_H
         else:
-            context_nscontext = getattr(win.context, '_nscontext', None)
-            pixel_scale = 1 if context_nscontext is None else context_nscontext.view().backingScaleFactor()
+            context_nscontext = getattr(win.context, "_nscontext", None)
+            pixel_scale = (
+                1
+                if context_nscontext is None
+                else context_nscontext.view().backingScaleFactor()
+            )
             # pylint: disable=protected-access
             vp_w = int(pixel_scale * WINDOW_W)
             vp_h = int(pixel_scale * WINDOW_H)
@@ -221,12 +235,14 @@ class CarRacingFix:
         t.disable()
         # self.render_indicators(WINDOW_W, WINDOW_H)
 
-        if mode == 'human':
+        if mode == "human":
             win.flip()
             return self.viewer.isopen
 
-        image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
-        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep='')
+        image_data = (
+            pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+        )
+        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
         arr = arr.reshape((vp_h, vp_w, 4))[:, :, :3]
         return arr
 
@@ -275,7 +291,10 @@ class CarRacingFix:
             gl.glVertex3f((place + val) * s, 2 * h, 0)
             gl.glVertex3f((place + 0) * s, 2 * h, 0)
 
-        true_speed = np.sqrt(np.square(self.car.hull.linearVelocity[0]) + np.square(self.car.hull.linearVelocity[1]))
+        true_speed = np.sqrt(
+            np.square(self.car.hull.linearVelocity[0])
+            + np.square(self.car.hull.linearVelocity[1])
+        )
         vertical_ind(5, 0.02 * true_speed, (1, 1, 1))
         vertical_ind(7, 0.01 * self.car.wheels[0].omega, (0.0, 0, 1))  # ABS sensors
         vertical_ind(8, 0.01 * self.car.wheels[1].omega, (0.0, 0, 1))
@@ -301,7 +320,9 @@ class CarRacingFix:
         # Create checkpoints
         checkpoints = []
         for c in range(check_point):
-            alpha = 2 * math.pi * c / check_point + rd.uniform(0, 2 * math.pi * 1 / check_point)
+            alpha = 2 * math.pi * c / check_point + rd.uniform(
+                0, 2 * math.pi * 1 / check_point
+            )
             rad = rd.uniform(TRACK_RAD / 3, TRACK_RAD)
             if c == 0:
                 alpha = 0
@@ -392,15 +413,16 @@ class CarRacingFix:
         assert i1 != -1
         assert i2 != -1
 
-        track = track[i1:i2 - 1]
+        track = track[i1 : i2 - 1]
 
         first_beta = track[0][1]
         first_perp_x = math.cos(first_beta)
         first_perp_y = math.sin(first_beta)
         # Length of perpendicular jump to put together head and tail
         well_glued_together = np.sqrt(
-            np.square(first_perp_x * (track[0][2] - track[-1][2])) +
-            np.square(first_perp_y * (track[0][3] - track[-1][3])))
+            np.square(first_perp_x * (track[0][2] - track[-1][2]))
+            + np.square(first_perp_y * (track[0][3] - track[-1][3]))
+        )
         if well_glued_together > TRACK_DETAIL_STEP:
             return False
 
@@ -424,10 +446,22 @@ class CarRacingFix:
         for i in range(len(track)):
             alpha1, beta1, x1, y1 = track[i]
             alpha2, beta2, x2, y2 = track[i - 1]
-            road1_l = (x1 - TRACK_WIDTH * math.cos(beta1), y1 - TRACK_WIDTH * math.sin(beta1))
-            road1_r = (x1 + TRACK_WIDTH * math.cos(beta1), y1 + TRACK_WIDTH * math.sin(beta1))
-            road2_l = (x2 - TRACK_WIDTH * math.cos(beta2), y2 - TRACK_WIDTH * math.sin(beta2))
-            road2_r = (x2 + TRACK_WIDTH * math.cos(beta2), y2 + TRACK_WIDTH * math.sin(beta2))
+            road1_l = (
+                x1 - TRACK_WIDTH * math.cos(beta1),
+                y1 - TRACK_WIDTH * math.sin(beta1),
+            )
+            road1_r = (
+                x1 + TRACK_WIDTH * math.cos(beta1),
+                y1 + TRACK_WIDTH * math.sin(beta1),
+            )
+            road2_l = (
+                x2 - TRACK_WIDTH * math.cos(beta2),
+                y2 - TRACK_WIDTH * math.sin(beta2),
+            )
+            road2_r = (
+                x2 + TRACK_WIDTH * math.cos(beta2),
+                y2 + TRACK_WIDTH * math.sin(beta2),
+            )
             vertices = [road1_l, road1_r, road2_r, road2_l]
             self.fd_tile.shape.vertices = vertices
             t = self.world.CreateStaticBody(fixtures=self.fd_tile)
@@ -441,18 +475,30 @@ class CarRacingFix:
             self.road.append(t)
             if border[i]:
                 side = np.sign(beta2 - beta1)
-                b1_l = (x1 + side * TRACK_WIDTH * math.cos(beta1), y1 + side * TRACK_WIDTH * math.sin(beta1))
-                b1_r = (x1 + side * (TRACK_WIDTH + BORDER) * math.cos(beta1),
-                        y1 + side * (TRACK_WIDTH + BORDER) * math.sin(beta1))
-                b2_l = (x2 + side * TRACK_WIDTH * math.cos(beta2), y2 + side * TRACK_WIDTH * math.sin(beta2))
-                b2_r = (x2 + side * (TRACK_WIDTH + BORDER) * math.cos(beta2),
-                        y2 + side * (TRACK_WIDTH + BORDER) * math.sin(beta2))
-                self.road_poly.append(([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0)))
+                b1_l = (
+                    x1 + side * TRACK_WIDTH * math.cos(beta1),
+                    y1 + side * TRACK_WIDTH * math.sin(beta1),
+                )
+                b1_r = (
+                    x1 + side * (TRACK_WIDTH + BORDER) * math.cos(beta1),
+                    y1 + side * (TRACK_WIDTH + BORDER) * math.sin(beta1),
+                )
+                b2_l = (
+                    x2 + side * TRACK_WIDTH * math.cos(beta2),
+                    y2 + side * TRACK_WIDTH * math.sin(beta2),
+                )
+                b2_r = (
+                    x2 + side * (TRACK_WIDTH + BORDER) * math.cos(beta2),
+                    y2 + side * (TRACK_WIDTH + BORDER) * math.sin(beta2),
+                )
+                self.road_poly.append(
+                    ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
+                )
         self.track = track
         return True
 
 
-'''Utils'''
+"""Utils"""
 
 
 class FrictionDetector(Box2D.b2ContactListener):
@@ -530,7 +576,7 @@ def check_pyglet():
     if record_video:
         from gym.wrappers.monitor import Monitor
 
-        env = Monitor(env, '/tmp/video-test', force=True)
+        env = Monitor(env, "/tmp/video-test", force=True)
     if_open = True
     while if_open:
         env.reset()
@@ -560,10 +606,11 @@ def check_env():
     print(state.shape)
 
     import cv2
+
     for i in range(256):
         action = (0.0, 1.0, 0.0) if i < 128 else (0.0, 0.0, 0.0)
         stack_state, reward, done, _ = env.step(action)
-        cv2.imshow('', stack_state[::-1, :, 3:6])
+        cv2.imshow("", stack_state[::-1, :, 3:6])
         cv2.waitKey(1)
         env.render()
 
@@ -572,6 +619,6 @@ def check_env():
             break
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # check_pyglet()
     check_env()
