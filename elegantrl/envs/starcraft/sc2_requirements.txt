@@ -22,7 +22,7 @@ pbr==4.3.0
 pluggy==0.7.1
 portpicker==1.2.0
 probscale==0.2.3
-protobuf==3.6.1
+protobuf==3.15.0
 py==1.6.0
 pyparsing==2.2.2
 pysc2==3.0.0
