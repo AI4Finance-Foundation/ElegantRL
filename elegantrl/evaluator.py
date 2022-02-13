@@ -303,101 +303,69 @@ def demo_evaluate_actors(dir_path, gpu_id, agent, env_args, eval_times=2, net_di
     return step_epi_r_s_ary
 
 
-def evaluate_actor_pth_and_get_learning_curve():
+def run():
     from elegantrl.agent import AgentPPO
+    flag_id = 1  # int(sys.argv[1])
 
-    gpu_id = 1
-    cwd_path = '.'  # 'hopper-v2'
-    net_dim = 2 ** 7
+    gpu_id = [2, 3][flag_id]
     agent = AgentPPO
-    env_args = {'env_num': 1,
-                'env_name': 'Hopper-v2',
-                'max_step': 1000,
-                'state_dim': 11,
-                'action_dim': 3,
-                'if_discrete': False,
-                'eval_times': 2 ** 1,
-                'target_return': 3800, }
+    env_args = [
+        {'env_num': 1,
+         'env_name': 'LunarLanderContinuous-v2',
+         'max_step': 1000,
+         'state_dim': 8,
+         'action_dim': 2,
+         'if_discrete': False,
+         'target_return': 200,
+         'eval_times': 2 ** 4,
+         'id': 'LunarLanderContinuous-v2'},
 
-    # env_args = {'env_num': 1,
-    #             'env_name': 'LunarLanderContinuous-v2',
-    #             'max_step': 1000,
-    #             'state_dim': 8,
-    #             'action_dim': 2,
-    #             'if_discrete': False,
-    #             'target_return': 200,
-    #             'eval_times': 2 ** 4, }
-
-    # env_args = {'env_num': 1,
-    #             'env_name': 'BipedalWalker-v3',
-    #             'max_step': 1600,
-    #             'state_dim': 24,
-    #             'action_dim': 4,
-    #             'if_discrete': False,
-    #             'target_return': 300,
-    #             'eval_times': 2 ** 3, }
-
-    # env_args = {'env_num': 1,
-    #             'env_name': 'Hopper-v2',
-    #             'max_step': 1000,
-    #             'state_dim': 11,
-    #             'action_dim': 3,
-    #             'if_discrete': False,
-    #             'eval_times': 2 ** 1,
-    #             'target_return': 3800, }
-
+        {'env_num': 1,
+         'env_name': 'BipedalWalker-v3',
+         'max_step': 1600,
+         'state_dim': 24,
+         'action_dim': 4,
+         'if_discrete': False,
+         'target_return': 300,
+         'eval_times': 2 ** 3,
+         'id': 'BipedalWalker-v3', },
+    ][flag_id]
     env_name = env_args['env_name']
-    eval_times = env_args['eval_times']
 
     print('gpu_id', gpu_id)
     print('env_name', env_name)
-    print('cwd_path', cwd_path)
 
     '''save step_epi_r_s_ary'''
-    dir_names = [name for name in os.listdir(cwd_path)
-                 if name.find(env_name) >= 0 and os.path.isdir(f"{cwd_path}/{name}")]
-    for dir_name in dir_names:
-        dir_path = f"{cwd_path}/{dir_name}"
-        txt_path = f"{dir_path}-step_epi_r_s_ary.txt"
-        if os.path.exists(txt_path):
-            continue
-        try:
-            step_epi_r_s_ary = demo_evaluate_actors(dir_path, gpu_id, agent, env_args, eval_times, net_dim)
-            np.savetxt(txt_path, step_epi_r_s_ary)
-        except RuntimeError as error:
-            print('net_dim', error)
+    # cwd_path = '.'
+    # dir_names = [name for name in os.listdir(cwd_path)
+    #              if name.find(env_name) >= 0 and os.path.isdir(name)]
+    # for dir_name in dir_names:
+    #     dir_path = f"{cwd_path}/{dir_name}"
+    #     step_epi_r_s_ary = demo_evaluate_actors(dir_path, gpu_id, agent, env_args)
+    #     np.savetxt(f"{dir_path}-step_epi_r_s_ary.txt", step_epi_r_s_ary)
 
     '''load step_epi_r_s_ary'''
-    import matplotlib.pyplot as plt
-    if_plot_single = 0
-    if_show_episode_step = 1
-    n = 16
-
     step_epi_r_s_ary = list()
 
-    ary_names = [name for name in os.listdir(cwd_path)
+    cwd_path = '.'
+    ary_names = [name for name in os.listdir('.')
                  if name.find(env_name) >= 0 and name[-4:] == '.txt']
-    for i, ary_name in enumerate(ary_names):
+    for ary_name in ary_names:
         ary_path = f"{cwd_path}/{ary_name}"
         ary = np.loadtxt(ary_path)
         step_epi_r_s_ary.append(ary)
-        print('label', i, ary_path)
-
-    if if_plot_single:
-        for i, ary in enumerate(step_epi_r_s_ary):
-            plt.plot(ary[:, 0], ary[:, 1], label=str(i)) if if_plot_single else None
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.show()
     step_epi_r_s_ary = np.vstack(step_epi_r_s_ary)
     step_epi_r_s_ary = step_epi_r_s_ary[step_epi_r_s_ary[:, 0].argsort()]
     print('step_epi_r_s_ary.shape', step_epi_r_s_ary.shape)
 
     '''plot'''
+    import matplotlib.pyplot as plt
+    # plt.plot(step_epi_r_s_ary[:, 0], step_epi_r_s_ary[:, 1])
+
     plot_x_y_up_dw_step = list()
+    n = 8
     for i in range(0, len(step_epi_r_s_ary), n):
         y_ary = step_epi_r_s_ary[i:i + n, 1]
-
         if y_ary.shape[0] <= 1:
             continue
 
@@ -409,6 +377,7 @@ def evaluate_actor_pth_and_get_learning_curve():
         x_avg = step_epi_r_s_ary[i:i + n, 0].mean()
         plot_x_y_up_dw_step.append((x_avg, y_avg, y_up, y_dw, y_step))
 
+    if_show_episode_step = True
     color0 = 'royalblue'
     color1 = 'lightcoral'
     # color2 = 'darkcyan'
@@ -444,4 +413,4 @@ def evaluate_actor_pth_and_get_learning_curve():
 
 if __name__ == '__main__':
     # demo_evaluate_actors()
-    evaluate_actor_pth_and_get_learning_curve()
+    run()

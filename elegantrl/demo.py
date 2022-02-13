@@ -64,251 +64,6 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
 '''demo'''
 
 
-def demo_continuous_action_on_policy_h_term():
-    gpu_id = int(sys.argv[1])  # >=0 means GPU ID, -1 means CPU
-    drl_id = int(sys.argv[2])
-    # env_id = int(sys.argv[3])
-    # tgn_bl = int(sys.argv[4])
-
-    env_name = ['Pendulum-v0',
-                'Pendulum-v1',
-                'LunarLanderContinuous-v2',
-                'BipedalWalker-v3',
-                'Hopper-v2',
-                'Humanoid-v3',
-                ][5]
-    agent = [AgentPPO, AgentHtermPPO][drl_id]
-
-    # from elegantrl.config import get_gym_env_args
-    # get_gym_env_args(env=gym.make(env_name), if_print=True)
-    # exit()
-
-    if env_name in {'Pendulum-v0', 'Pendulum-v1'}:
-        env = HumanoidEnv(env_name, target_return=-500)
-        "TotalStep: 1e5, TargetReward: -200, UsedTime: 600s"
-        args = Arguments(agent, env)
-        args.reward_scale = 2 ** -1  # RewardRange: -1800 < -200 < -50 < 0
-        args.gamma = 0.97
-        args.target_step = args.max_step * 8
-        args.eval_times = 2 ** 3
-    elif env_name == 'LunarLanderContinuous-v2':
-        """
-
-        """
-        env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'LunarLanderContinuous-v2',
-                    'max_step': 1000,
-                    'state_dim': 8,
-                    'action_dim': 2,
-                    'if_discrete': False,
-                    'target_return': 200,
-
-                    'id': 'LunarLanderContinuous-v2'}
-        args = Arguments(agent, env_func=env_func, env_args=env_args)
-
-        args.target_step = args.max_step * 2
-        args.reward_scale = 2 ** -1
-        args.repeat_times = 2 ** 5
-        args.gamma = 0.99
-        args.eval_times = 2 ** 5
-    elif env_name == 'BipedalWalker-v3':
-        """
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        1  2.75e+04 -111.29 |
-        1  2.75e+04 -111.29 | -111.29    0.1     74     1 |   -0.07   1.73  -0.01   0.02
-        1  2.05e+05  -24.96 |
-        1  2.05e+05  -24.96 |  -24.96    1.0   1600     0 |   -0.04   0.22  -0.01   0.02
-        1  3.63e+05   38.84 |
-        1  3.63e+05   38.84 |   38.84   28.2   1600     0 |   -0.01   0.08   0.03   0.00
-        1  5.17e+05   38.84 |  -57.33  111.7    363   618 |    0.03   0.11   0.02  -0.01
-        1  6.61e+05  256.95 |
-        1  6.61e+05  256.95 |  256.95    5.5   1600     0 |    0.04   0.23   0.08  -0.02
-        1  8.11e+05  256.95 |  249.93   65.9   1513   131 |    0.05   0.33   0.05  -0.03
-        1  9.76e+05  256.95 |  249.85   78.9   1356   176 |    0.06   0.19   0.07  -0.03
-        1  1.12e+06  277.99 |
-        1  1.12e+06  277.99 |  277.99   29.7   1450    25 |    0.07   0.15   0.08  -0.05
-        1  1.27e+06  288.88 |
-        1  1.27e+06  288.88 |  288.88    2.2   1402    35 |    0.07   0.13   0.12  -0.06
-        1  1.41e+06  288.88 |  287.79    2.1   1425    18 |    0.08   0.15   0.13  -0.08
-        1  1.57e+06  288.88 |  266.22   49.0   1359    15 |    0.08   0.32   0.13  -0.10
-        1  1.73e+06  293.57 |
-        1  1.73e+06  293.57 |  293.57    2.2   1325    32 |    0.09   0.27   0.20  -0.14
-        1  1.90e+06  293.57 |  258.43   76.4   1162   133 |    0.10   0.36   0.24  -0.21
-        1  2.06e+06  297.21 |  297.21    2.1   1220    43 |    0.10   0.30   0.37  -0.32
-        1  2.23e+06  297.21 |  288.76   37.4   1191    52 |    0.11   0.29   0.55  -0.49
-        1  2.40e+06  301.72 |  301.72    2.4   1136    40 |    0.10   0.67   0.76  -0.65
-        | UsedTime:    2019 |
-
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        2  2.74e+04  -93.36 |
-        2  2.74e+04  -93.36 |  -93.36    0.7    111     2 |   -0.07   1.29   0.05   0.02
-        2  2.24e+05  -12.39 |
-        2  2.24e+05  -12.39 |  -12.39    0.7   1600     0 |   -0.02   0.03   0.06   0.01
-        2  4.16e+05  -12.39 |  -18.97    5.0   1600     0 |   -0.01   0.02   0.03   0.00
-        2  6.09e+05   62.57 |
-        2  6.09e+05   62.57 |   62.57  106.0   1149   670 |    0.02   0.13   0.04  -0.01
-        2  8.07e+05  238.48 |
-        2  8.07e+05  238.48 |  238.48   11.2   1600     0 |    0.04   0.21   0.03  -0.02
-        2  1.00e+06  247.19 |
-        2  1.00e+06  247.19 |  247.19   67.3   1521   145 |    0.06   0.16  -0.08  -0.04
-        2  1.20e+06  247.19 |  224.20  116.2   1371   413 |    0.07   0.19   0.04  -0.05
-        2  1.40e+06  247.19 |  189.21  120.3   1223   286 |    0.06   0.49  -0.02  -0.05
-        2  1.61e+06  288.79 |
-        2  1.61e+06  288.79 |  288.79    2.0   1351    48 |    0.09   0.26   0.04  -0.08
-        2  1.81e+06  288.79 |  259.11   65.2   1224    29 |    0.10   0.37  -0.05  -0.11
-        2  2.01e+06  288.79 |  245.11  132.7   1083   288 |    0.10   0.31   0.05  -0.13
-        2  2.22e+06  288.79 |  270.47   56.3   1123    40 |    0.11   0.32   0.05  -0.19
-        2  2.43e+06  288.79 |  287.14   45.5   1098    75 |    0.12   0.38  -0.01  -0.24
-        2  2.63e+06  301.49 |
-        2  2.63e+06  301.49 |  301.49    0.8   1090    20 |    0.11   0.33   0.06  -0.28
-        | UsedTime:    1758 |
-        """
-        env_func = gym.make
-        env_args = {'env_num': 1,
-                    'env_name': 'BipedalWalker-v3',
-                    'max_step': 1600,
-                    'state_dim': 24,
-                    'action_dim': 4,
-                    'if_discrete': False,
-                    'target_return': 300,
-
-                    'id': 'BipedalWalker-v3', }
-        args = Arguments(agent, env_func=env_func, env_args=env_args)
-        args.target_step = args.max_step * 4
-        args.reward_scale = 2 ** -1
-        args.gamma = 0.98
-        args.eval_times = 2 ** 4
-    elif env_name == 'Hopper-v2':
-        """
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        7  3.20e+04   90.72 |   90.72    2.5     59     1 |    0.12   0.99   0.06  -0.51
-        7  2.89e+05  318.41 |  318.41    1.1    129     0 |    0.30   0.15   0.00  -0.54
-        7  5.47e+05  415.53 |  415.53    1.3    146     0 |    0.35   0.24  -0.01  -0.58
-        7  8.06e+05  494.69 |  494.69    1.8    164     1 |    0.37   0.13   0.04  -0.62
-        7  1.06e+06  779.30 |  779.30    3.4    240     1 |    0.39   0.39   0.03  -0.65
-        7  1.57e+06 3170.04 | 3125.47    1.3   1000     0 |    0.40   2.64  -0.05  -0.67
-        7  1.20e+07 3505.98 | 3435.21    1.4   1000     0 |    0.45   0.68   0.04  -0.69
-        7  1.70e+07 3619.32 | 3548.57    9.8   1000     0 |    0.46   1.60   0.03  -0.61
-        7  2.33e+07 3652.78 | 3542.05  467.5    968   123 |    0.47   1.92   0.05  -0.53
-
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        6  3.21e+04   91.56 |   91.56    1.7     54     1 |    0.16   2.27   0.03  -0.51
-        6  2.90e+05  330.72 |  330.72    1.7    132     1 |    0.31   0.22  -0.02  -0.54
-        6  5.48e+05  461.52 |  461.52    1.8    157     1 |    0.36   0.19   0.02  -0.57
-        6  8.07e+05  743.07 |  743.07    4.5    235     1 |    0.39   0.31   0.03  -0.60
-        6  1.07e+06 1273.31 | 1273.31   30.3    395     9 |    0.39   0.55   0.05  -0.61
-        6  1.58e+06 3162.59 | 3080.06  184.4    928    62 |    0.41   0.56   0.03  -0.63
-        6  1.37e+07 3538.78 | 1799.39  683.7    478   187 |    0.46   0.48   0.05  -0.56
-        6  2.87e+07 3685.67 | 2654.64 1217.0    716   328 |    0.48   2.28  -0.00  -0.31
-        6  3.88e+07 3715.72 | 2800.52 1393.9    740   357 |    0.48   2.07   0.02  -0.30
-
-        # args.max_step * 4
-        # args.repeat_times = 2 ** 5
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        2  1.60e+04  153.31 |  153.31    3.7     89     2 |    0.11   0.88   0.02  -0.51
-        2  2.35e+05  471.56 |  471.56    2.3    159     1 |    0.35   0.54   0.01  -0.55
-        2  4.57e+05  994.84 |  994.84    5.0    310     2 |    0.40   0.33   0.02  -0.59
-        2  6.72e+05 1689.48 | 1689.48   94.9    502    28 |    0.40   0.89   0.03  -0.62
-        2  8.87e+05 3225.36 | 3225.36    8.6   1000     0 |    0.41   2.68   0.03  -0.63
-        2  1.54e+06 3349.22 | 3303.63  253.2    980    79 |    0.42   1.58   0.06  -0.62
-        2  6.31e+06 3461.21 | 3189.61  532.8    919   161 |    0.43   3.70   0.05  -0.52
-        2  1.38e+07 3481.69 | 3455.51   50.2    981    24 |    0.44   1.23   0.09  -0.54
-
-        ;;;;;traj_n_h_term 8 ;;;;;lambda_h_term 0.125
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        5  3.21e+04   81.78 |   81.78    1.8     48     1 |    0.18   2.38   0.01  -0.51
-        5  2.74e+05  324.75 |  324.75    1.5    132     1 |    0.30   0.18   0.02  -0.54
-        5  5.16e+05  452.89 |  452.89    1.8    156     1 |    0.36   0.15   0.05  -0.57
-        5  7.59e+05  776.76 |  776.76    4.8    241     1 |    0.39   0.89   0.01  -0.59
-        5  1.00e+06 1360.86 | 1360.86   43.6    417    14 |    0.40   0.82  -0.02  -0.61
-        5  1.23e+06 2422.22 | 2422.22  179.0    845    62 |    0.40   0.68  -0.01  -0.62
-        5  1.46e+06 3162.83 | 3162.83    5.5   1000     0 |    0.41   0.47   0.04  -0.64
-        5  5.94e+06 3533.45 | 3527.93    8.5   1000     0 |    0.45   1.24   0.04  -0.64
-        5  5.93e+07 3629.97 | 3024.53 1040.0    853   294 |    0.45   2.97   0.04  -0.92
-        5  6.15e+07 3645.27 | 3590.16   69.6    993    14 |    0.47   2.77   0.01  -0.81
-
-        ;;;;;traj_n_h_term 8 ;;;;;lambda_h_term 0.125
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        4  3.21e+04  135.60 |  135.60    2.4     71     1 |    0.15   2.17   0.09  -0.51
-        4  2.74e+05  341.36 |  341.36    1.2    133     1 |    0.31   0.53   0.06  -0.54
-        4  5.16e+05  555.80 |  555.80    3.5    183     1 |    0.36   0.57   0.03  -0.57
-        4  7.59e+05  979.54 |  979.54   16.9    306     4 |    0.39   0.37   0.03  -0.59
-        4  1.00e+06  979.54 |  761.09    1.8    235     1 |    0.39   1.69   0.01  -0.61
-        4  1.48e+06 1508.58 | 1332.70  182.3    396    52 |    0.41   0.83   0.03  -0.63
-        4  1.72e+06 1508.58 | 1269.82   22.0    377     6 |    0.42   0.55   0.01  -0.64
-        4  2.18e+06 2133.53 | 1711.39  836.7    505   248 |    0.42   0.53   0.05  -0.65
-        4  2.42e+06 2452.80 | 2452.80  618.7    712   182 |    0.42   0.63   0.03  -0.67
-        4  3.11e+06 3273.13 | 1531.85  409.3    443   118 |    0.43   0.57  -0.02  -0.72
-        4  1.01e+07 3456.77 | 2685.26  946.8    773   278 |    0.44   2.35   0.04  -0.69
-
-        # args.max_step * 4
-        # args.repeat_times = 2 ** 5
-        ;;;;;traj_n_h_term 8 ;;;;;lambda_h_term 0.125
-        ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-        3  1.61e+04  217.40 |  217.40    0.9     95     0 |    0.15   2.26   0.10  -0.51
-        3  2.11e+05  424.23 |  424.23    1.9    149     1 |    0.35   0.19   0.02  -0.56
-        3  4.07e+05  558.15 |  558.15    2.4    182     1 |    0.37   0.60   0.01  -0.59
-        3  5.99e+05 1060.42 | 1060.42   14.4    325     4 |    0.40   0.41   0.05  -0.62
-        3  7.83e+05 2013.17 | 2013.17  203.1    616    62 |    0.40   0.93  -0.02  -0.66
-        3  9.64e+05 3138.00 | 3138.00   11.2   1000     0 |    0.40   1.03   0.05  -0.67
-        3  1.15e+06 3157.48 | 3157.48    6.5   1000     0 |    0.40   2.04   0.01  -0.68
-        3  1.68e+06 3366.62 | 2616.46  529.3    794   171 |    0.41   0.98   0.04  -0.68
-        """
-        env_func = gym.make
-        env_args = {
-            'env_num': 1,
-            'env_name': 'Hopper-v2',
-            'max_step': 1000,
-            'state_dim': 11,
-            'action_dim': 3,
-            'if_discrete': False,
-            'target_return': 3800.,
-        }
-        args = Arguments(agent, env_func=env_func, env_args=env_args)
-        args.target_step = args.max_step * 8
-        args.worker_num = 2
-        args.batch_size = args.net_dim * 4
-        args.gamma = 0.995
-        args.eval_times = 2 ** 4
-        args.max_step = int(8e7)
-        args.lambda_entropy = 0.01
-    elif env_name == 'Humanoid-v3':
-        env_func = HumanoidEnv
-        env_args = {
-            'env_num': 1,
-            'env_name': 'Humanoid-v3',
-            'max_step': 1000,
-            'state_dim': 376,
-            'action_dim': 17,
-            'if_discrete': False,
-            'target_return': 3000.,
-        }
-        args = Arguments(agent, env_func=env_func, env_args=env_args)
-
-        args.target_step = args.max_step * 16
-        args.if_cri_target = False
-        args.repeat_times = 2 ** 6
-        args.lambda_entropy = 2 ** -6
-
-        args.worker_num = 2
-        args.batch_size = args.net_dim * 8
-        args.gamma = 0.995
-        args.eval_times = 2 ** 4
-        args.max_step = int(8e7)
-    else:
-        raise ValueError('env_name:', env_name)
-
-    args.learner_gpus = gpu_id
-    args.random_seed += gpu_id
-
-    if_check = 0
-    if if_check:
-        train_and_evaluate(args)
-    else:
-        train_and_evaluate_mp(args)
-
-
 def demo_continuous_action_off_policy():  # 2022.02.02
     env_name = ['Pendulum-v0',
                 'Pendulum-v1',
@@ -464,7 +219,7 @@ def demo_continuous_action_off_policy():  # 2022.02.02
 def demo_continuous_action_on_policy():
     gpu_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0  # >=0 means GPU ID, -1 means CPU
     drl_id = 0  # int(sys.argv[2])
-    env_id = 0  # int(sys.argv[3])
+    env_id = 4  # int(sys.argv[3])
 
     env_name = ['Pendulum-v0',
                 'Pendulum-v1',
@@ -473,6 +228,10 @@ def demo_continuous_action_on_policy():
                 'Hopper-v2',
                 'Humanoid-v3', ][env_id]
     agent = [AgentPPO, AgentHtermPPO][drl_id]
+
+    print('agent', agent.__name__)
+    print('gpu_id', gpu_id)
+    print('env_name', env_name)
 
     if env_name in {'Pendulum-v0', 'Pendulum-v1'}:
         env = PendulumEnv(env_name, target_return=-500)
@@ -578,8 +337,6 @@ def demo_continuous_action_on_policy():
         args.lambda_h_term = 2 ** -5
     elif env_name == 'Hopper-v2':
         """
-
-
         ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         5  1.61e+04  131.99 |  131.99    3.6     81     2 |    0.03   0.09   0.03  -0.54
         5  2.20e+05  391.44 |  391.44    0.3    158     0 |    0.08   0.01  -0.06  -0.75
@@ -622,7 +379,7 @@ def demo_continuous_action_on_policy():
             'target_return': 3800.,
         }
         args = Arguments(agent, env_func=env_func, env_args=env_args)
-        args.eval_times = 2 ** 1
+        args.eval_times = 2 ** 2
         args.reward_scale = 2 ** -4
 
         args.target_step = args.max_step * 4  # 6
@@ -635,7 +392,6 @@ def demo_continuous_action_on_policy():
         args.ratio_clip = 0.25
         args.gamma = 0.993
         args.lambda_entropy = 0.02
-        args.lambda_gae_adv = 0.9
         args.lambda_h_term = 2 ** -5
 
         args.if_allow_break = False
