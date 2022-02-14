@@ -158,7 +158,8 @@ class AgentBase:
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_a = self.act_target(next_s)
-            next_q = torch.min(*self.cri_target(next_s, next_a))
+            critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
+            (next_q, min_indices) = torch.min(critic_targets, dim=1, keepdim=True)
             q_label = reward + mask * next_q
 
         q = self.cri(state, action)
@@ -177,7 +178,9 @@ class AgentBase:
         with torch.no_grad():
             reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
             next_a = self.act_target(next_s)
-            next_q = torch.min(*self.cri_target(next_s, next_a))  # twin critics
+            critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
+            # taking a minimum while preserving the dimension for possible twin critics
+            (next_q, min_indices) = torch.min(critic_targets, dim=1, keepdim=True)
             q_label = reward + mask * next_q
 
         q = self.cri(state, action)
