@@ -44,12 +44,19 @@ def train_and_evaluate(args):
         logging_tuple = agent.update_net(buffer)
         torch.set_grad_enabled(False)
 
-        if_reach_goal = evaluator.evaluate_save_and_plot(agent.act, steps, r_exp, logging_tuple)
-        if_train = not ((if_allow_break and if_reach_goal)
-                        or evaluator.total_step > break_step
-                        or os.path.exists(f'{cwd}/stop'))
+        (if_reach_goal, if_save) = evaluator.evaluate_save_and_plot(
+            agent.act, steps, r_exp, logging_tuple
+        )
+        dont_break = not if_allow_break
+        not_reached_goal = not if_reach_goal
+        stop_dir_absent = not os.path.exists(f"{cwd}/stop")
+        if_train = (
+            (dont_break or not_reached_goal)
+            and evaluator.total_step <= break_step
+            and stop_dir_absent
+        )
     print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
-    agent.save_or_load_agent(cwd, if_save=True)
+    agent.save_or_load_agent(cwd, if_save=if_save)
     buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
 
 
