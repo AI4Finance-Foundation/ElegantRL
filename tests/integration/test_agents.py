@@ -25,7 +25,6 @@ class TestAgents(unittest.TestCase):
             AgentTD3,
             AgentSAC,
             AgentModSAC,
-            AgentHtermModSAC,
             AgentREDqSAC,
             AgentPPO,
             AgentHtermPPO,
@@ -113,12 +112,6 @@ class TestAgents(unittest.TestCase):
 
     def test_should_not_train_ModSAC_on_discrete_action_space(self):
         self.assertRaises(Exception, self.train_discrete, AgentModSAC)
-
-    def test_should_train_HtermModSAC_on_continuous_action_space(self):
-        self.train_continuous(AgentHtermModSAC)
-
-    def test_should_not_train_HtermModSAC_on_discrete_action_space(self):
-        self.assertRaises(Exception, self.train_discrete, AgentHtermModSAC)
 
     def test_should_train_REDqSAC_on_continuous_action_space(self):
         self.train_continuous(AgentREDqSAC)
