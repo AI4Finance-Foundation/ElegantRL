@@ -9,7 +9,6 @@ import json
 
 from isaacgym import rlgpu
 from rlgpu.tasks.base.vec_task import VecTaskCPU, VecTaskGPU, VecTaskPython
-from IsaacGymEnvs.isaacgymenvs.tasks.base.vec_task import VecTask
 from elegantrl.envs.utils.config import warn_task_name
 
 
