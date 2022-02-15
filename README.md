@@ -18,11 +18,11 @@
 [ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for researchers and practitioners with
 the following advantages:
 
-+ **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a DGX SuperPOD platform with thousands of GPUs.
++ **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
 
 + **Elastic**: supports two cloud-native solutions, allowing to elastically and automatically allocate computing resources on the cloud.
 
-+ **Lightweight**: the core codes  <1,000 lines (check [elegantrl_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
++ **Lightweight**: the core codes  <1,000 lines (check [Elegantrl_Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
 
 + **Efficient**: in many testing cases (single GPU/multi-GPU/GPU cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
 
@@ -62,7 +62,7 @@ ElegantRL supports the following simulators:
 + [Towardsdatascience] [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
 
 
-## [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld))
+## [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)
 
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
