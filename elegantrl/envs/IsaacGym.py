@@ -54,7 +54,7 @@ class IsaacVecEnv:
 
         cfg, cfg_train, log_dir = load_cfg(args)
         sim_params = parse_sim_params(args, cfg, cfg_train)
-        set_seed(cfg_train["seed"])
+        set_seed(cfg_train["params"]["seed"])
 
         task, env = parse_task(args, cfg, cfg_train, sim_params)
         assert env_num == env.num_environments
