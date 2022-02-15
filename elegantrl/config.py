@@ -183,7 +183,8 @@ def kwargs_filter(func, kwargs: dict):  # [ElegantRL.2021.12.12]
     sign = set([val.name for val in sign])
 
     common_args = sign.intersection(kwargs.keys())
-    return {key: kwargs[key] for key in common_args}  # filtered kwargs
+    filtered_kwargs = {key: kwargs[key] for key in common_args}
+    return filtered_kwargs
 
 
 def build_env(env=None, env_func=None, env_args=None):  # [ElegantRL.2021.12.12]

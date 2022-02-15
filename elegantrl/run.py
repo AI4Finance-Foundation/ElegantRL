@@ -116,7 +116,9 @@ def train_and_evaluate_mp(args):
     learner_pipe = PipeLearner()
     process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe)))
 
-    [p.start() for p in process]
+    for p in process:
+        p.start()
+
     process[-1].join()  # waiting for learner
     process_safely_terminate(process)
 
