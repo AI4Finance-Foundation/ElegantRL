@@ -1,4 +1,4 @@
-## ElegantRL “小雅”: Scalable and Elastic Deep Reinforcement Learning
+## ElegantRL “小雅”: Massively Parallel Library for Scalable Deep Reinforcement Learning
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
@@ -18,22 +18,29 @@
 [ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for researchers and practitioners with
 the following advantages:
 
-+ **Lightweight**: the core codes  <1,000 lines (check [elegantrl_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)), using PyTorch (train), OpenAI Gym (env),
-  NumPy, Matplotlib (plot).
++ **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a DGX SuperPOD platform with thousands of GPUs.
 
-+ **Efficient**: in many testing cases, we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
++ **Elastic**: supports two cloud-native solutions, allowing to elastically and automatically allocate computing resources on the cloud.
 
-+ **Stable**: much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3). Stable Baselines
-  3 can only use single GPU, but ElegantRL can use 1~8 GPUs for stable training.
++ **Lightweight**: the core codes  <1,000 lines (check [elegantrl_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
+
++ **Efficient**: in many testing cases (single GPU/multi-GPU/GPU cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
+
++ **Stable**: much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various ensemble methods.
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
-+ **DDPG, TD3, SAC, PPO, PPO (GAE),REDQ** for continuous actions
-+ **DQN, DoubleDQN, D3QN, SAC** for discrete actions
-+ **QMIX, VDN; MADDPG, MAPPO, MATD3** for multi-agent environment
++ **DDPG, TD3, SAC, PPO, REDQ** for continuous actions,
++ **DQN, Double DQN, D3QN, SAC** for discrete actions,
++ **QMIX, VDN, MADDPG, MAPPO, MATD3** for multi-agent environment.
 
 For the details of DRL algorithms, please check out the educational
 webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
+
+ElegantRL supports the following simulators:
+
++ **Isaac Gym** for massively parallel simulation,
++ **OpenAI Gym, MuJoCo, PyBullet, FinRL** for benchmarking.
 
 《诗经·小雅·鹤鸣》中「他山之石，可以攻玉」，是我们的库“小雅”名字的来源。
 
@@ -48,28 +55,20 @@ webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
 
 ## News
 
-+ [Towardsdatascience] [ElegantRL-Podracer: A Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning](https://elegantrl.medium.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0)
-+ [Towardsdatascience] [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b)
-+ [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791)
-+ [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208)
-+ [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f)
++ [Towardsdatascience] [ElegantRL-Podracer: A Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning](https://elegantrl.medium.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0), Dec 11, 2021.
++ [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791), May 3, 2021.
++ [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f), Apr 19, 2021.
++ [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208), Mar 28, 2021.
++ [Towardsdatascience] [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
 
-## Framework ([Helloworld folder](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld))
+
+## [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld))
 
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-An agent (**agent.py**) with Actor-Critic networks (**net.py**) is trained (**run.py**) by interacting with an
-environment (**env.py**).
+For beginners, we maintain ElegantRL-HelloWorld as a tutorial. Its goal is to get hands-on experience with ELegantRL.
 
-A high-level overview:
-
-+ 1). Instantiate an environment in **Env.py**, and an agent in **Agent.py** with an Actor network and a Critic network
-  in **Net.py**;
-+ 2). In each training step in **Run.py**, the agent interacts with the environment, generating transitions that are
-  stored into a Replay Buffer;
-+ 3). The agent fetches a batch of transitions from the Replay Buffer to train its networks;
-+ 4). After each update, an evaluator evaluates the agent's performance (e.g., fitness score or cumulative return) and
-  saves the agent if the performance is good.
+One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*) is trained (*run.py*) by interacting with an environment (*env.py*).
 
 ## Code Structure
 
