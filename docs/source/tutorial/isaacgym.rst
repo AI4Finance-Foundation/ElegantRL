@@ -63,8 +63,8 @@ Initialize agent and environment, specify hyper-parameters, and start training:
 
 .. code-block:: python
 
-    from elegantrl.agents.AgentPPO import AgentPPO
-    from elegantrl.train.run import train_and_evaluate_mp
+    from elegantrl.agent.AgentPPO import AgentPPO
+    from elegantrl.run import train_and_evaluate_mp
     
     args = Arguments(agent=AgentPPO, env_func=env_func, env_args=env_args)
     
