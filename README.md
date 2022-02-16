@@ -67,7 +67,7 @@ ElegantRL supports the following simulators:
 ## ElegantRL-Helloworld
 
 <div align="center">
-	<img align="center" src=figs/File_structure.png width="640">
+	<img align="center" src=figs/File_structure.png width="800">
 </div>
 
 For beginners, we maintain [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
