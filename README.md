@@ -106,9 +106,9 @@ Experiments on MuJoCo and Isaac Gym
 
 <div align="center">
 	<img align="center" src=figs/envs.png width="800">
-<div>
+</div>
 	
-	MuJoCo Ant,  MuJoCo Humainoid, Isaac Gym Ant, Isac Gym Humanoid
+	 Ant (MuJoCo), &nbsp;&nbsp;  Humainoid (MuJoCo), &nbsp;&nbsp;  Ant (Isaac Gym), Humanoid (Isaac Gym)
 	
 <div align="center">
 	<img align="center" src=figs/performance.png width="800">
