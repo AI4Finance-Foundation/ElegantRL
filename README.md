@@ -44,7 +44,7 @@ ElegantRL supports the following simulators:
 + **Isaac Gym** for massively parallel simulation,
 + **OpenAI Gym, MuJoCo, PyBullet, FinRL** for benchmarking.
 
-《诗经·小雅·鹤鸣》中「他山之石，可以攻玉」，是我们的库“小雅”名字的来源。
+“小雅”源于《诗经·小雅·鹤鸣》，旨在「他山之石，可以攻玉」。
 
 ## Contents
 
