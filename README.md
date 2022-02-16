@@ -15,7 +15,7 @@
 <br/>
 
 
-[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for practitioners with
+[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for researchers and practitioners with
 the following advantages:
 
 + **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
@@ -49,7 +49,7 @@ ElegantRL supports the following simulators:
 + [News](#News)
 + [ElegantRL-Helloworld](#ElegantRL-Helloworld)
 + [File Structure](#File-Structure)
-+ [Experimental Results](#Experimental-Demos)
++ [Experimental Demos](#Experimental-Demos)
 + [Requirements](#Requirements)
 + [Citation](#Citation)
 
@@ -62,29 +62,32 @@ ElegantRL supports the following simulators:
 + [Towardsdatascience] [ElegantRL-Helloworld: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
 
 
-## [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)
+## ElegantRL-Helloworld
 
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-For beginners, we maintain ElegantRL-Helloworld as a tutorial. Its goal is to get hands-on experience with ELegantRL.
+For beginners, we maintain [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
 
 One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*) is trained (*run.py*) by interacting with an environment (*env.py*).
 
 ## File Structure
 
-### Core Codes
-
-+ **elegantrl/agents/net.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # Neural networks.
-    + Q-Net,
-    + Actor network,
-    + Critic network,
-+ **elegantrl/agents/Agent___.py**  &nbsp;&nbsp;# RL algorithms.
-    + AgentBase,
-+ **elegantrl/train/run___.py**    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# run DEMO 1 ~ 4
-    + Parameter initialization,
-    + Training loop,
-    + Evaluator.
-
++ **elegantrl**		# main folder
+    + envs,        	# a collection of environments   
+    + agent.py,    	# DRL algorithms
+    + config.py,   	# configurations (hyper-parameter)
+    + demo.py, 	   	# a collection of demos
+    + evaluator.py 	# the evaluator class
+    + net.py	  	# a collection of network architectures
+    + replay_buffer.py	# the buffer class
+    + run.py	   	# training loop
++ **elegantrl_helloworld**  # tutorial version
++ **examples**		# a collection of example codes
++ **ready-to-run Colab notebooks**
+    + quickstart_Pendulum_v1.ipynb
+    + tutorial_BipedalWalker_v3.ipynb
+    + tutorial_Creating_ChasingVecEnv.ipynb
+    + tutorial_LunarLanderContinuous_v2.ipynb 
 ### Until Codes
 
 + **elegantrl/envs/**   &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
