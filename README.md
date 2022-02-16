@@ -1,4 +1,4 @@
-## ElegantRL “小雅”: Massively Parallel Library for Scalable Deep Reinforcement Learning
+## ElegantRL “小雅”: Massively Parallel Library for Cloud-native Deep Reinforcement Learning
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
@@ -15,12 +15,14 @@
 <br/>
 
 
-[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for researchers and practitioners with
+[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for practitioners with
 the following advantages:
+
++ **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization.
 
 + **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
 
-+ **Elastic**: supports two cloud-native solutions, allowing to elastically and automatically allocate computing resources on the cloud.
++ **Elastic**: allows to elastically and automatically allocate computing resources on the cloud.
 
 + **Lightweight**: the core codes  <1,000 lines (check [Elegantrl_Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
 
