@@ -18,7 +18,7 @@
 [ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for practitioners with
 the following advantages:
 
-+ **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization.
++ **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization, supporting [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
 
 + **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
 
@@ -28,7 +28,7 @@ the following advantages:
 
 + **Efficient**: in many testing cases (single GPU/multi-GPU/GPU cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
 
-+ **Stable**: much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various ensemble methods.
++ **Stable**: much much much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various ensemble methods.
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
@@ -84,45 +84,17 @@ One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*
     + replay_buffer.py	# the buffer class
     + run.py	   	# training loop
 + **elegantrl_helloworld**  # tutorial version
+    + env.py,        	
+    + agent.py,    	
+    + demo.py, 	 
+    + net.py	  	
+    + run.py	   	
 + **examples**		# a collection of example codes
-+ **ready-to-run Colab notebooks**
++ **ready-to-run Google-Colab notebooks**
     + quickstart_Pendulum_v1.ipynb
     + tutorial_BipedalWalker_v3.ipynb
     + tutorial_Creating_ChasingVecEnv.ipynb
     + tutorial_LunarLanderContinuous_v2.ipynb 
-### Until Codes
-
-+ **elegantrl/envs/**   &nbsp;&nbsp;&nbsp;&nbsp; # gym env or custom env, including FinanceStockEnv.
-    + **gym_utils.py**: A PreprocessEnv class for gym-environment modification.
-    + **Stock_Trading_Env**: A self-created stock trading environment as an example for user customization.
-+ **eRL_demo_BipedalWalker.ipynb**      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # BipedalWalker-v2 in jupyter notebooks
-+ **eRL_demos.ipynb**       &nbsp;&nbsp;&nbsp;&nbsp; # Demo 1~4 in jupyter notebooks. Tell you how to use tutorial
-  version and advanced version.
-+ **eRL_demo_SingleFilePPO.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Use a single file to train PPO, more simple than tutorial
-  version
-+ **eRL_demo_StockTrading.py**  &nbsp;&nbsp;&nbsp;&nbsp; # Stock Trading Application in jupyter notebooks
-
-## Start to Train
-
-### Initialization:
-
-+ hyper-parameters `args`.
-+ `env = PreprocessEnv()` : creates an environment (in the OpenAI gym format).
-+ `agent = agent.XXX()` : creates an agent for a DRL algorithm.
-+ `buffer = ReplayBuffer()` : stores the transitions.
-+ `evaluator = Evaluator()` : evaluates and stores the trained model.
-
-### Training (a while-loop):
-
-+ `agent.explore_env(…)`: the agent explores the environment within target steps, generates transitions, and stores them
-  into the ReplayBuffer.
-+ `agent.update_net(…)`: the agent uses a batch from the ReplayBuffer to update the network parameters.
-+ `evaluator.evaluate_save(…)`: evaluates the agent's performance and keeps the trained model with the highest score.
-
-The while-loop will terminate when the conditions are met, e.g., achieving a target score, maximum steps, or manually
-breaks.
-
-## Experiments
 
 ## Experimental Demos
 
@@ -165,7 +137,7 @@ To cite this repository:
 ```
 @misc{erl,
   author = {Liu, Xiao-Yang and Li, Zechu and Wang, Zhaoran and Zheng, Jiahao},
-  title = {{ElegantRL}: A Scalable and Elastic Deep Reinforcement Learning Library},
+  title = {{ElegantRL}: Massively Parallel Framework for Cloud-native Deep Reinforcement Learning},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},
