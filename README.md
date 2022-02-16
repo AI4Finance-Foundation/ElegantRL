@@ -47,11 +47,11 @@ ElegantRL supports the following simulators:
 ## Contents
 
 + [News](#News)
++ [ElegantRL-Helloworld](#ElegantRL-Helloworld)
 + [File Structure](#File-Structure)
-+ [Training Pipeline](#Training-Pipeline)
 + [Experimental Results](#Experimental-Demos)
 + [Requirements](#Requirements)
-+ [Model-free DRL Algorithms](#Model-free-DRL-Algorithms)
++ [Citation](#Citation)
 
 ## News
 
@@ -59,18 +59,18 @@ ElegantRL supports the following simulators:
 + [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791), May 3, 2021.
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f), Apr 19, 2021.
 + [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208), Mar 28, 2021.
-+ [Towardsdatascience] [ElegantRL: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
++ [Towardsdatascience] [ElegantRL-Helloworld: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
 
 
 ## [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)
 
 ![File_structure](https://github.com/Yonv1943/ElegantRL/blob/master/figs/File_structure.png)
 
-For beginners, we maintain ElegantRL-HelloWorld as a tutorial. Its goal is to get hands-on experience with ELegantRL.
+For beginners, we maintain ElegantRL-Helloworld as a tutorial. Its goal is to get hands-on experience with ELegantRL.
 
 One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*) is trained (*run.py*) by interacting with an environment (*env.py*).
 
-## Code Structure
+## File Structure
 
 ### Core Codes
 
