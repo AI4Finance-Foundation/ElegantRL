@@ -111,7 +111,7 @@ Experiments on Ant (MuJoCo), Humainoid (MuJoCo), Ant (Isaac Gym), Humanoid (Isaa
 
 ### More stable than Stable-baseline 3
 
-Experiment on Hopper-v2 # ElegantRL achieves higher average rewards and much smaller variance (average over 10 trials)
+Experiment on Hopper-v2 # ElegantRL achieves higher average rewards and much smaller variance (average over 10 runs)
 
 <div align="center">
 	<img align="center" src=figs/SB3_vs_ElegantRL.png width="640">
