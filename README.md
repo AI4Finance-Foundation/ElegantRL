@@ -102,7 +102,7 @@ One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*
 
 ### More efficient than Ray RLlib
 
-Experiments on MuJoCo and Isaac Gym
+Experiments on Ant (MuJoCo), Humainoid (MuJoCo), Ant (Isaac Gym), Humanoid (Isaac Gym) # from left to right
 
 <div align="center">
 	<img align="center" src=figs/envs.png width="800">
@@ -112,6 +112,10 @@ Experiments on MuJoCo and Isaac Gym
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Ant (MuJoCo), &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Humainoid (MuJoCo), &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Ant (Isaac Gym), &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Humanoid (Isaac Gym)
 
 ### More stable than Stable-baseline 3
+
+<div align="center">
+	<img align="center" src=figs/SB3_vs_ElegantRL.png width="800">
+</div>
 
 
 ## Requirements
