@@ -15,7 +15,7 @@
 <br/>
 
 
-[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for researchers and practitioners with
+[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for practitioners with
 the following advantages:
 
 + **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
