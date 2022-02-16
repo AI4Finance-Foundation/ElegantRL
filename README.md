@@ -67,7 +67,7 @@ ElegantRL supports the following simulators:
 ## ElegantRL-Helloworld
 
 <div align="center">
-	<img align="center" src=figs/File_structure.png.png width="320">
+	<img align="center" src=figs/File_structure.png width="320">
 </div>
 
 For beginners, we maintain [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
@@ -105,8 +105,8 @@ One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*
 Experiments on MuJoCo and Isaac Gym
 
 <div align="center">
-	<img align="center" src=figs/envs.png width="640">
-	<img align="center" src=figs/performance.png width="640">
+	<img align="center" src=figs/envs.png width="800">
+	<img align="center" src=figs/performance.png width="800">
 </div>
 
 ### More stable than Stable-baseline 3
