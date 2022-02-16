@@ -109,7 +109,7 @@ Experiments on MuJoCo and Isaac Gym
 	<img align="center" src=figs/performance.png width="800">
 </div>
 
-Ant (MuJoCo),  Humainoid (MuJoCo), Ant (Isaac Gym), Humanoid (Isaac Gym)
+Ant (MuJoCo), &nbsp;&nbsp; Humainoid (MuJoCo), &nbsp;&nbsp; Ant (Isaac Gym), &nbsp;&nbsp; Humanoid (Isaac Gym)
 
 ### More stable than Stable-baseline 3
 
