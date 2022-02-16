@@ -1,3 +1,6 @@
+# NOTE: when using Isaac Gym, isaacgym must be imported before torch
+import isaacgym
+import torch
 from elegantrl.agent import AgentPPO
 from elegantrl.config import Arguments
 from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
