@@ -98,18 +98,14 @@ One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*
 
 ## Experimental Demos
 
-[LunarLanderContinuous-v2](https://gym.openai.com/envs/LunarLanderContinuous-v2/)
+### More efficient than Ray RLlib
 
-![LunarLanderTwinDelay3](https://github.com/Yonv1943/ElegantRL/blob/master/figs/LunarLanderTwinDelay3.gif)
+Experiments on MuJoCo and Isaac Gym
 
-[BipedalWalkerHardcore-v2](https://gym.openai.com/envs/BipedalWalkerHardcore-v2/)
+![envs](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/figs/envs.png)
 
-<img src="https://github.com/Yonv1943/ElegantRL/blob/master/figs/BipedalWalkerHardcore-v2-total-668kb.gif" width="150" height="100"/>
+![performance](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/figs/performance.png)
 
-Note: BipedalWalkerHardcore is a difficult task in continuous action space. There are only a few RL implementations can
-reach the target reward. Check out an experiment
-video: [Crack the BipedalWalkerHardcore-v2 with total reward 310 using IntelAC](https://www.bilibili.com/video/BV1wi4y187tC)
-.
 
 ## Requirements
 
