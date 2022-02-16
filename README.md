@@ -105,8 +105,8 @@ One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*
 Experiments on MuJoCo and Isaac Gym
 
 <div align="center">
-	<img align="center" src=figs/envs.png width="320">
-	<img align="center" src=figs/performance.png width="320">
+	<img align="center" src=figs/envs.png width="640">
+	<img align="center" src=figs/performance.png width="640">
 </div>
 
 ### More stable than Stable-baseline 3
