@@ -1,0 +1,45 @@
+# used to create the object
+name: Cartpole
+
+physics_engine: ${..physics_engine}
+
+# if given, will override the device setting in gym.
+env:
+  numEnvs: ${resolve_default:512,${...num_envs}}
+  envSpacing: 4.0
+  resetDist: 3.0
+  maxEffort: 400.0
+
+  clipObservations: 5.0
+  clipActions: 1.0
+
+  asset:
+    assetRoot: 'assets'
+    assetFileName: 'cartpole.urdf'
+
+  # set to True if you use camera sensors in the environment
+  enableCameraSensors: False
+
+sim:
+  dt: 0.0166 # 1/60 s
+  substeps: 2
+  up_axis: 'z'
+  use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
+  gravity: [0.0, 0.0, -9.81]
+  physx:
+    num_threads: ${....num_threads}
+    solver_type: ${....solver_type}
+    use_gpu: ${contains:"cuda",${....sim_device}} # set to False to run on CPU
+    num_position_iterations: 4
+    num_velocity_iterations: 0
+    contact_offset: 0.02
+    rest_offset: 0.001
+    bounce_threshold_velocity: 0.2
+    max_depenetration_velocity: 100.0
+    default_buffer_size_multiplier: 2.0
+    max_gpu_contact_pairs: 1048576 # 1024*1024
+    num_subscenes: ${....num_subscenes}
+    contact_collection: 0 # 0: CC_NEVER (don't collect contact info), 1: CC_LAST_SUBSTEP (collect only contacts on last substep), 2: CC_ALL_SUBSTEPS (default - all contacts)
+
+task:
+  randomize: False
