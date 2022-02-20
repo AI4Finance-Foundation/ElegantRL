@@ -1,4 +1,3 @@
-
 # Task name - used to pick the class to load
 task_name: ${task.name}
 # experiment name. defaults to name of training config
@@ -44,7 +43,7 @@ headless: False
 
 # set default task and default training config based on task
 defaults:
-  - task: Ant
+  - task: Cartpole
   - train: ${task}PPO
   - hydra/job_logging: disabled
 
@@ -53,4 +52,3 @@ hydra:
   output_subdir: null
   run:
     dir: .
-
