@@ -249,7 +249,8 @@ class PipeEvaluator:
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
         while True:  # wait for the forced stop from main process
-            time.sleep(1943)
+            self.pipe0.recv()
+            self.pipe0.send((False, False))
 
 
 def process_safely_terminate(process):
