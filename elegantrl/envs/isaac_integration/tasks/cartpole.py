@@ -68,9 +68,6 @@ class Cartpole(VecTask):
             self.physics_engine,
             self.sim_params,
         )
-        
-        self.num_dof = 2
-        
         self._create_ground_plane()
         self._create_envs(
             self.num_envs, self.cfg["env"]["envSpacing"], int(np.sqrt(self.num_envs))
