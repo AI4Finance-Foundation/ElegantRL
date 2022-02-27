@@ -14,7 +14,7 @@ def demo_continuous_action_on_policy():
                 'BipedalWalker-v3',
                 'Hopper-v2',
                 'Humanoid-v3', ][env_id]
-    agent = [AgentPPO, AgentHtermPPO][drl_id]
+    agent = [AgentPPO, AgentPPO_H, AgentSAC_H][drl_id]
 
     print('agent', agent.__name__)
     print('gpu_id', gpu_id)
