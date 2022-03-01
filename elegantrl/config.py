@@ -14,8 +14,8 @@ class Arguments:
         self.env_args = env_args  # env = env_func(*env_args)
 
         self.env_num = self.update_attr('env_num')  # env_num = 1. In vector env, env_num > 1.
-        self.max_step = self.update_attr('max_step')  # the env name. Be used to set 'cwd'.
-        self.env_name = self.update_attr('env_name')  # the max step of an episode
+        self.max_step = self.update_attr('max_step')  # the max step of an episode
+        self.env_name = self.update_attr('env_name')  # the env name. Be used to set 'cwd'.
         self.state_dim = self.update_attr('state_dim')  # vector dimension (feature number) of state
         self.action_dim = self.update_attr('action_dim')  # vector dimension (feature number) of action
         self.if_discrete = self.update_attr('if_discrete')  # discrete or continuous action space
