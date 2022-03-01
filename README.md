@@ -76,27 +76,28 @@ One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*
 
 ## File Structure
 
-+ **elegantrl**		# main folder
-    + envs,        	# a collection of environments   
-    + agent.py,    	# DRL algorithms
-    + config.py,   	# configurations (hyper-parameter)
-    + demo.py, 	   	# a collection of demos
-    + evaluator.py 	# the evaluator class
-    + net.py	  	# a collection of network architectures
-    + replay_buffer.py	# the buffer class
-    + run.py	   	# training loop
-+ **elegantrl_helloworld**  # tutorial version
-    + env.py,        	
-    + agent.py,    	
-    + demo.py, 	 
-    + net.py	  	
-    + run.py	   	
-+ **examples**		# a collection of example codes
++ **elegantrl**               # main folder
+    + envs,                   # a collection of environments
+    + agent.py,               # DRL algorithms
+    + config.py,              # configurations (hyper-parameter)
+    + demo.py,                # a collection of demos
+    + evaluator.py            # the evaluator class
+    + net.py                  # a collection of network architectures
+    + replay_buffer.py        # the buffer class
+    + run.py                  # training loop
++ **elegantrl_helloworld**    # tutorial version
+    + env.py,
+    + agent.py,
+    + demo.py,
+    + net.py
+    + run.py
++ **examples**                # a collection of example codes
 + **ready-to-run Google-Colab notebooks**
     + quickstart_Pendulum_v1.ipynb
     + tutorial_BipedalWalker_v3.ipynb
     + tutorial_Creating_ChasingVecEnv.ipynb
-    + tutorial_LunarLanderContinuous_v2.ipynb 
+    + tutorial_LunarLanderContinuous_v2.ipynb
++ **tests**                   # a collection of tests
 
 ## Experimental Demos
 
@@ -119,6 +120,21 @@ Experiment on Hopper-v2 # ElegantRL achieves higher average rewards and much sma
 	<img align="center" src=figs/SB3_vs_ElegantRL.png width="640">
 </div>
 
+## Testing and Contributing
+
+Our tests are written with the built-in `unittest` Python module for easy access. In order to run a specific test file (for example, `test_training_agents.py`), use the following command from the root directory:
+
+    python -m unittest tests/test_training_agents.py
+
+In order to run all the tests sequentially, you can use the following command:
+
+    python -m unittest discover
+
+Please note that some of the tests require [Isaac Gym](https://developer.nvidia.com/isaac-gym) to be installed on your system. If it is not, any tests related to Isaac Gym will fail.
+
+We welcome any contributions to the codebase, but we ask that you please **do not** submit/push code that breaks the tests. Also, please shy away from modifying the tests just to get your proposed changes to pass them. As it stands, the tests on their own are quite minimal (instantiating environments, training agents for one step, etc.), so if they're breaking, it's almost certainly a problem with your code and not with the tests.
+
+We're actively working on refactoring and trying to make the codebase cleaner and more performant as a whole. If you'd like to help us clean up some code, we'd strongly encourage you to also watch [Uncle Bob's clean coding lessons](https://www.youtube.com/playlist?list=PLmmYSbUCWJ4x1GO839azG_BBw8rkh-zOj) if you haven't already.
 
 ## Requirements
 
@@ -153,5 +169,4 @@ To cite this repository:
   howpublished = {\url{https://github.com/AI4Finance-Foundation/ElegantRL}},
 }
 ```
-
 
