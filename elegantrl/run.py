@@ -92,7 +92,9 @@ def init_buffer(args, gpu_id):
 
 
 def init_evaluator(args, gpu_id):
-    eval_env = build_env(args.env, args.env_func, args.env_args)
+    eval_func = args.eval_env_func if hasattr(args, "eval_env_func") else args.env_func
+    eval_args = args.eval_env_args if hasattr(args, "eval_env_args") else args.env_args
+    eval_env = build_env(args.env, eval_func, eval_args)
     evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
     return evaluator
 
