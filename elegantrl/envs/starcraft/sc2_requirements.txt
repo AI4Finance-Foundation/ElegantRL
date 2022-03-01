@@ -16,7 +16,7 @@ mock==2.0.0
 more-itertools==4.3.0
 mpyq==0.2.5
 munch==2.3.2
-numpy==1.15.2
+numpy==1.21.0
 pathlib2==2.3.2
 pbr==4.3.0
 pluggy==0.7.1
