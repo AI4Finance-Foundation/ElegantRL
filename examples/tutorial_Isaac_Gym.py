@@ -3,12 +3,12 @@ import isaacgym
 import torch
 from elegantrl.agent import AgentPPO
 from elegantrl.config import Arguments
-from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
+from elegantrl.envs.isaac_integration.Isaac_Envs import IsaacVecEnv, IsaacOneEnv
 from elegantrl.run import train_and_evaluate_mp
 
 env_func = IsaacVecEnv
 env_args = {
-    "env_num": 4096,
+    "env_num": 1024,
     "env_name": "Ant",
     "max_step": 1000,
     "state_dim": 60,
