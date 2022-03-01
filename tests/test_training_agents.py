@@ -27,7 +27,8 @@ class TestAgents(unittest.TestCase):
             AgentModSAC,
             AgentREDqSAC,
             AgentPPO,
-            AgentHtermPPO,
+            AgentPPO_H,
+            AgentSAC_H,
         ]
         self.discrete_env_args = get_gym_env_args(
             gym.make("LunarLander-v2"), if_print=False
@@ -125,11 +126,17 @@ class TestAgents(unittest.TestCase):
     def test_should_not_train_PPO_on_discrete_action_space(self):
         self.assertRaises(Exception, self.train_discrete, AgentPPO)
 
-    def test_should_train_HtermPPO_on_continuous_action_space(self):
-        self.train_continuous(AgentHtermPPO)
+    def test_should_train_PPO_H_on_continuous_action_space(self):
+        self.train_continuous(AgentPPO_H)
 
-    def test_should_not_train_HtermPPO_on_discrete_action_space(self):
-        self.assertRaises(Exception, self.train_discrete, AgentHtermPPO)
+    def test_should_not_train_PPO_H_on_discrete_action_space(self):
+        self.assertRaises(Exception, self.train_discrete, AgentPPO_H)
+
+    def test_should_train_SAC_H_on_continuous_action_space(self):
+        self.train_continuous(AgentSAC_H)
+
+    def test_should_not_train_SAC_H_on_discrete_action_space(self):
+        self.assertRaises(Exception, self.train_discrete, AgentSAC_H)
 
 
 if __name__ == "__main__":
