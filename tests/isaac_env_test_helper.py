@@ -1,6 +1,6 @@
 import sys
 
-from elegantrl.envs.isaac_integration.Isaac_Envs import *
+from elegantrl.envs.IsaacGym import *
 
 
 def create_isaac_vec_environment(env_name: str):

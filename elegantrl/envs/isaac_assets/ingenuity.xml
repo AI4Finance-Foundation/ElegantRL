@@ -1,9 +1,9 @@
 <mujoco model="Ingenuity">
   <compiler angle="degree" coordinate="local" inertiafromgeom="true" />
   <asset>
-    <mesh file="../assets/glb/ingenuity/chassis.glb" name="ingenuity_mesh" />
-    <mesh file="../assets/glb/ingenuity/lower_prop.glb" name="lower_prop_mesh" />
-    <mesh file="../assets/glb/ingenuity/upper_prop.glb" name="upper_prop_mesh" />
+    <mesh file="../isaac_assets/glb/ingenuity/chassis.glb" name="ingenuity_mesh" />
+    <mesh file="../isaac_assets/glb/ingenuity/lower_prop.glb" name="lower_prop_mesh" />
+    <mesh file="../isaac_assets/glb/ingenuity/upper_prop.glb" name="upper_prop_mesh" />
   </asset>
   <worldbody>
     <body name="chassis" pos="0 0 0">

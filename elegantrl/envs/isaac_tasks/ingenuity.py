@@ -32,8 +32,8 @@ import os
 import torch
 import xml.etree.ElementTree as ET
 
-from elegantrl.envs.isaac_integration.utils.torch_jit_utils import *
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.utils.torch_jit_utils import *
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 from isaacgym import gymutil, gymtorch, gymapi
 
@@ -170,7 +170,7 @@ class Ingenuity(VecTask):
 
         mesh_asset = ET.SubElement(root, "asset")
 
-        model_path = "../assets/glb/ingenuity/"
+        model_path = "../isaac_assets/glb/ingenuity/"
         mesh = ET.SubElement(mesh_asset, "mesh")
         mesh.attrib["file"] = model_path + "chassis.glb"
         mesh.attrib["name"] = "ingenuity_mesh"
@@ -288,7 +288,9 @@ class Ingenuity(VecTask):
 
         gymutil._indent_xml(root)
         xml_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets", "ingenuity.xml"
+            os.path.dirname(os.path.abspath(__file__)),
+            "../isaac_assets",
+            "ingenuity.xml",
         )
         ET.ElementTree(root).write(xml_path)
 
@@ -302,7 +304,7 @@ class Ingenuity(VecTask):
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
         asset_root = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets"
+            os.path.dirname(os.path.abspath(__file__)), "../isaac_assets"
         )
         asset_file = "ingenuity.xml"
 

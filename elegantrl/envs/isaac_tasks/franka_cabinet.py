@@ -32,7 +32,7 @@ import torch
 
 from isaacgym import gymutil, gymtorch, gymapi
 from isaacgym.torch_utils import *
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 
 class FrankaCabinet(VecTask):
@@ -157,7 +157,7 @@ class FrankaCabinet(VecTask):
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
         asset_root = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets"
+            os.path.dirname(os.path.abspath(__file__)), "../isaac_assets"
         )
         franka_asset_file = "urdf/franka_description/robots/franka_panda.urdf"
         cabinet_asset_file = "urdf/sektion_cabinet_model/urdf/sektion_cabinet_2.urdf"

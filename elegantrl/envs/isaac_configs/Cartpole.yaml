@@ -14,7 +14,7 @@ env:
   clipActions: 1.0
 
   asset:
-    assetRoot: '../assets'
+    assetRoot: '../isaac_assets'
     assetFileName: 'urdf/cartpole.urdf'
 
   # set to True if you use camera sensors in the environment

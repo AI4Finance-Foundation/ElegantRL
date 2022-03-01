@@ -53,7 +53,7 @@ env:
   averFactor: 0.1 # running mean factor for consecutive successes calculation
 
   asset:
-    assetRoot: '../assets'
+    assetRoot: '../isaac_assets'
     assetFileName: 'mjcf/open_ai_assets/hand/shadow_hand.xml'
     assetFileNameBlock: 'urdf/objects/cube_multicolor.urdf'
     assetFileNameEgg: 'mjcf/open_ai_assets/hand/egg.xml'

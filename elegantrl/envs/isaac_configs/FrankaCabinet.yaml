@@ -29,7 +29,7 @@ env:
   actionPenaltyScale: 0.01
 
   asset:
-    assetRoot: '../assets'
+    assetRoot: '../isaac_assets'
     assetFileNameFranka: 'urdf/franka_description/robots/franka_panda.urdf'
     assetFileNameCabinet: 'urdf/sektion_cabinet_model/urdf/sektion_cabinet_2.urdf'
 

@@ -34,8 +34,8 @@ from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
 
-from elegantrl.envs.isaac_integration.utils.torch_jit_utils import *
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.utils.torch_jit_utils import *
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 
 class ShadowHand(VecTask):
@@ -286,7 +286,7 @@ class ShadowHand(VecTask):
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
         asset_root = os.path.normpath(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../assets")
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../isaac_assets")
         )
         shadow_hand_asset_file = os.path.normpath(
             "mjcf/open_ai_assets/hand/shadow_hand.xml"

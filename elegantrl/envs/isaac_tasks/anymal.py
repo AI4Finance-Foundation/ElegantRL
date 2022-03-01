@@ -34,7 +34,7 @@ from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
 
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 from typing import Tuple, Dict
 
@@ -199,7 +199,7 @@ class Anymal(VecTask):
 
     def _create_envs(self, num_envs, spacing, num_per_row):
         asset_root = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets"
+            os.path.dirname(os.path.abspath(__file__)), "../isaac_assets"
         )
         asset_file = "urdf/anymal_c/urdf/anymal.urdf"
         # asset_path = os.path.join(asset_root, asset_file)

@@ -32,7 +32,7 @@ import os, time
 from isaacgym.torch_utils import *
 from isaacgym import gymtorch
 from isaacgym import gymapi
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 import torch
 from typing import Tuple, Dict
@@ -316,7 +316,7 @@ class AnymalTerrain(VecTask):
 
     def _create_envs(self, num_envs, spacing, num_per_row):
         asset_root = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets"
+            os.path.dirname(os.path.abspath(__file__)), "../isaac_assets"
         )
         asset_file = self.cfg["env"]["urdfAsset"]["file"]
         asset_path = os.path.join(asset_root, asset_file)

@@ -34,7 +34,7 @@ import xml.etree.ElementTree as ET
 
 from isaacgym import gymutil, gymtorch, gymapi
 from isaacgym.torch_utils import *
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 
 def _indent_xml(elem, level=0):
@@ -258,7 +258,9 @@ class BallBalance(VecTask):
 
         _indent_xml(root)
         xml_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets", "balance_bot.xml"
+            os.path.dirname(os.path.abspath(__file__)),
+            "../isaac_assets",
+            "balance_bot.xml",
         )
         ET.ElementTree(root).write(xml_path)
 
@@ -278,7 +280,7 @@ class BallBalance(VecTask):
         lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
-        asset_root = "elegantrl/envs/isaac_integration/assets"
+        asset_root = "elegantrl/envs/isaac_assets"
         asset_file = "balance_bot.xml"
 
         asset_path = os.path.join(asset_root, asset_file)

@@ -9,7 +9,7 @@ import json
 
 from isaacgym import rlgpu
 from rlgpu.tasks.base.vec_task import VecTaskCPU, VecTaskGPU, VecTaskPython
-from elegantrl.envs.utils.config import warn_task_name
+from elegantrl.envs.utils_OLD.config import warn_task_name
 
 
 def parse_task(args, cfg, cfg_train, sim_params):

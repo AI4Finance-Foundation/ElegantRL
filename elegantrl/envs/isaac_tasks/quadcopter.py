@@ -33,8 +33,8 @@ import torch
 import xml.etree.ElementTree as ET
 
 from isaacgym import gymutil, gymtorch, gymapi
-from elegantrl.envs.isaac_integration.utils.torch_jit_utils import *
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.utils.torch_jit_utils import *
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 
 class Quadcopter(VecTask):
@@ -253,7 +253,9 @@ class Quadcopter(VecTask):
 
         gymutil._indent_xml(root)
         xml_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets", "quadcopter.xml"
+            os.path.dirname(os.path.abspath(__file__)),
+            "../isaac_assets",
+            "quadcopter.xml",
         )
         ET.ElementTree(root).write(xml_path)
 
@@ -266,7 +268,7 @@ class Quadcopter(VecTask):
         lower = gymapi.Vec3(-spacing, -spacing, 0.0)
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
-        asset_root = "elegantrl/envs/isaac_integration/assets"
+        asset_root = "elegantrl/envs/isaac_assets"
         asset_file = "quadcopter.xml"
 
         asset_options = gymapi.AssetOptions()

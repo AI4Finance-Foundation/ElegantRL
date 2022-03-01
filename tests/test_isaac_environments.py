@@ -5,8 +5,8 @@ instantiated.
 
 import isaacgym
 import unittest
-from elegantrl.envs.isaac_integration.Isaac_Envs import *
-from elegantrl.envs.isaac_integration.tasks import isaacgym_task_map
+from elegantrl.envs.IsaacGym import *
+from elegantrl.envs.isaac_tasks import isaacgym_task_map
 from subprocess import call
 
 

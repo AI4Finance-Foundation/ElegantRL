@@ -3,7 +3,7 @@ import isaacgym
 import torch
 from elegantrl.agent import AgentPPO
 from elegantrl.config import Arguments
-from elegantrl.envs.isaac_integration.Isaac_Envs import IsaacVecEnv, IsaacOneEnv
+from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
 from elegantrl.run import train_and_evaluate_mp
 
 env_func = IsaacVecEnv
@@ -40,5 +40,5 @@ args.eval_times2 = 2**2
 args.worker_num = 1
 args.learner_gpus = 0
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     train_and_evaluate_mp(args)

@@ -34,7 +34,7 @@ from isaacgym import gymtorch
 from isaacgym import gymapi
 from isaacgym.torch_utils import *
 
-from elegantrl.envs.isaac_integration.tasks.base.vec_task import VecTask
+from elegantrl.envs.isaac_tasks.base.vec_task import VecTask
 
 
 class AllegroHand(VecTask):
@@ -265,7 +265,7 @@ class AllegroHand(VecTask):
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
         asset_root = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../assets"
+            os.path.dirname(os.path.abspath(__file__)), "../isaac_assets"
         )
         shadow_hand_asset_file = "urdf/kuka_allegro_description/allegro.urdf"
 
