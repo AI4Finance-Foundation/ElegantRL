@@ -1,0 +1,31 @@
+<mujoco model="Ingenuity">
+  <compiler angle="degree" coordinate="local" inertiafromgeom="true" />
+  <asset>
+    <mesh file="../assets/glb/ingenuity/chassis.glb" name="ingenuity_mesh" />
+    <mesh file="../assets/glb/ingenuity/lower_prop.glb" name="lower_prop_mesh" />
+    <mesh file="../assets/glb/ingenuity/upper_prop.glb" name="upper_prop_mesh" />
+  </asset>
+  <worldbody>
+    <body name="chassis" pos="0 0 0">
+      <geom type="box" size="0.06 0.06 0.06" pos="0 0 0" density="50" />
+      <geom type="mesh" quat="0.707107 0.707107 0 0" mesh="ingenuity_mesh" pos="0 0 0" contype="0" conaffinity="0" />
+      <joint name="root_joint" type="hinge" limited="true" range="0 0" />
+      <body name="rotor_physics_0" pos="0 0 0" quat="1 0 0 0">
+        <geom type="cylinder" size="0.15 0.005" density="1000" />
+        <joint name="rotor_roll0" type="hinge" limited="true" range="0 0" pos="0 0 0" />
+      </body>
+      <body name="rotor_visual_0" pos="0 0 0" quat="1 0 0 0">
+        <geom type="mesh" mesh="lower_prop_mesh" quat="0.707107 0.707107 0 0" contype="0" conaffinity="0" />
+        <joint name="rotor_roll0" type="hinge" axis="0 0 1" pos="0 0 0" />
+      </body>
+      <body name="rotor_physics_1" pos="0 0 0.025" quat="1 0 0 0">
+        <geom type="cylinder" size="0.15 0.005" density="1000" />
+        <joint name="rotor_roll1" type="hinge" limited="true" range="0 0" pos="0 0 0" />
+      </body>
+      <body name="rotor_visual_1" pos="0 0 0.025" quat="1 0 0 0">
+        <geom type="mesh" mesh="upper_prop_mesh" quat="0.707107 0.707107 0 0" contype="0" conaffinity="0" />
+        <joint name="rotor_roll1" type="hinge" axis="0 0 1" pos="0 0 0" />
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

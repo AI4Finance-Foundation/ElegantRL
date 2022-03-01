@@ -1,0 +1,33 @@
+<mujoco model="BalanceBot">
+  <compiler angle="degree" coordinate="local" inertiafromgeom="true" />
+  <worldbody>
+    <body name="tray" pos="0 0 0.559117">
+      <joint name="root_joint" type="free" />
+      <geom type="cylinder" size="0.5 0.01" pos="0 0 0" density="100" />
+      <body name="upper_leg0" pos="0.272721 0 -0.157279" quat="0.382683 0 -0.92388 0">
+        <geom type="capsule" size="0.02 0.18" density="1000" />
+        <joint name="upper_leg_joint0" type="hinge" pos="0 0 -0.18" axis="0 1 0" limited="true" range="-45 45" />
+        <body name="lower_leg0" pos="-0.18 0 0.18" quat="0.707107 0 -0.707107 0">
+          <geom type="capsule" size="0.02 0.18" density="1000" />
+          <joint name="lower_leg_joint0" type="hinge" pos="0 0 -0.18" axis="0 1 0" limited="true" range="-70 90" />
+        </body>
+      </body>
+      <body name="upper_leg1" pos="-0.13636 0.236183 -0.157279" quat="0.191342 0.800103 -0.46194 0.331414">
+        <geom type="capsule" size="0.02 0.18" density="1000" />
+        <joint name="upper_leg_joint1" type="hinge" pos="0 0 -0.18" axis="0 1 0" limited="true" range="-45 45" />
+        <body name="lower_leg1" pos="-0.18 0 0.18" quat="0.707107 0 -0.707107 0">
+          <geom type="capsule" size="0.02 0.18" density="1000" />
+          <joint name="lower_leg_joint1" type="hinge" pos="0 0 -0.18" axis="0 1 0" limited="true" range="-70 90" />
+        </body>
+      </body>
+      <body name="upper_leg2" pos="-0.13636 -0.236183 -0.157279" quat="-0.191342 0.800103 0.46194 0.331414">
+        <geom type="capsule" size="0.02 0.18" density="1000" />
+        <joint name="upper_leg_joint2" type="hinge" pos="0 0 -0.18" axis="0 1 0" limited="true" range="-45 45" />
+        <body name="lower_leg2" pos="-0.18 0 0.18" quat="0.707107 0 -0.707107 0">
+          <geom type="capsule" size="0.02 0.18" density="1000" />
+          <joint name="lower_leg_joint2" type="hinge" pos="0 0 -0.18" axis="0 1 0" limited="true" range="-70 90" />
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

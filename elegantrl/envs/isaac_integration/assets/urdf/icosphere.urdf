@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+
+<robot name="isosphere">
+
+	<link name="world">
+	</link>
+
+	<joint name = "rail" type = "prismatic">
+    <parent link="world"/>    
+    <child link="arm"/>    
+    <origin xyz="0.0 0.0 0.0"/>    
+    <axis xyz="0 1 0"/>    
+    <limit lower="-2.0" upper="2.0"/>    
+    <dynamics damping="0.0" friction="0.0"/>  
+	</joint>
+
+	<link name="arm">    
+	  <collision>
+				<origin xyz="0 2.0 0" rpy="0 0 0"/>
+				<geometry>
+					<box size="0.1 2.0 0.1"/>
+				</geometry>
+		</collision>
+	  <collision>
+				<origin xyz="0 1.0 0" rpy="0 0 0"/>
+				<geometry>
+					<box size="2.0 0.5 2.0"/>
+				</geometry>
+		</collision>
+	</link>
+
+	<joint name = "attach" type = "fixed">
+		<origin xyz = "0.0 0.0 0.0" rpy = "0 0 0"/>
+		<parent link = "arm"/>
+		<child link = "soft"/>
+	</joint>
+
+	<link name="soft">
+		<fem>
+			<origin rpy="0.0 0.0 0.0" xyz="0 -0.5 0"/>
+			<density value="1000"/>
+			<youngs value="1e5"/>
+			<poissons value="0.45"/>
+			<damping value="0.0"/>
+			<attachDistance value="0.0"/>
+			<tetmesh filename="icosphere.tet"/>
+		</fem>
+	</link>
+
+</robot>

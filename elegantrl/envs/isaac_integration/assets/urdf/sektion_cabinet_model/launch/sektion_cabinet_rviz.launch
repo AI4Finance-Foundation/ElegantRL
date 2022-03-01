@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="gui" default="False" />
+  <arg name="publish_static_pose" default="False" />
+
+  <param name="robot_description" textfile="$(find sektion_cabinet_model)/urdf/sektion_cabinet.urdf" />
+
+  <node name="sektion_cabinet_pose_publisher" 
+     pkg="tf" 
+     type="static_transform_publisher" 
+     args=".9 .15 .4 0 0 1 0 world sektion 30"
+     if="$(arg publish_static_pose)">
+    <remap from="/tf" to="/tracker/tf"/>
+  </node>
+  <node name="joint_state_publisher"
+      pkg="joint_state_publisher"
+      type="joint_state_publisher" 
+      if="$(arg gui)">
+    <param name="use_gui" value="True"/>
+    <remap from="/joint_states" to="/tracker/sektion_cabinet/joint_states"/>
+  </node>
+  <node name="sektion_cabinet_tracker_state_publisher"
+      pkg="robot_state_publisher"
+      type="state_publisher">
+    <remap from="/tf" to="/tracker/tf"/>
+    <remap from="/tf_static" to="/tracker/tf_static"/>
+    <remap from="/joint_states" to="/tracker/sektion_cabinet/joint_states"/>
+  </node>
+  <node name="sektion_cabinet_rviz" 
+      pkg="rviz" 
+      type="rviz" 
+      args="-d $(find sektion_cabinet_model)/config/sektion_cabinet_model.rviz">
+    <remap from="/tf" to="/tracker/tf"/>
+    <remap from="/tf_static" to="/tracker/tf_static"/>
+  </node>
+</launch>

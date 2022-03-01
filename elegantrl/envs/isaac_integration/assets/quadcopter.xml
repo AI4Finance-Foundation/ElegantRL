@@ -1,0 +1,41 @@
+<mujoco model="Quadcopter">
+  <compiler angle="degree" coordinate="local" inertiafromgeom="true" />
+  <worldbody>
+    <body name="chassis" pos="0 0 0">
+      <geom type="cylinder" size="0.1 0.015" pos="0 0 0" density="50" />
+      <joint name="root_joint" type="free" />
+      <body name="rotor_arm0" pos="0.0724784 0.0724784 0" quat="0.92388 0 0 0.382683">
+        <geom type="sphere" size="0.01" density="200" />
+        <joint name="rotor_pitch0" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-30 30" />
+        <body name="rotor0" pos="0.0425 0 0" quat="1 0 0 0">
+          <geom type="cylinder" size="0.04 0.005" density="1000" />
+          <joint name="rotor_roll0" type="hinge" pos="0 0 0" axis="1 0 0" limited="true" range="-30 30" />
+        </body>
+      </body>
+      <body name="rotor_arm1" pos="-0.0724785 0.0724784 0" quat="0.382683 0 0 0.92388">
+        <geom type="sphere" size="0.01" density="200" />
+        <joint name="rotor_pitch1" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-30 30" />
+        <body name="rotor1" pos="0.0425 0 0" quat="1 0 0 0">
+          <geom type="cylinder" size="0.04 0.005" density="1000" />
+          <joint name="rotor_roll1" type="hinge" pos="0 0 0" axis="1 0 0" limited="true" range="-30 30" />
+        </body>
+      </body>
+      <body name="rotor_arm2" pos="-0.0724785 -0.0724784 0" quat="-0.382683 0 0 0.92388">
+        <geom type="sphere" size="0.01" density="200" />
+        <joint name="rotor_pitch2" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-30 30" />
+        <body name="rotor2" pos="0.0425 0 0" quat="1 0 0 0">
+          <geom type="cylinder" size="0.04 0.005" density="1000" />
+          <joint name="rotor_roll2" type="hinge" pos="0 0 0" axis="1 0 0" limited="true" range="-30 30" />
+        </body>
+      </body>
+      <body name="rotor_arm3" pos="0.0724784 -0.0724785 0" quat="-0.92388 0 0 0.382683">
+        <geom type="sphere" size="0.01" density="200" />
+        <joint name="rotor_pitch3" type="hinge" pos="0 0 0" axis="0 1 0" limited="true" range="-30 30" />
+        <body name="rotor3" pos="0.0425 0 0" quat="1 0 0 0">
+          <geom type="cylinder" size="0.04 0.005" density="1000" />
+          <joint name="rotor_roll3" type="hinge" pos="0 0 0" axis="1 0 0" limited="true" range="-30 30" />
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

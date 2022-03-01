@@ -1,0 +1,20 @@
+<!DOCTYPE FilterScript>
+<FilterScript>
+ <filter name="Remove Duplicate Vertices"/>
+ <filter name="Split Vertexes Incident on Non Manifold Faces">
+  <Param tooltip="When a vertex is split it is moved along the average vector going from its position to the baricyenter of the FF connected faces sharing it" value="0" type="RichFloat" name="VertDispRatio" description="Vertex Displacement Ratio"/>
+ </filter>
+ <filter name="Select non Manifold Vertices"/>
+ <filter name="Remove Faces from Non Manifold Edges"/>
+ <filter name="Split Vertexes Incident on Non Manifold Faces">
+  <Param tooltip="When a vertex is split it is moved along the average vector going from its position to the baricyenter of the FF connected faces sharing it" value="0" type="RichFloat" name="VertDispRatio" description="Vertex Displacement Ratio"/>
+ </filter>
+ <filter name="Select non Manifold Vertices"/>
+ <filter name="Delete Selected Vertices"/>
+ <filter name="Cut mesh along crease edges">
+  <Param tooltip="If the angle between the normals of two adjacent faces is &lt;b>larger&lt;/b> that this threshold the edge is considered a creased and the mesh is cut along it." value="20" type="RichFloat" name="angleDeg" description="Crease Angle (degree)"/>
+ </filter>
+ <filter name="Re-Compute Vertex Normals">
+  <Param tooltip="" value="0" type="RichEnum" name="weightMode" enum_val1="By Angle" enum_cardinality="4" enum_val2="By Area" enum_val3="As defined by N. Max" description="Weighting Mode:" enum_val0="None (avg)"/>
+ </filter>
+</FilterScript>

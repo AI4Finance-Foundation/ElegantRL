@@ -1,0 +1,1464 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This file contains the description of the ANYmal robot. -->
+<robot name="anymal">
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- Base link -->
+  <link name="base">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/base.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <box size="0.8 0.16 0.1"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.75" radius="0.1"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.02174 0.01649 0.0255"/>
+      <mass value="10.3961"/>
+      <inertia ixx="0.01883985046" ixy="0.00047876011" ixz="0.0019687174" iyy="0.37477859508" iyz="5.971291e-05" izz="0.37692039276"/>
+    </inertial>
+    <!-- Shell self filtering -->
+    <self_filter>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <box size="1.05 0.5 0.25"/>
+      </geometry>
+    </self_filter>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- Fixed joint base topshell -->
+  <joint name="base_top_shell" type="fixed">
+    <parent link="base"/>
+    <child link="top_shell"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+  <!-- Top shell link -->
+  <link name="top_shell">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/top_shell.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00777 -0.00013 0.06523"/>
+      <mass value="0.602"/>
+      <inertia ixx="0.00664789486" ixy="1.247923e-05" ixz="0.00053990097" iyy="0.02587392411" iyz="3.7614e-07" izz="0.03152303792"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- Fixed joint base topshell -->
+  <joint name="base_bottom_shell" type="fixed">
+    <parent link="base"/>
+    <child link="bottom_shell"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+  <!-- Bottom shell link -->
+  <link name="bottom_shell">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/bottom_shell.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00333 1e-05 -0.07705"/>
+      <mass value="1.13247"/>
+      <inertia ixx="0.00927353677" ixy="5.41222e-06" ixz="9.039821e-05" iyy="0.06134388239" iyz="2.3042e-07" izz="0.06853531465"/>
+    </inertial>
+  </link>
+
+  <!-- [kg * m^2] -->
+  <!-- Fixed joint base handle -->
+  <joint name="base_handle" type="fixed">
+    <parent link="base"/>
+    <child link="handle"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+  <!-- Handle link -->
+  <link name="handle">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/handle.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.37801 0.0 0.1372"/>
+      <mass value="0.30655"/>
+      <inertia ixx="0.00148775766" ixy="3.55e-09" ixz="5.921332e-05" iyy="0.00067629686" iyz="5.1e-10" izz="0.00113865028"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- Fixed joint base face -->
+  <joint name="base_face_front" type="fixed">
+    <parent link="base"/>
+    <child link="face_front"/>
+    <origin rpy="0 0 -0.0" xyz="0.4145 0 0"/>
+  </joint>
+  <!-- Shell link -->
+  <link name="face_front">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/face.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0309 0.0 0.00013"/>
+      <mass value="0.07792"/>
+      <inertia ixx="0.00015384285" ixy="0.0" ixz="-2.5126e-07" iyy="4.672826e-05" iyz="0.0" izz="0.00018905481"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- Camera joint -->
+  <!-- Is located between the two back screw holes at ground level. -->
+  <joint name="face_front_to_realsense_d435_front_camera" type="fixed">
+    <parent link="face_front"/>
+    <child link="realsense_d435_front_camera"/>
+    <origin rpy="0.0180287275743 0.485250401273 0" xyz="0.04715 0.0 -0.0292"/>
+  </joint>
+  <!-- Camera link -->
+  <link name="realsense_d435_front_camera">
+    <!-- <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/realsense_d435_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01618 3e-05 0.04715"/>
+      <mass value="0.10006"/>
+      <inertia ixx="9.072675e-05" ixy="2.73737e-06" ixz="1.969e-08" iyy="1.318628e-05" iyz="9.53e-08" izz="9.0056e-05"/>
+    </inertial>
+  </link>
+  <!-- Camera parent joint -->
+  <!-- Frame lies on the left ir camera according to any_realsense2_camera urdf. -->
+  <joint name="realsense_d435_front_camera_to_camera_parent" type="fixed">
+    <parent link="realsense_d435_front_camera"/>
+    <child link="realsense_d435_front_camera_parent"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0255 0.0175 0.0"/>
+  </joint>
+  <!-- Camera parent link -->
+  <link name="realsense_d435_front_camera_parent"/>
+  <!-- Depth optical frame joint -->
+  <joint name="realsense_d435_front_camera_parent_to_depth_optical_frame" type="fixed">
+    <parent link="realsense_d435_front_camera_parent"/>
+    <child link="realsense_d435_front_depth_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Depth optical frame link -->
+  <link name="realsense_d435_front_depth_optical_frame"/>
+  <!-- Camera color frame joint -->
+  <joint name="realsense_d435_front_camera_parent_to_color_frame" type="fixed">
+    <parent link="realsense_d435_front_camera_parent"/>
+    <child link="realsense_d435_front_color_frame"/>
+    <origin rpy="0 0 0" xyz="0 0.015 0"/>
+  </joint>
+  <!-- Camera color frame link -->
+  <link name="realsense_d435_front_color_frame"/>
+  <!-- Camera color optical joint -->
+  <joint name="realsense_d435_front_color_frame_to_color_optical_frame" type="fixed">
+    <parent link="realsense_d435_front_color_frame"/>
+    <child link="realsense_d435_front_color_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Camera color optical link -->
+  <link name="realsense_d435_front_color_optical_frame"/>
+  <!-- simulation or bagfile_is_played -->
+  <!-- simulation -->
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- Camera joint -->
+  <!-- Is located in the center of the mounting points. -->
+  <joint name="face_front_to_blackfly_front_camera" type="fixed">
+    <parent link="face_front"/>
+    <child link="blackfly_front_camera"/>
+    <origin rpy="0 0 0" xyz="0.09850 0.0 0.01497"/>
+  </joint>
+  <!-- Camera link -->
+  <link name="blackfly_front_camera">
+    <!-- <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/blackfly_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.02575 5e-05 -0.00603"/>
+      <mass value="0.1716"/>
+      <inertia ixx="4.459725e-05" ixy="-1.5215e-07" ixz="7.82278e-06" iyy="6.206251e-05" iyz="1.3234e-07" izz="5.183372e-05"/>
+    </inertial>
+  </link>
+  <!-- Camera parent joint -->
+  <joint name="blackfly_front_camera_to_camera_parent" type="fixed">
+    <parent link="blackfly_front_camera"/>
+    <child link="blackfly_front_camera_parent"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Camera parent link -->
+  <link name="blackfly_front_camera_parent"/>
+  <!-- simulation -->
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- Fixed joint base face -->
+  <joint name="base_face_rear" type="fixed">
+    <parent link="base"/>
+    <child link="face_rear"/>
+    <origin rpy="0 0 3.14159265359" xyz="-0.4145 0 0"/>
+  </joint>
+  <!-- Shell link -->
+  <link name="face_rear">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/face.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0309 0.0 0.00013"/>
+      <mass value="0.07792"/>
+      <inertia ixx="0.00015384285" ixy="0.0" ixz="-2.5126e-07" iyy="4.672826e-05" iyz="0.0" izz="0.00018905481"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- Camera joint -->
+  <!-- Is located between the two back screw holes at ground level. -->
+  <joint name="face_rear_to_realsense_d435_rear_camera" type="fixed">
+    <parent link="face_rear"/>
+    <child link="realsense_d435_rear_camera"/>
+    <origin rpy="0.0188521739154 0.529785967797 0" xyz="0.04715 0.0 -0.0292"/>
+  </joint>
+  <!-- Camera link -->
+  <link name="realsense_d435_rear_camera">
+    <!-- <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/realsense_d435_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01618 3e-05 0.04715"/>
+      <mass value="0.10006"/>
+      <inertia ixx="9.072675e-05" ixy="2.73737e-06" ixz="1.969e-08" iyy="1.318628e-05" iyz="9.53e-08" izz="9.0056e-05"/>
+    </inertial>
+  </link>
+  <!-- Camera parent joint -->
+  <!-- Frame lies on the left ir camera according to any_realsense2_camera urdf. -->
+  <joint name="realsense_d435_rear_camera_to_camera_parent" type="fixed">
+    <parent link="realsense_d435_rear_camera"/>
+    <child link="realsense_d435_rear_camera_parent"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0255 0.0175 0.0"/>
+  </joint>
+  <!-- Camera parent link -->
+  <link name="realsense_d435_rear_camera_parent"/>
+  <!-- Depth optical frame joint -->
+  <joint name="realsense_d435_rear_camera_parent_to_depth_optical_frame" type="fixed">
+    <parent link="realsense_d435_rear_camera_parent"/>
+    <child link="realsense_d435_rear_depth_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Depth optical frame link -->
+  <link name="realsense_d435_rear_depth_optical_frame"/>
+  <!-- Camera color frame joint -->
+  <joint name="realsense_d435_rear_camera_parent_to_color_frame" type="fixed">
+    <parent link="realsense_d435_rear_camera_parent"/>
+    <child link="realsense_d435_rear_color_frame"/>
+    <origin rpy="0 0 0" xyz="0 0.015 0"/>
+  </joint>
+  <!-- Camera color frame link -->
+  <link name="realsense_d435_rear_color_frame"/>
+  <!-- Camera color optical joint -->
+  <joint name="realsense_d435_rear_color_frame_to_color_optical_frame" type="fixed">
+    <parent link="realsense_d435_rear_color_frame"/>
+    <child link="realsense_d435_rear_color_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Camera color optical link -->
+  <link name="realsense_d435_rear_color_optical_frame"/>
+  <!-- simulation or bagfile_is_played -->
+  <!-- simulation -->
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- Camera joint -->
+  <!-- Is located in the center of the mounting points. -->
+  <joint name="face_rear_to_blackfly_rear_camera" type="fixed">
+    <parent link="face_rear"/>
+    <child link="blackfly_rear_camera"/>
+    <origin rpy="0 0 0" xyz="0.09850 0.0 0.01497"/>
+  </joint>
+  <!-- Camera link -->
+  <link name="blackfly_rear_camera">
+    <!-- <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/blackfly_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.02575 5e-05 -0.00603"/>
+      <mass value="0.1716"/>
+      <inertia ixx="4.459725e-05" ixy="-1.5215e-07" ixz="7.82278e-06" iyy="6.206251e-05" iyz="1.3234e-07" izz="5.183372e-05"/>
+    </inertial>
+  </link>
+  <!-- Camera parent joint -->
+  <joint name="blackfly_rear_camera_to_camera_parent" type="fixed">
+    <parent link="blackfly_rear_camera"/>
+    <child link="blackfly_rear_camera_parent"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Camera parent link -->
+  <link name="blackfly_rear_camera_parent"/>
+  <!-- simulation -->
+  <!-- [kg * m^2] -->
+  <!-- Fixed joint base battery -->
+  <joint name="base_battery" type="fixed">
+    <parent link="base"/>
+    <child link="battery"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+  <!-- Shell link -->
+  <link name="battery">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/battery.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00067 -0.00023 -0.03362"/>
+      <mass value="5.53425"/>
+      <inertia ixx="0.00749474794" ixy="0.00016686282" ixz="7.82763e-05" iyy="0.0722338913" iyz="1.42902e-06" izz="0.07482717535"/>
+    </inertial>
+  </link>
+  <!-- Fixed joint to add docking socket -->
+  <joint name="base_to_docking_socket" type="fixed">
+    <parent link="base"/>
+    <child link="docking_socket"/>
+    <origin rpy="0 0 0" xyz="0.343 0.0 -0.08"/>
+  </joint>
+  <!-- Docking socket link -->
+  <link name="docking_socket"/>
+  <!-- [] -->
+  <link name="imu_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.005"/>
+      <geometry>
+        <box size="0.024 0.024 0.01"/>
+      </geometry>
+      <material name="orange"/>
+    </visual>
+    <inertial>
+      <mass value="0.01"/>
+      <origin xyz="0 0 0"/>
+      <inertia ixx="5.63333333333e-07" ixy="0.0" ixz="0.0" iyy="9.6e-07" iyz="0.0" izz="5.63333333333e-07"/>
+    </inertial>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base"/>
+    <child link="imu_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.2488 0.00835 0.04628"/>
+  </joint>
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- Camera joint -->
+  <!-- Is located between the two back screw holes at ground level. -->
+  <joint name="base_to_realsense_d435_left_camera" type="fixed">
+    <parent link="base"/>
+    <child link="realsense_d435_left_camera"/>
+    <origin rpy="-0.0152290274679 0.510627488597 1.57079632679" xyz="0.0 0.07646 0.02905"/>
+  </joint>
+  <!-- Camera link -->
+  <link name="realsense_d435_left_camera">
+    <!-- <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/realsense_d435_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01618 3e-05 0.04715"/>
+      <mass value="0.10006"/>
+      <inertia ixx="9.072675e-05" ixy="2.73737e-06" ixz="1.969e-08" iyy="1.318628e-05" iyz="9.53e-08" izz="9.0056e-05"/>
+    </inertial>
+  </link>
+  <!-- Camera parent joint -->
+  <!-- Frame lies on the left ir camera according to any_realsense2_camera urdf. -->
+  <joint name="realsense_d435_left_camera_to_camera_parent" type="fixed">
+    <parent link="realsense_d435_left_camera"/>
+    <child link="realsense_d435_left_camera_parent"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0255 0.0175 0.0"/>
+  </joint>
+  <!-- Camera parent link -->
+  <link name="realsense_d435_left_camera_parent"/>
+  <!-- Depth optical frame joint -->
+  <joint name="realsense_d435_left_camera_parent_to_depth_optical_frame" type="fixed">
+    <parent link="realsense_d435_left_camera_parent"/>
+    <child link="realsense_d435_left_depth_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Depth optical frame link -->
+  <link name="realsense_d435_left_depth_optical_frame"/>
+  <!-- Camera color frame joint -->
+  <joint name="realsense_d435_left_camera_parent_to_color_frame" type="fixed">
+    <parent link="realsense_d435_left_camera_parent"/>
+    <child link="realsense_d435_left_color_frame"/>
+    <origin rpy="0 0 0" xyz="0 0.015 0"/>
+  </joint>
+  <!-- Camera color frame link -->
+  <link name="realsense_d435_left_color_frame"/>
+  <!-- Camera color optical joint -->
+  <joint name="realsense_d435_left_color_frame_to_color_optical_frame" type="fixed">
+    <parent link="realsense_d435_left_color_frame"/>
+    <child link="realsense_d435_left_color_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Camera color optical link -->
+  <link name="realsense_d435_left_color_optical_frame"/>
+  <!-- simulation or bagfile_is_played -->
+  <!-- simulation -->
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- Camera joint -->
+  <!-- Is located between the two back screw holes at ground level. -->
+  <joint name="base_to_realsense_d435_right_camera" type="fixed">
+    <parent link="base"/>
+    <child link="realsense_d435_right_camera"/>
+    <origin rpy="0.0323779520196 0.531011188932 -1.57079632679" xyz="0.0 -0.07646 0.02905"/>
+  </joint>
+  <!-- Camera link -->
+  <link name="realsense_d435_right_camera">
+    <!-- <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/realsense_d435_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01618 3e-05 0.04715"/>
+      <mass value="0.10006"/>
+      <inertia ixx="9.072675e-05" ixy="2.73737e-06" ixz="1.969e-08" iyy="1.318628e-05" iyz="9.53e-08" izz="9.0056e-05"/>
+    </inertial>
+  </link>
+  <!-- Camera parent joint -->
+  <!-- Frame lies on the left ir camera according to any_realsense2_camera urdf. -->
+  <joint name="realsense_d435_right_camera_to_camera_parent" type="fixed">
+    <parent link="realsense_d435_right_camera"/>
+    <child link="realsense_d435_right_camera_parent"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0255 0.0175 0.0"/>
+  </joint>
+  <!-- Camera parent link -->
+  <link name="realsense_d435_right_camera_parent"/>
+  <!-- Depth optical frame joint -->
+  <joint name="realsense_d435_right_camera_parent_to_depth_optical_frame" type="fixed">
+    <parent link="realsense_d435_right_camera_parent"/>
+    <child link="realsense_d435_right_depth_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Depth optical frame link -->
+  <link name="realsense_d435_right_depth_optical_frame"/>
+  <!-- Camera color frame joint -->
+  <joint name="realsense_d435_right_camera_parent_to_color_frame" type="fixed">
+    <parent link="realsense_d435_right_camera_parent"/>
+    <child link="realsense_d435_right_color_frame"/>
+    <origin rpy="0 0 0" xyz="0 0.015 0"/>
+  </joint>
+  <!-- Camera color frame link -->
+  <link name="realsense_d435_right_color_frame"/>
+  <!-- Camera color optical joint -->
+  <joint name="realsense_d435_right_color_frame_to_color_optical_frame" type="fixed">
+    <parent link="realsense_d435_right_color_frame"/>
+    <child link="realsense_d435_right_color_optical_frame"/>
+    <origin rpy="-1.57079632679 0.0 -1.57079632679" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Camera color optical link -->
+  <link name="realsense_d435_right_color_optical_frame"/>
+  <!-- simulation or bagfile_is_played -->
+  <!-- simulation -->
+  <!-- [kg * m^2] -->
+  <!-- [m] -->
+  <!-- parent to cage joint, located between mounting plate on trunk and the cage -->
+  <joint name="base_to_velodyne_cage" type="fixed">
+    <parent link="base"/>
+    <child link="velodyne_cage"/>
+    <origin rpy="0 0 0" xyz="-0.364 0.0 0.0735"/>
+  </joint>
+  <!-- Velodyne cage link -->
+  <link name="velodyne_cage">
+    <!-- <visual>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="../meshes/cage_3_1_1_mesh.obj" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual> -->
+    <inertial>
+      <origin rpy="0.0 0.0 0.0" xyz="0.00835 0.00422 0.09164"/>
+      <mass value="0.59537"/>
+      <inertia ixx="0.00355433776" ixy="-0.00017311043" ixz="0.00034272548" iyy="0.00300234186" iyz="0.00017427295" izz="0.00174109156"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- parent to sensor joint -->
+  <joint name="velodyne_cage_to_velodyne" type="fixed">
+    <parent link="velodyne_cage"/>
+    <child link="velodyne"/>
+    <origin rpy="0.0 0.0 -1.57079632679" xyz="0.0 0.0 0.0687"/>
+  </joint>
+  <!-- Velodyne sensor link -->
+  <link name="velodyne">
+    <inertial>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 8e-05 -0.0025"/>
+      <mass value="0.59"/>
+      <inertia ixx="0.00063992282" ixy="1.1e-10" ixz="5.061e-08" iyy="0.00063682474" iyz="1.38867e-06" izz="0.00075943194"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/lidar.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <!-- simulation -->
+  <!-- [rad] -->
+  <!-- joint base HAA -->
+  <joint name="base_LF_HAA" type="fixed">
+    <parent link="base"/>
+    <child link="LF_HAA"/>
+    <origin rpy="2.61799387799 0 0.0" xyz="0.2999 0.104 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="LF_HAA">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="LF_HAA" type="revolute">
+    <parent link="LF_HAA"/>
+    <child link="LF_HIP"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="LF_HIP">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- joint HAA hip -->
+  <joint name="LF_HIP_LF_hip_fixed" type="fixed">
+    <parent link="LF_HIP"/>
+    <child link="LF_hip_fixed"/>
+    <origin rpy="-2.61799387799 0 0.0" xyz="0 0 0"/>
+  </joint>
+  <!-- Hip link -->
+  <link name="LF_hip_fixed">
+    <visual>
+      <origin rpy="0 0 0.0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/hip_l.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.04524 -0.0009 -0.00442"/>
+      <mass value="0.61232"/>
+      <inertia ixx="0.00120630718" ixy="5.33521e-06" ixz="1.483089e-05" iyy="0.00378577813" iyz="1.483089e-05" izz="0.00370047477"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint hip HFE -->
+  <joint name="LF_hip_fixed_LF_HFE" type="fixed">
+    <parent link="LF_hip_fixed"/>
+    <child link="LF_HFE"/>
+    <origin rpy="0 0 1.57079632679" xyz="0.0599 0.08381 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="LF_HFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="LF_HFE" type="revolute">
+    <parent link="LF_HFE"/>
+    <child link="LF_THIGH"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="LF_THIGH">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint HFE thigh -->
+  <joint name="LF_THIGH_LF_thigh_fixed" type="fixed">
+    <parent link="LF_THIGH"/>
+    <child link="LF_thigh_fixed"/>
+    <origin rpy="0 0 -1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Thigh link -->
+  <link name="LF_thigh_fixed">
+    <visual>
+      <origin rpy="0 0 0.0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/thigh.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00935 0.00194 -0.1424"/>
+      <mass value="1.37356"/>
+      <inertia ixx="0.02568264237" ixy="0.00110418011" ixz="0.00183898863" iyy="0.02513273119" iyz="0.00217895477" izz="0.0049947572"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint thigh KFE -->
+  <joint name="LF_thigh_fixed_LF_KFE" type="fixed">
+    <parent link="LF_thigh_fixed"/>
+    <child link="LF_KFE"/>
+    <origin rpy="0 0 1.57079632679" xyz="0.0 0.1003 -0.285"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="LF_KFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 1.57079632679 0" xyz="-0.05 0 0"/>
+      <geometry>
+        <cylinder length="0.12" radius="0.06"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="LF_KFE" type="revolute">
+    <parent link="LF_KFE"/>
+    <child link="LF_SHANK"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="LF_SHANK">
+    <!-- Adapter collision -->
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="0.01 -0.1 -0.2"/>
+      <geometry>
+        <cylinder length="0.2" radius="0.0175"/>
+      </geometry>
+    </collision> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint KFE shank -->
+  <joint name="LF_shank_LF_shank_fixed" type="fixed">
+    <parent link="LF_SHANK"/>
+    <child link="LF_shank_fixed"/>
+    <origin rpy="0 0 -1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Shank link -->
+  <link name="LF_shank_fixed">
+    <visual>
+      <origin rpy="0 0 0.0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/shank_l.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.03463 0.00688 0.00098"/>
+      <mass value="0.33742"/>
+      <inertia ixx="0.00032748005" ixy="2.142561e-05" ixz="1.33942e-05" iyy="0.00110974122" iyz="7.601e-08" izz="0.00089388521"/>
+    </inertial>
+  </link>
+  <!-- Leg configurations: xx (knees bent inwards), xo (knees bent backwards) -->
+  <!-- joint shank foot -->
+  <joint name="LF_shank_fixed_LF_FOOT" type="fixed">
+    <parent link="LF_shank_fixed"/>
+    <child link="LF_FOOT"/>
+    <origin rpy="0 0 0" xyz="0.08795 0.01305 -0.33797"/>
+  </joint>
+  <!-- Foot link -->
+  <link name="LF_FOOT">
+    <visual>
+      <origin rpy="0 0 -0.785398163397" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/foot.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <!-- Foot collision --> 
+    <collision>
+      <origin xyz="0 0 0.0225"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00948 -0.00948 0.1468"/>
+      <mass value="0.21663"/>
+      <inertia ixx="0.00317174097" ixy="2.63048e-06" ixz="6.815581e-05" iyy="0.00317174092" iyz="6.815583e-05" izz="8.319196e-05"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint base HAA -->
+  <joint name="base_RF_HAA" type="fixed">
+    <parent link="base"/>
+    <child link="RF_HAA"/>
+    <origin rpy="-2.61799387799 0 0.0" xyz="0.2999 -0.104 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="RF_HAA">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="RF_HAA" type="revolute">
+    <parent link="RF_HAA"/>
+    <child link="RF_HIP"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="RF_HIP">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- joint HAA hip -->
+  <joint name="RF_HIP_RF_hip_fixed" type="fixed">
+    <parent link="RF_HIP"/>
+    <child link="RF_hip_fixed"/>
+    <origin rpy="2.61799387799 0 0.0" xyz="0 0 0"/>
+  </joint>
+  <!-- Hip link -->
+  <link name="RF_hip_fixed">
+    <visual>
+      <origin rpy="0 0 0.0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/hip_r.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.04524 0.0009 -0.00442"/>
+      <mass value="0.61232"/>
+      <inertia ixx="0.00120630718" ixy="-5.33521e-06" ixz="1.483089e-05" iyy="0.00378577813" iyz="-1.483089e-05" izz="0.00370047477"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint hip HFE -->
+  <joint name="RF_hip_fixed_RF_HFE" type="fixed">
+    <parent link="RF_hip_fixed"/>
+    <child link="RF_HFE"/>
+    <origin rpy="0 0 -1.57079632679" xyz="0.0599 -0.08381 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="RF_HFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="RF_HFE" type="revolute">
+    <parent link="RF_HFE"/>
+    <child link="RF_THIGH"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="RF_THIGH">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint HFE thigh -->
+  <joint name="RF_THIGH_RF_thigh_fixed" type="fixed">
+    <parent link="RF_THIGH"/>
+    <child link="RF_thigh_fixed"/>
+    <origin rpy="0 0 1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Thigh link -->
+  <link name="RF_thigh_fixed">
+    <visual>
+      <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/thigh.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00935 -0.00194 -0.1424"/>
+      <mass value="1.37356"/>
+      <inertia ixx="0.02568264237" ixy="-0.00110418011" ixz="0.00183898863" iyy="0.02513273119" iyz="-0.00217895477" izz="0.0049947572"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint thigh KFE -->
+  <joint name="RF_thigh_fixed_RF_KFE" type="fixed">
+    <parent link="RF_thigh_fixed"/>
+    <child link="RF_KFE"/>
+    <origin rpy="0 0 -1.57079632679" xyz="0.0 -0.1003 -0.285"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="RF_KFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 1.57079632679 0" xyz="-0.05 0 0"/>
+      <geometry>
+        <cylinder length="0.12" radius="0.06"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="RF_KFE" type="revolute">
+    <parent link="RF_KFE"/>
+    <child link="RF_SHANK"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="RF_SHANK">
+    <!-- Adapter collision -->
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="0.01 0.1 -0.2"/>
+      <geometry>
+        <cylinder length="0.2" radius="0.0175"/>
+      </geometry>
+    </collision> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint KFE shank -->
+  <joint name="RF_shank_RF_shank_fixed" type="fixed">
+    <parent link="RF_SHANK"/>
+    <child link="RF_shank_fixed"/>
+    <origin rpy="0 0 1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Shank link -->
+  <link name="RF_shank_fixed">
+    <visual>
+      <origin rpy="0 0 0.0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/shank_r.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.03463 -0.00688 0.00098"/>
+      <mass value="0.33742"/>
+      <inertia ixx="0.00032748005" ixy="-2.142561e-05" ixz="1.33942e-05" iyy="0.00110974122" iyz="-7.601e-08" izz="0.00089388521"/>
+    </inertial>
+  </link>
+  <!-- Leg configurations: xx (knees bent inwards), xo (knees bent backwards) -->
+  <!-- joint shank foot -->
+  <joint name="RF_shank_fixed_RF_FOOT" type="fixed">
+    <parent link="RF_shank_fixed"/>
+    <child link="RF_FOOT"/>
+    <origin rpy="0 0 0" xyz="0.08795 -0.01305 -0.33797"/>
+  </joint>
+  <!-- Foot link -->
+  <link name="RF_FOOT">
+    <visual>
+      <origin rpy="0 0 0.785398163397" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/foot.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <!-- Foot collision -->
+    <collision>
+      <origin xyz="0 -0.0 0.0225"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00948 0.00948 0.1468"/>
+      <mass value="0.21663"/>
+      <inertia ixx="0.00317174097" ixy="-2.63048e-06" ixz="6.815581e-05" iyy="0.00317174092" iyz="-6.815583e-05" izz="8.319196e-05"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint base HAA -->
+  <joint name="base_LH_HAA" type="fixed">
+    <parent link="base"/>
+    <child link="LH_HAA"/>
+    <origin rpy="-2.61799387799 0 -3.14159265359" xyz="-0.2999 0.104 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="LH_HAA">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="LH_HAA" type="revolute">
+    <parent link="LH_HAA"/>
+    <child link="LH_HIP"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="LH_HIP">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- joint HAA hip -->
+  <joint name="LH_HIP_LH_hip_fixed" type="fixed">
+    <parent link="LH_HIP"/>
+    <child link="LH_hip_fixed"/>
+    <origin rpy="-2.61799387799 0 -3.14159265359" xyz="0 0 0"/>
+  </joint>
+  <!-- Hip link -->
+  <link name="LH_hip_fixed">
+    <visual>
+      <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/hip_l.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.04524 -0.0009 -0.00442"/>
+      <mass value="0.61232"/>
+      <inertia ixx="0.00120630718" ixy="-5.33521e-06" ixz="-1.483089e-05" iyy="0.00378577813" iyz="1.483089e-05" izz="0.00370047477"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint hip HFE -->
+  <joint name="LH_hip_fixed_LH_HFE" type="fixed">
+    <parent link="LH_hip_fixed"/>
+    <child link="LH_HFE"/>
+    <origin rpy="0 0 1.57079632679" xyz="-0.0599 0.08381 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="LH_HFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="LH_HFE" type="revolute">
+    <parent link="LH_HFE"/>
+    <child link="LH_THIGH"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="LH_THIGH">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint HFE thigh -->
+  <joint name="LH_THIGH_LH_thigh_fixed" type="fixed">
+    <parent link="LH_THIGH"/>
+    <child link="LH_thigh_fixed"/>
+    <origin rpy="0 0 -1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Thigh link -->
+  <link name="LH_thigh_fixed">
+    <visual>
+      <origin rpy="0 0 0.0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/thigh.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00935 0.00194 -0.1424"/>
+      <mass value="1.37356"/>
+      <inertia ixx="0.02568264237" ixy="-0.00110418011" ixz="-0.00183898863" iyy="0.02513273119" iyz="0.00217895477" izz="0.0049947572"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint thigh KFE -->
+  <joint name="LH_thigh_fixed_LH_KFE" type="fixed">
+    <parent link="LH_thigh_fixed"/>
+    <child link="LH_KFE"/>
+    <origin rpy="0 0 1.57079632679" xyz="-0.0 0.1003 -0.285"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="LH_KFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 1.57079632679 0" xyz="-0.05 0 0"/>
+      <geometry>
+        <cylinder length="0.12" radius="0.06"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="LH_KFE" type="revolute">
+    <parent link="LH_KFE"/>
+    <child link="LH_SHANK"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="LH_SHANK">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+    <!-- Adapter collision -->
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="0.01 0.1 -0.2"/>
+      <geometry>
+        <cylinder length="0.2" radius="0.0175"/>
+      </geometry>
+    </collision> -->
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint KFE shank -->
+  <joint name="LH_shank_LH_shank_fixed" type="fixed">
+    <parent link="LH_SHANK"/>
+    <child link="LH_shank_fixed"/>
+    <origin rpy="0 0 -1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Shank link -->
+  <link name="LH_shank_fixed">
+    <visual>
+      <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/shank_l.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.03463 0.00688 0.00098"/>
+      <mass value="0.33742"/>
+      <inertia ixx="0.00032748005" ixy="-2.142561e-05" ixz="-1.33942e-05" iyy="0.00110974122" iyz="7.601e-08" izz="0.00089388521"/>
+    </inertial>
+  </link>
+  <!-- Leg configurations: xx (knees bent inwards), xo (knees bent backwards) -->
+  <!-- joint shank foot -->
+  <joint name="LH_shank_fixed_LH_FOOT" type="fixed">
+    <parent link="LH_shank_fixed"/>
+    <child link="LH_FOOT"/>
+    <origin rpy="0 0 0" xyz="-0.08795 0.01305 -0.33797"/>
+  </joint>
+  <!-- Foot link -->
+  <link name="LH_FOOT">
+    <visual>
+      <origin rpy="0 0 -2.35619449019" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/foot.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <!-- Foot collision -->  
+    <collision>
+      <origin xyz="0 -0.0 0.0225"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00948 -0.00948 0.1468"/>
+      <mass value="0.21663"/>
+      <inertia ixx="0.00317174097" ixy="-2.63048e-06" ixz="-6.815581e-05" iyy="0.00317174092" iyz="6.815583e-05" izz="8.319196e-05"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint base HAA -->
+  <joint name="base_RH_HAA" type="fixed">
+    <parent link="base"/>
+    <child link="RH_HAA"/>
+    <origin rpy="2.61799387799 0 -3.14159265359" xyz="-0.2999 -0.104 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="RH_HAA">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="RH_HAA" type="revolute">
+    <parent link="RH_HAA"/>
+    <child link="RH_HIP"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="RH_HIP">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- joint HAA hip -->
+  <joint name="RH_HIP_RH_hip_fixed" type="fixed">
+    <parent link="RH_HIP"/>
+    <child link="RH_hip_fixed"/>
+    <origin rpy="2.61799387799 0 -3.14159265359" xyz="0 0 0"/>
+  </joint>
+  <!-- Hip link -->
+  <link name="RH_hip_fixed">
+    <visual>
+      <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/hip_r.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.04524 0.0009 -0.00442"/>
+      <mass value="0.61232"/>
+      <inertia ixx="0.00120630718" ixy="5.33521e-06" ixz="-1.483089e-05" iyy="0.00378577813" iyz="-1.483089e-05" izz="0.00370047477"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint hip HFE -->
+  <joint name="RH_hip_fixed_RH_HFE" type="fixed">
+    <parent link="RH_hip_fixed"/>
+    <child link="RH_HFE"/>
+    <origin rpy="0 0 -1.57079632679" xyz="-0.0599 -0.08381 0.0"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="RH_HFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="RH_HFE" type="revolute">
+    <parent link="RH_HFE"/>
+    <child link="RH_THIGH"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="RH_THIGH">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint HFE thigh -->
+  <joint name="RH_THIGH_RH_thigh_fixed" type="fixed">
+    <parent link="RH_THIGH"/>
+    <child link="RH_thigh_fixed"/>
+    <origin rpy="0 0 1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Thigh link -->
+  <link name="RH_thigh_fixed">
+    <visual>
+      <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/thigh.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00935 -0.00194 -0.1424"/>
+      <mass value="1.37356"/>
+      <inertia ixx="0.02568264237" ixy="0.00110418011" ixz="-0.00183898863" iyy="0.02513273119" iyz="-0.00217895477" izz="0.0049947572"/>
+    </inertial>
+  </link>
+  <!-- [rad] -->
+  <!-- joint thigh KFE -->
+  <joint name="RH_thigh_fixed_RH_KFE" type="fixed">
+    <parent link="RH_thigh_fixed"/>
+    <child link="RH_KFE"/>
+    <origin rpy="0 0 -1.57079632679" xyz="-0.0 -0.1003 -0.285"/>
+  </joint>
+  <!-- [m] -->
+  <!-- [A] -->
+  <!-- Drive link -->
+  <link name="RH_KFE">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/drive.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 1.57079632679 0" xyz="-0.05 0 0"/>
+      <geometry>
+        <cylinder length="0.12" radius="0.06"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.06639 7e-05 0.00046"/>
+      <mass value="1.89871"/>
+      <inertia ixx="0.00201800646" ixy="6.22418e-06" ixz="1.03846e-06" iyy="0.00354961412" iyz="1.0569e-07" izz="0.00353706896"/>
+    </inertial>
+  </link>
+  <!-- joint Drive output -->
+  <joint name="RH_KFE" type="revolute">
+    <parent link="RH_KFE"/>
+    <child link="RH_SHANK"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <!-- <limit command_effort="80.0" current="32.0" effort="80.0" gear_velocity="7.5" lower="-9.42477796077" upper="9.42477796077" velocity="7.5"/> -->
+    <limit effort="80.0" velocity="20." />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <!-- Drive output link -->
+  <link name="RH_SHANK">
+    <!-- Adapter collision -->
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="0.01 -0.1 -0.2"/>
+      <geometry>
+        <cylinder length="0.2" radius="0.0175"/>
+      </geometry>
+    </collision> -->
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+    </inertial>
+  </link>
+  <!-- [m] -->
+  <!-- measured -->
+  <!-- joint KFE shank -->
+  <joint name="RH_shank_RH_shank_fixed" type="fixed">
+    <parent link="RH_SHANK"/>
+    <child link="RH_shank_fixed"/>
+    <origin rpy="0 0 1.57079632679" xyz="0 0 0"/>
+  </joint>
+  <!-- Shank link -->
+  <link name="RH_shank_fixed">
+    <visual>
+      <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/shank_r.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.03463 -0.00688 0.00098"/>
+      <mass value="0.33742"/>
+      <inertia ixx="0.00032748005" ixy="2.142561e-05" ixz="-1.33942e-05" iyy="0.00110974122" iyz="-7.601e-08" izz="0.00089388521"/>
+    </inertial>
+  </link>
+  <!-- Leg configurations: xx (knees bent inwards), xo (knees bent backwards) -->
+  <!-- joint shank foot -->
+  <joint name="RH_shank_fixed_RH_FOOT" type="fixed">
+    <parent link="RH_shank_fixed"/>
+    <child link="RH_FOOT"/>
+    <origin rpy="0 0 0" xyz="-0.08795 -0.01305 -0.33797"/>
+  </joint>
+  <!-- Foot link -->
+  <link name="RH_FOOT">
+    <visual>
+      <origin rpy="0 0 -3.92699081699" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="../meshes/foot.dae" scale="1.0 1.0     1.0"/>
+      </geometry>
+    </visual>
+    <!-- Foot collision -->   
+    <collision>
+      <origin xyz="0 -0.0 0.0225"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00948 0.00948 0.1468"/>
+      <mass value="0.21663"/>
+      <inertia ixx="0.00317174097" ixy="2.63048e-06" ixz="-6.815581e-05" iyy="0.00317174092" iyz="-6.815583e-05" izz="8.319196e-05"/>
+    </inertial>
+  </link>
+  <!-- [kg * m^2] -->
+  <!-- Fixed joint base hatch -->
+  <joint name="base_hatch" type="fixed">
+    <parent link="base"/>
+    <child link="hatch"/>
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+  </joint>
+  <!-- Hatch link -->
+  <link name="hatch">
+    <visual>
+      <origin rpy="0 0 0" xyz="0.116 0 0.073"/>
+      <geometry>
+        <mesh filename="../meshes/hatch.dae" scale="1.0 1.0 1.0"/>
+      </geometry>
+    </visual>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.116 0.0 0.0758"/>
+      <mass value="0.142"/>
+      <inertia ixx="0.001" ixy="0.001" ixz="0.001" iyy="0.001" iyz="0.001" izz="0.001"/>
+    </inertial>
+  </link>
+</robot>
+

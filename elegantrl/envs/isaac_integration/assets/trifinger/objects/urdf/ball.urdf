@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<robot name="ball" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <link name="ball">
+    <inertial>
+      <mass value=".25"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <sphere radius=".0375"/>
+          <!--<mesh filename="meshes/ball.obj"/>-->
+      </geometry>
+      <material name="Grey">
+        <color rgba="0.65 0.65 0.65 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <sphere radius=".0375"/>
+        <!--<mesh filename="meshes/ball.obj"/>-->
+      </geometry>
+    </collision>
+  </link>
+</robot>

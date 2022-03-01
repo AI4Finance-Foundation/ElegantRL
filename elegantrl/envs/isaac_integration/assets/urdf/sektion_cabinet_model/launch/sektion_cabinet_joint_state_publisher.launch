@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="gui" default="True" />
+
+  <param name="robot_description" textfile="$(find sektion_cabinet_model)/urdf/sektion_cabinet.urdf" />
+
+  <node name="joint_state_publisher"
+    pkg="joint_state_publisher"
+    type="joint_state_publisher" 
+    if="$(arg gui)">
+    <param name="use_gui" value="True"/>
+    <remap from="/joint_states" to="/tracker/sektion_cabinet/joint_states"/>
+  </node>
+</launch>

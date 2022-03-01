@@ -1,0 +1,1 @@
+<?xml version="1.0"?><robot name="ball"><material name="Red"><color rgba="1.0 0.0 0.0 1.0"/></material><link name="ball"><visual><origin xyz="0 0 0"/><geometry><sphere radius="0.027700"/></geometry><material name="Red"/></visual><collision><origin xyz="0 0 0"/> <geometry><sphere radius="0.027700"/></geometry></collision></link></robot>
