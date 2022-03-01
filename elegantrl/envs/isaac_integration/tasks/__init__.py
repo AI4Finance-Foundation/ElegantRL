@@ -25,3 +25,32 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+from elegantrl.envs.isaac_integration.tasks.allegro_hand import AllegroHand
+from elegantrl.envs.isaac_integration.tasks.ant import Ant
+from elegantrl.envs.isaac_integration.tasks.anymal import Anymal
+from elegantrl.envs.isaac_integration.tasks.anymal_terrain import AnymalTerrain
+from elegantrl.envs.isaac_integration.tasks.ball_balance import BallBalance
+from elegantrl.envs.isaac_integration.tasks.cartpole import Cartpole
+from elegantrl.envs.isaac_integration.tasks.franka_cabinet import FrankaCabinet
+from elegantrl.envs.isaac_integration.tasks.humanoid import Humanoid
+from elegantrl.envs.isaac_integration.tasks.ingenuity import Ingenuity
+from elegantrl.envs.isaac_integration.tasks.quadcopter import Quadcopter
+from elegantrl.envs.isaac_integration.tasks.shadow_hand import ShadowHand
+from elegantrl.envs.isaac_integration.tasks.trifinger import Trifinger
+
+# Mappings from strings to environments
+isaacgym_task_map = {
+    "AllegroHand": AllegroHand,
+    "Ant": Ant,
+    "Anymal": Anymal,
+    "AnymalTerrain": AnymalTerrain,
+    "BallBalance": BallBalance,
+    "Cartpole": Cartpole,
+    "FrankaCabinet": FrankaCabinet,
+    "Humanoid": Humanoid,
+    "Ingenuity": Ingenuity,
+    "Quadcopter": Quadcopter,
+    "ShadowHand": ShadowHand,
+    "Trifinger": Trifinger,
+}
