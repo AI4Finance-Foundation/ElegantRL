@@ -5,7 +5,9 @@ physics_engine: physx
 
 # if given, will override the device setting in gym.
 env:
-  numEnvs: 4096
+  numEnvs: 1024
+  numObservations: 23
+  numActions: 9
   envSpacing: 1.5
   episodeLength: 500
   enableDebugVis: False

@@ -4,7 +4,9 @@ name: AllegroHand
 physics_engine: physx
 
 env:
-  numEnvs: 16384
+  numEnvs: 1024
+  numObservations: 88
+  numActions: 16
   envSpacing: 0.75
   episodeLength: 600
   enableDebugVis: False

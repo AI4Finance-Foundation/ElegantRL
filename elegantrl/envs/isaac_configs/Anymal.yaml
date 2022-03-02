@@ -4,8 +4,11 @@ name: Anymal
 physics_engine: physx
 
 env:
-  numEnvs: 4096
+  numEnvs: 1024
+  numObservations: 48
+  numActions: 12
   envSpacing: 4. # [m]
+  episodeLength: 2500
 
   clipObservations: 5.0
   clipActions: 1.0

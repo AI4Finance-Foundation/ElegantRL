@@ -8,7 +8,9 @@ env:
   control_decimation: 1
   envSpacing: 1.0
 
-  numEnvs: 16384
+  numEnvs: 512
+  numObservations: 41
+  numActions: 9
 
   episodeLength: 750
 

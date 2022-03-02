@@ -4,11 +4,12 @@ name: AnymalTerrain
 physics_engine: physx
 
 env:
-  numEnvs: 4096
+  numEnvs: 1024
   numObservations: 188
   numActions: 12
   envSpacing: 3. # [m]
   enableDebugVis: False
+  episodeLength: 4000
 
   terrain:
     terrainType: trimesh # none, plane, or trimesh

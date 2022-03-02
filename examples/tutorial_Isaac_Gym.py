@@ -1,44 +1,44 @@
-# NOTE: when using Isaac Gym, isaacgym must be imported before torch
+# When using Isaac Gym, isaacgym must be imported before torch.
 import isaacgym
 import torch
 from elegantrl.agent import AgentPPO
 from elegantrl.config import Arguments
 from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
+from elegantrl.envs.utils.config_utils import get_isaac_env_args
 from elegantrl.run import train_and_evaluate_mp
 
-env_func = IsaacVecEnv
-env_args = {
-    "env_num": 1024,
-    "env_name": "Ant",
-    "max_step": 1000,
-    "state_dim": 60,
-    "action_dim": 8,
-    "if_discrete": False,
-    "target_return": 14000.0,
-    "device_id": 0,  # set by worker
-    "if_print": False,  # if_print=False in default
-}
+# Choose an environment by name. If you want to see what's available, just put a random
+# string here and run the code. :)
+env_name = "Ant"
 
+# Define the training function and training arguments.
+env_func = IsaacVecEnv
+env_args = get_isaac_env_args(env_name)
+
+# Construct a new set of arguments with the desired agent. Note that all Isaac Gym
+# environments use continuous action spaces, so your agent must account for this.
 args = Arguments(agent=AgentPPO, env_func=env_func, env_args=env_args)
 
-"""set one env for evaluator"""
+# Define the evaluator function and evaluator arguments. Note that the evaluator is
+# just the training environment, but not vectorized (i.e. a single environment).
 args.eval_env_func = IsaacOneEnv
 args.eval_env_args = args.env_args.copy()
 args.eval_env_args["env_num"] = 1
 
-"""set other hyper-parameters"""
-args.net_dim = 2**9
-args.batch_size = args.net_dim * 4
+# Change any arguments you'd like here...
+args.net_dim = 512
+args.batch_size = 2048
 args.target_step = args.max_step
-args.repeat_times = 2**4
+args.repeat_times = 16
 
-args.save_gap = 2**9
-args.eval_gap = 2**8
-args.eval_times1 = 2**0
-args.eval_times2 = 2**2
+args.save_gap = 512
+args.eval_gap = 256
+args.eval_times1 = 1
+args.eval_times2 = 4
 
 args.worker_num = 1
 args.learner_gpus = 0
 
+# ...and train!
 if __name__ == "__main__":
     train_and_evaluate_mp(args)
