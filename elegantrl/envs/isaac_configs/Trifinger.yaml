@@ -8,7 +8,7 @@ env:
   control_decimation: 1
   envSpacing: 1.0
 
-  numEnvs: 512
+  numEnvs: 1024
   numObservations: 41
   numActions: 9
 
