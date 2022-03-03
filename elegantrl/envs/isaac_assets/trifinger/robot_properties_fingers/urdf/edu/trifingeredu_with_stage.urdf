@@ -111,7 +111,7 @@
     </inertial>
   </link>
   <!-- The movable links (upper, middle and lower) of the finger. -->
-  <!-- FIXME inertias are not correct! -->
+  <!-- FIXOLD inertias are not correct! -->
   <link name="finger_upper_link_0">
     <visual>
       <origin rpy="0 0 0" xyz="0.0195 0 0"/>
@@ -284,7 +284,7 @@
     </inertial>
   </link>
   <!-- The movable links (upper, middle and lower) of the finger. -->
-  <!-- FIXME inertias are not correct! -->
+  <!-- FIXOLD inertias are not correct! -->
   <link name="finger_upper_link_120">
     <visual>
       <origin rpy="0 0 0" xyz="0.0195 0 0"/>
@@ -457,7 +457,7 @@
     </inertial>
   </link>
   <!-- The movable links (upper, middle and lower) of the finger. -->
-  <!-- FIXME inertias are not correct! -->
+  <!-- FIXOLD inertias are not correct! -->
   <link name="finger_upper_link_240">
     <visual>
       <origin rpy="0 0 0" xyz="0.0195 0 0"/>

@@ -60,7 +60,7 @@ def set_seed(seed, torch_deterministic=False):
 
 
 def retrieve_cfg(args, use_rlg_config=False):
-    # FIXME: do something about cfg folder placement.
+    # FIXOLD: do something about cfg folder placement.
     # Depending on the end-user's placement of the cfg folder within `isaacgym`,
     # this may or may not break.
     if args.task == "BallBalance":
