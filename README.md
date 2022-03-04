@@ -114,7 +114,9 @@ ElegantRL fully supports Isaac Gym that runs massively parallel simulation (e.g.
 
 ### More stable than Stable-baseline 3
 
-Experiment on Hopper-v2 # ElegantRL achieves higher average rewards and much smaller variance (average over 10 runs)
+Experiment on Hopper-v2 # ElegantRL achieves much smaller variance (average over 8 runs).
+
+Also, PPO+H in ElegantRL completed the training process of 5M samples about 5x faster than Stable-Baseline3. 
 
 <div align="center">
 	<img align="center" src=figs/SB3_vs_ElegantRL.png width="640">
