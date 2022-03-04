@@ -8,11 +8,13 @@ In this article, we introduce a **Hamiltonian-term (H-term)**, a generic add-on 
 Basic Idea
 -----------------------------------------------
 In a standard RL problem, a decision-making process can be modeled as a Markov Decision Process (MDP). The Bellman equation gives the optimality condition for MDP problems:
+
 .. image:: ../images/bellman.png
    :width: 80%
    :align: center
 
 The above equation is inherently recursive, so we expand it as follows:
+
 .. image:: ../images/recursive.png
    :width: 80%
    :align: center
