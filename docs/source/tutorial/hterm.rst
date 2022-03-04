@@ -7,15 +7,12 @@ In this article, we introduce a **Hamiltonian-term (H-term)**, a generic add-on 
 
 Basic Idea
 -----------------------------------------------
-
 In a standard RL problem, a decision-making process can be modeled as a Markov Decision Process (MDP). The Bellman equation gives the optimality condition for MDP problems:
-
 .. image:: ../images/bellman.png
    :width: 80%
    :align: center
 
 The above equation is inherently recursive, so we expand it as follows:
-
 .. image:: ../images/recursive.png
    :width: 80%
    :align: center
@@ -38,10 +35,11 @@ As marked out in lines 19–20, we include an additional update of the policy ne
 
 It is a fact that optimizing the H-term is compute-intensive, controlled by the hyper-parameter L (the number of selected trajectories) and K (the length of each trajectory). Fortunately, ElegantRL fully supports parallel computing from a single GPU to hundreds of GPUs, which provides the opportunity to trade computing power for stability.
 
-
 Example: Hopper-v2
 -----------------------------------------------
-Currently, we have implemented the H-term into several widely-used DRL algorithms, PPO, SAC, TD3, and DDPG. Here, we present the performance on a benchmark problem `Hopper-v2 <https://gym.openai.com/envs/Hopper-v2/>`_.
+Currently, we have implemented the H-term into several widely-used DRL algorithms, PPO, SAC, TD3, and DDPG. Here, we present the performance on a benchmark problem `Hopper-v2 <https://gym.openai.com/envs/Hopper-v2/>`_ using PPO algorithm.
+
+The implementations of PPO+H in `here <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl/agents/AgentPPO_H.py>`_
 
 .. image:: ../images/samples.png
    :width: 80%
@@ -51,4 +49,4 @@ Currently, we have implemented the H-term into several widely-used DRL algorithm
    :width: 80%
    :align: center
 
-In terms of variance, it is obvious that ElegantRL substantially outperforms Stable-Baseline3. The variance over 8 runs is much smaller. Also, the PPO+H in ElegantRL completed the training process of 5M samples in about 5x faster than Stable-Baseline3.
+In terms of variance, it is obvious that ElegantRL substantially outperforms Stable-Baseline3. The variance over 8 runs is much smaller. Also, the PPO+H in ElegantRL completed the training process of 5M samples in about 6x faster than Stable-Baseline3.
