@@ -89,7 +89,7 @@ Or install with the newest version through GitHub:
    about/overview
    about/parallel
    about/ensemble
-   about/algorithm_implementation
+   about/algorithm
    
 .. toctree::
    :maxdepth: 1
@@ -100,6 +100,7 @@ Or install with the newest version through GitHub:
    tutorial/Creating_VecEnv
    tutorial/isaacgym
    tutorial/redq
+   tutorial/hterm
    tutorial/finrl-podracer
    tutorial/elegantrl-podracer   
 
