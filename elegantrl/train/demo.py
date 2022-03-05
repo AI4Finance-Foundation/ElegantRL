@@ -1,6 +1,6 @@
 import sys
 import gym
-from elegantrl.run import *
+from elegantrl.train.run import *
 from elegantrl.agents.agent import *
 from elegantrl.train.config import Arguments
 
