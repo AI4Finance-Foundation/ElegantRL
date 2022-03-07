@@ -15,7 +15,7 @@
 <br/>
 
 
-[ElegantRL](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for practitioners with
+ElegantRL [website](https://elegantrl.readthedocs.io/en/latest/index.html) is developed for practitioners with
 the following advantages:
 
 + **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization, supporting [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
