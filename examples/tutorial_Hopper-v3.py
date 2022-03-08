@@ -1,7 +1,7 @@
 import gym
-from elegantrl.agent import AgentPPO
-from elegantrl.config import get_gym_env_args, Arguments
-from elegantrl.run import *
+from elegantrl.agents.agent import AgentPPO
+from elegantrl.train.config import get_gym_env_args, Arguments
+from elegantrl.train.run import *
 
 # set environment name here (e.g. 'Hopper-v3', 'LunarLanderContinuous-v2',
 # 'BipedalWalker-v3')
