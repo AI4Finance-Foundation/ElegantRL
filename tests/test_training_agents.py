@@ -6,9 +6,10 @@ action space.
 
 import gym
 import unittest
-from elegantrl.agent import *
-from elegantrl.config import Arguments, get_gym_env_args
-from elegantrl.run import train_and_evaluate
+from elegantrl.agents.agent import *
+from elegantrl.train.config import Arguments
+from elegantrl.envs.Gym import get_gym_env_args
+from elegantrl.train.run import train_and_evaluate
 
 
 class TestAgents(unittest.TestCase):
