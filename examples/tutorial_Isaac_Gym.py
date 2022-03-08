@@ -8,10 +8,6 @@ from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
 from elegantrl.envs.utils.config_utils import get_isaac_env_args
 from elegantrl.train.run import train_and_evaluate_mp
 
-# FIXME: these environments throw errors!
-# AnymalTerrain
-# Trifinger
-
 # Choose an environment by name. If you want to see what's available, just put a random
 # string here and run the code. :)
 env_name = "Ant"
