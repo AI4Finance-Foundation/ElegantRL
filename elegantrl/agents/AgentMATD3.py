@@ -4,7 +4,7 @@ from elegantrl.agents import AgentBase, AgentDDPG
 from elegantrl.agents.net import Actor, CriticTwin
 
 
-class AgentTD3(AgentBase):
+class AgentTD3:
     """
     Bases: ``AgentBase``
 
