@@ -1,15 +1,24 @@
 # When using Isaac Gym, isaacgym must be imported before torch.
 import isaacgym
+import os
 import torch
-from elegantrl.agent import AgentPPO
-from elegantrl.config import Arguments
+from elegantrl.agents.agent import AgentPPO
+from elegantrl.train.config import Arguments
 from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
 from elegantrl.envs.utils.config_utils import get_isaac_env_args
-from elegantrl.run import train_and_evaluate_mp
+from elegantrl.train.run import train_and_evaluate_mp
+
+# FIXME: these environments throw errors!
+# AnymalTerrain
+# Trifinger
 
 # Choose an environment by name. If you want to see what's available, just put a random
 # string here and run the code. :)
 env_name = "Ant"
+
+# Establish CUDA_LAUNCH_BLOCKING so we can see proper CUDA tracebacks if an error
+# occurs.
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1" 
 
 # Define the training function and training arguments.
 env_func = IsaacVecEnv
