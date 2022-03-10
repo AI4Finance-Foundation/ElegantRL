@@ -660,6 +660,8 @@ class VecTask(Env):
                             corr = torch.randn_like(tensor)
                             params["corr"] = corr
                         corr = corr * params["var_corr"] + params["mu_corr"]
+                        if corr.device != tensor.device:
+                            tensor = tensor.to(corr.device)
                         return op(
                             tensor,
                             corr
