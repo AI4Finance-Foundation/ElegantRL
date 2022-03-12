@@ -13,7 +13,7 @@ Here, we follow a *bottom-up* approach to describe the parallelism at multiple l
 Worker/Learner parallelism
 -----------------------------------------------------------
 
-ElegantRL adopts a worker-learner decomposition of a single agent \citep{Nair2015MassivelyPM}, decoupling the data sampling process and model learning process. We exploit both the worker parallelism and learner parallelism. 
+ElegantRL adopts a worker-learner decomposition of a single agent, decoupling the data sampling process and model learning process. We exploit both the worker parallelism and learner parallelism. 
 
 **Worker parallelism**: a worker generates transitions from interactions of an actor with an environment. As shown in the figure a, ElegantRL supports the recent breakthrough technology, *massively parallel simulation*, with a simulation speedup of 2 ~ 3 orders of magnitude. One GPU can simulate the interactions of one actor with thousands of environments, while existing libraries achieve parallel simulation on hundreds of CPUs.
   
