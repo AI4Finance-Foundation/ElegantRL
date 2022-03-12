@@ -1,4 +1,4 @@
-Concepts and Features
+Key Concepts and Features
 =============
 
 One sentence summary: in deep reinforcement learning (DRL), an agent learns by continuously interacting with an unknown environment, in a trial-and-error manner, making sequential decisions under uncertainty and achieving a balance between exploration (of uncharted territory) and exploitation (of current knowledge).
@@ -8,13 +8,13 @@ The lifecycle of a DRL application consists of three stages: *simulation*, *lear
   - sensitivity to hyper-parameters;
   - unstable generalization ability.
 
-ElegantRL is an open-source massively parallel framework for cloud-native DRL applications implemented in PyTorch:
+ElegantRL is a massively parallel framework for cloud-native DRL applications implemented in PyTorch:
   - We embrace the accessibility of cloud computing platforms and follow a cloud-native paradigm in the form of containerization, microservices, and orchestration, to ensure fast and robust execution on a cloud.
   - We fully exploit the parallelism of DRL algorithms at multiple levels, namely the worker/learner parallelism within a container, the pipeline parallelism (asynchronous execution) over multiple microservices, and the inherent parallelism of the scheduling task at an orchestrator. 
   - We take advantage of recent technology breakthroughs in massively parallel simulation, population-based training that implicitly searches for optimal hyperparameters, and ensemble methods for variance reduction. 
   
   
-ElegantRL is the first open-source cloud-native framework that features strong scalability, elasticity and stability and allows practitioners to conduct efficient training from one GPU to hundreds of GPUs on a cloud:
+**ElegantRL is the first cloud-native framework that features strong scalability, elasticity and stability and allows practitioners to conduct efficient training from one GPU to hundreds of GPUs on a cloud:**
 
 **Scalable**: the multi-level parallelism results in high scalability. One can train a population with hundreds of agents, where each agent employs thousands of workers and tens of learners. Therefore, ElegantRL can easily scale out to a cloud with hundreds or thousands of nodes.
 
