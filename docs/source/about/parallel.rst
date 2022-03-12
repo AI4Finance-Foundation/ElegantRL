@@ -9,6 +9,7 @@ Here, we follow a *bottom-up* approach to describe the parallelism at multiple l
    :width: 80%
    :align: center
 
+An overview of the multi-level parallelism supported by ElegantRL. ElegantRL decomposes an agent into worker (a) and learner (b) and pipes their executions through the pipeline parallelism (c). Besides, ElegantRL emphasizes three types of inherent parallelism in DRL algorithms, including population-based training (PBT) (d1), ensemble methods (d2), and multi-agent DRL (d3).
 
 Worker/Learner parallelism
 -----------------------------------------------------------
