@@ -1,40 +1,51 @@
 Muti-level Parallelism
 ==============================================
 
-ElegantRL is a massively parallel framework for DRL algorithms. We fully exploit the parallelism of DRL algorithms at multiple levels, including agent parallelism of population-based training and worker-learner parallelism of a single agent.
+ElegantRL is a massively parallel framework for DRL algorithms. maps the multi-level parallelism of DRL algorithms to a cloud, namely the worker/learner parallelism within a container, the pipeline parallelism (asynchronous execution) over multiple microservices, and the inherent parallelism of the scheduling task at an orchestrator.
 
-Here, we follow a *bottom-up* approach to describe the parallelism of DRL algorithms at multiple levels.
+Here, we follow a *bottom-up* approach to describe the parallelism at multiple levels.
+
+.. image:: ../images/parallelism.png
+   :width: 80%
+   :align: center
 
 
-Worker parallelism
+Worker/Learner parallelism
 -----------------------------------------------------------
 
-At the bottom, an worker generates transitions (collect training data) from interactions between policy network and environment. Based on the type of the environment, we support two different worker parallelism to generate transitions in parallel:
+ElegantRL adopts a worker-learner decomposition of a single agent \citep{Nair2015MassivelyPM}, decoupling the data sampling process and model learning process. We exploit both the worker parallelism and learner parallelism. 
 
-  - A vectorized environment (VecEnv) runs thousands of independent sub-environments in parallel. In each step, it takes a batch of actions and returns a batch of transitions. When the environment is a VecEnv, if we want the parallelism to be 64, we can simply set #sub-environments to 64 and #workers to 1 in ``Arguments`` in *Config.py*.
+  - Worker parallelism: a worker generates transitions from interactions of an actor with an environment. As shown in the figure a, ElegantRL supports the recent breakthrough technology, *massively parallel simulation*, with a simulation speedup of 2 ~ 3 orders of magnitude. One GPU can simulate the interactions of one actor with thousands of environments, while existing libraries achieve parallel simulation on hundreds of CPUs.
   
-  - When the environment is not a VecEnv, e.g., environments from OpenAI Gym or MuJoCo, if we want the parallelism to be 64, we can directly set #workers to 64.
-  
-.. warning::
-  For VecEnv, if users want to increase the degree of parallelism, we recommend to increase #sub-environments and make #workers unchaged. In pratice, there is no need to set #workers > 1 for GPU-accelerated VecEnv. 
-  
-We highly recommend users to use GPU-accelerated VecEnv to achieve massively parallel simulations. A GPU-accelerated VecEnv can:
-
+Advantage of massively parallel simulation:
   - Running thousands of parallel simulations, since the manycore GPU architecture is natually suited for parallel simulations.
   - Speeding up the matrix computations of each simulation using GPU tensor cores.
   - Reducing the communication overhead by bypassing the bottleneck between CPUs and GPUs.
-  - Maximizing GPU utilization through pipeline parallelism.
+  - Maximizing GPU utilization.
   
+To achieve massively parallel simulation, ElegantRL supports both user-customized and imported simulator, namely Issac Gym from NVIDIA.
 A tutorial on how to create a GPU-accelerated VecEnv is available `here <https://elegantrl.readthedocs.io/en/latest/examples/Creating_VecEnv.html>`_.
+A tutorial on how to utilize Isaac Gym as an imported massively parallel simulator is available `here <https://elegantrl.readthedocs.io/en/latest/tutorial/isaacgym.html>`_.
+
+.. note::
+  Besides massively parallel simulation on GPUs, we allow users to conduct worker parallelism on classic environments through multiprocessing, e.g., OpenAI Gym and MuJoCo. 
+
+  - Learner parallelism: a learner fetches a batch of transitions to train neural networks, e.g., a critic net and an actor net in the figure b. Multiple critic nets and actor nets of an ensemble method can be trained simultaneously on one GPU. It is different from other libraries that achieve parallel training on multiple CPUs via distributed SGD.
 
 
-Learner parallelism
+Pipeline parallelism
 -----------------------------------------------------------
 
-In the middle, a learner fetches a batch of transitions to train neural networks, e.g., value net and policy net. We support multiple-critics and multiple actors running in parallel for ensemble DRL methods. Due to the stochastic nature of the training process (e.g., random seeds), an ensemble DRL algorithm increases the diversity of the data collection, improves the stability of the learning process, and reduces the overestimation bias.
+We view the worker-learner interaction as a *producer-consumer* model: a worker produces transitions and a learner consumes. As shown in figure c, ElegantRL pipelines the execution of workers and learners, allowing them to run on one GPU asynchronously. We exploit pipeline parallelism in our implementations of off-policy model-free algorithms, including DDPG, TD3, SAC, etc.
 
 
-Agent parallelism
+Inherent parallelism
 -----------------------------------------------------------
+ElegantRL supports three types of inherent parallelism in DRL algorithms, including *population-based training*, *ensemble methods*, and *multi-agent DRL*. Each features strong independence and requires little or no communication. 
 
-On the top, an agent is self-contained and encapsulated, including the components, *worker, learner, and evaluator*. We adopt the population-based training to train hundreds of agents in parallel, which offers a flexibility for ensemble methods on the cloud.
+  - Population-based training (PBT): it trains hundreds of agents and obtains a powerful agent, e.g., generational evolution and tournament-based evolution. As shown in figure d1, an agent is encapsulated into a pod on the cloud, whose training is orchestrated by the evaluator and selector of a PBT controller. Population-based training implicitly achieves massively parallel hyper-parameter tuning.
+  - Ensemble methods: it combines the predictions of multiple models and obtains a better result than each individual result, as shown in figure d2. ElegantRL implements various ensemble methods that perform remarkably well in the following scenarios: 
+  1. take an average of multiple critic nets to reduce the variance in the estimation of Q-value;
+  2. perform a minimization over multiple critic nets to reduce over-estimation bias;
+  3. optimize hyper-parameters by initializing agents in a population with different hyper-parameters.
+  - Multi-agent DRL: in the cooperative, competitive, or mixed settings of MARL, multiple parallel agents interact with the same environment. During the training process, there is little communication among those parallel agents.
