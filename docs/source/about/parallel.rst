@@ -1,7 +1,7 @@
 Muti-level Parallelism
 ==============================================
 
-ElegantRL is a massively parallel framework for DRL algorithms. maps the multi-level parallelism of DRL algorithms to a cloud, namely the worker/learner parallelism within a container, the pipeline parallelism (asynchronous execution) over multiple microservices, and the inherent parallelism of the scheduling task at an orchestrator.
+ElegantRL is a massively parallel framework for DRL algorithms. In this article, we will explain how we map the multi-level parallelism of DRL algorithms to a cloud, namely the worker/learner parallelism within a container, the pipeline parallelism (asynchronous execution) over multiple microservices, and the inherent parallelism of the scheduling task at an orchestrator.
 
 Here, we follow a *bottom-up* approach to describe the parallelism at multiple levels.
 
