@@ -87,9 +87,9 @@ Or install with the newest version through GitHub:
    :caption: Overview
 
    about/overview
+   about/cloud
    about/parallel
-   about/ensemble
-   about/algorithm
+   
    
 .. toctree::
    :maxdepth: 1
