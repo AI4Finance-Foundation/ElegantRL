@@ -14,56 +14,54 @@
 </a>
 <br/>
 
-
 ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is developed for practitioners with
 the following advantages:
 
-+ **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization, supporting [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
+- **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization, supporting [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
 
-+ **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
+- **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
 
-+ **Elastic**: allows to elastically and automatically allocate computing resources on the cloud.
+- **Elastic**: allows to elastically and automatically allocate computing resources on the cloud.
 
-+ **Lightweight**: the core codes  <1,000 lines (check [Elegantrl_Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
+- **Lightweight**: the core codes <1,000 lines (check [Elegantrl_Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
 
-+ **Efficient**: in many testing cases (single GPU/multi-GPU/GPU cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
+- **Efficient**: in many testing cases (single GPU/multi-GPU/GPU cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
 
-+ **Stable**: much much much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various ensemble methods.
+- **Stable**: much much much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various ensemble methods.
 
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
-+ **DDPG, TD3, SAC, PPO, REDQ** for continuous actions,
-+ **DQN, Double DQN, D3QN, SAC** for discrete actions,
-+ **QMIX, VDN, MADDPG, MAPPO, MATD3** for multi-agent environment.
+- **DDPG, TD3, SAC, PPO, REDQ** for continuous actions,
+- **DQN, Double DQN, D3QN, SAC** for discrete actions,
+- **QMIX, VDN, MADDPG, MAPPO, MATD3** for multi-agent environment.
 
 For the details of DRL algorithms, please check out the educational
 webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
 
 ElegantRL supports the following simulators:
 
-+ **Isaac Gym** for massively parallel simulation,
-+ **OpenAI Gym, MuJoCo, PyBullet, FinRL** for benchmarking.
+- **Isaac Gym** for massively parallel simulation,
+- **OpenAI Gym, MuJoCo, PyBullet, FinRL** for benchmarking.
 
 “小雅”源于《诗经·小雅·鹤鸣》，旨在「他山之石，可以攻玉」。
 
 ## Contents
 
-+ [News](#News)
-+ [ElegantRL-Helloworld](#ElegantRL-Helloworld)
-+ [File Structure](#File-Structure)
-+ [Experimental Demos](#Experimental-Demos)
-+ [Requirements](#Requirements)
-+ [Citation](#Citation)
+- [News](#News)
+- [ElegantRL-Helloworld](#ElegantRL-Helloworld)
+- [File Structure](#File-Structure)
+- [Experimental Demos](#Experimental-Demos)
+- [Requirements](#Requirements)
+- [Citation](#Citation)
 
 ## News
 
-+ [MLearning.ai] [ElegantRL: Much More Stable Deep Reinforcement Learning Algorithms than Stable-Baseline3](https://medium.com/mlearning-ai/elegantrl-much-much-more-stable-than-stable-baseline3-f096533c26db), Mar 3, 2022.
-+ [Towardsdatascience] [ElegantRL-Podracer: A Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning](https://elegantrl.medium.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0), Dec 11, 2021.
-+ [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791), May 3, 2021.
-+ [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f), Apr 19, 2021.
-+ [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208), Mar 28, 2021.
-+ [Towardsdatascience] [ElegantRL-Helloworld: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
-
+- [MLearning.ai] [ElegantRL: Much More Stable Deep Reinforcement Learning Algorithms than Stable-Baseline3](https://medium.com/mlearning-ai/elegantrl-much-much-more-stable-than-stable-baseline3-f096533c26db), Mar 3, 2022.
+- [Towardsdatascience] [ElegantRL-Podracer: A Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning](https://elegantrl.medium.com/elegantrl-podracer-scalable-and-elastic-library-for-cloud-native-deep-reinforcement-learning-bafda6f7fbe0), Dec 11, 2021.
+- [Towardsdatascience] [ElegantRL: Mastering PPO Algorithms](https://medium.com/@elegantrl/elegantrl-mastering-the-ppo-algorithm-part-i-9f36bc47b791), May 3, 2021.
+- [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part II)](https://medium.com/mlearning-ai/elegantrl-demo-stock-trading-using-ddpg-part-ii-d3d97e01999f), Apr 19, 2021.
+- [MLearning.ai] [ElegantRL Demo: Stock Trading Using DDPG (Part I)](https://elegantrl.medium.com/elegantrl-demo-stock-trading-using-ddpg-part-i-e77d7dc9d208), Mar 28, 2021.
+- [Towardsdatascience] [ElegantRL-Helloworld: A Lightweight and Stable Deep Reinforcement Learning Library](https://towardsdatascience.com/elegantrl-a-lightweight-and-stable-deep-reinforcement-learning-library-95cef5f3460b), Mar 4, 2021.
 
 ## ElegantRL-Helloworld
 
@@ -73,32 +71,32 @@ ElegantRL supports the following simulators:
 
 For beginners, we maintain [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
 
-One sentence summary: an agent (*agent.py*) with Actor-Critic networks (*net.py*) is trained (*run.py*) by interacting with an environment (*env.py*).
+One sentence summary: an agent (_agent.py_) with Actor-Critic networks (_net.py_) is trained (_run.py_) by interacting with an environment (_env.py_).
 
 ## File Structure
 
-+ **elegantrl**               # main folder
-    + envs,                   # a collection of environments
-    + agent.py,               # DRL algorithms
-    + config.py,              # configurations (hyper-parameter)
-    + demo.py,                # a collection of demos
-    + evaluator.py            # the evaluator class
-    + net.py                  # a collection of network architectures
-    + replay_buffer.py        # the buffer class
-    + run.py                  # training loop
-+ **elegantrl_helloworld**    # tutorial version
-    + env.py,
-    + agent.py,
-    + demo.py,
-    + net.py
-    + run.py
-+ **examples**                # a collection of example codes
-+ **ready-to-run Google-Colab notebooks**
-    + quickstart_Pendulum_v1.ipynb
-    + tutorial_BipedalWalker_v3.ipynb
-    + tutorial_Creating_ChasingVecEnv.ipynb
-    + tutorial_LunarLanderContinuous_v2.ipynb
-+ **tests**                   # a collection of tests
+- **elegantrl** # main folder
+  - envs, # a collection of environments
+  - agent.py, # DRL algorithms
+  - config.py, # configurations (hyper-parameter)
+  - demo.py, # a collection of demos
+  - evaluator.py # the evaluator class
+  - net.py # a collection of network architectures
+  - replay_buffer.py # the buffer class
+  - run.py # training loop
+- **elegantrl_helloworld** # tutorial version
+  - env.py,
+  - agent.py,
+  - demo.py,
+  - net.py
+  - run.py
+- **examples** # a collection of example codes
+- **ready-to-run Google-Colab notebooks**
+  - quickstart_Pendulum_v1.ipynb
+  - tutorial_BipedalWalker_v3.ipynb
+  - tutorial_Creating_ChasingVecEnv.ipynb
+  - tutorial_LunarLanderContinuous_v2.ipynb
+- **unit_tests** # a collection of tests
 
 ## Experimental Demos
 
@@ -117,7 +115,7 @@ ElegantRL fully supports Isaac Gym that runs massively parallel simulation (e.g.
 
 Experiment on Hopper-v2 # ElegantRL achieves much smaller variance (average over 8 runs).
 
-Also, PPO+H in ElegantRL completed the training process of 5M samples about 6x faster than Stable-Baseline3. 
+Also, PPO+H in ElegantRL completed the training process of 5M samples about 6x faster than Stable-Baseline3.
 
 <div align="center">
 	<img align="center" src=figs/SB3_vs_ElegantRL.png width="640">
@@ -127,7 +125,7 @@ Also, PPO+H in ElegantRL completed the training process of 5M samples about 6x f
 
 Our tests are written with the built-in `unittest` Python module for easy access. In order to run a specific test file (for example, `test_training_agents.py`), use the following command from the root directory:
 
-    python -m unittest tests/test_training_agents.py
+    python -m unittest unit_tests/test_training_agents.py
 
 In order to run all the tests sequentially, you can use the following command:
 
@@ -142,16 +140,16 @@ We're actively working on refactoring and trying to make the codebase cleaner an
 ## Requirements
 
     Necessary:
-    | Python 3.6+     |           
-    | PyTorch 1.6+    |    
+    | Python 3.6+     |
+    | PyTorch 1.6+    |
 
     Not necessary:
     | Numpy 1.18+     | For ReplayBuffer. Numpy will be installed along with PyTorch.
     | gym 0.17.0      | For env. Gym provides tutorial env for DRL training. (env.render() bug in gym==0.18 pyglet==1.6. Change to gym==0.17.0, pyglet==1.5)
     | pybullet 2.7+   | For env. We use PyBullet (free) as an alternative of MuJoCo (not free).
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
-    | matplotlib 3.2  | For plots. 
-    
+    | matplotlib 3.2  | For plots.
+
     pip3 install gym==0.17.0 pybullet Box2D matplotlib
 
     To install StarCraftII env,
@@ -172,4 +170,3 @@ To cite this repository:
   howpublished = {\url{https://github.com/AI4Finance-Foundation/ElegantRL}},
 }
 ```
-
