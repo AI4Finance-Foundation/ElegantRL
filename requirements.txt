@@ -1,11 +1,13 @@
-# modules 
+# DRL required modules 
 gym
-matplotlib
-pybullet
 torch
-opencv-python
-box2d-py
+
 
 # data handling
 numpy
 
+# plot/simulation
+matplotlib
+pybullet
+opencv-python
+box2d-py
