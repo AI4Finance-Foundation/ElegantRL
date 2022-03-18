@@ -1,5 +1,5 @@
 # DRL env
-gym
+gym>=0.17
 
 # ML framework
 torch
