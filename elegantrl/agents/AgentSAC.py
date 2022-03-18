@@ -143,7 +143,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
 
-            next_a, next_log_prob = self.act_target.get_action_logprob(
+            next_a, next_log_prob = self.act.get_action_logprob(
                 next_s
             )  # stochastic policy
             next_q = torch.min(
@@ -169,7 +169,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2021.11.11]
                 batch_size
             )
 
-            next_a, next_log_prob = self.act_target.get_action_logprob(
+            next_a, next_log_prob = self.act.get_action_logprob(
                 next_s
             )  # stochastic policy
             next_q = torch.min(
