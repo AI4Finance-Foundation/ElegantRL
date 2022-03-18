@@ -1,7 +1,7 @@
 # DRL env
 gym
 
-# ML modules
+# ML framework
 torch
 
 
