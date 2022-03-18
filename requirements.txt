@@ -1,5 +1,7 @@
-# DRL required modules 
+# DRL env
 gym
+
+# ML modules
 torch
 
 
