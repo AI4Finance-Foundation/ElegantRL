@@ -150,8 +150,8 @@ We're actively working on refactoring and trying to make the codebase cleaner an
     | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
     | matplotlib 3.2  | For plots.
 
-    pip3 install gym==0.17.0 pybullet Box2D matplotlib
-
+    pip3 install gym==0.17.0 pybullet Box2D matplotlib # or pip install -r requirements.txt
+    
     To install StarCraftII env,
     bash ./elegantrl/envs/installsc2.sh
     pip install -r sc2_requirements.txt
