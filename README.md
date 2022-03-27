@@ -162,7 +162,7 @@ To cite this repository:
 
 ```
 @misc{erl,
-  author = {Liu, Xiao-Yang and Li, Zechu and Wang, Zhaoran and Zheng, Jiahao},
+  author = {Liu, Xiao-Yang and Li, Zechu and Zheng, Jiahao},
   title = {{ElegantRL}: Massively Parallel Framework for Cloud-native Deep Reinforcement Learning},
   year = {2021},
   publisher = {GitHub},
