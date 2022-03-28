@@ -5,7 +5,12 @@ import isaacgym
 import numpy as np
 import torch  # import torch after import IsaacGym modules
 
-from elegantrl.envs.utils_OLD.config import set_seed, get_args, parse_sim_params, load_cfg
+from elegantrl.envs.utils_OLD.config import (
+    set_seed,
+    get_args,
+    parse_sim_params,
+    load_cfg,
+)
 from elegantrl.envs.utils_OLD.parse_task import parse_task
 from typing import Tuple
 

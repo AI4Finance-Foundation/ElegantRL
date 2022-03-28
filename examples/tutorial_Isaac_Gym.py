@@ -14,7 +14,7 @@ env_name = "Ant"
 
 # Establish CUDA_LAUNCH_BLOCKING so we can see proper CUDA tracebacks if an error
 # occurs.
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1" 
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 # Define the training function and training arguments.
 env_func = IsaacVecEnv

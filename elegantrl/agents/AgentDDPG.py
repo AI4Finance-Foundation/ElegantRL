@@ -4,6 +4,7 @@ from elegantrl.agents.net import (
 )
 from elegantrl.agents.AgentBase import AgentBase
 
+
 class AgentDDPG(AgentBase):
     """
     Bases: ``AgentBase``
@@ -18,13 +19,15 @@ class AgentDDPG(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    
+
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.if_off_policy = True
-        self.act_class = getattr(self, 'act_class', ActorSAC)
-        self.cri_class = getattr(self, 'cri_class', CriticTwin)
+        self.act_class = getattr(self, "act_class", ActorSAC)
+        self.cri_class = getattr(self, "cri_class", CriticTwin)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
-        self.act.explore_noise = getattr(args, 'explore_noise', 0.1)  # set for `get_action()`
+        self.act.explore_noise = getattr(
+            args, "explore_noise", 0.1
+        )  # set for `get_action()`
 
     def update_net(self, buffer):
         """

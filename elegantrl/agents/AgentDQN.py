@@ -2,6 +2,7 @@ import torch
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import QNet, QNetDuel
 
+
 class AgentDQN(AgentBase):
     """
     Bases: ``AgentBase``
@@ -16,13 +17,13 @@ class AgentDQN(AgentBase):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    
+
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.if_off_policy = True
-        self.act_class = getattr(self, 'act_class', QNet)
+        self.act_class = getattr(self, "act_class", QNet)
         self.cri_class = None  # = act_class
         AgentBase.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
-        self.act.explore_rate = getattr(args, 'explore_rate', 0.125)
+        self.act.explore_rate = getattr(args, "explore_rate", 0.125)
         # the probability of choosing action randomly in epsilon-greedy
 
     def explore_one_env(self, env, target_step) -> list:
@@ -36,7 +37,9 @@ class AgentDQN(AgentBase):
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
         traj_list = list()
-        last_done = [0, ]
+        last_done = [
+            0,
+        ]
         state = self.states[0]
 
         step_i = 0
@@ -75,7 +78,9 @@ class AgentDQN(AgentBase):
             ten_a = self.act.get_action(ten_s).detach()
             ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a)  # different
 
-            traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a))  # different
+            traj_list.append(
+                (ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a)
+            )  # different
 
             step_i += 1
             last_done[torch.where(ten_dones)[0]] = step_i  # behind `step_i+=1`
@@ -128,12 +133,16 @@ class AgentDQN(AgentBase):
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
             q_label = reward + mask * next_q
 
         q_value = self.cri(state).gather(1, action.long())
-        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
+        td_error = self.criterion(
+            q_value, q_label
+        )  # or td_error = (q_value - q_label).abs()
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())
@@ -147,6 +156,7 @@ class AgentDuelingDQN(AgentDQN):
     Dueling network.
 
     """
+
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
-        self.act_class = getattr(self, 'act_class', QNetDuel)
+        self.act_class = getattr(self, "act_class", QNetDuel)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)

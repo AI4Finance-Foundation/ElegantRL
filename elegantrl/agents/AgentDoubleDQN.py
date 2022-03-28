@@ -17,9 +17,9 @@ class AgentDoubleDQN(AgentDQN):
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-    
+
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
-        self.act_class = getattr(self, 'act_class', QNetTwin)
+        self.act_class = getattr(self, "act_class", QNetTwin)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
 
     def get_obj_critic_raw(self, buffer, batch_size):
@@ -32,7 +32,9 @@ class AgentDoubleDQN(AgentDQN):
         """
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(
+                dim=1, keepdim=True
+            )[0]
             q_label = reward + mask * next_q
 
         q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
@@ -48,8 +50,12 @@ class AgentDoubleDQN(AgentDQN):
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0]
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(
+                dim=1, keepdim=True
+            )[0]
             q_label = reward + mask * next_q
 
         q1, q2 = [qs.gather(1, action.long()) for qs in self.act.get_q1_q2(state)]
@@ -62,5 +68,5 @@ class AgentDoubleDQN(AgentDQN):
 
 class AgentD3QN(AgentDoubleDQN):  # D3QN: DuelingDoubleDQN
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
-        self.act_class = getattr(self, 'act_class', QNetTwinDuel)
+        self.act_class = getattr(self, "act_class", QNetTwinDuel)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)

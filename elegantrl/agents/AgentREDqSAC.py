@@ -1,15 +1,15 @@
 import numpy as np
 import torch
-from elegantrl.agents.net import (
-    ActorFixSAC,
-    CriticREDq
-)
+from elegantrl.agents.net import ActorFixSAC, CriticREDq
 from elegantrl.agents.AgentSAC import AgentSAC
 
-class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
+
+class AgentREDqSAC(
+    AgentSAC
+):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
-        self.act_class = getattr(self, 'act_class', ActorFixSAC)
-        self.cri_class = getattr(self, 'cri_class', CriticREDq)
+        self.act_class = getattr(self, "act_class", ActorFixSAC)
+        self.cri_class = getattr(self, "cri_class", CriticREDq)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
@@ -17,7 +17,9 @@ class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Tw
         with torch.no_grad():
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
 
-            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_a, next_log_prob = self.act_target.get_action_logprob(
+                next_s
+            )  # stochastic policy
             next_q = self.cri_target.get_q_min(next_s, next_a)
 
             alpha = self.alpha_log.exp().detach()
@@ -28,9 +30,13 @@ class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Tw
 
     def get_obj_critic_per(self, buffer, batch_size):
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
 
-            next_a, next_log_prob = self.act_target.get_action_logprob(next_s)  # stochastic policy
+            next_a, next_log_prob = self.act_target.get_action_logprob(
+                next_s
+            )  # stochastic policy
             next_q = self.cri_target.get_q_min(next_s, next_a)
 
             alpha = self.alpha_log.exp().detach()

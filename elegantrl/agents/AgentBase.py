@@ -2,8 +2,11 @@ import os
 import torch
 from copy import deepcopy
 
+
 class AgentBase:
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(
+        self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
+    ):
         """initialize
 
         replace by different DRL algorithms
@@ -20,36 +23,48 @@ class AgentBase:
         :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
         :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
         """
-        self.gamma = getattr(args, 'gamma', 0.99)
-        self.env_num = getattr(args, 'env_num', 1)
-        self.batch_size = getattr(args, 'batch_size', 128)
-        self.repeat_times = getattr(args, 'repeat_times', 1.)
-        self.reward_scale = getattr(args, 'reward_scale', 1.)
-        self.lambda_gae_adv = getattr(args, 'lambda_entropy', 0.98)
-        self.if_use_old_traj = getattr(args, 'if_use_old_traj', False)
-        self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
+        self.gamma = getattr(args, "gamma", 0.99)
+        self.env_num = getattr(args, "env_num", 1)
+        self.batch_size = getattr(args, "batch_size", 128)
+        self.repeat_times = getattr(args, "repeat_times", 1.0)
+        self.reward_scale = getattr(args, "reward_scale", 1.0)
+        self.lambda_gae_adv = getattr(args, "lambda_entropy", 0.98)
+        self.if_use_old_traj = getattr(args, "if_use_old_traj", False)
+        self.soft_update_tau = getattr(args, "soft_update_tau", 2**-8)
 
-        if_act_target = getattr(args, 'if_act_target', False)
-        if_cri_target = getattr(args, 'if_cri_target', False)
-        if_off_policy = getattr(args, 'if_off_policy', True)
-        learning_rate = getattr(args, 'learning_rate', 2 ** -12)
+        if_act_target = getattr(args, "if_act_target", False)
+        if_cri_target = getattr(args, "if_cri_target", False)
+        if_off_policy = getattr(args, "if_off_policy", True)
+        learning_rate = getattr(args, "learning_rate", 2**-12)
 
         self.states = None
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-        self.traj_list = [[list() for _ in range(4 if if_off_policy else 5)]
-                          for _ in range(self.env_num)]  # for `self.explore_vec_env()`
+        self.device = torch.device(
+            f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu"
+        )
+        self.traj_list = [
+            [list() for _ in range(4 if if_off_policy else 5)]
+            for _ in range(self.env_num)
+        ]  # for `self.explore_vec_env()`
 
-        act_class = getattr(self, 'act_class', None)
-        cri_class = getattr(self, 'cri_class', None)
+        act_class = getattr(self, "act_class", None)
+        cri_class = getattr(self, "cri_class", None)
         self.act = act_class(net_dim, state_dim, action_dim).to(self.device)
-        self.cri = cri_class(net_dim, state_dim, action_dim).to(self.device) if cri_class else self.act
+        self.cri = (
+            cri_class(net_dim, state_dim, action_dim).to(self.device)
+            if cri_class
+            else self.act
+        )
         self.act_target = deepcopy(self.act) if if_act_target else self.act
         self.cri_target = deepcopy(self.cri) if if_cri_target else self.cri
 
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), learning_rate)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), learning_rate) if cri_class else self.act_optimizer
+        self.cri_optimizer = (
+            torch.optim.Adam(self.cri.parameters(), learning_rate)
+            if cri_class
+            else self.act_optimizer
+        )
 
-        '''function'''
+        """function"""
         self.criterion = torch.nn.SmoothL1Loss()
 
         if self.env_num == 1:
@@ -57,11 +72,13 @@ class AgentBase:
         else:
             self.explore_env = self.explore_vec_env
 
-        if getattr(args, 'if_use_per', False):  # PER (Prioritized Experience Replay) for sparse reward
-            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
+        if getattr(
+            args, "if_use_per", False
+        ):  # PER (Prioritized Experience Replay) for sparse reward
+            self.criterion = torch.nn.SmoothL1Loss(reduction="none")
             self.get_obj_critic = self.get_obj_critic_per
         else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
+            self.criterion = torch.nn.SmoothL1Loss(reduction="mean")
             self.get_obj_critic = self.get_obj_critic_raw
 
     def explore_one_env(self, env, target_step) -> list:
@@ -74,14 +91,18 @@ class AgentBase:
         `traj_env_0 = [(state, other), ...]` for off-policy
         """
         traj_list = list()
-        last_done = [0, ]
+        last_done = [
+            0,
+        ]
         state = self.states[0]
 
         step_i = 0
         done = False
         while step_i < target_step or not done:
             ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a = self.act.get_action(ten_s.to(self.device)).detach().cpu()  # different
+            ten_a = (
+                self.act.get_action(ten_s.to(self.device)).detach().cpu()
+            )  # different
             next_s, reward, done, _ = env.step(ten_a[0].numpy())  # different
 
             traj_list.append((ten_s, reward, done, ten_a))  # different
@@ -112,7 +133,9 @@ class AgentBase:
             ten_a = self.act.get_action(ten_s).detach()  # different
             ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a)  # different
 
-            traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a))  # different
+            traj_list.append(
+                (ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a)
+            )  # different
 
             step_i += 1
             last_done[torch.where(ten_dones)[0]] = step_i  # behind `step_i+=1`
@@ -133,12 +156,14 @@ class AgentBase:
         # assert len(buf_items) == step_i
         # assert len(buf_items[0]) in {4, 5}
         # assert len(buf_items[0][0]) == self.env_num
-        buf_items = list(map(list, zip(*buf_items)))  # state, reward, done, action, noise
+        buf_items = list(
+            map(list, zip(*buf_items))
+        )  # state, reward, done, action, noise
         # assert len(buf_items) == {4, 5}
         # assert len(buf_items[0]) == step
         # assert len(buf_items[0][0]) == self.env_num
 
-        '''stack items'''
+        """stack items"""
         buf_items[0] = torch.stack(buf_items[0])
         buf_items[3:] = [torch.stack(item) for item in buf_items[3:]]
 
@@ -147,15 +172,21 @@ class AgentBase:
 
         if self.env_num > 1:
             buf_items[1] = (torch.stack(buf_items[1]) * self.reward_scale).unsqueeze(2)
-            buf_items[2] = ((~torch.stack(buf_items[2]))*self.gamma).unsqueeze(2)
+            buf_items[2] = ((~torch.stack(buf_items[2])) * self.gamma).unsqueeze(2)
         else:
-            buf_items[1] = (torch.tensor(buf_items[1], dtype=torch.float32) * self.reward_scale
-                            ).unsqueeze(1).unsqueeze(2)
-            buf_items[2] = ((1 - torch.tensor(buf_items[2], dtype=torch.float32)) * self.gamma
-                            ).unsqueeze(1).unsqueeze(2)
+            buf_items[1] = (
+                (torch.tensor(buf_items[1], dtype=torch.float32) * self.reward_scale)
+                .unsqueeze(1)
+                .unsqueeze(2)
+            )
+            buf_items[2] = (
+                ((1 - torch.tensor(buf_items[2], dtype=torch.float32)) * self.gamma)
+                .unsqueeze(1)
+                .unsqueeze(2)
+            )
         # assert all([buf_item.shape[:2] == (step, self.env_num) for buf_item in buf_items])
 
-        '''splice items'''
+        """splice items"""
         for j in range(len(buf_items)):
             cur_item = list()
             buf_item = buf_items[j]
@@ -208,7 +239,9 @@ class AgentBase:
         :return: the loss of the network and states.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
             next_a = self.act_target(next_s)
             critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
             # taking a minimum while preserving the dimension for possible twin critics
@@ -250,12 +283,19 @@ class AgentBase:
         :param cwd: Current Working Directory. ElegantRL save training files in CWD.
         :param if_save: True: save files. False: load files.
         """
+
         def load_torch_file(model_or_optim, _path):
             state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
             model_or_optim.load_state_dict(state_dict)
 
-        name_obj_list = [('actor', self.act), ('act_target', self.act_target), ('act_optim', self.act_optimizer),
-                         ('critic', self.cri), ('cri_target', self.cri_target), ('cri_optim', self.cri_optimizer), ]
+        name_obj_list = [
+            ("actor", self.act),
+            ("act_target", self.act_target),
+            ("act_optim", self.act_optimizer),
+            ("critic", self.cri),
+            ("cri_target", self.cri_target),
+            ("cri_optim", self.cri_optimizer),
+        ]
         name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
         if if_save:
             for name, obj in name_obj_list:

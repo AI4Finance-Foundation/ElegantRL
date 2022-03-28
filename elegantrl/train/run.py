@@ -8,7 +8,7 @@ from elegantrl.train.config import build_env
 from elegantrl.train.evaluator import Evaluator
 from elegantrl.train.replay_buffer import ReplayBuffer, ReplayBufferList
 
-'''[ElegantRL.2022.01.01](github.com/AI4Fiance-Foundation/ElegantRL)'''
+"""[ElegantRL.2022.01.01](github.com/AI4Fiance-Foundation/ElegantRL)"""
 
 
 def train_and_evaluate(args):
@@ -16,7 +16,7 @@ def train_and_evaluate(args):
     args.init_before_training()
     gpu_id = args.learner_gpus
 
-    '''init'''
+    """init"""
     env = build_env(args.env, args.env_func, args.env_args)
 
     agent = init_agent(args, gpu_id, env)
@@ -28,7 +28,7 @@ def train_and_evaluate(args):
         trajectory = agent.explore_env(env, args.target_step)
         buffer.update_buffer((trajectory,))
 
-    '''start training'''
+    """start training"""
     cwd = args.cwd
     break_step = args.break_step
     target_step = args.target_step
@@ -55,19 +55,23 @@ def train_and_evaluate(args):
             and evaluator.total_step <= break_step
             and stop_dir_absent
         )
-    print(f'| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}')
+    print(f"| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}")
     agent.save_or_load_agent(cwd, if_save=if_save)
     buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
 
 
 def init_agent(args, gpu_id, env=None):
-    agent = args.agent(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
+    agent = args.agent(
+        args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args
+    )
     agent.save_or_load_agent(args.cwd, if_save=False)
 
     if env is not None:
-        '''assign `agent.states` for exploration'''
+        """assign `agent.states` for exploration"""
         if args.env_num == 1:
-            states = [env.reset(), ]
+            states = [
+                env.reset(),
+            ]
             assert isinstance(states[0], np.ndarray)
             assert states[0].shape in {(args.state_dim,), args.state_dim}
         else:
@@ -80,10 +84,12 @@ def init_agent(args, gpu_id, env=None):
 
 def init_buffer(args, gpu_id):
     if args.if_off_policy:
-        buffer = ReplayBuffer(gpu_id=gpu_id,
-                              max_len=args.max_memo,
-                              state_dim=args.state_dim,
-                              action_dim=1 if args.if_discrete else args.action_dim, )
+        buffer = ReplayBuffer(
+            gpu_id=gpu_id,
+            max_len=args.max_memo,
+            state_dim=args.state_dim,
+            action_dim=1 if args.if_discrete else args.action_dim,
+        )
         buffer.save_or_load_history(args.cwd, if_save=False)
 
     else:
@@ -99,24 +105,32 @@ def init_evaluator(args, gpu_id):
     return evaluator
 
 
-'''train multiple process'''
+"""train multiple process"""
 
 
 def train_and_evaluate_mp(args):
     args.init_before_training()
 
     process = list()
-    mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
+    mp.set_start_method(
+        method="spawn", force=True
+    )  # force all the multiprocessing to 'spawn' methods
 
     evaluator_pipe = PipeEvaluator()
     process.append(mp.Process(target=evaluator_pipe.run, args=(args,)))
 
     worker_pipe = PipeWorker(args.worker_num)
-    process.extend([mp.Process(target=worker_pipe.run, args=(args, worker_id))
-                    for worker_id in range(args.worker_num)])
+    process.extend(
+        [
+            mp.Process(target=worker_pipe.run, args=(args, worker_id))
+            for worker_id in range(args.worker_num)
+        ]
+    )
 
     learner_pipe = PipeLearner()
-    process.append(mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe)))
+    process.append(
+        mp.Process(target=learner_pipe.run, args=(args, evaluator_pipe, worker_pipe))
+    )
 
     for p in process:
         p.start()
@@ -144,11 +158,11 @@ class PipeWorker:
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
-        '''init'''
+        """init"""
         env = build_env(args.env, args.env_func, args.env_args)
         agent = init_agent(args, gpu_id, env)
 
-        '''loop'''
+        """loop"""
         target_step = args.target_step
         if args.if_off_policy:
             trajectory = agent.explore_env(env, args.target_step)
@@ -171,11 +185,11 @@ class PipeLearner:
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
-        '''init'''
+        """init"""
         agent = init_agent(args, gpu_id)
         buffer = init_buffer(args, gpu_id)
 
-        '''loop'''
+        """loop"""
         if_train = True
         while if_train:
             traj_list = comm_exp.explore(agent)
@@ -185,11 +199,13 @@ class PipeLearner:
             logging_tuple = agent.update_net(buffer)
             torch.set_grad_enabled(False)
 
-            if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
+            if_train, if_save = comm_eva.evaluate_and_save_mp(
+                agent.act, steps, r_exp, logging_tuple
+            )
         agent.save_or_load_agent(args.cwd, if_save=True)
-        print(f'| Learner: Save in {args.cwd}')
+        print(f"| Learner: Save in {args.cwd}")
 
-        if hasattr(buffer, 'save_or_load_history'):
+        if hasattr(buffer, "save_or_load_history"):
             print(f"| LearnerPipe.run: ReplayBuffer saving in {args.cwd}")
             buffer.save_or_load_history(args.cwd, if_save=True)
 
@@ -214,11 +230,11 @@ class PipeEvaluator:
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
-        '''init'''
+        """init"""
         agent = init_agent(args, gpu_id)
         evaluator = init_evaluator(args, gpu_id)
 
-        '''loop'''
+        """loop"""
         cwd = args.cwd
         act = agent.act
         break_step = args.break_step
@@ -234,21 +250,29 @@ class PipeEvaluator:
 
             if act_dict:
                 act.load_state_dict(act_dict)
-                if_reach_goal, if_save = evaluator.evaluate_save_and_plot(act, steps, r_exp, logging_tuple)
+                if_reach_goal, if_save = evaluator.evaluate_save_and_plot(
+                    act, steps, r_exp, logging_tuple
+                )
 
                 temp += 1
                 if temp == 4:  # todo
                     temp = 0
-                    torch.save(act.state_dict(), f"{cwd}/actor_{evaluator.total_step:09}.pth")  # todo
+                    torch.save(
+                        act.state_dict(), f"{cwd}/actor_{evaluator.total_step:09}.pth"
+                    )  # todo
             else:
                 evaluator.total_step += steps
 
-            if_train = not ((if_allow_break and if_reach_goal)
-                            or evaluator.total_step > break_step
-                            or os.path.exists(f'{cwd}/stop'))
+            if_train = not (
+                (if_allow_break and if_reach_goal)
+                or evaluator.total_step > break_step
+                or os.path.exists(f"{cwd}/stop")
+            )
             self.pipe0.send((if_train, if_save))
 
-        print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+        print(
+            f"| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}"
+        )
 
         while True:  # wait for the forced stop from main process
             self.pipe0.recv()

@@ -121,10 +121,12 @@ class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
             ).mean()
             self.optim_update(self.alpha_optim, obj_alpha)
 
-            """objective of actor""" 
+            """objective of actor"""
             obj_h_term = self.get_obj_h_term()
 
-            obj_actor = obj_h_term-(self.cri(state, action_pg) + logprob * alpha).mean()
+            obj_actor = (
+                obj_h_term - (self.cri(state, action_pg) + logprob * alpha).mean()
+            )
             self.optim_update(self.act_optim, obj_actor)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
@@ -185,8 +187,13 @@ class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
 
     def get_buf_h_term(self, buf_state, buf_action, buf_r_sum):
         buf_r_norm = buf_r_sum - buf_r_sum.mean()
-        buf_r_diff = torch.where(buf_r_norm[:-1] * buf_r_norm[1:] <= 0)[0].detach().cpu().numpy() + 1
-        buf_r_diff = list(buf_r_diff) + [buf_r_norm.shape[0], ]
+        buf_r_diff = (
+            torch.where(buf_r_norm[:-1] * buf_r_norm[1:] <= 0)[0].detach().cpu().numpy()
+            + 1
+        )
+        buf_r_diff = list(buf_r_diff) + [
+            buf_r_norm.shape[0],
+        ]
 
         step_i = 0
         min_len = 16
@@ -207,10 +214,15 @@ class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
             q_min = ten_r_sum.min().item()
             q_max = ten_r_sum.max().item()
 
-            self.h_term_buffer.append((ten_state, ten_action, ten_r_sum, q_avg, q_min, q_max))
+            self.h_term_buffer.append(
+                (ten_state, ten_action, ten_r_sum, q_avg, q_min, q_max)
+            )
 
         q_arg_sort = np.argsort([item[3] for item in self.h_term_buffer])
-        self.h_term_buffer = [self.h_term_buffer[i] for i in q_arg_sort[max(0, len(self.h_term_buffer) // 4 - 1):]]
+        self.h_term_buffer = [
+            self.h_term_buffer[i]
+            for i in q_arg_sort[max(0, len(self.h_term_buffer) // 4 - 1) :]
+        ]
 
         q_min = np.min(np.array([item[4] for item in self.h_term_buffer]))
         q_max = np.max(np.array([item[5] for item in self.h_term_buffer]))
@@ -231,14 +243,16 @@ class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
         ten_action = torch.vstack(ten_action)  # ten_action.shape == (-1, action_dim)
         ten_r_sum = torch.hstack(ten_r_sum)  # ten_r_sum.shape == (-1, )
 
-        '''rd sample'''
+        """rd sample"""
         ten_size = ten_state.shape[0]
-        indices = torch.randint(ten_size, size=(ten_size // 2,), requires_grad=False, device=self.device)
+        indices = torch.randint(
+            ten_size, size=(ten_size // 2,), requires_grad=False, device=self.device
+        )
         ten_state = ten_state[indices]
         ten_action = ten_action[indices]
         ten_r_sum = ten_r_sum[indices]
 
-        '''hamilton'''
+        """hamilton"""
         ten_logprob = self.act.get_logprob(ten_state, ten_action)
         ten_hamilton = ten_logprob.exp().prod(dim=1)
 

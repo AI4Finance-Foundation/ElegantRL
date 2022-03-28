@@ -21,7 +21,7 @@ class IsaacVecEnv:
     ):
         """Preprocesses a vectorized Isaac Gym environment for RL training.
         [Isaac Gym - Preview 3 Release](https://developer.nvidia.com/isaac-gym)
-        
+
         Args:
             env_name (str): the name of the environment to be processed.
             env_num (int, optional): the number of environments to simulate on the
@@ -61,10 +61,10 @@ class IsaacVecEnv:
 
         # FIXME: figure out a better way to determine this
         target_return = 10**10
-        
+
         env_config = task_config["env"]
         max_step = get_max_step_from_config(env_config)
-        
+
         self.device = torch.device(rl_device_id)
         self.env = env
         self.env_num = env.num_envs
