@@ -1,11 +1,8 @@
-import numpy.random as rd
 import torch
-
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import QNet, QNetDuel
 
-
-class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
+class AgentDQN(AgentBase):
     """
     Bases: ``AgentBase``
 
@@ -19,69 +16,14 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
     :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
-
-    def __init__(self):
-        AgentBase.__init__(self)
-        self.ClassCri = QNet
-        self.explore_rate = (
-            0.25  # the probability of choosing action randomly in epsilon-greedy
-        )
-
-    def init(
-        self,
-        net_dim=256,
-        state_dim=8,
-        action_dim=2,
-        reward_scale=1.0,
-        gamma=0.99,
-        learning_rate=1e-4,
-        if_per_or_gae=False,
-        env_num=1,
-        gpu_id=0,
-    ):
-        """
-        Explict call ``self.init()`` to overwrite the ``self.object`` in ``__init__()`` for multiprocessing.
-        """
-        AgentBase.init(
-            self,
-            net_dim=net_dim,
-            state_dim=state_dim,
-            action_dim=action_dim,
-            reward_scale=reward_scale,
-            gamma=gamma,
-            learning_rate=learning_rate,
-            if_per_or_gae=if_per_or_gae,
-            env_num=env_num,
-            gpu_id=gpu_id,
-        )
-
-        if if_per_or_gae:  # if_use_per
-            self.criterion = torch.nn.SmoothL1Loss(reduction="none")
-            self.get_obj_critic = self.get_obj_critic_per
-        else:
-            self.criterion = torch.nn.SmoothL1Loss(reduction="mean")
-            self.get_obj_critic = self.get_obj_critic_raw
-
-    def select_actions(
-        self, states: torch.Tensor
-    ) -> torch.Tensor:  # for discrete action space
-        """
-        Select discrete actions given an array of states.
-
-        .. note::
-            Using ϵ-greedy to select uniformly random actions for exploration.
-
-        :param states: an array of states in a shape (batch_size, state_dim, ).
-        :return: an array of actions in a shape (batch_size, action_dim, ) where each action is clipped into range(-1, 1).
-        """
-        if rd.rand() < self.explore_rate:  # epsilon-greedy
-            a_ints = torch.randint(
-                self.action_dim, size=states.shape[0]
-            )  # choosing action randomly
-        else:
-            actions = self.act(states.to(self.device))
-            a_ints = actions.argmax(dim=1)
-        return a_ints.detach().cpu()
+    
+    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.if_off_policy = True
+        self.act_class = getattr(self, 'act_class', QNet)
+        self.cri_class = None  # = act_class
+        AgentBase.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
+        self.act.explore_rate = getattr(args, 'explore_rate', 0.125)
+        # the probability of choosing action randomly in epsilon-greedy
 
     def explore_one_env(self, env, target_step) -> list:
         """
@@ -93,29 +35,25 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :param gamma: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj = []
+        traj_list = list()
+        last_done = [0, ]
         state = self.states[0]
-        for _ in range(target_step):
-            ten_state = torch.as_tensor(state, dtype=torch.float32)
-            ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
-            action = ten_action.numpy()  # isinstance(action, int)
-            next_s, reward, done, _ = env.step(action)
 
-            ten_other = torch.empty(2 + 1)
-            ten_other[0] = reward
-            ten_other[1] = done
-            ten_other[2] = ten_action
-            traj.append((ten_state, ten_other))
+        step_i = 0
+        done = False
+        while step_i < target_step or not done:
+            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            ten_a = self.act.get_action(ten_s.to(self.device)).detach().cpu()
+            next_s, reward, done, _ = env.step(ten_a[0, 0].numpy())  # different
 
+            traj_list.append((ten_s, reward, done, ten_a))  # different
+
+            step_i += 1
             state = env.reset() if done else next_s
-        self.states[0] = state
 
-        traj_state = torch.stack([item[0] for item in traj])
-        traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [
-            (traj_state, traj_other),
-        ]
-        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
+        self.states[0] = state
+        last_done[0] = step_i
+        return self.convert_trajectory(traj_list, last_done)  # traj_list
 
     def explore_vec_env(self, env, target_step) -> list:
         """
@@ -127,34 +65,26 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :param gamma: the discount factor.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        ten_states = self.states
+        traj_list = list()
+        last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        ten_s = self.states
 
-        traj = []
-        for _ in range(target_step):
-            ten_actions = self.select_actions(ten_states)
-            ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
+        step_i = 0
+        ten_dones = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        while step_i < target_step or not any(ten_dones):
+            ten_a = self.act.get_action(ten_s).detach()
+            ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a)  # different
 
-            ten_others = torch.cat(
-                (
-                    ten_rewards.unsqueeze(0),
-                    ten_dones.unsqueeze(0),
-                    ten_actions.unsqueeze(0),
-                )
-            )
-            traj.append((ten_states, ten_others))
-            ten_states = ten_next_states
+            traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a))  # different
 
-        self.states = ten_states
+            step_i += 1
+            last_done[torch.where(ten_dones)[0]] = step_i  # behind `step_i+=1`
+            ten_s = ten_s_next
 
-        traj_state = torch.stack([item[0] for item in traj])
-        traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [
-            (traj_state[:, env_i, :], traj_other[:, env_i, :])
-            for env_i in range(len(self.states))
-        ]
-        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
+        self.states = ten_s
+        return self.convert_trajectory(traj_list, last_done)  # traj_list
 
-    def update_net(self, buffer, batch_size, repeat_times, soft_update_tau) -> tuple:
+    def update_net(self, buffer) -> tuple:
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
 
@@ -166,11 +96,10 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         """
         buffer.update_now_len()
         obj_critic = q_value = None
-        for _ in range(int(buffer.now_len / batch_size * repeat_times)):
-            obj_critic, q_value = self.get_obj_critic(buffer, batch_size)
-            self.optim_update(self.cri_optim, obj_critic)
-            if self.if_use_cri_target:
-                self.soft_update(self.cri_target, self.cri, soft_update_tau)
+        for _ in range(int(1 + buffer.now_len * self.repeat_times / self.batch_size)):
+            obj_critic, q_value = self.get_obj_critic(buffer, self.batch_size)
+            self.optimizer_update(self.cri_optimizer, obj_critic)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
         return obj_critic.item(), q_value.mean().item()
 
     def get_obj_critic_raw(self, buffer, batch_size):
@@ -199,30 +128,25 @@ class AgentDQN(AgentBase):  # [ElegantRL.2021.12.12]
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
-                batch_size
-            )
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
             q_label = reward + mask * next_q
 
         q_value = self.cri(state).gather(1, action.long())
-        td_error = self.criterion(
-            q_value, q_label
-        )  # or td_error = (q_value - q_label).abs()
+        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
         obj_critic = (td_error * is_weights).mean()
 
         buffer.td_error_update(td_error.detach())
         return obj_critic, q_value
 
 
-class AgentDuelingDQN(AgentDQN):  # [ElegantRL.2021.12.12]
+class AgentDuelingDQN(AgentDQN):
     """
     Bases: ``AgentDQN``
 
     Dueling network.
 
     """
-
-    def __init__(self):
-        AgentDQN.__init__(self)
-        self.ClassCri = QNetDuel
+    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+        self.act_class = getattr(self, 'act_class', QNetDuel)
+        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)

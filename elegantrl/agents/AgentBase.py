@@ -1,25 +1,9 @@
 import os
+import torch
 from copy import deepcopy
 
-import numpy as np
-import numpy.random as rd
-import torch
-from torch.nn.utils import clip_grad_norm_
-
-
-class AgentBase:  # [ElegantRL.2021.11.11]
-    def __init__(
-        self,
-        net_dim=256,
-        state_dim=8,
-        action_dim=2,
-        reward_scale=1.0,
-        gamma=0.99,
-        learning_rate=1e-4,
-        if_per_or_gae=False,
-        env_num=1,
-        gpu_id=0,
-    ):
+class AgentBase:
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
         """initialize
 
         replace by different DRL algorithms
@@ -36,141 +20,51 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
         :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
         """
-        self.gamma = None
+        self.gamma = getattr(args, 'gamma', 0.99)
+        self.env_num = getattr(args, 'env_num', 1)
+        self.batch_size = getattr(args, 'batch_size', 128)
+        self.repeat_times = getattr(args, 'repeat_times', 1.)
+        self.reward_scale = getattr(args, 'reward_scale', 1.)
+        self.lambda_gae_adv = getattr(args, 'lambda_entropy', 0.98)
+        self.if_use_old_traj = getattr(args, 'if_use_old_traj', False)
+        self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
+
+        if_act_target = getattr(args, 'if_act_target', False)
+        if_cri_target = getattr(args, 'if_cri_target', False)
+        if_off_policy = getattr(args, 'if_off_policy', True)
+        learning_rate = getattr(args, 'learning_rate', 2 ** -12)
+
         self.states = None
-        self.device = None
-        self.action_dim = None
-        self.reward_scale = None
-        self.if_off_policy = True
+        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.traj_list = [[list() for _ in range(4 if if_off_policy else 5)]
+                          for _ in range(self.env_num)]  # for `self.explore_vec_env()`
 
-        self.env_num = env_num
-        self.explore_rate = 1.0
-        self.explore_noise = 0.1
-        self.clip_grad_norm = 4.0
-        # self.amp_scale = None  # automatic mixed precision
+        act_class = getattr(self, 'act_class', None)
+        cri_class = getattr(self, 'cri_class', None)
+        self.act = act_class(net_dim, state_dim, action_dim).to(self.device)
+        self.cri = cri_class(net_dim, state_dim, action_dim).to(self.device) if cri_class else self.act
+        self.act_target = deepcopy(self.act) if if_act_target else self.act
+        self.cri_target = deepcopy(self.cri) if if_cri_target else self.cri
 
-        """attribute"""
-        self.explore_env = None
-        self.get_obj_critic = None
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), learning_rate) if cri_class else self.act_optimizer
 
+        '''function'''
         self.criterion = torch.nn.SmoothL1Loss()
-        self.cri = (
-            self.cri_target
-        ) = self.if_use_cri_target = self.cri_optim = self.ClassCri = None
-        self.act = (
-            self.act_target
-        ) = self.if_use_act_target = self.act_optim = self.ClassAct = None
 
-        assert isinstance(gpu_id, int)
-        assert isinstance(env_num, int)
-        assert isinstance(net_dim, int)
-        assert isinstance(state_dim, int)
-        assert isinstance(action_dim, int)
-        assert isinstance(if_per_or_gae, bool)
-        assert isinstance(gamma, float)
-        assert isinstance(reward_scale, float)
-        assert isinstance(learning_rate, float)
-
-    def init(
-        self,
-        net_dim=256,
-        state_dim=8,
-        action_dim=2,
-        reward_scale=1.0,
-        gamma=0.99,
-        learning_rate=1e-4,
-        if_per_or_gae=False,
-        env_num=1,
-        gpu_id=0,
-    ):
-        """initialize the self.object in `__init__()`
-
-        replace by different DRL algorithms
-        explict call self.init() for multiprocessing.
-
-        :param net_dim: the dimension of networks (the width of neural networks)
-        :param state_dim: the dimension of state (the number of state vector)
-        :param action_dim: the dimension of action (the number of discrete action)
-        :param reward_scale: scale the reward to get a appropriate scale Q value
-        :param gamma: the discount factor of Reinforcement Learning
-
-        :param learning_rate: learning rate of optimizer
-        :param if_per_or_gae: PER (off-policy) or GAE (on-policy) for sparse reward
-        :param env_num: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
-        :param gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
-        """
-        self.gamma = gamma
-        self.action_dim = action_dim
-        self.reward_scale = reward_scale
-        # self.amp_scale = torch.cuda.amp.GradScaler()
-        self.device = torch.device(
-            f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu"
-        )
-
-        self.cri = self.ClassCri(int(net_dim * 1.25), state_dim, action_dim).to(
-            self.device
-        )
-        self.act = (
-            self.ClassAct(net_dim, state_dim, action_dim).to(self.device)
-            if self.ClassAct
-            else self.cri
-        )
-        self.cri_target = deepcopy(self.cri) if self.if_use_cri_target else self.cri
-        self.act_target = deepcopy(self.act) if self.if_use_act_target else self.act
-
-        self.cri_optim = torch.optim.Adam(self.cri.parameters(), learning_rate)
-        self.act_optim = (
-            torch.optim.Adam(self.act.parameters(), learning_rate)
-            if self.ClassAct
-            else self.cri
-        )
-
-        def get_optim_param(
-            optim,
-        ):  # optim = torch.optim.Adam(network_param, learning_rate)
-            params_list = []
-            for params_dict in optim.state_dict()["state"].values():
-                params_list.extend(
-                    [t for t in params_dict.values() if isinstance(t, torch.Tensor)]
-                )
-            return params_list
-
-        from types import MethodType
-
-        self.act_optim.parameters = MethodType(get_optim_param, self.act_optim)
-        self.cri_optim.parameters = MethodType(get_optim_param, self.cri_optim)
-
-        assert isinstance(if_per_or_gae, bool)
-        if env_num == 1:
+        if self.env_num == 1:
             self.explore_env = self.explore_one_env
         else:
             self.explore_env = self.explore_vec_env
 
-    def select_action(self, state: np.ndarray) -> np.ndarray:
-        """Select an action via a given state.
+        if getattr(args, 'if_use_per', False):  # PER (Prioritized Experience Replay) for sparse reward
+            self.criterion = torch.nn.SmoothL1Loss(reduction='none')
+            self.get_obj_critic = self.get_obj_critic_per
+        else:
+            self.criterion = torch.nn.SmoothL1Loss(reduction='mean')
+            self.get_obj_critic = self.get_obj_critic_raw
 
-        :param state: a state in a shape (state_dim, ).
-        :return: action [array], action.shape == (action_dim, ) where each action is clipped into range(-1, 1).
-        """
-        s_tensor = torch.as_tensor(state[np.newaxis], device=self.device)
-        a_tensor = self.act(s_tensor)
-        return a_tensor.detach().cpu().numpy()
-
-    def select_actions(self, state: torch.Tensor) -> torch.Tensor:
-        """Select continuous actions for exploration
-
-        :param state: states.shape==(batch_size, state_dim, )
-        :return: actions.shape==(batch_size, action_dim, ),  -1 < action < +1
-        """
-
-        action = self.act(state.to(self.device))
-        if rd.rand() < self.explore_rate:  # epsilon-greedy
-            action = (action + torch.randn_like(action) * self.explore_noise).clamp(
-                -1, 1
-            )
-        return action.detach().cpu()
-
-    def explore_one_env(self, env, target_step: int) -> list:
+    def explore_one_env(self, env, target_step) -> list:
         """actor explores in single Env, then returns the trajectory (env transitions) for ReplayBuffer
 
         :param env: RL training environment. env.reset() env.step()
@@ -179,32 +73,27 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         `traj_env_0 = [(state, reward, mask, action, noise), ...]` for on-policy
         `traj_env_0 = [(state, other), ...]` for off-policy
         """
+        traj_list = list()
+        last_done = [0, ]
         state = self.states[0]
-        traj = []
-        for _ in range(target_step):
-            ten_state = torch.as_tensor(state, dtype=torch.float32)
-            ten_action = self.select_actions(ten_state.unsqueeze(0))[0]
-            action = ten_action.numpy()
-            next_s, reward, done, _ = env.step(action)
 
-            ten_other = torch.empty(2 + self.action_dim)
-            ten_other[0] = reward
-            ten_other[1] = done
-            ten_other[2:] = ten_action
-            traj.append((ten_state, ten_other))
+        step_i = 0
+        done = False
+        while step_i < target_step or not done:
+            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            ten_a = self.act.get_action(ten_s.to(self.device)).detach().cpu()  # different
+            next_s, reward, done, _ = env.step(ten_a[0].numpy())  # different
 
+            traj_list.append((ten_s, reward, done, ten_a))  # different
+
+            step_i += 1
             state = env.reset() if done else next_s
 
         self.states[0] = state
+        last_done[0] = step_i
+        return self.convert_trajectory(traj_list, last_done)  # traj_list
 
-        traj_state = torch.stack([item[0] for item in traj])
-        traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [
-            (traj_state, traj_other),
-        ]
-        return self.convert_trajectory(traj_list)  # [traj_env_0, ]
-
-    def explore_vec_env(self, env, target_step: int) -> list:
+    def explore_vec_env(self, env, target_step) -> list:
         """actor explores in VectorEnv, then returns the trajectory (env transitions) for ReplayBuffer
 
         :param env: RL training environment. env.reset() env.step(). It should be a vector env.
@@ -213,43 +102,128 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         `traj_env_0 = [(state, reward, mask, action, noise), ...]` for on-policy
         `traj_env_0 = [(state, other), ...]` for off-policy
         """
-        ten_states = self.states
+        traj_list = list()
+        last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        ten_s = self.states
 
-        traj = []
-        for _ in range(target_step):
-            ten_actions = self.select_actions(ten_states)
-            ten_next_states, ten_rewards, ten_dones = env.step(ten_actions)
+        step_i = 0
+        ten_dones = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        while step_i < target_step or not any(ten_dones):
+            ten_a = self.act.get_action(ten_s).detach()  # different
+            ten_s_next, ten_rewards, ten_dones, _ = env.step(ten_a)  # different
 
-            ten_others = torch.cat(
-                (ten_rewards.unsqueeze(0), ten_dones.unsqueeze(0), ten_actions)
-            )
-            traj.append((ten_states, ten_others))
-            ten_states = ten_next_states
+            traj_list.append((ten_s.clone(), ten_rewards.clone(), ten_dones.clone(), ten_a))  # different
 
-        self.states = ten_states
+            step_i += 1
+            last_done[torch.where(ten_dones)[0]] = step_i  # behind `step_i+=1`
+            ten_s = ten_s_next
 
-        # traj = [(env_ten, ...), ...], env_ten = (env1_ten, env2_ten, ...)
-        traj_state = torch.stack([item[0] for item in traj])
-        traj_other = torch.stack([item[1] for item in traj])
-        traj_list = [
-            (traj_state[:, env_i, :], traj_other[:, env_i, :])
-            for env_i in range(len(self.states))
-        ]
-        # traj_list = [traj_env_0, ...], traj_env_0 = (ten_state, ten_other)
-        return self.convert_trajectory(traj_list)  # [traj_env_0, ...]
+        self.states = ten_s
+        return self.convert_trajectory(traj_list, last_done)  # traj_list
 
-    def update_net(
-        self, buffer, batch_size: int, repeat_times: float, soft_update_tau: float
-    ) -> tuple:
-        """update the neural network by sampling batch data from ReplayBuffer
+    def convert_trajectory(self, buf_items, last_done):  # [ElegantRL.2022.01.01]
+        """convert trajectory (env exploration type) to trajectory (replay buffer type)
 
-        :param buffer: Experience replay buffer
-        :param batch_size: sample batch_size of data for Stochastic Gradient Descent
-        :param repeat_times: `batch_sampling_times = int(target_step * repeat_times / batch_size)`
-        :param soft_update_tau: soft target update: `target_net = target_net * (1-tau) + current_net * tau`,
+        convert `other = concat((      reward, done, ...))`
+        to      `other = concat((scale_reward, mask, ...))`
+
+        :param traj_list: `traj_list = [(tensor_state, other_state), ...]`
+        :return: `traj_list = [(tensor_state, other_state), ...]`
         """
+        # assert len(buf_items) == step_i
+        # assert len(buf_items[0]) in {4, 5}
+        # assert len(buf_items[0][0]) == self.env_num
+        buf_items = list(map(list, zip(*buf_items)))  # state, reward, done, action, noise
+        # assert len(buf_items) == {4, 5}
+        # assert len(buf_items[0]) == step
+        # assert len(buf_items[0][0]) == self.env_num
 
-    def optim_update(self, optimizer, objective):  # [ElegantRL 2021.11.11]
+        '''stack items'''
+        buf_items[0] = torch.stack(buf_items[0])
+        buf_items[3:] = [torch.stack(item) for item in buf_items[3:]]
+
+        if len(buf_items[3].shape) == 2:
+            buf_items[3] = buf_items[3].unsqueeze(2)
+
+        if self.env_num > 1:
+            buf_items[1] = (torch.stack(buf_items[1]) * self.reward_scale).unsqueeze(2)
+            buf_items[2] = ((~torch.stack(buf_items[2]))*self.gamma).unsqueeze(2)
+        else:
+            buf_items[1] = (torch.tensor(buf_items[1], dtype=torch.float32) * self.reward_scale
+                            ).unsqueeze(1).unsqueeze(2)
+            buf_items[2] = ((1 - torch.tensor(buf_items[2], dtype=torch.float32)) * self.gamma
+                            ).unsqueeze(1).unsqueeze(2)
+        # assert all([buf_item.shape[:2] == (step, self.env_num) for buf_item in buf_items])
+
+        '''splice items'''
+        for j in range(len(buf_items)):
+            cur_item = list()
+            buf_item = buf_items[j]
+
+            for env_i in range(self.env_num):
+                last_step = last_done[env_i]
+
+                pre_item = self.traj_list[env_i][j]
+                if len(pre_item):
+                    cur_item.append(pre_item)
+
+                cur_item.append(buf_item[:last_step, env_i])
+
+                if self.if_use_old_traj:
+                    self.traj_list[env_i][j] = buf_item[last_step:, env_i]
+
+            buf_items[j] = torch.vstack(cur_item)
+
+        # on-policy:  buf_item = [states, rewards, dones, actions, noises]
+        # off-policy: buf_item = [states, rewards, dones, actions]
+        # buf_items = [buf_item, ...]
+        return buf_items
+
+    def get_obj_critic_raw(self, buffer, batch_size):
+        """
+        Calculate the loss of networks with **uniform sampling**.
+
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
+        """
+        with torch.no_grad():
+            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+            next_a = self.act_target(next_s)
+            critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
+            (next_q, min_indices) = torch.min(critic_targets, dim=1, keepdim=True)
+            q_label = reward + mask * next_q
+
+        q = self.cri(state, action)
+        obj_critic = self.criterion(q, q_label)
+
+        return obj_critic, state
+
+    def get_obj_critic_per(self, buffer, batch_size):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
+        """
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            next_a = self.act_target(next_s)
+            critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
+            # taking a minimum while preserving the dimension for possible twin critics
+            (next_q, min_indices) = torch.min(critic_targets, dim=1, keepdim=True)
+            q_label = reward + mask * next_q
+
+        q = self.cri(state, action)
+        td_error = self.criterion(q, q_label)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, state
+
+    @staticmethod
+    def optimizer_update(optimizer, objective):
         """minimize the optimization objective via update the network parameters
 
         :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
@@ -257,30 +231,7 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         """
         optimizer.zero_grad()
         objective.backward()
-        clip_grad_norm_(
-            parameters=optimizer.param_groups[0]["params"], max_norm=self.clip_grad_norm
-        )
         optimizer.step()
-
-    # def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
-    #     """minimize the optimization objective via update the network parameters
-    #
-    #     amp: Automatic Mixed Precision
-    #
-    #     :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
-    #     :param objective: `objective = net(...)` the optimization objective, sometimes is a loss function.
-    #     :param params: `params = net.parameters()` the network parameters which need to be updated.
-    #     """
-    #     # self.amp_scale = torch.cuda.amp.GradScaler()
-    #
-    #     optimizer.zero_grad()
-    #     self.amp_scale.scale(objective).backward()  # loss.backward()
-    #     self.amp_scale.unscale_(optimizer)  # amp
-    #
-    #     # from torch.nn.utils import clip_grad_norm_
-    #     # clip_grad_norm_(model.parameters(), max_norm=3.0)  # amp, clip_grad_norm_
-    #     self.amp_scale.step(optimizer)  # optimizer.step()
-    #     self.amp_scale.update()  # optimizer.step()
 
     @staticmethod
     def soft_update(target_net, current_net, tau):
@@ -293,27 +244,19 @@ class AgentBase:  # [ElegantRL.2021.11.11]
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    def save_or_load_agent(self, cwd: str, if_save: bool):
+    def save_or_load_agent(self, cwd, if_save):
         """save or load training files for Agent
 
         :param cwd: Current Working Directory. ElegantRL save training files in CWD.
         :param if_save: True: save files. False: load files.
         """
-
         def load_torch_file(model_or_optim, _path):
             state_dict = torch.load(_path, map_location=lambda storage, loc: storage)
             model_or_optim.load_state_dict(state_dict)
 
-        name_obj_list = [
-            ("actor", self.act),
-            ("act_target", self.act_target),
-            ("act_optim", self.act_optim),
-            ("critic", self.cri),
-            ("cri_target", self.cri_target),
-            ("cri_optim", self.cri_optim),
-        ]
+        name_obj_list = [('actor', self.act), ('act_target', self.act_target), ('act_optim', self.act_optimizer),
+                         ('critic', self.cri), ('cri_target', self.cri_target), ('cri_optim', self.cri_optimizer), ]
         name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
-
         if if_save:
             for name, obj in name_obj_list:
                 save_path = f"{cwd}/{name}.pth"
@@ -322,19 +265,3 @@ class AgentBase:  # [ElegantRL.2021.11.11]
             for name, obj in name_obj_list:
                 save_path = f"{cwd}/{name}.pth"
                 load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
-
-    def convert_trajectory(self, traj_list: list) -> list:  # off-policy
-        """convert trajectory (env exploration type) to trajectory (replay buffer type)
-
-        convert `other = concat((      reward, done, ...))`
-        to      `other = concat((scale_reward, mask, ...))`
-
-        :param traj_list: `traj_list = [(tensor_state, other_state), ...]`
-        :return: `traj_list = [(tensor_state, other_state), ...]`
-        """
-        for ten_state, ten_other in traj_list:
-            ten_other[:, 0] = ten_other[:, 0] * self.reward_scale  # ten_reward
-            ten_other[:, 1] = (
-                1.0 - ten_other[:, 1]
-            ) * self.gamma  # ten_mask = (1.0 - ary_done) * gamma
-        return traj_list

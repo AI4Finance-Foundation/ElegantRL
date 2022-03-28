@@ -1,14 +1,8 @@
 import numpy as np
-import torch
-
-from elegantrl.agents.AgentPPO import  AgentPPO
-import os
-
-
-import numpy as np
 import numpy.random as rd
+import torch
+from elegantrl.agents.AgentPPO import AgentPPO
 
-from copy import deepcopy
 
 class AgentPPO_H(AgentPPO):
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
@@ -24,7 +18,7 @@ class AgentPPO_H(AgentPPO):
             buf_len = buf_state.shape[0]
 
             '''get buf_r_sum, buf_logprob'''
-            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
+            bs = self.batch_size  # set a smaller 'BatchSize' when out of GPU memory.
             buf_value = [self.cri_target(buf_state[i:i + bs]) for i in range(0, buf_len, bs)]
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
@@ -41,6 +35,9 @@ class AgentPPO_H(AgentPPO):
         obj_critic = None
         obj_actor = None
         assert buf_len >= self.batch_size
+        for param_group in self.cri_optimizer.param_groups:
+                param_group['lr'] *= 0.9996
+
         for i in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
             indices = torch.randint(buf_len, size=(self.batch_size,), requires_grad=False, device=self.device)
 

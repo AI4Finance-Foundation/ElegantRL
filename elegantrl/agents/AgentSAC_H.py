@@ -1,11 +1,8 @@
-from copy import deepcopy
-
 import numpy as np
 import numpy.random as rd
 import torch
-
+from elegantrl.agents.net import ActorSAC, CriticTwin
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import ActorSAC, CriticTwin, ShareSPG, CriticMultiple
 
 
 class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
@@ -186,7 +183,6 @@ class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
         buffer.td_error_update(td_error.detach())
         return obj_critic, state
 
-
     def get_buf_h_term(self, buf_state, buf_action, buf_r_sum):
         buf_r_norm = buf_r_sum - buf_r_sum.mean()
         buf_r_diff = torch.where(buf_r_norm[:-1] * buf_r_norm[1:] <= 0)[0].detach().cpu().numpy() + 1
@@ -249,5 +245,3 @@ class AgentSAC_H(AgentBase):  # [ElegantRL.2021.11.11]
         n_min, n_max = self.h_term_r_min_max
         ten_r_norm = (ten_r_sum - n_min) / (n_max - n_min)
         return -(ten_hamilton * ten_r_norm).mean() * self.lambda_h_term
-
-
