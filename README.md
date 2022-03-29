@@ -54,6 +54,12 @@ ElegantRL supports the following simulators:
 - [Requirements](#Requirements)
 - [Citation](#Citation)
 
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=AI4Finance-Foundation/ElegantRL&type=Date)](https://star-history.com/#AI4Finance-Foundation/ElegantRL&Date)
+
+
 ## News
 
 - [MLearning.ai] [ElegantRL: Much More Stable Deep Reinforcement Learning Algorithms than Stable-Baseline3](https://medium.com/mlearning-ai/elegantrl-much-much-more-stable-than-stable-baseline3-f096533c26db), Mar 3, 2022.
