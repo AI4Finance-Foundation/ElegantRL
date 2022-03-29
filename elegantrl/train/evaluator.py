@@ -269,8 +269,8 @@ def save_learning_curve(
 
 def demo_evaluator_actor_pth():
     import gym
-    from elegantrl.agent import AgentPPO
-    from elegantrl.config import build_env
+    from elegantrl.agents import AgentPPO
+    from elegantrl.train.config import build_env
 
     gpu_id = 0  # >=0 means GPU ID, -1 means CPU
 
@@ -310,7 +310,7 @@ def demo_evaluator_actor_pth():
 
 def demo_evaluate_actors(dir_path, gpu_id, agent, env_args, eval_times=2, net_dim=128):
     import gym
-    from elegantrl.config import build_env
+    from elegantrl.train.config import build_env
 
     # dir_path = './LunarLanderContinuous-v2_PPO_1'
     # gpu_id = 0
@@ -364,7 +364,7 @@ def demo_evaluate_actors(dir_path, gpu_id, agent, env_args, eval_times=2, net_di
 
 
 def run():
-    from elegantrl.agent import AgentPPO
+    from elegantrl.agents import AgentPPO
 
     flag_id = 1  # int(sys.argv[1])
 

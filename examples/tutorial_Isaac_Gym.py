@@ -2,7 +2,7 @@
 import isaacgym
 import os
 import torch
-from elegantrl.agents.agent import AgentPPO
+from elegantrl.agents import AgentPPO
 from elegantrl.train.config import Arguments
 from elegantrl.envs.IsaacGym import IsaacVecEnv, IsaacOneEnv
 from elegantrl.envs.utils.config_utils import get_isaac_env_args

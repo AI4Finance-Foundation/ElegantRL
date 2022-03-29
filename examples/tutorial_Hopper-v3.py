@@ -1,5 +1,5 @@
 import gym
-from elegantrl.agents.agent import AgentPPO
+from elegantrl.agents import AgentPPO
 from elegantrl.train.config import get_gym_env_args, Arguments
 from elegantrl.train.run import *
 

@@ -1,5 +1,5 @@
 import gym
-from elegantrl.agents.agent import AgentModSAC
+from elegantrl.agents import AgentModSAC
 from elegantrl.train.config import get_gym_env_args, Arguments
 from elegantrl.train.run import *
 
