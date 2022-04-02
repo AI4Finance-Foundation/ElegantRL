@@ -301,7 +301,7 @@ class AgentBase:
     def get_obj_h_term(self):
         """
         Calculate the loss of the Hamiltonian term.
-        :return: None.
+        :return: the loss of the Hamiltonian term.
         """
         list_len = len(self.h_term_buffer)
         rd_list = rd.choice(list_len, replace=False, size=max(2, list_len // 2))
@@ -317,14 +317,14 @@ class AgentBase:
         ten_action = torch.vstack(ten_action)  # ten_action.shape == (-1, action_dim)
         ten_r_sum = torch.hstack(ten_r_sum)  # ten_r_sum.shape == (-1, )
 
-        '''rd sample'''
+        '''random sample'''
         ten_size = ten_state.shape[0]
         indices = torch.randint(ten_size, size=(ten_size // 2,), requires_grad=False, device=self.device)
         ten_state = ten_state[indices]
         ten_action = ten_action[indices]
         ten_r_sum = ten_r_sum[indices]
 
-        '''hamilton'''
+        '''hamiltonian'''
         _,ten_logprob = self.act.get_old_logprob(ten_state, ten_action)
         #print(ten_logprob)
         ten_hamilton = ten_logprob.exp().prod(dim=1)
