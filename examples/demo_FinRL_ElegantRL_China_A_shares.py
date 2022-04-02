@@ -38,6 +38,7 @@ class StockTradingEnv:
         self.rewards = None
         self.total_asset = None
         self.cumulative_returns = 0
+        self.if_random_reset = True
 
         self.amount = None
         self.shares = None
@@ -51,9 +52,9 @@ class StockTradingEnv:
         self.if_discrete = False
         self.max_step = len(self.close_ary)
 
-    def reset(self, if_random=True):
+    def reset(self):
         self.day = 0
-        if if_random:
+        if self.if_random_reset:
             self.amount = self.initial_amount * rd.uniform(0.9, 1.1)
             self.shares = (np.abs(rd.randn(self.shares_num).clip(-2, +2)) * 2 ** 6).astype(int)
         else:
@@ -135,14 +136,15 @@ class StockTradingEnv:
             np.savez_compressed(self.npz_pwd, close_ary=close_ary, tech_ary=tech_ary, )
         else:
             error_str = f"| StockTradingEnv need {self.df_pwd} or {self.npz_pwd}" \
-                        f" download one of following files and save in disk." \
-                        f" "
+                        f"  download the following file and save in `.`" \
+                        f"  https://github.com/Yonv1943/Python/blob/master/scow/China_A_shares.pandas.dataframe (2.1MB)"
             raise FileNotFoundError(error_str)
         return close_ary, tech_ary
 
 
 def check_env():
     env = StockTradingEnv(beg_idx=834, end_idx=1113)
+    env.if_random_reset = False
     evaluate_time = 4
     """
     env = StockTradingEnv(beg_idx=0, end_idx=1113)
@@ -160,25 +162,26 @@ def check_env():
 
     print()
     policy_name = 'random action'
-    state = env.reset(if_random=False)
+    state = env.reset()
     for _ in range(env.max_step * evaluate_time):
         action = rd.uniform(-1, +1, env.action_dim)
         state, reward, done, _ = env.step(action)
         if done:
             print(f'cumulative_returns of {policy_name}: {env.cumulative_returns:9.2f}')
-            state = env.reset(if_random=False)
+            state = env.reset()
     dir(state)
 
     print()
     policy_name = 'buy all share'
-    state = env.reset(if_random=False)
+    state = env.reset()
     for _ in range(env.max_step * evaluate_time):
         action = np.ones(env.action_dim, dtype=np.float32)
         state, reward, done, _ = env.step(action)
         if done:
             print(f'cumulative_returns of {policy_name}: {env.cumulative_returns:9.2f}')
-            state = env.reset(if_random=False)
+            state = env.reset()
     dir(state)
+    print()
 
 
 def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
@@ -466,12 +469,10 @@ class AgentPPO:
         # assert len(buf_items[0][0]) == self.env_num
 
         '''stack items'''
-        traj_list[0] = torch.stack(traj_list[0])
-        traj_list[1] = (torch.tensor(traj_list[1], dtype=torch.float32) * self.reward_scale
-                        ).unsqueeze(1).unsqueeze(2)
-        traj_list[2] = ((1 - torch.tensor(traj_list[2], dtype=torch.float32)) * self.gamma
-                        ).unsqueeze(1).unsqueeze(2)
-        traj_list[3:] = [torch.stack(item) for item in traj_list[3:]]
+        traj_list[0] = torch.stack(traj_list[0]).squeeze(1)
+        traj_list[1] = (torch.tensor(traj_list[1], dtype=torch.float32) * self.reward_scale).unsqueeze(1)
+        traj_list[2] = ((1 - torch.tensor(traj_list[2], dtype=torch.float32)) * self.gamma).unsqueeze(1)
+        traj_list[3:] = [torch.stack(item).squeeze(1) for item in traj_list[3:]]
         # assert all([buf_item.shape[:2] == (step, self.env_num) for buf_item in buf_items])
         return traj_list
 
@@ -672,7 +673,7 @@ def run():
     args.target_step = args.max_step * 4
     args.reward_scale = 2 ** -7
     args.learning_rate = 2 ** -14
-    args.break_step = int(2e6)
+    args.break_step = int(5e5)
 
     args.learner_gpus = gpu_id
     args.random_seed += gpu_id + 1943
@@ -686,18 +687,27 @@ def evaluate_models_in_directory(dir_path=None):
         print(f"| evaluate_models_in_directory: gpu_id {gpu_id}")
         print(f"| evaluate_models_in_directory: dir_path {dir_path}")
     else:
-        gpu_id = 0
+        gpu_id = -1
         print(f"| evaluate_models_in_directory: gpu_id {gpu_id}")
         print(f"| evaluate_models_in_directory: dir_path {dir_path}")
 
     model_names = [name for name in os.listdir(dir_path) if name[:6] == 'actor_']
     model_names.sort()
 
-    env = StockTradingEnv()
     env_func = StockTradingEnv
-    env_args = get_gym_env_args(env=env, if_print=False)
-    env_args['beg_idx'] = 834  # testing set
-    env_args['end_idx'] = 1113  # testing set
+    env_args = {
+        'env_num': 1,
+        'env_name': 'StockTradingEnv-v2',
+        'max_step': 1113,
+        'state_dim': 151,
+        'action_dim': 15,
+        'if_discrete': False,
+
+        'beg_idx': 834,  # testing set
+        'end_idx': 1113,  # testing set
+    }
+    env = build_env(env_func=env_func, env_args=env_args)
+    env.if_random_reset = False
 
     args = Arguments(AgentPPO, env_func=env_func, env_args=env_args)
 
@@ -718,5 +728,5 @@ def evaluate_models_in_directory(dir_path=None):
 
 if __name__ == '__main__':
     check_env()
-    # run()
-    # evaluate_models_in_directory()
+    run()
+    evaluate_models_in_directory()
