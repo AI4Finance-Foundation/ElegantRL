@@ -1,5 +1,7 @@
 import os
 import torch
+import numpy as np
+import numpy.random as rd
 from copy import deepcopy
 
 
@@ -254,7 +256,71 @@ class AgentBase:
 
         buffer.td_error_update(td_error.detach())
         return obj_critic, state
+    
+    def get_buf_h_term(self, buf_state, buf_action, buf_r_sum):
+        buf_r_norm = buf_r_sum - buf_r_sum.mean()
+        buf_r_diff = torch.where(buf_r_norm[:-1] * buf_r_norm[1:] <= 0)[0].detach().cpu().numpy() + 1
+        buf_r_diff = list(buf_r_diff) + [buf_r_norm.shape[0], ]
 
+        step_i = 0
+        min_len = 16
+        positive_list = list()
+        for step_j in buf_r_diff:
+            if buf_r_norm[step_i] > 0 and step_i + min_len < step_j:
+                positive_list.append((step_i, step_j))
+            step_i = step_j
+
+        for step_i, step_j in positive_list:
+            index = np.arange(step_i, step_j)
+
+            ten_state = buf_state[index]
+            ten_action = buf_action[index]
+            ten_r_sum = buf_r_sum[index]
+
+            q_avg = ten_r_sum.mean().item()
+            q_min = ten_r_sum.min().item()
+            q_max = ten_r_sum.max().item()
+
+            self.h_term_buffer.append((ten_state, ten_action, ten_r_sum, q_avg, q_min, q_max))
+
+        q_arg_sort = np.argsort([item[3] for item in self.h_term_buffer])
+        self.h_term_buffer = [self.h_term_buffer[i] for i in q_arg_sort[max(0, len(self.h_term_buffer) // 4 - 1):]]
+
+        q_min = np.min(np.array([item[4] for item in self.h_term_buffer]))
+        q_max = np.max(np.array([item[5] for item in self.h_term_buffer]))
+        self.h_term_r_min_max = (q_min, q_max)
+
+    def get_obj_h_term(self):
+        list_len = len(self.h_term_buffer)
+        rd_list = rd.choice(list_len, replace=False, size=max(2, list_len // 2))
+
+        ten_state = list()
+        ten_action = list()
+        ten_r_sum = list()
+        for i in rd_list:
+            ten_state.append(self.h_term_buffer[i][0])
+            ten_action.append(self.h_term_buffer[i][1])
+            ten_r_sum.append(self.h_term_buffer[i][2])
+        ten_state = torch.vstack(ten_state)  # ten_state.shape == (-1, state_dim)
+        ten_action = torch.vstack(ten_action)  # ten_action.shape == (-1, action_dim)
+        ten_r_sum = torch.hstack(ten_r_sum)  # ten_r_sum.shape == (-1, )
+
+        '''rd sample'''
+        ten_size = ten_state.shape[0]
+        indices = torch.randint(ten_size, size=(ten_size // 2,), requires_grad=False, device=self.device)
+        ten_state = ten_state[indices]
+        ten_action = ten_action[indices]
+        ten_r_sum = ten_r_sum[indices]
+
+        '''hamilton'''
+        _,ten_logprob = self.act.get_old_logprob(ten_state, ten_action)
+        #print(ten_logprob)
+        ten_hamilton = ten_logprob.exp().prod(dim=1)
+
+        n_min, n_max = self.h_term_r_min_max
+        ten_r_norm = (ten_r_sum - n_min) / (n_max - n_min)
+        return -(ten_hamilton * ten_r_norm).mean() * self.lambda_h_term
+  
     @staticmethod
     def optimizer_update(optimizer, objective):
         """minimize the optimization objective via update the network parameters
