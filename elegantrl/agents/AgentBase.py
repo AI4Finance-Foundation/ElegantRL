@@ -258,6 +258,14 @@ class AgentBase:
         return obj_critic, state
     
     def get_buf_h_term(self, buf_state, buf_action, buf_r_sum):
+        """
+        Prepare the hamiltonian buffer.
+
+        :param buf_state: the ReplayBuffer list that stores the state.
+        :param buf_action: the ReplayBuffer list that stores the action.
+        :param buf_reward: the ReplayBuffer list that stores the reward.
+        :return: None.
+        """
         buf_r_norm = buf_r_sum - buf_r_sum.mean()
         buf_r_diff = torch.where(buf_r_norm[:-1] * buf_r_norm[1:] <= 0)[0].detach().cpu().numpy() + 1
         buf_r_diff = list(buf_r_diff) + [buf_r_norm.shape[0], ]
@@ -291,6 +299,10 @@ class AgentBase:
         self.h_term_r_min_max = (q_min, q_max)
 
     def get_obj_h_term(self):
+        """
+        Calculate the loss of the Hamiltonian term.
+        :return: None.
+        """
         list_len = len(self.h_term_buffer)
         rd_list = rd.choice(list_len, replace=False, size=max(2, list_len // 2))
 
