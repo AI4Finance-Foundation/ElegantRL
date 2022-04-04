@@ -57,7 +57,8 @@ Left: cumulative return on minute-level NASDAQ-100 constituents stocks (initial 
    :width: 90%
    :align: center   
 
-All DRL agents can achieve a better performance than the market benchmark with respect to the cumulative return, demonstrating the algorithm’s effectiveness. We observe that ElegantRL-podracer has a cumulative return of 104.743%, an annual return of 103.591%, and a Sharpe ratio of 2.20, which outperforms RLlib substantially. However, ElegantRL-podracer is not as stable as RLlib during the backtesting period: it achieves annual volatility of 35.357%, max. drawdown -17.187%, and Calmar ratio 6.02. There are two possible reasons to account for such instability:
+All DRL agents can achieve a better performance than the market benchmark with respect to the cumulative return, demonstrating the algorithm’s effectiveness. We observe that ElegantRL-podracer has a cumulative return of 104.743%, an annual return of 103.591%, and a Sharpe ratio of 2.20, which outperforms RLlib substantially. However, ElegantRL-podracer is not as stable as RLlib during the backtesting period: it achieves annual volatility of 35.357%, max. drawdown 17.187%, and Calmar ratio 6.02. There are two possible reasons to account for such instability:
+
    1. the reward design in the stock trading environment is mainly related to the cumulative return, thus leading the agent to take less care of the risk;
    2. ElegantRL-podracer holds a large number of funds around 2021–03, which naturally leads to a larger slip.
 
