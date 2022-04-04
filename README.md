@@ -112,7 +112,8 @@ Experiments on Ant (MuJoCo), Humainoid (MuJoCo), Ant (Isaac Gym), Humanoid (Isaa
 
 <div align="center">
 	<img align="center" src=figs/envs.png width="800">
-	<img align="center" src=figs/performance.png width="800">
+	<img align="center" src=figs/performance1.png width="800">
+	<img align="center" src=figs/performance2.png width="800">
 </div>
 
 ElegantRL fully supports Isaac Gym that runs massively parallel simulation (e.g., 4096 sub-envs) on one GPU.
