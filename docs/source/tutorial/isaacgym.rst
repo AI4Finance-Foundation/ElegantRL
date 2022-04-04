@@ -31,7 +31,29 @@ For more information, please view its recently released paper at https://arxiv.o
 
 To install Isaac Gym, please follow the instructions at https://developer.nvidia.com/isaac-gym.
 
+Experiments on Ant and Humanoid
+----------------------------------------
 
+**Ant and humanoid** are two canonical robotic control tasks that simulate an ant and a humanoid, respectively, where each task has both MuJoCo version and Isaac Gym version. The ant task is a simple environment to simulate due to its stability in the initial state, while the humanoid task is often used as a testbed for locomotion learning. Even though the implementations of MuJoCo and Isaac Gym are slightly different, the objective of both is to have the agent move forward as fast as possible.
+
+On one DGX-2 server, we compare ElegantRL-podracer with RLlib, since both support multiple GPUs. ElegantRL-podracer used PPO from ElegantRL, while in RLlib we used the Decentralized Distributed Proximal Policy Optimization (DD-PPO) algorithm that scales well to multiple GPUs. For fair comparison, we keep all adjustable parameters and computing resources the same, such as the depth and width of neural networks, total training steps/time, number of workers, and GPU and CPU resources. Specifically, we use a batch size of 1024, learning rate of 0.001, and a replay buffer size of 4096 across tasks. 
+
+We employ two different metrics to evaluate the agent's performance:
+    1. Episodic reward vs. training time (wall-clock time): we measure the episodic reward at different training time, which can be affected by the convergence speed, communication overhead, scheduling efficiency, etc.
+    2. Episodic reward vs. #samples: from the same testings, we also measure the episodic reward at different training steps. This result can be used to investigate the massive parallel simulation capability of GPUs, and also check the algorithm's performance.
+    
+.. image:: ../images/envs.png
+   :width: 80%
+   :align: center
+   
+.. image:: ../images/performance2.png
+   :width: 80%
+   :align: center
+
+.. image:: ../images/performance1.png
+   :width: 80%
+   :align: center
+   
 Running NVIDIA Isaac Gym in ElegantRL
 ------------------------------------------
 
