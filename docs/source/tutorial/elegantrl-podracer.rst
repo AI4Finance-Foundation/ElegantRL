@@ -38,27 +38,30 @@ Our tournament-based ensemble training updates agents asynchronously, which deco
 
 
 
-Example: Isaac Gym
+Example: Stock Trading
 -------------------------------------------------------
 
-We select two canonical robotic control tasks, Ant and Humanoid, where each task has both MuJoCo version and Isaac Gym verison. We compare our tournament-based ensemble training with RLlib on these four tasks. 
+Finance is a promising and challenging real-world application of DRL algorithms. We apply ElegantRL-podracer to a stock trading task as an example to show its potential in quantitative finance.
 
+We aim to train a DRL agent that decides where to trade, at what price and what quantity in a stock market, thus the objective of the problem is to maximize the expected return and minimize the risk. We model the stock trading task as a Markov Decision Process (MDP) as in `FinRL <https://github.com/AI4Finance-Foundation/FinRL>`_. We follow a training-backtesting pipeline and split the dataset into two sets: the data from 01/01/2016 to 05/25/2020 for training, and the data from 05/26/2020 to 05/26/2021 for backtesting.
 
-We employ two different metrics to evaluate the agent’s performance:
+The experiments were executed using NVIDIA DGX-2 servers in a DGX SuperPOD cloud, a cloud-native infrastructure.
 
-  - **Episodic reward vs. training time (wall-clock time)**: we measure the episodic reward at different training time, which can be affected by the convergence speed, communication overhead, scheduling efficiency, etc.
-
-  - **Episodic reward vs. training step**: from the same testings, we also measure the episodic reward at different training steps. This result can be used to investigate the massive parallel simulation capability of GPUs, and also check the algorithm’s performance.
-
-
-.. image:: ../images/test1.png
+.. image:: ../images/fin.png
    :width: 90%
    :align: center
-   
 
-.. image:: ../images/test2.png
+Left: cumulative return on minute-level NASDAQ-100 constituents stocks (initial capital $1, 000, 000, transaction cost 0.2%). Right: training time (wall-clock time) for reaching cumulative rewards 1.7 and 1.8, using the model snapshots of ElegantRL-podracer and RLlib.
+
+.. image:: ../images/tab.png
    :width: 90%
    :align: center   
+
+All DRL agents can achieve a better performance than the market benchmark with respect to the cumulative return, demonstrating the algorithm’s effectiveness. We observe that ElegantRL-podracer has a cumulative return of 104.743%, an annual return of 103.591%, and a Sharpe ratio of 2.20, which outperforms RLlib substantially. However, ElegantRL-podracer is not as stable as RLlib during the backtesting period: it achieves annual volatility of 35.357%, max. drawdown -17.187%, and Calmar ratio 6.02. There are two possible reasons to account for such instability:
+   1. the reward design in the stock trading environment is mainly related to the cumulative return, thus leading the agent to take less care of the risk;
+   2. ElegantRL-podracer holds a large number of funds around 2021–03, which naturally leads to a larger slip.
+
+We compare the training performance on a varying number of GPUs, i.e., 8, 16, 32, and 80. We measure the required training time to obtain two cumulative returns of 1.7 and 1.8, respectively. Both ElegantRL-podracer and RLlib require less training time to achieve the same cumulative return as the number of GPUs increases, which directly demonstrates the advantage of cloud computing resources on the DRL training. For ElegantRL-podracer with 80 GPUs, it requires (1900s, 2200s) to reach cumulative returns of 1.7 and 1.8. ElegantRL-podracer with 32 and 16 GPUs need (2400s, 2800s) and (3400s, 4000s) to achieve the same cumulative returns. It demonstrates the high scalability of ElegantRL-podracer and the effectiveness of our cloud-oriented optimizations. For the experiments using RLlib, increasing the number of GPUs does not lead to much speed-up.
 
 
 Run tournament-based ensemble training in ElegantRL
