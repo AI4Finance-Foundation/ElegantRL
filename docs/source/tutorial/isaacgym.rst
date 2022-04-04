@@ -40,7 +40,7 @@ On one DGX-2 server, we compare ElegantRL-podracer with RLlib, since both suppor
 
 We employ two different metrics to evaluate the agent's performance:
     1. Episodic reward vs. training time (wall-clock time): we measure the episodic reward at different training time, which can be affected by the convergence speed, communication overhead, scheduling efficiency, etc.
-    2. Episodic reward vs. #samples: from the same testings, we also measure the episodic reward at different training steps. This result can be used to investigate the massive parallel simulation capability of GPUs, and also check the algorithm's performance.
+    2. Episodic reward vs. #samples: from the same testings, we also measure the episodic reward at different number of samples. This result can be used to investigate the massive parallel simulation capability of GPUs, and also check the algorithm's performance.
     
 .. image:: ../images/envs.png
    :width: 80%
