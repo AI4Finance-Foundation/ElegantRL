@@ -5,9 +5,9 @@ import numpy.random as rd
 
 
 class QNet(nn.Module):  # `nn.Module` is a PyTorch module for neural network
-    def __init__(self, mid_dim, mid_layer_num, state_dim, action_dim):  # todo num_mid_layer
+    def __init__(self, mid_dim, num_layer, state_dim, action_dim):
         super().__init__()
-        self.net = build_fcn(mid_dim, mid_layer_num, inp_dim=state_dim, out_dim=action_dim)
+        self.net = build_mlp(mid_dim, num_layer, input_dim=state_dim, output_dim=action_dim)
 
         self.explore_rate = None
         self.action_dim = action_dim
@@ -15,35 +15,34 @@ class QNet(nn.Module):  # `nn.Module` is a PyTorch module for neural network
     def forward(self, state):
         return self.net(state)  # Q values for multiple actions
 
-    def get_action(self, state):  # todo return [int] the index of discrete action
-        if rd.rand() > self.explore_rate:  # todo self.explore_rate < rd.rand():
+    def get_action(self, state):  # return [int], which is the index of discrete action
+        if self.explore_rate < rd.rand():
             return self.net(state).argmax(dim=1, keepdim=True)
         else:
             action = torch.randint(self.action_dim, size=(state.shape[0], 1))
         return action
 
 
-class Actor(nn.Module):  # todo inp --> input, out --> output
+class Actor(nn.Module):
     def __init__(self, mid_dim, mid_layer_num, state_dim, action_dim):
         super().__init__()
-        self.net = build_fcn(mid_dim, mid_layer_num, inp_dim=state_dim, out_dim=action_dim)
+        self.net = build_mlp(mid_dim, mid_layer_num, input_dim=state_dim, output_dim=action_dim)
 
-        self.explore_noise = None  # standard deviation of exploration action noise
-        # todo explore_noise_std
+        self.explore_noise_std = None  # standard deviation of exploration action noise
 
     def forward(self, state):
         return self.net(state).tanh()  # action
 
     def get_action(self, state):  # for exploration
         action = self.net(state).tanh()
-        noise = (torch.randn_like(action) * self.explore_noise).clamp(-0.5, 0.5)
+        noise = (torch.randn_like(action) * self.explore_noise_std).clamp(-0.5, 0.5)
         return (action + noise).clamp(-1.0, 1.0)
 
 
 class Critic(nn.Module):
     def __init__(self, mid_dim, mid_layer_num, state_dim, action_dim):
         super().__init__()
-        self.net = build_fcn(mid_dim, mid_layer_num, inp_dim=state_dim + action_dim, out_dim=1)
+        self.net = build_mlp(mid_dim, mid_layer_num, input_dim=state_dim + action_dim, output_dim=1)
 
     def forward(self, state, action):
         return self.net(torch.cat((state, action), dim=1))  # Q value
@@ -52,56 +51,54 @@ class Critic(nn.Module):
 class ActorPPO(nn.Module):
     def __init__(self, mid_dim, mid_layer_num, state_dim, action_dim):
         super().__init__()
-        self.net = build_fcn(mid_dim, mid_layer_num, inp_dim=state_dim, out_dim=action_dim)
+        self.net = build_mlp(mid_dim, mid_layer_num, input_dim=state_dim, output_dim=action_dim)
 
         # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
-        self.a_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
-        # todo action_std_log
+        self.action_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
         self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
 
     def forward(self, state):
         return self.net(state).tanh()  # action
 
     def get_action(self, state):
-        a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
-        # todo action_avg
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
 
-        noise = torch.randn_like(a_avg)
-        action = a_avg + noise * a_std
+        noise = torch.randn_like(action_avg)
+        action = action_avg + noise * action_std
         return action, noise
 
     def get_old_logprob(self, _action, noise):
         delta = noise.pow(2) * 0.5
-        return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
+        return -(self.action_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
 
     def get_logprob_entropy(self, state, action):
         a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
+        a_std = self.action_std_log.exp()
 
         delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        logprob = -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # new_logprob
-
-        dist_entropy = (logprob.exp() * logprob).mean()  # policy entropy
-        return logprob, dist_entropy  # todo entropy
+        logprob = -(self.action_std_log + self.sqrt_2pi_log + delta).sum(1)  # new_logprob
+        entropy = -(logprob.exp() * logprob).mean()  # policy entropy
+        return logprob, entropy
 
     @staticmethod
-    def get_a_to_e(action):  # convert action of network to action of environment
-        return action.tanh()  # todo convert_action_for_env
+    def convert_action_for_env(action):  # convert network action to environment action
+        return action.tanh()
 
 
 class CriticPPO(nn.Module):
     def __init__(self, mid_dim, mid_layer_num, state_dim, _action_dim):
         super().__init__()
-        self.net = build_fcn(mid_dim, mid_layer_num, inp_dim=state_dim, out_dim=1)
+        self.net = build_mlp(mid_dim, mid_layer_num, input_dim=state_dim, output_dim=1)
 
     def forward(self, state):
         return self.net(state)  # advantage value
 
 
-def build_fcn(mid_dim, mid_layer_num, inp_dim, out_dim):  # fcn (Fully Connected Network)
-    net_list = [nn.Linear(inp_dim, mid_dim), nn.ReLU(), ]
-    for _ in range(mid_layer_num):
-        net_list += [nn.Linear(mid_dim, mid_dim), nn.ReLU(), ]
-    net_list += [nn.Linear(mid_dim, out_dim), ]
+def build_mlp(mid_dim, num_layer, input_dim, output_dim):  # MLP (MultiLayer Perceptron)
+    net_list = [nn.Linear(input_dim, mid_dim), nn.ReLU(),
+                nn.Linear(mid_dim, output_dim), ]
+    assert num_layer >= 2
+    for _ in range(num_layer - 2):
+        net_list[1:1] = [nn.Linear(mid_dim, mid_dim), nn.ReLU(), ]
     return nn.Sequential(*net_list)

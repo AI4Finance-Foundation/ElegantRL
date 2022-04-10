@@ -89,20 +89,19 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
     return env_args
 
 
-def kwargs_filter(func, kwargs: dict):  # todo into `build_env()`
-    import inspect
-
-    sign = inspect.signature(func).parameters.values()
-    sign = {val.name for val in sign}
-
-    common_args = sign.intersection(kwargs.keys())
-    return {key: kwargs[key] for key in common_args}  # filtered kwargs
-
-
 def build_env(env_func=None, env_args=None):
     if env_func.__module__ == 'gym.envs.registration':  # special rule
         env = env_func(id=env_args['env_name'])
     else:
+        def kwargs_filter(func, kwargs: dict):
+            import inspect
+
+            sign = inspect.signature(func).parameters.values()
+            sign = {val.name for val in sign}
+
+            common_args = sign.intersection(kwargs.keys())
+            return {key: kwargs[key] for key in common_args}  # filtered kwargs
+
         env = env_func(**kwargs_filter(env_func.__init__, env_args.copy()))
     for attr_str in ('state_dim', 'action_dim', 'max_step', 'if_discrete'):
         setattr(env, attr_str, env_args[attr_str])

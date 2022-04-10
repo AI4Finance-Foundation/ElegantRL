@@ -6,11 +6,10 @@ from elegantrl_helloworld.net import QNet, Actor, Critic, ActorPPO, CriticPPO
 class AgentBase:
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
         self.gamma = getattr(args, 'gamma', 0.99)
-        # todo cancel env_num
+        self.num_layer = getattr(args, 'num_layer', 1)
         self.batch_size = getattr(args, 'batch_size', 128)
         self.repeat_times = getattr(args, 'repeat_times', 1.)
         self.reward_scale = getattr(args, 'reward_scale', 1.)
-        self.mid_layer_num = getattr(args, 'mid_layer_num', 1)  # todo num_layer >= 2
         self.learning_rate = getattr(args, 'learning_rate', 2 ** -14)
         self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
 
@@ -18,13 +17,13 @@ class AgentBase:
         self.if_act_target = args.if_act_target
         self.if_cri_target = args.if_cri_target
 
-        self.states = None  # assert self.states == (self.env_num, state_dim)
+        self.states = None  # assert self.states == (1, state_dim)
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         act_class = getattr(self, "act_class", None)
         cri_class = getattr(self, "cri_class", None)
-        self.act = act_class(net_dim, self.mid_layer_num, state_dim, action_dim).to(self.device)
-        self.cri = cri_class(net_dim, self.mid_layer_num, state_dim, action_dim).to(self.device) \
+        self.act = act_class(net_dim, self.num_layer, state_dim, action_dim).to(self.device)
+        self.cri = cri_class(net_dim, self.num_layer, state_dim, action_dim).to(self.device) \
             if cri_class else self.act
 
         self.act_target = deepcopy(self.act) if self.if_act_target else self.act
@@ -37,7 +36,7 @@ class AgentBase:
         """attribute"""
         self.criterion = torch.nn.SmoothL1Loss()
 
-    def convert_trajectory(self, traj_list):  # [ElegantRL.2022.01.01]
+    def convert_traj_to_transition(self, traj_list):
         traj_list = list(map(list, zip(*traj_list)))  # state, reward, done, action, noise
 
         '''stack items'''
@@ -74,32 +73,30 @@ class AgentDQN(AgentBase):
         traj_list = []
         state = self.states[0]
 
-        step_i = 0  # todo i
+        i = 0
         done = False
         get_action = self.act.get_action
-        while step_i < target_step or not done:
-            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a = get_action(ten_s.to(self.device)).detach().cpu()  # todo ten-->tensor
-            next_s, reward, done, _ = env.step(ten_a[0, 0].numpy())
+        while i < target_step or not done:
+            tensor_state = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            tensor_action = get_action(tensor_state.to(self.device)).detach().cpu()
+            next_state, reward, done, _ = env.step(tensor_action[0, 0].numpy())
 
-            traj_list.append((ten_s, reward, done, ten_a))
+            traj_list.append((tensor_state, reward, done, tensor_action))
 
-            step_i += 1
-            state = env.reset() if done else next_s
+            i += 1
+            state = env.reset() if done else next_state
 
         self.states[0] = state
-        return self.convert_trajectory(traj_list)  # todo convert_trajectory_transition()
+        return self.convert_traj_to_transition(traj_list)
 
     def update_net(self, buffer) -> tuple:
-        obj_critic = torch.zeros(1)
-        q_value = torch.zeros(1)  # todo
+        obj_critic = q_value = torch.zeros(1)
 
-        update_times = int(buffer.cur_capacity * self.repeat_times / self.batch_size)
+        update_times = int(1 + buffer.cur_capacity * self.repeat_times / self.batch_size)
         for i in range(update_times):
             obj_critic, q_value = self.get_obj_critic(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
         return obj_critic.item(), q_value.mean().item()
 
     def get_obj_critic(self, buffer, batch_size):
@@ -107,7 +104,6 @@ class AgentDQN(AgentBase):
             reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
             next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0]
             q_label = reward + mask * next_q
-
         q_value = self.cri(state).gather(1, action.long())
         obj_critic = self.criterion(q_value, q_label)
         return obj_critic, q_value
@@ -121,30 +117,30 @@ class AgentDDPG(AgentBase):
         args.if_cri_target = getattr(args, 'if_cri_target', True)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
 
-        self.act.explore_noise = getattr(args, 'explore_noise', 0.1)  # set for `get_action()`
+        self.act.explore_noise_std = getattr(args, 'explore_noise', 0.1)  # set for `self.act.get_action()`
 
     def explore_env(self, env, target_step: int) -> list:
         traj_list = []
         state = self.states[0]
 
-        step_i = 0
+        i = 0
         done = False
         get_action = self.act.get_action
-        while step_i < target_step or not done:
-            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a = get_action(ten_s.to(self.device)).detach().cpu()
-            next_s, reward, done, _ = env.step(ten_a[0].numpy())
+        while i < target_step or not done:
+            tenor_state = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            tensor_action = get_action(tenor_state.to(self.device)).detach().cpu()
+            next_state, reward, done, _ = env.step(tensor_action[0].numpy())
 
-            traj_list.append((ten_s, reward, done, ten_a))
+            traj_list.append((tenor_state, reward, done, tensor_action))
 
-            step_i += 1
-            state = env.reset() if done else next_s
+            i += 1
+            state = env.reset() if done else next_state
 
         self.states[0] = state
-        return self.convert_trajectory(traj_list)  # traj_list
+        return self.convert_traj_to_transition(traj_list)
 
     def update_net(self, buffer) -> tuple:
-        obj_critic = obj_actor = None
+        obj_critic = obj_actor = torch.zeros(1)
 
         update_times = int(1 + buffer.cur_capacity * self.repeat_times / self.batch_size)
         for i in range(update_times):
@@ -152,17 +148,17 @@ class AgentDDPG(AgentBase):
             self.optimizer_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
-            action_pg = self.act(state)  # policy gradient
-            obj_actor = -self.cri_target(state, action_pg).mean()
-            self.optimizer_update(self.act_optimizer, obj_actor)
+            action = self.act(state)
+            obj_actor = self.cri_target(state, action).mean()
+            self.optimizer_update(self.act_optimizer, -obj_actor)
             self.soft_update(self.act_target, self.act, self.soft_update_tau)
-        return obj_critic.item(), -obj_actor.item()
+        return obj_critic.item(), obj_actor.item()
 
     def get_obj_critic(self, buffer, batch_size):
         with torch.no_grad():
-            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
-            next_a = self.act_target(next_s)
-            next_q = self.cri_target(next_s, next_a)
+            reward, mask, action, state, next_state = buffer.sample_batch(batch_size)
+            next_action = self.act_target(next_state)
+            next_q = self.cri_target(next_state, next_action)
             q_label = reward + mask * next_q
 
         q = self.cri(state, action)
@@ -179,32 +175,30 @@ class AgentPPO(AgentBase):
         args.if_cri_target = getattr(args, "if_cri_target", False)
         AgentBase.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
 
-        """attribute"""
-        self.criterion = torch.nn.SmoothL1Loss()
-
         self.ratio_clip = getattr(args, "ratio_clip", 0.25)  # `ratio.clamp(1 - clip, 1 + clip)`
         self.lambda_entropy = getattr(args, "lambda_entropy", 0.01)  # could be 0.00~0.10
+        self.lambda_entropy = torch.tensor(self.lambda_entropy, dtype=torch.float32, device=self.device)
 
     def explore_env(self, env, target_step: int) -> list:
         traj_list = []
         state = self.states[0]
 
-        step_i = 0
+        i = 0
         done = False
         get_action = self.act.get_action
-        get_a_to_e = self.act.get_a_to_e
-        while step_i < target_step or not done:
-            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a, ten_n = [ten.cpu() for ten in get_action(ten_s.to(self.device))]
-            next_s, reward, done, _ = env.step(get_a_to_e(ten_a)[0].numpy())
+        convert = self.act.convert_action_for_env
+        while i < target_step or not done:
+            tensor_state = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+            tensor_action, tensor_noise = [ten.cpu() for ten in get_action(tensor_state.to(self.device))]
+            next_state, reward, done, _ = env.step(convert(tensor_action)[0].numpy())
 
-            traj_list.append((ten_s, reward, done, ten_a, ten_n))
+            traj_list.append((tensor_state, reward, done, tensor_action, tensor_noise))
 
-            step_i += 1
-            state = env.reset() if done else next_s
+            i += 1
+            state = env.reset() if done else next_state
 
         self.states[0] = state
-        return self.convert_trajectory(traj_list)
+        return self.convert_traj_to_transition(traj_list)
 
     def update_net(self, buffer):
         with torch.no_grad():
@@ -217,39 +211,36 @@ class AgentPPO(AgentBase):
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
-            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)
-            # buf_adv_v: buffer data of adv_v value
+            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)  # advantage value
             del buf_noise
 
         '''update network'''
-        obj_critic = obj_actor = None
+        obj_critic = obj_actor = torch.zeros(1)
+
         update_times = int(1 + buf_len * self.repeat_times / self.batch_size)
         for i in range(update_times):
             indices = torch.randint(buf_len, size=(self.batch_size,), requires_grad=False, device=self.device)
-
             state = buf_state[indices]
             r_sum = buf_r_sum[indices]
+            adv_v = buf_adv_v[indices]
+            action = buf_action[indices]
+            old_logprob = buf_logprob[indices]
 
-            '''PPO: critic objective (critic loss)'''
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum)
             self.optimizer_update(self.cri_optimizer, obj_critic)
 
-            '''PPO: surrogate objective of trust region'''
-            adv_v = buf_adv_v[indices]
-            action = buf_action[indices]
-            old_logprob = buf_logprob[indices]
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
             ratio = (new_logprob - old_logprob.detach()).exp()
             surrogate1 = adv_v * ratio
             surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
             obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
             obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
-            self.optimizer_update(self.act_optimizer, obj_actor)
+            self.optimizer_update(self.act_optimizer, -obj_actor)
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
-        return obj_critic.item(), -obj_actor.item(), a_std_log.item()  # logging_tuple
+        return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
     def get_reward_sum(self, buf_len, buf_reward, buf_mask, buf_value):
         buf_r_sum = torch.empty(buf_len, dtype=torch.float32, device=self.device)  # reward sum
@@ -329,7 +320,6 @@ class ReplayBufferList(list):  # for on-policy
 
     def update_buffer(self, traj_list):
         traj_items = list(map(list, zip(*traj_list)))
-
         self[:] = [torch.cat(item, dim=0) for item in traj_items]
 
         steps = self[1].shape[0]

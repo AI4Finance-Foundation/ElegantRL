@@ -1,4 +1,5 @@
-from elegantrl_helloworld.run import train_agent, evaluate_agent, Arguments
+from elegantrl_helloworld.config import Arguments
+from elegantrl_helloworld.run import train_agent, evaluate_agent
 from elegantrl_helloworld.env import get_gym_env_args, PendulumEnv
 
 
