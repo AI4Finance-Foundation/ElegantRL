@@ -212,31 +212,32 @@ class AgentPPO(AgentBase):
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
 
             buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)  # advantage value
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)  # buffer data of advantage value
             del buf_noise
 
         '''update network'''
         obj_critic = obj_actor = torch.zeros(1)
-
+        assert buf_len >= self.batch_size
         update_times = int(1 + buf_len * self.repeat_times / self.batch_size)
-        for i in range(update_times):
+        for _ in range(update_times):
             indices = torch.randint(buf_len, size=(self.batch_size,), requires_grad=False, device=self.device)
+
             state = buf_state[indices]
             r_sum = buf_r_sum[indices]
             adv_v = buf_adv_v[indices]
             action = buf_action[indices]
-            old_logprob = buf_logprob[indices]
+            logprob = buf_logprob[indices]
 
             value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, r_sum)
             self.optimizer_update(self.cri_optimizer, obj_critic)
 
             new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
-            ratio = (new_logprob - old_logprob.detach()).exp()
+            ratio = (new_logprob - logprob.detach()).exp()
             surrogate1 = adv_v * ratio
             surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
-            obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
-            obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
+            obj_surrogate = torch.min(surrogate1, surrogate2).mean()
+            obj_actor = obj_surrogate - obj_entropy * self.lambda_entropy
             self.optimizer_update(self.act_optimizer, -obj_actor)
 
         a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()

@@ -91,6 +91,8 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
 
 def build_env(env_func=None, env_args=None):
     if env_func.__module__ == 'gym.envs.registration':  # special rule
+        import gym
+        gym.logger.set_level(40)  # Block warning
         env = env_func(id=env_args['env_name'])
     else:
         def kwargs_filter(func, kwargs: dict):

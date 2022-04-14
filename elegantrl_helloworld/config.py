@@ -17,17 +17,17 @@ class Arguments:
 
         self.agent_class = agent_class  # DRL algorithm
         self.net_dim = 2 ** 7  # the middle layer dimension of Fully Connected Network
-        self.batch_size = 2 ** 7  # num of transitions sampled from replay buffer.
-        self.mid_layer_num = 1  # the middle layer number of Fully Connected Network
+        self.num_layer = 3  # the layer number of MultiLayer Perceptron, `assert num_layer >= 2`
+        self.batch_size = 2 ** 5  # num of transitions sampled from replay buffer.
         self.if_off_policy = self.get_if_off_policy()  # agent is on-policy or off-policy
         if self.if_off_policy:  # off-policy
-            self.target_step = 2 ** 10  # repeatedly update network to keep critic's loss small
-            self.max_capacity = 2 ** 21  # capacity of replay buffer
-            self.repeat_times = 2 ** 0  # collect target_step, then update network
+            self.target_step = 2 ** 10  # collect target_step, then update network
+            self.max_capacity = 2 ** 21  # if reach the capacity of ReplayBuffer, first in first out for off-policy.
+            self.repeat_times = 2 ** 0  # repeatedly update network using ReplayBuffer to keep critic's loss small
         else:  # on-policy
-            self.target_step = 2 ** 12  # repeatedly update network to keep critic's loss small
-            self.max_capacity = self.target_step  # capacity of replay buffer
-            self.repeat_times = 2 ** 3  # collect target_step, then update network
+            self.target_step = 2 ** 12  # collect target_step, then update network
+            self.max_capacity = self.target_step  # capacity of ReplayBuffer. Empty the ReplayBuffer for on-policy.
+            self.repeat_times = 2 ** 3  # repeatedly update network using ReplayBuffer to keep critic's loss small
 
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
@@ -37,7 +37,7 @@ class Arguments:
 
         '''Arguments for device'''
         self.thread_num = 8  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
-        self.random_seed = 0  # initialize random seed in self.init_before_training()
+        self.random_seed = 42  # initialize random seed in self.init_before_training()
         self.learner_gpus = 0  # `int` means the ID of single GPU, -1 means CPU
 
         '''Arguments for evaluate'''
