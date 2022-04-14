@@ -503,7 +503,72 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
         '''evaluate'''
         args.eval_gap = 2 ** 6
         args.eval_times = 2 ** 5
-        args.break_step = int(6e5)
+        args.break_step = int(4e5)
+
+        args.learner_gpus = gpu_id
+        train_agent(args)
+        print('| The cumulative returns of Pendulum-v1 is ∈ (-1800, (-300, 200), 310+)')
+        evaluate_agent(args)
+
+        """
+        | Arguments Keep cwd: ./LunarLanderContinuous-v2_PPO_4
+
+        | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
+        | `ExpR` denotes average rewards during exploration. The agent gets this rewards with noisy action.
+        | `ObjC` denotes the objective of Critic network. Or call it loss function of critic network.
+        | `ObjA` denotes the objective of Actor network. It is the average Q value of the critic network.
+        
+        | Steps 8.04e+03  ExpR    -0.95  | ObjC    24.03  ObjA     0.14
+        | Steps 5.62e+04  ExpR    -0.11  | ObjC     7.07  ObjA    -0.00
+        | Steps 9.65e+04  ExpR     0.01  | ObjC     4.59  ObjA    -0.06
+        | Steps 1.22e+05  ExpR     0.04  | ObjC     5.88  ObjA    -0.00
+        | Steps 1.48e+05  ExpR     0.02  | ObjC     4.17  ObjA    -0.01
+        | Steps 1.73e+05  ExpR     0.04  | ObjC     4.48  ObjA     0.09
+        | Steps 1.99e+05  ExpR     0.02  | ObjC     3.10  ObjA     0.13
+        | Steps 2.24e+05  ExpR     0.04  | ObjC     2.40  ObjA    -0.09
+        | Steps 2.56e+05  ExpR     0.06  | ObjC     1.10  ObjA     0.05
+        | Steps 2.88e+05  ExpR     0.06  | ObjC     0.68  ObjA     0.05
+        | Steps 3.21e+05  ExpR     0.08  | ObjC     0.48  ObjA    -0.14
+        | Steps 3.53e+05  ExpR     0.08  | ObjC     0.45  ObjA    -0.02
+        | Steps 3.87e+05  ExpR     0.08  | ObjC     0.36  ObjA    -0.05
+        | Steps 4.20e+05  ExpR     0.09  | ObjC     0.36  ObjA    -0.14
+        | Steps 4.53e+05  ExpR     0.08  | ObjC     0.37  ObjA    -0.09
+        | Steps 4.85e+05  ExpR     0.08  | ObjC     0.37  ObjA     0.09
+        | Steps 5.18e+05  ExpR     0.10  | ObjC     1.39  ObjA    -0.07
+        | Steps 5.60e+05  ExpR     0.10  | ObjC     1.66  ObjA     0.10
+        | Steps 5.94e+05  ExpR     0.11  | ObjC     2.40  ObjA    -0.00
+        | UsedTime: 1284 | SavedDir: ./LunarLanderContinuous-v2_PPO_4
+        | Arguments Keep cwd: ./LunarLanderContinuous-v2_PPO_4
+        
+        | The cumulative returns of Pendulum-v1 is ∈ (-1800, (-300, 200), 310+)
+        
+        | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
+        | `avgR` denotes average value of cumulative rewards, which is the sum of rewards in an episode.
+        | `stdR` denotes standard dev of cumulative rewards, which is the sum of rewards in an episode.
+        | `avgS` denotes the average number of steps in an episode.
+        
+        | Steps 8.04e+03  | avgR  -299.022  stdR    88.357  | avgS    125
+        | Steps 5.62e+04  | avgR  -214.367  stdR    47.372  | avgS    161
+        | Steps 9.65e+04  | avgR  -141.571  stdR    81.062  | avgS    260
+        | Steps 1.22e+05  | avgR   -59.750  stdR   120.134  | avgS    343
+        | Steps 1.48e+05  | avgR     6.748  stdR   159.249  | avgS    489
+        | Steps 1.73e+05  | avgR   118.458  stdR   173.501  | avgS    373
+        | Steps 1.99e+05  | avgR   113.434  stdR   143.486  | avgS    424
+        | Steps 2.24e+05  | avgR   197.959  stdR   140.750  | avgS    309
+        | Steps 2.56e+05  | avgR   230.408  stdR    62.407  | avgS    287
+        | Steps 2.88e+05  | avgR   217.490  stdR    80.702  | avgS    318
+        | Steps 3.21e+05  | avgR   211.975  stdR   121.265  | avgS    294
+        | Steps 3.53e+05  | avgR   237.058  stdR    89.797  | avgS    276
+        | Steps 3.87e+05  | avgR   239.979  stdR    59.422  | avgS    269
+        | Steps 4.20e+05  | avgR   170.393  stdR   109.753  | avgS    317
+        | Steps 4.53e+05  | avgR   255.573  stdR    53.690  | avgS    248
+        | Steps 4.85e+05  | avgR   251.967  stdR    51.781  | avgS    312
+        | Steps 5.18e+05  | avgR   220.062  stdR    65.878  | avgS    279
+        | Steps 5.60e+05  | avgR   261.734  stdR    43.785  | avgS    255
+        | Steps 5.94e+05  | avgR   230.703  stdR    87.323  | avgS    290
+        | Save learning curve in ./LunarLanderContinuous-v2_PPO_4/LearningCurve_LunarLanderContinuous-v2_AgentPPO.jpg
+        """
+
     elif env_name == "BipedalWalker-v3":
         import gym
         env = gym.make(env_name)
@@ -527,12 +592,10 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
         args.eval_gap = 2 ** 6
         args.eval_times = 2 ** 4
         args.break_step = int(6e5)
-    else:
-        raise ValueError("env_name:", env_name)
 
-    args.learner_gpus = gpu_id
-    train_agent(args)
-    evaluate_agent(args)
+        args.learner_gpus = gpu_id
+        train_agent(args)
+        evaluate_agent(args)
 
 
 if __name__ == "__main__":
