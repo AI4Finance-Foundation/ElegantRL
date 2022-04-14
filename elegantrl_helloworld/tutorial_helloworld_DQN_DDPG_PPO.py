@@ -496,18 +496,9 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
         '''network update'''
         args.target_step = args.max_step * 8
         args.num_layer = 3
-        if gpu_id in {2, 3}:
-            args.net_dim = 2 ** 7
-            args.num_layer = 2
-        else:
-            args.num_layer = 3
-            args.net_dim = 2 ** 8
         args.batch_size = 2 ** 7
         args.repeat_times = 2 ** 4
-        if gpu_id == 4:  # todo
-            args.lambda_entropy = 0.04
-        else:
-            args.lambda_entropy = 0.01
+        args.lambda_entropy = 0.04
 
         '''evaluate'''
         args.eval_gap = 2 ** 6
