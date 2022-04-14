@@ -77,7 +77,7 @@ ElegantRL supports the following simulators:
 
 For beginners, we maintain [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
 
-- Run the [tutorial code and learn about RL algorithms in this order: DQN -> DDPG -> PPO](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/demo_helloworld_tutorial_DQN_DDPG_PPO.py) or [Jupyter notebook ipynb](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_helloworld_DQN_DDPG_PPO.ipynb)
+- Run the [tutorial code and learn about RL algorithms in this order: DQN -> DDPG -> PPO](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/tutorial_helloworld_DQN_DDPG_PPO.py)
 - Write the [suggestion for Eleagant_HelloWorld in github issue](https://github.com/AI4Finance-Foundation/ElegantRL/issues/135).
 
 One sentence summary: an agent (_agent.py_) with Actor-Critic networks (_net.py_) is trained (_run.py_) by interacting with an environment (_env.py_).
