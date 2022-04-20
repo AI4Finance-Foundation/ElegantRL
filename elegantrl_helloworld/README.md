@@ -12,11 +12,23 @@ We hope that the `ElegantRL Helloworld` would help people who want to learn abou
 - **keep a consistent style with the full version of ElegantRL**.
 
 
-## ElegantRL HelloWorld tutorial: Download and run it.
+## Download and run it.
 
-# todo 2022-04-20 17:54:34
+1. Run the Jupyter Notebook. Open in Colab. [tutorial_helloworld_DQN_DDPG_PPO.ipynb](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_helloworld_DQN_DDPG_PPO.ipynb)
 
+2. Run the Python file [tutorial_helloworld_DQN_DDPG_PPO](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/tutorial_helloworld_DQN_DDPG_PPO.py)
+```
+train_dqn_in_cartpole()
+train_dqn_in_lunar_lander()
 
+train_ddpg_in_pendulum()
+train_ppo_in_pendulum()
+
+train_ddpg_in_lunar_lander_or_bipedal_walker()
+train_ppo_in_lunar_lander_or_bipedal_walker()
+```
+
+---
 
 
 The files in `elegantrl_helloworld` including:
