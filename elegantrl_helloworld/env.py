@@ -3,9 +3,11 @@ import numpy as np
 
 
 class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
-    def __init__(self, gym_env_name="Pendulum-v1"):
+    def __init__(self, gym_env_name=None):
         gym.logger.set_level(40)  # Block warning
-        super().__init__(env=gym.make(gym_env_name))
+        if gym_env_name is None:
+            gym_env_name = "Pendulum-v0"  if gym.__version__ < '0.18.0' else "Pendulum-v1"
+        super().__init__(env=gym.make(gym_env_name) )
 
         self.env_name = gym_env_name  # the name of this env.
         self.max_step = getattr(self.env, '_max_episode_steps', None)  # the max step of an episode
