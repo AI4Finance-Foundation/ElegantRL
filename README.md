@@ -85,20 +85,26 @@ One sentence summary: an agent (_agent.py_) with Actor-Critic networks (_net.py_
 ## File Structure
 
 - **elegantrl** # main folder
-  - envs, # a collection of environments
-  - agent.py, # DRL algorithms
-  - config.py, # configurations (hyper-parameter)
-  - demo.py, # a collection of demos
-  - evaluator.py # the evaluator class
-  - net.py # a collection of network architectures
-  - replay_buffer.py # the buffer class
-  - run.py # training loop
+  - agents  # a collection of DRL algorithms
+  	- AgentXXX.py  # a collection of one kind of DRL algorithms
+  	- net.py  # a collection of network architectures
+  - envs # a collection of environments
+  	- XxxEnv.py  # a training environment for RL
+  - train # a collection of training programs
+      	- demo.py  # a collection of demos
+  	- config.py  # configurations (hyper-parameter)
+  	- run.py  # training loop
+  	- worker.py  # the worker class (explores the env, saving the data to replay buffer)
+  	- learner.py  # the learner class (update the networks, using the data in replay buffer)
+  	- evaluator.py  # the evaluator class (evaluate the cumulative returns of policy network)
+  	- replay_buffer.py # the buffer class (save sequences of transitions for training)
 - **elegantrl_helloworld** # tutorial version
-  - env.py,
-  - agent.py,
-  - demo.py,
-  - net.py
-  - run.py
+  - config.py  # configurations (hyper-parameter)
+  - agent.py  # DRL algorithms
+  - net.py  # network architectures 
+  - run.py  # training loop
+  - env.py  # environments for RL training
+
 - **examples** # a collection of example codes
 - **ready-to-run Google-Colab notebooks**
   - quickstart_Pendulum_v1.ipynb
