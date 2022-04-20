@@ -35,8 +35,8 @@ def train_dqn_in_cartpole(gpu_id=0):  # DQN is a simple but low sample efficienc
 
     args.learner_gpus = gpu_id
     train_agent(args)
-    print('| The cumulative returns of CartPole-v0  is ∈ (0, (0, 195), 200)')
     evaluate_agent(args)
+    print('| The cumulative returns of CartPole-v0  is ∈ (0, (0, 195), 200)')
 
     """
     | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
@@ -117,8 +117,8 @@ def train_dqn_in_lunar_lander(gpu_id=0):  # DQN is a simple but low sample effic
 
     args.learner_gpus = gpu_id
     train_agent(args)
-    print('| The cumulative returns of LunarLander-v2 is ∈ (-1800, (-600, 200), 340)')
     evaluate_agent(args)
+    print('| The cumulative returns of LunarLander-v2 is ∈ (-1800, (-600, 200), 340)')
 
     """    ========args.batch_size = 2 ** 7================
     | Arguments Remove cwd: ./LunarLander-v2_DQN_4
@@ -250,13 +250,7 @@ def train_ddpg_in_pendulum(gpu_id=0):  # DDPG is a simple but low sample efficie
     '''network update'''
     args.target_step = args.max_step * 2
     args.net_dim = 2 ** 7
-
-    # TODO
-    if gpu_id == 4:
-        args.batch_size = 2 ** 7
-    else:
-        args.batch_size = 2 ** 6
-
+    args.batch_size = 2 ** 7
     args.repeat_times = 2 ** 0
     args.explore_noise = 0.1
 
@@ -267,8 +261,8 @@ def train_ddpg_in_pendulum(gpu_id=0):  # DDPG is a simple but low sample efficie
 
     args.learner_gpus = gpu_id
     train_agent(args)
-    print('| The cumulative returns of Pendulum-v1 is ∈ (-1600, (-1400, -200), 0)')
     evaluate_agent(args)
+    print('| The cumulative returns of Pendulum-v1 is ∈ (-1600, (-1400, -200), 0)')
 
     """
     | Arguments Remove cwd: ./Pendulum-v1_DDPG_4
@@ -313,7 +307,7 @@ def train_ddpg_in_pendulum(gpu_id=0):  # DDPG is a simple but low sample efficie
 def train_ddpg_in_lunar_lander_or_bipedal_walker(gpu_id=0):  # DDPG is a simple but low sample efficiency and unstable.
     from elegantrl_helloworld.agent import AgentDDPG
     agent_class = AgentDDPG
-    env_name = ["LunarLanderContinuous-v2", "BipedalWalker-v3"][0]
+    env_name = ["LunarLanderContinuous-v2", "BipedalWalker-v3"][1]
 
     if env_name == "LunarLanderContinuous-v2":
         """
@@ -386,19 +380,20 @@ def train_ddpg_in_lunar_lander_or_bipedal_walker(gpu_id=0):  # DDPG is a simple 
 
         '''reward shaping'''
         args.reward_scale = 2 ** -1
-        args.gamma = 0.98
+        args.gamma = 0.99
 
         '''network update'''
         args.target_step = args.max_step // 2
         args.net_dim = 2 ** 8
-        args.batch_size = 2 ** 8
+        args.num_layer = 3
+        args.batch_size = 2 ** 7
         args.repeat_times = 2 ** 0
-        args.explore_noise = 0.05
+        args.explore_noise = 0.1
 
         '''evaluate'''
         args.eval_gap = 2 ** 7
         args.eval_times = 2 ** 3
-        args.break_step = int(3e5)
+        args.break_step = int(1e6)
     else:
         raise ValueError("env_name:", env_name)
 
@@ -435,8 +430,8 @@ def train_ppo_in_pendulum(gpu_id=0):
 
     args.learner_gpus = gpu_id
     train_agent(args)
-    print('| The cumulative returns of Pendulum-v1 is ∈ (-1600, (-1400, -200), 0)')
     evaluate_agent(args)
+    print('| The cumulative returns of Pendulum-v1 is ∈ (-1600, (-1400, -200), 0)')
 
     """
     | Arguments Remove cwd: ./Pendulum-v1_PPO_2
@@ -479,7 +474,7 @@ def train_ppo_in_pendulum(gpu_id=0):
 def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
     from elegantrl_helloworld.agent import AgentPPO
     agent_class = AgentPPO
-    env_name = ["LunarLanderContinuous-v2", "BipedalWalker-v3"][0]
+    env_name = ["LunarLanderContinuous-v2", "BipedalWalker-v3"][1]
 
     if env_name == "LunarLanderContinuous-v2":
         import gym
@@ -507,8 +502,8 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
 
         args.learner_gpus = gpu_id
         train_agent(args)
-        print('| The cumulative returns of Pendulum-v1 is ∈ (-1800, (-300, 200), 310+)')
         evaluate_agent(args)
+        print('| The cumulative returns of LunarLanderContinuous-v2 is ∈ (-1800, (-300, 200), 310+)')
 
         """
         | Arguments Keep cwd: ./LunarLanderContinuous-v2_PPO_4
@@ -540,7 +535,7 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
         | UsedTime: 1284 | SavedDir: ./LunarLanderContinuous-v2_PPO_4
         | Arguments Keep cwd: ./LunarLanderContinuous-v2_PPO_4
         
-        | The cumulative returns of Pendulum-v1 is ∈ (-1800, (-300, 200), 310+)
+        | The cumulative returns of LunarLanderContinuous-v2 is ∈ (-1800, (-300, 200), 310+)
         
         | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
         | `avgR` denotes average value of cumulative rewards, which is the sum of rewards in an episode.
@@ -585,17 +580,89 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
         args.target_step = args.max_step
         args.net_dim = 2 ** 8
         args.num_layer = 3
-        args.batch_size = 2 ** 9
+        args.batch_size = 2 ** 8
         args.repeat_times = 2 ** 4
 
         '''evaluate'''
         args.eval_gap = 2 ** 6
         args.eval_times = 2 ** 4
-        args.break_step = int(6e5)
+        args.break_step = int(1e6)
 
         args.learner_gpus = gpu_id
+        args.random_seed += gpu_id
         train_agent(args)
         evaluate_agent(args)
+        print('| The cumulative returns of BipedalWalker-v3 is ∈ (-150, (-100, 280), 320+)')
+
+        """
+        | Arguments Remove cwd: ./BipedalWalker-v3_PPO_3
+        
+        | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
+        | `ExpR` denotes average rewards during exploration. The agent gets this rewards with noisy action.
+        | `ObjC` denotes the objective of Critic network. Or call it loss function of critic network.
+        | `ObjA` denotes the objective of Actor network. It is the average Q value of the critic network.
+        
+        | Steps 1.76e+03  ExpR    -0.08  | ObjC     1.91  ObjA     0.07
+        | Steps 8.37e+04  ExpR    -0.02  | ObjC     0.01  ObjA    -0.02
+        | Steps 1.64e+05  ExpR    -0.01  | ObjC     0.01  ObjA     0.03
+        | Steps 2.45e+05  ExpR    -0.01  | ObjC     0.87  ObjA     0.05
+        | Steps 3.29e+05  ExpR    -0.06  | ObjC     2.20  ObjA     0.06
+        | Steps 4.12e+05  ExpR     0.04  | ObjC     0.26  ObjA     0.01
+        | Steps 4.94e+05  ExpR    -0.03  | ObjC     1.61  ObjA     0.03
+        | Steps 5.77e+05  ExpR     0.04  | ObjC     0.61  ObjA     0.00
+        | Steps 6.62e+05  ExpR     0.02  | ObjC     0.78  ObjA     0.10
+        | Steps 7.46e+05  ExpR     0.07  | ObjC     0.09  ObjA     0.07
+        | Steps 8.29e+05  ExpR     0.02  | ObjC     0.58  ObjA     0.04
+        | Steps 9.13e+05  ExpR     0.02  | ObjC     0.36  ObjA     0.10
+        | Steps 9.97e+05  ExpR     0.05  | ObjC     0.48  ObjA     0.11
+        | Steps 1.08e+06  ExpR     0.10  | ObjC     0.19  ObjA    -0.04
+        | Steps 1.16e+06  ExpR     0.07  | ObjC     0.61  ObjA     0.06
+        | Steps 1.25e+06  ExpR     0.12  | ObjC     0.18  ObjA     0.11
+        | Steps 1.33e+06  ExpR     0.11  | ObjC     0.24  ObjA    -0.00
+        | Steps 1.42e+06  ExpR     0.08  | ObjC     0.29  ObjA     0.07
+        | Steps 1.50e+06  ExpR     0.09  | ObjC     0.38  ObjA    -0.01
+        | Steps 1.58e+06  ExpR     0.09  | ObjC     0.79  ObjA    -0.01
+        | Steps 1.66e+06  ExpR     0.10  | ObjC     0.60  ObjA     0.05
+        | Steps 1.75e+06  ExpR     0.12  | ObjC     0.21  ObjA     0.02
+        | Steps 1.83e+06  ExpR     0.09  | ObjC     0.71  ObjA    -0.05
+        | Steps 1.91e+06  ExpR     0.10  | ObjC     0.82  ObjA     0.06
+        | Steps 2.00e+06  ExpR     0.13  | ObjC     0.28  ObjA     0.08
+        | UsedTime: 1562 | SavedDir: ./BipedalWalker-v3_PPO_3
+        | The cumulative returns of BipedalWalker-v3 is ∈ (-150, (-100, 280), 320+)
+        | Arguments Keep cwd: ./BipedalWalker-v3_PPO_3
+        
+        | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
+        | `avgR` denotes average value of cumulative rewards, which is the sum of rewards in an episode.
+        | `stdR` denotes standard dev of cumulative rewards, which is the sum of rewards in an episode.
+        | `avgS` denotes the average number of steps in an episode.
+        
+        | Steps 1.76e+03  | avgR  -115.003  stdR     0.116  | avgS     77
+        | Steps 8.37e+04  | avgR   -35.847  stdR    22.081  | avgS   1507
+        | Steps 1.64e+05  | avgR   -18.735  stdR     9.770  | avgS   1600
+        | Steps 2.45e+05  | avgR    67.252  stdR    93.453  | avgS   1241
+        | Steps 3.29e+05  | avgR   -29.998  stdR    86.421  | avgS    526
+        | Steps 4.12e+05  | avgR   119.324  stdR   143.967  | avgS   1056
+        | Steps 4.94e+05  | avgR   270.148  stdR    48.794  | avgS   1541
+        | Steps 5.77e+05  | avgR   156.052  stdR   134.798  | avgS   1151
+        | Steps 6.62e+05  | avgR   198.212  stdR   117.652  | avgS   1397
+        | Steps 7.46e+05  | avgR   -40.360  stdR   120.715  | avgS    311
+        | Steps 8.29e+05  | avgR   -27.157  stdR   100.747  | avgS    456
+        | Steps 9.13e+05  | avgR   214.932  stdR    97.118  | avgS   1360
+        | Steps 9.97e+05  | avgR    43.986  stdR   134.294  | avgS    671
+        | Steps 1.08e+06  | avgR   290.690  stdR     1.815  | avgS   1277
+        | Steps 1.16e+06  | avgR   263.563  stdR    84.633  | avgS   1126
+        | Steps 1.25e+06  | avgR   286.703  stdR    35.514  | avgS   1098
+        | Steps 1.33e+06  | avgR   296.509  stdR     1.452  | avgS   1154
+        | Steps 1.42e+06  | avgR   270.809  stdR    69.728  | avgS   1075
+        | Steps 1.50e+06  | avgR   299.834  stdR     1.090  | avgS   1105
+        | Steps 1.58e+06  | avgR   277.359  stdR    83.360  | avgS   1054
+        | Steps 1.66e+06  | avgR   290.936  stdR    27.699  | avgS   1131
+        | Steps 1.75e+06  | avgR   298.836  stdR     2.494  | avgS   1122
+        | Steps 1.83e+06  | avgR   298.921  stdR     1.822  | avgS   1075
+        | Steps 1.91e+06  | avgR   285.068  stdR    54.862  | avgS   1028
+        | Steps 2.00e+06  | avgR   283.990  stdR    60.790  | avgS   1023
+        | Save learning curve in ./BipedalWalker-v3_PPO_3/LearningCurve_BipedalWalker-v3_AgentPPO.jpg
+        """
 
 
 if __name__ == "__main__":
