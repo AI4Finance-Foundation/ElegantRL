@@ -257,10 +257,10 @@ class ActorSAC(nn.Module):
         a_tan = (a_avg + a_std * noise).tanh()  # action.tanh()
 
         logprob = (
-            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+                a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
         )  # noise.pow(2) * 0.5
         logprob = (
-            logprob + (-a_tan.pow(2) + 1.000001).log()
+                logprob + (-a_tan.pow(2) + 1.000001).log()
         )  # fix logprob using the derivative of action.tanh()
         return a_tan, logprob.sum(1, keepdim=True)  # todo negative logprob
 
@@ -309,11 +309,11 @@ class ActorFixSAC(nn.Module):
         noise = a_noise - action  # todo
 
         log_prob = (
-            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+                a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
         )  # noise.pow(2) * 0.5
         log_prob += (
-            np.log(2.0) - a_noise - self.soft_plus(-2.0 * a_noise)
-        ) * 2.0  # better than below
+                            np.log(2.0) - a_noise - self.soft_plus(-2.0 * a_noise)
+                    ) * 2.0  # better than below
         return log_prob
 
     def get_action_logprob(self, state):
@@ -331,7 +331,7 @@ class ActorFixSAC(nn.Module):
         """compute log_prob according to mean and std of a_noise (stochastic policy)"""
         # self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
         log_prob = (
-            a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
+                a_std_log + self.log_sqrt_2pi + noise.pow(2).__mul__(0.5)
         )  # noise.pow(2) * 0.5
         """same as below:
         from torch.distributions.normal import Normal
@@ -343,8 +343,8 @@ class ActorFixSAC(nn.Module):
 
         """fix log_prob of action.tanh"""
         log_prob += (
-            np.log(2.0) - a_noise - self.soft_plus(-2.0 * a_noise)
-        ) * 2.0  # better than below
+                            np.log(2.0) - a_noise - self.soft_plus(-2.0 * a_noise)
+                    ) * 2.0  # better than below
         """same as below:
         epsilon = 1e-6
         a_noise_tanh = a_noise.tanh()
@@ -458,77 +458,6 @@ class ActorDiscretePPO(nn.Module):
         return action.int()
 
 
-class SharePPO(nn.Module):  # Pixel-level state version
-    def __init__(self, state_dim, action_dim, mid_dim):
-        super().__init__()
-        if isinstance(state_dim, int):
-            self.enc_s = nn.Sequential(
-                nn.Linear(state_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, mid_dim)
-            )  # the only difference.
-        else:
-            self.enc_s = ConvNet(
-                inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0]
-            )
-        out_dim = mid_dim
-
-        self.dec_a = nn.Sequential(
-            nn.Linear(out_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
-        )
-        self.a_std_log = nn.Parameter(
-            torch.zeros(1, action_dim) - 0.5, requires_grad=True
-        )
-
-        self.dec_q1 = nn.Sequential(
-            nn.Linear(out_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
-        )
-        self.dec_q2 = nn.Sequential(
-            nn.Linear(out_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
-        )
-
-        layer_norm(self.dec_a[-1], std=0.01)
-        layer_norm(self.dec_q1[-1], std=0.01)
-        layer_norm(self.dec_q2[-1], std=0.01)
-
-        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
-
-    def forward(self, s):
-        s_ = self.enc_s(s)
-        a_avg = self.dec_a(s_)
-        return a_avg.tanh()
-
-    def get_action_noise(self, state):
-        s_ = self.enc_s(state)
-        a_avg = self.dec_a(s_)
-        a_std = self.a_std_log.exp()
-
-        # a_noise = torch.normal(a_avg, a_std) # same as below
-        noise = torch.randn_like(a_avg)
-        a_noise = a_avg + noise * a_std
-        return a_noise, noise
-
-    def get_q_logprob(self, state, noise):
-        s_ = self.enc_s(state)
-
-        q = torch.min(self.dec_q1(s_), self.dec_q2(s_))
-        logprob = -(noise.pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
-        return q, logprob
-
-    def get_q1_q2_logprob(self, state, action):
-        s_ = self.enc_s(state)
-
-        q1, q2, a_avg, a_std = (
-            self.dec_q1(s_),
-            self.dec_q2(s_),
-            self.dec_a(s_),
-            self.a_std_log.exp(),
-        )
-
-        logprob = -(
-            ((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log
-        ).sum(1)
-        return q1, q2, logprob
-
-
 """Critic (value network)"""
 
 
@@ -611,7 +540,7 @@ class CriticREDq(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
         q_min = torch.min(tensor_qs, dim=1, keepdim=True)[0]  # min Q value
         q_sum = tensor_qs.sum(dim=1, keepdim=True)  # mean Q value
         return (q_min * (self.critic_num * 0.5) + q_sum) / (
-            self.critic_num * 1.5
+                self.critic_num * 1.5
         )  # better than min
 
     def get_q_values(self, state, action):
@@ -621,63 +550,123 @@ class CriticREDq(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
         return tensor_qs  # multiple Q values
 
 
-class ConvNet(nn.Module):  # pixel-level state encoder
-    def __init__(self, inp_dim, out_dim, image_size=224):
+class CriticMultiple(nn.Module):
+    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
         super().__init__()
-        if image_size == 224:
-            self.net = nn.Sequential(  # size==(batch_size, inp_dim, 224, 224)
-                nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False),
-                nn.ReLU(inplace=True),  # size=110
-                nn.Conv2d(32, 48, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=54
-                nn.Conv2d(48, 64, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=26
-                nn.Conv2d(64, 96, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=12
-                nn.Conv2d(96, 128, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=5
-                nn.Conv2d(128, 192, (5, 5), stride=(1, 1)),
-                nn.ReLU(inplace=True),  # size=1
-                NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
-                nn.Linear(192, out_dim),  # size==(batch_size, out_dim)
-            )
-        elif image_size == 112:
-            self.net = nn.Sequential(  # size==(batch_size, inp_dim, 112, 112)
-                nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False),
-                nn.ReLU(inplace=True),  # size=54
-                nn.Conv2d(32, 48, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=26
-                nn.Conv2d(48, 64, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=12
-                nn.Conv2d(64, 96, (3, 3), stride=(2, 2)),
-                nn.ReLU(inplace=True),  # size=5
-                nn.Conv2d(96, 128, (5, 5), stride=(1, 1)),
-                nn.ReLU(inplace=True),  # size=1
-                NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
-                nn.Linear(128, out_dim),  # size==(batch_size, out_dim)
-            )
+        self.q_values_num = 16  # modified REDQ (Randomized Ensemble Double Q-learning)
+        if if_use_dn:
+            nn_middle = DenseNet(mid_dim)
+            out_dim = nn_middle.out_dim
         else:
-            assert image_size in {224, 112}
+            nn_middle = nn.Sequential(
+                nn.Linear(mid_dim, mid_dim),
+                nn.ReLU(),
+                nn.Linear(mid_dim, mid_dim),
+                nn.ReLU(),
+            )
+            out_dim = mid_dim
 
-    def forward(self, x):
-        # assert x.shape == (batch_size, inp_dim, image_size, image_size)
-        x = x.permute(0, 3, 1, 2)
-        x = x / 128.0 - 1.0
-        return self.net(x)
+        self.enc_s = nn.Sequential(
+            nn.Linear(state_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+        )
+        self.enc_a = nn.Sequential(
+            nn.Linear(action_dim, mid_dim),
+            nn.ReLU(),
+            nn.Linear(mid_dim, mid_dim),
+        )
+        self.mid_n = nn_middle
 
-    # @staticmethod
-    # def check():
-    #     inp_dim = 3
-    #     out_dim = 32
-    #     batch_size = 2
-    #     image_size = [224, 112][1]
-    #     # from elegantrl.net import Conv2dNet
-    #     net = Conv2dNet(inp_dim, out_dim, image_size)
-    #
-    #     x = torch.ones((batch_size, image_size, image_size, inp_dim), dtype=torch.uint8) * 255
-    #     print(x.shape)
-    #     y = net(x)
-    #     print(y.shape)
+        self.net_q = nn.Sequential(
+            nn.Linear(out_dim, mid_dim),
+            nn.Hardswish(),
+            nn.Linear(mid_dim, self.q_values_num),
+        )
+
+    def forward(self, state, action):
+        x = self.mid_n(
+            self.enc_s(state) + self.enc_a(action)
+        )  # use add instead of concatenate
+        return self.net_q(x).mean(dim=1, keepdim=True)
+
+    def get_q_values(self, state, action):
+        x = self.mid_n(self.enc_s(state) + self.enc_a(action))
+        return self.net_q(x)  # multiple Q values
+
+
+"""Share Actor and Critic network"""
+
+
+class SharePPO(nn.Module):  # Pixel-level state version
+    def __init__(self, state_dim, action_dim, mid_dim):
+        super().__init__()
+        if isinstance(state_dim, int):
+            self.enc_s = nn.Sequential(
+                nn.Linear(state_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, mid_dim)
+            )  # the only difference.
+        else:
+            self.enc_s = ConvNet(
+                inp_dim=state_dim[2], out_dim=mid_dim, image_size=state_dim[0]
+            )
+        out_dim = mid_dim
+
+        self.dec_a = nn.Sequential(
+            nn.Linear(out_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, action_dim)
+        )
+        self.a_std_log = nn.Parameter(
+            torch.zeros(1, action_dim) - 0.5, requires_grad=True
+        )
+
+        self.dec_q1 = nn.Sequential(
+            nn.Linear(out_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
+        )
+        self.dec_q2 = nn.Sequential(
+            nn.Linear(out_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, 1)
+        )
+
+        layer_norm(self.dec_a[-1], std=0.01)
+        layer_norm(self.dec_q1[-1], std=0.01)
+        layer_norm(self.dec_q2[-1], std=0.01)
+
+        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
+
+    def forward(self, s):
+        s_ = self.enc_s(s)
+        a_avg = self.dec_a(s_)
+        return a_avg.tanh()
+
+    def get_action_noise(self, state):
+        s_ = self.enc_s(state)
+        a_avg = self.dec_a(s_)
+        a_std = self.a_std_log.exp()
+
+        # a_noise = torch.normal(a_avg, a_std) # same as below
+        noise = torch.randn_like(a_avg)
+        a_noise = a_avg + noise * a_std
+        return a_noise, noise
+
+    def get_q_logprob(self, state, noise):
+        s_ = self.enc_s(state)
+
+        q = torch.min(self.dec_q1(s_), self.dec_q2(s_))
+        logprob = -(noise.pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log).sum(1)
+        return q, logprob
+
+    def get_q1_q2_logprob(self, state, action):
+        s_ = self.enc_s(state)
+
+        q1, q2, a_avg, a_std = (
+            self.dec_q1(s_),
+            self.dec_q2(s_),
+            self.dec_a(s_),
+            self.a_std_log.exp(),
+        )
+
+        logprob = -(
+                ((a_avg - action) / a_std).pow(2) / 2 + self.a_std_log + self.sqrt_2pi_log
+        ).sum(1)
+        return q1, q2, logprob
 
 
 class ShareSPG(nn.Module):  # SPG means stochastic policy gradient
@@ -801,6 +790,36 @@ class ShareSPG(nn.Module):  # SPG means stochastic policy gradient
         return q1, q2
 
 
+"""utils"""
+
+
+def build_mlp(mid_dim, num_layer, input_dim, output_dim):  # MLP (MultiLayer Perceptron)
+    assert num_layer >= 1
+    net_list = list()
+    if num_layer == 1:
+        net_list.extend([nn.Linear(input_dim, output_dim), ])
+    else:  # elif num_layer >= 2:
+        net_list.extend([nn.Linear(input_dim, mid_dim), nn.ReLU()])
+        for _ in range(num_layer - 2):
+            net_list.extend([nn.Linear(mid_dim, mid_dim), nn.ReLU()])
+        net_list.extend([nn.Linear(mid_dim, output_dim), ])
+    return nn.Sequential(*net_list)
+
+
+def layer_norm(layer, std=1.0, bias_const=1e-6):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+
+
+class NnReshape(nn.Module):
+    def __init__(self, *args):
+        super().__init__()
+        self.args = args
+
+    def forward(self, x):
+        return x.view((x.size(0),) + self.args)
+
+
 class DenseNet(nn.Module):  # plan to hyper-param: layer_number
     def __init__(self, lay_dim):
         super().__init__()
@@ -816,60 +835,60 @@ class DenseNet(nn.Module):  # plan to hyper-param: layer_number
         )  # x3  # x2.shape==(-1, lay_dim*4)
 
 
-class CriticMultiple(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim, if_use_dn=False):
+class ConvNet(nn.Module):  # pixel-level state encoder
+    def __init__(self, inp_dim, out_dim, image_size=224):
         super().__init__()
-        self.q_values_num = 16  # modified REDQ (Randomized Ensemble Double Q-learning)
-        if if_use_dn:
-            nn_middle = DenseNet(mid_dim)
-            out_dim = nn_middle.out_dim
-        else:
-            nn_middle = nn.Sequential(
-                nn.Linear(mid_dim, mid_dim),
-                nn.ReLU(),
-                nn.Linear(mid_dim, mid_dim),
-                nn.ReLU(),
+        if image_size == 224:
+            self.net = nn.Sequential(  # size==(batch_size, inp_dim, 224, 224)
+                nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False),
+                nn.ReLU(inplace=True),  # size=110
+                nn.Conv2d(32, 48, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=54
+                nn.Conv2d(48, 64, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=26
+                nn.Conv2d(64, 96, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=12
+                nn.Conv2d(96, 128, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=5
+                nn.Conv2d(128, 192, (5, 5), stride=(1, 1)),
+                nn.ReLU(inplace=True),  # size=1
+                NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
+                nn.Linear(192, out_dim),  # size==(batch_size, out_dim)
             )
-            out_dim = mid_dim
-
-        self.enc_s = nn.Sequential(
-            nn.Linear(state_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )
-        self.enc_a = nn.Sequential(
-            nn.Linear(action_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-        )
-        self.mid_n = nn_middle
-
-        self.net_q = nn.Sequential(
-            nn.Linear(out_dim, mid_dim),
-            nn.Hardswish(),
-            nn.Linear(mid_dim, self.q_values_num),
-        )
-
-    def forward(self, state, action):
-        x = self.mid_n(
-            self.enc_s(state) + self.enc_a(action)
-        )  # use add instead of concatenate
-        return self.net_q(x).mean(dim=1, keepdim=True)
-
-    def get_q_values(self, state, action):
-        x = self.mid_n(self.enc_s(state) + self.enc_a(action))
-        return self.net_q(x)  # multiple Q values
-
-
-class NnReshape(nn.Module):
-    def __init__(self, *args):
-        super().__init__()
-        self.args = args
+        elif image_size == 112:
+            self.net = nn.Sequential(  # size==(batch_size, inp_dim, 112, 112)
+                nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False),
+                nn.ReLU(inplace=True),  # size=54
+                nn.Conv2d(32, 48, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=26
+                nn.Conv2d(48, 64, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=12
+                nn.Conv2d(64, 96, (3, 3), stride=(2, 2)),
+                nn.ReLU(inplace=True),  # size=5
+                nn.Conv2d(96, 128, (5, 5), stride=(1, 1)),
+                nn.ReLU(inplace=True),  # size=1
+                NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
+                nn.Linear(128, out_dim),  # size==(batch_size, out_dim)
+            )
+        else:
+            assert image_size in {224, 112}
 
     def forward(self, x):
-        return x.view((x.size(0),) + self.args)
+        # assert x.shape == (batch_size, inp_dim, image_size, image_size)
+        x = x.permute(0, 3, 1, 2)
+        x = x / 128.0 - 1.0
+        return self.net(x)
 
-
-def layer_norm(layer, std=1.0, bias_const=1e-6):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
+    # @staticmethod
+    # def check():
+    #     inp_dim = 3
+    #     out_dim = 32
+    #     batch_size = 2
+    #     image_size = [224, 112][1]
+    #     # from elegantrl.net import Conv2dNet
+    #     net = Conv2dNet(inp_dim, out_dim, image_size)
+    #
+    #     x = torch.ones((batch_size, image_size, image_size, inp_dim), dtype=torch.uint8) * 255
+    #     print(x.shape)
+    #     y = net(x)
+    #     print(y.shape)

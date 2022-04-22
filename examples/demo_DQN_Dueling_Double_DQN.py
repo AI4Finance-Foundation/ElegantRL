@@ -4,15 +4,18 @@ import gym
 from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentDQN import AgentDQN
-from elegantrl.agents.AgentDuelingDQN import AgentDuelingDQN
+# from elegantrl.agents.AgentDuelingDQN import AgentDuelingDQN
 from elegantrl.agents.AgentDoubleDQN import AgentDoubleDQN
-from elegantrl.agents.AgentDuelingDoubleDQN import AgentDuelingDoubleDQN
+
+
+# from elegantrl.agents.AgentDuelingDoubleDQN import AgentDuelingDoubleDQN
 
 
 def demo_discrete_action_off_policy(gpu_id):
     env_name = ['CartPole-v0',
-                'LunarLander-v2', ][1]
-    agent_class = [AgentDQN, AgentDuelingDQN, AgentDoubleDQN, AgentDuelingDoubleDQN][3]
+                'LunarLander-v2', ][0]
+    # agent_class = [AgentDQN, AgentDuelingDQN, AgentDoubleDQN, AgentDuelingDoubleDQN][3]
+    agent_class = [AgentDQN, AgentDoubleDQN][1]
 
     if env_name == 'CartPole-v0':
         """

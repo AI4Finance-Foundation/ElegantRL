@@ -36,7 +36,7 @@ class Arguments:
         self.agent = agent  # DRL algorithm
         self.net_dim = 2**7  # the network width
         self.layer_num = (
-            2  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
+            3  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
         )
         self.if_off_policy = (
             self.get_if_off_policy()
