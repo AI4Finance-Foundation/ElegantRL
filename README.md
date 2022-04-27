@@ -33,7 +33,7 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 
 - **DDPG, TD3, SAC, PPO, REDQ** for continuous actions in single-agent environment,
 - **DQN, Double DQN, D3QN, SAC** for discrete actions in single-agent environment,
-- **QMIX, VDN, MADDPG, MAPPO, MATD3** for multi-agent environment.
+- **QMIX, VDN, MADDPG, MAPPO, MATD3** in multi-agent environment.
 
 For the details of DRL algorithms, please check out the educational
 webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
