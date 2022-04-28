@@ -13,7 +13,7 @@ Welcome to ElegantRL!
    
    
 
-`ElegantRL <https://github.com/AI4Finance-Foundation/ElegantRL>`_ is an open-source massively parallel framework for deep reinforcement learning (DRL) algorithms implemented in PyTorch. We aim to provide a *next-generation* framework that embraces recent breakthroughs, e.g., massively parallel simulation, ensemble methods, population-based training, etc.
+`ElegantRL <https://github.com/AI4Finance-Foundation/ElegantRL>`_ is an open-source massively parallel framework for deep reinforcement learning (DRL) algorithms implemented in PyTorch. We aim to provide a *next-generation* framework that embraces recent breakthroughs, e.g., massively parallel simulation, ensemble methods, population-based training, .
 
 
 ElegantRL features strong **scalability**, **elasticity** and **lightweightness**, and allows users to conduct **efficient** training on either one GPU or hundreds of GPUs: 
