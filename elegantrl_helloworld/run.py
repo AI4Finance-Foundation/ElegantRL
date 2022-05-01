@@ -207,9 +207,7 @@ def init_agent(args, gpu_id, env=None):
     if env is not None:
         """init states"""
         if args.env_num == 1:
-            states = [
-                env.reset(),
-            ]
+            states = [env.reset(),]
             assert isinstance(states[0], np.ndarray)
             assert states[0].shape in {(args.state_dim,), args.state_dim}
         else:
