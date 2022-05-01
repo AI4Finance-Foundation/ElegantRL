@@ -72,13 +72,13 @@ class PipeLearner:
             if data:
                 self.average_param(agent.act.parameters(), data[0], device)
                 self.average_param(
-                    agent.act_optim.parameters(), data[1], device
+                    agent.act_optimizer.parameters(), data[1], device
                 ) if data[1] else None
 
                 self.average_param(agent.cri.parameters(), data[2], device) if data[
                     2
                 ] else None
-                self.average_param(agent.cri_optim.parameters(), data[3], device)
+                self.average_param(agent.cri_optimizer.parameters(), data[3], device)
 
                 self.average_param(
                     agent.act_target.parameters(), data[4], device
@@ -133,14 +133,14 @@ class PipeLearner:
     @staticmethod
     def get_comm_data(agent):
         act = list(agent.act.parameters())
-        cri_optim_param = agent.cri_optim.parameters()
+        cri_optim_param = agent.cri_optimizer.parameters()
 
         if agent.cri is agent.act:
             cri = None
             act_optim_param = None
         else:
             cri = list(agent.cri.parameters())
-            act_optim_param = agent.act_optim.parameters()
+            act_optim_param = agent.act_optimizer.parameters()
 
         act_target = (
             list(agent.act_target.parameters()) if agent.if_use_act_target else None

@@ -46,7 +46,7 @@ def init_agent(args, gpu_id=0, env=None):
 
 def init_evaluator(args, agent_id=0):
     eval_env = build_env(
-        env=args.eval_env,
+        env=args.env,
         gpu_id=args.eval_gpu_id,
         env_func=args.eval_env_func,
         env_args=args.eval_env_args,

@@ -67,7 +67,7 @@ class AgentStep1AC(AgentBase):
             self.obj_critic = (
                 0.99 * self.obj_critic + 0.01 * obj_critic.item()
             )  # for reliable_lambda
-            self.optim_update(self.cri_optim, obj_critic)
+            self.optimizer_update(self.cri_optim, obj_critic)
             if self.if_use_cri_target:
                 self.soft_update(self.cri_target, self.cri, soft_update_tau)
 
@@ -78,7 +78,7 @@ class AgentStep1AC(AgentBase):
                 update_a += 1
 
             obj_actor = -self.cri(state, self.act(state)).mean()  # policy gradient
-            self.optim_update(self.act_optim, obj_actor)
+            self.optimizer_update(self.act_optim, obj_actor)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
 
@@ -208,7 +208,7 @@ class AgentShareStep1AC(AgentBase):
             else:
                 obj_united = obj_critic
 
-            self.optim_update(self.cri_optim, obj_united)
+            self.optimizer_update(self.cri_optim, obj_united)
             if self.if_use_act_target:
                 self.soft_update(self.act_target, self.act, soft_update_tau)
 

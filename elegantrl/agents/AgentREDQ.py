@@ -175,7 +175,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
                 for j in range(self.N):
                     self.cri_list[j].requires_grad_(True)
                 obj_alpha = -(self.alpha_log * (logprob - 1).detach()).mean()
-                self.optim_update(self.alpha_optim, obj_alpha)
+                self.optimizer_update(self.alpha_optim, obj_alpha)
             for q_i in range(self.N):
                 self.cri_optim_list[q_i].step()
             if ((i + 1) % self.G == 0) or i == self.G - 1:
