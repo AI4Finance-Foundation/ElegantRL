@@ -158,7 +158,6 @@ class AgentMADDPG(AgentBase):
     def explore_one_env(self, env, target_step) -> list:
         """
         Exploring the environment for target_step.
-
         param env: the Environment instance to be explored.
         param target_step: target steps to explore.
         """
