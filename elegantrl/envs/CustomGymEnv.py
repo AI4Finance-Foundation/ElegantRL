@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 
-'''custom env'''
+'''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 
 class PendulumEnv(gym.Wrapper):  # [ElegantRL.2022.04.04]

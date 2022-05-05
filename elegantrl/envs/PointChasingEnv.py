@@ -2,6 +2,11 @@ import numpy as np
 import numpy.random as rd
 import torch
 
+'''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
+
+Array = np.ndarray
+Tensor = torch.Tensor
+
 
 class PointChasingEnv:
     def __init__(self, dim=2):
@@ -36,7 +41,7 @@ class PointChasingEnv:
 
         return self.get_state()
 
-    def step(self, action):
+    def step(self, action: Array) -> (Array, Array, bool, dict):
         action_l2 = (action ** 2).sum() ** 0.5
         action_l2 = max(action_l2, 1.0)
         action = action / action_l2
@@ -63,11 +68,11 @@ class PointChasingEnv:
         done = (distance < self.dim) or (self.cur_step == self.max_step)
         return next_state, reward, done, None
 
-    def get_state(self):
+    def get_state(self) -> Array:
         return np.hstack((self.p0, self.v0, self.p1, self.v1))
 
     @staticmethod
-    def get_action(state):
+    def get_action(state: Array) -> Array:
         states_reshape = state.reshape((4, -1))
         p0 = states_reshape[0]
         p1 = states_reshape[2]
@@ -124,7 +129,7 @@ class PointChasingVecEnv:
 
         return self.get_state()
 
-    def reset_env_i(self, i):
+    def reset_env_i(self, i: int):
         self.p0s[i] = torch.normal(0, 1, size=(self.dim,))
         self.v0s[i] = torch.zeros((self.dim,))
         self.p1s[i] = torch.normal(-self.init_distance, 1, size=(self.dim,))
@@ -132,7 +137,7 @@ class PointChasingVecEnv:
 
         self.cur_steps[i] = 0
 
-    def step(self, actions):
+    def step(self, actions: Tensor) -> (Tensor, Tensor, Tensor, dict):
         """
         :param actions: [tensor] actions.shape == (env_num, action_dim)
         :return: next_states [tensor] next_states.shape == (env_num, state_dim)
@@ -176,11 +181,11 @@ class PointChasingVecEnv:
         # assert dones.get_device() == self.device.index
         return next_states, rewards, dones, None
 
-    def get_state(self):
+    def get_state(self) -> Tensor:
         return torch.cat((self.p0s, self.v0s, self.p1s, self.v1s), dim=1)
 
     @staticmethod
-    def get_action(states):
+    def get_action(states: Tensor) -> Tensor:
         states_reshape = states.reshape((states.shape[0], 4, -1))
         p0s = states_reshape[:, 0]
         p1s = states_reshape[:, 2]
@@ -194,14 +199,14 @@ class PointChasingDiscreteEnv(PointChasingEnv):
         self.action_dim = 3 ** self.dim
         self.if_discrete = True
 
-    def step(self, action):
+    def step(self, action: Array) -> (Array, Array, bool, dict):
         action_ary = np.zeros(self.dim, dtype=np.float32)  # continuous_action
         for dim in range(self.dim):
             idx = (action // (3 ** dim)) % 3
             action_ary[dim] = idx - 1  # map `idx` to `value` using {0: -1, 1: 0, 2: +1}
         return PointChasingEnv.step(self, action_ary)
 
-    def get_action(self, state):
+    def get_action(self, state: Array) -> int:
         action_ary = PointChasingEnv.get_action(state)
         action_idx = 0
         for dim in range(self.dim):

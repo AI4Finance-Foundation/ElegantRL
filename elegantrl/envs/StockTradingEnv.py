@@ -11,6 +11,7 @@ import pandas as pd
 
 """finance environment
 Source: https://github.com/AI4Finance-Foundation/FinRL-Meta/blob/master/Demo_China_A_share_market.ipynb
+Source: https://github.com/AI4Fiance-Foundation/ElegantRL
 Modify: Github YonV1943
 """
 
@@ -700,7 +701,7 @@ def evaluate_models_in_directory(dir_path=None):
     env_args = {
         'env_num': 1,
         'env_name': 'StockTradingEnv-v2',
-        'max_step': 1113-834,
+        'max_step': 1113 - 834,
         'state_dim': 151,
         'action_dim': 15,
         'if_discrete': False,
