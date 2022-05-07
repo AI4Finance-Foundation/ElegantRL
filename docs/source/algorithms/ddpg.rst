@@ -4,7 +4,7 @@
 DDPG
 ==========
 
-`Deep Deterministic Policy Gradient (DDPG) <https://arxiv.org/abs/1509.02971>`_ is an off-policy Actor-Critic algorithm for continuous action space. Since computing the maximum over actions in the target is a challenge in continuous action spaces, DDPG deals with this by using a policy network to compute an action. This implementation provides DDPG and supports the following extensions:
+`Deep Deterministic Policy Gradient (DDPG) <https://arxiv.org/abs/1509.02971>`_ is an off-policy Actor-Critic algorithm for continuous action space. Since computing the maximum over actions in the target is a challenge in continuous action space, DDPG deals with this by using a policy network to compute an action. This implementation provides DDPG and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network: ✔️
