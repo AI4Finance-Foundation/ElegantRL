@@ -197,7 +197,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.worker_num = 2
 
         args.net_dim = 2 ** 8
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim * 2)
         args.repeat_times = 2 ** 4
         args.gamma = 0.993  # todo
@@ -557,7 +557,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.worker_num = 2
 
         args.net_dim = 2 ** 8
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim * 2)
         args.repeat_times = 2 ** 4
         args.gamma = 0.993  # todo
@@ -788,7 +788,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
 
         args.net_dim = 2 ** 9
         args.batch_size = args.net_dim // 2
-        args.layer_num = 3
+        args.num_layer = 3
         args.repeat_times = 2 ** 0
         args.gamma = 0.96
         args.if_act_target = False
@@ -1176,7 +1176,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.batch_size = args.net_dim // 2
 
         args.gamma = 0.985
-        args.layer_num = 3
+        args.num_layer = 3
         args.repeat_times = 2 ** 0
         args.if_act_target = False
         import numpy as np
@@ -1380,7 +1380,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.net_dim = 2 ** 9
         args.batch_size = args.net_dim // 2
         args.gamma = 0.985  # todo
-        args.layer_num = 3
+        args.num_layer = 3
         args.repeat_times = 2 ** 0
         args.if_act_target = False
         import numpy as np
@@ -1555,7 +1555,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.worker_num = 4
 
         args.net_dim = 2 ** 8
-        args.layer_num = 4
+        args.num_layer = 4
         args.batch_size = args.net_dim
         args.repeat_times = 2 ** 1
         args.gamma = 0.99
@@ -1829,7 +1829,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.worker_num = 4
 
         args.net_dim = 2 ** 8
-        args.layer_num = 4
+        args.num_layer = 4
         args.batch_size = args.net_dim
         args.repeat_times = 2 ** 1
         args.gamma = 0.99
@@ -2265,29 +2265,16 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.net_dim = 2 ** 8
         args.batch_size = int(args.net_dim * 2)
 
-        args.layer_num = 3
+        args.num_layer = 3
         args.explore_noise_std = 0.1  # for Deterministic Policy Gradient Algorithms
-        if gpu_id == 4:
-            args.learning_rate = 2 ** -14
-        else:
-            args.learning_rate = 2 ** -18
+        args.learning_rate = 2 ** -14
 
-        args.if_act_target = True
+        args.if_act_target = False
         args.gamma = 0.99
         if agent_class.__name__.find('Hterm') >= 0:
             args.lambda_h_term = 2 ** -6
             args.act_update_gap = 2
             args.h_term_sample_rate = 2 ** -5
-            args.h_term_drop_rate = 2 ** -4
-        if gpu_id == 6:
-            args.learning_rate = 2 ** -16
-            args.lambda_h_term = 2 ** -12
-            args.h_term_sample_rate = 2 ** -4
-            args.h_term_drop_rate = 2 ** -4
-        if gpu_id == 7:
-            args.learning_rate = 2 ** -16
-            args.lambda_h_term = 2 ** -12
-            args.h_term_sample_rate = 2 ** -3
             args.h_term_drop_rate = 2 ** -4
         args.clip_grad_norm = 0.5
 
@@ -2496,7 +2483,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.worker_num = 2
 
         args.net_dim = 2 ** 8
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim)
         args.explore_noise_std = 0.06  # for Deterministic Policy Gradient Algorithms
         args.learning_rate = 2 ** -15

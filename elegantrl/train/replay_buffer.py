@@ -1,12 +1,12 @@
 import os
-
 import numpy as np
 import numpy.random as rd
 import torch
+from typing import List
+from torch import Tensor
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
-Tensor = torch.Tensor
 Array = np.ndarray
 
 
@@ -34,7 +34,7 @@ class ReplayBuffer:  # for off-policy
             self.per_tree = BinarySearchTree(max_capacity)
             self.sample_batch = self.sample_batch_per
 
-    def update_buffer(self, traj_list):
+    def update_buffer(self, traj_list: List[List]):
         traj_items = list(map(list, zip(*traj_list)))
 
         states, rewards, masks, actions = [torch.cat(item, dim=0) for item in traj_items]
@@ -102,10 +102,10 @@ class ReplayBuffer:  # for off-policy
             torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)  # important sampling weights
         )
 
-    def td_error_update(self, td_error):
+    def td_error_update(self, td_error: Tensor):
         self.per_tree.td_error_update(td_error)
 
-    def save_or_load_history(self, cwd, if_save):
+    def save_or_load_history(self, cwd: str, if_save: bool):
         obj_names = (
             (self.buf_reward, "reward"),
             (self.buf_mask, "mask"),
@@ -137,7 +137,9 @@ class ReplayBuffer:  # for off-policy
 
             print(f"| {self.__class__.__name__}: Loaded from cwd {cwd}")
 
-    def get_state_norm(self, cwd='.', neg_state_avg=0, div_state_std=1):
+    def get_state_norm(self, cwd: str = '.',
+                       neg_state_avg: [float, Tensor] = 0.0,
+                       div_state_std: [float, Tensor] = 1.0):
         state_avg, state_std = get_state_avg_std(
             buf_state=self.buf_state, batch_size=2 ** 10,
             neg_state_avg=neg_state_avg, div_state_std=div_state_std,
@@ -175,7 +177,7 @@ class ReplayBufferList(list):  # for on-policy
     def __init__(self):
         list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
 
-    def update_buffer(self, traj_list: list) -> (int, float):
+    def update_buffer(self, traj_list: List[List]) -> (int, float):
         cur_items = list(map(list, zip(*traj_list)))
         self[:] = [torch.cat(item, dim=0) for item in cur_items]
 
@@ -204,7 +206,7 @@ class BinarySearchTree:
     Reference: https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
     """
 
-    def __init__(self, max_capacity):
+    def __init__(self, max_capacity: int):
         self.max_capacity = max_capacity  # replay buffer len
         self.prob_ary = np.zeros((max_capacity - 1) + max_capacity)  # parent_nodes_num + leaf_nodes_num
         self.max_len = len(self.prob_ary)
@@ -293,7 +295,11 @@ class BinarySearchTree:
         self.update_ids(self.indices, prob)
 
 
-def get_state_avg_std(buf_state: Tensor, batch_size=2 ** 10, neg_state_avg=0, div_state_std=1) -> (Tensor, Tensor):
+def get_state_avg_std(
+        buf_state: Tensor, batch_size=2 ** 10,
+        neg_state_avg: [float, Tensor] = 0.0,
+        div_state_std: [float, Tensor] = 1.0,
+) -> (Tensor, Tensor):
     state_len = buf_state.shape[0]
     state_avg = torch.zeros_like(buf_state[0])
     state_std = torch.zeros_like(buf_state[0])

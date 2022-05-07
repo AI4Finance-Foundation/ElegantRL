@@ -4,10 +4,10 @@
 MAPPO
 ==========
 
-Multi-Agent Proximal Policy Optimization (MAPPO), a variant of PPO, is specialized for multi-agent settings. Using a 1-GPU desktop, we show that MAPPO achieves surprisingly strong performance in two popular multi-agent testbeds: the particle-world environments, and the Starcraft multi-agent challenge.
+Multi-Agent Proximal Policy Optimization , a variant of PPO which is specialized for multi-agent settings. Using a 1-GPU desktop, we show that MAPPO achieves surprisingly strong performance in two popular multi-agent testbeds: the particle-world environments, the Starcraft multi-agent challenge.
 
--  Shared network parameter for all agents ✔️
--  This class is under test, we temporarily add all utils in AgentMAPPO ✔️
+-  Shared Network parameter for all agents ✔️
+-  This class is under test, we temporarily add all utils in AgentMAPPO: ✔️
 
 MAPPO achieves strong results while exhibiting comparable sample efficiency. 
 

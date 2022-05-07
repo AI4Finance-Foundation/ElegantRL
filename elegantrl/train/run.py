@@ -32,7 +32,7 @@ def train_and_evaluate(args: Arguments):
     agent.state = env.reset()
     if args.if_off_policy:
         trajectory = agent.explore_env(env, args.target_step)
-        buffer.update_buffer((trajectory,))
+        buffer.update_buffer([trajectory, ])
 
     '''start training'''
     cwd = args.cwd
@@ -44,7 +44,7 @@ def train_and_evaluate(args: Arguments):
     if_train = True
     while if_train:
         trajectory = agent.explore_env(env, target_step)
-        steps, r_exp = buffer.update_buffer((trajectory,))
+        steps, r_exp = buffer.update_buffer([trajectory, ])
 
         torch.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
@@ -144,7 +144,7 @@ class PipeWorker:
         self.pipes = [mp.Pipe() for _ in range(worker_num)]
         self.pipe1s = [pipe[1] for pipe in self.pipes]
 
-    def explore(self, agent):
+    def explore(self, agent: AgentBase):
         act_dict = agent.act.state_dict()
 
         for worker_id in range(self.worker_num):
@@ -153,7 +153,7 @@ class PipeWorker:
         traj_lists = [pipe1.recv() for pipe1 in self.pipe1s]
         return traj_lists
 
-    def run(self, args, worker_id: int):
+    def run(self, args: Arguments, worker_id: int):
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
@@ -180,7 +180,7 @@ class PipeLearner:
         pass
 
     @staticmethod
-    def run(args, comm_eva, comm_exp):
+    def run(args: Arguments, comm_eva: mp.Pipe, comm_exp: mp.Pipe):
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
         cwd = args.cwd
@@ -203,7 +203,7 @@ class PipeLearner:
         agent.save_or_load_agent(cwd, if_save=True)
         print(f'| Learner: Save in {cwd}')
 
-        env = build_env(env_func=args.env_func, env_args=args.env_func)
+        env = build_env(env_func=args.env_func, env_args=args.env_args)
         buffer.get_state_norm(
             cwd=cwd,
             neg_state_avg=getattr(env, 'neg_state_avg', 0),

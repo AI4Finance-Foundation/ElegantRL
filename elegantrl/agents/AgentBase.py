@@ -1,17 +1,18 @@
 import os
-from typing import List, Union, Any
-
-import numpy as np
 import torch
+import numpy as np
+from typing import List, Tuple
 from torch import Tensor
 from torch.nn.utils import clip_grad_norm_
+
 from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 
-class AgentBase:  # [ElegantRL.2022.05.05]
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+class AgentBase:
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         """initialize
         replace by different DRL algorithms
 
@@ -30,13 +31,11 @@ class AgentBase:  # [ElegantRL.2022.05.05]
         self.repeat_times = getattr(args, 'repeat_times', 1.)
         self.reward_scale = getattr(args, 'reward_scale', 1.)
         self.lambda_critic = getattr(args, 'lambda_critic', 1.)
-        self.learning_rate = getattr(args, 'learning_rate', 2 ** -15)  # 2**-15 ~= 3e-5
+        self.learning_rate = getattr(args, 'learning_rate', 2 ** -15)
         self.clip_grad_norm = getattr(args, 'clip_grad_norm', 3.0)
         self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
 
         self.if_use_per = getattr(args, 'if_use_per', None)
-        self.if_act_target = getattr(args, 'if_act_target', None)
-        self.if_cri_target = getattr(args, 'if_cri_target', None)
         self.if_off_policy = getattr(args, 'if_off_policy', None)
         self.if_use_old_traj = getattr(args, 'if_use_old_traj', False)
 
@@ -46,23 +45,29 @@ class AgentBase:  # [ElegantRL.2022.05.05]
                            for _ in range(4 if self.if_off_policy else 5)]
                           for _ in range(self.env_num)]  # for `self.explore_vec_env()`
 
+        '''network'''
         act_class = getattr(self, "act_class", None)
         cri_class = getattr(self, "cri_class", None)
         self.act = act_class(net_dim, self.num_layer, state_dim, action_dim).to(self.device)
         self.cri = cri_class(net_dim, self.num_layer, state_dim, action_dim).to(self.device) \
             if cri_class else self.act
 
-        from copy import deepcopy
-        self.act_target = deepcopy(self.act) if self.if_act_target else self.act
-        self.cri_target = deepcopy(self.cri) if self.if_cri_target else self.cri
-
+        '''optimizer'''
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate) \
             if cri_class else self.act_optimizer
-
         from types import MethodType  # built-in package of Python3
         self.act_optimizer.parameters = MethodType(get_optim_param, self.act_optimizer)
         self.cri_optimizer.parameters = MethodType(get_optim_param, self.cri_optimizer)
+
+        '''target network'''
+        from copy import deepcopy
+        self.if_act_target = args.if_act_target if hasattr(args, 'if_act_target') else \
+            getattr(self, 'if_act_target', None)
+        self.if_cri_target = args.if_cri_target if hasattr(args, 'if_cri_target') else \
+            getattr(self, 'if_cri_target', None)
+        self.act_target = deepcopy(self.act) if self.if_act_target else self.act
+        self.cri_target = deepcopy(self.cri) if self.if_cri_target else self.cri
 
         """attribute"""
         if self.env_num == 1:
@@ -78,7 +83,7 @@ class AgentBase:  # [ElegantRL.2022.05.05]
             self.get_obj_critic = self.get_obj_critic_raw
 
         '''h_term'''
-        self.lambda_h_term = getattr(args, 'lambda_h_term', 2 ** -3)
+        self.h_term_lambda = getattr(args, 'h_term_lambda', 2 ** -3)
         self.h_term_drop_rate = getattr(args, 'h_term_drop_rate', 2 ** -3)  # drop the data in H-term ReplayBuffer
         self.h_term_sample_rate = getattr(args, 'h_term_sample_rate', 2 ** -4)  # sample the data in H-term ReplayBuffer
         self.h_term_buffer = list()
@@ -203,7 +208,7 @@ class AgentBase:  # [ElegantRL.2022.05.05]
         clip_grad_norm_(parameters=optimizer.param_groups[0]["params"], max_norm=self.clip_grad_norm)
         optimizer.step()
 
-    def optim_update_amp(self, optimizer, objective):  # automatic mixed precision
+    def optimizer_update_amp(self, optimizer, objective):  # automatic mixed precision
         """minimize the optimization objective via update the network parameters
 
         amp: Automatic Mixed Precision
@@ -263,12 +268,10 @@ class AgentBase:  # [ElegantRL.2022.05.05]
                 save_path = f"{cwd}/{name}.pth"
                 load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
 
-    def convert_trajectory(self, traj_list, last_done: [list or Tensor]) -> list:  # [ElegantRL.2022.02.02]
-        # assert len(buf_items) == step_i
+    def convert_trajectory(self, traj_list: List[Tuple], last_done: [list or Tensor]) -> List[List]:
         # assert len(buf_items[0]) in {4, 5}
         # assert len(buf_items[0][0]) == self.env_num
         traj_list = list(map(list, zip(*traj_list)))  # state, reward, done, action, noise
-        # assert len(buf_items) == {4, 5}
         # assert len(buf_items[0]) == step
         # assert len(buf_items[0][0]) == self.env_num
 
@@ -313,35 +316,27 @@ class AgentBase:  # [ElegantRL.2022.05.05]
         # buf_items = [buf_item, ...]
         return traj_list
 
-    def get_buf_h_term(self, buf_state: Tensor, buf_action: Tensor, buf_r_sum: Tensor):
+    def get_buf_h_term(
+            self, buf_state: Tensor, buf_action: Tensor, buf_r_sum: Tensor, buf_mask: Tensor, buf_reward: Tensor
+    ):
         q_arg_sort = np.argsort([item[3] for item in self.h_term_buffer])
-        h_term_throw = max(0, int(len(self.h_term_buffer) * self.h_term_drop_rate) - 1)
+        h_term_throw = max(0, int(len(self.h_term_buffer) * self.h_term_drop_rate))
         self.h_term_buffer = [self.h_term_buffer[i] for i in q_arg_sort[h_term_throw:]]
 
-        buf_r_norm = buf_r_sum - buf_r_sum.mean()
-        buf_r_diff = torch.where(buf_r_norm[:-1] * buf_r_norm[1:] <= 0)[0].detach().cpu().numpy() + 1
-        buf_r_diff = list(buf_r_diff) + [buf_r_norm.shape[0], ]
+        buf_dones = torch.where(buf_mask == 0)[0].detach().cpu() + 1
+        i = 0
+        for j in buf_dones:
+            r_sums = buf_r_sum[i:j]
+            rewards = buf_reward[i:j]
+            states = buf_state[i:j]
+            actions = buf_action[i:j]
 
-        step_i = 0
-        min_len = 8
-        positive_list = list()
-        for step_j in buf_r_diff:
-            if buf_r_norm[step_i] > 0 and step_i + min_len < step_j:
-                positive_list.append((step_i, step_j))
-            step_i = step_j
-
-        for step_i, step_j in positive_list:
-            index = np.arange(step_i, step_j)
-
-            r_sums = buf_r_sum[index]
-            states = buf_state[index]
-            actions = buf_action[index]
-
-            q_avg = r_sums.mean().item()
+            q_sum = rewards.sum().item()
             q_min = r_sums.min().item()
             q_max = r_sums.max().item()
 
-            self.h_term_buffer.append((states, actions, r_sums, q_avg, q_min, q_max))
+            self.h_term_buffer.append((states, actions, r_sums, q_sum, q_min, q_max))
+            i = j
 
         '''update h-term buffer (states, actions, rewards_sum_norm)'''
         self.ten_state = torch.vstack([item[0] for item in self.h_term_buffer])  # ten_state.shape == (-1, state_dim)
@@ -360,16 +355,16 @@ class AgentBase:  # [ElegantRL.2022.05.05]
             return torch.zeros(1, dtype=torch.float32, device=self.device)
 
         '''rd sample'''
-        batch_size = int(total_size * self.h_term_sample_rate)
+        batch_size = int(total_size * self.h_term_sample_rate + 1)
         indices = torch.randint(total_size, size=(batch_size,), requires_grad=False, device=self.device)
         ten_state = self.ten_state[indices]
         ten_action = self.ten_action[indices]
         ten_r_norm = self.ten_r_norm[indices]
 
         '''hamilton'''
-        ten_logprob = self.act.get_logprob(ten_state, ten_action)
-        ten_hamilton = ten_logprob.exp().prod(dim=1)
-        return -(ten_hamilton * ten_r_norm).mean() * self.lambda_h_term
+        logprob = self.act.get_logprob(ten_state, ten_action)
+        hamilton = logprob.exp().prod(dim=1)
+        return -(hamilton * ten_r_norm).mean() * self.h_term_lambda
 
     def get_r_sum_h_term(self, buf_reward: Tensor, buf_mask: Tensor) -> Tensor:
         total_size = buf_reward.shape[0]

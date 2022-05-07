@@ -72,7 +72,7 @@ def demo_a2c_ppo(gpu_id, drl_id, env_id):
         args.gamma = 0.99
 
         args.net_dim = 2 ** 7
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim * 2)
         args.repeat_times = 2 ** 4
 
@@ -118,7 +118,7 @@ def demo_a2c_ppo(gpu_id, drl_id, env_id):
         args.target_step = args.max_step * 4
         args.worker_num = 2
         args.net_dim = 2 ** 7
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim * 2)
         args.repeat_times = 2 ** 4
         args.ratio_clip = 0.25
@@ -178,7 +178,7 @@ def demo_a2c_ppo(gpu_id, drl_id, env_id):
         args.worker_num = 2
 
         args.net_dim = 2 ** 7
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim * 2)
         args.repeat_times = 2 ** 4
         args.ratio_clip = 0.1
@@ -211,7 +211,7 @@ def demo_a2c_ppo(gpu_id, drl_id, env_id):
         args.worker_num = 2
 
         args.net_dim = 2 ** 8
-        args.layer_num = 3
+        args.num_layer = 3
         args.batch_size = int(args.net_dim * 2)
         args.repeat_times = 2 ** 4
         args.ratio_clip = 0.3
@@ -1810,7 +1810,7 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         args.reward_scale = 2 ** -5
 
         args.learning_rate = 2 ** -15
-        args.layer_num = 3
+        args.num_layer = 3
         args.net_dim = 2 ** 9  # todo
         args.target_step = args.max_step * 8
         args.worker_num = 4
@@ -2306,7 +2306,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
         args.target_step = args.max_step * 4  # 6
         args.worker_num = 2
 
-        args.layer_num = 3
+        args.num_layer = 3
         args.net_dim = 2 ** 8
         args.batch_size = int(args.net_dim // 2)
         args.repeat_times = 2 ** 4
@@ -2314,18 +2314,110 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
         args.lambda_entropy = 0.05
 
         args.ratio_clip = 0.20
-        args.h_term_bs_rate = 2 ** -2
-        args.lambda_h_term = 2 ** -5
-        args.act_update_gap = 1
 
         args.if_use_gae = True
         args.clip_grad_norm = 1.0
         args.learning_rate = 2 ** -15
 
+        '''H-term'''
+        args.h_term_sample_rate = 2 ** -2
+        args.h_term_drop_rate = 2 ** -3
+        args.h_term_lambda = 2 ** -3
+        if gpu_id == 2:
+            args.act_update_gap = 2
+        if gpu_id == 3:
+            args.act_update_gap = 1
+
         args.eval_times = 2 ** 1
         args.eval_gap = 2 ** 8
         args.if_allow_break = False
         args.break_step = int(2e6)
+
+        """
+| Arguments Remove cwd: ./Hopper-v2_PPO_4
+################################################################################
+ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+4  1.62e+04   73.72 |
+4  1.62e+04   73.72 |   73.72    0.0     45     0 |    0.08   0.81   0.13  -0.52
+4  2.94e+05  333.81 |
+4  2.94e+05  333.81 |  333.81    1.2    142     0 |    0.15   0.01  -0.14  -0.64
+4  5.70e+05  438.43 |
+4  5.70e+05  438.43 |  438.43    0.6    150     0 |    0.18   0.15   0.06  -0.73
+4  8.48e+05  911.26 |
+4  8.48e+05  911.26 |  911.26    3.0    280     2 |    0.19   0.38   0.06  -0.75
+4  1.12e+06 2411.29 |
+4  1.12e+06 2411.29 | 2411.29   18.8    777     9 |    0.19   1.55   0.15  -0.74
+4  1.40e+06 2908.62 |
+4  1.40e+06 2908.62 | 2908.62    0.8   1000     0 |    0.20   1.52  -0.01  -0.71
+4  1.68e+06 3092.61 |
+4  1.68e+06 3092.61 | 3092.61   16.3   1000     0 |    0.20   2.94  -0.12  -0.68
+4  1.95e+06 3092.61 | 3072.76    0.0   1000     0 |    0.21   1.32   0.10  -0.64
+| UsedTime:    1899 | SavedDir: ./Hopper-v2_PPO_4
+| Learner: Save in ./Hopper-v2_PPO_4
+
+
+################################################################################
+ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+5  1.61e+04  107.15 |
+5  1.61e+04  107.15 |  107.15    4.6     61     2 |    0.08   1.21   0.01  -0.51
+5  2.61e+05  550.57 |
+5  2.61e+05  550.57 |  550.57    1.0    208     1 |    0.19   1.31   0.13  -0.66
+5  5.11e+05 3045.94 |
+5  5.11e+05 3045.94 | 3045.94   22.4   1000     0 |    0.19   2.61   0.00  -0.76
+5  7.56e+05 3172.11 |
+5  7.56e+05 3172.11 | 3172.11    3.8   1000     0 |    0.20   2.24   0.12  -0.82
+5  1.00e+06 3209.58 |
+5  1.00e+06 3209.58 | 3209.58    6.1   1000     0 |    0.21   2.15   0.04  -0.88
+5  1.24e+06 3215.39 |
+5  1.24e+06 3215.39 | 3215.39    7.4   1000     0 |    0.20   2.94   0.07  -0.92
+5  1.49e+06 3215.39 | 3147.31    0.0   1000     0 |    0.20   2.97   0.11  -0.96
+5  1.73e+06 3215.39 | 2311.74  924.0    702   298 |    0.21   1.27   0.12  -1.00
+5  1.98e+06 3228.65 |
+5  1.98e+06 3228.65 | 3228.65    2.0   1000     0 |    0.21   1.89  -0.03  -1.03
+| UsedTime:    2133 | SavedDir: ./Hopper-v2_PPOHterm_5
+
+################################################################################
+ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+6  1.62e+04  101.53 |
+6  1.62e+04  101.53 |  101.53    1.5     56     0 |    0.10   0.78  -0.14  -0.50
+6  2.60e+05  637.23 |
+6  2.60e+05  637.23 |  637.23    2.1    206     0 |    0.18   2.05  -0.16  -0.66
+6  5.04e+05 1877.82 |
+6  5.04e+05 1877.82 | 1877.82  315.0    579    99 |    0.19   1.00   0.09  -0.77
+6  7.52e+05 2960.17 |
+6  7.52e+05 2960.17 | 2960.17  129.9    916    56 |    0.20   0.83   0.07  -0.88
+6  9.97e+05 3009.97 |
+6  9.97e+05 3009.97 | 3009.97   11.4   1000     0 |    0.20   2.14   0.05  -0.98
+6  1.24e+06 3009.97 | 1538.74    0.0    455     0 |    0.20   2.14   0.19  -1.01
+6  1.49e+06 3107.88 |
+6  1.49e+06 3107.88 | 3107.88   10.1   1000     0 |    0.21   1.06   0.11  -1.09
+6  1.73e+06 3253.55 |
+6  1.73e+06 3253.55 | 3253.55   16.3   1000     0 |    0.20   3.09   0.04  -1.14
+6  1.98e+06 3279.70 |
+6  1.98e+06 3279.70 | 3279.70    9.9   1000     0 |    0.21   2.20   0.16  -1.17
+| UsedTime:    2131 | SavedDir: ./Hopper-v2_PPOHterm_6
+
+| Arguments Remove cwd: ./Hopper-v2_PPOHterm_7
+################################################################################
+ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
+7  1.60e+04   93.64 |
+7  1.60e+04   93.64 |   93.64    2.5     54     2 |    0.06   0.34   0.09  -0.51
+7  2.60e+05  564.04 |
+7  2.60e+05  564.04 |  564.04    1.7    184     0 |    0.18   0.94   0.04  -0.68
+7  5.01e+05 2465.13 |
+7  5.01e+05 2465.13 | 2465.13   15.7   1000     0 |    0.19   0.65   0.14  -0.78
+7  7.44e+05 2981.86 |
+7  7.44e+05 2981.86 | 2981.86  121.4    999     1 |    0.19   1.21   0.09  -0.88
+7  9.84e+05 2981.86 | 1518.69    0.0    465     0 |    0.21   0.91   0.10  -0.95
+7  1.23e+06 3202.14 |
+7  1.23e+06 3202.14 | 3202.14   11.3   1000     0 |    0.21   0.90   0.02  -1.02
+7  1.47e+06 3202.14 | 3197.69   24.3   1000     0 |    0.20   2.40  -0.02  -1.07
+7  1.71e+06 3202.31 |
+7  1.71e+06 3202.31 | 3202.31    5.5   1000     0 |    0.20   1.96  -0.06  -1.12
+7  1.95e+06 3202.31 | 3178.48    0.0   1000     0 |    0.21   1.08  -0.06  -1.15
+| UsedTime:    2161 | SavedDir: ./Hopper-v2_PPOHterm_7
+
+        """
     elif env_name == 'Ant-v3':
         env_func = gym.make
         env_args = {
@@ -2343,59 +2435,102 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
 
         args.if_cri_target = False
 
-        args.layer_num = 3
-        args.repeat_times = 2 ** 4
+        args.num_layer = 3
         args.learning_rate = 2 ** -14
 
-        args.target_step = args.max_step * 4
-        args.worker_num = 2
-        args.repeat_times = 2 ** 5
-        args.gamma = 0.985
-
-        args.if_use_gae = True
-        args.lambda_entropy = 2 ** -9  # 2 ** -10
         args.target_step = args.max_step * 2
         args.worker_num = 4
 
+        args.gamma = 0.985
+        args.lambda_gae_adv = 0.8
+        args.if_use_gae = True
+        args.lambda_entropy = 2 ** -9
+
         args.net_dim = 2 ** 9
         args.batch_size = int(args.net_dim * 2)
-        args.lambda_gae_adv = 0.8
-        args.gamma = 0.98  # todo
+        args.repeat_times = 2 ** 4
+        args.clip_grad_norm = 1.0
+
+        '''H-term'''
+        args.h_term_sample_rate = 2 ** -2
+        args.act_update_gap = 2
+        if gpu_id == 6:
+            args.h_term_drop_rate = 2 ** -3
+            args.h_term_lambda = 2 ** -6
+        if gpu_id == 7:
+            args.h_term_drop_rate = 2 ** -2
+            args.h_term_lambda = 2 ** -6
 
         args.eval_gap = 2 ** 8
         args.eval_times = 2 ** 2
         args.break_step = int(6e6)
         args.if_allow_break = False
         """
-        | Arguments Remove cwd: ./Ant-v3_PPO_3
+| Arguments Remove cwd: ./Ant-v3_PPO_4
 ################################################################################
 ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
-3  1.81e+04 1001.15 |
-3  1.81e+04 1001.15 | 1001.15    2.6   1000     0 |    0.00   0.11   0.12 -52.37
-3  4.48e+05 1286.96 |
-3  4.48e+05 1286.96 | 1286.96  181.5   1000     0 |    0.04   0.10   0.13-100.65
-3  8.86e+05 1286.96 |  466.89    0.0    209     0 |    0.08   0.33   0.02-136.63
-3  1.32e+06 2337.47 |
-3  1.32e+06 2337.47 | 2337.47 1241.8    724   368 |    0.11   0.38   0.12-145.31
-3  1.75e+06 4034.97 |
-3  1.75e+06 4034.97 | 4034.97  154.6   1000     0 |    0.18   0.68   0.08-146.25
-3  2.18e+06 4818.48 |
-3  2.18e+06 4818.48 | 4818.48  192.4   1000     0 |    0.22   0.89   0.07-145.69
-3  2.61e+06 5392.79 |
-3  2.61e+06 5392.79 | 5392.79   50.7   1000     0 |    0.22   0.85   0.07-145.11
-3  3.05e+06 5392.79 | 5379.67    0.0   1000     0 |    0.26   1.17   0.09-144.69
-3  3.48e+06 5605.12 |
-3  3.48e+06 5605.12 | 5605.12  415.1   1000     0 |    0.27   0.93   0.10-143.97
-3  3.91e+06 5894.21 |
-3  3.91e+06 5894.21 | 5894.21  109.0   1000     0 |    0.30   1.03   0.08-144.16
-3  4.35e+06 5894.21 | 5856.31    0.0   1000     0 |    0.31   1.39   0.02-144.30
-3  4.78e+06 5894.21 | 5884.66    0.0   1000     0 |    0.30   0.99   0.06-144.71
-3  5.22e+06 5894.21 | 1744.60    0.0    300     0 |    0.31   1.11   0.06-144.36
-3  5.66e+06 6019.04 |
-3  5.66e+06 6019.04 | 6019.04  170.4   1000     0 |    0.32   1.21   0.11-144.54
-| UsedTime:    3382 | SavedDir: ./Ant-v3_PPO_3
-| Learner: Save in ./Ant-v3_PPO_3
-        """
+4  1.93e+04  993.22 |
+4  1.93e+04  993.22 |  993.22    1.2   1000     0 |    0.00   0.15   0.04  -0.51
+4  4.80e+05  993.22 |  936.44    0.0   1000     0 |    0.02   0.14   0.05  -0.81
+4  9.46e+05  993.22 |  833.98    0.0   1000     0 |    0.05   0.23   0.06  -1.07
+4  1.41e+06 1883.57 |
+4  1.41e+06 1883.57 | 1883.57  984.1    782   377 |    0.08   0.45   0.08  -1.27
+4  1.87e+06 3036.72 |
+4  1.87e+06 3036.72 | 3036.72 1572.2    771   396 |    0.14   1.35   0.04  -1.39
+4  2.34e+06 4650.77 |
+4  2.34e+06 4650.77 | 4650.77   59.3   1000     0 |    0.21   1.53   0.05  -1.41
+4  2.79e+06 5119.24 |
+4  2.79e+06 5119.24 | 5119.24   47.1   1000     0 |    0.24   1.71   0.09  -1.42
+4  3.26e+06 5413.18 |
+4  3.26e+06 5413.18 | 5413.18   53.7   1000     0 |    0.26   1.68   0.03  -1.42
+4  3.72e+06 5413.18 | 4397.23 1995.8    794   357 |    0.26   1.64   0.04  -1.41
+4  4.18e+06 5745.21 |
+4  4.18e+06 5745.21 | 5745.21  148.7   1000     0 |    0.27   1.60   0.03  -1.41
+4  4.65e+06 5745.21 | 5096.66    0.0   1000     0 |    0.25   1.64   0.04  -1.41
+4  5.12e+06 5745.21 | 3596.42 1431.0    829   297 |    0.31   2.29   0.00  -1.41
+4  5.59e+06 5984.65 |
+4  5.59e+06 5984.65 | 5984.65  158.4   1000     0 |    0.27   1.88   0.02  -1.41
+| UsedTime:    3351 | SavedDir: ./Ant-v3_PPO_4
+| Learner: Save in ./Ant-v3_PPO_4
+
+
+"""
+    elif env_name == 'Humanoid-v3':
+        from elegantrl.envs.CustomGymEnv import HumanoidEnv
+        env_func = HumanoidEnv
+        env_args = {
+            'env_num': 1,
+            'env_name': 'Humanoid-v3',
+            'max_step': 1000,
+            'state_dim': 376,
+            'action_dim': 17,
+            'if_discrete': False,
+            'target_return': 8000.,
+        }
+        args = Arguments(agent_class, env_func=env_func, env_args=env_args)
+        args.reward_scale = 2 ** -4
+
+        args.if_cri_target = False
+
+        args.target_step = args.max_step * 8
+        args.worker_num = 4
+        args.net_dim = 2 ** 9
+        args.batch_size = args.net_dim * 2
+        args.repeat_times = 2 ** 4
+        args.gamma = 0.985  # important
+        args.lambda_gae_adv = 0.93
+        args.if_use_gae = True
+        args.learning_rate = 2 ** -15
+        args.lambda_entropy = 0.01
+
+        if gpu_id == 4:
+            args.lambda_entropy = 2 ** -3
+        if gpu_id == 5:
+            args.lambda_entropy = 2 ** -6
+
+        args.eval_gap = 2 ** 9
+        args.eval_times = 2 ** 1
+        args.break_step = int(6e7)
     else:
         raise ValueError('env_name:', env_name)
 
@@ -2409,78 +2544,11 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
         train_and_evaluate_mp(args)
 
 
-def demo_load_pendulum_and_render():
-    import gym
-    import torch
-    import numpy as np
-    from elegantrl.agents.AgentPPO import AgentPPO
-    from elegantrl.train.config import build_env
-
-    gpu_id = 0  # >=0 means GPU ID, -1 means CPU
-
-    agent_class = AgentPPO
-
-    env_func = gym.make
-    env_args = {'env_num': 1,
-                'env_name': 'Pendulum-v1',
-                'max_step': 200,
-                'state_dim': 3,
-                'action_dim': 1,
-                'if_discrete': False,
-
-                'id': 'Pendulum-v1'}
-
-    actor_path = './Pendulum-v1_PPO_0/actor.pth'
-    net_dim = 2 ** 7
-
-    '''init'''
-    env = build_env(env_func=env_func, env_args=env_args)
-    args = Arguments(agent_class, env=env)
-    act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args).act
-    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
-
-    '''evaluate'''
-    # eval_times = 2 ** 7
-    # from elegantrl.envs.CustomGymEnv import PendulumEnv
-    # eval_env = PendulumEnv()
-    # from elegantrl.train.evaluator import get_cumulative_returns_and_step
-    # r_s_ary = [get_cumulative_returns_and_step(eval_env, act) for _ in range(eval_times)]
-    # r_s_ary = np.array(r_s_ary, dtype=np.float32)
-    # r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
-    #
-    # print('r_avg, s_avg', r_avg, s_avg)
-    # exit()
-
-    '''render'''
-    max_step = env.max_step
-    if_discrete = env.if_discrete
-    device = next(act.parameters()).device  # net.parameters() is a Python generator.
-
-    state = env.reset()
-    steps = None
-    returns = 0.0  # sum of rewards in an episode
-    for steps in range(max_step):
-        s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
-        state, reward, done, _ = env.step(action * 2)  # todo
-        returns += reward
-        env.render()
-
-        if done:
-            break
-    returns = getattr(env, 'cumulative_returns', returns)
-    steps += 1
-
-    print(f"\n| cumulative_returns {returns}"
-          f"\n|      episode steps {steps}")
-
-
 if __name__ == '__main__':
     GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0  # >=0 means GPU ID, -1 means CPU
     DRL_ID = int(sys.argv[2]) if len(sys.argv) > 2 else 1
     ENV_ID = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 
-    # demo_ppo_h_term(GPU_ID, DRL_ID, ENV_ID)
-    demo_a2c_ppo(GPU_ID, DRL_ID, ENV_ID)
+    demo_ppo_h_term(GPU_ID, DRL_ID, ENV_ID)
+    # demo_a2c_ppo(GPU_ID, DRL_ID, ENV_ID)
     # demo_load_pendulum_and_render()

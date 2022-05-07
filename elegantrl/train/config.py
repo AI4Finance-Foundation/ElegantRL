@@ -8,7 +8,7 @@ from pprint import pprint
 
 
 class Arguments:
-    def __init__(self, agent_class, env=None, env_func=None, env_args=None):
+    def __init__(self, agent_class=None, env=None, env_func=None, env_args: dict = None):
         self.env = env  # the environment for training
         self.env_func = env_func  # env = env_func(*env_args)
         self.env_args = env_args  # env = env_func(*env_args)
@@ -23,9 +23,7 @@ class Arguments:
 
         self.agent_class = agent_class  # the class of DRL algorithm
         self.net_dim = 2 ** 8  # the network width
-        self.layer_num = 3  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
-        self.if_off_policy = self.if_off_policy()  # agent is on-policy or off-policy
-        self.if_use_old_traj = False  # save old data to splice and get a complete trajectory (for vector env)
+        self.num_layer = 3  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
         if self.if_off_policy:  # off-policy
             self.max_memo = 2 ** 21  # capacity of replay buffer
             self.target_step = 2 ** 10  # repeatedly update network to keep critic's loss small
@@ -42,8 +40,12 @@ class Arguments:
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
-        self.learning_rate = 2 ** -12  # 2 ** -15 ~= 3e-5
+        self.lambda_critic = 2 ** 0  # the objective coefficient of critic network
+        self.learning_rate = 2 ** -15  # 2 ** -15 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
+        self.clip_grad_norm = 3.0  # 0.1 ~ 4.0, clip the gradient after normalization
+        self.if_off_policy = self.if_off_policy()  # agent is on-policy or off-policy
+        self.if_use_old_traj = False  # save old data to splice and get a complete trajectory (for vector env)
 
         '''Arguments for device'''
         self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
@@ -200,7 +202,7 @@ def kwargs_filter(func, kwargs: dict) -> dict:
     return filtered_kwargs
 
 
-def build_env(env=None, env_func=None, env_args=None):  # [ElegantRL.2021.12.12]
+def build_env(env=None, env_func=None, env_args: dict = None):  # [ElegantRL.2021.12.12]
     if env is not None:
         env = deepcopy(env)
     elif env_func.__module__ == 'gym.envs.registration':

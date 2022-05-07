@@ -1,15 +1,15 @@
 import torch
+from torch import Tensor
 
 from elegantrl.agents.AgentDQN import AgentDQN
 from elegantrl.agents.net import QNetTwin
 from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
-Tensor = torch.Tensor
 
-
-class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
+class AgentDoubleDQN(AgentDQN):
     """
     Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. H. V. Hasselt et al.. 2015.
 
@@ -20,7 +20,7 @@ class AgentDoubleDQN(AgentDQN):  # [ElegantRL.2021.10.25]
     :param args: the arguments for agent training. `args = Arguments()`
     """
 
-    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = getattr(self, "act_class", QNetTwin)
         self.cri_class = getattr(self, "cri_class", None)  # means `self.cri = self.act`
         AgentDQN.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)

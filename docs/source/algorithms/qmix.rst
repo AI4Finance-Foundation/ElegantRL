@@ -4,7 +4,7 @@
 QMix
 ==========
 
-`QMIX: Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning <https://arxiv.org/abs/1803.11485>`_ is a value-based method that can train decentralized policies in a centralized end-to-end fashion. QMIX employs a network that estimates joint action-values as a complex non-linear combination of per-agent values that condition only on local observations. 
+`QMIX: Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning <https://arxiv.org/abs/1803.11485>`_ is a value-based method that can train decentralised policies in a centralised end-to-end fashion.QMIX employs a network that estimates joint action-values as a complex non-linear combination of per-agent values that condition only on local observations. 
 
 -  Experience replay: ✔️
 -  Target network: ✔️

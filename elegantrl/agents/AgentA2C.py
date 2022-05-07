@@ -3,6 +3,7 @@ import torch
 from elegantrl.agents.AgentPPO import AgentPPO
 from elegantrl.agents.net import ActorDiscretePPO, CriticPPO
 from elegantrl.train.replay_buffer import ReplayBufferList
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
@@ -18,7 +19,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
     :param args: the arguments for agent training. `args = Arguments()`
     """
 
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         AgentPPO.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
         print(
             "| AgentA2C: A2C is worse than PPO. We provide AgentA2C code just for teaching."
@@ -67,7 +68,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
 
 
 class AgentDiscreteA2C(AgentA2C):
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = getattr(self, 'act_class', ActorDiscretePPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)

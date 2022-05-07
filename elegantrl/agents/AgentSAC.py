@@ -1,19 +1,20 @@
 import numpy as np
 import torch
+from torch import Tensor
 
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import ActorSAC, CriticTwin
 from elegantrl.agents.net import ActorFixSAC, CriticREDq
 from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
-Tensor = torch.Tensor
 
 
 class AgentSAC(AgentBase):  # [ElegantRL.2022.03.03]
     """
-    Soft Actor-Critic algorithm. “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor”. Tuomas Haarnoja et al.. 2018.
+    Soft Actor-Critic algorithm.
+    “Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor”. Tuomas Haarnoja et al.. 2018.
 
     :param net_dim: the dimension of networks (the width of neural networks)
     :param state_dim: the dimension of state (the number of state vector)
@@ -22,7 +23,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2022.03.03]
     :param args: the arguments for agent training. `args = Arguments()`
     """
 
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', ActorSAC)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)
@@ -96,7 +97,7 @@ class AgentSAC(AgentBase):  # [ElegantRL.2022.03.03]
 
 
 class AgentReliableSAC(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for reliable_lambda
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = getattr(self, 'act_class', ActorFixSAC)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)
         args.if_act_target = getattr(args, 'if_act_target', True)
@@ -104,7 +105,7 @@ class AgentReliableSAC(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-        self.lambda_action = getattr(args, 'lambda_action', 2 ** -6)
+        self.lambda_action = getattr(args, 'lambda_action', 2 ** -5)
 
     def update_net(self, buffer: ReplayBuffer):
         with torch.no_grad():  # H term
@@ -156,7 +157,7 @@ class AgentReliableSAC(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for
 
 
 class AgentReliableSACHterm(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for reliable_lambda
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = getattr(self, 'act_class', ActorFixSAC)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)
         args.if_act_target = getattr(args, 'if_act_target', True)
@@ -164,7 +165,7 @@ class AgentReliableSACHterm(AgentSAC):  # Using TTUR (Two Time-scale Update Rule
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
-        self.lambda_action = getattr(args, 'lambda_action', 2 ** -4)
+        self.lambda_action = getattr(args, 'lambda_action', 2 ** -5)
 
     def update_net(self, buffer: ReplayBuffer):
         with torch.no_grad():  # H term
@@ -174,7 +175,7 @@ class AgentReliableSACHterm(AgentSAC):  # Using TTUR (Two Time-scale Update Rule
                 buf_state, buf_action, buf_reward, buf_mask = buffer.concatenate_buffer()
                 buf_r_sum = self.get_r_sum_h_term(buf_reward, buf_mask)
 
-                self.get_buf_h_term(buf_state, buf_action, buf_r_sum)  # todo H-term
+                self.get_buf_h_term(buf_state, buf_action, buf_r_sum, buf_mask, buf_reward)  # todo H-term
                 del buf_action, buf_reward, buf_mask, buf_r_sum
 
             action_log_std = self.act.get_action_log_std(buf_state).mean(dim=0, keepdim=True)
@@ -219,7 +220,7 @@ class AgentReliableSACHterm(AgentSAC):  # Using TTUR (Two Time-scale Update Rule
 
 
 class AgentREDqSAC(AgentSAC):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
-    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = getattr(self, 'act_class', ActorFixSAC)
         self.cri_class = getattr(self, 'cri_class', CriticREDq)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)

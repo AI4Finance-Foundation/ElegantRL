@@ -1,21 +1,22 @@
 import numpy as np
 import numpy.random as rd
 import torch
+from torch import Tensor
 
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, Critic
 from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
-Tensor = torch.Tensor
 
 
 class AgentDDPG(AgentBase):
     """
     Bases: ``AgentBase``
 
-    Deep Deterministic Policy Gradient algorithm. “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.
+    Deep Deterministic Policy Gradient algorithm.
+    “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.
 
     :param net_dim[int]: the dimension of networks (the width of neural networks)
     :param state_dim[int]: the dimension of state (the number of state vector)
@@ -26,7 +27,7 @@ class AgentDDPG(AgentBase):
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
 
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', Actor)
         self.cri_class = getattr(self, 'cri_class', Critic)
@@ -104,7 +105,7 @@ class AgentDDPGHterm(AgentDDPG):
                 buf_state, buf_action, buf_reward, buf_mask = buffer.concatenate_buffer()
                 buf_r_sum = self.get_r_sum_h_term(buf_reward, buf_mask)
 
-                self.get_buf_h_term(buf_state, buf_action, buf_r_sum)  # todo H-term
+                self.get_buf_h_term(buf_state, buf_action, buf_r_sum, buf_mask, buf_reward)  # todo H-term
                 del buf_state, buf_action, buf_reward, buf_mask, buf_r_sum
 
         obj_critic = torch.zeros(1)

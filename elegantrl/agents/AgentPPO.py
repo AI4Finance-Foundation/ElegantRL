@@ -1,13 +1,14 @@
 import torch
+import numpy as np
 
+from torch import Tensor
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import ActorDiscretePPO
 from elegantrl.agents.net import ActorPPO, CriticPPO
 from elegantrl.train.replay_buffer import ReplayBufferList
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
-Tensor = torch.Tensor
 
 
 class AgentPPO(AgentBase):
@@ -21,7 +22,7 @@ class AgentPPO(AgentBase):
     :param args: the arguments for agent training. `args = Arguments()`
     """
 
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.if_off_policy = False
         self.act_class = getattr(self, 'act_class', ActorPPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
@@ -198,14 +199,14 @@ class AgentPPO(AgentBase):
 
 
 class AgentDiscretePPO(AgentPPO):
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = getattr(self, 'act_class', ActorDiscretePPO)
         self.cri_class = getattr(self, 'cri_class', CriticPPO)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
 
 
 class AgentPPOHterm(AgentPPO):  # HtermPPO2
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         AgentPPO.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
 
     def update_net(self, buffer: ReplayBufferList):
@@ -222,7 +223,7 @@ class AgentPPOHterm(AgentPPO):  # HtermPPO2
             buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
             buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)
             # buf_adv_v: buffer data of adv_v value
-            self.get_buf_h_term(buf_state, buf_action, buf_r_sum)  # todo H-term
+            self.get_buf_h_term(buf_state, buf_action, buf_r_sum, buf_mask, buf_reward)  # todo H-term
             del buf_noise
 
         '''update network'''
@@ -261,7 +262,7 @@ class AgentPPOHterm(AgentPPO):  # HtermPPO2
 
 
 class AgentPPOHtermV2(AgentPPO):
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         AgentPPO.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
 
     def update_net(self, buffer: ReplayBufferList):
@@ -278,7 +279,7 @@ class AgentPPOHtermV2(AgentPPO):
             buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
             buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)
             # buf_adv_v: buffer data of adv_v value
-            self.get_buf_h_term(buf_state, buf_action, buf_r_sum)  # todo H-term
+            self.get_buf_h_term(buf_state, buf_action, buf_r_sum, buf_mask, buf_reward)  # todo H-term
             del buf_noise
 
         '''update network'''
@@ -343,7 +344,7 @@ class AgentPPOHtermV2(AgentPPO):
             '''hamilton'''
             ten_logprob = self.act.get_logprob(ten_state, ten_action)
             ten_hamilton = ten_logprob.exp().prod(dim=1)
-            obj_hamilton = -(ten_hamilton * ten_r_norm).mean() * self.lambda_h_term
+            obj_hamilton = -(ten_hamilton * ten_r_norm).mean() * self.h_term_lambda
         else:
             obj_hamilton = torch.zeros(1, dtype=torch.float32, device=self.device)
         return obj_critic, obj_hamilton

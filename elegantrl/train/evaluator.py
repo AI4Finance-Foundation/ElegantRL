@@ -2,12 +2,15 @@ import os
 import time
 import torch
 import numpy as np
+from elegantrl.train.config import Arguments
+
+Array = np.ndarray
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 
 class Evaluator:
-    def __init__(self, cwd, agent_id, eval_env, args):
+    def __init__(self, cwd: str, agent_id: int, eval_env, args: Arguments):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
@@ -29,7 +32,7 @@ class Evaluator:
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
               f"{'expR':>8}{'objC':>7}{'etc.':>7}")
 
-    def evaluate_save_and_plot(self, act, steps, r_exp, log_tuple) -> (bool, bool):
+    def evaluate_save_and_plot(self, act, steps: int, r_exp: float, log_tuple: tuple) -> (bool, bool):
         self.total_step += steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
@@ -101,7 +104,7 @@ class Evaluator:
 
         return if_reach_goal, if_save
 
-    def save_or_load_recoder(self, if_save):
+    def save_or_load_recoder(self, if_save: bool):
         if if_save:
             np.save(self.recorder_path, self.recorder)
         elif os.path.exists(self.recorder_path):
@@ -147,7 +150,10 @@ def get_cumulative_returns_and_step(env, act) -> (float, int):  # [ElegantRL.202
     return returns, steps
 
 
-def save_learning_curve(recorder=None, cwd='.', save_title='learning curve', fig_name='plot_learning_curve.jpg'):
+def save_learning_curve(
+        recorder: list = None, cwd: str = '.',
+        save_title: str = 'learning curve', fig_name: str = 'plot_learning_curve.jpg'
+):
     if recorder is None:
         recorder = np.load(f"{cwd}/recorder.npy")
 
@@ -220,6 +226,7 @@ def demo_evaluator_actor_pth():
     import gym
     from elegantrl.agents.AgentPPO import AgentPPO
     from elegantrl.train.config import build_env
+    from elegantrl.train.config import Arguments
 
     gpu_id = 0  # >=0 means GPU ID, -1 means CPU
 
@@ -236,14 +243,15 @@ def demo_evaluator_actor_pth():
 
                 'id': 'LunarLanderContinuous-v2'}
 
-    actor_path = './LunarLanderContinuous-v2_PPO_1/actor.pth'
+    # actor_path = './LunarLanderContinuous-v2_PPO_1/actor.pth'
     eval_times = 4
     net_dim = 2 ** 7
 
     '''init'''
-    env = build_env(env_func=env_func, env_args=env_args)
-    act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
-    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    args = Arguments(agent_class=agent_class, env_func=env_func, env_args=env_args)
+    env = build_env(env_func=args.env_func, env_args=args.env_args)
+    act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args).act
+    # act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
 
     '''evaluate'''
     r_s_ary = [get_cumulative_returns_and_step(env, act) for _ in range(eval_times)]
@@ -254,7 +262,7 @@ def demo_evaluator_actor_pth():
     return r_avg, s_avg
 
 
-def demo_evaluate_actors(dir_path, gpu_id, agent, env_args, eval_times=2, net_dim=128):
+def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval_times=2, net_dim=128):
     import gym
     from elegantrl.train.config import build_env
     # dir_path = './LunarLanderContinuous-v2_PPO_1'
@@ -301,6 +309,73 @@ def demo_evaluate_actors(dir_path, gpu_id, agent, env_args, eval_times=2, net_di
     '''sort by step'''
     step_epi_r_s_ary = step_epi_r_s_ary[step_epi_r_s_ary[:, 0].argsort()]
     return step_epi_r_s_ary
+
+
+def demo_load_pendulum_and_render():
+    import gym
+    import torch
+    from elegantrl.agents.AgentPPO import AgentPPO
+    from elegantrl.train.config import build_env
+    from elegantrl.train.config import Arguments
+
+    gpu_id = 0  # >=0 means GPU ID, -1 means CPU
+
+    agent_class = AgentPPO
+
+    env_func = gym.make
+    env_args = {'env_num': 1,
+                'env_name': 'Pendulum-v1',
+                'max_step': 200,
+                'state_dim': 3,
+                'action_dim': 1,
+                'if_discrete': False,
+
+                'id': 'Pendulum-v1'}
+
+    actor_path = './Pendulum-v1_PPO_0/actor.pth'
+    net_dim = 2 ** 7
+
+    '''init'''
+    env = build_env(env_func=env_func, env_args=env_args)
+    args = Arguments(agent_class, env=env)
+    act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args).act
+    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+
+    '''evaluate'''
+    # eval_times = 2 ** 7
+    # from elegantrl.envs.CustomGymEnv import PendulumEnv
+    # eval_env = PendulumEnv()
+    # from elegantrl.train.evaluator import get_cumulative_returns_and_step
+    # r_s_ary = [get_cumulative_returns_and_step(eval_env, act) for _ in range(eval_times)]
+    # r_s_ary = np.array(r_s_ary, dtype=np.float32)
+    # r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
+    #
+    # print('r_avg, s_avg', r_avg, s_avg)
+    # exit()
+
+    '''render'''
+    max_step = env.max_step
+    if_discrete = env.if_discrete
+    device = next(act.parameters()).device  # net.parameters() is a Python generator.
+
+    state = env.reset()
+    steps = None
+    returns = 0.0  # sum of rewards in an episode
+    for steps in range(max_step):
+        s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        state, reward, done, _ = env.step(action * 2)  # todo
+        returns += reward
+        env.render()
+
+        if done:
+            break
+    returns = getattr(env, 'cumulative_returns', returns)
+    steps += 1
+
+    print(f"\n| cumulative_returns {returns}"
+          f"\n|      episode steps {steps}")
 
 
 def run():

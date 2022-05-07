@@ -3,6 +3,7 @@ import torch
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, CriticTwin
 from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
@@ -24,7 +25,7 @@ class AgentTD3(AgentBase):
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
 
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.if_off_policy = True
         self.act_class = getattr(self, 'act_class', Actor)
         self.cri_class = getattr(self, 'cri_class', CriticTwin)

@@ -1,12 +1,12 @@
 import torch
 
+from torch import Tensor
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import QNet
 from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
-Tensor = torch.Tensor
 
 
 class AgentDQN(AgentBase):  # [ElegantRL.2022.04.18]
@@ -20,7 +20,7 @@ class AgentDQN(AgentBase):  # [ElegantRL.2022.04.18]
     :param args: the arguments for agent training. `args = Arguments()`
     """
 
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         self.act_class = QNet
         self.cri_class = None  # means `self.cri = self.act`
         args.if_act_target = getattr(args, 'if_act_target', True)

@@ -4,7 +4,7 @@
 DQN
 ==========
 
-`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It uses a deep neural network to approximate a Q function defined on state-action pairs. This implementation starts from a vanilla Deep Q-Learning and supports the following extensions:
+`Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_ is an off-policy value-based algorithm for discrete action space. It uses a deep neural network to approximate a Q function defined on a state-action pair. This implementation starts from a vanilla Deep Q-Learning and supports the following extensions:
 
 -  Experience replay: ✔️
 -  Target network (soft update): ✔️
@@ -14,7 +14,7 @@ DQN
 -  Dueling network architecture: ✔️
 
 .. note::
-    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` for reward scaling as an alternative. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward; however, the reward scaling function is able to manipulate the reward back and forth.
+    This implementation has no support for reward clipping because we introduce the hyper-paramter ``reward_scale`` for reward scaling as an alternative. We believe that the clipping function may omit information since it cannot map the clipped reward back to the original reward, however, the reward scaling function is able to manipulate the reward back and forth.
 
 
 .. warning::
