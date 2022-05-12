@@ -4,7 +4,7 @@
 A2C
 ==========
 
-`Advantage Actor-Critic (A2C) <https://arxiv.org/abs/1602.01783>`_ is a synchronous and deterministic version of Asynchronous Advantage Actor-Critic (A3C). This implementation of the A2C algorithm is built on PPO algorithm for simplicity, and it supports the following extensions:
+`Advantage Actor-Critic (A2C) <https://arxiv.org/abs/1602.01783>`_ is a synchronous and deterministic version of Asynchronous Advantage Actor-Critic (A3C). It combines value optimization and policy optimization approaches. This implementation of the A2C algorithm is built on PPO algorithm for simplicity, and it supports the following extensions:
 
 -  Target network: ✔️
 -  Gradient clipping: ✔️
