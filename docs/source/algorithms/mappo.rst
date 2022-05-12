@@ -4,7 +4,7 @@
 MAPPO
 ==========
 
-`Multi-Agent Proximal Policy Optimization (MAPPO) <https://arxiv.org/abs/2103.01955>`_ is a variant of PPO which is specialized for multi-agent settings. MAPPO achieves surprisingly strong performance in two popular multi-agent testbeds: the particle-world environments, the Starcraft multi-agent challenge.
+`Multi-Agent Proximal Policy Optimization (MAPPO) <https://arxiv.org/abs/2103.01955>`_ is a variant of PPO which is specialized for multi-agent settings. MAPPO achieves surprisingly strong performance in two popular multi-agent testbeds: the particle-world environments and the Starcraft multi-agent challenge.
 
 -  Shared network parameter for all agents ✔️
 
