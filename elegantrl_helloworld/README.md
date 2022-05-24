@@ -6,7 +6,7 @@ We suggest to following this order to quickly learn about RL:
 - PPO (Proximal Policy Gradient), a widely used DRL algorithms in continuous action space.
 
 
-We hope that the `ElegantRL Helloworld` would help people who to learn about reinforcement learning and quickly run a few introductory examples.
+We hope that the `ElegantRL Helloworld` would help people to learn about reinforcement learning and quickly run a few introductory examples.
 - **Less lines of code**. (code lines <1000)
 - **Less packages requirements**. (only `torch` and `gym` )
 - **keep a consistent style with the full version of ElegantRL**.
