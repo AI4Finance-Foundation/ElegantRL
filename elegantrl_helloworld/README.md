@@ -1,9 +1,9 @@
 ## ElegantRL HelloWorld tutorial: DQN --> DDPG --> PPO
 
 We suggest to following this order to quickly learn about RL:
-- DQN (Deep Q Network), a basic RL algorithms in discrete action space.
-- DDPG (Deep Deterministic Policy Gradient), a basic RL algorithm in continuous action space.
-- PPO (Proximal Policy Gradient), a widely used RL algorithms in continuous action space.
+- DQN (Deep Q Network), a basic DRL algorithms in discrete action space.
+- DDPG (Deep Deterministic Policy Gradient), a basic DRL algorithm in continuous action space.
+- PPO (Proximal Policy Gradient), a widely used DRL algorithms in continuous action space.
 
 
 We hope that the `ElegantRL Helloworld` would help people who want to learn about reinforcement learning to quickly run a few introductory examples.
