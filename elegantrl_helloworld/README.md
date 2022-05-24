@@ -42,5 +42,5 @@ One sentence summary: an agent `agent.py` with Actor-Critic networks `net.py` is
 In this tutorial, we only need to download the directory from [elegantrl_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) using the following code.
 
 
-If you have any suggestion about ElegantRL Helloworld, you can discuss them in [ElegantRL issues/135: Suggestions for elegant_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/issues/135), and we will keep an eye on this issue.
+If you have some suggestions to ElegantRL Helloworld, we can discuss them in [ElegantRL issues/135: Suggestions for elegant_helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/issues/135), and we will keep an eye on this issue.
 ElegantRL's code, especially the Helloworld, really needs a lot of feedback to be better.
