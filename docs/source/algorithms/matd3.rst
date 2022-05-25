@@ -5,7 +5,7 @@ MATD3
 ==========
 
 `Multi-Agent TD3 (MATD3) <https://arxiv.org/abs/1910.01465>`_ uses double centralized critics to reduce overestimation bias in multi-agent environments.
-
+It combines the improvements of TD3 with MADDPG.
 
 Code Snippet
 ------------
