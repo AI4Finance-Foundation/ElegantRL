@@ -2,7 +2,7 @@ import os
 import numpy as np
 import numpy.random as rd
 import torch
-from typing import List
+from typing import List, Union
 from torch import Tensor
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
@@ -138,17 +138,25 @@ class ReplayBuffer:  # for off-policy
             print(f"| {self.__class__.__name__}: Loaded from cwd {cwd}")
 
     def get_state_norm(self, cwd: str = '.',
-                       neg_state_avg: [float, Tensor] = 0.0,
-                       div_state_std: [float, Tensor] = 1.0):
+                       state_avg: [float, Tensor] = 0.0,
+                       state_std: [float, Tensor] = 1.0):
+        try:
+            torch.save(state_avg, f"{cwd}/env_state_avg.pt")
+            torch.save(state_std, f"{cwd}/env_state_std.pt")
+        except Exception as error:
+            print(error)
+
         state_avg, state_std = get_state_avg_std(
-            buf_state=self.buf_state, batch_size=2 ** 10,
-            neg_state_avg=neg_state_avg, div_state_std=div_state_std,
+            buf_state=self.buf_state,
+            batch_size=2 ** 10,
+            state_avg=state_avg,
+            state_std=state_std,
         )
 
         torch.save(state_avg, f"{cwd}/state_norm_avg.pt")
-        print(f"| {self.__class__.__name__}: state_avg = {state_avg}")
+        print(f"| {self.__class__.__name__}: \nstate_avg = {state_avg}")
         torch.save(state_std, f"{cwd}/state_norm_std.pt")
-        print(f"| {self.__class__.__name__}: state_std = {state_std}")
+        print(f"| {self.__class__.__name__}: \nstate_std = {state_std}")
 
     def concatenate_state(self) -> Tensor:
         if self.prev_p <= self.next_p:
@@ -185,16 +193,26 @@ class ReplayBufferList(list):  # for on-policy
         r_exp = self[1].mean().item()
         return steps, r_exp
 
-    def get_state_norm(self, cwd='.', neg_state_avg=0, div_state_std=1):
+    def get_state_norm(self, cwd='.',
+                       state_avg: Union[Tensor, float] = 0.0,
+                       state_std: [Tensor, float] = 1.0):
+        try:
+            torch.save(state_avg, f"{cwd}/env_state_avg.pt")
+            torch.save(state_std, f"{cwd}/env_state_std.pt")
+        except Exception as error:
+            print(error)
+
         state_avg, state_std = get_state_avg_std(
-            buf_state=self[0], batch_size=2 ** 10,
-            neg_state_avg=neg_state_avg, div_state_std=div_state_std,
+            buf_state=self[0],
+            batch_size=2 ** 10,
+            state_avg=state_avg,
+            state_std=state_std,
         )
 
-        torch.save(state_avg, f"{cwd}/state_norm_avg.pt")
-        print(f"| {self.__class__.__name__}: state_avg = {state_avg}")
-        torch.save(state_std, f"{cwd}/state_norm_std.pt")
-        print(f"| {self.__class__.__name__}: state_std = {state_std}")
+        torch.save(state_avg, f"{cwd}/state_avg.pt")
+        print(f"| {self.__class__.__name__}: \nstate_avg = {state_avg}")
+        torch.save(state_std, f"{cwd}/state_std.pt")
+        print(f"| {self.__class__.__name__}: \nstate_std = {state_std}")
 
 
 class BinarySearchTree:
@@ -297,23 +315,22 @@ class BinarySearchTree:
 
 def get_state_avg_std(
         buf_state: Tensor, batch_size=2 ** 10,
-        neg_state_avg: [float, Tensor] = 0.0,
-        div_state_std: [float, Tensor] = 1.0,
+        state_avg: [Tensor, float] = 0.0,
+        state_std: [Tensor, float] = 1.0,
 ) -> (Tensor, Tensor):
     state_len = buf_state.shape[0]
-    state_avg = torch.zeros_like(buf_state[0])
-    state_std = torch.zeros_like(buf_state[0])
+    state_avg_temp = torch.zeros_like(buf_state[0])
+    state_std_temp = torch.zeros_like(buf_state[0])
 
     from tqdm import trange
     for i in trange(0, state_len, batch_size):
         state_part = buf_state[i:i + batch_size]
-        state_avg += state_part.mean(axis=0)
-        state_std += state_part.std(axis=0)
+        state_avg_temp += state_part.mean(axis=0)
+        state_std_temp += state_part.std(axis=0)
+    num = max(1, state_len / batch_size)
+    state_avg_temp /= num
+    state_std_temp /= num
 
-    num = max(1, state_len // batch_size)
-    state_avg /= num
-    state_std /= num
-
-    state_avg = state_avg / div_state_std - neg_state_avg
-    state_std = state_std / div_state_std - neg_state_avg
-    return state_avg.cpu(), state_std.cpu()
+    new_state_avg = state_avg_temp.data.cpu() * state_std + state_avg
+    new_state_std = state_std_temp.data.cpu() * state_std
+    return new_state_avg, new_state_std

@@ -25,7 +25,7 @@ class Arguments:
         self.net_dim = 2 ** 8  # the network width
         self.num_layer = 3  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
         if self.if_off_policy:  # off-policy
-            self.max_memo = 2 ** 21  # capacity of replay buffer
+            self.max_memo = 2 ** 21  # capacity of replay buffer, 2 ** 21 ~= 2e6
             self.target_step = 2 ** 10  # repeatedly update network to keep critic's loss small
             self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
             self.repeat_times = 2 ** 0  # collect target_step, then update network
@@ -61,6 +61,7 @@ class Arguments:
         self.if_allow_break = True  # allow break training when reach goal (early termination)
 
         '''Arguments for evaluate'''
+        self.save_gap = 2  # save the policy network (actor.pth) for learning curve, +np.inf means don't save
         self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
         self.eval_times = 2 ** 4  # number of times that get episode return
         self.eval_env_func = None  # eval_env = eval_env_func(*eval_env_args)

@@ -65,8 +65,8 @@ def train_and_evaluate(args: Arguments):
 
     buffer.get_state_norm(
         cwd=cwd,
-        neg_state_avg=getattr(env, 'neg_state_avg', 0),
-        div_state_std=getattr(env, 'div_state_std', 1),
+        state_avg=getattr(env, 'neg_state_avg', 0),
+        state_std=getattr(env, 'div_state_std', 1),
     )
     if hasattr(buffer, 'save_or_load_history'):
         print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
@@ -80,9 +80,10 @@ def init_agent(args: Arguments, gpu_id: int, env=None) -> AgentBase:
     if env is not None:
         '''assign `agent.states` for exploration'''
         if args.env_num == 1:
-            states = [env.reset(), ]
-            assert isinstance(states[0], np.ndarray)
-            assert states[0].shape in {(args.state_dim,), args.state_dim}
+            state = env.reset()
+            assert isinstance(state, np.ndarray) or isinstance(state, torch.Tensor)
+            assert state.shape in {(args.state_dim,), args.state_dim}
+            states = [state, ]
         else:
             states = env.reset()
             assert isinstance(states, torch.Tensor)
@@ -206,8 +207,8 @@ class PipeLearner:
         env = build_env(env_func=args.env_func, env_args=args.env_args)
         buffer.get_state_norm(
             cwd=cwd,
-            neg_state_avg=getattr(env, 'neg_state_avg', 0),
-            div_state_std=getattr(env, 'div_state_std', 1),
+            state_avg=getattr(env, 'state_avg', 0.0),
+            state_std=getattr(env, 'state_std', 1.0),
         )
         if hasattr(buffer, 'save_or_load_history'):
             print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
@@ -243,12 +244,13 @@ class PipeEvaluator:
         act = agent.act
         break_step = args.break_step
         if_allow_break = args.if_allow_break
+        save_gap = args.save_gap
         del args
 
         if_save = False
         if_train = True
         if_reach_goal = False
-        temp = 0
+        save_counter = 0
         while if_train:
             act_dict, steps, r_exp, logging_tuple = self.pipe0.recv()
 
@@ -256,10 +258,10 @@ class PipeEvaluator:
                 act.load_state_dict(act_dict)
                 if_reach_goal, if_save = evaluator.evaluate_save_and_plot(act, steps, r_exp, logging_tuple)
 
-                temp += 1
-                if temp == 4:  # todo
-                    temp = 0
-                    torch.save(act.state_dict(), f"{cwd}/actor_{evaluator.total_step:09}.pth")  # todo
+                save_counter += 1
+                if save_counter == save_gap:
+                    save_counter = 0
+                    torch.save(act.state_dict(), f"{cwd}/actor_{evaluator.total_step:012}.pth")
             else:
                 evaluator.total_step += steps
 
