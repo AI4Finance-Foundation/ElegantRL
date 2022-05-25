@@ -75,7 +75,11 @@ class GymNormaEnv(gym.Wrapper):  # [ElegantRL.2022.04.04] # todo plan
 
 
 class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
+<<<<<<< HEAD
     def __init__(self, gym_env_id='Humanoid-v3', target_return=8000):
+=======
+    def __init__(self, gym_env_id='Humanoid-v3', target_return=3000):
+>>>>>>> ac966943208a1bd994c8fb5b3a35346368a78da9
         gym.logger.set_level(40)  # Block warning
         super(HumanoidEnv, self).__init__(env=gym.make(gym_env_id))
 
@@ -89,7 +93,11 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         self.if_discrete = False  # discrete action or continuous action
         self.target_return = target_return  # episode return is between (-1600, 0)
 
+<<<<<<< HEAD
         print(f'\n| {self.__class__.__name__}: MuJoCo Humanoid Env set its action space as (-0.4, +0.4).'
+=======
+        print(f'\n| {self.self.__class__.__name__}: MuJoCo Humanoid Env set its action space as (-0.4, +0.4).'
+>>>>>>> ac966943208a1bd994c8fb5b3a35346368a78da9
               f'\n| And we scale the action, and set the action space as (-1, +1).'
               f'\n| So do not use your policy network on raw env directly.')
 

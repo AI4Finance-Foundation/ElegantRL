@@ -6,7 +6,11 @@ from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentPPO import AgentPPO
 from elegantrl.agents.AgentTD3 import AgentTD3
+<<<<<<< HEAD
 from elegantrl.agents.AgentSAC import AgentSAC, AgentReSAC
+=======
+from elegantrl.agents.AgentSAC import AgentSAC, AgentReliableSAC
+>>>>>>> ac966943208a1bd994c8fb5b3a35346368a78da9
 from elegantrl.envs.IsaacGymEnv import IsaacVecEnv, IsaacOneEnv
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
@@ -1394,7 +1398,11 @@ def demo_sac(gpu_id, drl_id, env_id):
     env_name = ['Ant',
                 'Humanoid',
                 'ShadowHand'][env_id]
+<<<<<<< HEAD
     agent_class = [AgentTD3, AgentSAC, AgentReSAC, ][drl_id]
+=======
+    agent_class = [AgentTD3, AgentSAC, AgentReliableSAC, ][drl_id]
+>>>>>>> ac966943208a1bd994c8fb5b3a35346368a78da9
 
     if env_name == 'Ant':
         env_num = 2 ** 9

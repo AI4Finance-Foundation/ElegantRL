@@ -153,7 +153,11 @@ class PipeWorker:
         traj_lists = [pipe1.recv() for pipe1 in self.pipe1s]
         return traj_lists
 
+<<<<<<< HEAD
     def run(self, args: Arguments, worker_id: int):
+=======
+    def run(self, args, worker_id: int):
+>>>>>>> ac966943208a1bd994c8fb5b3a35346368a78da9
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
 
@@ -203,7 +207,11 @@ class PipeLearner:
         agent.save_or_load_agent(cwd, if_save=True)
         print(f'| Learner: Save in {cwd}')
 
+<<<<<<< HEAD
         env = build_env(env_func=args.env_func, env_args=args.env_args)
+=======
+        env = build_env(env_func=args.env_func, env_args=args.env_func)
+>>>>>>> ac966943208a1bd994c8fb5b3a35346368a78da9
         buffer.get_state_norm(
             cwd=cwd,
             neg_state_avg=getattr(env, 'neg_state_avg', 0),
