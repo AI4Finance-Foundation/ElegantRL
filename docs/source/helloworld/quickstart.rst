@@ -20,7 +20,7 @@ Step 2: Specify Agent and Environment
    env = PendulumEnv('Pendulum-v0', target_return=-500)
    args = Arguments(AgentSAC, env)
    
-Part 3: Specify hyper-parameters
+Part 3: Specify Hyper-parameters
 --------------------------------------
 
 .. code-block:: python
