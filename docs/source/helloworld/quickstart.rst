@@ -42,7 +42,7 @@ Try by yourself through this `Colab <https://github.com/AI4Finance-Foundation/El
 .. tip::
     - By default, it will train a stable-SAC agent in the Pendulum-v0 environment for 400 seconds.
 
-    - It will choose to utilize the CPU or GPU automatically. Don't worry, we never use ``.cuda()``.
+    - It will choose to utilize CPUs or GPUs automatically. Don't worry, we never use ``.cuda()``.
 
     - It will save the log and model parameters file in ``'./{Environment}_{Agent}_{GPU_ID}'``.
 
