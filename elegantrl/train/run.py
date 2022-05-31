@@ -55,8 +55,8 @@ def train_and_evaluate(args):
             and evaluator.total_step <= break_step
             and stop_dir_absent
         )
+        agent.save_or_load_agent(cwd, if_save=if_save)
     print(f"| UsedTime: {time.time() - evaluator.start_time:.0f} | SavedDir: {cwd}")
-    agent.save_or_load_agent(cwd, if_save=if_save)
     buffer.save_or_load_history(cwd, if_save=True) if agent.if_off_policy else None
 
 
