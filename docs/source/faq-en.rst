@@ -4,7 +4,7 @@ FAQ
 
 
 ^^^^^^^^
-Q1: In what conditions on-policy is better and in what conditions, off-policy is better in general?
+Q1: In what conditions on-policy is better, and in what conditions off-policy is better in general?
 ^^^^^^^^
 
 This is a very difficult question to answer, but I will try to answer it.
@@ -29,9 +29,9 @@ Sample efficiency:
 -----------------
 If we focus on sample efficiency as a performance metric, off-policy is better that on-policy in general.
 
-On-policy use the data collected by behavior policy to update the target policy. The on-policy algorithm keeps updating the target policy, until the difference between the behavior policy and target policy is so large that they cannot be considered as the same policy. 
+On-policy use the data collected by the behavior policy to update the target policy. The on-policy algorithm keeps updating the target policy, until the difference between the behavior policy and target policy is so large that they cannot be considered as the same policy. 
 
-After using these data to update the target policy, the on-policy algorithms should **delete the old training data** and re-collect data using the latest target policy as the behavior policy.
+After using the data to update the target policy, the on-policy algorithms **delete the old training data**, and re-collect the data and treat the latest target policy as the behavior policy.
 
 The target policy of off-policy algorithms can be any policies. So the off-policy algorithm **do not need to delete the old training data** unless the data in experimence replay buffer is too much and the capacity limit is reached. 
 
