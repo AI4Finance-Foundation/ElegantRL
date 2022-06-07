@@ -10,10 +10,10 @@ Q1: In what conditions on-policy is better and in what conditions, off-policy is
 This is a very difficult question to answer, but I will try to answer it.
 
 Let us discuss which kind of algorithm is better under 3 performance metrices:
-- Off-policy is better in **sample efficiency** than on-policy in general. (The agent achieve a higher cumulative rewards in a given total training steps.). 
--  On-policy performs better in **training speed** than off-policy in general. (The agent achieve a higher cumulative rewards in a given total training time.).
+- Off-policy is better in **sample efficiency** than on-policy in general. (The agent achieves higher cumulative rewards in a given total training steps.). 
+- On-policy performs better in **training speed** than off-policy in general. (The agent achieves higher cumulative rewards in a given total training time.).
 - On-policy performs better in **training stablility** than off-policy in general. (Train agent overs serval runs after the learning curve converges. A higher training stability algorithm has a smaller the variance of cumulative rewards)
-- **Convergence cumulative rewards** (Train the agent and compare the highest cumulative rewards after the learning curve converges). 
+- **Convergence of cumulative rewards** (Train the agent and compare the highest cumulative rewards after the learning curve converges). 
   - Off-policy performs better in **convergence cumulative rewards** if we can provide sufficient running memoery.
   - On-policy performs better in **convergence cumulative rewards** if we can not provide sufficient running memoery.
 
