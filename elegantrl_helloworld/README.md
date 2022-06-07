@@ -1,12 +1,12 @@
 ## ElegantRL HelloWorld tutorial
 
 The following three algorithms are 
-- DQN (Deep Q Network): the first DRL algorithm for discrete action space.
-- DDPG (Deep Deterministic Policy Gradient): the first DRL algorithm for continuous action space.
-- PPO (Proximal Policy Gradient): a popular DRL algorithm for continuous action space.
+- Deep Q-Network (DQN): the first DRL algorithm for discrete action space.
+- Deep Deterministic Policy Gradient (DDPG): the first DRL algorithm for continuous action space.
+- Proximal Policy Gradient (PPO): a popular DRL algorithm for continuous action space.
 
 
-`ElegantRL Helloworld` are made to simple.
+`ElegantRL Helloworld` are made simple.
 - **Less lines of code**. (code lines <1000)
 - **Less packages requirements**. (only `torch` and `gym` )
 - **keep a consistent style with the full version of ElegantRL**.
