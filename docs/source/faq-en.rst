@@ -19,7 +19,7 @@ Let us discuss which kind of algorithm is better under 3 performance metrices:
 
 
 Background about on-policy and off-policy:
-- Behavior policy: The policy which explored in the environment and collected data for training is behavior policy.
+- Behavior policy: The policy which collects data for training and explores in the environment.
 - Target policy: The policy which used to update the Q value is target policy.
 - On-policy algorithm: the target policy must be the behavior policy. So the training data in experimence replay buffer should be collected by behavior policy.
 - Off-policy algorithm: the target policy can be any policies. So the training data in experimence replay buffer could be collected by any policies.
@@ -61,7 +61,7 @@ On-policy performs better in **training stablility** than off-policy in general.
 - The behavior policy network of on-policy explores in environment and collect the data for the experimence replay buffer. And the target network is same as the behavior policy. The on-policy algorithm searches for new policies in the neighborhood of behavior policy, so on-policy training is more stable than off-policy because the difference between behavior policy and target policy is smaller.
 
 -----------------
-Convergence cumulative rewards:
+Convergence of cumulative rewards:
 -----------------
 
 We can train the agent and compare the cumulative rewards after the learning curve converges. If an algorithm searches for a policy with higher cumulative rewards, we said that it is better.
