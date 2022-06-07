@@ -92,7 +92,7 @@ In theory, of course, it is possible to temporarily store data from GPU memory i
 Q2: Is it possible to design an off-policy actor-critic algorithm with only the state input (no action input)? If not, can you explain why?
 ^^^^^^^^^^^^
 
-It is not possible.
+It is impossible.
 
 Background knowledge about on-policy and off-policy:
 - **Behavior policy**: The policy which **explored in the environment and collected data** for training is behavior policy.
