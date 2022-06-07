@@ -35,14 +35,14 @@ After using the data to update the target policy, the on-policy algorithms **del
 
 The target policy of off-policy algorithms can be any policies. So the off-policy algorithm **do not need to delete the old training data** unless the data in experimence replay buffer is too much and the capacity limit is reached. 
 
-So off-policy has higher sample efficiency than on-policy in general. Some RL tasks (e.g. atari game) that require sufficient exploration in order to find a policy with higher cumulative rewards. For such tasks, the off-policy algorithm can achieve better performance with higher sample efficiency, because off-policy will maintain a larger expermience replay buffer than on-policy.
+So off-policy has higher sample efficiency than on-policy in general. Some RL tasks (e.g. atari game) that require sufficient exploration in order to find a policy with higher cumulative rewards. For such tasks, the off-policy algorithms can achieve better performance with higher sample efficiency, because off-policy algorithms maintain a larger expermience replay buffer than on-policy algorithms.
 
 -----------------
 Training speed:
 -----------------
 
 A typical training pipeline of RL:
-1. Behavior policy explores in environment and collect the data for the experimence replay buffer.
+1. Behavior policy explores in environment and collects the data for the experimence replay buffer.
 2. Using the data in experimence replay buffer to update the target policy and value network.
 3. Remove the old data from the experience replay buffer according to the requirements of the algorithms.
 4. Repeat step 1 to step 3, till the training is stop.
