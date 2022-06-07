@@ -51,7 +51,6 @@ def train_ddpg_in_bipedal_walker(gpu_id=0):  # DDPG is a simple but low sample e
 
 
 if __name__ == "__main__":
-    
     train_ddpg_in_pendulum()
     train_ddpg_in_lunar_lander()
     train_ddpg_in_bipedal_walker()
