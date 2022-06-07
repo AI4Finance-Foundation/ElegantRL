@@ -45,7 +45,7 @@ A typical training pipeline of RL:
 1. Behavior policy explores in environment and collects the data for the experimence replay buffer.
 2. Using the data in experimence replay buffer to update the target policy and value network.
 3. Remove the old data from the experience replay buffer according to the requirements of the algorithms.
-4. Repeat step 1 to step 3, till the training is stop.
+4. Repeat step 1 to step 3 until the training stops.
 
 Off-policy will maintain a larger expermience replay buffer (training set) than on-policy.
 In step 2, the off-policy algorithms will training its networks in a larger training set. So the off-policy algorithm take longer to train the networks, which slows down its training speed.
