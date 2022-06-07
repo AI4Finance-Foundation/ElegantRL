@@ -1,10 +1,15 @@
 import os
 import torch
 import numpy as np
+from elegantrl_helloworld.agent import  AgentBase, AgentDDPG, AgentDQN, AgentPPO
 
-
+ALGOS = {
+    "ddpg": AgentDDPG,
+    "dqn": AgentDQN,
+    "ppo": AgentPPO,
+}
 class Arguments:
-    def __init__(self, agent_class, env_func=None, env_args=None):
+    def __init__(self, env_func=None, env_args=None, hyp=None):
         self.env_func = env_func  # env = env_func(*env_args)
         self.env_args = env_args  # env = env_func(*env_args)
 
@@ -15,20 +20,10 @@ class Arguments:
         self.action_dim = self.env_args['action_dim']  # vector dimension (feature number) of action
         self.if_discrete = self.env_args['if_discrete']  # discrete or continuous action space
 
-        self.agent_class = agent_class  # DRL algorithm
         self.net_dim = 2 ** 7  # the middle layer dimension of Fully Connected Network
         self.num_layer = 3  # the layer number of MultiLayer Perceptron, `assert num_layer >= 2`
         self.batch_size = 2 ** 5  # num of transitions sampled from replay buffer.
-        self.if_off_policy = self.get_if_off_policy()  # agent is on-policy or off-policy
-        if self.if_off_policy:  # off-policy
-            self.target_step = 2 ** 10  # collect target_step, then update network
-            self.max_capacity = 2 ** 21  # if reach the capacity of ReplayBuffer, first in first out for off-policy.
-            self.repeat_times = 2 ** 0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-        else:  # on-policy
-            self.target_step = 2 ** 12  # collect target_step, then update network
-            self.max_capacity = self.target_step  # capacity of ReplayBuffer. Empty the ReplayBuffer for on-policy.
-            self.repeat_times = 2 ** 3  # repeatedly update network using ReplayBuffer to keep critic's loss small
-
+        
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
@@ -48,7 +43,24 @@ class Arguments:
         '''Arguments for evaluate'''
         self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
         self.eval_times = 2 ** 4  # number of times that get episode return
+        
+        for k, v in hyp.items():
+            setattr(self, k, v)
+            
+        setattr(self, "agent_class", ALGOS[hyp["agent_class"]])
+        
+        self.if_off_policy = self.get_if_off_policy()  # agent is on-policy or off-policy
+        if self.if_off_policy:  # off-policy
+            self.target_step = 2 ** 10  # collect target_step, then update network
+            self.max_capacity = 2 ** 21  # if reach the capacity of ReplayBuffer, first in first out for off-policy.
+            self.repeat_times = 2 ** 0  # repeatedly update network using ReplayBuffer to keep critic's loss small
+        else:  # on-policy
+            self.target_step = 2 ** 12  # collect target_step, then update network
+            self.max_capacity = self.target_step  # capacity of ReplayBuffer. Empty the ReplayBuffer for on-policy.
+            self.repeat_times = 2 ** 3  # repeatedly update network using ReplayBuffer to keep critic's loss small
 
+        
+        
     def init_before_training(self):
         np.random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
