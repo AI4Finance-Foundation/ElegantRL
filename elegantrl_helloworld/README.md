@@ -33,7 +33,7 @@ train_ppo_in_bipedal_walker()
 ---
 
 
-The files in `elegantrl_helloworld` including:
+The files in `elegantrl_helloworld` include:
 `config.py`, `agent.py`, `net.py`, `env.py`, `run.py`
 
 ![File_structure of ElegantRL](https://github.com/AI4Finance-Foundation/ElegantRL/raw/master/figs/File_structure.png)
