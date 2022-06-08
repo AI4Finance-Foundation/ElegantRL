@@ -82,6 +82,7 @@ DDPG:
 PPO:
   # Tuned
   Pendulum:
+    agent_class: ppo
     reward_scale: 0.5 
     gamma:  0.97
     target_step:  4000
@@ -92,4 +93,32 @@ PPO:
     eval_gap: 64
     eval_times: 8
     break_step: !!float 8e5
+    learner_gpus: 0
+  
+  LunarLanderContinuous-v2:
+    agent_class: ppo
+    gamma:  0.99
+    reward_scale: 0.5
+    target_step: 4000
+    num_layer: 3
+    batch_size: 128
+    repeat_times: 16
+    lambda_entropy: 0.04
+    eval_gap: 64
+    eval_times: 32
+    break_step: !!float 4e5
+    learner_gpus: 0
+
+  BipedalWalker-v3:
+    agent_class: ppo
+    reward_scale: 0.5
+    gamma:  0.98
+    target_step: 1000
+    net_dim:  256
+    num_layer:  3
+    batch_size: 256
+    repeat_times: 16
+    eval_gap:  32
+    eval_times:  16
+    break_step: !!float 1e6
     learner_gpus: 0
