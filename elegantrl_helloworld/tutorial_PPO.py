@@ -85,16 +85,7 @@ def train_ppo_in_lunar_lander_or_bipedal_walker(gpu_id=0):
 
         args.learner_gpus = gpu_id
         args.random_seed += gpu_id
-        train_agent(args)
-        evaluate_agent(args)
-        print('| The cumulative returns of BipedalWalker-v3 is ∈ (-150, (-100, 280), 320+)')
-
-        """
-        | `Steps` denotes the number of samples, or the total training step, or the running times of `env.step()`.
-        | `ExpR` denotes average rewards during exploration. The agent gets this rewards with noisy action.
-        | `ObjC` denotes the objective of Critic network. Or call it loss function of critic network.
-        | `ObjA` denotes the objective of Actor network. It is the average Q value of the critic network.
-        """
+        train_and_evaluate(args)
 
 if __name__ == "__main__":
     train_ppo_in_pendulum()
