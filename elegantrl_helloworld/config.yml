@@ -80,4 +80,16 @@ DDPG:
     learner_gpus: 0
 
 PPO:
+  # Tuned
   Pendulum:
+    reward_scale: 0.5 
+    gamma:  0.97
+    target_step:  4000
+    net_dim: 128
+    num_layer: 2
+    batch_size: 256
+    repeat_times: 32
+    eval_gap: 64
+    eval_times: 8
+    break_step: !!float 8e5
+    learner_gpus: 0
