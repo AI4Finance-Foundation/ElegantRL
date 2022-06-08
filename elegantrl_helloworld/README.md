@@ -16,7 +16,7 @@ The following three algorithms are
 
 1. Run the Jupyter Notebook. Open in Colab. [tutorial_helloworld_DQN_DDPG_PPO.ipynb](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/tutorial_helloworld_DQN_DDPG_PPO.ipynb)
 
-2. Run the Python file [tutorial_helloworld_DQN_DDPG_PPO.py](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/tutorial_helloworld_DQN_DDPG_PPO.py)
+2. Run the Python files [tutorial_helloworld_DQN.py](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/tutorial_helloworld_DQN.py), [ tutorial_helloworld_DDPG.py](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/tutorial_helloworld_DDPG.py), [tutorial_helloworld_PPO.py](https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/tutorial_helloworld_PPO.py).
 ```
 train_dqn_in_cartpole()
 train_dqn_in_lunar_lander()
