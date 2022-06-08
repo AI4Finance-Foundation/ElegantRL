@@ -22,10 +22,12 @@ train_dqn_in_cartpole()
 train_dqn_in_lunar_lander()
 
 train_ddpg_in_pendulum()
-train_ppo_in_pendulum()
+train_ddpg_in_lunar_lander()
+train_ddpg_in_bipedal_walker()
 
-train_ddpg_in_lunar_lander_or_bipedal_walker()
-train_ppo_in_lunar_lander_or_bipedal_walker()
+train_ppo_in_pendulum()
+train_ppo_in_lunar_lander
+train_ppo_in_bipedal_walker()
 ```
 
 ---
