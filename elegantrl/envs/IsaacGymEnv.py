@@ -9,7 +9,7 @@ from elegantrl.envs.utils.config_utils import load_task_config, get_max_step_fro
 from pprint import pprint
 from typing import Dict, Tuple
 
-'''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
+'''[ElegantRL.2022.06.06](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 """
 Source: https://github.com/NVIDIA-Omniverse/IsaacGymEnvs (I hate `import hydra` in IsaacGym Preview 3)
@@ -271,7 +271,7 @@ def check_isaac_gym(env_name='Ant', gpu_id=0):
     steps_list = list()
     print()
     for i in trange(env.env_num):
-        dones_where = torch.where(dones_ary[:, i])[0]
+        dones_where = torch.where(dones_ary[:, i] == 1)[0]
         episode_num = dones_where.shape[0]
 
         if episode_num == 0:
