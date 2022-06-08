@@ -1,43 +1,25 @@
+from ElegantRL.elegantrl_helloworld.run import train_and_evaluate
 from elegantrl_helloworld.config import Arguments
 from elegantrl_helloworld.run import train_agent, evaluate_agent
 from elegantrl_helloworld.env import get_gym_env_args, PendulumEnv
-
+import gym
+import yaml
+gym.logger.set_level(40)  # Block warning
 
 def train_dqn_in_cartpole(gpu_id=0):  # DQN is a simple but low sample efficiency.
-    from elegantrl_helloworld.agent import AgentDQN
-    agent_class = AgentDQN
+    
     env_name = "CartPole-v0"
-
-    import gym
-    gym.logger.set_level(40)  # Block warning
+    with open("config.yml", 'r') as f:
+        hyp = yaml.safe_load(f)
     env = gym.make(env_name)
     env_func = gym.make
     env_args = get_gym_env_args(env, if_print=True)
 
-    args = Arguments(agent_class, env_func, env_args)
+    args = Arguments(env_func, env_args, hyp)
 
-    '''reward shaping'''
-    args.reward_scale = 2 ** 0
-    args.gamma = 0.97
-
-    '''network update'''
-    args.target_step = args.max_step * 2
-    args.net_dim = 2 ** 7
-    args.num_layer = 3
-    args.batch_size = 2 ** 7
-    args.repeat_times = 2 ** 0
-    args.explore_rate = 0.25
-
-    '''evaluate'''
-    args.eval_gap = 2 ** 5
-    args.eval_times = 2 ** 3
-    args.break_step = int(8e4)
-
-    args.learner_gpus = gpu_id
-    train_agent(args)
-    evaluate_agent(args)
-    print('| The cumulative returns of CartPole-v0  is ∈ (0, (0, 195), 200)')
-
+   
+    train_and_evaluate(args)
+    
 def train_dqn_in_lunar_lander(gpu_id=0):  # DQN is a simple but low sample efficiency.
     from elegantrl_helloworld.agent import AgentDQN
     agent_class = AgentDQN

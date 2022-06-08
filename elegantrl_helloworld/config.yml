@@ -1,3 +1,35 @@
+DQN:
+  CartPole-v0:
+    agent_class: dqn
+    reward_scale: 1
+    gamma: 0.97
+    target_step: 1000
+    net_dim: 128
+    num_layer: 3
+    batch_size: 128
+    repeat_times: 1
+    explore_rate: 0.25
+    eval_gap: 32
+    eval_times: 8
+    break_step: !!float 8e4
+    learner_gpus: 0
+  
+  LunarLander-v2:
+    agent_class: dqn
+    reward_scale: 1
+    gamma: 0.99
+    target_step: 1000
+    net_dim: 128
+    num_layer: 3
+    batch_size: 64
+    repeat_times: 1
+    explore_noise: 0.125
+    eval_gap: 128
+    eval_times: 32
+    break_step: !!float 4e5
+    learner_gpus: 0
+
+
 DDPG: 
   # Tuned
   Pendulum:

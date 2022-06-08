@@ -145,3 +145,8 @@ def get_rewards_and_steps(env, act) -> (float, int):  # get cumulative_rewards a
             break
     cumulative_returns = getattr(env, 'cumulative_returns', cumulative_returns)
     return cumulative_returns, episode_steps + 1
+
+
+def train_and_evaluate(args):
+    train_agent(args)
+    evaluate_agent(args)
