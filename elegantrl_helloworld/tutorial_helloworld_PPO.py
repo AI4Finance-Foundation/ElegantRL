@@ -26,7 +26,7 @@ def train_ppo_in_lunar_lander():
     env_func = gym.make
     env_args = get_gym_env_args(env, if_print=True)
 
-    args = Arguments(agent_class, env_func, env_args)
+    args = Arguments(env_func, env_args, hyp)
 
     
     train_and_evaluate(args)
