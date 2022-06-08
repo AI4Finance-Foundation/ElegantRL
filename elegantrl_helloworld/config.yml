@@ -1,4 +1,5 @@
 DQN:
+  # Tuned
   CartPole-v0:
     agent_class: dqn
     reward_scale: 1
@@ -13,7 +14,7 @@ DQN:
     eval_times: 8
     break_step: !!float 8e4
     learner_gpus: 0
-  
+  # Tuned
   LunarLander-v2:
     agent_class: dqn
     reward_scale: 1
@@ -77,3 +78,6 @@ DDPG:
     eval_times: 8
     break_step: !!float 1e6
     learner_gpus: 0
+
+PPO:
+  Pendulum:

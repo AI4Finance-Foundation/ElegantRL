@@ -4,9 +4,8 @@ from elegantrl_helloworld.env import get_gym_env_args, PendulumEnv
 
 
 def train_ppo_in_pendulum(gpu_id=0):
-    from elegantrl_helloworld.agent import AgentPPO
-    agent_class = AgentPPO
-
+    env_name = "Pendulum"
+    alg = "PPO"
     env = PendulumEnv()
     env_func = PendulumEnv
     env_args = get_gym_env_args(env, if_print=True)
