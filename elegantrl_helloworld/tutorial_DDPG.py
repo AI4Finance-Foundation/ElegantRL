@@ -8,7 +8,7 @@ import gym
 def train_ddpg_in_pendulum(gpu_id=0):  # DDPG is a simple but low sample efficiency and unstable.
     env_name = "Pendulum"
     alg = "DDPG"
-    with open("hyperparameter.yml", 'r') as f:
+    with open("config.yml", 'r') as f:
         hyp = yaml.safe_load(f)[alg][env_name]
 
     env = PendulumEnv()
@@ -23,7 +23,7 @@ def train_ddpg_in_pendulum(gpu_id=0):  # DDPG is a simple but low sample efficie
 def train_ddpg_in_lunar_lander(gpu_id=0):  # DDPG is a simple but low sample efficiency and unstable.
     env_name = "LunarLanderContinuous-v2"
     alg = "DDPG"
-    with open("hyperparameter.yml", 'r') as f:
+    with open("config.yml", 'r') as f:
         hyp = yaml.safe_load(f)[alg][env_name]
         
     env = gym.make(env_name)
@@ -37,7 +37,7 @@ def train_ddpg_in_lunar_lander(gpu_id=0):  # DDPG is a simple but low sample eff
 
 def train_ddpg_in_bipedal_walker(gpu_id=0):  # DDPG is a simple but low sample efficiency and unstable.
     env_name = "BipedalWalker-v3"
-    with open("hyperparameter.yml", 'r') as f:
+    with open("config.yml", 'r') as f:
         hyp = yaml.safe_load(f)
     env = gym.make(env_name)
     env_func = gym.make
