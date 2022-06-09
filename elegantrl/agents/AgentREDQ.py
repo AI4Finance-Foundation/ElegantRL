@@ -1,5 +1,9 @@
 from elegantrl.agents.AgentBase import AgentBase
+from elegantrl.agents.net import Critic, ActorSAC, ActorFixSAC, CriticREDQ
 
+import torch
+import numpy as np
+from copy import deepcopy
 
 class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     """
