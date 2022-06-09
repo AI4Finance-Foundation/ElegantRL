@@ -117,7 +117,7 @@ class AgentVMPO():
 
     def calc_pi_loss_not_use_topk(self, action_mean, action_cov, actions, advs_detached):
         
-        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
+        # Clamp eta into the range [1e-8, +infty). (Lagrangian multipliers are always positive)
         eta_detached = self.eta.detach().clamp_min(1e-8)
         
         psi_detached = nn.functional.softmax(advs_detached / eta_detached, dim=0).squeeze_() 
@@ -127,7 +127,7 @@ class AgentVMPO():
 
     def calc_pi_loss_use_topk(self, action_mean, action_cov, actions, advs_detached):
         
-        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
+        # Clamp eta into the range [1e-8, +infty). (Lagrangian multipliers are always positive)
         eta_detached = self.eta.detach().clamp_min(1e-8)
         
         # Select top-k advantages.
@@ -140,7 +140,7 @@ class AgentVMPO():
 
     def calc_eta_loss_not_use_topk(self, advs_detached):  # calc η temperature
         
-        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers eta are always positive)
+        # Clamp eta into the range [1e-8, +infty). (Lagrangian multipliers eta are always positive)
         eta_clamp = self.eta.clamp_min(1e-8)
         
         D = advs_detached.numel()
@@ -149,7 +149,7 @@ class AgentVMPO():
 
     def calc_eta_loss_use_topk(self, advs_detached):  # calc η temperature
         
-        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
+        # Clamp eta into the range [1e-8, +infty). (Lagrangian multipliers are always positive)
         eta_clamp = self.eta.clamp_min(1e-8)
         
         # Select top-k advantages.
