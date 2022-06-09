@@ -1,15 +1,15 @@
 import numpy as np
 import torch
-from elegantrl.agents.net import ActorFixSAC, CriticREDq
+from elegantrl.agents.net import ActorFixSAC, CriticREDQ
 from elegantrl.agents.AgentSAC import AgentSAC
 
 
-class AgentREDQSAC(
+class AgentREDQ(
     AgentSAC
 ):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.act_class = getattr(self, "act_class", ActorFixSAC)
-        self.cri_class = getattr(self, "cri_class", CriticREDq)
+        self.cri_class = getattr(self, "cri_class", CriticREDQ)
         super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
