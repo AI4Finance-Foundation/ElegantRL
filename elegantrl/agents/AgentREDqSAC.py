@@ -4,7 +4,7 @@ from elegantrl.agents.net import ActorFixSAC, CriticREDq
 from elegantrl.agents.AgentSAC import AgentSAC
 
 
-class AgentREDqSAC(
+class AgentREDQSAC(
     AgentSAC
 ):  # Modified SAC using reliable_lambda and TTUR (Two Time-scale Update Rule)
     def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
