@@ -13,16 +13,16 @@ class ActorVMPO(nn.Module):
         self.action_dim = action_dim
         self.base_net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, mid_dim), nn.ReLU())
         self.nn_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, self.action_dim))
-        self.action_log_std = nn.Parameter(torch.zeros(action_dim, device=device))  # scale_tril std will bring to much extra bug
+        self.action_log_std = nn.Parameter(torch.zeros(action_dim, device=device)) 
 
     def forward(self, states):
-        states = states.squeeze()  # !fixme
+        states = states.squeeze()  
         tmp = self.base_net(states)
         mean = self.nn_avg(tmp)
         return mean
 
     def get_mean(self, states):
-        states = states.squeeze()  # !fixme
+        states = states.squeeze()  
         tmp = self.base_net(states)
         mean = self.nn_avg(tmp)
         return mean
@@ -30,20 +30,21 @@ class ActorVMPO(nn.Module):
     def get_cov(self):
         action_std = self.action_log_std.clamp(min=-20., max=2.).exp()
         cov = torch.diag_embed(action_std)
-        return cov  # action_dim,action_dim
-
-    # v-mpo假设动作服从multi-gauss------------------------------------------------------------------------------
-    def get_action_4_explorer(self, states):  # bs,action_dim
-        return torch.distributions.MultivariateNormal(self.get_mean(states), self.get_cov()).sample()  # bs,action_dim
+        return cov  # shape = (action_dim, action_dim)
+    
+    # action in VMPO should obey multivariate gaussian distribution
+    
+    def get_action_4_explorer(self, states):  
+        return torch.distributions.MultivariateNormal(self.get_mean(states), self.get_cov()).sample() # shape: (batch_size, action_dim)
 
     def entropy(self, action_mean, action_cov):  # get entropy of  certain dist
-        return torch.distributions.MultivariateNormal(action_mean, action_cov).entropy()  # bs
+        return torch.distributions.MultivariateNormal(action_mean, action_cov).entropy()  # shape: (batch_size,)
 
     def log_prob(self, action_mean, action_cov, actions):
-        return torch.distributions.MultivariateNormal(action_mean, action_cov).log_prob(actions)  # bs
+        return torch.distributions.MultivariateNormal(action_mean, action_cov).log_prob(actions)  # shape: (batch_size, )
 
 
-class Critic(nn.Module):  # theta
+class Critic(nn.Module):
     def __init__(self, state_dim, mid_dim):
         super(Critic, self).__init__()
         self.base_net = nn.Sequential(
@@ -57,7 +58,7 @@ class Critic(nn.Module):  # theta
         )
 
     def forward(self, states):
-        states = states.squeeze()  # !fixme
+        states = states.squeeze()  
         return self.base_net(states)
 
 
@@ -74,15 +75,15 @@ class AgentVMPO():
         self.action_dim = action_dim
         self.device = device
         self.entropy_coef = entropy_coef
-        self.actor = ActorVMPO(state_dim, action_dim, mid_dim, device).to(device)  # pi
-        self.critic = Critic(state_dim, mid_dim).to(device)  # phi
+        self.actor = ActorVMPO(state_dim, action_dim, mid_dim, device).to(device)  # policy pi_theta
+        self.critic = Critic(state_dim, mid_dim).to(device)  # Q_phi
         self.old_actor = None
         self.criterion = nn.SmoothL1Loss()
         self.n_steps_4_Gt = n_steps_4_Gt
         self.epsilon_of_eta = epsilon_of_eta
-        self.eta = nn.Parameter(torch.ones((1,), device=device))  # η temperature
-        self.alpha_mean = nn.Parameter(torch.ones((1,), device=device))
-        self.alpha_cov = nn.Parameter(torch.ones((1,), device=device))
+        self.eta = nn.Parameter(torch.ones((1, ), device=device))  # eta temperature
+        self.alpha_mean = nn.Parameter(torch.ones((1, ), device=device))
+        self.alpha_cov = nn.Parameter(torch.ones((1, ), device=device))
 
         self.epsilon_of_alpha_mean_log_floor = np.log(epsilon_of_alpha_mean_floor)
         self.epsilon_of_alpha_mean_log_ceil = np.log(epsilon_of_alpha_mean_ceil)
@@ -107,7 +108,7 @@ class AgentVMPO():
         self.re_calc_times_4_loss = 1
 
     def select_action(self, states):
-        states = states.squeeze()  # !fixme
+        states = states.squeeze()  
         return self.actor.get_action_4_explorer(states)
 
     @staticmethod
@@ -115,63 +116,74 @@ class AgentVMPO():
         return torch.distributions.Uniform(log_floor, log_ceil).sample().exp()
 
     def calc_pi_loss_not_use_topk(self, action_mean, action_cov, actions, advs_detached):
-        #"since alpha and eta are lagrange multipliers that must>0,after each gradient update we project alpha and eta>=1e-8"
+        
+        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
         eta_detached = self.eta.detach().clamp_min(1e-8)
-        psi_detached = nn.functional.softmax(advs_detached/eta_detached, dim=0).squeeze_()  # bs
-        log_prob = self.actor.log_prob(action_mean, action_cov, actions)  # bs
+        
+        psi_detached = nn.functional.softmax(advs_detached / eta_detached, dim=0).squeeze_() 
+        log_prob = self.actor.log_prob(action_mean, action_cov, actions) 
         loss = -(psi_detached * log_prob).sum()
-        return loss  # shape:[]
+        return loss
 
     def calc_pi_loss_use_topk(self, action_mean, action_cov, actions, advs_detached):
-        #"since alpha and eta are lagrange multipliers that must>0,after each gradient update we project alpha and eta>=1e-8"
-        # 会影响到calc_pi_loss,要求参数中的action_mean, action_cov, actions, advs_detached都是top half
+        
+        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
         eta_detached = self.eta.detach().clamp_min(1e-8)
-        advs_topk_detached, idx_topk = torch.topk(advs_detached, advs_detached.numel()//2, dim=0, sorted=False)
-        psi_detached = nn.functional.softmax(advs_topk_detached/eta_detached, dim=0).squeeze_()  # bs//2
+        
+        # Select top-k advantages.
+        advs_topk_detached, idx_topk = torch.topk(advs_detached, advs_detached.numel() // 2, dim=0, sorted=False)
+        
+        psi_detached = nn.functional.softmax(advs_topk_detached / eta_detached, dim=0).squeeze_()  # bs//2
         log_prob = self.actor.log_prob(action_mean, action_cov, actions)[idx_topk]  # bs//2
         loss = -(psi_detached * log_prob).sum()
         return loss  # shape:[]
 
     def calc_eta_loss_not_use_topk(self, advs_detached):  # calc η temperature
-        #"since alpha and eta are lagrange multipliers that must>0,after each gradient update we project alpha and eta>=1e-8"
+        
+        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers eta are always positive)
         eta_clamp = self.eta.clamp_min(1e-8)
+        
         D = advs_detached.numel()
-        loss = eta_clamp*(self.epsilon_of_eta+(np.log(1/D)+torch.logsumexp(advs_detached.squeeze()/eta_clamp, dim=0)))
-        return loss  # shape:1
+        loss = eta_clamp * (self.epsilon_of_eta + (np.log(1 / D) + torch.logsumexp(advs_detached.squeeze() / eta_clamp, dim=0)))
+        return loss
 
     def calc_eta_loss_use_topk(self, advs_detached):  # calc η temperature
-        #"since alpha and eta are lagrange multipliers that must>0,after each gradient update we project alpha and eta>=1e-8"
+        
+        # Clamp eta into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
         eta_clamp = self.eta.clamp_min(1e-8)
-        advs_topk = torch.topk(advs_detached, advs_detached.shape[0]//2, dim=0, sorted=False).values
-        D_tilde = advs_detached.numel()//2
-        loss = eta_clamp*(self.epsilon_of_eta+(np.log(1/D_tilde)+torch.logsumexp(advs_topk.squeeze()/eta_clamp, dim=0)))
-        return loss  # shape:1
+        
+        # Select top-k advantages.
+        advs_topk = torch.topk(advs_detached, advs_detached.shape[0] // 2, dim=0, sorted=False).values
+        
+        D_tilde = advs_detached.numel() // 2
+        loss = eta_clamp * (self.epsilon_of_eta + (np.log(1 / D_tilde) + torch.logsumexp(advs_topk.squeeze() / eta_clamp, dim=0)))
+        return loss 
 
     def calc_alpha_loss(self, old_mean_detached, old_cov_detached, new_mean, new_cov):
-        # action_mean_of_old_pi_detached:old_mean_detached       bs,action_dim
-        # action_std_of_old_pi_detached: old_cov_detached        action_dim,action_dim
-        # action_mean_of_new_pi:         new_mean                bs,action_dim
-        # action_std_of_new_pi:          new_cov                 action_dim,action_dim
+        # action_mean_of_old_pi_detached: old_mean_detached       bs,action_dim
+        # action_std_of_old_pi_detached:  old_cov_detached        action_dim,action_dim
+        # action_mean_of_new_pi:          new_mean                bs,action_dim
+        # action_std_of_new_pi:           new_cov                 action_dim,action_dim
 
         # kl_mean
-        inverse_cov_of_old_pi = old_cov_detached.inverse().unsqueeze_(0)  # 1,action_dim,action_dim
-        tmp = (new_mean - old_mean_detached).unsqueeze_(-1)  # bs,action_dim,1
+        inverse_cov_of_old_pi = old_cov_detached.inverse().unsqueeze_(0)  # 1, action_dim, action_dim
+        tmp = (new_mean - old_mean_detached).unsqueeze_(-1)  # bs, action_dim, 1
         kl_mean = (0.5 * tmp.transpose(1, 2) @ inverse_cov_of_old_pi @ tmp).squeeze_()  # bs
 
         # kl_cov
         kl_cov = 0.5 * ((new_cov.inverse() @ old_cov_detached).trace() - self.action_dim + (torch.det(new_cov) / (torch.det(old_cov_detached) + 1e-6)).log())
 
-        #"since alpha and eta are lagrange multipliers that must>0,after each gradient update we project alpha and eta>=1e-8"
+        # # Clamps alpha into the range [ 1e-8, + infty ). (Lagrangian multipliers are always positive)
         alpha_m_clamp = self.alpha_mean.clamp_min(1e-8)
         alpha_c_clamp = self.alpha_cov.clamp_min(1e-8)
 
         # loss_of_kl_alpha_mean
         epsilon_of_alpha_mean = self.gen_random_from_log_uniform(self.epsilon_of_alpha_mean_log_floor, self.epsilon_of_alpha_mean_log_ceil)
-        loss_of_kl_alpha_mean = alpha_m_clamp*(epsilon_of_alpha_mean-kl_mean.detach())+alpha_m_clamp.detach()*kl_mean
+        loss_of_kl_alpha_mean = alpha_m_clamp*(epsilon_of_alpha_mean-kl_mean.detach())+alpha_m_clamp.detach() * kl_mean
 
         # loss_of_kl_alpha_cov
         epsilon_of_alpha_cov = self.gen_random_from_log_uniform(self.epsilon_of_alpha_cov_log_floor, self.epsilon_of_alpha_cov_log_ceil)
-        loss_of_kl_alpha_cov = alpha_c_clamp*(epsilon_of_alpha_cov-kl_cov.detach())+alpha_c_clamp.detach()*kl_cov
+        loss_of_kl_alpha_cov = alpha_c_clamp * (epsilon_of_alpha_cov - kl_cov.detach()) + alpha_c_clamp.detach() * kl_cov
         loss = loss_of_kl_alpha_mean.mean()+loss_of_kl_alpha_cov.mean()
         return loss
 
@@ -201,7 +213,7 @@ class AgentVMPO():
                     break
                 except:
                     self.re_calc_times1 *= 2
-                    print(f're_calc_times1={self.re_calc_times1}')
+                    print(f're_calc_times1 = {self.re_calc_times1}')
 
             # calc vals & advs
             while True:  # set a smaller 'bs: batch size' when out of GPU memory.
@@ -227,7 +239,7 @@ class AgentVMPO():
                         idx = indices[bs4gpuTrick * j:bs4gpuTrick * (j + 1)]
                         state_minibatch = states[idx]  # detached
                         action_minibatch = actions[idx]  # detached
-                        adv_minibatch = advs[idx]  # detached,shape:bs
+                        adv_minibatch = advs[idx]  # detached, shape: bs
                         old_pi_mean_minibatch = action_mean_from_old_pi[idx]  # detached
                         new_pi_mean_minibatch = self.actor.get_mean(state_minibatch)
                         new_pi_cov_minibatch = self.actor.get_cov()
@@ -237,8 +249,8 @@ class AgentVMPO():
                         eta_loss = self.calc_eta_loss(adv_minibatch)
                         alpha_loss = self.calc_alpha_loss(old_pi_mean_minibatch, action_cov_of_old_pi, new_pi_mean_minibatch, new_pi_cov_minibatch)
                         critic_loss = self.calc_critic_loss(v_predict_minibatch, v_label_minibatch)
-                        entropy_loss = self.calc_entropy_loss(new_pi_mean_minibatch, new_pi_cov_minibatch)  # author not mention that,add it 2 prevent premature
-                        total_loss = pi_loss+eta_loss+alpha_loss+critic_loss+entropy_loss
+                        entropy_loss = self.calc_entropy_loss(new_pi_mean_minibatch, new_pi_cov_minibatch)  # prevent premature. (not mentioned in VMPO paper)
+                        total_loss = pi_loss + eta_loss+alpha_loss + critic_loss + entropy_loss
                         if j == 0:
                             self.optim.zero_grad()
                         total_loss.backward()
@@ -249,6 +261,6 @@ class AgentVMPO():
                     self.re_calc_times_4_loss *= 2
                     print(e)
                     exit()
-                    print(f'self.re_calc_times_4_loss={self.re_calc_times_4_loss}')
+                    print(f'self.re_calc_times_4_loss = {self.re_calc_times_4_loss}')
 
         return pi_loss.item(), critic_loss.item(), entropy_loss.item()
