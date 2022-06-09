@@ -520,7 +520,7 @@ class CriticTwin(nn.Module):  # shared parameter
         return self.net_q1(tmp), self.net_q2(tmp)  # two Q values
 
 
-class CriticREDq(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
+class CriticREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-learning)
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.critic_num = 8
