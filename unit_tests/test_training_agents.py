@@ -7,6 +7,7 @@ action space.
 import gym
 import unittest
 from elegantrl.agents import *
+from elegantrl.agents.AgentREDQ import AgentREDQ
 from elegantrl.train.config import Arguments
 from elegantrl.envs.Gym import get_gym_env_args
 from elegantrl.train.run import train_and_evaluate
@@ -26,7 +27,7 @@ class TestAgents(unittest.TestCase):
             AgentTD3,
             AgentSAC,
             AgentModSAC,
-            AgentREDqSAC,
+            AgentREDQ,
             AgentPPO,
             AgentPPO_H,
             AgentSAC_H,
@@ -115,11 +116,11 @@ class TestAgents(unittest.TestCase):
     def test_should_not_train_ModSAC_on_discrete_action_space(self):
         self.assertRaises(Exception, self.train_discrete, AgentModSAC)
 
-    def test_should_train_REDqSAC_on_continuous_action_space(self):
-        self.train_continuous(AgentREDqSAC)
+    def test_should_train_REDQ_on_continuous_action_space(self):
+        self.train_continuous(AgentREDQ)
 
-    def test_should_not_train_REDqSAC_on_discrete_action_space(self):
-        self.assertRaises(Exception, self.train_discrete, AgentREDqSAC)
+    def test_should_not_train_REDQ_on_discrete_action_space(self):
+        self.assertRaises(Exception, self.train_discrete, AgentREDQ)
 
     def test_should_train_PPO_on_continuous_action_space(self):
         self.train_continuous(AgentPPO)
