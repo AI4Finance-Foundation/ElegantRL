@@ -155,13 +155,7 @@ By comparison, the state value network can only estimate the Q value of behavior
 
 
 
----
 
-YonV1943: 我不知道下面这段html代码是什么意思，所以没有删掉它。
-
-- :raw-html:`<font color="#A52A2A">On-policy 和 off-policy 的区别是什么？  </font>`
-
-	* 若行为策略和目标策略相同，则是on-policy,若不同则为off-policy
 	
   
   
