@@ -1,11 +1,10 @@
-from elegantrl.agents.AgentBase import AgentBase
+from elegantrl.agents.AgentSAC import AgentSAC
 from elegantrl.agents.net import Critic, ActorSAC, ActorFixSAC, CriticREDQ
-
 import torch
 import numpy as np
 from copy import deepcopy
 
-class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
+class AgentREDQ(AgentSAC):  # [ElegantRL.2021.11.11]
     """
     Bases: ``AgentBase``
 
@@ -25,8 +24,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
     :param N: ensemble number of critics
     """
 
-    def __init__(self):
-        AgentBase.__init__(self)
+    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
         self.ClassCri = Critic
         self.get_obj_critic = self.get_obj_critic_raw
         self.ClassAct = ActorSAC
@@ -36,6 +34,13 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         self.alpha_optim = None
         self.target_entropy = None
         self.obj_critic = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+        
+        self.act_class = getattr(self, "act_class", ActorFixSAC)
+        self.cri_class = getattr(self, "cri_class", CriticREDQ)
+        
+        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
+        self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
+
 
     def init(
         self,
@@ -86,7 +91,42 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         self.target_entropy = np.log(action_dim)
         self.criterion = torch.nn.MSELoss()
 
-    def get_obj_critic_raw(self, buffer, batch_size, alpha):
+    def get_obj_critic_raw(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(
+                next_s
+            )  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri.get_q_values(state, action)
+        obj_critic = self.criterion(qs, q_label * torch.ones_like(qs))
+        return obj_critic, state
+
+    def get_obj_critic_per(self, buffer, batch_size):
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(
+                batch_size
+            )
+
+            next_a, next_log_prob = self.act_target.get_action_logprob(
+                next_s
+            )  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + mask * (next_q + next_log_prob * alpha)
+        qs = self.cri.get_q_values(state, action)
+        td_error = self.criterion(qs, q_label * torch.ones_like(qs)).mean(dim=1)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, state
+    
+    def get_obj_critic_raw_(self, buffer, batch_size, alpha):
         """
         Calculate the loss of networks with **uniform sampling**.
 
@@ -126,7 +166,7 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         return obj_critic, state
         # return y_q, state,action
 
-    def select_actions(self, state, size, env):
+    def select_actions_(self, state, size, env):
         """
         Select continuous actions for exploration
 
@@ -137,14 +177,14 @@ class AgentREDQ(AgentBase):  # [ElegantRL.2021.11.11]
         actions = self.act.get_action(state)
         return actions.detach().cpu()
 
-    def cri_multi_train(self, k):
+    def cri_multi_train_(self, k):
         q_values = self.cri_list[k](self.state, self.action)
         obj = self.criterion(q_values, self.y_q)
         self.cri_optim_list[k].zero_grad()
         obj.backward()
         self.cri_optim_list[k].step()
 
-    def update_net(self, buffer, batch_size, soft_update_tau):
+    def update_net_(self, buffer, batch_size, soft_update_tau):
         # buffer.update_now_len()
         """
         Update the neural networks by sampling batch data from ``ReplayBuffer``.
