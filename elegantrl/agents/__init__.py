@@ -7,4 +7,4 @@ from elegantrl.agents.AgentDoubleDQN import AgentDoubleDQN, AgentD3QN
 from elegantrl.agents.AgentDDPG import AgentDDPG
 from elegantrl.agents.AgentTD3 import AgentTD3
 from elegantrl.agents.AgentSAC import AgentSAC, AgentModSAC
-from elegantrl.agents.AgentREDqSAC import AgentREDqSAC
+from elegantrl.agents.AgentREDQSAC import AgentREDQSAC
