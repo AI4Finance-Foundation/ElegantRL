@@ -6,24 +6,25 @@ import util
 import copy
 
 
+
 class ActorVMPO(nn.Module):
-    def __init__(self, state_dim, action_dim, mid_dim, device):
+    def __init__(self, action_dim, mid_dim, device, shared_net):
         super(ActorVMPO, self).__init__()
         self.device = device
         self.action_dim = action_dim
-        self.base_net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, mid_dim), nn.ReLU())
+        self.shared_net = shared_net
         self.nn_avg = nn.Sequential(nn.Linear(mid_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, self.action_dim))
-        self.action_log_std = nn.Parameter(torch.zeros(action_dim, device=device)) 
+        self.action_log_std = nn.Parameter(torch.zeros(action_dim, device=device))  # scale_tril std will bring to much extra bug
 
     def forward(self, states):
         states = states.squeeze()  
-        tmp = self.base_net(states)
+        tmp = self.shared_net(states)
         mean = self.nn_avg(tmp)
         return mean
 
     def get_mean(self, states):
         states = states.squeeze()  
-        tmp = self.base_net(states)
+        tmp = self.shared_net(states)
         mean = self.nn_avg(tmp)
         return mean
 
@@ -32,7 +33,7 @@ class ActorVMPO(nn.Module):
         cov = torch.diag_embed(action_std)
         return cov  # shape = (action_dim, action_dim)
     
-    # action in VMPO should obey multivariate gaussian distribution
+    # Action in VMPO should obey multivariate gaussian distribution.
     
     def get_action_4_explorer(self, states):  
         return torch.distributions.MultivariateNormal(self.get_mean(states), self.get_cov()).sample() # shape: (batch_size, action_dim)
@@ -44,14 +45,12 @@ class ActorVMPO(nn.Module):
         return torch.distributions.MultivariateNormal(action_mean, action_cov).log_prob(actions)  # shape: (batch_size, )
 
 
-class Critic(nn.Module):
-    def __init__(self, state_dim, mid_dim):
+
+class Critic(nn.Module):  
+    def __init__(self,  mid_dim, shared_net):
         super(Critic, self).__init__()
-        self.base_net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(),
+        self.shared_net = shared_net
+        self.net = nn.Sequential(
             nn.Linear(mid_dim, mid_dim),
             nn.ReLU(),
             nn.Linear(mid_dim, 1)
@@ -59,12 +58,11 @@ class Critic(nn.Module):
 
     def forward(self, states):
         states = states.squeeze()  
-        return self.base_net(states)
+        return self.net(self.shared_net(states))
 
 
 class AgentVMPO():
     def __init__(self, state_dim, action_dim, mid_dim, device,
-                 n_steps_4_Gt,
                  epsilon_of_eta,
                  epsilon_of_alpha_mean_floor=0.005,
                  epsilon_of_alpha_mean_ceil=1,
@@ -75,11 +73,12 @@ class AgentVMPO():
         self.action_dim = action_dim
         self.device = device
         self.entropy_coef = entropy_coef
-        self.actor = ActorVMPO(state_dim, action_dim, mid_dim, device).to(device)  # policy pi_theta
-        self.critic = Critic(state_dim, mid_dim).to(device)  # Q_phi
+        self.shared_net = nn.Sequential(nn.Linear(state_dim, mid_dim), nn.ReLU(), nn.Linear(mid_dim, mid_dim), nn.ReLU()).to(device)
+        self.actor = ActorVMPO(action_dim, mid_dim, device, self.shared_net).to(device)  # pi
+        self.critic = Critic(mid_dim, self.shared_net).to(device)  # phi
+
         self.old_actor = None
         self.criterion = nn.SmoothL1Loss()
-        self.n_steps_4_Gt = n_steps_4_Gt
         self.epsilon_of_eta = epsilon_of_eta
         self.eta = nn.Parameter(torch.ones((1, ), device=device))  # eta temperature
         self.alpha_mean = nn.Parameter(torch.ones((1, ), device=device))
@@ -98,8 +97,10 @@ class AgentVMPO():
             {'params': self.eta, 'lr': self.lr},
             {'params': self.alpha_mean, 'lr': self.lr},
             {'params': self.alpha_cov, 'lr': self.lr},
-            {'params': self.actor.parameters(), 'lr': self.lr},
-            {'params': self.critic.parameters(), 'lr': self.lr},
+            {'params': self.shared_net.parameters(), 'lr': self.lr},
+            {'params': self.actor.nn_avg.parameters(), 'lr': self.lr},
+            {'params': self.actor.action_log_std, 'lr': self.lr},
+            {'params': self.critic.net.parameters(), 'lr': self.lr},
         ])
         self.calc_pi_loss = self.calc_pi_loss_use_topk if self.use_topk else self.calc_pi_loss_not_use_topk
         self.calc_eta_loss = self.calc_eta_loss_use_topk if self.use_topk else self.calc_eta_loss_not_use_topk
