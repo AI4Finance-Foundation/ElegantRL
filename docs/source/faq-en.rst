@@ -100,7 +100,7 @@ Background knowledge about on-policy and off-policy:
 - **On-policy algorithm**: the target policy must be the behavior policy. So the training data in experimence replay buffer should be **collected by behavior policy**.
 - **Off-policy algorithm**: the target policy can be any policies. So the training data in experimence replay buffer could be **collected by any policies**.
   
-Let's compare the critic network of these algorithms:
+Let's discuss the critic network of these algorithms:
 - The critic network (value network) **estimates the Q value of the policy**. 
 - The critic network of on-policy algorithms (state value network) **estimates the Q value of the behavior policy** using the data collected by behavior policy.
 - The critic network of off-policy algorithms (state-action value network) **estimates the Q value of the any policy** using the data collected by different policies.
