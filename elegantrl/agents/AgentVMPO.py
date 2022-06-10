@@ -33,7 +33,7 @@ class ActorVMPO(nn.Module):
         cov = torch.diag_embed(action_std)
         return cov  # shape = (action_dim, action_dim)
     
-    # action in VMPO should obey multivariate gaussian distribution
+    # Action in VMPO should obey multivariate gaussian distribution.
     
     def get_action_4_explorer(self, states):  
         return torch.distributions.MultivariateNormal(self.get_mean(states), self.get_cov()).sample() # shape: (batch_size, action_dim)
