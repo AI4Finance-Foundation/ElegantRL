@@ -7,7 +7,7 @@ FAQ
 Q1: In what conditions on-policy is better, and in what conditions off-policy is better in general?
 ^^^^^^^^
 
-This is a very difficult question to answer, but I will try to answer it.
+This is a very difficult question, but I will try to answer it.
 
 Let us discuss which kind of algorithm is better under 3 performance metrices:
 - Off-policy is better in **sample efficiency** than on-policy in general. (The agent achieves higher cumulative rewards in a given total training steps.). 
