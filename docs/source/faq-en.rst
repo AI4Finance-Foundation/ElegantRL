@@ -103,7 +103,7 @@ Background knowledge about on-policy and off-policy:
 Let's discuss the critic network of these algorithms:
 - The critic network (value network) **estimates the Q value of the policy**. 
 - The critic network of on-policy algorithms (state value network) **estimates the Q value of the behavior policy** using the data collected by behavior policy.
-- The critic network of off-policy algorithms (state-action value network) **estimates the Q value of the policy** using the data collected by different policies.
+- The critic network of off-policy algorithms (state-action value network) **estimates the Q value of the target policy** using the data collected by different policies.
 
 Why the critic network of off-policy algorithms (state-action value network) estimates the Q value of the any policy but state value network can not do this?
 
