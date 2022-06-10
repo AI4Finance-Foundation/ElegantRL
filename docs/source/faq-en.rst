@@ -107,7 +107,7 @@ Let's discuss the critic network of these algorithms:
 
 Why the critic network of off-policy algorithms (state-action value network) estimates the Q value of the any policy but state value network can not do this?
 
-**Because the information of behavior policy can be send to state-action value network via the `action` input.**
+**The information of behavior policy can be sent to state-action value network via the `action` input.**
 By comparison, the state value network can only estimate the Q value of behavior policy, so we can not disign an off-policy algorithm with only the state input (no action input).
 
 
