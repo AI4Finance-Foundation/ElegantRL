@@ -29,13 +29,15 @@ DQN:
     eval_times: 32
     break_step: !!float 4e5
     learner_gpus: 0
-
-
+    
 DDPG: 
   # Tuned
   Pendulum:
+    # agent class name
     agent_class: ddpg
-    reward_scale: 0.5  
+    # scale reward
+    reward_scale: 0.5
+    # discounted reward
     gamma: 0.97
     target_step: 1000
     net_dim: 128
