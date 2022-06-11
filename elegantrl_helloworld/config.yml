@@ -11,6 +11,7 @@ DQN:
     target_step: 1000
     # dimension of hidden layers
     net_dim: 128
+    # number of network layers
     num_layer: 3
     batch_size: 128
     repeat_times: 1
