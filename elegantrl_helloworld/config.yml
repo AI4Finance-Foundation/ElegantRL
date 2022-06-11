@@ -17,6 +17,7 @@ DQN:
     batch_size: 128
     # update-to-data ratio
     repeat_times: 1
+    # explore ratio for epsilon greedy
     explore_rate: 0.25
     eval_gap: 32
     eval_times: 8
