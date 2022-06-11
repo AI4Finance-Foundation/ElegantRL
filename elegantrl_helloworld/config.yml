@@ -1,7 +1,9 @@
 DQN:
   # Tuned
   CartPole-v0:
+    # agent class
     agent_class: dqn
+    
     reward_scale: 1
     gamma: 0.97
     target_step: 1000
