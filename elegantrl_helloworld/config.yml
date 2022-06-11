@@ -5,7 +5,9 @@ DQN:
     agent_class: dqn
     # scale reward
     reward_scale: 1
+    # discounted rate
     gamma: 0.97
+    
     target_step: 1000
     net_dim: 128
     num_layer: 3
