@@ -7,7 +7,7 @@ DQN:
     reward_scale: 1
     # discounted rate
     gamma: 0.97
-    
+    # target step in exploration
     target_step: 1000
     net_dim: 128
     num_layer: 3
