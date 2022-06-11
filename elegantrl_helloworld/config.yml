@@ -16,8 +16,11 @@ DQN:
     explore_rate: 0.25
     eval_gap: 32
     eval_times: 8
+    # training steps
     break_step: !!float 8e4
+    # gpu id
     learner_gpus: 0
+    
   # Tuned
   LunarLander-v2:
     agent_class: dqn
