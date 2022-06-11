@@ -13,6 +13,7 @@ DQN:
     net_dim: 128
     # number of network layers
     num_layer: 3
+    # batch size of the training data
     batch_size: 128
     repeat_times: 1
     explore_rate: 0.25
