@@ -36,6 +36,7 @@ DQN:
     num_layer: 3
     batch_size: 64
     repeat_times: 1
+    # exploration noises
     explore_noise: 0.125
     eval_gap: 128
     eval_times: 32
