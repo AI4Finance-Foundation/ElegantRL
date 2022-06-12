@@ -87,6 +87,7 @@ DDPG:
     num_layer: 3
     batch_size: 128
     repeat_times: 1
+    # exploration noises
     explore_noise: 0.1
     eval_gap: 128
     eval_times: 8
