@@ -4,7 +4,7 @@ FAQ
 
 
 ^^^^^^^^
-Q1: With respect to on-policy and off-policy, which is has better performance in different scenarios?
+Q1: With respect to on-policy and off-policy algorithms, which has better performance in different scenarios?
 ^^^^^^^^
 
 This is a very difficult question, but I will try to answer it.
