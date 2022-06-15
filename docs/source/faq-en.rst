@@ -9,7 +9,7 @@ Q1: With respect to on-policy and off-policy algorithms, which has better perfor
 
 This is a very difficult question, but I will try to answer it.
 
-Let us discuss which kind of algorithm is better under 3 performance metrices:
+Let us discuss which kind of algorithm is better in three metrices:
 
 - Off-policy is better in **sample efficiency** than on-policy in general. (The agent achieves higher cumulative rewards in a given total training steps.). 
 
