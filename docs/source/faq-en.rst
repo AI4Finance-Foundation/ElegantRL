@@ -4,7 +4,7 @@ FAQ
 
 
 ^^^^^^^^
-Q1: In what conditions on-policy is better, and in what conditions off-policy is better in general?
+Q1: With respect to on-policy and off-policy, which is has better performance in different scenarios?
 ^^^^^^^^
 
 This is a very difficult question, but I will try to answer it.
