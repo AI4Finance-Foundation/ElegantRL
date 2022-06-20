@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
 import numpy as np
 import numpy.random as rd
 
@@ -361,58 +362,54 @@ class ActorFixSAC(nn.Module):
 
 
 class ActorPPO(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
+    def __init__(self, mid_dim: int, num_layer: int, state_dim: int, action_dim: int):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim),
+            nn.Linear(state_dim, 256),
             nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
+            nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
+            nn.Linear(128, action_dim)
         )
-
         # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
-        self.a_std_log = nn.Parameter(
-            torch.zeros((1, action_dim)) - 0.5, requires_grad=True
-        )
-        self.sqrt_2pi_log = np.log(np.sqrt(2 * np.pi))
+        self.action_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
+        self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
 
-    def forward(self, state):
+    def forward(self, state: Tensor) -> Tensor:
         return self.net(state).tanh()  # action.tanh()
 
-    def get_action(self, state):
-        a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
+    def get_action(self, state: Tensor) -> (Tensor, Tensor):
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
 
-        noise = torch.randn_like(a_avg)
-        action = a_avg + noise * a_std
+        noise = torch.randn_like(action_avg)
+        action = action_avg + noise * action_std
         return action, noise
 
-    def get_logprob(self, state, action):
-        a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
+    def get_logprob(self, state: Tensor, action: Tensor) -> Tensor:
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
 
-        delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        log_prob = -(self.a_std_log + self.sqrt_2pi_log + delta)  # new_logprob
+        delta = ((action_avg - action) / action_std).pow(2).__mul__(0.5)
+        logprob = -(self.action_std_log + self.log_sqrt_2pi + delta)  # new_logprob
+        return logprob
 
-        return log_prob
+    def get_logprob_entropy(self, state: Tensor, action: Tensor) -> (Tensor, Tensor):
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
 
-    def get_logprob_entropy(self, state, action):
-        a_avg = self.net(state)
-        a_std = self.a_std_log.exp()
-
-        delta = ((a_avg - action) / a_std).pow(2) * 0.5
-        logprob = -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # new_logprob
+        delta = ((action_avg - action) / action_std).pow(2) * 0.5
+        logprob = -(self.action_std_log + self.log_sqrt_2pi + delta).sum(1)  # new_logprob
 
         dist_entropy = (logprob.exp() * logprob).mean()  # policy entropy
         return logprob, dist_entropy
 
-    def get_old_logprob(self, _action, noise):  # noise = action - a_noise
-        delta = noise.pow(2) * 0.5
-        return -(self.a_std_log + self.sqrt_2pi_log + delta).sum(1)  # old_logprob
+    def get_old_logprob(self, _action: Tensor, noise: Tensor) -> Tensor:  # noise = action - a_noise
+        delta = noise.pow(2).__mul__(0.5)
+        return -(self.action_std_log + self.log_sqrt_2pi + delta).sum(1)  # old_logprob
 
     @staticmethod
-    def get_a_to_e(action):
+    def convert_action_for_env(action: Tensor) -> Tensor:
         return action.tanh()
 
 
@@ -479,17 +476,17 @@ class Critic(nn.Module):
 
 
 class CriticPPO(nn.Module):
-    def __init__(self, mid_dim, state_dim, _action_dim):
+    def __init__(self, mid_dim: int, num_layer: int, state_dim: int, _action_dim: int):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim),
+            nn.Linear(state_dim, 128),
             nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(mid_dim, 1),
+            nn.Linear(128, 1)
         )
 
-    def forward(self, state):
+    def forward(self, state: Tensor) -> Tensor:
         return self.net(state)  # advantage value
 
 

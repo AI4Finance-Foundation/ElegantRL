@@ -4,7 +4,7 @@ name: AnymalTerrain
 physics_engine: physx
 
 env:
-  numEnvs: 64
+  numEnvs: 256
   numObservations: 188
   numActions: 12
   envSpacing: 3. # [m]
