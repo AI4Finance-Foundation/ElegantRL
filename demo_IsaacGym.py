@@ -5,7 +5,7 @@ import sys
 
 from elegantrl.train.run import train_and_evaluate
 from elegantrl.train.config import Arguments, build_env
-from elegantrl.agents import AgentPPO
+from elegantrl.agents.AgentPPO import AgentPPO
 from elegantrl.envs.IsaacGym import IsaacVecEnv
 
 
