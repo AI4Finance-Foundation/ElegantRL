@@ -324,3 +324,275 @@ def save_learning_curve(
     plt.savefig(f"{cwd}/{fig_name}")
     plt.close('all')  # avoiding warning about too many open figures, rcParam `figure.max_open_warning`
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
+
+
+"""learning curve"""
+
+
+def demo_evaluator_actor_pth():
+    import gym
+    from elegantrl.agents.AgentPPO import AgentPPO
+    from elegantrl.train.config import build_env
+    from elegantrl.train.config import Arguments
+
+    gpu_id = 0  # >=0 means GPU ID, -1 means CPU
+
+    agent_class = AgentPPO
+
+    env_func = gym.make
+    env_args = {'env_num': 1,
+                'env_name': 'LunarLanderContinuous-v2',
+                'max_step': 1000,
+                'state_dim': 8,
+                'action_dim': 2,
+                'if_discrete': False,
+                'target_return': 200,
+
+                'id': 'LunarLanderContinuous-v2'}
+
+    # actor_path = './LunarLanderContinuous-v2_PPO_1/actor.pth'
+    eval_times = 4
+    net_dim = 2 ** 7
+
+    '''init'''
+    args = Arguments(agent_class=agent_class, env_func=env_func, env_args=env_args)
+    env = build_env(env_func=args.env_func, env_args=args.env_args)
+    act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args).act
+    # act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+
+    '''evaluate'''
+    r_s_ary = [get_cumulative_returns_and_step(env, act) for _ in range(eval_times)]
+    r_s_ary = np.array(r_s_ary, dtype=np.float32)
+    r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
+
+    print('r_avg, s_avg', r_avg, s_avg)
+    return r_avg, s_avg
+
+
+def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval_times=2, net_dim=128):
+    import gym
+    from elegantrl.train.config import build_env
+    # dir_path = './LunarLanderContinuous-v2_PPO_1'
+    # gpu_id = 0
+    # agent_class = AgentPPO
+    # net_dim = 2 ** 7
+
+    env_func = gym.make
+    # env_args = {'env_num': 1,
+    #             'env_name': 'LunarLanderContinuous-v2',
+    #             'max_step': 1000,
+    #             'state_dim': 8,
+    #             'action_dim': 2,
+    #             'if_discrete': False,
+    #             'target_return': 200,
+    #             'eval_times': 2 ** 4,
+    #
+    #             'id': 'LunarLanderContinuous-v2'}
+    # eval_times = 2 ** 1
+
+    '''init'''
+    env = build_env(env_func=env_func, env_args=env_args)
+    act = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
+
+    '''evaluate'''
+    step_epi_r_s_ary = list()
+
+    act_names = [name for name in os.listdir(dir_path) if len(name) == 19]
+    from tqdm import tqdm
+    for act_name in tqdm(act_names):
+        act_path = f"{dir_path}/{act_name}"
+
+        act.load_state_dict(torch.load(act_path, map_location=lambda storage, loc: storage))
+        r_s_ary = [get_cumulative_returns_and_step(env, act) for _ in range(eval_times)]
+        r_s_ary = np.array(r_s_ary, dtype=np.float32)
+        r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
+
+        step = int(act_name[6:15])
+
+        step_epi_r_s_ary.append((step, r_avg, s_avg))
+
+    step_epi_r_s_ary = np.array(step_epi_r_s_ary, dtype=np.float32)
+
+    '''sort by step'''
+    step_epi_r_s_ary = step_epi_r_s_ary[step_epi_r_s_ary[:, 0].argsort()]
+    return step_epi_r_s_ary
+
+
+def demo_load_pendulum_and_render():
+    import gym
+    import torch
+    from elegantrl.agents.AgentPPO import AgentPPO
+    from elegantrl.train.config import build_env
+    from elegantrl.train.config import Arguments
+
+    gpu_id = 0  # >=0 means GPU ID, -1 means CPU
+
+    agent_class = AgentPPO
+
+    env_func = gym.make
+    env_args = {'env_num': 1,
+                'env_name': 'Pendulum-v1',
+                'max_step': 200,
+                'state_dim': 3,
+                'action_dim': 1,
+                'if_discrete': False,
+
+                'id': 'Pendulum-v1'}
+
+    actor_path = './Pendulum-v1_PPO_0/actor.pth'
+    net_dim = 2 ** 7
+
+    '''init'''
+    env = build_env(env_func=env_func, env_args=env_args)
+    args = Arguments(agent_class, env=env)
+    act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args).act
+    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+
+    '''evaluate'''
+    # eval_times = 2 ** 7
+    # from elegantrl.envs.CustomGymEnv import PendulumEnv
+    # eval_env = PendulumEnv()
+    # from elegantrl.train.evaluator import get_cumulative_returns_and_step
+    # r_s_ary = [get_cumulative_returns_and_step(eval_env, act) for _ in range(eval_times)]
+    # r_s_ary = np.array(r_s_ary, dtype=np.float32)
+    # r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
+    #
+    # print('r_avg, s_avg', r_avg, s_avg)
+    # exit()
+
+    '''render'''
+    max_step = env.max_step
+    if_discrete = env.if_discrete
+    device = next(act.parameters()).device  # net.parameters() is a Python generator.
+
+    state = env.reset()
+    steps = None
+    returns = 0.0  # sum of rewards in an episode
+    for steps in range(max_step):
+        s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        state, reward, done, _ = env.step(action * 2)  # todo
+        returns += reward
+        env.render()
+
+        if done:
+            break
+    returns = getattr(env, 'cumulative_returns', returns)
+    steps += 1
+
+    print(f"\n| cumulative_returns {returns}"
+          f"\n|      episode steps {steps}")
+
+
+def run():
+    from elegantrl.agents.AgentPPO import AgentPPO
+    flag_id = 1  # int(sys.argv[1])
+
+    gpu_id = [2, 3][flag_id]
+    agent = AgentPPO
+    env_args = [
+        {'env_num': 1,
+         'env_name': 'LunarLanderContinuous-v2',
+         'max_step': 1000,
+         'state_dim': 8,
+         'action_dim': 2,
+         'if_discrete': False,
+         'target_return': 200,
+         'eval_times': 2 ** 4,
+         'id': 'LunarLanderContinuous-v2'},
+
+        {'env_num': 1,
+         'env_name': 'BipedalWalker-v3',
+         'max_step': 1600,
+         'state_dim': 24,
+         'action_dim': 4,
+         'if_discrete': False,
+         'target_return': 300,
+         'eval_times': 2 ** 3,
+         'id': 'BipedalWalker-v3', },
+    ][flag_id]
+    env_name = env_args['env_name']
+
+    print('gpu_id', gpu_id)
+    print('env_name', env_name)
+
+    '''save step_epi_r_s_ary'''
+    # cwd_path = '.'
+    # dir_names = [name for name in os.listdir(cwd_path)
+    #              if name.find(env_name) >= 0 and os.path.isdir(name)]
+    # for dir_name in dir_names:
+    #     dir_path = f"{cwd_path}/{dir_name}"
+    #     step_epi_r_s_ary = demo_evaluate_actors(dir_path, gpu_id, agent, env_args)
+    #     np.savetxt(f"{dir_path}-step_epi_r_s_ary.txt", step_epi_r_s_ary)
+
+    '''load step_epi_r_s_ary'''
+    step_epi_r_s_ary = list()
+
+    cwd_path = '.'
+    ary_names = [name for name in os.listdir('.')
+                 if name.find(env_name) >= 0 and name[-4:] == '.txt']
+    for ary_name in ary_names:
+        ary_path = f"{cwd_path}/{ary_name}"
+        ary = np.loadtxt(ary_path)
+        step_epi_r_s_ary.append(ary)
+    step_epi_r_s_ary = np.vstack(step_epi_r_s_ary)
+    step_epi_r_s_ary = step_epi_r_s_ary[step_epi_r_s_ary[:, 0].argsort()]
+    print('step_epi_r_s_ary.shape', step_epi_r_s_ary.shape)
+
+    '''plot'''
+    import matplotlib.pyplot as plt
+    # plt.plot(step_epi_r_s_ary[:, 0], step_epi_r_s_ary[:, 1])
+
+    plot_x_y_up_dw_step = list()
+    n = 8
+    for i in range(0, len(step_epi_r_s_ary), n):
+        y_ary = step_epi_r_s_ary[i:i + n, 1]
+        if y_ary.shape[0] <= 1:
+            continue
+
+        y_avg = y_ary.mean()
+        y_up = y_ary[y_ary > y_avg].mean()
+        y_dw = y_ary[y_ary <= y_avg].mean()
+
+        y_step = step_epi_r_s_ary[i:i + n, 2].mean()
+        x_avg = step_epi_r_s_ary[i:i + n, 0].mean()
+        plot_x_y_up_dw_step.append((x_avg, y_avg, y_up, y_dw, y_step))
+
+    if_show_episode_step = True
+    color0 = 'royalblue'
+    color1 = 'lightcoral'
+    # color2 = 'darkcyan'
+    # colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+    #           '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+
+    title = f"{env_name}_{agent.__name__}_ElegantRL"
+
+    fig, ax = plt.subplots(1)
+
+    plot_x = [item[0] for item in plot_x_y_up_dw_step]
+    plot_y = [item[1] for item in plot_x_y_up_dw_step]
+    plot_y_up = [item[2] for item in plot_x_y_up_dw_step]
+    plot_y_dw = [item[3] for item in plot_x_y_up_dw_step]
+    ax.plot(plot_x, plot_y, label='Episode Return', color=color0)
+    ax.fill_between(plot_x, plot_y_up, plot_y_dw, facecolor=color0, alpha=0.3)
+    ax.set_ylabel('Episode Return', color=color0)
+    ax.tick_params(axis='y', labelcolor=color0)
+    ax.grid(True)
+
+    if if_show_episode_step:
+        ax_twin = ax.twinx()
+        plot_y_step = [item[4] for item in plot_x_y_up_dw_step]
+        ax_twin.fill_between(plot_x, 0, plot_y_step, facecolor=color1, alpha=0.3)
+        ax_twin.set_ylabel('Episode Step', color=color1)
+        ax_twin.tick_params(axis='y', labelcolor=color1)
+        ax_twin.set_ylim(0, np.max(plot_y_step) * 2)
+
+    print('title', title)
+    plt.title(title)
+    plt.show()
+
+
+if __name__ == '__main__':
+    # demo_evaluate_actors()
+    run()
