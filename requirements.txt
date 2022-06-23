@@ -13,3 +13,6 @@ matplotlib
 pybullet
 opencv-python
 box2d-py
+
+# profiling
+wandb

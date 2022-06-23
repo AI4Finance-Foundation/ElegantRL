@@ -62,7 +62,7 @@ class Evaluator:
             if if_save:  # save checkpoint with highest episode return
                 self.r_max = r_avg  # update max reward (episode return)
 
-                act_path = f"{self.cwd}/actor_{self.total_step:08}_{self.r_max:09.3f}.pth"
+                act_path = f"{self.cwd}/actor__{self.total_step:012}_{self.r_max:09.3f}.pth"
                 torch.save(act.state_dict(), act_path)  # save policy network in *.pth
 
                 print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print

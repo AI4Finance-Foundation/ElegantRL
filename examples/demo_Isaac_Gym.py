@@ -1,7 +1,7 @@
 import isaacgym
 import torch
 import sys
-
+import wandb
 from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentPPO import AgentPPO
@@ -2211,14 +2211,25 @@ ID     Step    maxR |    avgR   stdR   avgS  stdS |    expR   objC   etc.
 
     args.learner_gpus = gpu_id
     args.random_seed += gpu_id + 123
-
+    
+    cwd = f'{args.env_name}_{args.agent.__name__[5:]}_{args.learner_gpus}'
+    wandb.init(
+        project=cwd,
+        entity=None,
+        sync_tensorboard=True,
+        config=vars(args),
+        name=cwd,
+        monitor_gym=True,
+        save_code=True,
+    )
+    
     if_check = 0
     if if_check:
         train_and_evaluate(args)
     else:
         train_and_evaluate_mp(args)
 
-
+  
 if __name__ == '__main__':
     GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0  # >=0 means GPU ID, -1 means CPU
     DRL_ID = int(sys.argv[2]) if len(sys.argv) > 2 else 0

@@ -1,0 +1,5179 @@
+from elegantrl.train.evaluator import *
+from elegantrl.train.config import Arguments
+from elegantrl.envs.CustomGymEnv import GymNormaEnv
+from elegantrl.agents.AgentPPO import AgentPPO, AgentPPOgetObjHterm
+from elegantrl.agents.AgentSAC import AgentSAC, AgentReSAC
+
+
+def demo_evaluator_actor_h_term_to_str():
+    from elegantrl.train.config import build_env
+
+    gpu_id = 2  # >=0 means GPU ID, -1 means CPU
+    env_name = ['Hopper-v3',
+                'HalfCheetah-v3',
+                'Swimmer-v3',
+                'Ant-v3',
+                'Humanoid-v3',
+                'Walker2d-v3',
+                ][5]
+    agent_class = [AgentPPO, AgentPPOgetObjHterm][1]
+    # agent_class = [AgentSAC, AgentReSAC][1]
+
+    if env_name == 'Hopper-v3':
+        env_func = GymNormaEnv  # gym.make
+        env_args = {
+            'env_num': 1,
+            'env_name': 'Hopper-v3',
+            'max_step': 1000,
+            'state_dim': 11,
+            'action_dim': 3,
+            'if_discrete': False,
+            'target_return': 3500.,
+        }
+        actor_path = './actor_Hopper_PPO_hop.pth'
+        # actor_path = './actor_Hopper_PPO_hop_fail.pth'
+        # actor_path = './actor_Hopper_PPO_fail.pth'
+        net_dim = 2 ** 8
+        layer_num = 3
+    elif env_name == 'HalfCheetah-v3':
+        env_func = GymNormaEnv  # gym.make
+        env_args = {
+            'env_num': 1,
+            'env_name': 'HalfCheetah-v3',
+            'max_step': 1000,
+            'state_dim': 17,
+            'action_dim': 6,
+            'if_discrete': False,
+            'target_return': 4800.0,
+        }
+        # actor_path = './actor_HalfCheetah_PPO_run.pth'
+        # actor_path = './actor_HalfCheetah_PPO_kiss_ground.pth'
+        # actor_path = './actor_HalfCheetah_PPO_stand.pth'
+        net_dim = 2 ** 8
+        layer_num = 3
+    elif env_name == 'Swimmer-v3':
+        # env_func = GymNormaEnv  # gym.make
+        import gym
+        env_func = gym.make
+        env_args = {
+            'action_dim': 2,
+            'env_name': 'Swimmer-v3',
+            'env_num': 1,
+            'if_discrete': False,
+            'max_step': 1000,
+            'state_dim': 8,
+            'target_return': 360.0
+        }
+        # agent_class = AgentPPO
+        # actor_path = './actor_Swimmer_PPO_C_160.pth'
+        # actor_path = './actor_Swimmer_PPO_C_134.pth'
+        # actor_path = './actor_Swimmer_PPO_C_157.pth'
+        # actor_path = './actor_Swimmer_PPO_C_152.pth'
+        # actor_path = './actor_Swimmer_PPO_C_097.201.pth'
+
+        # agent_class = AgentReSAC
+        # actor_path = './actor_Swimmer_ReSAC_S_211.pth'
+        # actor_path = './actor_Swimmer_ReSAC_S_224.pth'
+
+        net_dim = 2 ** 8
+        layer_num = 3
+    elif env_name == 'Walker2d-v3':
+        env_func = GymNormaEnv  # gym.make
+        env_args = {
+            'env_num': 1,
+            'env_name': 'Walker2d-v3',
+            'if_discrete': False,
+            'max_step': 1000,
+            'state_dim': 17,
+            'action_dim': 6,
+            'target_return': 7000,
+        }
+        actor_path = './actor_Walker2d_run11_7870.pth'  # norm
+        # actor_path = './actor_Walker2d_run11_7209.pth'  # norm
+        # actor_path = './actor_Walker2d_run11_6812.pth'  # norm
+        # actor_path = './actor_Walker2d_run11_6955.pth'  # norm
+        # actor_path = './actor_Walker2d_run12_5461.pth'  # norm
+        # actor_path = './actor_Walker2d_run12_3295.pth'  # norm
+        # actor_path = './actor_Walker2d_jump_4008.pth'  # norm
+        # actor_path = './actor_Walker2d_fail_4512.pth'  # norm
+        # actor_path = './actor_Walker2d_fail_6792.pth'  # norm
+        # actor_path = './actor_Walker2d_fail_4992.pth'  # norm
+
+        net_dim = 2 ** 8
+        layer_num = 3
+    elif env_name == 'Ant-v3':
+        env_func = GymNormaEnv
+        env_args = {
+            'env_num': 1,
+            'env_name': 'Ant-v3',
+            'max_step': 1000,
+            'state_dim': 111,
+            'action_dim': 8,
+            'if_discrete': False,
+            'target_return': 6000.0,
+        }
+        # actor_path = './actor_Ant_PPO_run_4701.pth'
+        # actor_path = './actor_Ant_PPO_run_2105.pth'
+        actor_path = './actor_Ant_PPO_fail_174.pth'
+
+        net_dim = 2 ** 8
+        layer_num = 3
+    elif env_name == 'Humanoid-v3':
+        from elegantrl.envs.CustomGymEnv import HumanoidEnv
+        env_func = HumanoidEnv
+        env_args = {
+            'env_num': 1,
+            'env_name': 'Humanoid-v3',
+            'max_step': 1000,
+            'state_dim': 376,
+            'action_dim': 17,
+            'if_discrete': False,
+            'target_return': 8000.,
+        }
+        # from elegantrl.agents.AgentSAC import AgentReSAC
+        # agent_class = AgentReSAC
+
+        # agent_class = AgentPPO
+        # actor_path = './actor_Huamnoid_PPO_run_8021.pth'
+        # actor_path = './actor_Huamnoid_PPO_run_7105.pth'
+        # actor_path = './actor_Huamnoid_PPO_run_6437.pth'
+        # actor_path = './actor_Huamnoid_PPO_run_5422.pth'
+        # actor_path = './actor_Huamnoid_PPO_run_3491.pth'
+        # actor_path = './actor_Huamnoid_PPO_lift_leg_7500.pth'
+        # actor_path = './actor_Huamnoid_PPO_lift_leg_6076.pth'
+        # actor_path = './actor_Huamnoid_PPO_lift_knee_5136.pth'
+        # actor_path = './actor_Huamnoid_PPO_curl_leg_4244.pth'  # net_dim = 2 ** 7
+        # actor_path = './actor_Huamnoid_PPO_curl_leg_6378.pth'
+        # actor_path = './actor_Huamnoid_PPO_run_7194.pth'  # norm
+        # actor_path = './actor_Huamnoid_PPO_lift_knee_6887.pth'
+        # actor_path = './actor_Huamnoid_PPO_lift_knee_7585.pth'
+        # actor_path = './actor_Huamnoid_PPO_lift_knee_5278.pth'
+        # actor_path = './actor_Huamnoid_PPO_run_4759.pth'
+        # actor_path = './actor__000108565781_07978.063.pth'  # (Humanoid-v3_PPOHtermK_6 from single to two legs)
+        # actor_path = './actor_Huamnoid_PPO_run_9732.pth'  # norm, nice racing
+        # actor_path = './actor__000018373785_10863.449.pth'  # norm, nice racing
+        # actor_path = './actor__000027862483_10202.021.pth'  # norm, nice racing
+
+        net_dim = 2 ** 9
+        layer_num = 3
+    else:
+        raise ValueError('env_name:', env_name)
+
+    '''init'''
+    from elegantrl.train.run import init_agent
+    from elegantrl.train.run import init_buffer
+    args = Arguments(agent_class=agent_class, env_func=env_func, env_args=env_args)
+    args.net_dim = net_dim
+    args.num_layer = layer_num
+
+    env = build_env(env_func=args.env_func, env_args=args.env_args)
+    agent = init_agent(args, gpu_id, env)
+    torch.set_grad_enabled(False)
+
+    '''evaluate file'''
+    # buffer = init_buffer(args, gpu_id)
+    # agent.act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    # agent.state = env.reset()
+    # target_step = args.max_step * 4
+    #
+    # trajectory = agent.explore_env(env, target_step)
+    # buffer.update_buffer([trajectory, ])
+    # obj_hamilton = agent.update_net(buffer)
+    #
+    # print(f"Hamilton {obj_hamilton:9.3f}")
+
+    '''evaluate directory'''
+    dir_path = './Humanoid-v3_PPOHtermK_4_10726'
+    dir_path = './Humanoid-v3_PPOHtermK_5_10033'
+    dir_path = './Humanoid-v3_PPO_1_12163'
+    dir_path = './Humanoid-v3_PPO_2_10777'
+    dir_path = './Hopper-v3_PPOHtermK_6'
+    dir_path = './Hopper-v2_PPO_1'
+    dir_path = './Hopper-v2_PPOHtermK_1'
+    dir_path = './HalfCheetah-v3_PPO_1_8964'
+    dir_path = './HalfCheetah-v3_PPOHtermK_5_4949'
+    dir_path = './HalfCheetah-v3_PPOHtermK_5_4837'
+    dir_path = './Hopper-v2_PPOHtermK_2_3156'
+    dir_path = './Walker2d-v3_PPOHtermK_6_6380'
+    dir_path = './Walker2d-v3_PPOHtermK_5_6196'
+    dir_path = './Walker2d-v3_PPO_4_7884'
+    dir_path = './Walker2d-v3_PPO_3_6635'
+    dir_path = './Walker2d-v3_PPO_2_7191'
+    dir_path = './Walker2d-v3_PPO_3_5449'
+    dir_path = './Walker2d-v3_PPO_2_5640'
+    # dir_path = './HalfCheetah-v3_PPO_6_7345'
+    # dir_path = './Ant-v3_PPO_5_6799'
+    # dir_path = './Ant-v3_PPO_5_6799'
+    # dir_path = './Ant-v3_PPOHtermK_6_6862'
+    # dir_path = './Ant-v3_PPO_0'
+    # dir_path = './Ant-v3_PPO_1_5652'
+    # dir_path = './Swimmer-v3_PPOHtermK_3_153'
+    # dir_path = './Swimmer-v3_PPO_2_157'
+    # dir_path = './Swimmer-v3_PPO_3_121'
+
+    names = [name for name in os.listdir(dir_path)
+             if (name[:6] == 'actor_' and name[-4:] == '.pth')]
+    names.sort()
+
+    eval_gap = int(max(1.0, len(names) / 128))
+    print(f"| len(names) {len(names)}, eval_gap {eval_gap}")
+    for i, name in enumerate(names):
+        if (len(name) <= 22) and (i % eval_gap != 0):
+            continue
+        actor_path = f"{dir_path}/{name}"
+
+        buffer = init_buffer(args, gpu_id)
+        agent.act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+        agent.state = env.reset()
+        target_step = args.target_step
+
+        trajectory = agent.explore_env(env, target_step)
+        buffer.update_buffer([trajectory, ])
+        obj_hamilton = agent.update_net(buffer)
+        print(f"{actor_path:64} | Hamilton {obj_hamilton}")
+
+
+def demo_get_h_term_curve_from_str():
+    # Hopper-v3_PPOHtermK_6
+    data11 = """
+./Hopper-v3_PPOHtermK_6/actor_000000012408.pth                   | Hamilton 0.4845615327358246
+./Hopper-v3_PPOHtermK_6/actor_000000020777.pth                   | Hamilton 0.4891211688518524
+./Hopper-v3_PPOHtermK_6/actor_000000029107.pth                   | Hamilton 0.5241979956626892
+./Hopper-v3_PPOHtermK_6/actor_000000037553.pth                   | Hamilton 0.5400240421295166
+./Hopper-v3_PPOHtermK_6/actor_000000046139.pth                   | Hamilton 0.5519936084747314
+./Hopper-v3_PPOHtermK_6/actor_000000054589.pth                   | Hamilton 0.562807559967041
+./Hopper-v3_PPOHtermK_6/actor_000000063224.pth                   | Hamilton 0.5601237416267395
+./Hopper-v3_PPOHtermK_6/actor_000000072219.pth                   | Hamilton 0.5452290773391724
+./Hopper-v3_PPOHtermK_6/actor_000000083263.pth                   | Hamilton 0.5468662977218628
+./Hopper-v3_PPOHtermK_6/actor_000000092343.pth                   | Hamilton 0.5557214021682739
+./Hopper-v3_PPOHtermK_6/actor_000000101142.pth                   | Hamilton 0.55520099401474
+./Hopper-v3_PPOHtermK_6/actor_000000109908.pth                   | Hamilton 0.5554271340370178
+./Hopper-v3_PPOHtermK_6/actor_000000118629.pth                   | Hamilton 0.5566689968109131
+./Hopper-v3_PPOHtermK_6/actor_000000127202.pth                   | Hamilton 0.5530040264129639
+./Hopper-v3_PPOHtermK_6/actor_000000135726.pth                   | Hamilton 0.5524224042892456
+./Hopper-v3_PPOHtermK_6/actor_000000144219.pth                   | Hamilton 0.5646094679832458
+./Hopper-v3_PPOHtermK_6/actor_000000152694.pth                   | Hamilton 0.5643770098686218
+./Hopper-v3_PPOHtermK_6/actor_000000161287.pth                   | Hamilton 0.5637863874435425
+./Hopper-v3_PPOHtermK_6/actor_000000169646.pth                   | Hamilton 0.5686627626419067
+./Hopper-v3_PPOHtermK_6/actor_000000178063.pth                   | Hamilton 0.5847662091255188
+./Hopper-v3_PPOHtermK_6/actor_000000186480.pth                   | Hamilton 0.5950624346733093
+./Hopper-v3_PPOHtermK_6/actor_000000194960.pth                   | Hamilton 0.6063750386238098
+./Hopper-v3_PPOHtermK_6/actor_000000203757.pth                   | Hamilton 0.6130822896957397
+./Hopper-v3_PPOHtermK_6/actor_000000212391.pth                   | Hamilton 0.6151049733161926
+./Hopper-v3_PPOHtermK_6/actor_000000221197.pth                   | Hamilton 0.6102234125137329
+./Hopper-v3_PPOHtermK_6/actor_000000229999.pth                   | Hamilton 0.6136663556098938
+./Hopper-v3_PPOHtermK_6/actor_000000238587.pth                   | Hamilton 0.6067836284637451
+./Hopper-v3_PPOHtermK_6/actor_000000247208.pth                   | Hamilton 0.6120057702064514
+./Hopper-v3_PPOHtermK_6/actor_000000255983.pth                   | Hamilton 0.6141001582145691
+./Hopper-v3_PPOHtermK_6/actor_000000265109.pth                   | Hamilton 0.6142712831497192
+./Hopper-v3_PPOHtermK_6/actor_000000274515.pth                   | Hamilton 0.620732843875885
+./Hopper-v3_PPOHtermK_6/actor_000000283766.pth                   | Hamilton 0.6174814701080322
+./Hopper-v3_PPOHtermK_6/actor_000000292640.pth                   | Hamilton 0.6248815655708313
+./Hopper-v3_PPOHtermK_6/actor_000000302039.pth                   | Hamilton 0.6254605650901794
+./Hopper-v3_PPOHtermK_6/actor_000000311898.pth                   | Hamilton 0.6247671246528625
+./Hopper-v3_PPOHtermK_6/actor_000000322134.pth                   | Hamilton 0.6237598061561584
+./Hopper-v3_PPOHtermK_6/actor_000000331720.pth                   | Hamilton 0.6273255944252014
+./Hopper-v3_PPOHtermK_6/actor_000000342026.pth                   | Hamilton 0.6320148706436157
+./Hopper-v3_PPOHtermK_6/actor_000000352589.pth                   | Hamilton 0.6298384070396423
+./Hopper-v3_PPOHtermK_6/actor_000000362466.pth                   | Hamilton 0.629938542842865
+./Hopper-v3_PPOHtermK_6/actor_000000373295.pth                   | Hamilton 0.6280447840690613
+./Hopper-v3_PPOHtermK_6/actor_000000383285.pth                   | Hamilton 0.6302109956741333
+./Hopper-v3_PPOHtermK_6/actor_000000392853.pth                   | Hamilton 0.6328704357147217
+./Hopper-v3_PPOHtermK_6/actor_000000403735.pth                   | Hamilton 0.630757749080658
+./Hopper-v3_PPOHtermK_6/actor_000000413666.pth                   | Hamilton 0.6316863298416138
+./Hopper-v3_PPOHtermK_6/actor_000000423828.pth                   | Hamilton 0.6382369995117188
+./Hopper-v3_PPOHtermK_6/actor_000000433923.pth                   | Hamilton 0.6361097097396851
+./Hopper-v3_PPOHtermK_6/actor_000000445209.pth                   | Hamilton 0.6314388513565063
+./Hopper-v3_PPOHtermK_6/actor_000000455084.pth                   | Hamilton 0.6363314390182495
+./Hopper-v3_PPOHtermK_6/actor_000000465965.pth                   | Hamilton 0.6352642774581909
+./Hopper-v3_PPOHtermK_6/actor_000000474680.pth                   | Hamilton 0.6316134929656982
+./Hopper-v3_PPOHtermK_6/actor_000000484022.pth                   | Hamilton 0.6367190480232239
+./Hopper-v3_PPOHtermK_6/actor_000000494989.pth                   | Hamilton 0.6335411071777344
+./Hopper-v3_PPOHtermK_6/actor_000000505143.pth                   | Hamilton 0.6421518325805664
+./Hopper-v3_PPOHtermK_6/actor_000000515409.pth                   | Hamilton 0.651789128780365
+./Hopper-v3_PPOHtermK_6/actor_000000526234.pth                   | Hamilton 0.6651453971862793
+./Hopper-v3_PPOHtermK_6/actor_000000538119.pth                   | Hamilton 0.6629406809806824
+./Hopper-v3_PPOHtermK_6/actor_000000547348.pth                   | Hamilton 0.6498215198516846
+./Hopper-v3_PPOHtermK_6/actor_000000557193.pth                   | Hamilton 0.6508785486221313
+./Hopper-v3_PPOHtermK_6/actor_000000568232.pth                   | Hamilton 0.6713051795959473
+./Hopper-v3_PPOHtermK_6/actor_000000578897.pth                   | Hamilton 0.6794459223747253
+./Hopper-v3_PPOHtermK_6/actor_000000588665.pth                   | Hamilton 0.6883001923561096
+./Hopper-v3_PPOHtermK_6/actor_000000597229.pth                   | Hamilton 0.6870630979537964
+./Hopper-v3_PPOHtermK_6/actor_000000606032.pth                   | Hamilton 0.704490065574646
+./Hopper-v3_PPOHtermK_6/actor_000000615361.pth                   | Hamilton 0.7083249092102051
+./Hopper-v3_PPOHtermK_6/actor_000000625058.pth                   | Hamilton 0.7060838341712952
+./Hopper-v3_PPOHtermK_6/actor_000000635150.pth                   | Hamilton 0.7092532515525818
+./Hopper-v3_PPOHtermK_6/actor_000000646309.pth                   | Hamilton 0.72728031873703
+./Hopper-v3_PPOHtermK_6/actor_000000657933.pth                   | Hamilton 0.7280641198158264
+./Hopper-v3_PPOHtermK_6/actor_000000670129.pth                   | Hamilton 0.7289828658103943
+./Hopper-v3_PPOHtermK_6/actor_000000682296.pth                   | Hamilton 0.7331717014312744
+./Hopper-v3_PPOHtermK_6/actor_000000691991.pth                   | Hamilton 0.7276478409767151
+./Hopper-v3_PPOHtermK_6/actor_000000701118.pth                   | Hamilton 0.7480958104133606
+./Hopper-v3_PPOHtermK_6/actor_000000710322.pth                   | Hamilton 0.7489750981330872
+./Hopper-v3_PPOHtermK_6/actor_000000719780.pth                   | Hamilton 0.7601510882377625
+./Hopper-v3_PPOHtermK_6/actor_000000729949.pth                   | Hamilton 0.7754960656166077
+./Hopper-v3_PPOHtermK_6/actor_000000738652.pth                   | Hamilton 0.7775801420211792
+./Hopper-v3_PPOHtermK_6/actor_000000750188.pth                   | Hamilton 0.7936223745346069
+./Hopper-v3_PPOHtermK_6/actor_000000760871.pth                   | Hamilton 0.8015986680984497
+./Hopper-v3_PPOHtermK_6/actor_000000770693.pth                   | Hamilton 0.801663875579834
+./Hopper-v3_PPOHtermK_6/actor_000000780484.pth                   | Hamilton 0.8167001008987427
+./Hopper-v3_PPOHtermK_6/actor_000000790972.pth                   | Hamilton 0.8108416199684143
+./Hopper-v3_PPOHtermK_6/actor_000000800375.pth                   | Hamilton 0.8019434213638306
+./Hopper-v3_PPOHtermK_6/actor_000000810442.pth                   | Hamilton 0.8169126510620117
+./Hopper-v3_PPOHtermK_6/actor_000000821175.pth                   | Hamilton 0.8273810148239136
+./Hopper-v3_PPOHtermK_6/actor_000000830277.pth                   | Hamilton 0.8431681990623474
+./Hopper-v3_PPOHtermK_6/actor_000000841497.pth                   | Hamilton 0.8476846814155579
+./Hopper-v3_PPOHtermK_6/actor_000000849942.pth                   | Hamilton 0.8643835186958313
+./Hopper-v3_PPOHtermK_6/actor_000000860879.pth                   | Hamilton 0.8715230822563171
+./Hopper-v3_PPOHtermK_6/actor_000000872925.pth                   | Hamilton 0.8689678311347961
+./Hopper-v3_PPOHtermK_6/actor_000000883087.pth                   | Hamilton 0.8708394169807434
+./Hopper-v3_PPOHtermK_6/actor_000000892921.pth                   | Hamilton 0.8740193247795105
+./Hopper-v3_PPOHtermK_6/actor_000000901887.pth                   | Hamilton 0.8826173543930054
+./Hopper-v3_PPOHtermK_6/actor_000000910817.pth                   | Hamilton 0.8855030536651611
+./Hopper-v3_PPOHtermK_6/actor_000000920855.pth                   | Hamilton 0.9102979302406311
+./Hopper-v3_PPOHtermK_6/actor_000000929245.pth                   | Hamilton 0.9039087295532227
+./Hopper-v3_PPOHtermK_6/actor_000000939512.pth                   | Hamilton 0.9121676087379456
+./Hopper-v3_PPOHtermK_6/actor_000000947512.pth                   | Hamilton 0.9295536875724792
+./Hopper-v3_PPOHtermK_6/actor_000000958124.pth                   | Hamilton 0.9483475685119629
+./Hopper-v3_PPOHtermK_6/actor_000000967691.pth                   | Hamilton 0.9552537798881531
+./Hopper-v3_PPOHtermK_6/actor_000000976801.pth                   | Hamilton 0.9473283886909485
+./Hopper-v3_PPOHtermK_6/actor_000000987866.pth                   | Hamilton 0.9566901326179504
+./Hopper-v3_PPOHtermK_6/actor_000000998121.pth                   | Hamilton 0.9645906090736389
+./Hopper-v3_PPOHtermK_6/actor_000001007813.pth                   | Hamilton 0.9395633339881897
+./Hopper-v3_PPOHtermK_6/actor_000001017476.pth                   | Hamilton 0.9738671779632568
+./Hopper-v3_PPOHtermK_6/actor_000001026490.pth                   | Hamilton 0.9783634543418884
+./Hopper-v3_PPOHtermK_6/actor_000001037924.pth                   | Hamilton 0.9624756574630737
+./Hopper-v3_PPOHtermK_6/actor_000001048431.pth                   | Hamilton 0.9924933910369873
+./Hopper-v3_PPOHtermK_6/actor_000001058089.pth                   | Hamilton 1.008463978767395
+./Hopper-v3_PPOHtermK_6/actor_000001067001.pth                   | Hamilton 1.011677622795105
+./Hopper-v3_PPOHtermK_6/actor_000001076750.pth                   | Hamilton 1.024086356163025
+./Hopper-v3_PPOHtermK_6/actor_000001086152.pth                   | Hamilton 1.0365326404571533
+./Hopper-v3_PPOHtermK_6/actor_000001095323.pth                   | Hamilton 1.0430406332015991
+./Hopper-v3_PPOHtermK_6/actor_000001103549.pth                   | Hamilton 1.0451210737228394
+./Hopper-v3_PPOHtermK_6/actor_000001111677.pth                   | Hamilton 1.0457422733306885
+./Hopper-v3_PPOHtermK_6/actor_000001121032.pth                   | Hamilton 1.0495630502700806
+./Hopper-v3_PPOHtermK_6/actor_000001129769.pth                   | Hamilton 1.0336732864379883
+./Hopper-v3_PPOHtermK_6/actor_000001138322.pth                   | Hamilton 1.0650078058242798
+./Hopper-v3_PPOHtermK_6/actor_000001146322.pth                   | Hamilton 1.0817903280258179
+./Hopper-v3_PPOHtermK_6/actor_000001154322.pth                   | Hamilton 1.094916582107544
+./Hopper-v3_PPOHtermK_6/actor_000001163014.pth                   | Hamilton 1.097819209098816
+./Hopper-v3_PPOHtermK_6/actor_000001173543.pth                   | Hamilton 1.1165040731430054
+./Hopper-v3_PPOHtermK_6/actor_000001183951.pth                   | Hamilton 1.1398903131484985
+./Hopper-v3_PPOHtermK_6/actor_000001194228.pth                   | Hamilton 1.1422592401504517
+./Hopper-v3_PPOHtermK_6/actor_000001202228.pth                   | Hamilton 1.1488293409347534
+./Hopper-v3_PPOHtermK_6/actor_000001210761.pth                   | Hamilton 1.1453982591629028
+./Hopper-v3_PPOHtermK_6/actor_000001219854.pth                   | Hamilton 1.153541922569275
+./Hopper-v3_PPOHtermK_6/actor_000001230695.pth                   | Hamilton 1.148061990737915
+./Hopper-v3_PPOHtermK_6/actor_000001240425.pth                   | Hamilton 1.1397662162780762
+./Hopper-v3_PPOHtermK_6/actor_000001250151.pth                   | Hamilton 1.1574420928955078
+./Hopper-v3_PPOHtermK_6/actor_000001260798.pth                   | Hamilton 1.1777104139328003
+./Hopper-v3_PPOHtermK_6/actor_000001269569.pth                   | Hamilton 1.185291051864624
+./Hopper-v3_PPOHtermK_6/actor_000001278846.pth                   | Hamilton 1.173487663269043
+./Hopper-v3_PPOHtermK_6/actor_000001288416.pth                   | Hamilton 1.1676157712936401
+./Hopper-v3_PPOHtermK_6/actor_000001296852.pth                   | Hamilton 1.165687084197998
+./Hopper-v3_PPOHtermK_6/actor_000001307129.pth                   | Hamilton 1.1716490983963013
+./Hopper-v3_PPOHtermK_6/actor_000001316661.pth                   | Hamilton 1.175459623336792
+./Hopper-v3_PPOHtermK_6/actor_000001328866.pth                   | Hamilton 1.170728087425232
+./Hopper-v3_PPOHtermK_6/actor_000001338826.pth                   | Hamilton 1.166685938835144
+./Hopper-v3_PPOHtermK_6/actor_000001348614.pth                   | Hamilton 1.1556689739227295
+./Hopper-v3_PPOHtermK_6/actor_000001358671.pth                   | Hamilton 1.162909984588623
+./Hopper-v3_PPOHtermK_6/actor_000001367067.pth                   | Hamilton 1.1402307748794556
+./Hopper-v3_PPOHtermK_6/actor_000001377615.pth                   | Hamilton 1.1436141729354858
+./Hopper-v3_PPOHtermK_6/actor_000001387950.pth                   | Hamilton 1.1515650749206543
+./Hopper-v3_PPOHtermK_6/actor_000001398258.pth                   | Hamilton 1.1463478803634644
+./Hopper-v3_PPOHtermK_6/actor_000001407271.pth                   | Hamilton 1.1670284271240234
+./Hopper-v3_PPOHtermK_6/actor_000001418290.pth                   | Hamilton 1.1500120162963867
+./Hopper-v3_PPOHtermK_6/actor_000001429019.pth                   | Hamilton 1.1682708263397217
+./Hopper-v3_PPOHtermK_6/actor_000001438340.pth                   | Hamilton 1.1527622938156128
+./Hopper-v3_PPOHtermK_6/actor_000001447131.pth                   | Hamilton 1.1441162824630737
+./Hopper-v3_PPOHtermK_6/actor_000001455774.pth                   | Hamilton 1.1520307064056396
+./Hopper-v3_PPOHtermK_6/actor_000001465502.pth                   | Hamilton 1.1459732055664062
+./Hopper-v3_PPOHtermK_6/actor_000001474172.pth                   | Hamilton 1.1411391496658325
+./Hopper-v3_PPOHtermK_6/actor_000001483489.pth                   | Hamilton 1.1659001111984253
+./Hopper-v3_PPOHtermK_6/actor_000001494079.pth                   | Hamilton 1.1792479753494263
+./Hopper-v3_PPOHtermK_6/actor_000001503860.pth                   | Hamilton 1.1666709184646606
+./Hopper-v3_PPOHtermK_6/actor_000001513375.pth                   | Hamilton 1.185378074645996
+./Hopper-v3_PPOHtermK_6/actor_000001524002.pth                   | Hamilton 1.189688801765442
+./Hopper-v3_PPOHtermK_6/actor_000001534434.pth                   | Hamilton 1.21920907497406
+./Hopper-v3_PPOHtermK_6/actor_000001543557.pth                   | Hamilton 1.2008767127990723
+./Hopper-v3_PPOHtermK_6/actor_000001554038.pth                   | Hamilton 1.2234903573989868
+./Hopper-v3_PPOHtermK_6/actor_000001562887.pth                   | Hamilton 1.2268754243850708
+./Hopper-v3_PPOHtermK_6/actor_000001573208.pth                   | Hamilton 1.2268658876419067
+./Hopper-v3_PPOHtermK_6/actor_000001584387.pth                   | Hamilton 1.2074952125549316
+./Hopper-v3_PPOHtermK_6/actor_000001593906.pth                   | Hamilton 1.2080519199371338
+./Hopper-v3_PPOHtermK_6/actor_000001603575.pth                   | Hamilton 1.2234455347061157
+./Hopper-v3_PPOHtermK_6/actor_000001611967.pth                   | Hamilton 1.2272510528564453
+./Hopper-v3_PPOHtermK_6/actor_000001622994.pth                   | Hamilton 1.2201248407363892
+./Hopper-v3_PPOHtermK_6/actor_000001631738.pth                   | Hamilton 1.2288421392440796
+./Hopper-v3_PPOHtermK_6/actor_000001643048.pth                   | Hamilton 1.2154768705368042
+./Hopper-v3_PPOHtermK_6/actor_000001651865.pth                   | Hamilton 1.2162082195281982
+./Hopper-v3_PPOHtermK_6/actor_000001662522.pth                   | Hamilton 1.2038475275039673
+./Hopper-v3_PPOHtermK_6/actor_000001673380.pth                   | Hamilton 1.2020655870437622
+./Hopper-v3_PPOHtermK_6/actor_000001683535.pth                   | Hamilton 1.2009681463241577
+./Hopper-v3_PPOHtermK_6/actor_000001692391.pth                   | Hamilton 1.200035572052002
+./Hopper-v3_PPOHtermK_6/actor_000001692391.pth                   | Hamilton 1.200035572052002
+./Hopper-v3_PPOHtermK_6/actor_000001701656.pth                   | Hamilton 1.2203855514526367
+./Hopper-v3_PPOHtermK_6/actor_000001711589.pth                   | Hamilton 1.2163832187652588
+./Hopper-v3_PPOHtermK_6/actor_000001721703.pth                   | Hamilton 1.217842698097229
+./Hopper-v3_PPOHtermK_6/actor_000001730673.pth                   | Hamilton 1.21222984790802
+./Hopper-v3_PPOHtermK_6/actor_000001740775.pth                   | Hamilton 1.217405080795288
+./Hopper-v3_PPOHtermK_6/actor_000001749481.pth                   | Hamilton 1.2271900177001953
+./Hopper-v3_PPOHtermK_6/actor_000001759917.pth                   | Hamilton 1.2275311946868896
+./Hopper-v3_PPOHtermK_6/actor_000001769147.pth                   | Hamilton 1.203498125076294
+./Hopper-v3_PPOHtermK_6/actor_000001778509.pth                   | Hamilton 1.2105374336242676
+./Hopper-v3_PPOHtermK_6/actor_000001788673.pth                   | Hamilton 1.1952929496765137
+./Hopper-v3_PPOHtermK_6/actor_000001799412.pth                   | Hamilton 1.196632742881775
+./Hopper-v3_PPOHtermK_6/actor_000001808321.pth                   | Hamilton 1.2042073011398315
+./Hopper-v3_PPOHtermK_6/actor_000001818630.pth                   | Hamilton 1.234487533569336
+./Hopper-v3_PPOHtermK_6/actor_000001827097.pth                   | Hamilton 1.2315199375152588
+./Hopper-v3_PPOHtermK_6/actor_000001837061.pth                   | Hamilton 1.2643980979919434
+./Hopper-v3_PPOHtermK_6/actor_000001847267.pth                   | Hamilton 1.267818808555603
+./Hopper-v3_PPOHtermK_6/actor_000001856192.pth                   | Hamilton 1.2668204307556152
+./Hopper-v3_PPOHtermK_6/actor_000001864603.pth                   | Hamilton 1.2519257068634033
+./Hopper-v3_PPOHtermK_6/actor_000001875511.pth                   | Hamilton 1.2609953880310059
+./Hopper-v3_PPOHtermK_6/actor_000001884423.pth                   | Hamilton 1.2665363550186157
+./Hopper-v3_PPOHtermK_6/actor_000001893917.pth                   | Hamilton 1.2474747896194458
+./Hopper-v3_PPOHtermK_6/actor_000001901917.pth                   | Hamilton 1.260327696800232
+./Hopper-v3_PPOHtermK_6/actor_000001909917.pth                   | Hamilton 1.25128972530365
+./Hopper-v3_PPOHtermK_6/actor_000001918748.pth                   | Hamilton 1.2713875770568848
+./Hopper-v3_PPOHtermK_6/actor_000001927923.pth                   | Hamilton 1.280049443244934
+./Hopper-v3_PPOHtermK_6/actor_000001936733.pth                   | Hamilton 1.2995545864105225
+./Hopper-v3_PPOHtermK_6/actor_000001945301.pth                   | Hamilton 1.315147876739502
+./Hopper-v3_PPOHtermK_6/actor_000001954652.pth                   | Hamilton 1.30451238155365
+./Hopper-v3_PPOHtermK_6/actor_000001962896.pth                   | Hamilton 1.320293664932251
+./Hopper-v3_PPOHtermK_6/actor_000001971281.pth                   | Hamilton 1.3199859857559204
+./Hopper-v3_PPOHtermK_6/actor_000001980208.pth                   | Hamilton 1.3211692571640015
+./Hopper-v3_PPOHtermK_6/actor_000001991329.pth                   | Hamilton 1.3230655193328857
+./Hopper-v3_PPOHtermK_6/actor_000002001139.pth                   | Hamilton 1.3250901699066162
+./Hopper-v3_PPOHtermK_6/actor__000000008314_00154.139.pth        | Hamilton 0.2213515341281891
+./Hopper-v3_PPOHtermK_6/actor__000000131451_00376.503.pth        | Hamilton 0.3746381402015686
+./Hopper-v3_PPOHtermK_6/actor__000000255983_01009.048.pth        | Hamilton 0.5605206489562988
+./Hopper-v3_PPOHtermK_6/actor__000000378123_02667.275.pth        | Hamilton 0.6615644693374634
+./Hopper-v3_PPOHtermK_6/actor__000000625058_03181.373.pth        | Hamilton 0.8532209396362305
+./Hopper-v3_PPOHtermK_6/actor__000000750188_03324.142.pth        | Hamilton 0.9662994742393494
+./Hopper-v3_PPOHtermK_6/actor__000000872925_03357.322.pth        | Hamilton 1.0570703744888306
+./Hopper-v3_PPOHtermK_6/actor__000001377615_03433.328.pth        | Hamilton 1.2655936479568481
+./Hopper-v3_PPOHtermK_6/actor__000001879541_03434.688.pth        | Hamilton 1.3078831434249878
+"""
+    # Hopper-v2_PPOHtermK_1
+    data12 = """
+./Hopper-v2_PPOHtermK_1/actor_000000012266.pth                   | Hamilton 0.49707767367362976
+./Hopper-v2_PPOHtermK_1/actor_000000020586.pth                   | Hamilton 0.5440958142280579
+./Hopper-v2_PPOHtermK_1/actor_000000029045.pth                   | Hamilton 0.5539615154266357
+./Hopper-v2_PPOHtermK_1/actor_000000037481.pth                   | Hamilton 0.5782834887504578
+./Hopper-v2_PPOHtermK_1/actor_000000046022.pth                   | Hamilton 0.5819857120513916
+./Hopper-v2_PPOHtermK_1/actor_000000054779.pth                   | Hamilton 0.5860337615013123
+./Hopper-v2_PPOHtermK_1/actor_000000063220.pth                   | Hamilton 0.583692729473114
+./Hopper-v2_PPOHtermK_1/actor_000000071931.pth                   | Hamilton 0.5743004083633423
+./Hopper-v2_PPOHtermK_1/actor_000000081035.pth                   | Hamilton 0.5776315331459045
+./Hopper-v2_PPOHtermK_1/actor_000000089734.pth                   | Hamilton 0.5639542937278748
+./Hopper-v2_PPOHtermK_1/actor_000000099477.pth                   | Hamilton 0.5635554790496826
+./Hopper-v2_PPOHtermK_1/actor_000000109057.pth                   | Hamilton 0.5684139132499695
+./Hopper-v2_PPOHtermK_1/actor_000000117862.pth                   | Hamilton 0.5715059638023376
+./Hopper-v2_PPOHtermK_1/actor_000000126690.pth                   | Hamilton 0.564452588558197
+./Hopper-v2_PPOHtermK_1/actor_000000135489.pth                   | Hamilton 0.5782734155654907
+./Hopper-v2_PPOHtermK_1/actor_000000144365.pth                   | Hamilton 0.5892970561981201
+./Hopper-v2_PPOHtermK_1/actor_000000152901.pth                   | Hamilton 0.5995793342590332
+./Hopper-v2_PPOHtermK_1/actor_000000161420.pth                   | Hamilton 0.6111807823181152
+./Hopper-v2_PPOHtermK_1/actor_000000170244.pth                   | Hamilton 0.6146460771560669
+./Hopper-v2_PPOHtermK_1/actor_000000178712.pth                   | Hamilton 0.6222730278968811
+./Hopper-v2_PPOHtermK_1/actor_000000187278.pth                   | Hamilton 0.6224280595779419
+./Hopper-v2_PPOHtermK_1/actor_000000195881.pth                   | Hamilton 0.6244977712631226
+./Hopper-v2_PPOHtermK_1/actor_000000204819.pth                   | Hamilton 0.6207193732261658
+./Hopper-v2_PPOHtermK_1/actor_000000213587.pth                   | Hamilton 0.6072689294815063
+./Hopper-v2_PPOHtermK_1/actor_000000223210.pth                   | Hamilton 0.595444917678833
+./Hopper-v2_PPOHtermK_1/actor_000000232322.pth                   | Hamilton 0.6035097241401672
+./Hopper-v2_PPOHtermK_1/actor_000000241953.pth                   | Hamilton 0.6023523807525635
+./Hopper-v2_PPOHtermK_1/actor_000000250984.pth                   | Hamilton 0.5948614478111267
+./Hopper-v2_PPOHtermK_1/actor_000000261002.pth                   | Hamilton 0.593251645565033
+./Hopper-v2_PPOHtermK_1/actor_000000270353.pth                   | Hamilton 0.5976131558418274
+./Hopper-v2_PPOHtermK_1/actor_000000279111.pth                   | Hamilton 0.6035564541816711
+./Hopper-v2_PPOHtermK_1/actor_000000288341.pth                   | Hamilton 0.5926827192306519
+./Hopper-v2_PPOHtermK_1/actor_000000299298.pth                   | Hamilton 0.5886200666427612
+./Hopper-v2_PPOHtermK_1/actor_000000309468.pth                   | Hamilton 0.5890348553657532
+./Hopper-v2_PPOHtermK_1/actor_000000319721.pth                   | Hamilton 0.6032013297080994
+./Hopper-v2_PPOHtermK_1/actor_000000331067.pth                   | Hamilton 0.5997387170791626
+./Hopper-v2_PPOHtermK_1/actor_000000340864.pth                   | Hamilton 0.6100163459777832
+./Hopper-v2_PPOHtermK_1/actor_000000349968.pth                   | Hamilton 0.6045315861701965
+./Hopper-v2_PPOHtermK_1/actor_000000361508.pth                   | Hamilton 0.61538165807724
+./Hopper-v2_PPOHtermK_1/actor_000000372549.pth                   | Hamilton 0.6300678849220276
+./Hopper-v2_PPOHtermK_1/actor_000000382551.pth                   | Hamilton 0.6351966857910156
+./Hopper-v2_PPOHtermK_1/actor_000000393277.pth                   | Hamilton 0.64419025182724
+./Hopper-v2_PPOHtermK_1/actor_000000404743.pth                   | Hamilton 0.6562338471412659
+./Hopper-v2_PPOHtermK_1/actor_000000416636.pth                   | Hamilton 0.6645117998123169
+./Hopper-v2_PPOHtermK_1/actor_000000426312.pth                   | Hamilton 0.6693285703659058
+./Hopper-v2_PPOHtermK_1/actor_000000436188.pth                   | Hamilton 0.6726453900337219
+./Hopper-v2_PPOHtermK_1/actor_000000447193.pth                   | Hamilton 0.6688531637191772
+./Hopper-v2_PPOHtermK_1/actor_000000459031.pth                   | Hamilton 0.6769363880157471
+./Hopper-v2_PPOHtermK_1/actor_000000467826.pth                   | Hamilton 0.6914471983909607
+./Hopper-v2_PPOHtermK_1/actor_000000477497.pth                   | Hamilton 0.6878836750984192
+./Hopper-v2_PPOHtermK_1/actor_000000487283.pth                   | Hamilton 0.6946234703063965
+./Hopper-v2_PPOHtermK_1/actor_000000497886.pth                   | Hamilton 0.6900990605354309
+./Hopper-v2_PPOHtermK_1/actor_000000508605.pth                   | Hamilton 0.6915092468261719
+./Hopper-v2_PPOHtermK_1/actor_000000518742.pth                   | Hamilton 0.691702127456665
+./Hopper-v2_PPOHtermK_1/actor_000000528508.pth                   | Hamilton 0.6969584822654724
+./Hopper-v2_PPOHtermK_1/actor_000000539919.pth                   | Hamilton 0.7103747129440308
+./Hopper-v2_PPOHtermK_1/actor_000000550995.pth                   | Hamilton 0.7151159048080444
+./Hopper-v2_PPOHtermK_1/actor_000000561687.pth                   | Hamilton 0.7113256454467773
+./Hopper-v2_PPOHtermK_1/actor_000000570510.pth                   | Hamilton 0.7260191440582275
+./Hopper-v2_PPOHtermK_1/actor_000000581240.pth                   | Hamilton 0.7280723452568054
+./Hopper-v2_PPOHtermK_1/actor_000000592298.pth                   | Hamilton 0.724122166633606
+./Hopper-v2_PPOHtermK_1/actor_000000602127.pth                   | Hamilton 0.7351981401443481
+./Hopper-v2_PPOHtermK_1/actor_000000612123.pth                   | Hamilton 0.7279580235481262
+./Hopper-v2_PPOHtermK_1/actor_000000623702.pth                   | Hamilton 0.7343960404396057
+./Hopper-v2_PPOHtermK_1/actor_000000633044.pth                   | Hamilton 0.737565815448761
+./Hopper-v2_PPOHtermK_1/actor_000000643168.pth                   | Hamilton 0.7517142295837402
+./Hopper-v2_PPOHtermK_1/actor_000000652505.pth                   | Hamilton 0.7708538770675659
+./Hopper-v2_PPOHtermK_1/actor_000000662704.pth                   | Hamilton 0.7737637758255005
+./Hopper-v2_PPOHtermK_1/actor_000000672530.pth                   | Hamilton 0.7797785401344299
+./Hopper-v2_PPOHtermK_1/actor_000000681911.pth                   | Hamilton 0.7896486520767212
+./Hopper-v2_PPOHtermK_1/actor_000000691321.pth                   | Hamilton 0.7942165732383728
+./Hopper-v2_PPOHtermK_1/actor_000000700268.pth                   | Hamilton 0.7927950024604797
+./Hopper-v2_PPOHtermK_1/actor_000000711327.pth                   | Hamilton 0.8037243485450745
+./Hopper-v2_PPOHtermK_1/actor_000000720611.pth                   | Hamilton 0.8084350824356079
+./Hopper-v2_PPOHtermK_1/actor_000000729820.pth                   | Hamilton 0.8146712183952332
+./Hopper-v2_PPOHtermK_1/actor_000000740454.pth                   | Hamilton 0.8352003693580627
+./Hopper-v2_PPOHtermK_1/actor_000000751205.pth                   | Hamilton 0.8538724184036255
+./Hopper-v2_PPOHtermK_1/actor_000000759315.pth                   | Hamilton 0.8473496437072754
+./Hopper-v2_PPOHtermK_1/actor_000000769647.pth                   | Hamilton 0.8555893898010254
+./Hopper-v2_PPOHtermK_1/actor_000000779319.pth                   | Hamilton 0.8648740649223328
+./Hopper-v2_PPOHtermK_1/actor_000000789031.pth                   | Hamilton 0.8731195330619812
+./Hopper-v2_PPOHtermK_1/actor_000000798143.pth                   | Hamilton 0.8890700936317444
+./Hopper-v2_PPOHtermK_1/actor_000000807329.pth                   | Hamilton 0.8868382573127747
+./Hopper-v2_PPOHtermK_1/actor_000000815628.pth                   | Hamilton 0.8913543820381165
+./Hopper-v2_PPOHtermK_1/actor_000000824349.pth                   | Hamilton 0.9072344899177551
+./Hopper-v2_PPOHtermK_1/actor_000000833375.pth                   | Hamilton 0.9272060990333557
+./Hopper-v2_PPOHtermK_1/actor_000000841462.pth                   | Hamilton 0.9383752942085266
+./Hopper-v2_PPOHtermK_1/actor_000000852196.pth                   | Hamilton 0.9542031288146973
+./Hopper-v2_PPOHtermK_1/actor_000000863816.pth                   | Hamilton 0.9770907163619995
+./Hopper-v2_PPOHtermK_1/actor_000000872548.pth                   | Hamilton 0.9887466430664062
+./Hopper-v2_PPOHtermK_1/actor_000000882836.pth                   | Hamilton 0.9997304677963257
+./Hopper-v2_PPOHtermK_1/actor_000000891224.pth                   | Hamilton 1.0194206237792969
+./Hopper-v2_PPOHtermK_1/actor_000000900052.pth                   | Hamilton 1.0217466354370117
+./Hopper-v2_PPOHtermK_1/actor_000000910556.pth                   | Hamilton 1.044454574584961
+./Hopper-v2_PPOHtermK_1/actor_000000923723.pth                   | Hamilton 1.0759865045547485
+./Hopper-v2_PPOHtermK_1/actor_000000932845.pth                   | Hamilton 1.0873475074768066
+./Hopper-v2_PPOHtermK_1/actor_000000941820.pth                   | Hamilton 1.097644329071045
+./Hopper-v2_PPOHtermK_1/actor_000000952817.pth                   | Hamilton 1.099028468132019
+./Hopper-v2_PPOHtermK_1/actor_000000962555.pth                   | Hamilton 1.1136139631271362
+./Hopper-v2_PPOHtermK_1/actor_000000972150.pth                   | Hamilton 1.126929521560669
+./Hopper-v2_PPOHtermK_1/actor_000000983419.pth                   | Hamilton 1.1563533544540405
+./Hopper-v2_PPOHtermK_1/actor_000000991978.pth                   | Hamilton 1.1669148206710815
+./Hopper-v2_PPOHtermK_1/actor_000001001709.pth                   | Hamilton 1.1850125789642334
+./Hopper-v2_PPOHtermK_1/actor_000001011476.pth                   | Hamilton 1.2003651857376099
+./Hopper-v2_PPOHtermK_1/actor_000001020194.pth                   | Hamilton 1.2300974130630493
+./Hopper-v2_PPOHtermK_1/actor_000001029118.pth                   | Hamilton 1.2297320365905762
+./Hopper-v2_PPOHtermK_1/actor_000001039087.pth                   | Hamilton 1.2512948513031006
+./Hopper-v2_PPOHtermK_1/actor_000001048625.pth                   | Hamilton 1.2575922012329102
+./Hopper-v2_PPOHtermK_1/actor_000001057495.pth                   | Hamilton 1.274703025817871
+./Hopper-v2_PPOHtermK_1/actor_000001066464.pth                   | Hamilton 1.2871185541152954
+./Hopper-v2_PPOHtermK_1/actor_000001077466.pth                   | Hamilton 1.2882360219955444
+./Hopper-v2_PPOHtermK_1/actor_000001085708.pth                   | Hamilton 1.3142948150634766
+./Hopper-v2_PPOHtermK_1/actor_000001095217.pth                   | Hamilton 1.3425432443618774
+./Hopper-v2_PPOHtermK_1/actor_000001105634.pth                   | Hamilton 1.3539115190505981
+./Hopper-v2_PPOHtermK_1/actor_000001114232.pth                   | Hamilton 1.3755781650543213
+./Hopper-v2_PPOHtermK_1/actor_000001125197.pth                   | Hamilton 1.4037320613861084
+./Hopper-v2_PPOHtermK_1/actor_000001136903.pth                   | Hamilton 1.4146746397018433
+./Hopper-v2_PPOHtermK_1/actor_000001147346.pth                   | Hamilton 1.4247589111328125
+./Hopper-v2_PPOHtermK_1/actor_000001156345.pth                   | Hamilton 1.4369772672653198
+./Hopper-v2_PPOHtermK_1/actor_000001165727.pth                   | Hamilton 1.449008584022522
+./Hopper-v2_PPOHtermK_1/actor_000001175760.pth                   | Hamilton 1.4587432146072388
+./Hopper-v2_PPOHtermK_1/actor_000001186820.pth                   | Hamilton 1.4689098596572876
+./Hopper-v2_PPOHtermK_1/actor_000001195623.pth                   | Hamilton 1.486315369606018
+./Hopper-v2_PPOHtermK_1/actor_000001203716.pth                   | Hamilton 1.5066392421722412
+./Hopper-v2_PPOHtermK_1/actor_000001213716.pth                   | Hamilton 1.5150822401046753
+./Hopper-v2_PPOHtermK_1/actor_000001224484.pth                   | Hamilton 1.5312849283218384
+./Hopper-v2_PPOHtermK_1/actor_000001234457.pth                   | Hamilton 1.538316249847412
+./Hopper-v2_PPOHtermK_1/actor_000001243181.pth                   | Hamilton 1.5516159534454346
+./Hopper-v2_PPOHtermK_1/actor_000001253576.pth                   | Hamilton 1.566779613494873
+./Hopper-v2_PPOHtermK_1/actor_000001264238.pth                   | Hamilton 1.579459547996521
+./Hopper-v2_PPOHtermK_1/actor_000001274370.pth                   | Hamilton 1.5811444520950317
+./Hopper-v2_PPOHtermK_1/actor_000001284444.pth                   | Hamilton 1.5971570014953613
+./Hopper-v2_PPOHtermK_1/actor_000001293159.pth                   | Hamilton 1.6046593189239502
+./Hopper-v2_PPOHtermK_1/actor_000001304803.pth                   | Hamilton 1.6168373823165894
+./Hopper-v2_PPOHtermK_1/actor_000001313124.pth                   | Hamilton 1.6304643154144287
+./Hopper-v2_PPOHtermK_1/actor_000001322941.pth                   | Hamilton 1.637249231338501
+./Hopper-v2_PPOHtermK_1/actor_000001331257.pth                   | Hamilton 1.6468775272369385
+./Hopper-v2_PPOHtermK_1/actor_000001341691.pth                   | Hamilton 1.6591277122497559
+./Hopper-v2_PPOHtermK_1/actor_000001352250.pth                   | Hamilton 1.6709275245666504
+./Hopper-v2_PPOHtermK_1/actor_000001360250.pth                   | Hamilton 1.681677222251892
+./Hopper-v2_PPOHtermK_1/actor_000001371342.pth                   | Hamilton 1.6862200498580933
+./Hopper-v2_PPOHtermK_1/actor_000001381713.pth                   | Hamilton 1.7018917798995972
+./Hopper-v2_PPOHtermK_1/actor_000001394003.pth                   | Hamilton 1.7028683423995972
+./Hopper-v2_PPOHtermK_1/actor_000001404271.pth                   | Hamilton 1.7371435165405273
+./Hopper-v2_PPOHtermK_1/actor_000001414965.pth                   | Hamilton 1.7347135543823242
+./Hopper-v2_PPOHtermK_1/actor_000001424760.pth                   | Hamilton 1.7469313144683838
+./Hopper-v2_PPOHtermK_1/actor_000001435219.pth                   | Hamilton 1.7568464279174805
+./Hopper-v2_PPOHtermK_1/actor_000001445027.pth                   | Hamilton 1.7483233213424683
+./Hopper-v2_PPOHtermK_1/actor_000001455160.pth                   | Hamilton 1.764796257019043
+./Hopper-v2_PPOHtermK_1/actor_000001463915.pth                   | Hamilton 1.7664424180984497
+./Hopper-v2_PPOHtermK_1/actor_000001475205.pth                   | Hamilton 1.7948447465896606
+./Hopper-v2_PPOHtermK_1/actor_000001484288.pth                   | Hamilton 1.801731824874878
+./Hopper-v2_PPOHtermK_1/actor_000001494984.pth                   | Hamilton 1.8067660331726074
+./Hopper-v2_PPOHtermK_1/actor_000001503538.pth                   | Hamilton 1.8050360679626465
+./Hopper-v2_PPOHtermK_1/actor_000001512771.pth                   | Hamilton 1.8160033226013184
+./Hopper-v2_PPOHtermK_1/actor_000001521858.pth                   | Hamilton 1.8263288736343384
+./Hopper-v2_PPOHtermK_1/actor_000001532058.pth                   | Hamilton 1.8380804061889648
+./Hopper-v2_PPOHtermK_1/actor_000001542992.pth                   | Hamilton 1.8414431810379028
+./Hopper-v2_PPOHtermK_1/actor_000001554721.pth                   | Hamilton 1.835944414138794
+./Hopper-v2_PPOHtermK_1/actor_000001564690.pth                   | Hamilton 1.8513249158859253
+./Hopper-v2_PPOHtermK_1/actor_000001573851.pth                   | Hamilton 1.8608366250991821
+./Hopper-v2_PPOHtermK_1/actor_000001583548.pth                   | Hamilton 1.8733785152435303
+./Hopper-v2_PPOHtermK_1/actor_000001592064.pth                   | Hamilton 1.8734933137893677
+./Hopper-v2_PPOHtermK_1/actor_000001602121.pth                   | Hamilton 1.897040843963623
+./Hopper-v2_PPOHtermK_1/actor_000001611893.pth                   | Hamilton 1.9166057109832764
+./Hopper-v2_PPOHtermK_1/actor_000001620424.pth                   | Hamilton 1.9264541864395142
+./Hopper-v2_PPOHtermK_1/actor_000001631046.pth                   | Hamilton 1.939608097076416
+./Hopper-v2_PPOHtermK_1/actor_000001640991.pth                   | Hamilton 1.930494785308838
+./Hopper-v2_PPOHtermK_1/actor_000001648991.pth                   | Hamilton 1.9535776376724243
+./Hopper-v2_PPOHtermK_1/actor_000001658398.pth                   | Hamilton 1.9612287282943726
+./Hopper-v2_PPOHtermK_1/actor_000001668867.pth                   | Hamilton 1.950474739074707
+./Hopper-v2_PPOHtermK_1/actor_000001678463.pth                   | Hamilton 1.9556645154953003
+./Hopper-v2_PPOHtermK_1/actor_000001688450.pth                   | Hamilton 1.9590866565704346
+./Hopper-v2_PPOHtermK_1/actor_000001697012.pth                   | Hamilton 1.9681390523910522
+./Hopper-v2_PPOHtermK_1/actor_000001705852.pth                   | Hamilton 1.9853302240371704
+./Hopper-v2_PPOHtermK_1/actor_000001713852.pth                   | Hamilton 1.9884916543960571
+./Hopper-v2_PPOHtermK_1/actor_000001722972.pth                   | Hamilton 1.970191478729248
+./Hopper-v2_PPOHtermK_1/actor_000001732444.pth                   | Hamilton 1.9716607332229614
+./Hopper-v2_PPOHtermK_1/actor_000001741679.pth                   | Hamilton 1.959070086479187
+./Hopper-v2_PPOHtermK_1/actor_000001751047.pth                   | Hamilton 1.9579135179519653
+./Hopper-v2_PPOHtermK_1/actor_000001759686.pth                   | Hamilton 1.9661009311676025
+./Hopper-v2_PPOHtermK_1/actor_000001770242.pth                   | Hamilton 1.9715629816055298
+./Hopper-v2_PPOHtermK_1/actor_000001780583.pth                   | Hamilton 1.9791679382324219
+./Hopper-v2_PPOHtermK_1/actor_000001789898.pth                   | Hamilton 1.9685776233673096
+./Hopper-v2_PPOHtermK_1/actor_000001799254.pth                   | Hamilton 1.9910707473754883
+./Hopper-v2_PPOHtermK_1/actor_000001808967.pth                   | Hamilton 2.002528667449951
+./Hopper-v2_PPOHtermK_1/actor_000001819274.pth                   | Hamilton 1.9895884990692139
+./Hopper-v2_PPOHtermK_1/actor_000001827922.pth                   | Hamilton 1.9892656803131104
+./Hopper-v2_PPOHtermK_1/actor_000001836202.pth                   | Hamilton 2.0130105018615723
+./Hopper-v2_PPOHtermK_1/actor_000001844963.pth                   | Hamilton 2.0252652168273926
+./Hopper-v2_PPOHtermK_1/actor_000001852963.pth                   | Hamilton 2.008625030517578
+./Hopper-v2_PPOHtermK_1/actor_000001861780.pth                   | Hamilton 2.01806378364563
+./Hopper-v2_PPOHtermK_1/actor_000001872577.pth                   | Hamilton 2.0099613666534424
+./Hopper-v2_PPOHtermK_1/actor_000001882830.pth                   | Hamilton 2.031874179840088
+./Hopper-v2_PPOHtermK_1/actor_000001892732.pth                   | Hamilton 2.0596070289611816
+./Hopper-v2_PPOHtermK_1/actor_000001903296.pth                   | Hamilton 2.059262990951538
+./Hopper-v2_PPOHtermK_1/actor_000001912187.pth                   | Hamilton 2.0526411533355713
+./Hopper-v2_PPOHtermK_1/actor_000001923045.pth                   | Hamilton 2.0478854179382324
+./Hopper-v2_PPOHtermK_1/actor_000001932842.pth                   | Hamilton 2.0371570587158203
+./Hopper-v2_PPOHtermK_1/actor_000001941665.pth                   | Hamilton 2.056736469268799
+./Hopper-v2_PPOHtermK_1/actor_000001950924.pth                   | Hamilton 2.0767860412597656
+./Hopper-v2_PPOHtermK_1/actor_000001960157.pth                   | Hamilton 2.0662713050842285
+./Hopper-v2_PPOHtermK_1/actor_000001970897.pth                   | Hamilton 2.0421125888824463
+./Hopper-v2_PPOHtermK_1/actor_000001978897.pth                   | Hamilton 2.014127254486084
+./Hopper-v2_PPOHtermK_1/actor_000001988890.pth                   | Hamilton 2.031428098678589
+./Hopper-v2_PPOHtermK_1/actor_000001998337.pth                   | Hamilton 2.0511577129364014
+./Hopper-v2_PPOHtermK_1/actor_000002007591.pth                   | Hamilton 2.029947519302368
+./Hopper-v2_PPOHtermK_1/actor_000002015851.pth                   | Hamilton 2.0577940940856934
+./Hopper-v2_PPOHtermK_1/actor_000002026938.pth                   | Hamilton 2.0633673667907715
+./Hopper-v2_PPOHtermK_1/actor_000002037879.pth                   | Hamilton 2.0627713203430176
+./Hopper-v2_PPOHtermK_1/actor_000002046541.pth                   | Hamilton 2.0718042850494385
+./Hopper-v2_PPOHtermK_1/actor_000002056487.pth                   | Hamilton 2.0550553798675537
+./Hopper-v2_PPOHtermK_1/actor_000002067403.pth                   | Hamilton 2.0658364295959473
+./Hopper-v2_PPOHtermK_1/actor_000002076697.pth                   | Hamilton 2.079085350036621
+./Hopper-v2_PPOHtermK_1/actor_000002086871.pth                   | Hamilton 2.046438694000244
+./Hopper-v2_PPOHtermK_1/actor_000002095923.pth                   | Hamilton 2.0730791091918945
+./Hopper-v2_PPOHtermK_1/actor_000002105258.pth                   | Hamilton 2.066810369491577
+./Hopper-v2_PPOHtermK_1/actor_000002114663.pth                   | Hamilton 2.0623130798339844
+./Hopper-v2_PPOHtermK_1/actor_000002123385.pth                   | Hamilton 2.075228691101074
+./Hopper-v2_PPOHtermK_1/actor_000002132914.pth                   | Hamilton 2.1118860244750977
+./Hopper-v2_PPOHtermK_1/actor_000002142440.pth                   | Hamilton 2.1291654109954834
+./Hopper-v2_PPOHtermK_1/actor_000002151652.pth                   | Hamilton 2.138117551803589
+./Hopper-v2_PPOHtermK_1/actor_000002159652.pth                   | Hamilton 2.141282081604004
+./Hopper-v2_PPOHtermK_1/actor_000002167652.pth                   | Hamilton 2.175921678543091
+./Hopper-v2_PPOHtermK_1/actor_000002176227.pth                   | Hamilton 2.1837265491485596
+./Hopper-v2_PPOHtermK_1/actor_000002184964.pth                   | Hamilton 2.190122127532959
+./Hopper-v2_PPOHtermK_1/actor_000002194327.pth                   | Hamilton 2.187976121902466
+./Hopper-v2_PPOHtermK_1/actor_000002204472.pth                   | Hamilton 2.184704065322876
+./Hopper-v2_PPOHtermK_1/actor_000002213809.pth                   | Hamilton 2.159832715988159
+./Hopper-v2_PPOHtermK_1/actor_000002222930.pth                   | Hamilton 2.1559696197509766
+./Hopper-v2_PPOHtermK_1/actor_000002232615.pth                   | Hamilton 2.1355841159820557
+./Hopper-v2_PPOHtermK_1/actor_000002242795.pth                   | Hamilton 2.1462316513061523
+./Hopper-v2_PPOHtermK_1/actor_000002252631.pth                   | Hamilton 2.1610169410705566
+./Hopper-v2_PPOHtermK_1/actor_000002261199.pth                   | Hamilton 2.1710195541381836
+./Hopper-v2_PPOHtermK_1/actor_000002270938.pth                   | Hamilton 2.1670243740081787
+./Hopper-v2_PPOHtermK_1/actor_000002279482.pth                   | Hamilton 2.172046422958374
+./Hopper-v2_PPOHtermK_1/actor_000002287952.pth                   | Hamilton 2.1737070083618164
+./Hopper-v2_PPOHtermK_1/actor_000002297488.pth                   | Hamilton 2.165332078933716
+./Hopper-v2_PPOHtermK_1/actor_000002307857.pth                   | Hamilton 2.1648709774017334
+./Hopper-v2_PPOHtermK_1/actor_000002315857.pth                   | Hamilton 2.1878581047058105
+./Hopper-v2_PPOHtermK_1/actor_000002325948.pth                   | Hamilton 2.1798341274261475
+./Hopper-v2_PPOHtermK_1/actor_000002336997.pth                   | Hamilton 2.1755239963531494
+./Hopper-v2_PPOHtermK_1/actor_000002346843.pth                   | Hamilton 2.164184331893921
+./Hopper-v2_PPOHtermK_1/actor_000002357588.pth                   | Hamilton 2.1548149585723877
+./Hopper-v2_PPOHtermK_1/actor_000002368988.pth                   | Hamilton 2.1740899085998535
+./Hopper-v2_PPOHtermK_1/actor_000002379785.pth                   | Hamilton 2.185974359512329
+./Hopper-v2_PPOHtermK_1/actor_000002389545.pth                   | Hamilton 2.1619412899017334
+./Hopper-v2_PPOHtermK_1/actor_000002398830.pth                   | Hamilton 2.145019292831421
+./Hopper-v2_PPOHtermK_1/actor_000002408175.pth                   | Hamilton 2.1683297157287598
+./Hopper-v2_PPOHtermK_1/actor_000002418456.pth                   | Hamilton 2.1563780307769775
+./Hopper-v2_PPOHtermK_1/actor_000002428583.pth                   | Hamilton 2.158418655395508
+./Hopper-v2_PPOHtermK_1/actor_000002439844.pth                   | Hamilton 2.176894426345825
+./Hopper-v2_PPOHtermK_1/actor_000002452425.pth                   | Hamilton 2.1577494144439697
+./Hopper-v2_PPOHtermK_1/actor_000002463881.pth                   | Hamilton 2.1502389907836914
+./Hopper-v2_PPOHtermK_1/actor_000002473530.pth                   | Hamilton 2.184016704559326
+./Hopper-v2_PPOHtermK_1/actor_000002483423.pth                   | Hamilton 2.2117021083831787
+./Hopper-v2_PPOHtermK_1/actor_000002492374.pth                   | Hamilton 2.210909843444824
+./Hopper-v2_PPOHtermK_1/actor_000002501899.pth                   | Hamilton 2.226489782333374
+./Hopper-v2_PPOHtermK_1/actor_000002510608.pth                   | Hamilton 2.2372171878814697
+./Hopper-v2_PPOHtermK_1/actor_000002519549.pth                   | Hamilton 2.2416574954986572
+./Hopper-v2_PPOHtermK_1/actor_000002528922.pth                   | Hamilton 2.2361807823181152
+./Hopper-v2_PPOHtermK_1/actor_000002539837.pth                   | Hamilton 2.2266104221343994
+./Hopper-v2_PPOHtermK_1/actor_000002549568.pth                   | Hamilton 2.217386484146118
+./Hopper-v2_PPOHtermK_1/actor_000002558630.pth                   | Hamilton 2.221869468688965
+./Hopper-v2_PPOHtermK_1/actor_000002568250.pth                   | Hamilton 2.244422674179077
+./Hopper-v2_PPOHtermK_1/actor_000002578283.pth                   | Hamilton 2.2525734901428223
+./Hopper-v2_PPOHtermK_1/actor_000002587792.pth                   | Hamilton 2.2312748432159424
+./Hopper-v2_PPOHtermK_1/actor_000002598588.pth                   | Hamilton 2.2279868125915527
+./Hopper-v2_PPOHtermK_1/actor_000002606588.pth                   | Hamilton 2.22127366065979
+./Hopper-v2_PPOHtermK_1/actor_000002616265.pth                   | Hamilton 2.202486515045166
+./Hopper-v2_PPOHtermK_1/actor_000002625051.pth                   | Hamilton 2.222506284713745
+./Hopper-v2_PPOHtermK_1/actor_000002633975.pth                   | Hamilton 2.236555814743042
+./Hopper-v2_PPOHtermK_1/actor_000002644471.pth                   | Hamilton 2.2474422454833984
+./Hopper-v2_PPOHtermK_1/actor_000002654908.pth                   | Hamilton 2.257524013519287
+./Hopper-v2_PPOHtermK_1/actor_000002663448.pth                   | Hamilton 2.2590696811676025
+./Hopper-v2_PPOHtermK_1/actor_000002672253.pth                   | Hamilton 2.2535948753356934
+./Hopper-v2_PPOHtermK_1/actor_000002681463.pth                   | Hamilton 2.2459888458251953
+./Hopper-v2_PPOHtermK_1/actor_000002690622.pth                   | Hamilton 2.2425358295440674
+./Hopper-v2_PPOHtermK_1/actor_000002700157.pth                   | Hamilton 2.233717203140259
+./Hopper-v2_PPOHtermK_1/actor_000002708725.pth                   | Hamilton 2.223914861679077
+./Hopper-v2_PPOHtermK_1/actor_000002719919.pth                   | Hamilton 2.2247817516326904
+./Hopper-v2_PPOHtermK_1/actor_000002729442.pth                   | Hamilton 2.248499631881714
+./Hopper-v2_PPOHtermK_1/actor_000002738843.pth                   | Hamilton 2.2337608337402344
+./Hopper-v2_PPOHtermK_1/actor_000002747630.pth                   | Hamilton 2.2294890880584717
+./Hopper-v2_PPOHtermK_1/actor_000002756932.pth                   | Hamilton 2.2131330966949463
+./Hopper-v2_PPOHtermK_1/actor_000002765570.pth                   | Hamilton 2.2184855937957764
+./Hopper-v2_PPOHtermK_1/actor_000002774139.pth                   | Hamilton 2.202444553375244
+./Hopper-v2_PPOHtermK_1/actor_000002782139.pth                   | Hamilton 2.231876850128174
+./Hopper-v2_PPOHtermK_1/actor_000002791747.pth                   | Hamilton 2.233001947402954
+./Hopper-v2_PPOHtermK_1/actor_000002799747.pth                   | Hamilton 2.237248659133911
+./Hopper-v2_PPOHtermK_1/actor_000002807747.pth                   | Hamilton 2.225982904434204
+./Hopper-v2_PPOHtermK_1/actor_000002816755.pth                   | Hamilton 2.2370316982269287
+./Hopper-v2_PPOHtermK_1/actor_000002825457.pth                   | Hamilton 2.2766854763031006
+./Hopper-v2_PPOHtermK_1/actor_000002834218.pth                   | Hamilton 2.2782585620880127
+./Hopper-v2_PPOHtermK_1/actor_000002843908.pth                   | Hamilton 2.2693865299224854
+./Hopper-v2_PPOHtermK_1/actor_000002856268.pth                   | Hamilton 2.261286735534668
+./Hopper-v2_PPOHtermK_1/actor_000002864268.pth                   | Hamilton 2.2719523906707764
+./Hopper-v2_PPOHtermK_1/actor_000002874468.pth                   | Hamilton 2.2715280055999756
+./Hopper-v2_PPOHtermK_1/actor_000002885234.pth                   | Hamilton 2.281615734100342
+./Hopper-v2_PPOHtermK_1/actor_000002894986.pth                   | Hamilton 2.278998374938965
+./Hopper-v2_PPOHtermK_1/actor_000002905826.pth                   | Hamilton 2.275270938873291
+./Hopper-v2_PPOHtermK_1/actor_000002915087.pth                   | Hamilton 2.3026998043060303
+./Hopper-v2_PPOHtermK_1/actor_000002923716.pth                   | Hamilton 2.30168080329895
+./Hopper-v2_PPOHtermK_1/actor_000002923716.pth                   | Hamilton 2.30168080329895
+./Hopper-v2_PPOHtermK_1/actor_000002932401.pth                   | Hamilton 2.2593533992767334
+./Hopper-v2_PPOHtermK_1/actor_000002940401.pth                   | Hamilton 2.275097370147705
+./Hopper-v2_PPOHtermK_1/actor_000002949582.pth                   | Hamilton 2.2833592891693115
+./Hopper-v2_PPOHtermK_1/actor_000002959210.pth                   | Hamilton 2.270292043685913
+./Hopper-v2_PPOHtermK_1/actor_000002968581.pth                   | Hamilton 2.2611300945281982
+./Hopper-v2_PPOHtermK_1/actor_000002976581.pth                   | Hamilton 2.2982404232025146
+./Hopper-v2_PPOHtermK_1/actor_000002985213.pth                   | Hamilton 2.298961877822876
+./Hopper-v2_PPOHtermK_1/actor_000002994798.pth                   | Hamilton 2.311530113220215
+./Hopper-v2_PPOHtermK_1/actor_000003003547.pth                   | Hamilton 2.3072633743286133
+./Hopper-v2_PPOHtermK_1/actor__000000008188_00128.390.pth        | Hamilton 0.6311178803443909
+./Hopper-v2_PPOHtermK_1/actor__000000131193_00369.864.pth        | Hamilton 0.7426512241363525
+./Hopper-v2_PPOHtermK_1/actor__000000372549_02665.738.pth        | Hamilton 1.155433177947998
+./Hopper-v2_PPOHtermK_1/actor__000000492712_02866.958.pth        | Hamilton 1.1855536699295044
+./Hopper-v2_PPOHtermK_1/actor__000000612123_03099.729.pth        | Hamilton 1.311480164527893
+./Hopper-v2_PPOHtermK_1/actor__000000729820_03157.978.pth        | Hamilton 1.456320881843567
+./Hopper-v2_PPOHtermK_1/actor__000000852196_03260.882.pth        | Hamilton 1.606527328491211
+./Hopper-v2_PPOHtermK_1/actor__000000972150_03296.005.pth        | Hamilton 1.7801164388656616
+./Hopper-v2_PPOHtermK_1/actor__000001090391_03305.133.pth        | Hamilton 1.9661047458648682
+./Hopper-v2_PPOHtermK_1/actor__000001208980_03321.769.pth        | Hamilton 2.0915729999542236
+./Hopper-v2_PPOHtermK_1/actor__000001445027_03340.862.pth        | Hamilton 2.225701332092285
+./Hopper-v2_PPOHtermK_1/actor__000001683270_03345.835.pth        | Hamilton 2.3578333854675293
+./Hopper-v2_PPOHtermK_1/actor__000001804704_03369.866.pth        | Hamilton 2.3362553119659424
+./Hopper-v2_PPOHtermK_1/actor__000002163652_03384.485.pth        | Hamilton 2.394500255584717
+./Hopper-v2_PPOHtermK_1/actor__000002283952_03407.853.pth        | Hamilton 2.352867603302002
+./Hopper-v2_PPOHtermK_1/actor__000002403565_03436.595.pth        | Hamilton 2.3207945823669434
+./Hopper-v2_PPOHtermK_1/actor__000002524028_03463.162.pth        | Hamilton 2.3596863746643066
+"""
+    # Hopper-v2_PPOHtermK_2_3156
+    data13 = """
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000040346.pth                 | Hamilton 0.5763109922409058
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000072930.pth                 | Hamilton 0.6123620271682739
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000105143.pth                 | Hamilton 0.6229321360588074
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000137637.pth                 | Hamilton 0.6164294481277466
+    ./Hopper-v2_PPOHtermK_2_3156/actor_00016100_00090.576.pth        | Hamilton 0.5324805378913879
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000170279.pth                 | Hamilton 0.49546873569488525
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000202905.pth                 | Hamilton 0.4399419128894806
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000235503.pth                 | Hamilton 0.45821112394332886
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000268069.pth                 | Hamilton 0.48554331064224243
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000300874.pth                 | Hamilton 0.4997228980064392
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000333837.pth                 | Hamilton 0.5096474885940552
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000366945.pth                 | Hamilton 0.5304214954376221
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000400439.pth                 | Hamilton 0.5474600195884705
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000434064.pth                 | Hamilton 0.5375049710273743
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000467261.pth                 | Hamilton 0.5544142723083496
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000500391.pth                 | Hamilton 0.5316793322563171
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000534551.pth                 | Hamilton 0.5361940860748291
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000569879.pth                 | Hamilton 0.540449857711792
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000606372.pth                 | Hamilton 0.5417308807373047
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000640501.pth                 | Hamilton 0.5483449101448059
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000675586.pth                 | Hamilton 0.5543090105056763
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000710761.pth                 | Hamilton 0.579072892665863
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000745688.pth                 | Hamilton 0.571616530418396
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000780039.pth                 | Hamilton 0.5612502098083496
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000814929.pth                 | Hamilton 0.5686127543449402
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000850382.pth                 | Hamilton 0.5832970142364502
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000884745.pth                 | Hamilton 0.606783926486969
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000918935.pth                 | Hamilton 0.6021519899368286
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000953301.pth                 | Hamilton 0.6186079978942871
+    ./Hopper-v2_PPOHtermK_2_3156/actor_000987480.pth                 | Hamilton 0.6002688407897949
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001021393.pth                 | Hamilton 0.6015036106109619
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001057062.pth                 | Hamilton 0.5962991714477539
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001092436.pth                 | Hamilton 0.5932016968727112
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001127562.pth                 | Hamilton 0.5697240829467773
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001161879.pth                 | Hamilton 0.600551426410675
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001195950.pth                 | Hamilton 0.5997455716133118
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001231365.pth                 | Hamilton 0.5820814967155457
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001265918.pth                 | Hamilton 0.588866114616394
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001300036.pth                 | Hamilton 0.6216461658477783
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001336296.pth                 | Hamilton 0.628680408000946
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001370489.pth                 | Hamilton 0.6236757636070251
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001404338.pth                 | Hamilton 0.6150774955749512
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001439071.pth                 | Hamilton 0.6115890145301819
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001474963.pth                 | Hamilton 0.6485454440116882
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001509630.pth                 | Hamilton 0.6593189239501953
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001544199.pth                 | Hamilton 0.6511344909667969
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001578381.pth                 | Hamilton 0.6688206195831299
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001613226.pth                 | Hamilton 0.6699748039245605
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001648031.pth                 | Hamilton 0.6777853965759277
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001682201.pth                 | Hamilton 0.6612711548805237
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001716846.pth                 | Hamilton 0.6769454479217529
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001751005.pth                 | Hamilton 0.663801372051239
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001786905.pth                 | Hamilton 0.6786950826644897
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001822953.pth                 | Hamilton 0.6952859163284302
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001857842.pth                 | Hamilton 0.7116883397102356
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001893217.pth                 | Hamilton 0.7202495336532593
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001928194.pth                 | Hamilton 0.7230077981948853
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001962730.pth                 | Hamilton 0.7101202607154846
+    ./Hopper-v2_PPOHtermK_2_3156/actor_001998156.pth                 | Hamilton 0.7321962714195251
+    ./Hopper-v2_PPOHtermK_2_3156/actor_00366945_00789.846.pth        | Hamilton 0.6259732246398926
+    ./Hopper-v2_PPOHtermK_2_3156/actor_00719329_02410.472.pth        | Hamilton 0.7685126066207886
+    ./Hopper-v2_PPOHtermK_2_3156/actor_01065514_02764.350.pth        | Hamilton 0.8388811349868774
+    ./Hopper-v2_PPOHtermK_2_3156/actor_01413113_03156.792.pth        | Hamilton 0.8231339454650879
+    """
+
+    # Humanoid-v3_PPOHtermK_4_10726
+    data21 = """
+./Humanoid-v3_PPOHtermK_4/actor_000000216919.pth                 | Hamilton 7.745727998553775e-06
+./Humanoid-v3_PPOHtermK_4/actor_000000410670.pth                 | Hamilton 1.547358260722831e-05
+./Humanoid-v3_PPOHtermK_4/actor_000000605134.pth                 | Hamilton 2.1356177967390977e-05
+./Humanoid-v3_PPOHtermK_4/actor_000000799481.pth                 | Hamilton 2.9388598704827018e-05
+./Humanoid-v3_PPOHtermK_4/actor_000000994713.pth                 | Hamilton 3.6286488466430455e-05
+./Humanoid-v3_PPOHtermK_4/actor_000001190259.pth                 | Hamilton 4.73175932711456e-05
+./Humanoid-v3_PPOHtermK_4/actor_000001386966.pth                 | Hamilton 6.457018025685102e-05
+./Humanoid-v3_PPOHtermK_4/actor_000001583609.pth                 | Hamilton 7.933532469905913e-05
+./Humanoid-v3_PPOHtermK_4/actor_000001781738.pth                 | Hamilton 0.00010167416621698067
+./Humanoid-v3_PPOHtermK_4/actor_000001982987.pth                 | Hamilton 0.0001203079882543534
+./Humanoid-v3_PPOHtermK_4/actor_000002185209.pth                 | Hamilton 0.00014862300304230303
+./Humanoid-v3_PPOHtermK_4/actor_000002388949.pth                 | Hamilton 0.00018828797328751534
+./Humanoid-v3_PPOHtermK_4/actor_000002596491.pth                 | Hamilton 0.00020941419643349946
+./Humanoid-v3_PPOHtermK_4/actor_000002808873.pth                 | Hamilton 0.0002872117329388857
+./Humanoid-v3_PPOHtermK_4/actor_000003020830.pth                 | Hamilton 0.00035879426286555827
+./Humanoid-v3_PPOHtermK_4/actor_000003238404.pth                 | Hamilton 0.00043054361594840884
+./Humanoid-v3_PPOHtermK_4/actor_000003455575.pth                 | Hamilton 0.0005158257554285228
+./Humanoid-v3_PPOHtermK_4/actor_000003670611.pth                 | Hamilton 0.0005869035376235843
+./Humanoid-v3_PPOHtermK_4/actor_000003882855.pth                 | Hamilton 0.0008774186717346311
+./Humanoid-v3_PPOHtermK_4/actor_000004098267.pth                 | Hamilton 0.0011557259131222963
+./Humanoid-v3_PPOHtermK_4/actor_000004312148.pth                 | Hamilton 0.001274388749152422
+./Humanoid-v3_PPOHtermK_4/actor_000004529136.pth                 | Hamilton 0.001530707930214703
+./Humanoid-v3_PPOHtermK_4/actor_000004743707.pth                 | Hamilton 0.0018802642589434981
+./Humanoid-v3_PPOHtermK_4/actor_000004958553.pth                 | Hamilton 0.0023551632184535265
+./Humanoid-v3_PPOHtermK_4/actor_000005178788.pth                 | Hamilton 0.002812052145600319
+./Humanoid-v3_PPOHtermK_4/actor_000005396031.pth                 | Hamilton 0.003237334545701742
+./Humanoid-v3_PPOHtermK_4/actor_000005614460.pth                 | Hamilton 0.004360102582722902
+./Humanoid-v3_PPOHtermK_4/actor_000005830320.pth                 | Hamilton 0.006299832835793495
+./Humanoid-v3_PPOHtermK_4/actor_000006046427.pth                 | Hamilton 0.007334440480917692
+./Humanoid-v3_PPOHtermK_4/actor_000006258872.pth                 | Hamilton 0.01014986727386713
+./Humanoid-v3_PPOHtermK_4/actor_000006473024.pth                 | Hamilton 0.012375920079648495
+./Humanoid-v3_PPOHtermK_4/actor_000006687708.pth                 | Hamilton 0.018368063494563103
+./Humanoid-v3_PPOHtermK_4/actor_000006901660.pth                 | Hamilton 0.022276129573583603
+./Humanoid-v3_PPOHtermK_4/actor_000007118096.pth                 | Hamilton 0.03707293048501015
+./Humanoid-v3_PPOHtermK_4/actor_000007337525.pth                 | Hamilton 0.05694698914885521
+./Humanoid-v3_PPOHtermK_4/actor_000007554583.pth                 | Hamilton 0.08436055481433868
+./Humanoid-v3_PPOHtermK_4/actor_000007772355.pth                 | Hamilton 0.13028433918952942
+./Humanoid-v3_PPOHtermK_4/actor_000007988089.pth                 | Hamilton 0.2138514220714569
+./Humanoid-v3_PPOHtermK_4/actor_000008198931.pth                 | Hamilton 0.30183884501457214
+./Humanoid-v3_PPOHtermK_4/actor_000008411470.pth                 | Hamilton 0.3925187885761261
+./Humanoid-v3_PPOHtermK_4/actor_000008627622.pth                 | Hamilton 0.4613773226737976
+./Humanoid-v3_PPOHtermK_4/actor_000008842561.pth                 | Hamilton 0.5061527490615845
+./Humanoid-v3_PPOHtermK_4/actor_000009057689.pth                 | Hamilton 0.5313953161239624
+./Humanoid-v3_PPOHtermK_4/actor_000009272305.pth                 | Hamilton 0.5612488389015198
+./Humanoid-v3_PPOHtermK_4/actor_000009490462.pth                 | Hamilton 0.6400241851806641
+./Humanoid-v3_PPOHtermK_4/actor_000009708813.pth                 | Hamilton 0.7168237566947937
+./Humanoid-v3_PPOHtermK_4/actor_000009924694.pth                 | Hamilton 0.8025385737419128
+./Humanoid-v3_PPOHtermK_4/actor_000010140068.pth                 | Hamilton 0.8092190027236938
+./Humanoid-v3_PPOHtermK_4/actor_000010362071.pth                 | Hamilton 0.9000301957130432
+./Humanoid-v3_PPOHtermK_4/actor_000010576853.pth                 | Hamilton 0.9201773405075073
+./Humanoid-v3_PPOHtermK_4/actor_000010793819.pth                 | Hamilton 0.9430528283119202
+./Humanoid-v3_PPOHtermK_4/actor_000011010846.pth                 | Hamilton 0.9776714444160461
+./Humanoid-v3_PPOHtermK_4/actor_000011222986.pth                 | Hamilton 0.9512382745742798
+./Humanoid-v3_PPOHtermK_4/actor_000011439808.pth                 | Hamilton 0.9987568855285645
+./Humanoid-v3_PPOHtermK_4/actor_000011654312.pth                 | Hamilton 0.985135555267334
+./Humanoid-v3_PPOHtermK_4/actor_000011867763.pth                 | Hamilton 1.0231181383132935
+./Humanoid-v3_PPOHtermK_4/actor_000012082123.pth                 | Hamilton 1.0609831809997559
+./Humanoid-v3_PPOHtermK_4/actor_000012299147.pth                 | Hamilton 1.0948328971862793
+./Humanoid-v3_PPOHtermK_4/actor_000012512215.pth                 | Hamilton 1.122593641281128
+./Humanoid-v3_PPOHtermK_4/actor_000012728307.pth                 | Hamilton 1.13325834274292
+./Humanoid-v3_PPOHtermK_4/actor_000012944372.pth                 | Hamilton 1.0918784141540527
+./Humanoid-v3_PPOHtermK_4/actor_000013154742.pth                 | Hamilton 1.0990846157073975
+./Humanoid-v3_PPOHtermK_4/actor_000013369953.pth                 | Hamilton 1.0786091089248657
+./Humanoid-v3_PPOHtermK_4/actor_000013585079.pth                 | Hamilton 1.0882441997528076
+./Humanoid-v3_PPOHtermK_4/actor_000013798891.pth                 | Hamilton 1.1021605730056763
+./Humanoid-v3_PPOHtermK_4/actor_000014013378.pth                 | Hamilton 1.1637951135635376
+./Humanoid-v3_PPOHtermK_4/actor_000014230298.pth                 | Hamilton 1.1316213607788086
+./Humanoid-v3_PPOHtermK_4/actor_000014446130.pth                 | Hamilton 1.1599910259246826
+./Humanoid-v3_PPOHtermK_4/actor_000014663429.pth                 | Hamilton 1.1631524562835693
+./Humanoid-v3_PPOHtermK_4/actor_000014880826.pth                 | Hamilton 1.1942859888076782
+./Humanoid-v3_PPOHtermK_4/actor_000015096566.pth                 | Hamilton 1.144811749458313
+./Humanoid-v3_PPOHtermK_4/actor_000015312278.pth                 | Hamilton 1.1337217092514038
+./Humanoid-v3_PPOHtermK_4/actor_000015529254.pth                 | Hamilton 1.0972442626953125
+./Humanoid-v3_PPOHtermK_4/actor_000015742446.pth                 | Hamilton 1.131184458732605
+./Humanoid-v3_PPOHtermK_4/actor_000015958629.pth                 | Hamilton 1.1117836236953735
+./Humanoid-v3_PPOHtermK_4/actor_000016174762.pth                 | Hamilton 1.0927311182022095
+./Humanoid-v3_PPOHtermK_4/actor_000016390420.pth                 | Hamilton 1.0723671913146973
+./Humanoid-v3_PPOHtermK_4/actor_000016603883.pth                 | Hamilton 1.0995543003082275
+./Humanoid-v3_PPOHtermK_4/actor_000016817354.pth                 | Hamilton 1.1224054098129272
+./Humanoid-v3_PPOHtermK_4/actor_000017024610.pth                 | Hamilton 1.1242108345031738
+./Humanoid-v3_PPOHtermK_4/actor_000017246507.pth                 | Hamilton 1.1464221477508545
+./Humanoid-v3_PPOHtermK_4/actor_000017461887.pth                 | Hamilton 1.1415914297103882
+./Humanoid-v3_PPOHtermK_4/actor_000017673535.pth                 | Hamilton 1.1294492483139038
+./Humanoid-v3_PPOHtermK_4/actor_000017890207.pth                 | Hamilton 1.1181045770645142
+./Humanoid-v3_PPOHtermK_4/actor_000018106772.pth                 | Hamilton 1.1333143711090088
+./Humanoid-v3_PPOHtermK_4/actor_000018319686.pth                 | Hamilton 1.1642205715179443
+./Humanoid-v3_PPOHtermK_4/actor_000018533403.pth                 | Hamilton 1.1748136281967163
+./Humanoid-v3_PPOHtermK_4/actor_000018748137.pth                 | Hamilton 1.1647531986236572
+./Humanoid-v3_PPOHtermK_4/actor_000018959334.pth                 | Hamilton 1.1496871709823608
+./Humanoid-v3_PPOHtermK_4/actor_000019172017.pth                 | Hamilton 1.1272252798080444
+./Humanoid-v3_PPOHtermK_4/actor_000019388412.pth                 | Hamilton 1.1277064085006714
+./Humanoid-v3_PPOHtermK_4/actor_000019600363.pth                 | Hamilton 1.1107887029647827
+./Humanoid-v3_PPOHtermK_4/actor_000019808505.pth                 | Hamilton 1.1193355321884155
+./Humanoid-v3_PPOHtermK_4/actor_000020021389.pth                 | Hamilton 1.0716553926467896
+./Humanoid-v3_PPOHtermK_4/actor_000020235334.pth                 | Hamilton 1.0648878812789917
+./Humanoid-v3_PPOHtermK_4/actor_000020446665.pth                 | Hamilton 1.0834991931915283
+./Humanoid-v3_PPOHtermK_4/actor_000020656097.pth                 | Hamilton 1.1351135969161987
+./Humanoid-v3_PPOHtermK_4/actor_000020868450.pth                 | Hamilton 1.117741584777832
+./Humanoid-v3_PPOHtermK_4/actor_000021078472.pth                 | Hamilton 1.091500163078308
+./Humanoid-v3_PPOHtermK_4/actor_000021291544.pth                 | Hamilton 1.115471363067627
+./Humanoid-v3_PPOHtermK_4/actor_000021509156.pth                 | Hamilton 1.0969226360321045
+./Humanoid-v3_PPOHtermK_4/actor_000021717899.pth                 | Hamilton 1.076116681098938
+./Humanoid-v3_PPOHtermK_4/actor_000021929868.pth                 | Hamilton 1.096856713294983
+./Humanoid-v3_PPOHtermK_4/actor__000000048145_00072.415.pth      | Hamilton 2.8798704079235904e-06
+./Humanoid-v3_PPOHtermK_4/actor__000000848121_00518.436.pth      | Hamilton 2.7115223929286003e-05
+./Humanoid-v3_PPOHtermK_4/actor__000001657931_01537.504.pth      | Hamilton 9.482606401434168e-05
+./Humanoid-v3_PPOHtermK_4/actor__000002466260_03166.374.pth      | Hamilton 0.0003219899954274297
+./Humanoid-v3_PPOHtermK_4/actor__000003293034_04917.708.pth      | Hamilton 0.0011960271513089538
+./Humanoid-v3_PPOHtermK_4/actor__000004124188_07916.716.pth      | Hamilton 0.0029556548688560724
+./Humanoid-v3_PPOHtermK_4/actor__000004958553_08276.233.pth      | Hamilton 0.0076818703673779964
+./Humanoid-v3_PPOHtermK_4/actor__000007418542_09105.766.pth      | Hamilton 0.2132045328617096
+./Humanoid-v3_PPOHtermK_4/actor__000010710422_09899.406.pth      | Hamilton 1.2172187566757202
+./Humanoid-v3_PPOHtermK_4/actor__000011547432_10030.402.pth      | Hamilton 1.309943437576294
+./Humanoid-v3_PPOHtermK_4/actor__000014041990_10242.135.pth      | Hamilton 1.460361123085022
+./Humanoid-v3_PPOHtermK_4/actor__000017325116_10313.688.pth      | Hamilton 1.5013796091079712
+./Humanoid-v3_PPOHtermK_4/actor__000019808505_10467.968.pth      | Hamilton 1.3799551725387573
+./Humanoid-v3_PPOHtermK_4/actor__000020629637_10537.408.pth      | Hamilton 1.3538414239883423
+    """
+    # Humanoid-v3_PPO_1_12163
+    data22 = """
+./Humanoid-v3_PPO_1_12163/actor_000000217243.pth                 | Hamilton 4.901742795482278e-05
+./Humanoid-v3_PPO_1_12163/actor_000001193673.pth                 | Hamilton 9.237827907782048e-05
+./Humanoid-v3_PPO_1_12163/actor_000002184685.pth                 | Hamilton 0.00017076915537472814
+./Humanoid-v3_PPO_1_12163/actor_000003203682.pth                 | Hamilton 0.00035832056892104447
+./Humanoid-v3_PPO_1_12163/actor_000004266366.pth                 | Hamilton 0.0008324697846546769
+./Humanoid-v3_PPO_1_12163/actor_000005330575.pth                 | Hamilton 0.001992176752537489
+./Humanoid-v3_PPO_1_12163/actor_000006398893.pth                 | Hamilton 0.005656303837895393
+./Humanoid-v3_PPO_1_12163/actor_000007480462.pth                 | Hamilton 0.024866096675395966
+./Humanoid-v3_PPO_1_12163/actor_000008554060.pth                 | Hamilton 0.08873523026704788
+./Humanoid-v3_PPO_1_12163/actor_000009637436.pth                 | Hamilton 0.13806229829788208
+./Humanoid-v3_PPO_1_12163/actor_000010727125.pth                 | Hamilton 0.12786342203617096
+./Humanoid-v3_PPO_1_12163/actor_000011818365.pth                 | Hamilton 0.1539911925792694
+./Humanoid-v3_PPO_1_12163/actor_000012903175.pth                 | Hamilton 0.12738411128520966
+./Humanoid-v3_PPO_1_12163/actor_000013990927.pth                 | Hamilton 0.12287505716085434
+./Humanoid-v3_PPO_1_12163/actor_000015079907.pth                 | Hamilton 0.11835727095603943
+./Humanoid-v3_PPO_1_12163/actor_000016148312.pth                 | Hamilton 0.12229346483945847
+./Humanoid-v3_PPO_1_12163/actor_000017220854.pth                 | Hamilton 0.1064532995223999
+./Humanoid-v3_PPO_1_12163/actor_000018292382.pth                 | Hamilton 0.09688813984394073
+./Humanoid-v3_PPO_1_12163/actor_000019364772.pth                 | Hamilton 0.09581438452005386
+./Humanoid-v3_PPO_1_12163/actor_000020416402.pth                 | Hamilton 0.10767711699008942
+./Humanoid-v3_PPO_1_12163/actor_000021490203.pth                 | Hamilton 0.08338568359613419
+./Humanoid-v3_PPO_1_12163/actor_000022553536.pth                 | Hamilton 0.08716519176959991
+./Humanoid-v3_PPO_1_12163/actor_000023611940.pth                 | Hamilton 0.07676978409290314
+./Humanoid-v3_PPO_1_12163/actor_000024673297.pth                 | Hamilton 0.07334909588098526
+./Humanoid-v3_PPO_1_12163/actor_000025735621.pth                 | Hamilton 0.06776144355535507
+./Humanoid-v3_PPO_1_12163/actor_000026804391.pth                 | Hamilton 0.06558670103549957
+./Humanoid-v3_PPO_1_12163/actor_000027872521.pth                 | Hamilton 0.05833116173744202
+./Humanoid-v3_PPO_1_12163/actor_000028930077.pth                 | Hamilton 0.06019581854343414
+./Humanoid-v3_PPO_1_12163/actor_000029994618.pth                 | Hamilton 0.05537016689777374
+./Humanoid-v3_PPO_1_12163/actor_000031053027.pth                 | Hamilton 0.04344930127263069
+./Humanoid-v3_PPO_1_12163/actor_000032113320.pth                 | Hamilton 0.04432051256299019
+./Humanoid-v3_PPO_1_12163/actor_000033170362.pth                 | Hamilton 0.0436234213411808
+./Humanoid-v3_PPO_1_12163/actor_000034222634.pth                 | Hamilton 0.044859353452920914
+./Humanoid-v3_PPO_1_12163/actor_000035304566.pth                 | Hamilton 0.04200012981891632
+./Humanoid-v3_PPO_1_12163/actor_000036378916.pth                 | Hamilton 0.0350864976644516
+./Humanoid-v3_PPO_1_12163/actor_000037447688.pth                 | Hamilton 0.035870373249053955
+./Humanoid-v3_PPO_1_12163/actor_000038526263.pth                 | Hamilton 0.035576753318309784
+./Humanoid-v3_PPO_1_12163/actor_000039592565.pth                 | Hamilton 0.032685451209545135
+./Humanoid-v3_PPO_1_12163/actor_000040663920.pth                 | Hamilton 0.03560031205415726
+./Humanoid-v3_PPO_1_12163/actor_000041733296.pth                 | Hamilton 0.03140128403902054
+./Humanoid-v3_PPO_1_12163/actor_000042813691.pth                 | Hamilton 0.03015800379216671
+./Humanoid-v3_PPO_1_12163/actor_000043887612.pth                 | Hamilton 0.02578139863908291
+./Humanoid-v3_PPO_1_12163/actor_000044953310.pth                 | Hamilton 0.02614319510757923
+./Humanoid-v3_PPO_1_12163/actor_000046024932.pth                 | Hamilton 0.02799818478524685
+./Humanoid-v3_PPO_1_12163/actor_000047097448.pth                 | Hamilton 0.024935496971011162
+./Humanoid-v3_PPO_1_12163/actor_000048161312.pth                 | Hamilton 0.026888230815529823
+./Humanoid-v3_PPO_1_12163/actor_000049230121.pth                 | Hamilton 0.02502981573343277
+./Humanoid-v3_PPO_1_12163/actor_000050309118.pth                 | Hamilton 0.024827178567647934
+./Humanoid-v3_PPO_1_12163/actor_000051380585.pth                 | Hamilton 0.0275689959526062
+./Humanoid-v3_PPO_1_12163/actor_000052449009.pth                 | Hamilton 0.02503933571279049
+./Humanoid-v3_PPO_1_12163/actor_000053519480.pth                 | Hamilton 0.020775971934199333
+./Humanoid-v3_PPO_1_12163/actor_000054577375.pth                 | Hamilton 0.021033601835370064
+./Humanoid-v3_PPO_1_12163/actor_000055636220.pth                 | Hamilton 0.022039370611310005
+./Humanoid-v3_PPO_1_12163/actor_000056693412.pth                 | Hamilton 0.024740155786275864
+./Humanoid-v3_PPO_1_12163/actor_000057745862.pth                 | Hamilton 0.022060979157686234
+./Humanoid-v3_PPO_1_12163/actor_000058803246.pth                 | Hamilton 0.021534819155931473
+./Humanoid-v3_PPO_1_12163/actor_000059848669.pth                 | Hamilton 0.01842654123902321
+./Humanoid-v3_PPO_1_12163/actor_000060894779.pth                 | Hamilton 0.01610112003982067
+./Humanoid-v3_PPO_1_12163/actor_000061950089.pth                 | Hamilton 0.022715415805578232
+./Humanoid-v3_PPO_1_12163/actor_000063011356.pth                 | Hamilton 0.017054984346032143
+./Humanoid-v3_PPO_1_12163/actor_000064071902.pth                 | Hamilton 0.01832679472863674
+./Humanoid-v3_PPO_1_12163/actor_000065139388.pth                 | Hamilton 0.01720341481268406
+./Humanoid-v3_PPO_1_12163/actor_000066195958.pth                 | Hamilton 0.015391580760478973
+./Humanoid-v3_PPO_1_12163/actor_000067254833.pth                 | Hamilton 0.01721765846014023
+./Humanoid-v3_PPO_1_12163/actor_000068303613.pth                 | Hamilton 0.01933548040688038
+./Humanoid-v3_PPO_1_12163/actor_000069352791.pth                 | Hamilton 0.0174593236297369
+./Humanoid-v3_PPO_1_12163/actor_000070419230.pth                 | Hamilton 0.018092216923832893
+./Humanoid-v3_PPO_1_12163/actor_000071495599.pth                 | Hamilton 0.014242338016629219
+./Humanoid-v3_PPO_1_12163/actor_000072575311.pth                 | Hamilton 0.014192990027368069
+./Humanoid-v3_PPO_1_12163/actor_000073646993.pth                 | Hamilton 0.014867308549582958
+./Humanoid-v3_PPO_1_12163/actor_000074720187.pth                 | Hamilton 0.014990294352173805
+./Humanoid-v3_PPO_1_12163/actor_000075774821.pth                 | Hamilton 0.01650562509894371
+./Humanoid-v3_PPO_1_12163/actor_000076826926.pth                 | Hamilton 0.017760004848241806
+./Humanoid-v3_PPO_1_12163/actor_000077887180.pth                 | Hamilton 0.015743592754006386
+./Humanoid-v3_PPO_1_12163/actor_000078948698.pth                 | Hamilton 0.015605615451931953
+./Humanoid-v3_PPO_1_12163/actor_000080028672.pth                 | Hamilton 0.016591545194387436
+./Humanoid-v3_PPO_1_12163/actor_000081092988.pth                 | Hamilton 0.013885377906262875
+./Humanoid-v3_PPO_1_12163/actor_000082150938.pth                 | Hamilton 0.015452136285603046
+./Humanoid-v3_PPO_1_12163/actor_000083226272.pth                 | Hamilton 0.013292834162712097
+./Humanoid-v3_PPO_1_12163/actor_000084315697.pth                 | Hamilton 0.013336403295397758
+./Humanoid-v3_PPO_1_12163/actor_000085398831.pth                 | Hamilton 0.012728032656013966
+./Humanoid-v3_PPO_1_12163/actor_000086462270.pth                 | Hamilton 0.014807147905230522
+./Humanoid-v3_PPO_1_12163/actor_000087543043.pth                 | Hamilton 0.01517474465072155
+./Humanoid-v3_PPO_1_12163/actor_000088615424.pth                 | Hamilton 0.011902659200131893
+./Humanoid-v3_PPO_1_12163/actor_000089693809.pth                 | Hamilton 0.011332799680531025
+./Humanoid-v3_PPO_1_12163/actor_000090772202.pth                 | Hamilton 0.012985597364604473
+./Humanoid-v3_PPO_1_12163/actor_000091840029.pth                 | Hamilton 0.01333997305482626
+./Humanoid-v3_PPO_1_12163/actor_000092901961.pth                 | Hamilton 0.011972179636359215
+./Humanoid-v3_PPO_1_12163/actor_000093984958.pth                 | Hamilton 0.01070544682443142
+./Humanoid-v3_PPO_1_12163/actor_000095063401.pth                 | Hamilton 0.014591872692108154
+./Humanoid-v3_PPO_1_12163/actor_000096131061.pth                 | Hamilton 0.011899355798959732
+./Humanoid-v3_PPO_1_12163/actor_000097192951.pth                 | Hamilton 0.011008753441274166
+./Humanoid-v3_PPO_1_12163/actor_000098265618.pth                 | Hamilton 0.013001998886466026
+./Humanoid-v3_PPO_1_12163/actor_000099339822.pth                 | Hamilton 0.012511848472058773
+./Humanoid-v3_PPO_1_12163/actor_000100409092.pth                 | Hamilton 0.011879532597959042
+./Humanoid-v3_PPO_1_12163/actor_000101487843.pth                 | Hamilton 0.011638682335615158
+./Humanoid-v3_PPO_1_12163/actor_000102550987.pth                 | Hamilton 0.011632084846496582
+./Humanoid-v3_PPO_1_12163/actor_000103610706.pth                 | Hamilton 0.01276202592998743
+./Humanoid-v3_PPO_1_12163/actor_000104685349.pth                 | Hamilton 0.013183681294322014
+./Humanoid-v3_PPO_1_12163/actor_000105749519.pth                 | Hamilton 0.01066779438406229
+./Humanoid-v3_PPO_1_12163/actor_000106820495.pth                 | Hamilton 0.009783798828721046
+./Humanoid-v3_PPO_1_12163/actor_000107892424.pth                 | Hamilton 0.010112997144460678
+./Humanoid-v3_PPO_1_12163/actor_000108966100.pth                 | Hamilton 0.009121796116232872
+./Humanoid-v3_PPO_1_12163/actor_000110039277.pth                 | Hamilton 0.010811982676386833
+./Humanoid-v3_PPO_1_12163/actor_000111116020.pth                 | Hamilton 0.00820975936949253
+./Humanoid-v3_PPO_1_12163/actor_000112180645.pth                 | Hamilton 0.00927242636680603
+./Humanoid-v3_PPO_1_12163/actor_000113246999.pth                 | Hamilton 0.008470394648611546
+./Humanoid-v3_PPO_1_12163/actor_000114311656.pth                 | Hamilton 0.007810091599822044
+./Humanoid-v3_PPO_1_12163/actor_000115396484.pth                 | Hamilton 0.010954611003398895
+./Humanoid-v3_PPO_1_12163/actor_000116469992.pth                 | Hamilton 0.010519781149923801
+./Humanoid-v3_PPO_1_12163/actor_000117554963.pth                 | Hamilton 0.009184564463794231
+./Humanoid-v3_PPO_1_12163/actor_000118632075.pth                 | Hamilton 0.010162292048335075
+./Humanoid-v3_PPO_1_12163/actor_000119700130.pth                 | Hamilton 0.0076871528290212154
+./Humanoid-v3_PPO_1_12163/actor_000120768448.pth                 | Hamilton 0.007597841322422028
+./Humanoid-v3_PPO_1_12163/actor_000121847245.pth                 | Hamilton 0.00838988646864891
+./Humanoid-v3_PPO_1_12163/actor_000122924889.pth                 | Hamilton 0.008655181154608727
+./Humanoid-v3_PPO_1_12163/actor_000123997498.pth                 | Hamilton 0.008889286778867245
+./Humanoid-v3_PPO_1_12163/actor_000125078319.pth                 | Hamilton 0.00809280201792717
+./Humanoid-v3_PPO_1_12163/actor_000126164072.pth                 | Hamilton 0.009464731439948082
+./Humanoid-v3_PPO_1_12163/actor_000002184685.pth                 | Hamilton 0.00017076915537472814
+./Humanoid-v3_PPO_1_12163/actor_000003203682.pth                 | Hamilton 0.00035832056892104447
+./Humanoid-v3_PPO_1_12163/actor_000004266366.pth                 | Hamilton 0.0008324697846546769
+./Humanoid-v3_PPO_1_12163/actor_000005330575.pth                 | Hamilton 0.001992176752537489
+./Humanoid-v3_PPO_1_12163/actor_000006398893.pth                 | Hamilton 0.005656303837895393
+./Humanoid-v3_PPO_1_12163/actor_000007480462.pth                 | Hamilton 0.024866096675395966
+./Humanoid-v3_PPO_1_12163/actor_000008554060.pth                 | Hamilton 0.08873523026704788
+./Humanoid-v3_PPO_1_12163/actor_000009637436.pth                 | Hamilton 0.13806229829788208
+./Humanoid-v3_PPO_1_12163/actor_000010727125.pth                 | Hamilton 0.12786342203617096
+./Humanoid-v3_PPO_1_12163/actor_000011818365.pth                 | Hamilton 0.1539911925792694
+./Humanoid-v3_PPO_1_12163/actor_000012903175.pth                 | Hamilton 0.12738411128520966
+./Humanoid-v3_PPO_1_12163/actor_000013990927.pth                 | Hamilton 0.12287505716085434
+./Humanoid-v3_PPO_1_12163/actor_000015079907.pth                 | Hamilton 0.11835727095603943
+./Humanoid-v3_PPO_1_12163/actor_000016148312.pth                 | Hamilton 0.12229346483945847
+./Humanoid-v3_PPO_1_12163/actor_000017220854.pth                 | Hamilton 0.1064532995223999
+./Humanoid-v3_PPO_1_12163/actor_000018292382.pth                 | Hamilton 0.09688813984394073
+./Humanoid-v3_PPO_1_12163/actor_000019364772.pth                 | Hamilton 0.09581438452005386
+./Humanoid-v3_PPO_1_12163/actor_000020416402.pth                 | Hamilton 0.10767711699008942
+./Humanoid-v3_PPO_1_12163/actor_000021490203.pth                 | Hamilton 0.08338568359613419
+./Humanoid-v3_PPO_1_12163/actor_000022553536.pth                 | Hamilton 0.08716519176959991
+./Humanoid-v3_PPO_1_12163/actor_000023611940.pth                 | Hamilton 0.07676978409290314
+./Humanoid-v3_PPO_1_12163/actor_000024673297.pth                 | Hamilton 0.07334909588098526
+./Humanoid-v3_PPO_1_12163/actor_000025735621.pth                 | Hamilton 0.06776144355535507
+./Humanoid-v3_PPO_1_12163/actor_000026804391.pth                 | Hamilton 0.06558670103549957
+./Humanoid-v3_PPO_1_12163/actor_000027872521.pth                 | Hamilton 0.05833116173744202
+./Humanoid-v3_PPO_1_12163/actor_000028930077.pth                 | Hamilton 0.06019581854343414
+./Humanoid-v3_PPO_1_12163/actor_000029994618.pth                 | Hamilton 0.05537016689777374
+./Humanoid-v3_PPO_1_12163/actor_000031053027.pth                 | Hamilton 0.04344930127263069
+./Humanoid-v3_PPO_1_12163/actor_000032113320.pth                 | Hamilton 0.04432051256299019
+./Humanoid-v3_PPO_1_12163/actor_000033170362.pth                 | Hamilton 0.0436234213411808
+./Humanoid-v3_PPO_1_12163/actor_000034222634.pth                 | Hamilton 0.044859353452920914
+./Humanoid-v3_PPO_1_12163/actor_000035304566.pth                 | Hamilton 0.04200012981891632
+./Humanoid-v3_PPO_1_12163/actor_000036378916.pth                 | Hamilton 0.0350864976644516
+./Humanoid-v3_PPO_1_12163/actor_000037447688.pth                 | Hamilton 0.035870373249053955
+./Humanoid-v3_PPO_1_12163/actor_000038526263.pth                 | Hamilton 0.035576753318309784
+./Humanoid-v3_PPO_1_12163/actor_000039592565.pth                 | Hamilton 0.032685451209545135
+./Humanoid-v3_PPO_1_12163/actor_000040663920.pth                 | Hamilton 0.03560031205415726
+./Humanoid-v3_PPO_1_12163/actor_000041733296.pth                 | Hamilton 0.03140128403902054
+./Humanoid-v3_PPO_1_12163/actor_000042813691.pth                 | Hamilton 0.03015800379216671
+./Humanoid-v3_PPO_1_12163/actor_000043887612.pth                 | Hamilton 0.02578139863908291
+./Humanoid-v3_PPO_1_12163/actor_000044953310.pth                 | Hamilton 0.02614319510757923
+./Humanoid-v3_PPO_1_12163/actor_000046024932.pth                 | Hamilton 0.02799818478524685
+./Humanoid-v3_PPO_1_12163/actor_000047097448.pth                 | Hamilton 0.024935496971011162
+./Humanoid-v3_PPO_1_12163/actor_000048161312.pth                 | Hamilton 0.026888230815529823
+./Humanoid-v3_PPO_1_12163/actor_000049230121.pth                 | Hamilton 0.02502981573343277
+./Humanoid-v3_PPO_1_12163/actor_000050309118.pth                 | Hamilton 0.024827178567647934
+./Humanoid-v3_PPO_1_12163/actor_000051380585.pth                 | Hamilton 0.0275689959526062
+./Humanoid-v3_PPO_1_12163/actor_000052449009.pth                 | Hamilton 0.02503933571279049
+./Humanoid-v3_PPO_1_12163/actor_000053519480.pth                 | Hamilton 0.020775971934199333
+./Humanoid-v3_PPO_1_12163/actor_000054577375.pth                 | Hamilton 0.021033601835370064
+./Humanoid-v3_PPO_1_12163/actor_000055636220.pth                 | Hamilton 0.022039370611310005
+./Humanoid-v3_PPO_1_12163/actor_000056693412.pth                 | Hamilton 0.024740155786275864
+./Humanoid-v3_PPO_1_12163/actor_000057745862.pth                 | Hamilton 0.022060979157686234
+./Humanoid-v3_PPO_1_12163/actor_000058803246.pth                 | Hamilton 0.021534819155931473
+./Humanoid-v3_PPO_1_12163/actor_000059848669.pth                 | Hamilton 0.01842654123902321
+./Humanoid-v3_PPO_1_12163/actor_000060894779.pth                 | Hamilton 0.01610112003982067
+./Humanoid-v3_PPO_1_12163/actor_000061950089.pth                 | Hamilton 0.022715415805578232
+./Humanoid-v3_PPO_1_12163/actor_000063011356.pth                 | Hamilton 0.017054984346032143
+./Humanoid-v3_PPO_1_12163/actor_000064071902.pth                 | Hamilton 0.01832679472863674
+./Humanoid-v3_PPO_1_12163/actor_000065139388.pth                 | Hamilton 0.01720341481268406
+./Humanoid-v3_PPO_1_12163/actor_000066195958.pth                 | Hamilton 0.015391580760478973
+./Humanoid-v3_PPO_1_12163/actor_000067254833.pth                 | Hamilton 0.01721765846014023
+./Humanoid-v3_PPO_1_12163/actor_000068303613.pth                 | Hamilton 0.01933548040688038
+./Humanoid-v3_PPO_1_12163/actor_000069352791.pth                 | Hamilton 0.0174593236297369
+./Humanoid-v3_PPO_1_12163/actor_000070419230.pth                 | Hamilton 0.018092216923832893
+./Humanoid-v3_PPO_1_12163/actor_000071495599.pth                 | Hamilton 0.014242338016629219
+./Humanoid-v3_PPO_1_12163/actor_000072575311.pth                 | Hamilton 0.014192990027368069
+./Humanoid-v3_PPO_1_12163/actor_000073646993.pth                 | Hamilton 0.014867308549582958
+./Humanoid-v3_PPO_1_12163/actor_000074720187.pth                 | Hamilton 0.014990294352173805
+./Humanoid-v3_PPO_1_12163/actor_000075774821.pth                 | Hamilton 0.01650562509894371
+./Humanoid-v3_PPO_1_12163/actor_000076826926.pth                 | Hamilton 0.017760004848241806
+./Humanoid-v3_PPO_1_12163/actor_000077887180.pth                 | Hamilton 0.015743592754006386
+./Humanoid-v3_PPO_1_12163/actor_000078948698.pth                 | Hamilton 0.015605615451931953
+./Humanoid-v3_PPO_1_12163/actor_000080028672.pth                 | Hamilton 0.016591545194387436
+./Humanoid-v3_PPO_1_12163/actor_000081092988.pth                 | Hamilton 0.013885377906262875
+./Humanoid-v3_PPO_1_12163/actor_000082150938.pth                 | Hamilton 0.015452136285603046
+./Humanoid-v3_PPO_1_12163/actor_000083226272.pth                 | Hamilton 0.013292834162712097
+./Humanoid-v3_PPO_1_12163/actor_000084315697.pth                 | Hamilton 0.013336403295397758
+./Humanoid-v3_PPO_1_12163/actor_000085398831.pth                 | Hamilton 0.012728032656013966
+./Humanoid-v3_PPO_1_12163/actor_000086462270.pth                 | Hamilton 0.014807147905230522
+./Humanoid-v3_PPO_1_12163/actor_000087543043.pth                 | Hamilton 0.01517474465072155
+./Humanoid-v3_PPO_1_12163/actor_000088615424.pth                 | Hamilton 0.011902659200131893
+./Humanoid-v3_PPO_1_12163/actor_000089693809.pth                 | Hamilton 0.011332799680531025
+./Humanoid-v3_PPO_1_12163/actor_000090772202.pth                 | Hamilton 0.012985597364604473
+./Humanoid-v3_PPO_1_12163/actor_000091840029.pth                 | Hamilton 0.01333997305482626
+./Humanoid-v3_PPO_1_12163/actor_000092901961.pth                 | Hamilton 0.011972179636359215
+./Humanoid-v3_PPO_1_12163/actor_000093984958.pth                 | Hamilton 0.01070544682443142
+./Humanoid-v3_PPO_1_12163/actor_000095063401.pth                 | Hamilton 0.014591872692108154
+./Humanoid-v3_PPO_1_12163/actor_000096131061.pth                 | Hamilton 0.011899355798959732
+./Humanoid-v3_PPO_1_12163/actor_000097192951.pth                 | Hamilton 0.011008753441274166
+./Humanoid-v3_PPO_1_12163/actor_000098265618.pth                 | Hamilton 0.013001998886466026
+./Humanoid-v3_PPO_1_12163/actor_000099339822.pth                 | Hamilton 0.012511848472058773
+./Humanoid-v3_PPO_1_12163/actor_000100409092.pth                 | Hamilton 0.011879532597959042
+./Humanoid-v3_PPO_1_12163/actor_000101487843.pth                 | Hamilton 0.011638682335615158
+./Humanoid-v3_PPO_1_12163/actor_000102550987.pth                 | Hamilton 0.011632084846496582
+./Humanoid-v3_PPO_1_12163/actor_000103610706.pth                 | Hamilton 0.01276202592998743
+./Humanoid-v3_PPO_1_12163/actor_000104685349.pth                 | Hamilton 0.013183681294322014
+./Humanoid-v3_PPO_1_12163/actor_000105749519.pth                 | Hamilton 0.01066779438406229
+./Humanoid-v3_PPO_1_12163/actor_000106820495.pth                 | Hamilton 0.009783798828721046
+./Humanoid-v3_PPO_1_12163/actor_000107892424.pth                 | Hamilton 0.010112997144460678
+./Humanoid-v3_PPO_1_12163/actor_000108966100.pth                 | Hamilton 0.009121796116232872
+./Humanoid-v3_PPO_1_12163/actor_000110039277.pth                 | Hamilton 0.010811982676386833
+./Humanoid-v3_PPO_1_12163/actor_000111116020.pth                 | Hamilton 0.00820975936949253
+./Humanoid-v3_PPO_1_12163/actor_000112180645.pth                 | Hamilton 0.00927242636680603
+./Humanoid-v3_PPO_1_12163/actor_000113246999.pth                 | Hamilton 0.008470394648611546
+./Humanoid-v3_PPO_1_12163/actor_000114311656.pth                 | Hamilton 0.007810091599822044
+./Humanoid-v3_PPO_1_12163/actor_000115396484.pth                 | Hamilton 0.010954611003398895
+./Humanoid-v3_PPO_1_12163/actor_000116469992.pth                 | Hamilton 0.010519781149923801
+./Humanoid-v3_PPO_1_12163/actor_000117554963.pth                 | Hamilton 0.009184564463794231
+./Humanoid-v3_PPO_1_12163/actor_000118632075.pth                 | Hamilton 0.010162292048335075
+./Humanoid-v3_PPO_1_12163/actor_000119700130.pth                 | Hamilton 0.0076871528290212154
+./Humanoid-v3_PPO_1_12163/actor_000120768448.pth                 | Hamilton 0.007597841322422028
+./Humanoid-v3_PPO_1_12163/actor_000121847245.pth                 | Hamilton 0.00838988646864891
+./Humanoid-v3_PPO_1_12163/actor_000122924889.pth                 | Hamilton 0.008655181154608727
+./Humanoid-v3_PPO_1_12163/actor_000123997498.pth                 | Hamilton 0.008889286778867245
+./Humanoid-v3_PPO_1_12163/actor_000125078319.pth                 | Hamilton 0.00809280201792717
+./Humanoid-v3_PPO_1_12163/actor_000126164072.pth                 | Hamilton 0.009464731439948082
+./Humanoid-v3_PPO_1_12163/actor_000127255312.pth                 | Hamilton 0.009152554906904697
+./Humanoid-v3_PPO_1_12163/actor_000128338707.pth                 | Hamilton 0.009309385903179646
+./Humanoid-v3_PPO_1_12163/actor_000129418583.pth                 | Hamilton 0.007780071813613176
+./Humanoid-v3_PPO_1_12163/actor_000130503884.pth                 | Hamilton 0.00809682346880436
+./Humanoid-v3_PPO_1_12163/actor_000131582384.pth                 | Hamilton 0.009696158580482006
+./Humanoid-v3_PPO_1_12163/actor_000132669375.pth                 | Hamilton 0.008007356896996498
+./Humanoid-v3_PPO_1_12163/actor_000133744368.pth                 | Hamilton 0.007947931066155434
+./Humanoid-v3_PPO_1_12163/actor_000134832215.pth                 | Hamilton 0.00801115483045578
+./Humanoid-v3_PPO_1_12163/actor_000135914707.pth                 | Hamilton 0.00868705753237009
+./Humanoid-v3_PPO_1_12163/actor_000137001027.pth                 | Hamilton 0.006609027739614248
+./Humanoid-v3_PPO_1_12163/actor_000138081188.pth                 | Hamilton 0.007958009839057922
+./Humanoid-v3_PPO_1_12163/actor_000139155975.pth                 | Hamilton 0.007521847262978554
+./Humanoid-v3_PPO_1_12163/actor__000000048183_00066.895.pth      | Hamilton 3.3693447676341748e-06
+./Humanoid-v3_PPO_1_12163/actor__000001021631_00691.601.pth      | Hamilton 9.700747796159703e-06
+./Humanoid-v3_PPO_1_12163/actor__000001985719_01499.742.pth      | Hamilton 2.731245149334427e-05
+./Humanoid-v3_PPO_1_12163/actor__000002945119_02945.898.pth      | Hamilton 6.511711399070919e-05
+./Humanoid-v3_PPO_1_12163/actor__000003916981_05139.070.pth      | Hamilton 0.00014375684258993715
+./Humanoid-v3_PPO_1_12163/actor__000005837847_06519.394.pth      | Hamilton 0.0008063034038059413
+./Humanoid-v3_PPO_1_12163/actor__000008739378_07953.376.pth      | Hamilton 0.01732577569782734
+./Humanoid-v3_PPO_1_12163/actor__000009719571_08855.665.pth      | Hamilton 0.026463143527507782
+./Humanoid-v3_PPO_1_12163/actor__000013612994_09732.908.pth      | Hamilton 0.025281773880124092
+./Humanoid-v3_PPO_1_12163/actor__000016494377_09831.659.pth      | Hamilton 0.02762601710855961
+./Humanoid-v3_PPO_1_12163/actor__000018373785_10863.449.pth      | Hamilton 0.027282550930976868
+./Humanoid-v3_PPO_1_12163/actor__000021225818_11001.055.pth      | Hamilton 0.026280341669917107
+./Humanoid-v3_PPO_1_12163/actor__000022181621_11251.463.pth      | Hamilton 0.029323674738407135
+./Humanoid-v3_PPO_1_12163/actor__000028875206_11310.242.pth      | Hamilton 0.020171033218503
+./Humanoid-v3_PPO_1_12163/actor__000032695379_11551.766.pth      | Hamilton 0.015605180524289608
+./Humanoid-v3_PPO_1_12163/actor__000042299664_11700.186.pth      | Hamilton 0.011609300039708614
+./Humanoid-v3_PPO_1_12163/actor__000048968733_11890.980.pth      | Hamilton 0.013961022719740868
+./Humanoid-v3_PPO_1_12163/actor__000060343143_11943.898.pth      | Hamilton 0.009811471216380596
+./Humanoid-v3_PPO_1_12163/actor__000070818022_11948.539.pth      | Hamilton 0.0109059764072299
+./Humanoid-v3_PPO_1_12163/actor__000078389658_12038.896.pth      | Hamilton 0.010543580166995525
+./Humanoid-v3_PPO_1_12163/actor__000091604469_12088.028.pth      | Hamilton 0.011014792136847973
+./Humanoid-v3_PPO_1_12163/actor__000100115646_12101.240.pth      | Hamilton 0.009135846048593521
+./Humanoid-v3_PPO_1_12163/actor__000102943523_12163.836.pth      | Hamilton 0.011690276674926281
+    """
+    # Humanoid-v3_PPO_2_10777
+    data23 = """
+./Humanoid-v3_PPO_2_10777/actor_000000216874.pth                 | Hamilton 3.688501237775199e-05
+./Humanoid-v3_PPO_2_10777/actor_000001188994.pth                 | Hamilton 6.286639836616814e-05
+./Humanoid-v3_PPO_2_10777/actor_000002173367.pth                 | Hamilton 0.00016023675561882555
+./Humanoid-v3_PPO_2_10777/actor_000003184123.pth                 | Hamilton 0.00036540161818265915
+./Humanoid-v3_PPO_2_10777/actor_000004210987.pth                 | Hamilton 0.0010902626672759652
+./Humanoid-v3_PPO_2_10777/actor_000005266513.pth                 | Hamilton 0.0023191741202026606
+./Humanoid-v3_PPO_2_10777/actor_000006327525.pth                 | Hamilton 0.0058968560770154
+./Humanoid-v3_PPO_2_10777/actor_000007389701.pth                 | Hamilton 0.010458181612193584
+./Humanoid-v3_PPO_2_10777/actor_000008449869.pth                 | Hamilton 0.024956677109003067
+./Humanoid-v3_PPO_2_10777/actor_000009517989.pth                 | Hamilton 0.06226586923003197
+./Humanoid-v3_PPO_2_10777/actor_000010585518.pth                 | Hamilton 0.12757600843906403
+./Humanoid-v3_PPO_2_10777/actor_000011655114.pth                 | Hamilton 0.17442172765731812
+./Humanoid-v3_PPO_2_10777/actor_000012728514.pth                 | Hamilton 0.14082498848438263
+./Humanoid-v3_PPO_2_10777/actor_000013795000.pth                 | Hamilton 0.16356539726257324
+./Humanoid-v3_PPO_2_10777/actor_000014868698.pth                 | Hamilton 0.16905692219734192
+./Humanoid-v3_PPO_2_10777/actor_000015945584.pth                 | Hamilton 0.12859639525413513
+./Humanoid-v3_PPO_2_10777/actor_000017006355.pth                 | Hamilton 0.10267926752567291
+./Humanoid-v3_PPO_2_10777/actor_000018075577.pth                 | Hamilton 0.09055311232805252
+./Humanoid-v3_PPO_2_10777/actor_000019165560.pth                 | Hamilton 0.09740696847438812
+./Humanoid-v3_PPO_2_10777/actor_000020258221.pth                 | Hamilton 0.09980619698762894
+./Humanoid-v3_PPO_2_10777/actor_000021347058.pth                 | Hamilton 0.08917375653982162
+./Humanoid-v3_PPO_2_10777/actor_000022428001.pth                 | Hamilton 0.06337645649909973
+./Humanoid-v3_PPO_2_10777/actor_000023506536.pth                 | Hamilton 0.07432126253843307
+./Humanoid-v3_PPO_2_10777/actor_000024578031.pth                 | Hamilton 0.07724715024232864
+./Humanoid-v3_PPO_2_10777/actor_000025655623.pth                 | Hamilton 0.08502496033906937
+./Humanoid-v3_PPO_2_10777/actor_000026734442.pth                 | Hamilton 0.07366809993982315
+./Humanoid-v3_PPO_2_10777/actor_000027807727.pth                 | Hamilton 0.07359852641820908
+./Humanoid-v3_PPO_2_10777/actor_000028892745.pth                 | Hamilton 0.06446859985589981
+./Humanoid-v3_PPO_2_10777/actor_000029975796.pth                 | Hamilton 0.053645338863134384
+./Humanoid-v3_PPO_2_10777/actor_000031079418.pth                 | Hamilton 0.05577891319990158
+./Humanoid-v3_PPO_2_10777/actor_000032160779.pth                 | Hamilton 0.059316832572221756
+./Humanoid-v3_PPO_2_10777/actor_000033251749.pth                 | Hamilton 0.05422336980700493
+./Humanoid-v3_PPO_2_10777/actor_000034340242.pth                 | Hamilton 0.05780305340886116
+./Humanoid-v3_PPO_2_10777/actor_000035436129.pth                 | Hamilton 0.051680777221918106
+./Humanoid-v3_PPO_2_10777/actor_000036520797.pth                 | Hamilton 0.05173584446310997
+./Humanoid-v3_PPO_2_10777/actor_000037599174.pth                 | Hamilton 0.060392413288354874
+./Humanoid-v3_PPO_2_10777/actor_000038688283.pth                 | Hamilton 0.04602271318435669
+./Humanoid-v3_PPO_2_10777/actor_000039779314.pth                 | Hamilton 0.043889157474040985
+./Humanoid-v3_PPO_2_10777/actor_000040865656.pth                 | Hamilton 0.04328423738479614
+./Humanoid-v3_PPO_2_10777/actor_000041948139.pth                 | Hamilton 0.04392097890377045
+./Humanoid-v3_PPO_2_10777/actor_000043035112.pth                 | Hamilton 0.045043688267469406
+./Humanoid-v3_PPO_2_10777/actor_000044123980.pth                 | Hamilton 0.04191465675830841
+./Humanoid-v3_PPO_2_10777/actor_000045215820.pth                 | Hamilton 0.04318935051560402
+./Humanoid-v3_PPO_2_10777/actor_000046297668.pth                 | Hamilton 0.033199165016412735
+./Humanoid-v3_PPO_2_10777/actor_000047391744.pth                 | Hamilton 0.038668230175971985
+./Humanoid-v3_PPO_2_10777/actor_000048477919.pth                 | Hamilton 0.03518645092844963
+./Humanoid-v3_PPO_2_10777/actor_000049562665.pth                 | Hamilton 0.029465997591614723
+./Humanoid-v3_PPO_2_10777/actor_000050647153.pth                 | Hamilton 0.031955014914274216
+./Humanoid-v3_PPO_2_10777/actor_000051738244.pth                 | Hamilton 0.033259421586990356
+./Humanoid-v3_PPO_2_10777/actor_000052830021.pth                 | Hamilton 0.03213287517428398
+./Humanoid-v3_PPO_2_10777/actor_000053920867.pth                 | Hamilton 0.03115176595747471
+./Humanoid-v3_PPO_2_10777/actor_000055010130.pth                 | Hamilton 0.027640821412205696
+./Humanoid-v3_PPO_2_10777/actor_000056102269.pth                 | Hamilton 0.031017575412988663
+./Humanoid-v3_PPO_2_10777/actor_000057184828.pth                 | Hamilton 0.024574635550379753
+./Humanoid-v3_PPO_2_10777/actor_000058259311.pth                 | Hamilton 0.033203840255737305
+./Humanoid-v3_PPO_2_10777/actor_000059347323.pth                 | Hamilton 0.029378993436694145
+./Humanoid-v3_PPO_2_10777/actor_000060429632.pth                 | Hamilton 0.025706259533762932
+./Humanoid-v3_PPO_2_10777/actor_000061523859.pth                 | Hamilton 0.025175416842103004
+./Humanoid-v3_PPO_2_10777/actor_000062618903.pth                 | Hamilton 0.029686741530895233
+./Humanoid-v3_PPO_2_10777/actor_000063706641.pth                 | Hamilton 0.025953758507966995
+./Humanoid-v3_PPO_2_10777/actor_000064794246.pth                 | Hamilton 0.024030476808547974
+./Humanoid-v3_PPO_2_10777/actor_000065876548.pth                 | Hamilton 0.0233840923756361
+./Humanoid-v3_PPO_2_10777/actor_000066968661.pth                 | Hamilton 0.020464828237891197
+./Humanoid-v3_PPO_2_10777/actor_000068054556.pth                 | Hamilton 0.0246622022241354
+./Humanoid-v3_PPO_2_10777/actor_000069140138.pth                 | Hamilton 0.022240854799747467
+./Humanoid-v3_PPO_2_10777/actor_000070231953.pth                 | Hamilton 0.018986834213137627
+./Humanoid-v3_PPO_2_10777/actor_000071318256.pth                 | Hamilton 0.017502957955002785
+./Humanoid-v3_PPO_2_10777/actor_000072401049.pth                 | Hamilton 0.019304823130369186
+./Humanoid-v3_PPO_2_10777/actor_000073492591.pth                 | Hamilton 0.015940118581056595
+./Humanoid-v3_PPO_2_10777/actor_000074574020.pth                 | Hamilton 0.023459136486053467
+./Humanoid-v3_PPO_2_10777/actor_000075662625.pth                 | Hamilton 0.018537208437919617
+./Humanoid-v3_PPO_2_10777/actor_000076744245.pth                 | Hamilton 0.020491348579525948
+./Humanoid-v3_PPO_2_10777/actor_000077821526.pth                 | Hamilton 0.016735846176743507
+./Humanoid-v3_PPO_2_10777/actor_000078917856.pth                 | Hamilton 0.016052400693297386
+./Humanoid-v3_PPO_2_10777/actor_000080007087.pth                 | Hamilton 0.015021108090877533
+./Humanoid-v3_PPO_2_10777/actor_000081086116.pth                 | Hamilton 0.018561089411377907
+./Humanoid-v3_PPO_2_10777/actor_000082177930.pth                 | Hamilton 0.01733691245317459
+./Humanoid-v3_PPO_2_10777/actor_000083265701.pth                 | Hamilton 0.013707736507058144
+./Humanoid-v3_PPO_2_10777/actor_000084342174.pth                 | Hamilton 0.015957854688167572
+./Humanoid-v3_PPO_2_10777/actor_000085414894.pth                 | Hamilton 0.017749302089214325
+./Humanoid-v3_PPO_2_10777/actor_000086494698.pth                 | Hamilton 0.014833241701126099
+./Humanoid-v3_PPO_2_10777/actor_000087564851.pth                 | Hamilton 0.013536876067519188
+./Humanoid-v3_PPO_2_10777/actor_000088661937.pth                 | Hamilton 0.015723472461104393
+./Humanoid-v3_PPO_2_10777/actor_000089745645.pth                 | Hamilton 0.014462352730333805
+./Humanoid-v3_PPO_2_10777/actor_000090834625.pth                 | Hamilton 0.011510983109474182
+./Humanoid-v3_PPO_2_10777/actor_000091925938.pth                 | Hamilton 0.011909408494830132
+./Humanoid-v3_PPO_2_10777/actor_000093006954.pth                 | Hamilton 0.014872158877551556
+./Humanoid-v3_PPO_2_10777/actor_000094096408.pth                 | Hamilton 0.011801350861787796
+./Humanoid-v3_PPO_2_10777/actor_000095175286.pth                 | Hamilton 0.013554773293435574
+./Humanoid-v3_PPO_2_10777/actor_000096259095.pth                 | Hamilton 0.012987789697945118
+./Humanoid-v3_PPO_2_10777/actor_000097336964.pth                 | Hamilton 0.011369738727807999
+./Humanoid-v3_PPO_2_10777/actor_000098423982.pth                 | Hamilton 0.012872708030045033
+./Humanoid-v3_PPO_2_10777/actor_000099508590.pth                 | Hamilton 0.012393493205308914
+./Humanoid-v3_PPO_2_10777/actor_000100594630.pth                 | Hamilton 0.011294921860098839
+./Humanoid-v3_PPO_2_10777/actor_000101678214.pth                 | Hamilton 0.012004299089312553
+./Humanoid-v3_PPO_2_10777/actor_000102756892.pth                 | Hamilton 0.012431683018803596
+./Humanoid-v3_PPO_2_10777/actor_000103845467.pth                 | Hamilton 0.011705371551215649
+./Humanoid-v3_PPO_2_10777/actor_000104928223.pth                 | Hamilton 0.012635679915547371
+./Humanoid-v3_PPO_2_10777/actor_000106005584.pth                 | Hamilton 0.012604453600943089
+./Humanoid-v3_PPO_2_10777/actor_000107077404.pth                 | Hamilton 0.010718360543251038
+./Humanoid-v3_PPO_2_10777/actor_000108165561.pth                 | Hamilton 0.012056348845362663
+./Humanoid-v3_PPO_2_10777/actor_000109245837.pth                 | Hamilton 0.01160738617181778
+./Humanoid-v3_PPO_2_10777/actor_000110325598.pth                 | Hamilton 0.01328522153198719
+./Humanoid-v3_PPO_2_10777/actor_000111418250.pth                 | Hamilton 0.01034514419734478
+./Humanoid-v3_PPO_2_10777/actor_000112506448.pth                 | Hamilton 0.01113644428551197
+./Humanoid-v3_PPO_2_10777/actor_000113601834.pth                 | Hamilton 0.012702045030891895
+./Humanoid-v3_PPO_2_10777/actor_000114690046.pth                 | Hamilton 0.013557045720517635
+./Humanoid-v3_PPO_2_10777/actor_000115770632.pth                 | Hamilton 0.011984667740762234
+./Humanoid-v3_PPO_2_10777/actor_000116867228.pth                 | Hamilton 0.011185677722096443
+./Humanoid-v3_PPO_2_10777/actor_000117947552.pth                 | Hamilton 0.009565945714712143
+./Humanoid-v3_PPO_2_10777/actor_000119030120.pth                 | Hamilton 0.012525824829936028
+./Humanoid-v3_PPO_2_10777/actor_000120108108.pth                 | Hamilton 0.010960377752780914
+./Humanoid-v3_PPO_2_10777/actor_000121197064.pth                 | Hamilton 0.008720397017896175
+./Humanoid-v3_PPO_2_10777/actor_000122284289.pth                 | Hamilton 0.010008035227656364
+./Humanoid-v3_PPO_2_10777/actor_000123379001.pth                 | Hamilton 0.009965328499674797
+./Humanoid-v3_PPO_2_10777/actor_000124468699.pth                 | Hamilton 0.010664107277989388
+./Humanoid-v3_PPO_2_10777/actor_000125554594.pth                 | Hamilton 0.008891751989722252
+./Humanoid-v3_PPO_2_10777/actor_000126635162.pth                 | Hamilton 0.01048259623348713
+./Humanoid-v3_PPO_2_10777/actor_000127717267.pth                 | Hamilton 0.010834542103111744
+./Humanoid-v3_PPO_2_10777/actor_000128800754.pth                 | Hamilton 0.008265461772680283
+./Humanoid-v3_PPO_2_10777/actor_000129879490.pth                 | Hamilton 0.007939176633954048
+./Humanoid-v3_PPO_2_10777/actor_000130969646.pth                 | Hamilton 0.00975911132991314
+./Humanoid-v3_PPO_2_10777/actor_000132053425.pth                 | Hamilton 0.008543290197849274
+./Humanoid-v3_PPO_2_10777/actor_000133135826.pth                 | Hamilton 0.009344249032437801
+./Humanoid-v3_PPO_2_10777/actor_000134218044.pth                 | Hamilton 0.008578762412071228
+./Humanoid-v3_PPO_2_10777/actor_000135301361.pth                 | Hamilton 0.007356320973485708
+./Humanoid-v3_PPO_2_10777/actor_000136394836.pth                 | Hamilton 0.009892778471112251
+./Humanoid-v3_PPO_2_10777/actor_000137479706.pth                 | Hamilton 0.007941239513456821
+./Humanoid-v3_PPO_2_10777/actor_000138567380.pth                 | Hamilton 0.008850272744894028
+./Humanoid-v3_PPO_2_10777/actor__000000048075_00079.538.pth      | Hamilton 1.2859891285188496e-06
+./Humanoid-v3_PPO_2_10777/actor__000000994336_00370.034.pth      | Hamilton 4.9215609578823205e-06
+./Humanoid-v3_PPO_2_10777/actor__000001949770_01465.227.pth      | Hamilton 1.497918401582865e-05
+./Humanoid-v3_PPO_2_10777/actor__000002900150_03304.543.pth      | Hamilton 4.520599395618774e-05
+./Humanoid-v3_PPO_2_10777/actor__000003849593_05999.016.pth      | Hamilton 0.00011407655256334692
+./Humanoid-v3_PPO_2_10777/actor__000004790113_06778.250.pth      | Hamilton 0.00024688299163244665
+./Humanoid-v3_PPO_2_10777/actor__000006696339_08280.351.pth      | Hamilton 0.0009393827640451491
+./Humanoid-v3_PPO_2_10777/actor__000008610364_08713.070.pth      | Hamilton 0.004888159688562155
+./Humanoid-v3_PPO_2_10777/actor__000017247223_09074.723.pth      | Hamilton 0.02047044038772583
+./Humanoid-v3_PPO_2_10777/actor__000018215074_09439.867.pth      | Hamilton 0.027314746752381325
+./Humanoid-v3_PPO_2_10777/actor__000019165560_09809.410.pth      | Hamilton 0.028460104018449783
+./Humanoid-v3_PPO_2_10777/actor__000027862483_10202.021.pth      | Hamilton 0.02325657196342945
+./Humanoid-v3_PPO_2_10777/actor__000031728576_10338.116.pth      | Hamilton 0.0201749037951231
+./Humanoid-v3_PPO_2_10777/actor__000033659016_10362.331.pth      | Hamilton 0.020902466028928757
+./Humanoid-v3_PPO_2_10777/actor__000035570948_10448.597.pth      | Hamilton 0.02343848906457424
+./Humanoid-v3_PPO_2_10777/actor__000036520797_10503.301.pth      | Hamilton 0.029389051720499992
+./Humanoid-v3_PPO_2_10777/actor__000037492639_10506.479.pth      | Hamilton 0.029416069388389587
+./Humanoid-v3_PPO_2_10777/actor__000041374058_10555.524.pth      | Hamilton 0.01877516694366932
+./Humanoid-v3_PPO_2_10777/actor__000048122441_10558.827.pth      | Hamilton 0.016069049015641212
+./Humanoid-v3_PPO_2_10777/actor__000049970944_10668.744.pth      | Hamilton 0.01650645025074482
+./Humanoid-v3_PPO_2_10777/actor__000051821219_10696.317.pth      | Hamilton 0.020140379667282104
+./Humanoid-v3_PPO_2_10777/actor__000061055869_10777.529.pth      | Hamilton 0.015520906075835228
+    """
+    # Humanoid-v3_PPOHtermK_5_10033
+    data24 = """
+./Humanoid-v3_PPOHtermK_5_10033/actor_000000217952.pth           | Hamilton 3.860610377159901e-05
+./Humanoid-v3_PPOHtermK_5_10033/actor_000000802994.pth           | Hamilton 5.3925043175695464e-05
+./Humanoid-v3_PPOHtermK_5_10033/actor_000001391742.pth           | Hamilton 0.00010594926425255835
+./Humanoid-v3_PPOHtermK_5_10033/actor_000001986364.pth           | Hamilton 0.0001656554959481582
+./Humanoid-v3_PPOHtermK_5_10033/actor_000002591318.pth           | Hamilton 0.0002541205903980881
+./Humanoid-v3_PPOHtermK_5_10033/actor_000003206706.pth           | Hamilton 0.00040132226422429085
+./Humanoid-v3_PPOHtermK_5_10033/actor_000003843527.pth           | Hamilton 0.0006260431837290525
+./Humanoid-v3_PPOHtermK_5_10033/actor_000004483994.pth           | Hamilton 0.0011863994877785444
+./Humanoid-v3_PPOHtermK_5_10033/actor_000005124736.pth           | Hamilton 0.0018976032733917236
+./Humanoid-v3_PPOHtermK_5_10033/actor_000005762029.pth           | Hamilton 0.003409197786822915
+./Humanoid-v3_PPOHtermK_5_10033/actor_000006405478.pth           | Hamilton 0.006185619160532951
+./Humanoid-v3_PPOHtermK_5_10033/actor_000007052962.pth           | Hamilton 0.010703757405281067
+./Humanoid-v3_PPOHtermK_5_10033/actor_000007697052.pth           | Hamilton 0.025355227291584015
+./Humanoid-v3_PPOHtermK_5_10033/actor_000008352645.pth           | Hamilton 0.08646773546934128
+./Humanoid-v3_PPOHtermK_5_10033/actor_000009003333.pth           | Hamilton 0.29297369718551636
+./Humanoid-v3_PPOHtermK_5_10033/actor_000009664745.pth           | Hamilton 0.4933723211288452
+./Humanoid-v3_PPOHtermK_5_10033/actor_000010315887.pth           | Hamilton 0.6673117280006409
+./Humanoid-v3_PPOHtermK_5_10033/actor_000010972401.pth           | Hamilton 0.7406782507896423
+./Humanoid-v3_PPOHtermK_5_10033/actor_000011626069.pth           | Hamilton 0.6894894242286682
+./Humanoid-v3_PPOHtermK_5_10033/actor_000012276106.pth           | Hamilton 0.7213598489761353
+./Humanoid-v3_PPOHtermK_5_10033/actor_000012930702.pth           | Hamilton 0.7276442646980286
+./Humanoid-v3_PPOHtermK_5_10033/actor_000013578490.pth           | Hamilton 0.7638277411460876
+./Humanoid-v3_PPOHtermK_5_10033/actor_000014223193.pth           | Hamilton 0.8003742098808289
+./Humanoid-v3_PPOHtermK_5_10033/actor_000014871192.pth           | Hamilton 0.7201029062271118
+./Humanoid-v3_PPOHtermK_5_10033/actor_000015528161.pth           | Hamilton 0.6946784853935242
+./Humanoid-v3_PPOHtermK_5_10033/actor_000016181228.pth           | Hamilton 0.679459273815155
+./Humanoid-v3_PPOHtermK_5_10033/actor_000016830880.pth           | Hamilton 0.6889162063598633
+./Humanoid-v3_PPOHtermK_5_10033/actor_000017478959.pth           | Hamilton 0.6864667534828186
+./Humanoid-v3_PPOHtermK_5_10033/actor_000018129549.pth           | Hamilton 0.6885474920272827
+./Humanoid-v3_PPOHtermK_5_10033/actor_000018776099.pth           | Hamilton 0.6479623317718506
+./Humanoid-v3_PPOHtermK_5_10033/actor_000019414221.pth           | Hamilton 0.6480258107185364
+./Humanoid-v3_PPOHtermK_5_10033/actor_000020064662.pth           | Hamilton 0.6343407034873962
+./Humanoid-v3_PPOHtermK_5_10033/actor_000020715894.pth           | Hamilton 0.6557304263114929
+./Humanoid-v3_PPOHtermK_5_10033/actor_000021369272.pth           | Hamilton 0.6447092890739441
+./Humanoid-v3_PPOHtermK_5_10033/actor_000022015566.pth           | Hamilton 0.5809430480003357
+./Humanoid-v3_PPOHtermK_5_10033/actor_000022659798.pth           | Hamilton 0.5646425485610962
+./Humanoid-v3_PPOHtermK_5_10033/actor_000023303083.pth           | Hamilton 0.5440018177032471
+./Humanoid-v3_PPOHtermK_5_10033/actor_000023944272.pth           | Hamilton 0.5671209692955017
+./Humanoid-v3_PPOHtermK_5_10033/actor_000024585156.pth           | Hamilton 0.5597575902938843
+./Humanoid-v3_PPOHtermK_5_10033/actor_000025228355.pth           | Hamilton 0.5404171943664551
+./Humanoid-v3_PPOHtermK_5_10033/actor_000025873960.pth           | Hamilton 0.521878182888031
+./Humanoid-v3_PPOHtermK_5_10033/actor_000026515591.pth           | Hamilton 0.533275306224823
+./Humanoid-v3_PPOHtermK_5_10033/actor_000027155368.pth           | Hamilton 0.47113659977912903
+./Humanoid-v3_PPOHtermK_5_10033/actor_000027799516.pth           | Hamilton 0.4886125922203064
+./Humanoid-v3_PPOHtermK_5_10033/actor_000028448052.pth           | Hamilton 0.4547804594039917
+./Humanoid-v3_PPOHtermK_5_10033/actor_000029089627.pth           | Hamilton 0.4707024097442627
+./Humanoid-v3_PPOHtermK_5_10033/actor_000029736305.pth           | Hamilton 0.5186765789985657
+./Humanoid-v3_PPOHtermK_5_10033/actor_000030375812.pth           | Hamilton 0.5174707770347595
+./Humanoid-v3_PPOHtermK_5_10033/actor_000031029641.pth           | Hamilton 0.46292468905448914
+./Humanoid-v3_PPOHtermK_5_10033/actor_000031674241.pth           | Hamilton 0.4684780240058899
+./Humanoid-v3_PPOHtermK_5_10033/actor_000032321121.pth           | Hamilton 0.4487498998641968
+./Humanoid-v3_PPOHtermK_5_10033/actor_000032968545.pth           | Hamilton 0.43523114919662476
+./Humanoid-v3_PPOHtermK_5_10033/actor_000033618354.pth           | Hamilton 0.4316054582595825
+./Humanoid-v3_PPOHtermK_5_10033/actor_000034264725.pth           | Hamilton 0.4320639371871948
+./Humanoid-v3_PPOHtermK_5_10033/actor_000034907216.pth           | Hamilton 0.3904009759426117
+./Humanoid-v3_PPOHtermK_5_10033/actor_000035549801.pth           | Hamilton 0.3663322627544403
+./Humanoid-v3_PPOHtermK_5_10033/actor_000036190338.pth           | Hamilton 0.367121160030365
+./Humanoid-v3_PPOHtermK_5_10033/actor_000036838849.pth           | Hamilton 0.3607599139213562
+./Humanoid-v3_PPOHtermK_5_10033/actor_000037485747.pth           | Hamilton 0.3512863516807556
+./Humanoid-v3_PPOHtermK_5_10033/actor_000038135525.pth           | Hamilton 0.3559949994087219
+./Humanoid-v3_PPOHtermK_5_10033/actor_000038792644.pth           | Hamilton 0.3376719057559967
+./Humanoid-v3_PPOHtermK_5_10033/actor_000039439980.pth           | Hamilton 0.3056176006793976
+./Humanoid-v3_PPOHtermK_5_10033/actor_000040081506.pth           | Hamilton 0.3149917423725128
+./Humanoid-v3_PPOHtermK_5_10033/actor_000040734245.pth           | Hamilton 0.316506564617157
+./Humanoid-v3_PPOHtermK_5_10033/actor_000041380628.pth           | Hamilton 0.3205588459968567
+./Humanoid-v3_PPOHtermK_5_10033/actor_000042020554.pth           | Hamilton 0.34845417737960815
+./Humanoid-v3_PPOHtermK_5_10033/actor_000042671031.pth           | Hamilton 0.3253549635410309
+./Humanoid-v3_PPOHtermK_5_10033/actor_000043316542.pth           | Hamilton 0.3485141396522522
+./Humanoid-v3_PPOHtermK_5_10033/actor_000043957566.pth           | Hamilton 0.3213370740413666
+./Humanoid-v3_PPOHtermK_5_10033/actor_000044607006.pth           | Hamilton 0.331810861825943
+./Humanoid-v3_PPOHtermK_5_10033/actor_000045251706.pth           | Hamilton 0.3106342852115631
+./Humanoid-v3_PPOHtermK_5_10033/actor_000045899224.pth           | Hamilton 0.30923983454704285
+./Humanoid-v3_PPOHtermK_5_10033/actor_000046542839.pth           | Hamilton 0.3040598928928375
+./Humanoid-v3_PPOHtermK_5_10033/actor_000047181778.pth           | Hamilton 0.3039582669734955
+./Humanoid-v3_PPOHtermK_5_10033/actor_000047829134.pth           | Hamilton 0.31180083751678467
+./Humanoid-v3_PPOHtermK_5_10033/actor_000048474220.pth           | Hamilton 0.30465924739837646
+./Humanoid-v3_PPOHtermK_5_10033/actor_000049121372.pth           | Hamilton 0.3056856691837311
+./Humanoid-v3_PPOHtermK_5_10033/actor_000049763971.pth           | Hamilton 0.2879406213760376
+./Humanoid-v3_PPOHtermK_5_10033/actor_000050407979.pth           | Hamilton 0.2534032166004181
+./Humanoid-v3_PPOHtermK_5_10033/actor_000051058487.pth           | Hamilton 0.24699027836322784
+./Humanoid-v3_PPOHtermK_5_10033/actor_000051708393.pth           | Hamilton 0.2187887281179428
+./Humanoid-v3_PPOHtermK_5_10033/actor_000052351034.pth           | Hamilton 0.2457936704158783
+./Humanoid-v3_PPOHtermK_5_10033/actor_000053001679.pth           | Hamilton 0.25318437814712524
+./Humanoid-v3_PPOHtermK_5_10033/actor_000053646376.pth           | Hamilton 0.2474513202905655
+./Humanoid-v3_PPOHtermK_5_10033/actor_000054291532.pth           | Hamilton 0.2376791536808014
+./Humanoid-v3_PPOHtermK_5_10033/actor_000054940400.pth           | Hamilton 0.23065496981143951
+./Humanoid-v3_PPOHtermK_5_10033/actor_000055590713.pth           | Hamilton 0.24335090816020966
+./Humanoid-v3_PPOHtermK_5_10033/actor_000056231558.pth           | Hamilton 0.2432287335395813
+./Humanoid-v3_PPOHtermK_5_10033/actor_000056881953.pth           | Hamilton 0.22995524108409882
+./Humanoid-v3_PPOHtermK_5_10033/actor_000057533824.pth           | Hamilton 0.22388096153736115
+./Humanoid-v3_PPOHtermK_5_10033/actor_000058181107.pth           | Hamilton 0.2096104472875595
+./Humanoid-v3_PPOHtermK_5_10033/actor_000058831519.pth           | Hamilton 0.21268220245838165
+./Humanoid-v3_PPOHtermK_5_10033/actor_000059474197.pth           | Hamilton 0.1959238499403
+./Humanoid-v3_PPOHtermK_5_10033/actor_000060113265.pth           | Hamilton 0.2372029572725296
+./Humanoid-v3_PPOHtermK_5_10033/actor_000060757266.pth           | Hamilton 0.22364191710948944
+./Humanoid-v3_PPOHtermK_5_10033/actor_000061396248.pth           | Hamilton 0.1791951060295105
+./Humanoid-v3_PPOHtermK_5_10033/actor_000062040274.pth           | Hamilton 0.20790275931358337
+./Humanoid-v3_PPOHtermK_5_10033/actor_000062688893.pth           | Hamilton 0.2170216292142868
+./Humanoid-v3_PPOHtermK_5_10033/actor_000063339585.pth           | Hamilton 0.20189276337623596
+./Humanoid-v3_PPOHtermK_5_10033/actor_000063980937.pth           | Hamilton 0.20145785808563232
+./Humanoid-v3_PPOHtermK_5_10033/actor_000064625157.pth           | Hamilton 0.19421154260635376
+./Humanoid-v3_PPOHtermK_5_10033/actor_000065269407.pth           | Hamilton 0.18514040112495422
+./Humanoid-v3_PPOHtermK_5_10033/actor_000065921029.pth           | Hamilton 0.19150440394878387
+./Humanoid-v3_PPOHtermK_5_10033/actor_000066569896.pth           | Hamilton 0.20003995299339294
+./Humanoid-v3_PPOHtermK_5_10033/actor_000067213248.pth           | Hamilton 0.184505432844162
+./Humanoid-v3_PPOHtermK_5_10033/actor_000067860901.pth           | Hamilton 0.17734766006469727
+./Humanoid-v3_PPOHtermK_5_10033/actor_000068502165.pth           | Hamilton 0.1813606321811676
+./Humanoid-v3_PPOHtermK_5_10033/actor_000069149549.pth           | Hamilton 0.15829099714756012
+./Humanoid-v3_PPOHtermK_5_10033/actor_000069803202.pth           | Hamilton 0.15491798520088196
+./Humanoid-v3_PPOHtermK_5_10033/actor_000070447280.pth           | Hamilton 0.15637344121932983
+./Humanoid-v3_PPOHtermK_5_10033/actor_000071093771.pth           | Hamilton 0.18704700469970703
+./Humanoid-v3_PPOHtermK_5_10033/actor_000071738859.pth           | Hamilton 0.16525283455848694
+./Humanoid-v3_PPOHtermK_5_10033/actor_000072382847.pth           | Hamilton 0.1731967329978943
+./Humanoid-v3_PPOHtermK_5_10033/actor_000073033276.pth           | Hamilton 0.17823253571987152
+./Humanoid-v3_PPOHtermK_5_10033/actor_000073678732.pth           | Hamilton 0.17645412683486938
+./Humanoid-v3_PPOHtermK_5_10033/actor_000074322972.pth           | Hamilton 0.1686391830444336
+./Humanoid-v3_PPOHtermK_5_10033/actor_000074967585.pth           | Hamilton 0.18566767871379852
+./Humanoid-v3_PPOHtermK_5_10033/actor_000075611227.pth           | Hamilton 0.14652897417545319
+./Humanoid-v3_PPOHtermK_5_10033/actor_000076260052.pth           | Hamilton 0.15764778852462769
+./Humanoid-v3_PPOHtermK_5_10033/actor_000076907287.pth           | Hamilton 0.14451827108860016
+./Humanoid-v3_PPOHtermK_5_10033/actor_000077554782.pth           | Hamilton 0.17299498617649078
+./Humanoid-v3_PPOHtermK_5_10033/actor_000078207189.pth           | Hamilton 0.16183245182037354
+./Humanoid-v3_PPOHtermK_5_10033/actor_000078859647.pth           | Hamilton 0.16055810451507568
+./Humanoid-v3_PPOHtermK_5_10033/actor_000079506337.pth           | Hamilton 0.15838028490543365
+./Humanoid-v3_PPOHtermK_5_10033/actor_000080156603.pth           | Hamilton 0.14067484438419342
+./Humanoid-v3_PPOHtermK_5_10033/actor_000080803960.pth           | Hamilton 0.13240192830562592
+./Humanoid-v3_PPOHtermK_5_10033/actor_000081453751.pth           | Hamilton 0.1424064189195633
+./Humanoid-v3_PPOHtermK_5_10033/actor_000082105760.pth           | Hamilton 0.1345972865819931
+./Humanoid-v3_PPOHtermK_5_10033/actor_000082752934.pth           | Hamilton 0.15307700634002686
+./Humanoid-v3_PPOHtermK_5_10033/actor_000083398115.pth           | Hamilton 0.12646138668060303
+./Humanoid-v3_PPOHtermK_5_10033/actor_000084049150.pth           | Hamilton 0.1220104843378067
+./Humanoid-v3_PPOHtermK_5_10033/actor_000084699964.pth           | Hamilton 0.12697190046310425
+./Humanoid-v3_PPOHtermK_5_10033/actor_000085356368.pth           | Hamilton 0.13374580442905426
+./Humanoid-v3_PPOHtermK_5_10033/actor_000086005598.pth           | Hamilton 0.12274452298879623
+./Humanoid-v3_PPOHtermK_5_10033/actor_000086651564.pth           | Hamilton 0.11796800047159195
+./Humanoid-v3_PPOHtermK_5_10033/actor_000087302815.pth           | Hamilton 0.11423718929290771
+./Humanoid-v3_PPOHtermK_5_10033/actor_000087948771.pth           | Hamilton 0.12409746646881104
+./Humanoid-v3_PPOHtermK_5_10033/actor_000088603206.pth           | Hamilton 0.1219472885131836
+./Humanoid-v3_PPOHtermK_5_10033/actor_000089256042.pth           | Hamilton 0.1196109727025032
+./Humanoid-v3_PPOHtermK_5_10033/actor_000089913507.pth           | Hamilton 0.11291047930717468
+./Humanoid-v3_PPOHtermK_5_10033/actor_000090572912.pth           | Hamilton 0.12043868750333786
+./Humanoid-v3_PPOHtermK_5_10033/actor_000015528161.pth           | Hamilton 0.6946784853935242
+./Humanoid-v3_PPOHtermK_5_10033/actor_000016181228.pth           | Hamilton 0.679459273815155
+./Humanoid-v3_PPOHtermK_5_10033/actor_000016830880.pth           | Hamilton 0.6889162063598633
+./Humanoid-v3_PPOHtermK_5_10033/actor_000017478959.pth           | Hamilton 0.6864667534828186
+./Humanoid-v3_PPOHtermK_5_10033/actor_000018129549.pth           | Hamilton 0.6885474920272827
+./Humanoid-v3_PPOHtermK_5_10033/actor_000018776099.pth           | Hamilton 0.6479623317718506
+./Humanoid-v3_PPOHtermK_5_10033/actor_000019414221.pth           | Hamilton 0.6480258107185364
+./Humanoid-v3_PPOHtermK_5_10033/actor_000020064662.pth           | Hamilton 0.6343407034873962
+./Humanoid-v3_PPOHtermK_5_10033/actor_000020715894.pth           | Hamilton 0.6557304263114929
+./Humanoid-v3_PPOHtermK_5_10033/actor_000021369272.pth           | Hamilton 0.6447092890739441
+./Humanoid-v3_PPOHtermK_5_10033/actor_000022015566.pth           | Hamilton 0.5809430480003357
+./Humanoid-v3_PPOHtermK_5_10033/actor_000022659798.pth           | Hamilton 0.5646425485610962
+./Humanoid-v3_PPOHtermK_5_10033/actor_000023303083.pth           | Hamilton 0.5440018177032471
+./Humanoid-v3_PPOHtermK_5_10033/actor_000023944272.pth           | Hamilton 0.5671209692955017
+./Humanoid-v3_PPOHtermK_5_10033/actor_000024585156.pth           | Hamilton 0.5597575902938843
+./Humanoid-v3_PPOHtermK_5_10033/actor_000025228355.pth           | Hamilton 0.5404171943664551
+./Humanoid-v3_PPOHtermK_5_10033/actor_000025873960.pth           | Hamilton 0.521878182888031
+./Humanoid-v3_PPOHtermK_5_10033/actor_000026515591.pth           | Hamilton 0.533275306224823
+./Humanoid-v3_PPOHtermK_5_10033/actor_000027155368.pth           | Hamilton 0.47113659977912903
+./Humanoid-v3_PPOHtermK_5_10033/actor_000027799516.pth           | Hamilton 0.4886125922203064
+./Humanoid-v3_PPOHtermK_5_10033/actor_000028448052.pth           | Hamilton 0.4547804594039917
+./Humanoid-v3_PPOHtermK_5_10033/actor_000029089627.pth           | Hamilton 0.4707024097442627
+./Humanoid-v3_PPOHtermK_5_10033/actor_000029736305.pth           | Hamilton 0.5186765789985657
+./Humanoid-v3_PPOHtermK_5_10033/actor_000030375812.pth           | Hamilton 0.5174707770347595
+./Humanoid-v3_PPOHtermK_5_10033/actor_000031029641.pth           | Hamilton 0.46292468905448914
+./Humanoid-v3_PPOHtermK_5_10033/actor_000031674241.pth           | Hamilton 0.4684780240058899
+./Humanoid-v3_PPOHtermK_5_10033/actor_000032321121.pth           | Hamilton 0.4487498998641968
+./Humanoid-v3_PPOHtermK_5_10033/actor_000032968545.pth           | Hamilton 0.43523114919662476
+./Humanoid-v3_PPOHtermK_5_10033/actor_000033618354.pth           | Hamilton 0.4316054582595825
+./Humanoid-v3_PPOHtermK_5_10033/actor_000034264725.pth           | Hamilton 0.4320639371871948
+./Humanoid-v3_PPOHtermK_5_10033/actor_000034907216.pth           | Hamilton 0.3904009759426117
+./Humanoid-v3_PPOHtermK_5_10033/actor_000035549801.pth           | Hamilton 0.3663322627544403
+./Humanoid-v3_PPOHtermK_5_10033/actor_000036190338.pth           | Hamilton 0.367121160030365
+./Humanoid-v3_PPOHtermK_5_10033/actor_000036838849.pth           | Hamilton 0.3607599139213562
+./Humanoid-v3_PPOHtermK_5_10033/actor_000037485747.pth           | Hamilton 0.3512863516807556
+./Humanoid-v3_PPOHtermK_5_10033/actor_000038135525.pth           | Hamilton 0.3559949994087219
+./Humanoid-v3_PPOHtermK_5_10033/actor_000038792644.pth           | Hamilton 0.3376719057559967
+./Humanoid-v3_PPOHtermK_5_10033/actor_000039439980.pth           | Hamilton 0.3056176006793976
+./Humanoid-v3_PPOHtermK_5_10033/actor_000040081506.pth           | Hamilton 0.3149917423725128
+./Humanoid-v3_PPOHtermK_5_10033/actor_000040734245.pth           | Hamilton 0.316506564617157
+./Humanoid-v3_PPOHtermK_5_10033/actor_000041380628.pth           | Hamilton 0.3205588459968567
+./Humanoid-v3_PPOHtermK_5_10033/actor_000042020554.pth           | Hamilton 0.34845417737960815
+./Humanoid-v3_PPOHtermK_5_10033/actor_000042671031.pth           | Hamilton 0.3253549635410309
+./Humanoid-v3_PPOHtermK_5_10033/actor_000043316542.pth           | Hamilton 0.3485141396522522
+./Humanoid-v3_PPOHtermK_5_10033/actor_000043957566.pth           | Hamilton 0.3213370740413666
+./Humanoid-v3_PPOHtermK_5_10033/actor_000044607006.pth           | Hamilton 0.331810861825943
+./Humanoid-v3_PPOHtermK_5_10033/actor_000045251706.pth           | Hamilton 0.3106342852115631
+./Humanoid-v3_PPOHtermK_5_10033/actor_000045899224.pth           | Hamilton 0.30923983454704285
+./Humanoid-v3_PPOHtermK_5_10033/actor_000046542839.pth           | Hamilton 0.3040598928928375
+./Humanoid-v3_PPOHtermK_5_10033/actor_000047181778.pth           | Hamilton 0.3039582669734955
+./Humanoid-v3_PPOHtermK_5_10033/actor_000047829134.pth           | Hamilton 0.31180083751678467
+./Humanoid-v3_PPOHtermK_5_10033/actor_000048474220.pth           | Hamilton 0.30465924739837646
+./Humanoid-v3_PPOHtermK_5_10033/actor_000049121372.pth           | Hamilton 0.3056856691837311
+./Humanoid-v3_PPOHtermK_5_10033/actor_000049763971.pth           | Hamilton 0.2879406213760376
+./Humanoid-v3_PPOHtermK_5_10033/actor_000050407979.pth           | Hamilton 0.2534032166004181
+./Humanoid-v3_PPOHtermK_5_10033/actor_000051058487.pth           | Hamilton 0.24699027836322784
+./Humanoid-v3_PPOHtermK_5_10033/actor_000051708393.pth           | Hamilton 0.2187887281179428
+./Humanoid-v3_PPOHtermK_5_10033/actor_000052351034.pth           | Hamilton 0.2457936704158783
+./Humanoid-v3_PPOHtermK_5_10033/actor_000053001679.pth           | Hamilton 0.25318437814712524
+./Humanoid-v3_PPOHtermK_5_10033/actor_000053646376.pth           | Hamilton 0.2474513202905655
+./Humanoid-v3_PPOHtermK_5_10033/actor_000054291532.pth           | Hamilton 0.2376791536808014
+./Humanoid-v3_PPOHtermK_5_10033/actor_000054940400.pth           | Hamilton 0.23065496981143951
+./Humanoid-v3_PPOHtermK_5_10033/actor_000055590713.pth           | Hamilton 0.24335090816020966
+./Humanoid-v3_PPOHtermK_5_10033/actor_000056231558.pth           | Hamilton 0.2432287335395813
+./Humanoid-v3_PPOHtermK_5_10033/actor_000056881953.pth           | Hamilton 0.22995524108409882
+./Humanoid-v3_PPOHtermK_5_10033/actor_000057533824.pth           | Hamilton 0.22388096153736115
+./Humanoid-v3_PPOHtermK_5_10033/actor_000058181107.pth           | Hamilton 0.2096104472875595
+./Humanoid-v3_PPOHtermK_5_10033/actor_000058831519.pth           | Hamilton 0.21268220245838165
+./Humanoid-v3_PPOHtermK_5_10033/actor_000059474197.pth           | Hamilton 0.1959238499403
+./Humanoid-v3_PPOHtermK_5_10033/actor_000060113265.pth           | Hamilton 0.2372029572725296
+./Humanoid-v3_PPOHtermK_5_10033/actor_000060757266.pth           | Hamilton 0.22364191710948944
+./Humanoid-v3_PPOHtermK_5_10033/actor_000061396248.pth           | Hamilton 0.1791951060295105
+./Humanoid-v3_PPOHtermK_5_10033/actor_000062040274.pth           | Hamilton 0.20790275931358337
+./Humanoid-v3_PPOHtermK_5_10033/actor_000062688893.pth           | Hamilton 0.2170216292142868
+./Humanoid-v3_PPOHtermK_5_10033/actor_000063339585.pth           | Hamilton 0.20189276337623596
+./Humanoid-v3_PPOHtermK_5_10033/actor_000063980937.pth           | Hamilton 0.20145785808563232
+./Humanoid-v3_PPOHtermK_5_10033/actor_000064625157.pth           | Hamilton 0.19421154260635376
+./Humanoid-v3_PPOHtermK_5_10033/actor_000065269407.pth           | Hamilton 0.18514040112495422
+./Humanoid-v3_PPOHtermK_5_10033/actor_000065921029.pth           | Hamilton 0.19150440394878387
+./Humanoid-v3_PPOHtermK_5_10033/actor_000066569896.pth           | Hamilton 0.20003995299339294
+./Humanoid-v3_PPOHtermK_5_10033/actor_000067213248.pth           | Hamilton 0.184505432844162
+./Humanoid-v3_PPOHtermK_5_10033/actor_000067860901.pth           | Hamilton 0.17734766006469727
+./Humanoid-v3_PPOHtermK_5_10033/actor_000068502165.pth           | Hamilton 0.1813606321811676
+./Humanoid-v3_PPOHtermK_5_10033/actor_000069149549.pth           | Hamilton 0.15829099714756012
+./Humanoid-v3_PPOHtermK_5_10033/actor_000069803202.pth           | Hamilton 0.15491798520088196
+./Humanoid-v3_PPOHtermK_5_10033/actor_000070447280.pth           | Hamilton 0.15637344121932983
+./Humanoid-v3_PPOHtermK_5_10033/actor_000071093771.pth           | Hamilton 0.18704700469970703
+./Humanoid-v3_PPOHtermK_5_10033/actor_000071738859.pth           | Hamilton 0.16525283455848694
+./Humanoid-v3_PPOHtermK_5_10033/actor_000072382847.pth           | Hamilton 0.1731967329978943
+./Humanoid-v3_PPOHtermK_5_10033/actor_000073033276.pth           | Hamilton 0.17823253571987152
+./Humanoid-v3_PPOHtermK_5_10033/actor_000073678732.pth           | Hamilton 0.17645412683486938
+./Humanoid-v3_PPOHtermK_5_10033/actor_000074322972.pth           | Hamilton 0.1686391830444336
+./Humanoid-v3_PPOHtermK_5_10033/actor_000074967585.pth           | Hamilton 0.18566767871379852
+./Humanoid-v3_PPOHtermK_5_10033/actor_000075611227.pth           | Hamilton 0.14652897417545319
+./Humanoid-v3_PPOHtermK_5_10033/actor_000076260052.pth           | Hamilton 0.15764778852462769
+./Humanoid-v3_PPOHtermK_5_10033/actor_000076907287.pth           | Hamilton 0.14451827108860016
+./Humanoid-v3_PPOHtermK_5_10033/actor_000077554782.pth           | Hamilton 0.17299498617649078
+./Humanoid-v3_PPOHtermK_5_10033/actor_000078207189.pth           | Hamilton 0.16183245182037354
+./Humanoid-v3_PPOHtermK_5_10033/actor_000078859647.pth           | Hamilton 0.16055810451507568
+./Humanoid-v3_PPOHtermK_5_10033/actor_000079506337.pth           | Hamilton 0.15838028490543365
+./Humanoid-v3_PPOHtermK_5_10033/actor_000080156603.pth           | Hamilton 0.14067484438419342
+./Humanoid-v3_PPOHtermK_5_10033/actor_000080803960.pth           | Hamilton 0.13240192830562592
+./Humanoid-v3_PPOHtermK_5_10033/actor_000081453751.pth           | Hamilton 0.1424064189195633
+./Humanoid-v3_PPOHtermK_5_10033/actor_000082105760.pth           | Hamilton 0.1345972865819931
+./Humanoid-v3_PPOHtermK_5_10033/actor_000082752934.pth           | Hamilton 0.15307700634002686
+./Humanoid-v3_PPOHtermK_5_10033/actor_000083398115.pth           | Hamilton 0.12646138668060303
+./Humanoid-v3_PPOHtermK_5_10033/actor_000084049150.pth           | Hamilton 0.1220104843378067
+./Humanoid-v3_PPOHtermK_5_10033/actor_000084699964.pth           | Hamilton 0.12697190046310425
+./Humanoid-v3_PPOHtermK_5_10033/actor_000085356368.pth           | Hamilton 0.13374580442905426
+./Humanoid-v3_PPOHtermK_5_10033/actor_000086005598.pth           | Hamilton 0.12274452298879623
+./Humanoid-v3_PPOHtermK_5_10033/actor_000086651564.pth           | Hamilton 0.11796800047159195
+./Humanoid-v3_PPOHtermK_5_10033/actor_000087302815.pth           | Hamilton 0.11423718929290771
+./Humanoid-v3_PPOHtermK_5_10033/actor_000087948771.pth           | Hamilton 0.12409746646881104
+./Humanoid-v3_PPOHtermK_5_10033/actor_000088603206.pth           | Hamilton 0.1219472885131836
+./Humanoid-v3_PPOHtermK_5_10033/actor_000089256042.pth           | Hamilton 0.1196109727025032
+./Humanoid-v3_PPOHtermK_5_10033/actor_000089913507.pth           | Hamilton 0.11291047930717468
+./Humanoid-v3_PPOHtermK_5_10033/actor_000090572912.pth           | Hamilton 0.12043868750333786
+./Humanoid-v3_PPOHtermK_5_10033/actor_000091215266.pth           | Hamilton 0.12139196693897247
+./Humanoid-v3_PPOHtermK_5_10033/actor_000091875757.pth           | Hamilton 0.11408090591430664
+./Humanoid-v3_PPOHtermK_5_10033/actor_000092523632.pth           | Hamilton 0.1151660829782486
+./Humanoid-v3_PPOHtermK_5_10033/actor_000093178069.pth           | Hamilton 0.1118767112493515
+./Humanoid-v3_PPOHtermK_5_10033/actor_000093835235.pth           | Hamilton 0.11775581538677216
+./Humanoid-v3_PPOHtermK_5_10033/actor_000094481881.pth           | Hamilton 0.1079266220331192
+./Humanoid-v3_PPOHtermK_5_10033/actor_000095139652.pth           | Hamilton 0.1066155731678009
+./Humanoid-v3_PPOHtermK_5_10033/actor_000095787800.pth           | Hamilton 0.10187076032161713
+./Humanoid-v3_PPOHtermK_5_10033/actor_000096431803.pth           | Hamilton 0.12108919769525528
+./Humanoid-v3_PPOHtermK_5_10033/actor_000097082571.pth           | Hamilton 0.1132136881351471
+./Humanoid-v3_PPOHtermK_5_10033/actor_000097736459.pth           | Hamilton 0.1021675392985344
+./Humanoid-v3_PPOHtermK_5_10033/actor_000098381431.pth           | Hamilton 0.10062378644943237
+./Humanoid-v3_PPOHtermK_5_10033/actor_000099029560.pth           | Hamilton 0.09463013708591461
+./Humanoid-v3_PPOHtermK_5_10033/actor_000099678635.pth           | Hamilton 0.09559513628482819
+./Humanoid-v3_PPOHtermK_5_10033/actor_000100323468.pth           | Hamilton 0.10188476741313934
+./Humanoid-v3_PPOHtermK_5_10033/actor_000100966020.pth           | Hamilton 0.10638144612312317
+./Humanoid-v3_PPOHtermK_5_10033/actor_000101616386.pth           | Hamilton 0.10570771247148514
+./Humanoid-v3_PPOHtermK_5_10033/actor_000102278334.pth           | Hamilton 0.10534773021936417
+./Humanoid-v3_PPOHtermK_5_10033/actor_000102931182.pth           | Hamilton 0.11273243278265
+./Humanoid-v3_PPOHtermK_5_10033/actor_000103582134.pth           | Hamilton 0.10351397842168808
+./Humanoid-v3_PPOHtermK_5_10033/actor_000104230506.pth           | Hamilton 0.1016739085316658
+./Humanoid-v3_PPOHtermK_5_10033/actor_000104887419.pth           | Hamilton 0.10436931997537613
+./Humanoid-v3_PPOHtermK_5_10033/actor__000000048166_00240.282.pth | Hamilton 7.867557542340364e-06
+./Humanoid-v3_PPOHtermK_5_10033/actor__000000851609_00356.967.pth | Hamilton 2.49532768066274e-05
+./Humanoid-v3_PPOHtermK_5_10033/actor__000001663843_01444.155.pth | Hamilton 4.2546420445432886e-05
+./Humanoid-v3_PPOHtermK_5_10033/actor__000002463034_02705.989.pth | Hamilton 8.27698822831735e-05
+./Humanoid-v3_PPOHtermK_5_10033/actor__000003286628_03589.720.pth | Hamilton 0.0002055414515780285
+./Humanoid-v3_PPOHtermK_5_10033/actor__000006565970_05606.597.pth | Hamilton 0.0052353921346366405
+./Humanoid-v3_PPOHtermK_5_10033/actor__000008187525_07320.418.pth | Hamilton 0.03157110884785652
+./Humanoid-v3_PPOHtermK_5_10033/actor__000009829043_08004.773.pth | Hamilton 0.16415658593177795
+./Humanoid-v3_PPOHtermK_5_10033/actor__000013093344_08052.182.pth | Hamilton 0.2120126336812973
+./Humanoid-v3_PPOHtermK_5_10033/actor__000016370636_09338.782.pth | Hamilton 0.2443142831325531
+./Humanoid-v3_PPOHtermK_5_10033/actor__000022070380_09466.238.pth | Hamilton 0.2382911741733551
+./Humanoid-v3_PPOHtermK_5_10033/actor__000023702424_09544.199.pth | Hamilton 0.25375086069107056
+./Humanoid-v3_PPOHtermK_5_10033/actor__000027773157_09705.291.pth | Hamilton 0.2661646902561188
+./Humanoid-v3_PPOHtermK_5_10033/actor__000029385668_09753.100.pth | Hamilton 0.26711922883987427
+./Humanoid-v3_PPOHtermK_5_10033/actor__000039145532_09819.934.pth | Hamilton 0.2415134161710739
+./Humanoid-v3_PPOHtermK_5_10033/actor__000041591655_09914.566.pth | Hamilton 0.2548743784427643
+./Humanoid-v3_PPOHtermK_5_10033/actor__000050543193_09928.895.pth | Hamilton 0.22058461606502533
+./Humanoid-v3_PPOHtermK_5_10033/actor__000061101824_09999.485.pth | Hamilton 0.20243750512599945
+./Humanoid-v3_PPOHtermK_5_10033/actor__000070041272_10033.246.pth | Hamilton 0.17469827830791473
+    """
+
+    # HalfCheetah-v3_PPO_6_7345
+    data31 = """
+./HalfCheetah-v3_PPO_6_7345/actor_000040000.pth                  | Hamilton -0.005872336681932211
+./HalfCheetah-v3_PPO_6_7345/actor_00016000_-0002.642.pth         | Hamilton -0.006636478006839752
+./HalfCheetah-v3_PPO_6_7345/actor_000616000.pth                  | Hamilton -0.0029359194450080395
+./HalfCheetah-v3_PPO_6_7345/actor_001224000.pth                  | Hamilton 0.004109603352844715
+./HalfCheetah-v3_PPO_6_7345/actor_001832000.pth                  | Hamilton 0.007841946557164192
+./HalfCheetah-v3_PPO_6_7345/actor_00232000_00235.331.pth         | Hamilton 0.0017496153013780713
+./HalfCheetah-v3_PPO_6_7345/actor_002408000.pth                  | Hamilton 0.01348801702260971
+./HalfCheetah-v3_PPO_6_7345/actor_003016000.pth                  | Hamilton 0.016688847914338112
+./HalfCheetah-v3_PPO_6_7345/actor_003624000.pth                  | Hamilton 0.020585883408784866
+./HalfCheetah-v3_PPO_6_7345/actor_004232000.pth                  | Hamilton 0.024912988767027855
+./HalfCheetah-v3_PPO_6_7345/actor_00448000_01258.157.pth         | Hamilton 0.009395475499331951
+./HalfCheetah-v3_PPO_6_7345/actor_004808000.pth                  | Hamilton 0.024603240191936493
+./HalfCheetah-v3_PPO_6_7345/actor_005416000.pth                  | Hamilton 0.029739920049905777
+./HalfCheetah-v3_PPO_6_7345/actor_006024000.pth                  | Hamilton 0.032133765518665314
+./HalfCheetah-v3_PPO_6_7345/actor_006632000.pth                  | Hamilton 0.036653295159339905
+./HalfCheetah-v3_PPO_6_7345/actor_00664000_02425.943.pth         | Hamilton 0.015335760079324245
+./HalfCheetah-v3_PPO_6_7345/actor_007208000.pth                  | Hamilton 0.04003371298313141
+./HalfCheetah-v3_PPO_6_7345/actor_007816000.pth                  | Hamilton 0.04159301519393921
+./HalfCheetah-v3_PPO_6_7345/actor_008424000.pth                  | Hamilton 0.04465965926647186
+./HalfCheetah-v3_PPO_6_7345/actor_00880000_03148.636.pth         | Hamilton 0.020984243601560593
+./HalfCheetah-v3_PPO_6_7345/actor_009000000.pth                  | Hamilton 0.04434854909777641
+./HalfCheetah-v3_PPO_6_7345/actor_009608000.pth                  | Hamilton 0.04638892784714699
+./HalfCheetah-v3_PPO_6_7345/actor_010216000.pth                  | Hamilton 0.046764541417360306
+./HalfCheetah-v3_PPO_6_7345/actor_010824000.pth                  | Hamilton 0.048320356756448746
+./HalfCheetah-v3_PPO_6_7345/actor_01096000_04012.116.pth         | Hamilton 0.026628999039530754
+./HalfCheetah-v3_PPO_6_7345/actor_011400000.pth                  | Hamilton 0.05695949122309685
+./HalfCheetah-v3_PPO_6_7345/actor_012008000.pth                  | Hamilton 0.059391699731349945
+./HalfCheetah-v3_PPO_6_7345/actor_012616000.pth                  | Hamilton 0.061797790229320526
+./HalfCheetah-v3_PPO_6_7345/actor_01312000_04339.188.pth         | Hamilton 0.03267954662442207
+./HalfCheetah-v3_PPO_6_7345/actor_013192000.pth                  | Hamilton 0.05834709107875824
+./HalfCheetah-v3_PPO_6_7345/actor_013800000.pth                  | Hamilton 0.05774300917983055
+./HalfCheetah-v3_PPO_6_7345/actor_014408000.pth                  | Hamilton 0.06490640342235565
+./HalfCheetah-v3_PPO_6_7345/actor_015016000.pth                  | Hamilton 0.0703200101852417
+./HalfCheetah-v3_PPO_6_7345/actor_01528000_04548.041.pth         | Hamilton 0.03685052692890167
+./HalfCheetah-v3_PPO_6_7345/actor_015592000.pth                  | Hamilton 0.07412354648113251
+./HalfCheetah-v3_PPO_6_7345/actor_016200000.pth                  | Hamilton 0.07810869067907333
+./HalfCheetah-v3_PPO_6_7345/actor_016808000.pth                  | Hamilton 0.08110470324754715
+./HalfCheetah-v3_PPO_6_7345/actor_017416000.pth                  | Hamilton 0.07919356226921082
+./HalfCheetah-v3_PPO_6_7345/actor_01744000_04920.590.pth         | Hamilton 0.040606606751680374
+./HalfCheetah-v3_PPO_6_7345/actor_017992000.pth                  | Hamilton 0.08055456727743149
+./HalfCheetah-v3_PPO_6_7345/actor_018600000.pth                  | Hamilton 0.0801466554403305
+./HalfCheetah-v3_PPO_6_7345/actor_019208000.pth                  | Hamilton 0.08046242594718933
+./HalfCheetah-v3_PPO_6_7345/actor_01960000_04981.749.pth         | Hamilton 0.046274859458208084
+./HalfCheetah-v3_PPO_6_7345/actor_019784000.pth                  | Hamilton 0.07888739556074142
+./HalfCheetah-v3_PPO_6_7345/actor_020392000.pth                  | Hamilton 0.07489366829395294
+./HalfCheetah-v3_PPO_6_7345/actor_021000000.pth                  | Hamilton 0.07973940670490265
+./HalfCheetah-v3_PPO_6_7345/actor_021608000.pth                  | Hamilton 0.06656301766633987
+./HalfCheetah-v3_PPO_6_7345/actor_022216000.pth                  | Hamilton 0.07961215823888779
+./HalfCheetah-v3_PPO_6_7345/actor_022824000.pth                  | Hamilton 0.08062665164470673
+./HalfCheetah-v3_PPO_6_7345/actor_023432000.pth                  | Hamilton 0.08040913939476013
+./HalfCheetah-v3_PPO_6_7345/actor_024040000.pth                  | Hamilton 0.0787510871887207
+./HalfCheetah-v3_PPO_6_7345/actor_024648000.pth                  | Hamilton 0.06715114414691925
+./HalfCheetah-v3_PPO_6_7345/actor_025256000.pth                  | Hamilton 0.06057201698422432
+./HalfCheetah-v3_PPO_6_7345/actor_025864000.pth                  | Hamilton 0.0651414692401886
+./HalfCheetah-v3_PPO_6_7345/actor_026472000.pth                  | Hamilton 0.06846151500940323
+./HalfCheetah-v3_PPO_6_7345/actor_027080000.pth                  | Hamilton 0.07423406094312668
+./HalfCheetah-v3_PPO_6_7345/actor_027688000.pth                  | Hamilton 0.07751761376857758
+./HalfCheetah-v3_PPO_6_7345/actor_028296000.pth                  | Hamilton 0.08617111295461655
+./HalfCheetah-v3_PPO_6_7345/actor_02840000_05071.918.pth         | Hamilton 0.049897849559783936
+./HalfCheetah-v3_PPO_6_7345/actor_028872000.pth                  | Hamilton 0.08878238499164581
+./HalfCheetah-v3_PPO_6_7345/actor_029480000.pth                  | Hamilton 0.08737097680568695
+./HalfCheetah-v3_PPO_6_7345/actor_030088000.pth                  | Hamilton 0.09027931839227676
+./HalfCheetah-v3_PPO_6_7345/actor_030696000.pth                  | Hamilton 0.08421589434146881
+./HalfCheetah-v3_PPO_6_7345/actor_031304000.pth                  | Hamilton 0.0880567654967308
+./HalfCheetah-v3_PPO_6_7345/actor_031912000.pth                  | Hamilton 0.08721811324357986
+./HalfCheetah-v3_PPO_6_7345/actor_032520000.pth                  | Hamilton 0.08499513566493988
+./HalfCheetah-v3_PPO_6_7345/actor_033128000.pth                  | Hamilton 0.08582136034965515
+./HalfCheetah-v3_PPO_6_7345/actor_033736000.pth                  | Hamilton 0.0666503757238388
+./HalfCheetah-v3_PPO_6_7345/actor_034344000.pth                  | Hamilton 0.07747967541217804
+./HalfCheetah-v3_PPO_6_7345/actor_034952000.pth                  | Hamilton 0.06972482055425644
+./HalfCheetah-v3_PPO_6_7345/actor_035560000.pth                  | Hamilton 0.08390301465988159
+./HalfCheetah-v3_PPO_6_7345/actor_036168000.pth                  | Hamilton 0.06622278690338135
+./HalfCheetah-v3_PPO_6_7345/actor_036776000.pth                  | Hamilton 0.06079159677028656
+./HalfCheetah-v3_PPO_6_7345/actor_037384000.pth                  | Hamilton 0.0640338584780693
+./HalfCheetah-v3_PPO_6_7345/actor_037992000.pth                  | Hamilton 0.06520006060600281
+./HalfCheetah-v3_PPO_6_7345/actor_038600000.pth                  | Hamilton 0.0707312524318695
+./HalfCheetah-v3_PPO_6_7345/actor_039208000.pth                  | Hamilton 0.05933922156691551
+./HalfCheetah-v3_PPO_6_7345/actor_039816000.pth                  | Hamilton 0.058375731110572815
+./HalfCheetah-v3_PPO_6_7345/actor_040424000.pth                  | Hamilton 0.05523880198597908
+./HalfCheetah-v3_PPO_6_7345/actor_041032000.pth                  | Hamilton 0.04060841724276543
+./HalfCheetah-v3_PPO_6_7345/actor_041640000.pth                  | Hamilton 0.051673419773578644
+./HalfCheetah-v3_PPO_6_7345/actor_042248000.pth                  | Hamilton 0.03648228198289871
+./HalfCheetah-v3_PPO_6_7345/actor_042856000.pth                  | Hamilton 0.033507201820611954
+./HalfCheetah-v3_PPO_6_7345/actor_043464000.pth                  | Hamilton 0.02760108932852745
+./HalfCheetah-v3_PPO_6_7345/actor_044072000.pth                  | Hamilton 0.017205415293574333
+./HalfCheetah-v3_PPO_6_7345/actor_044680000.pth                  | Hamilton 0.018874822184443474
+./HalfCheetah-v3_PPO_6_7345/actor_045288000.pth                  | Hamilton 0.013706916943192482
+./HalfCheetah-v3_PPO_6_7345/actor_045896000.pth                  | Hamilton 0.010614077560603619
+./HalfCheetah-v3_PPO_6_7345/actor_046504000.pth                  | Hamilton 0.011557426303625107
+./HalfCheetah-v3_PPO_6_7345/actor_047112000.pth                  | Hamilton 0.009013171307742596
+./HalfCheetah-v3_PPO_6_7345/actor_047720000.pth                  | Hamilton 0.007466568611562252
+./HalfCheetah-v3_PPO_6_7345/actor_048328000.pth                  | Hamilton 0.006678225938230753
+./HalfCheetah-v3_PPO_6_7345/actor_048936000.pth                  | Hamilton 0.007282154634594917
+./HalfCheetah-v3_PPO_6_7345/actor_049544000.pth                  | Hamilton 0.005795080680400133
+./HalfCheetah-v3_PPO_6_7345/actor_050152000.pth                  | Hamilton 0.00465844152495265
+./HalfCheetah-v3_PPO_6_7345/actor_050760000.pth                  | Hamilton 0.002850534161552787
+./HalfCheetah-v3_PPO_6_7345/actor_051368000.pth                  | Hamilton 0.0025290518533438444
+./HalfCheetah-v3_PPO_6_7345/actor_051976000.pth                  | Hamilton 0.0015020620776340365
+./HalfCheetah-v3_PPO_6_7345/actor_052584000.pth                  | Hamilton 0.0015130398096516728
+./HalfCheetah-v3_PPO_6_7345/actor_05288000_05175.296.pth         | Hamilton 0.043540842831134796
+./HalfCheetah-v3_PPO_6_7345/actor_053160000.pth                  | Hamilton 0.002797044813632965
+./HalfCheetah-v3_PPO_6_7345/actor_053768000.pth                  | Hamilton 0.003447041381150484
+./HalfCheetah-v3_PPO_6_7345/actor_054376000.pth                  | Hamilton 0.0038953477051109076
+./HalfCheetah-v3_PPO_6_7345/actor_054984000.pth                  | Hamilton 0.0015051416121423244
+./HalfCheetah-v3_PPO_6_7345/actor_055592000.pth                  | Hamilton 0.0008800867944955826
+./HalfCheetah-v3_PPO_6_7345/actor_056200000.pth                  | Hamilton -0.00025415068375878036
+./HalfCheetah-v3_PPO_6_7345/actor_056808000.pth                  | Hamilton -0.0018122748006135225
+./HalfCheetah-v3_PPO_6_7345/actor_057416000.pth                  | Hamilton -0.0012903523165732622
+./HalfCheetah-v3_PPO_6_7345/actor_058024000.pth                  | Hamilton -0.002029893221333623
+./HalfCheetah-v3_PPO_6_7345/actor_058632000.pth                  | Hamilton -0.002473299391567707
+./HalfCheetah-v3_PPO_6_7345/actor_059240000.pth                  | Hamilton -0.002141214907169342
+./HalfCheetah-v3_PPO_6_7345/actor_059848000.pth                  | Hamilton -0.0013618569355458021
+./HalfCheetah-v3_PPO_6_7345/actor_060456000.pth                  | Hamilton -0.001121765235438943
+./HalfCheetah-v3_PPO_6_7345/actor_061064000.pth                  | Hamilton -0.001452176016755402
+./HalfCheetah-v3_PPO_6_7345/actor_061672000.pth                  | Hamilton -0.0010737726697698236
+./HalfCheetah-v3_PPO_6_7345/actor_062280000.pth                  | Hamilton -0.00199855281971395
+./HalfCheetah-v3_PPO_6_7345/actor_062888000.pth                  | Hamilton -0.0017628436908125877
+./HalfCheetah-v3_PPO_6_7345/actor_063496000.pth                  | Hamilton -0.001920493901707232
+./HalfCheetah-v3_PPO_6_7345/actor_064104000.pth                  | Hamilton -0.002032246207818389
+./HalfCheetah-v3_PPO_6_7345/actor_064712000.pth                  | Hamilton -0.002545235212892294
+./HalfCheetah-v3_PPO_6_7345/actor_065320000.pth                  | Hamilton -0.002734317211434245
+./HalfCheetah-v3_PPO_6_7345/actor_065928000.pth                  | Hamilton -0.0031600724905729294
+./HalfCheetah-v3_PPO_6_7345/actor_066536000.pth                  | Hamilton -0.0038524179253727198
+./HalfCheetah-v3_PPO_6_7345/actor_067144000.pth                  | Hamilton -0.003989163786172867
+./HalfCheetah-v3_PPO_6_7345/actor_067752000.pth                  | Hamilton -0.0037428399082273245
+./HalfCheetah-v3_PPO_6_7345/actor_068360000.pth                  | Hamilton -0.0022081949282437563
+./HalfCheetah-v3_PPO_6_7345/actor_068968000.pth                  | Hamilton -0.003189855720847845
+./HalfCheetah-v3_PPO_6_7345/actor_069576000.pth                  | Hamilton -0.003136077895760536
+./HalfCheetah-v3_PPO_6_7345/actor_070184000.pth                  | Hamilton -0.002681328682228923
+./HalfCheetah-v3_PPO_6_7345/actor_07048000_05292.822.pth         | Hamilton 0.03682773560285568
+./HalfCheetah-v3_PPO_6_7345/actor_070760000.pth                  | Hamilton -0.0014877222711220384
+./HalfCheetah-v3_PPO_6_7345/actor_071368000.pth                  | Hamilton 2.956204662041273e-05
+./HalfCheetah-v3_PPO_6_7345/actor_071976000.pth                  | Hamilton 0.00018542844918556511
+./HalfCheetah-v3_PPO_6_7345/actor_072584000.pth                  | Hamilton -0.00010531547741265967
+./HalfCheetah-v3_PPO_6_7345/actor_073192000.pth                  | Hamilton -0.0001580161915626377
+./HalfCheetah-v3_PPO_6_7345/actor_073800000.pth                  | Hamilton 0.0006441928562708199
+./HalfCheetah-v3_PPO_6_7345/actor_074408000.pth                  | Hamilton 0.0009154545841738582
+./HalfCheetah-v3_PPO_6_7345/actor_075016000.pth                  | Hamilton 0.0009639465715736151
+./HalfCheetah-v3_PPO_6_7345/actor_075624000.pth                  | Hamilton -0.0008632910903543234
+./HalfCheetah-v3_PPO_6_7345/actor_076232000.pth                  | Hamilton -0.0013079025084152818
+./HalfCheetah-v3_PPO_6_7345/actor_076840000.pth                  | Hamilton -0.0025534010492265224
+./HalfCheetah-v3_PPO_6_7345/actor_077448000.pth                  | Hamilton -0.0027133480180054903
+./HalfCheetah-v3_PPO_6_7345/actor_078056000.pth                  | Hamilton -0.0033082144800573587
+./HalfCheetah-v3_PPO_6_7345/actor_078664000.pth                  | Hamilton -0.00236134952865541
+./HalfCheetah-v3_PPO_6_7345/actor_079272000.pth                  | Hamilton -0.0013424543431028724
+./HalfCheetah-v3_PPO_6_7345/actor_079880000.pth                  | Hamilton -0.0013584502739831805
+./HalfCheetah-v3_PPO_6_7345/actor_09704000_05337.672.pth         | Hamilton 0.03513922542333603
+./HalfCheetah-v3_PPO_6_7345/actor_10584000_05420.918.pth         | Hamilton 0.036973439157009125
+./HalfCheetah-v3_PPO_6_7345/actor_11472000_05442.909.pth         | Hamilton 0.037672560662031174
+./HalfCheetah-v3_PPO_6_7345/actor_11912000_05496.598.pth         | Hamilton 0.040864236652851105
+./HalfCheetah-v3_PPO_6_7345/actor_18368000_05623.592.pth         | Hamilton 0.04596225544810295
+./HalfCheetah-v3_PPO_6_7345/actor_19936000_05728.648.pth         | Hamilton 0.048306889832019806
+./HalfCheetah-v3_PPO_6_7345/actor_21256000_05866.446.pth         | Hamilton 0.05372646823525429
+./HalfCheetah-v3_PPO_6_7345/actor_24368000_05902.823.pth         | Hamilton 0.05505385249853134
+./HalfCheetah-v3_PPO_6_7345/actor_25480000_06074.473.pth         | Hamilton 0.05644979327917099
+./HalfCheetah-v3_PPO_6_7345/actor_25704000_06142.968.pth         | Hamilton 0.05825984105467796
+./HalfCheetah-v3_PPO_6_7345/actor_25920000_06197.694.pth         | Hamilton 0.0611347071826458
+./HalfCheetah-v3_PPO_6_7345/actor_26136000_06252.690.pth         | Hamilton 0.06385063380002975
+./HalfCheetah-v3_PPO_6_7345/actor_26352000_06321.156.pth         | Hamilton 0.0674341470003128
+./HalfCheetah-v3_PPO_6_7345/actor_26568000_06511.813.pth         | Hamilton 0.07105758041143417
+./HalfCheetah-v3_PPO_6_7345/actor_27680000_06594.282.pth         | Hamilton 0.07258346676826477
+./HalfCheetah-v3_PPO_6_7345/actor_28352000_06627.730.pth         | Hamilton 0.07935135066509247
+./HalfCheetah-v3_PPO_6_7345/actor_31704000_06656.561.pth         | Hamilton 0.07133738696575165
+./HalfCheetah-v3_PPO_6_7345/actor_31920000_06773.750.pth         | Hamilton 0.07341641932725906
+./HalfCheetah-v3_PPO_6_7345/actor_40592000_06797.525.pth         | Hamilton 0.03414511680603027
+./HalfCheetah-v3_PPO_6_7345/actor_44120000_06861.321.pth         | Hamilton 0.008449223823845387
+./HalfCheetah-v3_PPO_6_7345/actor_44552000_06930.912.pth         | Hamilton 0.008967701345682144
+./HalfCheetah-v3_PPO_6_7345/actor_50000000_06947.161.pth         | Hamilton 0.002228717552497983
+./HalfCheetah-v3_PPO_6_7345/actor_52432000_06987.016.pth         | Hamilton -8.268222882179543e-05
+./HalfCheetah-v3_PPO_6_7345/actor_57968000_07036.802.pth         | Hamilton -0.0029199880082160234
+./HalfCheetah-v3_PPO_6_7345/actor_62184000_07073.965.pth         | Hamilton -0.003321046242490411
+./HalfCheetah-v3_PPO_6_7345/actor_62632000_07190.839.pth         | Hamilton -0.0036794249899685383
+./HalfCheetah-v3_PPO_6_7345/actor_68456000_07229.387.pth         | Hamilton -0.0027174456045031548
+./HalfCheetah-v3_PPO_6_7345/actor_70472000_07233.929.pth         | Hamilton -0.0018890751525759697
+./HalfCheetah-v3_PPO_6_7345/actor_74280000_07259.051.pth         | Hamilton -0.000559281266760081
+./HalfCheetah-v3_PPO_6_7345/actor_75400000_07265.128.pth         | Hamilton -0.00292933639138937
+./HalfCheetah-v3_PPO_6_7345/actor_77616000_07295.354.pth         | Hamilton -0.0053921714425086975
+./HalfCheetah-v3_PPO_6_7345/actor_77832000_07345.128.pth         | Hamilton -0.005173020996153355
+"""
+    # HalfCheetah-v3_PPO_1_8964
+    data32 = """
+./HalfCheetah-v3_PPO_1_8964/actor_000000012000.pth               | Hamilton -0.003979857079684734
+./HalfCheetah-v3_PPO_1_8964/actor_000000116000.pth               | Hamilton 0.0005319847259670496
+./HalfCheetah-v3_PPO_1_8964/actor_000000220000.pth               | Hamilton 0.019786672666668892
+./HalfCheetah-v3_PPO_1_8964/actor_000000324000.pth               | Hamilton 0.017782604321837425
+./HalfCheetah-v3_PPO_1_8964/actor_000000428000.pth               | Hamilton 0.03874299302697182
+./HalfCheetah-v3_PPO_1_8964/actor_000000532000.pth               | Hamilton 0.05288464203476906
+./HalfCheetah-v3_PPO_1_8964/actor_000000636000.pth               | Hamilton 0.05263258516788483
+./HalfCheetah-v3_PPO_1_8964/actor_000000740000.pth               | Hamilton 0.0959433764219284
+./HalfCheetah-v3_PPO_1_8964/actor_000000844000.pth               | Hamilton 0.14203675091266632
+./HalfCheetah-v3_PPO_1_8964/actor_000000948000.pth               | Hamilton 0.18494977056980133
+./HalfCheetah-v3_PPO_1_8964/actor_000001052000.pth               | Hamilton 0.24411416053771973
+./HalfCheetah-v3_PPO_1_8964/actor_000001156000.pth               | Hamilton 0.31679773330688477
+./HalfCheetah-v3_PPO_1_8964/actor_000001260000.pth               | Hamilton 0.36503687500953674
+./HalfCheetah-v3_PPO_1_8964/actor_000001364000.pth               | Hamilton 0.4148070514202118
+./HalfCheetah-v3_PPO_1_8964/actor_000001468000.pth               | Hamilton 0.44580820202827454
+./HalfCheetah-v3_PPO_1_8964/actor_000001572000.pth               | Hamilton 0.5493637919425964
+./HalfCheetah-v3_PPO_1_8964/actor_000001676000.pth               | Hamilton 0.6912891864776611
+./HalfCheetah-v3_PPO_1_8964/actor_000001780000.pth               | Hamilton 0.7460814714431763
+./HalfCheetah-v3_PPO_1_8964/actor_000001884000.pth               | Hamilton 0.9036700129508972
+./HalfCheetah-v3_PPO_1_8964/actor_000001988000.pth               | Hamilton 1.0497983694076538
+./HalfCheetah-v3_PPO_1_8964/actor_000002092000.pth               | Hamilton 1.1463302373886108
+./HalfCheetah-v3_PPO_1_8964/actor_000002196000.pth               | Hamilton 1.0494126081466675
+./HalfCheetah-v3_PPO_1_8964/actor_000002300000.pth               | Hamilton 1.2026112079620361
+./HalfCheetah-v3_PPO_1_8964/actor_000002404000.pth               | Hamilton 1.2105458974838257
+./HalfCheetah-v3_PPO_1_8964/actor_000002508000.pth               | Hamilton 1.3162106275558472
+./HalfCheetah-v3_PPO_1_8964/actor_000002612000.pth               | Hamilton 1.1545178890228271
+./HalfCheetah-v3_PPO_1_8964/actor_000002716000.pth               | Hamilton 1.1219470500946045
+./HalfCheetah-v3_PPO_1_8964/actor_000002820000.pth               | Hamilton 1.2869540452957153
+./HalfCheetah-v3_PPO_1_8964/actor_000002924000.pth               | Hamilton 1.5890324115753174
+./HalfCheetah-v3_PPO_1_8964/actor_000003028000.pth               | Hamilton 1.6122132539749146
+./HalfCheetah-v3_PPO_1_8964/actor_000003132000.pth               | Hamilton 1.6467660665512085
+./HalfCheetah-v3_PPO_1_8964/actor_000003236000.pth               | Hamilton 1.8364558219909668
+./HalfCheetah-v3_PPO_1_8964/actor_000003340000.pth               | Hamilton 1.8676265478134155
+./HalfCheetah-v3_PPO_1_8964/actor_000003444000.pth               | Hamilton 1.9434665441513062
+./HalfCheetah-v3_PPO_1_8964/actor_000003548000.pth               | Hamilton 1.7675777673721313
+./HalfCheetah-v3_PPO_1_8964/actor_000003652000.pth               | Hamilton 1.8838943243026733
+./HalfCheetah-v3_PPO_1_8964/actor_000003756000.pth               | Hamilton 1.980709433555603
+./HalfCheetah-v3_PPO_1_8964/actor_000003860000.pth               | Hamilton 1.9419200420379639
+./HalfCheetah-v3_PPO_1_8964/actor_000003964000.pth               | Hamilton 1.9906342029571533
+./HalfCheetah-v3_PPO_1_8964/actor_000004068000.pth               | Hamilton 1.957250714302063
+./HalfCheetah-v3_PPO_1_8964/actor_000004172000.pth               | Hamilton 1.7628307342529297
+./HalfCheetah-v3_PPO_1_8964/actor_000004276000.pth               | Hamilton 1.7199240922927856
+./HalfCheetah-v3_PPO_1_8964/actor_000004380000.pth               | Hamilton 1.579308271408081
+./HalfCheetah-v3_PPO_1_8964/actor_000004484000.pth               | Hamilton 1.5821915864944458
+./HalfCheetah-v3_PPO_1_8964/actor_000004588000.pth               | Hamilton 1.6405023336410522
+./HalfCheetah-v3_PPO_1_8964/actor_000004692000.pth               | Hamilton 1.4308905601501465
+./HalfCheetah-v3_PPO_1_8964/actor_000004796000.pth               | Hamilton 1.5986131429672241
+./HalfCheetah-v3_PPO_1_8964/actor_000004900000.pth               | Hamilton 1.5916123390197754
+./HalfCheetah-v3_PPO_1_8964/actor_000005004000.pth               | Hamilton 1.5707824230194092
+./HalfCheetah-v3_PPO_1_8964/actor_000005108000.pth               | Hamilton 1.816959023475647
+./HalfCheetah-v3_PPO_1_8964/actor_000005212000.pth               | Hamilton 1.9497828483581543
+./HalfCheetah-v3_PPO_1_8964/actor_000005316000.pth               | Hamilton 1.9593347311019897
+./HalfCheetah-v3_PPO_1_8964/actor_000005420000.pth               | Hamilton 2.0021653175354004
+./HalfCheetah-v3_PPO_1_8964/actor_000005524000.pth               | Hamilton 1.9778954982757568
+./HalfCheetah-v3_PPO_1_8964/actor_000005628000.pth               | Hamilton 2.145540952682495
+./HalfCheetah-v3_PPO_1_8964/actor_000005732000.pth               | Hamilton 1.604381799697876
+./HalfCheetah-v3_PPO_1_8964/actor_000005836000.pth               | Hamilton 1.9640414714813232
+./HalfCheetah-v3_PPO_1_8964/actor_000005940000.pth               | Hamilton 1.7260267734527588
+./HalfCheetah-v3_PPO_1_8964/actor_000006044000.pth               | Hamilton 1.913672924041748
+./HalfCheetah-v3_PPO_1_8964/actor_000006148000.pth               | Hamilton 2.1932449340820312
+./HalfCheetah-v3_PPO_1_8964/actor_000006252000.pth               | Hamilton 2.0036392211914062
+./HalfCheetah-v3_PPO_1_8964/actor_000006356000.pth               | Hamilton 2.022392988204956
+./HalfCheetah-v3_PPO_1_8964/actor_000006460000.pth               | Hamilton 2.0594279766082764
+./HalfCheetah-v3_PPO_1_8964/actor_000006564000.pth               | Hamilton 1.959631323814392
+./HalfCheetah-v3_PPO_1_8964/actor_000006668000.pth               | Hamilton 2.004650354385376
+./HalfCheetah-v3_PPO_1_8964/actor_000006772000.pth               | Hamilton 1.75639009475708
+./HalfCheetah-v3_PPO_1_8964/actor_000006876000.pth               | Hamilton 1.8495930433273315
+./HalfCheetah-v3_PPO_1_8964/actor_000007084000.pth               | Hamilton 2.130012273788452
+./HalfCheetah-v3_PPO_1_8964/actor_000007188000.pth               | Hamilton 1.9571412801742554
+./HalfCheetah-v3_PPO_1_8964/actor_000007292000.pth               | Hamilton 1.9736922979354858
+./HalfCheetah-v3_PPO_1_8964/actor_000007396000.pth               | Hamilton 2.212538242340088
+./HalfCheetah-v3_PPO_1_8964/actor_000007500000.pth               | Hamilton 2.1449477672576904
+./HalfCheetah-v3_PPO_1_8964/actor_000007604000.pth               | Hamilton 2.0295803546905518
+./HalfCheetah-v3_PPO_1_8964/actor_000007708000.pth               | Hamilton 1.9582854509353638
+./HalfCheetah-v3_PPO_1_8964/actor_000007812000.pth               | Hamilton 1.7870659828186035
+./HalfCheetah-v3_PPO_1_8964/actor_000007916000.pth               | Hamilton 1.9454655647277832
+./HalfCheetah-v3_PPO_1_8964/actor_000008020000.pth               | Hamilton 1.9795809984207153
+./HalfCheetah-v3_PPO_1_8964/actor_000008124000.pth               | Hamilton 1.9641070365905762
+./HalfCheetah-v3_PPO_1_8964/actor_000008228000.pth               | Hamilton 1.897706389427185
+./HalfCheetah-v3_PPO_1_8964/actor_000008332000.pth               | Hamilton 1.7681528329849243
+./HalfCheetah-v3_PPO_1_8964/actor_000008436000.pth               | Hamilton 1.632794976234436
+./HalfCheetah-v3_PPO_1_8964/actor_000008540000.pth               | Hamilton 1.6856034994125366
+./HalfCheetah-v3_PPO_1_8964/actor_000008644000.pth               | Hamilton 1.4600399732589722
+./HalfCheetah-v3_PPO_1_8964/actor_000008748000.pth               | Hamilton 1.4734028577804565
+./HalfCheetah-v3_PPO_1_8964/actor_000008852000.pth               | Hamilton 1.465580701828003
+./HalfCheetah-v3_PPO_1_8964/actor_000008956000.pth               | Hamilton 1.5756754875183105
+./HalfCheetah-v3_PPO_1_8964/actor_000009060000.pth               | Hamilton 1.4179878234863281
+./HalfCheetah-v3_PPO_1_8964/actor_000009164000.pth               | Hamilton 1.5848809480667114
+./HalfCheetah-v3_PPO_1_8964/actor_000009268000.pth               | Hamilton 1.4485093355178833
+./HalfCheetah-v3_PPO_1_8964/actor_000009372000.pth               | Hamilton 1.4573742151260376
+./HalfCheetah-v3_PPO_1_8964/actor_000009476000.pth               | Hamilton 1.6152876615524292
+./HalfCheetah-v3_PPO_1_8964/actor_000009580000.pth               | Hamilton 1.549185037612915
+./HalfCheetah-v3_PPO_1_8964/actor_000009684000.pth               | Hamilton 1.6965210437774658
+./HalfCheetah-v3_PPO_1_8964/actor_000009788000.pth               | Hamilton 1.8398573398590088
+./HalfCheetah-v3_PPO_1_8964/actor_000009892000.pth               | Hamilton 1.98932945728302
+./HalfCheetah-v3_PPO_1_8964/actor_000009996000.pth               | Hamilton 1.946791648864746
+./HalfCheetah-v3_PPO_1_8964/actor_000010100000.pth               | Hamilton 1.743231177330017
+./HalfCheetah-v3_PPO_1_8964/actor_000010204000.pth               | Hamilton 1.3823740482330322
+./HalfCheetah-v3_PPO_1_8964/actor_000010308000.pth               | Hamilton 1.3877180814743042
+./HalfCheetah-v3_PPO_1_8964/actor_000010412000.pth               | Hamilton 1.4385331869125366
+./HalfCheetah-v3_PPO_1_8964/actor_000010516000.pth               | Hamilton 1.6554721593856812
+./HalfCheetah-v3_PPO_1_8964/actor_000010620000.pth               | Hamilton 1.727883219718933
+./HalfCheetah-v3_PPO_1_8964/actor_000010724000.pth               | Hamilton 1.728839635848999
+./HalfCheetah-v3_PPO_1_8964/actor_000010828000.pth               | Hamilton 1.58816659450531
+./HalfCheetah-v3_PPO_1_8964/actor_000010932000.pth               | Hamilton 1.6525700092315674
+./HalfCheetah-v3_PPO_1_8964/actor_000011036000.pth               | Hamilton 1.4716426134109497
+./HalfCheetah-v3_PPO_1_8964/actor_000011140000.pth               | Hamilton 1.5388532876968384
+./HalfCheetah-v3_PPO_1_8964/actor_000011244000.pth               | Hamilton 1.297379732131958
+./HalfCheetah-v3_PPO_1_8964/actor_000011348000.pth               | Hamilton 1.3775428533554077
+./HalfCheetah-v3_PPO_1_8964/actor_000011452000.pth               | Hamilton 1.409623622894287
+./HalfCheetah-v3_PPO_1_8964/actor_000011556000.pth               | Hamilton 1.5513663291931152
+./HalfCheetah-v3_PPO_1_8964/actor_000011660000.pth               | Hamilton 1.486272931098938
+./HalfCheetah-v3_PPO_1_8964/actor_000011764000.pth               | Hamilton 1.6273846626281738
+./HalfCheetah-v3_PPO_1_8964/actor_000011868000.pth               | Hamilton 1.6893982887268066
+./HalfCheetah-v3_PPO_1_8964/actor_000011972000.pth               | Hamilton 1.5729925632476807
+./HalfCheetah-v3_PPO_1_8964/actor_000012076000.pth               | Hamilton 1.2123165130615234
+./HalfCheetah-v3_PPO_1_8964/actor_000012180000.pth               | Hamilton 1.3421310186386108
+./HalfCheetah-v3_PPO_1_8964/actor_000012284000.pth               | Hamilton 1.2298297882080078
+./HalfCheetah-v3_PPO_1_8964/actor_000012388000.pth               | Hamilton 1.0895754098892212
+./HalfCheetah-v3_PPO_1_8964/actor_000012492000.pth               | Hamilton 1.1628719568252563
+./HalfCheetah-v3_PPO_1_8964/actor_000012596000.pth               | Hamilton 1.1025280952453613
+./HalfCheetah-v3_PPO_1_8964/actor_000012700000.pth               | Hamilton 1.0395756959915161
+./HalfCheetah-v3_PPO_1_8964/actor_000012804000.pth               | Hamilton 1.1211847066879272
+./HalfCheetah-v3_PPO_1_8964/actor_000012908000.pth               | Hamilton 0.9943718910217285
+./HalfCheetah-v3_PPO_1_8964/actor_000013012000.pth               | Hamilton 0.9099668264389038
+./HalfCheetah-v3_PPO_1_8964/actor_000013116000.pth               | Hamilton 1.0568021535873413
+./HalfCheetah-v3_PPO_1_8964/actor_000013220000.pth               | Hamilton 1.0103585720062256
+./HalfCheetah-v3_PPO_1_8964/actor_000013324000.pth               | Hamilton 0.9387027621269226
+./HalfCheetah-v3_PPO_1_8964/actor_000013428000.pth               | Hamilton 1.0500277280807495
+./HalfCheetah-v3_PPO_1_8964/actor_000013532000.pth               | Hamilton 1.0901583433151245
+./HalfCheetah-v3_PPO_1_8964/actor_000013636000.pth               | Hamilton 1.2097352743148804
+./HalfCheetah-v3_PPO_1_8964/actor_000013740000.pth               | Hamilton 0.9060286283493042
+./HalfCheetah-v3_PPO_1_8964/actor_000013844000.pth               | Hamilton 0.7584921717643738
+./HalfCheetah-v3_PPO_1_8964/actor_000013948000.pth               | Hamilton 0.8708493113517761
+./HalfCheetah-v3_PPO_1_8964/actor_000014052000.pth               | Hamilton 0.9186368584632874
+./HalfCheetah-v3_PPO_1_8964/actor_000014156000.pth               | Hamilton 0.8337190747261047
+./HalfCheetah-v3_PPO_1_8964/actor_000014260000.pth               | Hamilton 0.8682726621627808
+./HalfCheetah-v3_PPO_1_8964/actor_000014364000.pth               | Hamilton 0.6403462290763855
+./HalfCheetah-v3_PPO_1_8964/actor_000014468000.pth               | Hamilton 0.6070886254310608
+./HalfCheetah-v3_PPO_1_8964/actor_000014572000.pth               | Hamilton 0.6043576002120972
+./HalfCheetah-v3_PPO_1_8964/actor_000014676000.pth               | Hamilton 0.48928409814834595
+./HalfCheetah-v3_PPO_1_8964/actor_000014780000.pth               | Hamilton 0.6327598094940186
+./HalfCheetah-v3_PPO_1_8964/actor_000014884000.pth               | Hamilton 0.7374769449234009
+./HalfCheetah-v3_PPO_1_8964/actor_000014988000.pth               | Hamilton 0.8693559765815735
+./HalfCheetah-v3_PPO_1_8964/actor_000015092000.pth               | Hamilton 0.8096561431884766
+./HalfCheetah-v3_PPO_1_8964/actor_000015196000.pth               | Hamilton 0.7464600205421448
+./HalfCheetah-v3_PPO_1_8964/actor_000015300000.pth               | Hamilton 0.8350822329521179
+./HalfCheetah-v3_PPO_1_8964/actor_000015404000.pth               | Hamilton 0.776115357875824
+./HalfCheetah-v3_PPO_1_8964/actor_000015508000.pth               | Hamilton 0.6952117681503296
+./HalfCheetah-v3_PPO_1_8964/actor_000015612000.pth               | Hamilton 0.7679410576820374
+./HalfCheetah-v3_PPO_1_8964/actor_000015716000.pth               | Hamilton 0.6632360219955444
+./HalfCheetah-v3_PPO_1_8964/actor_000015820000.pth               | Hamilton 0.6529446840286255
+./HalfCheetah-v3_PPO_1_8964/actor_000015924000.pth               | Hamilton 0.6130725145339966
+./HalfCheetah-v3_PPO_1_8964/actor_000016028000.pth               | Hamilton 0.7325723171234131
+./HalfCheetah-v3_PPO_1_8964/actor_000016132000.pth               | Hamilton 0.7729775309562683
+./HalfCheetah-v3_PPO_1_8964/actor_000016236000.pth               | Hamilton 0.8849681615829468
+./HalfCheetah-v3_PPO_1_8964/actor_000016340000.pth               | Hamilton 0.8318505883216858
+./HalfCheetah-v3_PPO_1_8964/actor_000016444000.pth               | Hamilton 0.8611310124397278
+./HalfCheetah-v3_PPO_1_8964/actor_000016548000.pth               | Hamilton 0.9104518294334412
+./HalfCheetah-v3_PPO_1_8964/actor_000016652000.pth               | Hamilton 0.8016515374183655
+./HalfCheetah-v3_PPO_1_8964/actor_000016756000.pth               | Hamilton 0.7305818796157837
+./HalfCheetah-v3_PPO_1_8964/actor_000016860000.pth               | Hamilton 0.8303316831588745
+./HalfCheetah-v3_PPO_1_8964/actor_000016964000.pth               | Hamilton 0.8777560591697693
+./HalfCheetah-v3_PPO_1_8964/actor_000017068000.pth               | Hamilton 0.7630877494812012
+./HalfCheetah-v3_PPO_1_8964/actor_000017172000.pth               | Hamilton 0.6742391586303711
+./HalfCheetah-v3_PPO_1_8964/actor_000017276000.pth               | Hamilton 0.8274958729743958
+./HalfCheetah-v3_PPO_1_8964/actor_000017380000.pth               | Hamilton 0.7243938446044922
+./HalfCheetah-v3_PPO_1_8964/actor_000017484000.pth               | Hamilton 0.8354402780532837
+./HalfCheetah-v3_PPO_1_8964/actor_000017588000.pth               | Hamilton 0.8370580673217773
+./HalfCheetah-v3_PPO_1_8964/actor_000017692000.pth               | Hamilton 0.7384746074676514
+./HalfCheetah-v3_PPO_1_8964/actor_000017796000.pth               | Hamilton 0.7266943454742432
+./HalfCheetah-v3_PPO_1_8964/actor_000017900000.pth               | Hamilton 0.6694714426994324
+./HalfCheetah-v3_PPO_1_8964/actor_000018004000.pth               | Hamilton 0.6298900246620178
+./HalfCheetah-v3_PPO_1_8964/actor_000018108000.pth               | Hamilton 0.5625998973846436
+./HalfCheetah-v3_PPO_1_8964/actor_000018212000.pth               | Hamilton 0.6390281915664673
+./HalfCheetah-v3_PPO_1_8964/actor_000018316000.pth               | Hamilton 0.6253073811531067
+./HalfCheetah-v3_PPO_1_8964/actor_000018420000.pth               | Hamilton 0.6052616834640503
+./HalfCheetah-v3_PPO_1_8964/actor_000018524000.pth               | Hamilton 0.5447152853012085
+./HalfCheetah-v3_PPO_1_8964/actor_000018628000.pth               | Hamilton 0.5262029767036438
+./HalfCheetah-v3_PPO_1_8964/actor_000018732000.pth               | Hamilton 0.5712801814079285
+./HalfCheetah-v3_PPO_1_8964/actor_000018836000.pth               | Hamilton 0.5617592930793762
+./HalfCheetah-v3_PPO_1_8964/actor_000018940000.pth               | Hamilton 0.4906075894832611
+./HalfCheetah-v3_PPO_1_8964/actor_000019044000.pth               | Hamilton 0.47344017028808594
+./HalfCheetah-v3_PPO_1_8964/actor_000019148000.pth               | Hamilton 0.4986529052257538
+./HalfCheetah-v3_PPO_1_8964/actor_000019252000.pth               | Hamilton 0.5197123289108276
+./HalfCheetah-v3_PPO_1_8964/actor_000019356000.pth               | Hamilton 0.5097570419311523
+./HalfCheetah-v3_PPO_1_8964/actor_000019460000.pth               | Hamilton 0.5470317602157593
+./HalfCheetah-v3_PPO_1_8964/actor_000019564000.pth               | Hamilton 0.44074568152427673
+./HalfCheetah-v3_PPO_1_8964/actor_000019668000.pth               | Hamilton 0.4194537103176117
+./HalfCheetah-v3_PPO_1_8964/actor_000019772000.pth               | Hamilton 0.43839964270591736
+./HalfCheetah-v3_PPO_1_8964/actor_000019876000.pth               | Hamilton 0.41302257776260376
+./HalfCheetah-v3_PPO_1_8964/actor_000019980000.pth               | Hamilton 0.4682996869087219
+./HalfCheetah-v3_PPO_1_8964/actor__000000008000_-0002.710.pth    | Hamilton 0.00012464739847928286
+./HalfCheetah-v3_PPO_1_8964/actor__000000284000_00189.622.pth    | Hamilton 0.001999093219637871
+./HalfCheetah-v3_PPO_1_8964/actor__000000560000_02657.518.pth    | Hamilton 0.01166764460504055
+./HalfCheetah-v3_PPO_1_8964/actor__000000836000_03451.868.pth    | Hamilton 0.036034759134054184
+./HalfCheetah-v3_PPO_1_8964/actor__000001112000_04043.306.pth    | Hamilton 0.06913702189922333
+./HalfCheetah-v3_PPO_1_8964/actor__000001388000_04070.153.pth    | Hamilton 0.13130733370780945
+./HalfCheetah-v3_PPO_1_8964/actor__000001664000_04072.376.pth    | Hamilton 0.21832144260406494
+./HalfCheetah-v3_PPO_1_8964/actor__000001944000_04077.645.pth    | Hamilton 0.2964133322238922
+./HalfCheetah-v3_PPO_1_8964/actor__000002500000_05031.218.pth    | Hamilton 0.4435080587863922
+./HalfCheetah-v3_PPO_1_8964/actor__000003336000_05477.639.pth    | Hamilton 0.7189747095108032
+./HalfCheetah-v3_PPO_1_8964/actor__000004168000_05759.938.pth    | Hamilton 0.8003605604171753
+./HalfCheetah-v3_PPO_1_8964/actor__000005284000_06171.977.pth    | Hamilton 1.0134514570236206
+./HalfCheetah-v3_PPO_1_8964/actor__000005564000_06458.562.pth    | Hamilton 1.2020690441131592
+./HalfCheetah-v3_PPO_1_8964/actor__000006120000_06708.283.pth    | Hamilton 1.231970191001892
+./HalfCheetah-v3_PPO_1_8964/actor__000006400000_07166.325.pth    | Hamilton 1.353542447090149
+./HalfCheetah-v3_PPO_1_8964/actor__000006676000_07416.529.pth    | Hamilton 1.3807945251464844
+./HalfCheetah-v3_PPO_1_8964/actor__000007236000_07740.555.pth    | Hamilton 1.456091046333313
+./HalfCheetah-v3_PPO_1_8964/actor__000007516000_07802.231.pth    | Hamilton 1.478049635887146
+./HalfCheetah-v3_PPO_1_8964/actor__000007796000_07930.319.pth    | Hamilton 1.6387865543365479
+./HalfCheetah-v3_PPO_1_8964/actor__000008076000_08268.371.pth    | Hamilton 1.6573160886764526
+./HalfCheetah-v3_PPO_1_8964/actor__000008352000_08475.435.pth    | Hamilton 1.5635167360305786
+./HalfCheetah-v3_PPO_1_8964/actor__000008912000_08702.439.pth    | Hamilton 1.5100343227386475
+./HalfCheetah-v3_PPO_1_8964/actor__000009472000_08732.789.pth    | Hamilton 1.626786708831787
+./HalfCheetah-v3_PPO_1_8964/actor__000010032000_08860.623.pth    | Hamilton 1.6608036756515503
+./HalfCheetah-v3_PPO_1_8964/actor__000011148000_08963.562.pth    | Hamilton 1.5901697874069214
+"""
+    # HalfCheetah-v3_PPOHtermK_5_4949
+    data33 = """
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000012000.pth         | Hamilton -0.0022192897740751505
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000036000.pth         | Hamilton 0.001671502715907991
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000060000.pth         | Hamilton 0.0017595201497897506
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000084000.pth         | Hamilton 0.008719025179743767
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000108000.pth         | Hamilton 0.012466237880289555
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000132000.pth         | Hamilton 0.016328686848282814
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000156000.pth         | Hamilton 0.021737422794103622
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000180000.pth         | Hamilton 0.025896403938531876
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000204000.pth         | Hamilton 0.02531532570719719
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000228000.pth         | Hamilton 0.030677855014801025
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000252000.pth         | Hamilton 0.034357644617557526
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000276000.pth         | Hamilton 0.03955475240945816
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000300000.pth         | Hamilton 0.04633951559662819
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000324000.pth         | Hamilton 0.05180974304676056
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000348000.pth         | Hamilton 0.056474193930625916
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000372000.pth         | Hamilton 0.05993979424238205
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000396000.pth         | Hamilton 0.06575837731361389
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000420000.pth         | Hamilton 0.07025054842233658
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000444000.pth         | Hamilton 0.07429561764001846
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000468000.pth         | Hamilton 0.07907746732234955
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000492000.pth         | Hamilton 0.08170141279697418
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000516000.pth         | Hamilton 0.08792464435100555
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000540000.pth         | Hamilton 0.09279599040746689
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000564000.pth         | Hamilton 0.0952623263001442
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000588000.pth         | Hamilton 0.10001105070114136
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000612000.pth         | Hamilton 0.10797237604856491
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000636000.pth         | Hamilton 0.11327182501554489
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000660000.pth         | Hamilton 0.11834818869829178
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000684000.pth         | Hamilton 0.12850329279899597
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000708000.pth         | Hamilton 0.1359768956899643
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000732000.pth         | Hamilton 0.13775557279586792
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000756000.pth         | Hamilton 0.14235512912273407
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000780000.pth         | Hamilton 0.14918962121009827
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000804000.pth         | Hamilton 0.14918091893196106
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000828000.pth         | Hamilton 0.1533832997083664
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000852000.pth         | Hamilton 0.15777461230754852
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000876000.pth         | Hamilton 0.16406415402889252
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000900000.pth         | Hamilton 0.16851083934307098
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000924000.pth         | Hamilton 0.1785479635000229
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000948000.pth         | Hamilton 0.18719789385795593
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000972000.pth         | Hamilton 0.2052137404680252
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000996000.pth         | Hamilton 0.2140265554189682
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001020000.pth         | Hamilton 0.22289986908435822
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001044000.pth         | Hamilton 0.24277041852474213
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001068000.pth         | Hamilton 0.25177648663520813
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001092000.pth         | Hamilton 0.2607744038105011
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001116000.pth         | Hamilton 0.27131083607673645
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001140000.pth         | Hamilton 0.28859028220176697
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001164000.pth         | Hamilton 0.31462910771369934
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001188000.pth         | Hamilton 0.352655291557312
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001212000.pth         | Hamilton 0.38206756114959717
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001236000.pth         | Hamilton 0.4118475019931793
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001260000.pth         | Hamilton 0.45568838715553284
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001284000.pth         | Hamilton 0.49979886412620544
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001308000.pth         | Hamilton 0.5546624064445496
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001332000.pth         | Hamilton 0.6216984391212463
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001356000.pth         | Hamilton 0.7039884924888611
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001380000.pth         | Hamilton 0.7957115173339844
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001404000.pth         | Hamilton 0.8870524168014526
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001428000.pth         | Hamilton 0.9810815453529358
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001452000.pth         | Hamilton 1.0798819065093994
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001476000.pth         | Hamilton 1.1843832731246948
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001500000.pth         | Hamilton 1.3090015649795532
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001524000.pth         | Hamilton 1.4098291397094727
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001548000.pth         | Hamilton 1.523430585861206
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001572000.pth         | Hamilton 1.604001760482788
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001596000.pth         | Hamilton 1.6777764558792114
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001620000.pth         | Hamilton 1.7389109134674072
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001644000.pth         | Hamilton 1.8250714540481567
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001668000.pth         | Hamilton 1.910683512687683
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001692000.pth         | Hamilton 1.9573525190353394
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001716000.pth         | Hamilton 2.0052759647369385
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001740000.pth         | Hamilton 2.0529730319976807
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001764000.pth         | Hamilton 2.1524784564971924
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001788000.pth         | Hamilton 2.19614315032959
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001812000.pth         | Hamilton 2.241459369659424
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001836000.pth         | Hamilton 2.321831703186035
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001860000.pth         | Hamilton 2.3643710613250732
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001884000.pth         | Hamilton 2.4477851390838623
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001908000.pth         | Hamilton 2.477522134780884
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001932000.pth         | Hamilton 2.5356552600860596
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001956000.pth         | Hamilton 2.6056108474731445
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001980000.pth         | Hamilton 2.6734538078308105
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002004000.pth         | Hamilton 2.6696009635925293
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002028000.pth         | Hamilton 2.627070903778076
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002052000.pth         | Hamilton 2.62243390083313
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002076000.pth         | Hamilton 2.642043352127075
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002100000.pth         | Hamilton 2.6363606452941895
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002124000.pth         | Hamilton 2.7448549270629883
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002148000.pth         | Hamilton 2.7977919578552246
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002172000.pth         | Hamilton 2.8215839862823486
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002196000.pth         | Hamilton 2.8511650562286377
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002220000.pth         | Hamilton 2.8430416584014893
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002244000.pth         | Hamilton 2.9197325706481934
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002268000.pth         | Hamilton 2.937256336212158
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002292000.pth         | Hamilton 2.9692063331604004
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002316000.pth         | Hamilton 3.0173466205596924
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002340000.pth         | Hamilton 3.041574478149414
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002364000.pth         | Hamilton 2.9953219890594482
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002388000.pth         | Hamilton 3.044736385345459
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002412000.pth         | Hamilton 2.992907762527466
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002436000.pth         | Hamilton 3.008979320526123
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002460000.pth         | Hamilton 3.1580424308776855
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002484000.pth         | Hamilton 3.214596748352051
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002508000.pth         | Hamilton 3.171975612640381
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002532000.pth         | Hamilton 3.183350086212158
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002556000.pth         | Hamilton 3.1225008964538574
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002580000.pth         | Hamilton 3.1598825454711914
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002604000.pth         | Hamilton 3.18015718460083
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002628000.pth         | Hamilton 3.19087815284729
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002652000.pth         | Hamilton 3.3427822589874268
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002676000.pth         | Hamilton 3.3374075889587402
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002700000.pth         | Hamilton 3.3838040828704834
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002724000.pth         | Hamilton 3.367133855819702
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000012000.pth         | Hamilton -0.0022192897740751505
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000036000.pth         | Hamilton 0.001671502715907991
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000060000.pth         | Hamilton 0.0017595201497897506
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000084000.pth         | Hamilton 0.008719025179743767
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000108000.pth         | Hamilton 0.012466237880289555
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000132000.pth         | Hamilton 0.016328686848282814
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000156000.pth         | Hamilton 0.021737422794103622
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000180000.pth         | Hamilton 0.025896403938531876
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000204000.pth         | Hamilton 0.02531532570719719
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000228000.pth         | Hamilton 0.030677855014801025
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000252000.pth         | Hamilton 0.034357644617557526
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000276000.pth         | Hamilton 0.03955475240945816
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000300000.pth         | Hamilton 0.04633951559662819
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000324000.pth         | Hamilton 0.05180974304676056
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000348000.pth         | Hamilton 0.056474193930625916
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000372000.pth         | Hamilton 0.05993979424238205
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000396000.pth         | Hamilton 0.06575837731361389
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000420000.pth         | Hamilton 0.07025054842233658
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000444000.pth         | Hamilton 0.07429561764001846
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000468000.pth         | Hamilton 0.07907746732234955
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000492000.pth         | Hamilton 0.08170141279697418
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000516000.pth         | Hamilton 0.08792464435100555
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000540000.pth         | Hamilton 0.09279599040746689
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000564000.pth         | Hamilton 0.0952623263001442
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000588000.pth         | Hamilton 0.10001105070114136
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000612000.pth         | Hamilton 0.10797237604856491
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000636000.pth         | Hamilton 0.11327182501554489
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000660000.pth         | Hamilton 0.11834818869829178
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000684000.pth         | Hamilton 0.12850329279899597
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000708000.pth         | Hamilton 0.1359768956899643
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000732000.pth         | Hamilton 0.13775557279586792
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000756000.pth         | Hamilton 0.14235512912273407
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000780000.pth         | Hamilton 0.14918962121009827
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000804000.pth         | Hamilton 0.14918091893196106
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000828000.pth         | Hamilton 0.1533832997083664
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000852000.pth         | Hamilton 0.15777461230754852
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000876000.pth         | Hamilton 0.16406415402889252
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000900000.pth         | Hamilton 0.16851083934307098
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000924000.pth         | Hamilton 0.1785479635000229
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000948000.pth         | Hamilton 0.18719789385795593
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000972000.pth         | Hamilton 0.2052137404680252
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000000996000.pth         | Hamilton 0.2140265554189682
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001020000.pth         | Hamilton 0.22289986908435822
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001044000.pth         | Hamilton 0.24277041852474213
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001068000.pth         | Hamilton 0.25177648663520813
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001092000.pth         | Hamilton 0.2607744038105011
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001116000.pth         | Hamilton 0.27131083607673645
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001140000.pth         | Hamilton 0.28859028220176697
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001164000.pth         | Hamilton 0.31462910771369934
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001188000.pth         | Hamilton 0.352655291557312
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001212000.pth         | Hamilton 0.38206756114959717
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001236000.pth         | Hamilton 0.4118475019931793
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001260000.pth         | Hamilton 0.45568838715553284
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001284000.pth         | Hamilton 0.49979886412620544
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001308000.pth         | Hamilton 0.5546624064445496
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001332000.pth         | Hamilton 0.6216984391212463
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001356000.pth         | Hamilton 0.7039884924888611
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001380000.pth         | Hamilton 0.7957115173339844
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001404000.pth         | Hamilton 0.8870524168014526
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001428000.pth         | Hamilton 0.9810815453529358
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001452000.pth         | Hamilton 1.0798819065093994
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001476000.pth         | Hamilton 1.1843832731246948
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001500000.pth         | Hamilton 1.3090015649795532
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001524000.pth         | Hamilton 1.4098291397094727
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001548000.pth         | Hamilton 1.523430585861206
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001572000.pth         | Hamilton 1.604001760482788
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001596000.pth         | Hamilton 1.6777764558792114
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001620000.pth         | Hamilton 1.7389109134674072
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001644000.pth         | Hamilton 1.8250714540481567
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001668000.pth         | Hamilton 1.910683512687683
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001692000.pth         | Hamilton 1.9573525190353394
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001716000.pth         | Hamilton 2.0052759647369385
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001740000.pth         | Hamilton 2.0529730319976807
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001764000.pth         | Hamilton 2.1524784564971924
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001788000.pth         | Hamilton 2.19614315032959
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001812000.pth         | Hamilton 2.241459369659424
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001836000.pth         | Hamilton 2.321831703186035
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001860000.pth         | Hamilton 2.3643710613250732
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001884000.pth         | Hamilton 2.4477851390838623
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001908000.pth         | Hamilton 2.477522134780884
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001932000.pth         | Hamilton 2.5356552600860596
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001956000.pth         | Hamilton 2.6056108474731445
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000001980000.pth         | Hamilton 2.6734538078308105
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002004000.pth         | Hamilton 2.6696009635925293
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002028000.pth         | Hamilton 2.627070903778076
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002052000.pth         | Hamilton 2.62243390083313
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002076000.pth         | Hamilton 2.642043352127075
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002100000.pth         | Hamilton 2.6363606452941895
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002124000.pth         | Hamilton 2.7448549270629883
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002148000.pth         | Hamilton 2.7977919578552246
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002172000.pth         | Hamilton 2.8215839862823486
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002196000.pth         | Hamilton 2.8511650562286377
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002220000.pth         | Hamilton 2.8430416584014893
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002244000.pth         | Hamilton 2.9197325706481934
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002268000.pth         | Hamilton 2.937256336212158
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002292000.pth         | Hamilton 2.9692063331604004
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002316000.pth         | Hamilton 3.0173466205596924
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002340000.pth         | Hamilton 3.041574478149414
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002364000.pth         | Hamilton 2.9953219890594482
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002388000.pth         | Hamilton 3.044736385345459
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002412000.pth         | Hamilton 2.992907762527466
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002436000.pth         | Hamilton 3.008979320526123
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002460000.pth         | Hamilton 3.1580424308776855
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002484000.pth         | Hamilton 3.214596748352051
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002508000.pth         | Hamilton 3.171975612640381
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002532000.pth         | Hamilton 3.183350086212158
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002556000.pth         | Hamilton 3.1225008964538574
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002580000.pth         | Hamilton 3.1598825454711914
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002604000.pth         | Hamilton 3.18015718460083
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002628000.pth         | Hamilton 3.19087815284729
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002652000.pth         | Hamilton 3.3427822589874268
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002676000.pth         | Hamilton 3.3374075889587402
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002700000.pth         | Hamilton 3.3838040828704834
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002724000.pth         | Hamilton 3.367133855819702
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002748000.pth         | Hamilton 3.363670825958252
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002772000.pth         | Hamilton 3.359429359436035
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002796000.pth         | Hamilton 3.4430789947509766
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002820000.pth         | Hamilton 3.454576253890991
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002844000.pth         | Hamilton 3.4403867721557617
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002868000.pth         | Hamilton 3.423570394515991
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002892000.pth         | Hamilton 3.453339099884033
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002916000.pth         | Hamilton 3.4520444869995117
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002940000.pth         | Hamilton 3.489888906478882
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002964000.pth         | Hamilton 3.473022699356079
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000002988000.pth         | Hamilton 3.499610424041748
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003012000.pth         | Hamilton 3.50242018699646
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003036000.pth         | Hamilton 3.4452319145202637
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003060000.pth         | Hamilton 3.5369558334350586
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003084000.pth         | Hamilton 3.5912485122680664
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003108000.pth         | Hamilton 3.8077502250671387
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003132000.pth         | Hamilton 3.7697091102600098
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003156000.pth         | Hamilton 3.794032573699951
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003180000.pth         | Hamilton 3.762829542160034
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003204000.pth         | Hamilton 3.7414958477020264
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003228000.pth         | Hamilton 3.6169679164886475
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003252000.pth         | Hamilton 3.6591217517852783
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003276000.pth         | Hamilton 3.711569309234619
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003300000.pth         | Hamilton 3.7797162532806396
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003324000.pth         | Hamilton 3.775984764099121
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003348000.pth         | Hamilton 3.77791428565979
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003372000.pth         | Hamilton 3.8541243076324463
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003396000.pth         | Hamilton 3.87099027633667
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003420000.pth         | Hamilton 3.8819098472595215
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003444000.pth         | Hamilton 3.823038339614868
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003468000.pth         | Hamilton 3.8088345527648926
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003492000.pth         | Hamilton 3.822805166244507
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003516000.pth         | Hamilton 3.747377634048462
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003540000.pth         | Hamilton 3.6352920532226562
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003564000.pth         | Hamilton 3.6535186767578125
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003588000.pth         | Hamilton 3.5246832370758057
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003612000.pth         | Hamilton 3.7176568508148193
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003636000.pth         | Hamilton 3.712576389312744
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003660000.pth         | Hamilton 3.5636813640594482
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003684000.pth         | Hamilton 3.5981481075286865
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003708000.pth         | Hamilton 3.7239701747894287
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003732000.pth         | Hamilton 3.714066505432129
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003756000.pth         | Hamilton 3.7786457538604736
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003780000.pth         | Hamilton 3.7550008296966553
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003804000.pth         | Hamilton 3.7134289741516113
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003828000.pth         | Hamilton 3.765432834625244
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003852000.pth         | Hamilton 3.7784621715545654
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003876000.pth         | Hamilton 3.764662981033325
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003900000.pth         | Hamilton 3.849210739135742
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003924000.pth         | Hamilton 3.765622615814209
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003948000.pth         | Hamilton 3.753859519958496
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003972000.pth         | Hamilton 3.704472780227661
+./HalfCheetah-v3_PPOHtermK_5_4949/actor_000003996000.pth         | Hamilton 3.8059535026550293
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000000008000_-0003.434.pth | Hamilton 0.007284574210643768
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000000240000_02962.880.pth | Hamilton 0.04446012154221535
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000000472000_03702.555.pth | Hamilton 0.13261261582374573
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000000936000_04361.421.pth | Hamilton 0.6569648385047913
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000001168000_04487.735.pth | Hamilton 1.2779731750488281
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000001628000_04531.853.pth | Hamilton 3.7421069145202637
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000001860000_04664.097.pth | Hamilton 4.067005634307861
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000002324000_04708.989.pth | Hamilton 4.1424055099487305
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000003020000_04831.758.pth | Hamilton 4.269741535186768
+./HalfCheetah-v3_PPOHtermK_5_4949/actor__000003716000_04949.211.pth | Hamilton 3.887789487838745
+    """
+    # HalfCheetah-v3_PPOHtermK_5_4837
+    data34 = """
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000016000.pth         | Hamilton -0.0052272179163992405
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000048000.pth         | Hamilton -0.00501128239557147
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000080000.pth         | Hamilton -0.005209390074014664
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000112000.pth         | Hamilton -0.004061874933540821
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000144000.pth         | Hamilton -0.0033280844800174236
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000176000.pth         | Hamilton -0.002436003414914012
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000208000.pth         | Hamilton -0.0015811958583071828
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000240000.pth         | Hamilton -0.0006868430064059794
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000272000.pth         | Hamilton 0.00035468849819153547
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000304000.pth         | Hamilton 0.0015650996938347816
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000336000.pth         | Hamilton 0.003586801001802087
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000368000.pth         | Hamilton 0.005619054194539785
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000400000.pth         | Hamilton 0.006567568052560091
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000432000.pth         | Hamilton 0.008935822173953056
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000464000.pth         | Hamilton 0.011014323681592941
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000496000.pth         | Hamilton 0.012673369608819485
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000528000.pth         | Hamilton 0.015275489538908005
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000560000.pth         | Hamilton 0.017765501514077187
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000592000.pth         | Hamilton 0.02037992514669895
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000624000.pth         | Hamilton 0.024035189300775528
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000656000.pth         | Hamilton 0.027966413646936417
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000688000.pth         | Hamilton 0.03270008787512779
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000720000.pth         | Hamilton 0.03818775713443756
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000752000.pth         | Hamilton 0.04435112327337265
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000784000.pth         | Hamilton 0.05045000836253166
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000816000.pth         | Hamilton 0.05860753357410431
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000848000.pth         | Hamilton 0.06818471848964691
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000880000.pth         | Hamilton 0.07777877897024155
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000912000.pth         | Hamilton 0.08937337249517441
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000944000.pth         | Hamilton 0.10323651880025864
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000000976000.pth         | Hamilton 0.11413406580686569
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001008000.pth         | Hamilton 0.13049811124801636
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001040000.pth         | Hamilton 0.1464116871356964
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001072000.pth         | Hamilton 0.16136382520198822
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001104000.pth         | Hamilton 0.17525190114974976
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001136000.pth         | Hamilton 0.18909801542758942
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001168000.pth         | Hamilton 0.20011106133460999
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001200000.pth         | Hamilton 0.2113349586725235
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001232000.pth         | Hamilton 0.21900656819343567
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001264000.pth         | Hamilton 0.22971762716770172
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001296000.pth         | Hamilton 0.23172855377197266
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001328000.pth         | Hamilton 0.24196800589561462
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001360000.pth         | Hamilton 0.2503260672092438
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001392000.pth         | Hamilton 0.2612111568450928
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001424000.pth         | Hamilton 0.268466591835022
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001456000.pth         | Hamilton 0.2727586328983307
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001488000.pth         | Hamilton 0.2801262438297272
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001520000.pth         | Hamilton 0.28209495544433594
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001552000.pth         | Hamilton 0.28050678968429565
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001584000.pth         | Hamilton 0.2817646563053131
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001616000.pth         | Hamilton 0.2804020643234253
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001648000.pth         | Hamilton 0.28414711356163025
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001680000.pth         | Hamilton 0.28006455302238464
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001712000.pth         | Hamilton 0.2819520831108093
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001744000.pth         | Hamilton 0.2845200002193451
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001776000.pth         | Hamilton 0.27944695949554443
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001808000.pth         | Hamilton 0.28050899505615234
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001840000.pth         | Hamilton 0.2765786349773407
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001872000.pth         | Hamilton 0.2799142301082611
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001904000.pth         | Hamilton 0.2819344997406006
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001936000.pth         | Hamilton 0.28533297777175903
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000001968000.pth         | Hamilton 0.2890615463256836
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002000000.pth         | Hamilton 0.2875467836856842
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002032000.pth         | Hamilton 0.2906314432621002
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002064000.pth         | Hamilton 0.2913360297679901
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002096000.pth         | Hamilton 0.29197630286216736
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002128000.pth         | Hamilton 0.2960330843925476
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002160000.pth         | Hamilton 0.2990191578865051
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002192000.pth         | Hamilton 0.29608312249183655
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002224000.pth         | Hamilton 0.2955667972564697
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002256000.pth         | Hamilton 0.2947724461555481
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002288000.pth         | Hamilton 0.2937895655632019
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002320000.pth         | Hamilton 0.29312241077423096
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002352000.pth         | Hamilton 0.29103460907936096
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002384000.pth         | Hamilton 0.2860967814922333
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002416000.pth         | Hamilton 0.28330108523368835
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002448000.pth         | Hamilton 0.28225070238113403
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002480000.pth         | Hamilton 0.28095322847366333
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002512000.pth         | Hamilton 0.285466730594635
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002544000.pth         | Hamilton 0.2890729010105133
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002576000.pth         | Hamilton 0.28650757670402527
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002608000.pth         | Hamilton 0.28654801845550537
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002640000.pth         | Hamilton 0.2901208996772766
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002672000.pth         | Hamilton 0.27911803126335144
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002704000.pth         | Hamilton 0.2834341526031494
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002736000.pth         | Hamilton 0.2818754017353058
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002768000.pth         | Hamilton 0.2835969626903534
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002800000.pth         | Hamilton 0.28478339314460754
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002832000.pth         | Hamilton 0.29131942987442017
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002864000.pth         | Hamilton 0.2944019138813019
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002896000.pth         | Hamilton 0.29295065999031067
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002928000.pth         | Hamilton 0.28273072838783264
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002960000.pth         | Hamilton 0.28591814637184143
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000002992000.pth         | Hamilton 0.2786034345626831
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003024000.pth         | Hamilton 0.2848820388317108
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003056000.pth         | Hamilton 0.2830178737640381
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003088000.pth         | Hamilton 0.2847789227962494
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003120000.pth         | Hamilton 0.28348037600517273
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003152000.pth         | Hamilton 0.2796453833580017
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003184000.pth         | Hamilton 0.2798386812210083
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003216000.pth         | Hamilton 0.2742244303226471
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003248000.pth         | Hamilton 0.2687837481498718
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003280000.pth         | Hamilton 0.26703011989593506
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003312000.pth         | Hamilton 0.2635626792907715
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003344000.pth         | Hamilton 0.2661835849285126
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003376000.pth         | Hamilton 0.2599141299724579
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003408000.pth         | Hamilton 0.2538786828517914
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003440000.pth         | Hamilton 0.25305256247520447
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003472000.pth         | Hamilton 0.2518955171108246
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003504000.pth         | Hamilton 0.2509479224681854
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003536000.pth         | Hamilton 0.24942779541015625
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003568000.pth         | Hamilton 0.250113844871521
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003600000.pth         | Hamilton 0.24620535969734192
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003632000.pth         | Hamilton 0.2513544261455536
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003664000.pth         | Hamilton 0.2476399838924408
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003696000.pth         | Hamilton 0.24878698587417603
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003728000.pth         | Hamilton 0.24056336283683777
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003760000.pth         | Hamilton 0.24676989018917084
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003792000.pth         | Hamilton 0.24746091663837433
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003824000.pth         | Hamilton 0.2528934180736542
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003856000.pth         | Hamilton 0.24981988966464996
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003888000.pth         | Hamilton 0.25292643904685974
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003920000.pth         | Hamilton 0.2452276200056076
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003952000.pth         | Hamilton 0.24430961906909943
+./HalfCheetah-v3_PPOHtermK_5_4837/actor_000003984000.pth         | Hamilton 0.24479509890079498
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000008000_-0000.958.pth | Hamilton 0.009734472259879112
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000008000_-0001.020.pth | Hamilton 0.011430204845964909
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000184000_00045.956.pth | Hamilton 0.019349971786141396
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000184000_00386.380.pth | Hamilton 0.013458400033414364
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000360000_00568.913.pth | Hamilton 0.01877862960100174
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000360000_01874.841.pth | Hamilton 0.03162994235754013
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000536000_02076.972.pth | Hamilton 0.04998861998319626
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000712000_02021.381.pth | Hamilton 0.0268101803958416
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000712000_02104.065.pth | Hamilton 0.08478313684463501
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000000888000_02244.290.pth | Hamilton 0.03574884310364723
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000001064000_02295.495.pth | Hamilton 0.056490540504455566
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000001064000_04183.130.pth | Hamilton 0.22685198485851288
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000001412000_04606.642.pth | Hamilton 0.26846200227737427
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000001588000_02740.600.pth | Hamilton 0.0691491961479187
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000001588000_04768.893.pth | Hamilton 0.2661699950695038
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000001936000_04833.800.pth | Hamilton 0.265247106552124
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000002472000_03142.302.pth | Hamilton 0.08244931697845459
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000002832000_03182.860.pth | Hamilton 0.1051744818687439
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000003724000_03264.243.pth | Hamilton 0.08969185501337051
+./HalfCheetah-v3_PPOHtermK_5_4837/actor__000003896000_04837.021.pth | Hamilton 0.2369644194841385
+    """
+
+    # Walker2d-v3_PPOHtermK_5_6196
+    data41 = """
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000074216.pth            | Hamilton 0.06103832647204399
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000209963.pth            | Hamilton 0.10016551613807678
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000344457.pth            | Hamilton 0.15777799487113953
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000479642.pth            | Hamilton 0.23624582588672638
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000615192.pth            | Hamilton 0.36542588472366333
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000753149.pth            | Hamilton 0.5203403234481812
+./Walker2d-v3_PPOHtermK_5_6196/actor_000000891156.pth            | Hamilton 0.9866095185279846
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001034870.pth            | Hamilton 1.4101715087890625
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001188467.pth            | Hamilton 2.2049710750579834
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001343668.pth            | Hamilton 2.336531639099121
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001497518.pth            | Hamilton 2.4956510066986084
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001650494.pth            | Hamilton 2.591104745864868
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001799853.pth            | Hamilton 2.8808517456054688
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001949103.pth            | Hamilton 3.0815041065216064
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002098987.pth            | Hamilton 3.3642356395721436
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002249395.pth            | Hamilton 3.401320457458496
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002398322.pth            | Hamilton 3.5418009757995605
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002552127.pth            | Hamilton 3.5687568187713623
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002698501.pth            | Hamilton 3.7166695594787598
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002850852.pth            | Hamilton 3.7901241779327393
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003004430.pth            | Hamilton 3.8029255867004395
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003151334.pth            | Hamilton 3.909519910812378
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003300083.pth            | Hamilton 3.939710855484009
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003457650.pth            | Hamilton 3.7962772846221924
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003608790.pth            | Hamilton 3.8291049003601074
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003761464.pth            | Hamilton 3.7616467475891113
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003909730.pth            | Hamilton 3.782686471939087
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004062225.pth            | Hamilton 3.6201531887054443
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004213070.pth            | Hamilton 3.744401216506958
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004360838.pth            | Hamilton 3.649848461151123
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004517323.pth            | Hamilton 3.7866930961608887
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004666107.pth            | Hamilton 3.7397091388702393
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004819489.pth            | Hamilton 3.6510519981384277
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004968852.pth            | Hamilton 3.6418583393096924
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005118393.pth            | Hamilton 3.77998423576355
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005270020.pth            | Hamilton 3.830871105194092
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005422202.pth            | Hamilton 3.7580339908599854
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005570758.pth            | Hamilton 3.7497222423553467
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005724835.pth            | Hamilton 3.6989426612854004
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005877260.pth            | Hamilton 3.4875621795654297
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006030552.pth            | Hamilton 3.374180555343628
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006181192.pth            | Hamilton 3.253258466720581
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006334279.pth            | Hamilton 3.274677276611328
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006488640.pth            | Hamilton 3.371246576309204
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006638840.pth            | Hamilton 3.175199270248413
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006790757.pth            | Hamilton 3.2314627170562744
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006946534.pth            | Hamilton 3.156649589538574
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007100135.pth            | Hamilton 3.099559783935547
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007249718.pth            | Hamilton 2.9776811599731445
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007400556.pth            | Hamilton 3.154604196548462
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007554527.pth            | Hamilton 3.128127336502075
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007705558.pth            | Hamilton 3.0514307022094727
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007851426.pth            | Hamilton 2.9579150676727295
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008002708.pth            | Hamilton 2.943531036376953
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008160333.pth            | Hamilton 2.9832067489624023
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008308268.pth            | Hamilton 2.892860174179077
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008462521.pth            | Hamilton 2.9052670001983643
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008614179.pth            | Hamilton 3.040005683898926
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008764662.pth            | Hamilton 2.919335126876831
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008916589.pth            | Hamilton 2.951991081237793
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009068073.pth            | Hamilton 3.0373692512512207
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009217141.pth            | Hamilton 2.975137948989868
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009372826.pth            | Hamilton 2.9514212608337402
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009524853.pth            | Hamilton 2.9366204738616943
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009676877.pth            | Hamilton 2.9007203578948975
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009831628.pth            | Hamilton 2.920316457748413
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009983068.pth            | Hamilton 2.9491448402404785
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010135066.pth            | Hamilton 2.9075927734375
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010287643.pth            | Hamilton 2.9843502044677734
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010437758.pth            | Hamilton 3.0238566398620605
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010590468.pth            | Hamilton 3.0210230350494385
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010746240.pth            | Hamilton 2.981658697128296
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010901101.pth            | Hamilton 3.003286123275757
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011053508.pth            | Hamilton 2.9676616191864014
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011206954.pth            | Hamilton 2.9344823360443115
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011363411.pth            | Hamilton 3.0789337158203125
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011518327.pth            | Hamilton 3.0202269554138184
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011671662.pth            | Hamilton 2.92421817779541
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011822773.pth            | Hamilton 2.907562732696533
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011976450.pth            | Hamilton 3.0149013996124268
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012127555.pth            | Hamilton 2.92812442779541
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012279751.pth            | Hamilton 3.0243935585021973
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012429460.pth            | Hamilton 2.971428632736206
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012584028.pth            | Hamilton 2.9174630641937256
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012736334.pth            | Hamilton 2.889002799987793
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012894115.pth            | Hamilton 2.917287588119507
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013047090.pth            | Hamilton 2.8693926334381104
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013200313.pth            | Hamilton 2.855473518371582
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013351610.pth            | Hamilton 2.7716429233551025
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013502588.pth            | Hamilton 2.7581980228424072
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013662765.pth            | Hamilton 2.785093307495117
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013814892.pth            | Hamilton 2.7097363471984863
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013967975.pth            | Hamilton 2.664146900177002
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014121000.pth            | Hamilton 2.6454734802246094
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014274063.pth            | Hamilton 2.6277332305908203
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014423343.pth            | Hamilton 2.6705427169799805
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014575920.pth            | Hamilton 2.628743886947632
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014727738.pth            | Hamilton 2.6034529209136963
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014885212.pth            | Hamilton 2.6350207328796387
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015036996.pth            | Hamilton 2.533966064453125
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015193142.pth            | Hamilton 2.6095809936523438
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015348071.pth            | Hamilton 2.5884549617767334
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015504112.pth            | Hamilton 2.5417354106903076
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015656793.pth            | Hamilton 2.540105104446411
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015812951.pth            | Hamilton 2.5189602375030518
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015963729.pth            | Hamilton 2.5464396476745605
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016113654.pth            | Hamilton 2.573174238204956
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016268694.pth            | Hamilton 2.531381607055664
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016421799.pth            | Hamilton 2.568452835083008
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016578825.pth            | Hamilton 2.5195488929748535
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016730802.pth            | Hamilton 2.5331168174743652
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016887124.pth            | Hamilton 2.497105836868286
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017041659.pth            | Hamilton 2.556220054626465
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017198533.pth            | Hamilton 2.563156843185425
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017352984.pth            | Hamilton 2.559330940246582
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017505829.pth            | Hamilton 2.488677501678467
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017664394.pth            | Hamilton 2.4741194248199463
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017817404.pth            | Hamilton 2.5255026817321777
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017971696.pth            | Hamilton 2.4651010036468506
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018125930.pth            | Hamilton 2.4670584201812744
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001188467.pth            | Hamilton 2.2049710750579834
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001343668.pth            | Hamilton 2.336531639099121
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001497518.pth            | Hamilton 2.4956510066986084
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001650494.pth            | Hamilton 2.591104745864868
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001799853.pth            | Hamilton 2.8808517456054688
+./Walker2d-v3_PPOHtermK_5_6196/actor_000001949103.pth            | Hamilton 3.0815041065216064
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002098987.pth            | Hamilton 3.3642356395721436
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002249395.pth            | Hamilton 3.401320457458496
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002398322.pth            | Hamilton 3.5418009757995605
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002552127.pth            | Hamilton 3.5687568187713623
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002698501.pth            | Hamilton 3.7166695594787598
+./Walker2d-v3_PPOHtermK_5_6196/actor_000002850852.pth            | Hamilton 3.7901241779327393
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003004430.pth            | Hamilton 3.8029255867004395
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003151334.pth            | Hamilton 3.909519910812378
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003300083.pth            | Hamilton 3.939710855484009
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003457650.pth            | Hamilton 3.7962772846221924
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003608790.pth            | Hamilton 3.8291049003601074
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003761464.pth            | Hamilton 3.7616467475891113
+./Walker2d-v3_PPOHtermK_5_6196/actor_000003909730.pth            | Hamilton 3.782686471939087
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004062225.pth            | Hamilton 3.6201531887054443
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004213070.pth            | Hamilton 3.744401216506958
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004360838.pth            | Hamilton 3.649848461151123
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004517323.pth            | Hamilton 3.7866930961608887
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004666107.pth            | Hamilton 3.7397091388702393
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004819489.pth            | Hamilton 3.6510519981384277
+./Walker2d-v3_PPOHtermK_5_6196/actor_000004968852.pth            | Hamilton 3.6418583393096924
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005118393.pth            | Hamilton 3.77998423576355
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005270020.pth            | Hamilton 3.830871105194092
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005422202.pth            | Hamilton 3.7580339908599854
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005570758.pth            | Hamilton 3.7497222423553467
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005724835.pth            | Hamilton 3.6989426612854004
+./Walker2d-v3_PPOHtermK_5_6196/actor_000005877260.pth            | Hamilton 3.4875621795654297
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006030552.pth            | Hamilton 3.374180555343628
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006181192.pth            | Hamilton 3.253258466720581
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006334279.pth            | Hamilton 3.274677276611328
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006488640.pth            | Hamilton 3.371246576309204
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006638840.pth            | Hamilton 3.175199270248413
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006790757.pth            | Hamilton 3.2314627170562744
+./Walker2d-v3_PPOHtermK_5_6196/actor_000006946534.pth            | Hamilton 3.156649589538574
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007100135.pth            | Hamilton 3.099559783935547
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007249718.pth            | Hamilton 2.9776811599731445
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007400556.pth            | Hamilton 3.154604196548462
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007554527.pth            | Hamilton 3.128127336502075
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007705558.pth            | Hamilton 3.0514307022094727
+./Walker2d-v3_PPOHtermK_5_6196/actor_000007851426.pth            | Hamilton 2.9579150676727295
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008002708.pth            | Hamilton 2.943531036376953
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008160333.pth            | Hamilton 2.9832067489624023
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008308268.pth            | Hamilton 2.892860174179077
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008462521.pth            | Hamilton 2.9052670001983643
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008614179.pth            | Hamilton 3.040005683898926
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008764662.pth            | Hamilton 2.919335126876831
+./Walker2d-v3_PPOHtermK_5_6196/actor_000008916589.pth            | Hamilton 2.951991081237793
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009068073.pth            | Hamilton 3.0373692512512207
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009217141.pth            | Hamilton 2.975137948989868
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009372826.pth            | Hamilton 2.9514212608337402
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009524853.pth            | Hamilton 2.9366204738616943
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009676877.pth            | Hamilton 2.9007203578948975
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009831628.pth            | Hamilton 2.920316457748413
+./Walker2d-v3_PPOHtermK_5_6196/actor_000009983068.pth            | Hamilton 2.9491448402404785
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010135066.pth            | Hamilton 2.9075927734375
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010287643.pth            | Hamilton 2.9843502044677734
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010437758.pth            | Hamilton 3.0238566398620605
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010590468.pth            | Hamilton 3.0210230350494385
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010746240.pth            | Hamilton 2.981658697128296
+./Walker2d-v3_PPOHtermK_5_6196/actor_000010901101.pth            | Hamilton 3.003286123275757
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011053508.pth            | Hamilton 2.9676616191864014
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011206954.pth            | Hamilton 2.9344823360443115
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011363411.pth            | Hamilton 3.0789337158203125
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011518327.pth            | Hamilton 3.0202269554138184
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011671662.pth            | Hamilton 2.92421817779541
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011822773.pth            | Hamilton 2.907562732696533
+./Walker2d-v3_PPOHtermK_5_6196/actor_000011976450.pth            | Hamilton 3.0149013996124268
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012127555.pth            | Hamilton 2.92812442779541
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012279751.pth            | Hamilton 3.0243935585021973
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012429460.pth            | Hamilton 2.971428632736206
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012584028.pth            | Hamilton 2.9174630641937256
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012736334.pth            | Hamilton 2.889002799987793
+./Walker2d-v3_PPOHtermK_5_6196/actor_000012894115.pth            | Hamilton 2.917287588119507
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013047090.pth            | Hamilton 2.8693926334381104
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013200313.pth            | Hamilton 2.855473518371582
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013351610.pth            | Hamilton 2.7716429233551025
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013502588.pth            | Hamilton 2.7581980228424072
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013662765.pth            | Hamilton 2.785093307495117
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013814892.pth            | Hamilton 2.7097363471984863
+./Walker2d-v3_PPOHtermK_5_6196/actor_000013967975.pth            | Hamilton 2.664146900177002
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014121000.pth            | Hamilton 2.6454734802246094
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014274063.pth            | Hamilton 2.6277332305908203
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014423343.pth            | Hamilton 2.6705427169799805
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014575920.pth            | Hamilton 2.628743886947632
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014727738.pth            | Hamilton 2.6034529209136963
+./Walker2d-v3_PPOHtermK_5_6196/actor_000014885212.pth            | Hamilton 2.6350207328796387
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015036996.pth            | Hamilton 2.533966064453125
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015193142.pth            | Hamilton 2.6095809936523438
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015348071.pth            | Hamilton 2.5884549617767334
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015504112.pth            | Hamilton 2.5417354106903076
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015656793.pth            | Hamilton 2.540105104446411
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015812951.pth            | Hamilton 2.5189602375030518
+./Walker2d-v3_PPOHtermK_5_6196/actor_000015963729.pth            | Hamilton 2.5464396476745605
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016113654.pth            | Hamilton 2.573174238204956
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016268694.pth            | Hamilton 2.531381607055664
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016421799.pth            | Hamilton 2.568452835083008
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016578825.pth            | Hamilton 2.5195488929748535
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016730802.pth            | Hamilton 2.5331168174743652
+./Walker2d-v3_PPOHtermK_5_6196/actor_000016887124.pth            | Hamilton 2.497105836868286
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017041659.pth            | Hamilton 2.556220054626465
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017198533.pth            | Hamilton 2.563156843185425
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017352984.pth            | Hamilton 2.559330940246582
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017505829.pth            | Hamilton 2.488677501678467
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017664394.pth            | Hamilton 2.4741194248199463
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017817404.pth            | Hamilton 2.5255026817321777
+./Walker2d-v3_PPOHtermK_5_6196/actor_000017971696.pth            | Hamilton 2.4651010036468506
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018125930.pth            | Hamilton 2.4670584201812744
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018283393.pth            | Hamilton 2.5160789489746094
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018435319.pth            | Hamilton 2.570801258087158
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018591025.pth            | Hamilton 2.5854737758636475
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018745931.pth            | Hamilton 2.567007303237915
+./Walker2d-v3_PPOHtermK_5_6196/actor_000018905797.pth            | Hamilton 2.6150877475738525
+./Walker2d-v3_PPOHtermK_5_6196/actor_000019056651.pth            | Hamilton 2.5966053009033203
+./Walker2d-v3_PPOHtermK_5_6196/actor_000019209532.pth            | Hamilton 2.6586129665374756
+./Walker2d-v3_PPOHtermK_5_6196/actor_000019363394.pth            | Hamilton 2.635324716567993
+./Walker2d-v3_PPOHtermK_5_6196/actor_000019516851.pth            | Hamilton 2.6116063594818115
+./Walker2d-v3_PPOHtermK_5_6196/actor_000019670805.pth            | Hamilton 2.6843416690826416
+./Walker2d-v3_PPOHtermK_5_6196/actor_000019825273.pth            | Hamilton 2.7173869609832764
+./Walker2d-v3_PPOHtermK_5_6196/actor__000000016134_00930.385.pth | Hamilton 0.006547544151544571
+./Walker2d-v3_PPOHtermK_5_6196/actor__000000547689_01023.599.pth | Hamilton 0.10164220631122589
+./Walker2d-v3_PPOHtermK_5_6196/actor__000000813176_01401.218.pth | Hamilton 0.549475371837616
+./Walker2d-v3_PPOHtermK_5_6196/actor__000001081738_04128.690.pth | Hamilton 1.4580780267715454
+./Walker2d-v3_PPOHtermK_5_6196/actor__000001352934_04314.376.pth | Hamilton 1.7101364135742188
+./Walker2d-v3_PPOHtermK_5_6196/actor__000001622500_04604.481.pth | Hamilton 1.8009814023971558
+./Walker2d-v3_PPOHtermK_5_6196/actor__000001892131_04796.554.pth | Hamilton 1.9093735218048096
+./Walker2d-v3_PPOHtermK_5_6196/actor__000002427812_04799.140.pth | Hamilton 2.1148128509521484
+./Walker2d-v3_PPOHtermK_5_6196/actor__000002698501_04866.675.pth | Hamilton 2.165018320083618
+./Walker2d-v3_PPOHtermK_5_6196/actor__000002963773_04889.195.pth | Hamilton 2.304323196411133
+./Walker2d-v3_PPOHtermK_5_6196/actor__000003231999_04902.785.pth | Hamilton 2.2968506813049316
+./Walker2d-v3_PPOHtermK_5_6196/actor__000003504119_04971.286.pth | Hamilton 2.5185794830322266
+./Walker2d-v3_PPOHtermK_5_6196/actor__000003770439_05070.066.pth | Hamilton 2.6017398834228516
+./Walker2d-v3_PPOHtermK_5_6196/actor__000004043497_05107.923.pth | Hamilton 2.8066978454589844
+./Walker2d-v3_PPOHtermK_5_6196/actor__000004316468_05117.005.pth | Hamilton 2.820406675338745
+./Walker2d-v3_PPOHtermK_5_6196/actor__000004583323_05154.680.pth | Hamilton 2.873835802078247
+./Walker2d-v3_PPOHtermK_5_6196/actor__000004847206_05246.580.pth | Hamilton 2.8819503784179688
+./Walker2d-v3_PPOHtermK_5_6196/actor__000005384593_05253.995.pth | Hamilton 3.0258281230926514
+./Walker2d-v3_PPOHtermK_5_6196/actor__000005657379_05328.519.pth | Hamilton 3.2585694789886475
+./Walker2d-v3_PPOHtermK_5_6196/actor__000005925929_05362.628.pth | Hamilton 3.166306734085083
+./Walker2d-v3_PPOHtermK_5_6196/actor__000006190503_05399.474.pth | Hamilton 3.1285839080810547
+./Walker2d-v3_PPOHtermK_5_6196/actor__000006724625_05415.709.pth | Hamilton 3.2131738662719727
+./Walker2d-v3_PPOHtermK_5_6196/actor__000007259325_05538.665.pth | Hamilton 3.113234519958496
+./Walker2d-v3_PPOHtermK_5_6196/actor__000007527112_05563.535.pth | Hamilton 3.383690595626831
+./Walker2d-v3_PPOHtermK_5_6196/actor__000008062692_05585.215.pth | Hamilton 3.382277488708496
+./Walker2d-v3_PPOHtermK_5_6196/actor__000009152188_05627.513.pth | Hamilton 3.332095146179199
+./Walker2d-v3_PPOHtermK_5_6196/actor__000009418732_05635.250.pth | Hamilton 3.302546501159668
+./Walker2d-v3_PPOHtermK_5_6196/actor__000009687843_05670.071.pth | Hamilton 3.4363481998443604
+./Walker2d-v3_PPOHtermK_5_6196/actor__000010494557_05679.865.pth | Hamilton 3.4633305072784424
+./Walker2d-v3_PPOHtermK_5_6196/actor__000010766058_05769.488.pth | Hamilton 3.4625282287597656
+./Walker2d-v3_PPOHtermK_5_6196/actor__000011035019_05774.933.pth | Hamilton 3.514845848083496
+./Walker2d-v3_PPOHtermK_5_6196/actor__000011841363_05791.195.pth | Hamilton 3.3303325176239014
+./Walker2d-v3_PPOHtermK_5_6196/actor__000012107737_05812.636.pth | Hamilton 3.455310583114624
+./Walker2d-v3_PPOHtermK_5_6196/actor__000012913709_05817.056.pth | Hamilton 3.3747763633728027
+./Walker2d-v3_PPOHtermK_5_6196/actor__000013180020_05919.832.pth | Hamilton 3.3382797241210938
+./Walker2d-v3_PPOHtermK_5_6196/actor__000013728156_05933.581.pth | Hamilton 3.28096342086792
+./Walker2d-v3_PPOHtermK_5_6196/actor__000014005259_05980.732.pth | Hamilton 3.2574119567871094
+./Walker2d-v3_PPOHtermK_5_6196/actor__000014838261_06000.146.pth | Hamilton 3.1493632793426514
+./Walker2d-v3_PPOHtermK_5_6196/actor__000015115265_06054.044.pth | Hamilton 3.1238772869110107
+./Walker2d-v3_PPOHtermK_5_6196/actor__000015946492_06065.646.pth | Hamilton 3.0548388957977295
+./Walker2d-v3_PPOHtermK_5_6196/actor__000016228489_06102.927.pth | Hamilton 2.9532976150512695
+./Walker2d-v3_PPOHtermK_5_6196/actor__000016507252_06116.616.pth | Hamilton 3.0179007053375244
+./Walker2d-v3_PPOHtermK_5_6196/actor__000017070313_06143.148.pth | Hamilton 2.94404935836792
+./Walker2d-v3_PPOHtermK_5_6196/actor__000017352984_06150.941.pth | Hamilton 2.92793345451355
+./Walker2d-v3_PPOHtermK_5_6196/actor__000018775143_06172.219.pth | Hamilton 2.7028586864471436
+./Walker2d-v3_PPOHtermK_5_6196/actor__000019343404_06172.396.pth | Hamilton 2.6242010593414307
+./Walker2d-v3_PPOHtermK_5_6196/actor__000019631453_06196.522.pth | Hamilton 2.597625732421875
+    """
+    # Walker2d-v3_PPOHtermK_6_6380
+    data42 = """
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000075460.pth            | Hamilton 0.0627475380897522
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000143822.pth            | Hamilton 0.07132560014724731
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000210746.pth            | Hamilton 0.08077272772789001
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000277681.pth            | Hamilton 0.1012071743607521
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000345896.pth            | Hamilton 0.12867338955402374
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000414144.pth            | Hamilton 0.1799956113100052
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000482482.pth            | Hamilton 0.22217750549316406
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000549834.pth            | Hamilton 0.28735148906707764
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000618088.pth            | Hamilton 0.3667449653148651
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000686130.pth            | Hamilton 0.48285484313964844
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000753752.pth            | Hamilton 0.6305201053619385
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000822345.pth            | Hamilton 0.8301229476928711
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000890280.pth            | Hamilton 1.1131012439727783
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000958332.pth            | Hamilton 1.3587899208068848
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001026152.pth            | Hamilton 1.6355680227279663
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001094384.pth            | Hamilton 1.889074683189392
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001162752.pth            | Hamilton 2.033831834793091
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001230936.pth            | Hamilton 2.229149341583252
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001298940.pth            | Hamilton 2.2825634479522705
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001366846.pth            | Hamilton 2.4369330406188965
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001435014.pth            | Hamilton 2.5608909130096436
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001503703.pth            | Hamilton 2.5671257972717285
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001572942.pth            | Hamilton 2.655247926712036
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001642254.pth            | Hamilton 2.6732277870178223
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001711744.pth            | Hamilton 2.7276840209960938
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001781919.pth            | Hamilton 2.839830160140991
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001851976.pth            | Hamilton 2.914414882659912
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001923921.pth            | Hamilton 2.9089367389678955
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001994812.pth            | Hamilton 2.9052419662475586
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002066973.pth            | Hamilton 2.961277961730957
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002140277.pth            | Hamilton 2.974660873413086
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002213997.pth            | Hamilton 3.010127305984497
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002285530.pth            | Hamilton 2.9574837684631348
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002360538.pth            | Hamilton 3.009147882461548
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002436686.pth            | Hamilton 3.0166115760803223
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002511519.pth            | Hamilton 3.0840718746185303
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002586476.pth            | Hamilton 3.129490613937378
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002662969.pth            | Hamilton 3.1324877738952637
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002737646.pth            | Hamilton 3.1095118522644043
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002810009.pth            | Hamilton 3.2150840759277344
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002889230.pth            | Hamilton 3.1798110008239746
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002965628.pth            | Hamilton 3.2491815090179443
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003039919.pth            | Hamilton 3.274416446685791
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003115977.pth            | Hamilton 3.2876813411712646
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003191824.pth            | Hamilton 3.3377134799957275
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003268041.pth            | Hamilton 3.451484441757202
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003343788.pth            | Hamilton 3.3870582580566406
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003421182.pth            | Hamilton 3.430431842803955
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003495779.pth            | Hamilton 3.3049213886260986
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003566060.pth            | Hamilton 3.2986879348754883
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003642485.pth            | Hamilton 3.3262407779693604
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003716942.pth            | Hamilton 3.3895769119262695
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003794027.pth            | Hamilton 3.3401451110839844
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003871409.pth            | Hamilton 3.371879816055298
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003947025.pth            | Hamilton 3.416346788406372
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004022414.pth            | Hamilton 3.323047399520874
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004096716.pth            | Hamilton 3.3502066135406494
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004174091.pth            | Hamilton 3.3037021160125732
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004251708.pth            | Hamilton 3.3032755851745605
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004326655.pth            | Hamilton 3.2859857082366943
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004399488.pth            | Hamilton 3.1723008155822754
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004476463.pth            | Hamilton 3.179539442062378
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004550996.pth            | Hamilton 3.1812515258789062
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004626935.pth            | Hamilton 3.047405242919922
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004701587.pth            | Hamilton 3.122925043106079
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004776843.pth            | Hamilton 3.1765921115875244
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004850772.pth            | Hamilton 3.0097899436950684
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004927738.pth            | Hamilton 3.0573930740356445
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005003266.pth            | Hamilton 2.989349842071533
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005076871.pth            | Hamilton 2.9224157333374023
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005147690.pth            | Hamilton 2.8685574531555176
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005226244.pth            | Hamilton 2.8906149864196777
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005303889.pth            | Hamilton 2.847195863723755
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005378984.pth            | Hamilton 2.8399622440338135
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005452834.pth            | Hamilton 2.7919344902038574
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005529874.pth            | Hamilton 2.76607346534729
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005605964.pth            | Hamilton 2.778975009918213
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005678841.pth            | Hamilton 2.732301712036133
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005751934.pth            | Hamilton 2.760108709335327
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005827627.pth            | Hamilton 2.765896797180176
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005901353.pth            | Hamilton 2.747377395629883
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005971425.pth            | Hamilton 2.6814119815826416
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006050423.pth            | Hamilton 2.795193910598755
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006122143.pth            | Hamilton 2.663102865219116
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006199580.pth            | Hamilton 2.6520848274230957
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006269793.pth            | Hamilton 2.7180402278900146
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006344204.pth            | Hamilton 2.6152045726776123
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006416987.pth            | Hamilton 2.6152689456939697
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006491475.pth            | Hamilton 2.6474788188934326
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006566168.pth            | Hamilton 2.704747438430786
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006640559.pth            | Hamilton 2.7403247356414795
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006711724.pth            | Hamilton 2.662841558456421
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006788142.pth            | Hamilton 2.7531967163085938
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006863670.pth            | Hamilton 2.6892058849334717
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006938597.pth            | Hamilton 2.6429266929626465
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007007768.pth            | Hamilton 2.7523245811462402
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007083253.pth            | Hamilton 2.7175161838531494
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007154894.pth            | Hamilton 2.750582218170166
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007227465.pth            | Hamilton 2.739222526550293
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007297178.pth            | Hamilton 2.7558655738830566
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007368160.pth            | Hamilton 2.668473720550537
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007438300.pth            | Hamilton 2.633183002471924
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007511277.pth            | Hamilton 2.5936696529388428
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007582721.pth            | Hamilton 2.596466064453125
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007657228.pth            | Hamilton 2.5443007946014404
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007732003.pth            | Hamilton 2.675086736679077
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007805497.pth            | Hamilton 2.6662676334381104
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007878355.pth            | Hamilton 2.6095519065856934
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007952686.pth            | Hamilton 2.7368860244750977
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008024193.pth            | Hamilton 2.6591808795928955
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008097013.pth            | Hamilton 2.6418957710266113
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008172398.pth            | Hamilton 2.772160768508911
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008250839.pth            | Hamilton 2.828434944152832
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000143822.pth            | Hamilton 0.07132560014724731
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000210746.pth            | Hamilton 0.08077272772789001
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000277681.pth            | Hamilton 0.1012071743607521
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000345896.pth            | Hamilton 0.12867338955402374
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000414144.pth            | Hamilton 0.1799956113100052
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000482482.pth            | Hamilton 0.22217750549316406
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000549834.pth            | Hamilton 0.28735148906707764
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000618088.pth            | Hamilton 0.3667449653148651
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000686130.pth            | Hamilton 0.48285484313964844
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000753752.pth            | Hamilton 0.6305201053619385
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000822345.pth            | Hamilton 0.8301229476928711
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000890280.pth            | Hamilton 1.1131012439727783
+./Walker2d-v3_PPOHtermK_6_6380/actor_000000958332.pth            | Hamilton 1.3587899208068848
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001026152.pth            | Hamilton 1.6355680227279663
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001094384.pth            | Hamilton 1.889074683189392
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001162752.pth            | Hamilton 2.033831834793091
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001230936.pth            | Hamilton 2.229149341583252
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001298940.pth            | Hamilton 2.2825634479522705
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001366846.pth            | Hamilton 2.4369330406188965
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001435014.pth            | Hamilton 2.5608909130096436
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001503703.pth            | Hamilton 2.5671257972717285
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001572942.pth            | Hamilton 2.655247926712036
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001642254.pth            | Hamilton 2.6732277870178223
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001711744.pth            | Hamilton 2.7276840209960938
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001781919.pth            | Hamilton 2.839830160140991
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001851976.pth            | Hamilton 2.914414882659912
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001923921.pth            | Hamilton 2.9089367389678955
+./Walker2d-v3_PPOHtermK_6_6380/actor_000001994812.pth            | Hamilton 2.9052419662475586
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002066973.pth            | Hamilton 2.961277961730957
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002140277.pth            | Hamilton 2.974660873413086
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002213997.pth            | Hamilton 3.010127305984497
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002285530.pth            | Hamilton 2.9574837684631348
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002360538.pth            | Hamilton 3.009147882461548
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002436686.pth            | Hamilton 3.0166115760803223
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002511519.pth            | Hamilton 3.0840718746185303
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002586476.pth            | Hamilton 3.129490613937378
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002662969.pth            | Hamilton 3.1324877738952637
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002737646.pth            | Hamilton 3.1095118522644043
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002810009.pth            | Hamilton 3.2150840759277344
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002889230.pth            | Hamilton 3.1798110008239746
+./Walker2d-v3_PPOHtermK_6_6380/actor_000002965628.pth            | Hamilton 3.2491815090179443
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003039919.pth            | Hamilton 3.274416446685791
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003115977.pth            | Hamilton 3.2876813411712646
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003191824.pth            | Hamilton 3.3377134799957275
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003268041.pth            | Hamilton 3.451484441757202
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003343788.pth            | Hamilton 3.3870582580566406
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003421182.pth            | Hamilton 3.430431842803955
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003495779.pth            | Hamilton 3.3049213886260986
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003566060.pth            | Hamilton 3.2986879348754883
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003642485.pth            | Hamilton 3.3262407779693604
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003716942.pth            | Hamilton 3.3895769119262695
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003794027.pth            | Hamilton 3.3401451110839844
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003871409.pth            | Hamilton 3.371879816055298
+./Walker2d-v3_PPOHtermK_6_6380/actor_000003947025.pth            | Hamilton 3.416346788406372
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004022414.pth            | Hamilton 3.323047399520874
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004096716.pth            | Hamilton 3.3502066135406494
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004174091.pth            | Hamilton 3.3037021160125732
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004251708.pth            | Hamilton 3.3032755851745605
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004326655.pth            | Hamilton 3.2859857082366943
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004399488.pth            | Hamilton 3.1723008155822754
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004476463.pth            | Hamilton 3.179539442062378
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004550996.pth            | Hamilton 3.1812515258789062
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004626935.pth            | Hamilton 3.047405242919922
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004701587.pth            | Hamilton 3.122925043106079
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004776843.pth            | Hamilton 3.1765921115875244
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004850772.pth            | Hamilton 3.0097899436950684
+./Walker2d-v3_PPOHtermK_6_6380/actor_000004927738.pth            | Hamilton 3.0573930740356445
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005003266.pth            | Hamilton 2.989349842071533
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005076871.pth            | Hamilton 2.9224157333374023
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005147690.pth            | Hamilton 2.8685574531555176
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005226244.pth            | Hamilton 2.8906149864196777
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005303889.pth            | Hamilton 2.847195863723755
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005378984.pth            | Hamilton 2.8399622440338135
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005452834.pth            | Hamilton 2.7919344902038574
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005529874.pth            | Hamilton 2.76607346534729
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005605964.pth            | Hamilton 2.778975009918213
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005678841.pth            | Hamilton 2.732301712036133
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005751934.pth            | Hamilton 2.760108709335327
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005827627.pth            | Hamilton 2.765896797180176
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005901353.pth            | Hamilton 2.747377395629883
+./Walker2d-v3_PPOHtermK_6_6380/actor_000005971425.pth            | Hamilton 2.6814119815826416
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006050423.pth            | Hamilton 2.795193910598755
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006122143.pth            | Hamilton 2.663102865219116
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006199580.pth            | Hamilton 2.6520848274230957
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006269793.pth            | Hamilton 2.7180402278900146
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006344204.pth            | Hamilton 2.6152045726776123
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006416987.pth            | Hamilton 2.6152689456939697
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006491475.pth            | Hamilton 2.6474788188934326
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006566168.pth            | Hamilton 2.704747438430786
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006640559.pth            | Hamilton 2.7403247356414795
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006711724.pth            | Hamilton 2.662841558456421
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006788142.pth            | Hamilton 2.7531967163085938
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006863670.pth            | Hamilton 2.6892058849334717
+./Walker2d-v3_PPOHtermK_6_6380/actor_000006938597.pth            | Hamilton 2.6429266929626465
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007007768.pth            | Hamilton 2.7523245811462402
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007083253.pth            | Hamilton 2.7175161838531494
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007154894.pth            | Hamilton 2.750582218170166
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007227465.pth            | Hamilton 2.739222526550293
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007297178.pth            | Hamilton 2.7558655738830566
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007368160.pth            | Hamilton 2.668473720550537
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007438300.pth            | Hamilton 2.633183002471924
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007511277.pth            | Hamilton 2.5936696529388428
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007582721.pth            | Hamilton 2.596466064453125
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007657228.pth            | Hamilton 2.5443007946014404
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007732003.pth            | Hamilton 2.675086736679077
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007805497.pth            | Hamilton 2.6662676334381104
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007878355.pth            | Hamilton 2.6095519065856934
+./Walker2d-v3_PPOHtermK_6_6380/actor_000007952686.pth            | Hamilton 2.7368860244750977
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008024193.pth            | Hamilton 2.6591808795928955
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008097013.pth            | Hamilton 2.6418957710266113
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008172398.pth            | Hamilton 2.772160768508911
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008250839.pth            | Hamilton 2.828434944152832
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008321909.pth            | Hamilton 2.742154836654663
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008393699.pth            | Hamilton 2.728599786758423
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008463759.pth            | Hamilton 2.791388750076294
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008536807.pth            | Hamilton 2.7996938228607178
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008612178.pth            | Hamilton 2.7829697132110596
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008683737.pth            | Hamilton 2.772770643234253
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008755953.pth            | Hamilton 2.779437780380249
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008832450.pth            | Hamilton 2.7469935417175293
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008902156.pth            | Hamilton 2.74408221244812
+./Walker2d-v3_PPOHtermK_6_6380/actor_000008972765.pth            | Hamilton 2.8077948093414307
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009044047.pth            | Hamilton 2.800044536590576
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009117314.pth            | Hamilton 2.823373556137085
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009191216.pth            | Hamilton 2.8886241912841797
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009263342.pth            | Hamilton 2.826233148574829
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009337590.pth            | Hamilton 2.9232451915740967
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009410265.pth            | Hamilton 2.8646326065063477
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009483447.pth            | Hamilton 2.8999993801116943
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009558085.pth            | Hamilton 2.8749709129333496
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009632225.pth            | Hamilton 2.85235595703125
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009703915.pth            | Hamilton 2.8588786125183105
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009777553.pth            | Hamilton 2.8617067337036133
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009848995.pth            | Hamilton 2.9332940578460693
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009920957.pth            | Hamilton 2.947573661804199
+./Walker2d-v3_PPOHtermK_6_6380/actor_000009994632.pth            | Hamilton 2.9067983627319336
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010067603.pth            | Hamilton 2.8467671871185303
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010138962.pth            | Hamilton 2.8667306900024414
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010211320.pth            | Hamilton 2.9673523902893066
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010287731.pth            | Hamilton 2.860609769821167
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010359251.pth            | Hamilton 2.8929758071899414
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010431395.pth            | Hamilton 2.854750633239746
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010502183.pth            | Hamilton 2.746868371963501
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010573696.pth            | Hamilton 2.886901378631592
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010642738.pth            | Hamilton 2.9300107955932617
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010718071.pth            | Hamilton 2.927466630935669
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010786960.pth            | Hamilton 2.8337652683258057
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010855690.pth            | Hamilton 2.865790367126465
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010924576.pth            | Hamilton 2.858492851257324
+./Walker2d-v3_PPOHtermK_6_6380/actor_000010993872.pth            | Hamilton 2.878523349761963
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011064499.pth            | Hamilton 2.882023334503174
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011137139.pth            | Hamilton 2.845759391784668
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011207295.pth            | Hamilton 2.682384729385376
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011280837.pth            | Hamilton 2.790651798248291
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011352596.pth            | Hamilton 2.771451711654663
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011423743.pth            | Hamilton 2.752410888671875
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011496477.pth            | Hamilton 2.7736527919769287
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011566291.pth            | Hamilton 2.7306885719299316
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011639294.pth            | Hamilton 2.807950019836426
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011711542.pth            | Hamilton 2.806436777114868
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011782243.pth            | Hamilton 2.693161964416504
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011854565.pth            | Hamilton 2.788557767868042
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011925047.pth            | Hamilton 2.7770822048187256
+./Walker2d-v3_PPOHtermK_6_6380/actor_000011996903.pth            | Hamilton 2.8102524280548096
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012065663.pth            | Hamilton 2.794227123260498
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012141349.pth            | Hamilton 2.839717388153076
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012218090.pth            | Hamilton 2.827446699142456
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012291899.pth            | Hamilton 2.8396475315093994
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012362498.pth            | Hamilton 2.919839382171631
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012432779.pth            | Hamilton 2.8204243183135986
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012505463.pth            | Hamilton 2.7981061935424805
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012575909.pth            | Hamilton 2.865457057952881
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012644020.pth            | Hamilton 2.9132330417633057
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012715904.pth            | Hamilton 2.9028162956237793
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012788094.pth            | Hamilton 2.9492990970611572
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012856434.pth            | Hamilton 2.9954020977020264
+./Walker2d-v3_PPOHtermK_6_6380/actor_000012929884.pth            | Hamilton 2.961350202560425
+./Walker2d-v3_PPOHtermK_6_6380/actor_000013004936.pth            | Hamilton 2.8226265907287598
+./Walker2d-v3_PPOHtermK_6_6380/actor_000013079308.pth            | Hamilton 2.8537650108337402
+./Walker2d-v3_PPOHtermK_6_6380/actor_000013150894.pth            | Hamilton 2.93576717376709
+./Walker2d-v3_PPOHtermK_6_6380/actor_000013222703.pth            | Hamilton 2.9115564823150635
+./Walker2d-v3_PPOHtermK_6_6380/actor__000000016241_00290.806.pth | Hamilton 0.019592655822634697
+./Walker2d-v3_PPOHtermK_6_6380/actor__000000194051_00462.490.pth | Hamilton 0.027271157130599022
+./Walker2d-v3_PPOHtermK_6_6380/actor__000000371567_00785.392.pth | Hamilton 0.05270720273256302
+./Walker2d-v3_PPOHtermK_6_6380/actor__000000745266_00860.829.pth | Hamilton 0.21522416174411774
+./Walker2d-v3_PPOHtermK_6_6380/actor__000000932762_00900.411.pth | Hamilton 0.378319650888443
+./Walker2d-v3_PPOHtermK_6_6380/actor__000001111686_00959.373.pth | Hamilton 0.48789942264556885
+./Walker2d-v3_PPOHtermK_6_6380/actor__000001290731_01177.423.pth | Hamilton 0.6105005145072937
+./Walker2d-v3_PPOHtermK_6_6380/actor__000001477295_01376.001.pth | Hamilton 0.7220186591148376
+./Walker2d-v3_PPOHtermK_6_6380/actor__000001842777_03972.032.pth | Hamilton 0.896857500076294
+./Walker2d-v3_PPOHtermK_6_6380/actor__000002022225_04048.467.pth | Hamilton 1.058160662651062
+./Walker2d-v3_PPOHtermK_6_6380/actor__000002204355_04453.621.pth | Hamilton 1.2204538583755493
+./Walker2d-v3_PPOHtermK_6_6380/actor__000002389593_04638.108.pth | Hamilton 1.4094444513320923
+./Walker2d-v3_PPOHtermK_6_6380/actor__000002756563_04810.502.pth | Hamilton 1.6390588283538818
+./Walker2d-v3_PPOHtermK_6_6380/actor__000002937657_04889.097.pth | Hamilton 1.7855184078216553
+./Walker2d-v3_PPOHtermK_6_6380/actor__000003125299_04920.084.pth | Hamilton 1.9106531143188477
+./Walker2d-v3_PPOHtermK_6_6380/actor__000004032507_04938.116.pth | Hamilton 2.1822659969329834
+./Walker2d-v3_PPOHtermK_6_6380/actor__000004212893_04994.665.pth | Hamilton 2.2843923568725586
+./Walker2d-v3_PPOHtermK_6_6380/actor__000004390621_05104.344.pth | Hamilton 2.4139745235443115
+./Walker2d-v3_PPOHtermK_6_6380/actor__000004577789_05196.673.pth | Hamilton 2.515577793121338
+./Walker2d-v3_PPOHtermK_6_6380/actor__000004937777_05280.422.pth | Hamilton 2.688485622406006
+./Walker2d-v3_PPOHtermK_6_6380/actor__000005303889_05448.386.pth | Hamilton 2.8832085132598877
+./Walker2d-v3_PPOHtermK_6_6380/actor__000005482507_05498.714.pth | Hamilton 2.9794793128967285
+./Walker2d-v3_PPOHtermK_6_6380/actor__000005668782_05568.015.pth | Hamilton 3.0330400466918945
+./Walker2d-v3_PPOHtermK_6_6380/actor__000005855582_05578.576.pth | Hamilton 3.0443379878997803
+./Walker2d-v3_PPOHtermK_6_6380/actor__000006398966_05692.406.pth | Hamilton 3.277148723602295
+./Walker2d-v3_PPOHtermK_6_6380/actor__000006566168_05750.363.pth | Hamilton 3.273808240890503
+./Walker2d-v3_PPOHtermK_6_6380/actor__000006750199_05786.003.pth | Hamilton 3.271698474884033
+./Walker2d-v3_PPOHtermK_6_6380/actor__000006938597_05813.048.pth | Hamilton 3.3507120609283447
+./Walker2d-v3_PPOHtermK_6_6380/actor__000007484047_05861.979.pth | Hamilton 3.551744222640991
+./Walker2d-v3_PPOHtermK_6_6380/actor__000007667143_05891.985.pth | Hamilton 3.4438040256500244
+./Walker2d-v3_PPOHtermK_6_6380/actor__000007850701_05905.859.pth | Hamilton 3.467259168624878
+./Walker2d-v3_PPOHtermK_6_6380/actor__000008393699_05965.656.pth | Hamilton 3.4827489852905273
+./Walker2d-v3_PPOHtermK_6_6380/actor__000008576533_06020.442.pth | Hamilton 3.605449676513672
+./Walker2d-v3_PPOHtermK_6_6380/actor__000009501024_06080.619.pth | Hamilton 3.468210220336914
+./Walker2d-v3_PPOHtermK_6_6380/actor__000010057923_06122.661.pth | Hamilton 3.453948736190796
+./Walker2d-v3_PPOHtermK_6_6380/actor__000010248263_06154.803.pth | Hamilton 3.567803382873535
+./Walker2d-v3_PPOHtermK_6_6380/actor__000010439949_06182.687.pth | Hamilton 3.486987352371216
+./Walker2d-v3_PPOHtermK_6_6380/actor__000010820292_06228.996.pth | Hamilton 3.4265878200531006
+./Walker2d-v3_PPOHtermK_6_6380/actor__000011011586_06240.069.pth | Hamilton 3.416078805923462
+./Walker2d-v3_PPOHtermK_6_6380/actor__000011198022_06306.907.pth | Hamilton 3.2585856914520264
+./Walker2d-v3_PPOHtermK_6_6380/actor__000011967112_06311.553.pth | Hamilton 3.17917537689209
+./Walker2d-v3_PPOHtermK_6_6380/actor__000012734484_06380.495.pth | Hamilton 3.035814046859741
+    """
+    # Walker2d-v3_PPO_3_6635
+    data43 = """
+./Walker2d-v3_PPO_3_6635/actor_000000054966.pth                  | Hamilton 0.01972796395421028
+./Walker2d-v3_PPO_3_6635/actor_000000105619.pth                  | Hamilton 0.035059910267591476
+./Walker2d-v3_PPO_3_6635/actor_000000157873.pth                  | Hamilton 0.04067114740610123
+./Walker2d-v3_PPO_3_6635/actor_000000210512.pth                  | Hamilton 0.04678366705775261
+./Walker2d-v3_PPO_3_6635/actor_000000262669.pth                  | Hamilton 0.05390090122818947
+./Walker2d-v3_PPO_3_6635/actor_000000314467.pth                  | Hamilton 0.062065452337265015
+./Walker2d-v3_PPO_3_6635/actor_000000365912.pth                  | Hamilton 0.06891259551048279
+./Walker2d-v3_PPO_3_6635/actor_000000417472.pth                  | Hamilton 0.07636240869760513
+./Walker2d-v3_PPO_3_6635/actor_000000469423.pth                  | Hamilton 0.0840894803404808
+./Walker2d-v3_PPO_3_6635/actor_000000521525.pth                  | Hamilton 0.0897422507405281
+./Walker2d-v3_PPO_3_6635/actor_000000573971.pth                  | Hamilton 0.0966050922870636
+./Walker2d-v3_PPO_3_6635/actor_000000626111.pth                  | Hamilton 0.10339801758527756
+./Walker2d-v3_PPO_3_6635/actor_000000677706.pth                  | Hamilton 0.11114295572042465
+./Walker2d-v3_PPO_3_6635/actor_000000729593.pth                  | Hamilton 0.12237662822008133
+./Walker2d-v3_PPO_3_6635/actor_000000782027.pth                  | Hamilton 0.13457736372947693
+./Walker2d-v3_PPO_3_6635/actor_000000835157.pth                  | Hamilton 0.14478591084480286
+./Walker2d-v3_PPO_3_6635/actor_000000888502.pth                  | Hamilton 0.15821334719657898
+./Walker2d-v3_PPO_3_6635/actor_000000940764.pth                  | Hamilton 0.16951744258403778
+./Walker2d-v3_PPO_3_6635/actor_000000994348.pth                  | Hamilton 0.18415145576000214
+./Walker2d-v3_PPO_3_6635/actor_000001047991.pth                  | Hamilton 0.1963721066713333
+./Walker2d-v3_PPO_3_6635/actor_000001102779.pth                  | Hamilton 0.21769124269485474
+./Walker2d-v3_PPO_3_6635/actor_000001157214.pth                  | Hamilton 0.23970939218997955
+./Walker2d-v3_PPO_3_6635/actor_000001212812.pth                  | Hamilton 0.2599489688873291
+./Walker2d-v3_PPO_3_6635/actor_000001268549.pth                  | Hamilton 0.2786579728126526
+./Walker2d-v3_PPO_3_6635/actor_000001326109.pth                  | Hamilton 0.300142765045166
+./Walker2d-v3_PPO_3_6635/actor_000001384928.pth                  | Hamilton 0.3222769796848297
+./Walker2d-v3_PPO_3_6635/actor_000001444056.pth                  | Hamilton 0.3418172299861908
+./Walker2d-v3_PPO_3_6635/actor_000001507252.pth                  | Hamilton 0.3764764368534088
+./Walker2d-v3_PPO_3_6635/actor_000001567574.pth                  | Hamilton 0.41272470355033875
+./Walker2d-v3_PPO_3_6635/actor_000001629751.pth                  | Hamilton 0.45305564999580383
+./Walker2d-v3_PPO_3_6635/actor_000001691009.pth                  | Hamilton 0.4813075363636017
+./Walker2d-v3_PPO_3_6635/actor_000001753324.pth                  | Hamilton 0.5201964974403381
+./Walker2d-v3_PPO_3_6635/actor_000001817149.pth                  | Hamilton 0.5548107624053955
+./Walker2d-v3_PPO_3_6635/actor_000001878359.pth                  | Hamilton 0.6043074727058411
+./Walker2d-v3_PPO_3_6635/actor_000001942293.pth                  | Hamilton 0.6314113736152649
+./Walker2d-v3_PPO_3_6635/actor_000002008526.pth                  | Hamilton 0.6795088648796082
+./Walker2d-v3_PPO_3_6635/actor_000002070983.pth                  | Hamilton 0.7221250534057617
+./Walker2d-v3_PPO_3_6635/actor_000002134534.pth                  | Hamilton 0.7496094107627869
+./Walker2d-v3_PPO_3_6635/actor_000002197442.pth                  | Hamilton 0.7956565022468567
+./Walker2d-v3_PPO_3_6635/actor_000002259262.pth                  | Hamilton 0.8209180235862732
+./Walker2d-v3_PPO_3_6635/actor_000002317669.pth                  | Hamilton 0.8565555214881897
+./Walker2d-v3_PPO_3_6635/actor_000002380661.pth                  | Hamilton 0.8939540982246399
+./Walker2d-v3_PPO_3_6635/actor_000002444375.pth                  | Hamilton 0.9018198847770691
+./Walker2d-v3_PPO_3_6635/actor_000002509586.pth                  | Hamilton 0.9443305134773254
+./Walker2d-v3_PPO_3_6635/actor_000002572927.pth                  | Hamilton 0.9507122039794922
+./Walker2d-v3_PPO_3_6635/actor_000002630642.pth                  | Hamilton 0.9790986776351929
+./Walker2d-v3_PPO_3_6635/actor_000002692266.pth                  | Hamilton 1.001312494277954
+./Walker2d-v3_PPO_3_6635/actor_000002755833.pth                  | Hamilton 1.0064773559570312
+./Walker2d-v3_PPO_3_6635/actor_000002820139.pth                  | Hamilton 1.0224567651748657
+./Walker2d-v3_PPO_3_6635/actor_000002881531.pth                  | Hamilton 1.0335133075714111
+./Walker2d-v3_PPO_3_6635/actor_000002946074.pth                  | Hamilton 1.051541805267334
+./Walker2d-v3_PPO_3_6635/actor_000003008674.pth                  | Hamilton 1.0847855806350708
+./Walker2d-v3_PPO_3_6635/actor_000003070054.pth                  | Hamilton 1.089240550994873
+./Walker2d-v3_PPO_3_6635/actor_000003131041.pth                  | Hamilton 1.0923864841461182
+./Walker2d-v3_PPO_3_6635/actor_000003193064.pth                  | Hamilton 1.0970594882965088
+./Walker2d-v3_PPO_3_6635/actor_000003254037.pth                  | Hamilton 1.111884355545044
+./Walker2d-v3_PPO_3_6635/actor_000003311997.pth                  | Hamilton 1.1318044662475586
+./Walker2d-v3_PPO_3_6635/actor_000003376975.pth                  | Hamilton 1.1258502006530762
+./Walker2d-v3_PPO_3_6635/actor_000003437763.pth                  | Hamilton 1.1204301118850708
+./Walker2d-v3_PPO_3_6635/actor_000003498339.pth                  | Hamilton 1.1107360124588013
+./Walker2d-v3_PPO_3_6635/actor_000003560356.pth                  | Hamilton 1.1189417839050293
+./Walker2d-v3_PPO_3_6635/actor_000003619930.pth                  | Hamilton 1.1212390661239624
+./Walker2d-v3_PPO_3_6635/actor_000003680568.pth                  | Hamilton 1.1144177913665771
+./Walker2d-v3_PPO_3_6635/actor_000003743412.pth                  | Hamilton 1.112485647201538
+./Walker2d-v3_PPO_3_6635/actor_000003805319.pth                  | Hamilton 1.093639612197876
+./Walker2d-v3_PPO_3_6635/actor_000003866336.pth                  | Hamilton 1.1010220050811768
+./Walker2d-v3_PPO_3_6635/actor_000003926910.pth                  | Hamilton 1.0958553552627563
+./Walker2d-v3_PPO_3_6635/actor_000003986107.pth                  | Hamilton 1.080429196357727
+./Walker2d-v3_PPO_3_6635/actor_000004047683.pth                  | Hamilton 1.0827715396881104
+./Walker2d-v3_PPO_3_6635/actor_000004106300.pth                  | Hamilton 1.0995678901672363
+./Walker2d-v3_PPO_3_6635/actor_000004169985.pth                  | Hamilton 1.0886454582214355
+./Walker2d-v3_PPO_3_6635/actor_000004228304.pth                  | Hamilton 1.1055152416229248
+./Walker2d-v3_PPO_3_6635/actor_000004284973.pth                  | Hamilton 1.107505202293396
+./Walker2d-v3_PPO_3_6635/actor_000004342665.pth                  | Hamilton 1.0984554290771484
+./Walker2d-v3_PPO_3_6635/actor_000004399358.pth                  | Hamilton 1.0958807468414307
+./Walker2d-v3_PPO_3_6635/actor_000004457209.pth                  | Hamilton 1.0925768613815308
+./Walker2d-v3_PPO_3_6635/actor_000004512042.pth                  | Hamilton 1.0755237340927124
+./Walker2d-v3_PPO_3_6635/actor_000004568106.pth                  | Hamilton 1.0717418193817139
+./Walker2d-v3_PPO_3_6635/actor_000004626400.pth                  | Hamilton 1.0806517601013184
+./Walker2d-v3_PPO_3_6635/actor_000004691271.pth                  | Hamilton 1.0708420276641846
+./Walker2d-v3_PPO_3_6635/actor_000004750893.pth                  | Hamilton 1.0804322957992554
+./Walker2d-v3_PPO_3_6635/actor_000004813899.pth                  | Hamilton 1.0726450681686401
+./Walker2d-v3_PPO_3_6635/actor_000004870007.pth                  | Hamilton 1.0703684091567993
+./Walker2d-v3_PPO_3_6635/actor_000004924015.pth                  | Hamilton 1.0642073154449463
+./Walker2d-v3_PPO_3_6635/actor_000004981319.pth                  | Hamilton 1.0789607763290405
+./Walker2d-v3_PPO_3_6635/actor_000005038251.pth                  | Hamilton 1.0696189403533936
+./Walker2d-v3_PPO_3_6635/actor_000005096952.pth                  | Hamilton 1.0715504884719849
+./Walker2d-v3_PPO_3_6635/actor_000005154283.pth                  | Hamilton 1.0594005584716797
+./Walker2d-v3_PPO_3_6635/actor_000005213615.pth                  | Hamilton 1.04817533493042
+./Walker2d-v3_PPO_3_6635/actor_000005274787.pth                  | Hamilton 1.0395565032958984
+./Walker2d-v3_PPO_3_6635/actor_000005332130.pth                  | Hamilton 1.0261379480361938
+./Walker2d-v3_PPO_3_6635/actor_000005396229.pth                  | Hamilton 1.0006322860717773
+./Walker2d-v3_PPO_3_6635/actor_000005459419.pth                  | Hamilton 0.959551990032196
+./Walker2d-v3_PPO_3_6635/actor_000005519480.pth                  | Hamilton 0.9368746280670166
+./Walker2d-v3_PPO_3_6635/actor_000005579603.pth                  | Hamilton 0.9290984272956848
+./Walker2d-v3_PPO_3_6635/actor_000005641587.pth                  | Hamilton 0.9125220775604248
+./Walker2d-v3_PPO_3_6635/actor_000005703016.pth                  | Hamilton 0.9109368920326233
+./Walker2d-v3_PPO_3_6635/actor_000005766489.pth                  | Hamilton 0.9127731919288635
+./Walker2d-v3_PPO_3_6635/actor_000005821143.pth                  | Hamilton 0.8996481895446777
+./Walker2d-v3_PPO_3_6635/actor_000005880491.pth                  | Hamilton 0.8935257792472839
+./Walker2d-v3_PPO_3_6635/actor_000005938390.pth                  | Hamilton 0.8621619939804077
+./Walker2d-v3_PPO_3_6635/actor_000005994241.pth                  | Hamilton 0.8484944701194763
+./Walker2d-v3_PPO_3_6635/actor_000006051786.pth                  | Hamilton 0.8623994588851929
+./Walker2d-v3_PPO_3_6635/actor_000006111064.pth                  | Hamilton 0.8559266328811646
+./Walker2d-v3_PPO_3_6635/actor_000006172700.pth                  | Hamilton 0.8494306206703186
+./Walker2d-v3_PPO_3_6635/actor_000006234883.pth                  | Hamilton 0.8376625776290894
+./Walker2d-v3_PPO_3_6635/actor_000006292467.pth                  | Hamilton 0.8147987723350525
+./Walker2d-v3_PPO_3_6635/actor_000006351672.pth                  | Hamilton 0.8209235668182373
+./Walker2d-v3_PPO_3_6635/actor_000006413796.pth                  | Hamilton 0.8096635341644287
+./Walker2d-v3_PPO_3_6635/actor_000006474080.pth                  | Hamilton 0.8078237771987915
+./Walker2d-v3_PPO_3_6635/actor_000006529489.pth                  | Hamilton 0.7891370058059692
+./Walker2d-v3_PPO_3_6635/actor_000006585655.pth                  | Hamilton 0.7922996282577515
+./Walker2d-v3_PPO_3_6635/actor_000006646486.pth                  | Hamilton 0.7994384765625
+./Walker2d-v3_PPO_3_6635/actor_000006703895.pth                  | Hamilton 0.7893878817558289
+./Walker2d-v3_PPO_3_6635/actor_000006759400.pth                  | Hamilton 0.7944397926330566
+./Walker2d-v3_PPO_3_6635/actor_000006815682.pth                  | Hamilton 0.7983978986740112
+./Walker2d-v3_PPO_3_6635/actor_000006874665.pth                  | Hamilton 0.7860860228538513
+./Walker2d-v3_PPO_3_6635/actor_000006933966.pth                  | Hamilton 0.7959814071655273
+./Walker2d-v3_PPO_3_6635/actor_000006989248.pth                  | Hamilton 0.7916241884231567
+./Walker2d-v3_PPO_3_6635/actor_000007047421.pth                  | Hamilton 0.7806171178817749
+./Walker2d-v3_PPO_3_6635/actor_000007108867.pth                  | Hamilton 0.8016980290412903
+./Walker2d-v3_PPO_3_6635/actor_000007167695.pth                  | Hamilton 0.8155857920646667
+./Walker2d-v3_PPO_3_6635/actor_000007229038.pth                  | Hamilton 0.8113080859184265
+./Walker2d-v3_PPO_3_6635/actor_000007285949.pth                  | Hamilton 0.8086192011833191
+./Walker2d-v3_PPO_3_6635/actor_000007344004.pth                  | Hamilton 0.8190962076187134
+./Walker2d-v3_PPO_3_6635/actor_000007403025.pth                  | Hamilton 0.7791344523429871
+./Walker2d-v3_PPO_3_6635/actor_000007465088.pth                  | Hamilton 0.7855120897293091
+./Walker2d-v3_PPO_3_6635/actor_000007527952.pth                  | Hamilton 0.7963833808898926
+./Walker2d-v3_PPO_3_6635/actor_000007588208.pth                  | Hamilton 0.7801435589790344
+./Walker2d-v3_PPO_3_6635/actor_000007650859.pth                  | Hamilton 0.7747620940208435
+./Walker2d-v3_PPO_3_6635/actor_000007712106.pth                  | Hamilton 0.7632256746292114
+./Walker2d-v3_PPO_3_6635/actor_000007775304.pth                  | Hamilton 0.7732028961181641
+./Walker2d-v3_PPO_3_6635/actor_000007835163.pth                  | Hamilton 0.7782047390937805
+./Walker2d-v3_PPO_3_6635/actor_000007894179.pth                  | Hamilton 0.7758763432502747
+./Walker2d-v3_PPO_3_6635/actor_000007953023.pth                  | Hamilton 0.769618570804596
+./Walker2d-v3_PPO_3_6635/actor_000008012424.pth                  | Hamilton 0.761384129524231
+./Walker2d-v3_PPO_3_6635/actor_000008068116.pth                  | Hamilton 0.7561891078948975
+./Walker2d-v3_PPO_3_6635/actor_000008124763.pth                  | Hamilton 0.7476109862327576
+./Walker2d-v3_PPO_3_6635/actor_000008176761.pth                  | Hamilton 0.7540464997291565
+./Walker2d-v3_PPO_3_6635/actor_000008230810.pth                  | Hamilton 0.7447154521942139
+./Walker2d-v3_PPO_3_6635/actor_000008290615.pth                  | Hamilton 0.7597187757492065
+./Walker2d-v3_PPO_3_6635/actor_000008354599.pth                  | Hamilton 0.7634997367858887
+./Walker2d-v3_PPO_3_6635/actor_000008419797.pth                  | Hamilton 0.764761209487915
+./Walker2d-v3_PPO_3_6635/actor_000008474258.pth                  | Hamilton 0.7732122540473938
+./Walker2d-v3_PPO_3_6635/actor_000008533154.pth                  | Hamilton 0.7703934907913208
+./Walker2d-v3_PPO_3_6635/actor_000008590844.pth                  | Hamilton 0.7396253347396851
+./Walker2d-v3_PPO_3_6635/actor_000008648224.pth                  | Hamilton 0.7458689212799072
+./Walker2d-v3_PPO_3_6635/actor_000008708901.pth                  | Hamilton 0.7560151815414429
+./Walker2d-v3_PPO_3_6635/actor_000008766844.pth                  | Hamilton 0.7598954439163208
+./Walker2d-v3_PPO_3_6635/actor_000008827592.pth                  | Hamilton 0.7636743783950806
+./Walker2d-v3_PPO_3_6635/actor_000008882910.pth                  | Hamilton 0.7737241387367249
+./Walker2d-v3_PPO_3_6635/actor_000008942884.pth                  | Hamilton 0.781140923500061
+./Walker2d-v3_PPO_3_6635/actor_000008998715.pth                  | Hamilton 0.7709715366363525
+./Walker2d-v3_PPO_3_6635/actor_000009059073.pth                  | Hamilton 0.7734872698783875
+./Walker2d-v3_PPO_3_6635/actor_000009116816.pth                  | Hamilton 0.7824884653091431
+./Walker2d-v3_PPO_3_6635/actor_000009173580.pth                  | Hamilton 0.7919142842292786
+./Walker2d-v3_PPO_3_6635/actor_000009229155.pth                  | Hamilton 0.7939603328704834
+./Walker2d-v3_PPO_3_6635/actor_000009289948.pth                  | Hamilton 0.7982693910598755
+./Walker2d-v3_PPO_3_6635/actor_000009349727.pth                  | Hamilton 0.794403612613678
+./Walker2d-v3_PPO_3_6635/actor_000009408518.pth                  | Hamilton 0.7916834354400635
+./Walker2d-v3_PPO_3_6635/actor_000009466785.pth                  | Hamilton 0.8053403496742249
+./Walker2d-v3_PPO_3_6635/actor_000009522771.pth                  | Hamilton 0.8052003979682922
+./Walker2d-v3_PPO_3_6635/actor_000009581593.pth                  | Hamilton 0.7969403266906738
+./Walker2d-v3_PPO_3_6635/actor_000009640434.pth                  | Hamilton 0.7918256521224976
+./Walker2d-v3_PPO_3_6635/actor_000009698663.pth                  | Hamilton 0.7704351544380188
+./Walker2d-v3_PPO_3_6635/actor_000009753472.pth                  | Hamilton 0.7847091555595398
+./Walker2d-v3_PPO_3_6635/actor_000009807507.pth                  | Hamilton 0.7594966292381287
+./Walker2d-v3_PPO_3_6635/actor_000009859931.pth                  | Hamilton 0.7624948620796204
+./Walker2d-v3_PPO_3_6635/actor_000009911389.pth                  | Hamilton 0.7485454082489014
+./Walker2d-v3_PPO_3_6635/actor_000009965829.pth                  | Hamilton 0.7480531930923462
+./Walker2d-v3_PPO_3_6635/actor_000010021121.pth                  | Hamilton 0.7323440909385681
+./Walker2d-v3_PPO_3_6635/actor_000010076293.pth                  | Hamilton 0.7485517263412476
+./Walker2d-v3_PPO_3_6635/actor_000010135310.pth                  | Hamilton 0.7378523945808411
+./Walker2d-v3_PPO_3_6635/actor_000010192034.pth                  | Hamilton 0.7374451756477356
+./Walker2d-v3_PPO_3_6635/actor_000010244495.pth                  | Hamilton 0.728163480758667
+./Walker2d-v3_PPO_3_6635/actor_000010301442.pth                  | Hamilton 0.7253691554069519
+./Walker2d-v3_PPO_3_6635/actor_000010357588.pth                  | Hamilton 0.7222223877906799
+./Walker2d-v3_PPO_3_6635/actor_000010416375.pth                  | Hamilton 0.7218358516693115
+./Walker2d-v3_PPO_3_6635/actor_000010471627.pth                  | Hamilton 0.7166824340820312
+./Walker2d-v3_PPO_3_6635/actor_000010530137.pth                  | Hamilton 0.7295182347297668
+./Walker2d-v3_PPO_3_6635/actor_000010587710.pth                  | Hamilton 0.7149263024330139
+./Walker2d-v3_PPO_3_6635/actor_000010645766.pth                  | Hamilton 0.7177409529685974
+./Walker2d-v3_PPO_3_6635/actor_000010707894.pth                  | Hamilton 0.7212621569633484
+./Walker2d-v3_PPO_3_6635/actor_000010768712.pth                  | Hamilton 0.7426449060440063
+./Walker2d-v3_PPO_3_6635/actor__000000012172_00012.179.pth       | Hamilton 0.03262835741043091
+./Walker2d-v3_PPO_3_6635/actor__000000378838_00329.068.pth       | Hamilton 0.047297269105911255
+./Walker2d-v3_PPO_3_6635/actor__000000742998_00784.900.pth       | Hamilton 0.08947175741195679
+./Walker2d-v3_PPO_3_6635/actor__000001102779_01365.233.pth       | Hamilton 0.17121867835521698
+./Walker2d-v3_PPO_3_6635/actor__000001467494_01534.070.pth       | Hamilton 0.29262807965278625
+./Walker2d-v3_PPO_3_6635/actor__000001831850_04312.181.pth       | Hamilton 0.4232810437679291
+./Walker2d-v3_PPO_3_6635/actor__000002197442_04548.749.pth       | Hamilton 0.5723731517791748
+./Walker2d-v3_PPO_3_6635/actor__000002565171_04699.839.pth       | Hamilton 0.7016875147819519
+./Walker2d-v3_PPO_3_6635/actor__000002931946_04860.750.pth       | Hamilton 0.8188680410385132
+./Walker2d-v3_PPO_3_6635/actor__000003298249_05175.716.pth       | Hamilton 0.9682682156562805
+./Walker2d-v3_PPO_3_6635/actor__000003664551_05203.180.pth       | Hamilton 0.9984228014945984
+./Walker2d-v3_PPO_3_6635/actor__000004033154_05292.623.pth       | Hamilton 1.0472486019134521
+./Walker2d-v3_PPO_3_6635/actor__000004391985_05459.751.pth       | Hamilton 1.0468547344207764
+./Walker2d-v3_PPO_3_6635/actor__000004758573_05548.323.pth       | Hamilton 1.062732458114624
+./Walker2d-v3_PPO_3_6635/actor__000005118937_05670.984.pth       | Hamilton 1.080477237701416
+./Walker2d-v3_PPO_3_6635/actor__000005480082_05790.323.pth       | Hamilton 1.033541202545166
+./Walker2d-v3_PPO_3_6635/actor__000005842831_05903.450.pth       | Hamilton 1.0606005191802979
+./Walker2d-v3_PPO_3_6635/actor__000006204509_06032.451.pth       | Hamilton 1.0366705656051636
+./Walker2d-v3_PPO_3_6635/actor__000006565574_06154.854.pth       | Hamilton 1.0357882976531982
+./Walker2d-v3_PPO_3_6635/actor__000007285949_06195.410.pth       | Hamilton 1.0567569732666016
+./Walker2d-v3_PPO_3_6635/actor__000007650859_06356.390.pth       | Hamilton 1.0693386793136597
+./Walker2d-v3_PPO_3_6635/actor__000009110078_06453.380.pth       | Hamilton 1.0073399543762207
+./Walker2d-v3_PPO_3_6635/actor__000009826689_06635.056.pth       | Hamilton 0.8949706554412842
+"""
+    # Walker2d-v3_PPO_4_7884
+    data44 = """
+./Walker2d-v3_PPO_4_7884/actor_000000073225.pth                  | Hamilton 0.044810328632593155
+./Walker2d-v3_PPO_4_7884/actor_000000209233.pth                  | Hamilton 0.061470333486795425
+./Walker2d-v3_PPO_4_7884/actor_000000342196.pth                  | Hamilton 0.08724474906921387
+./Walker2d-v3_PPO_4_7884/actor_000000475664.pth                  | Hamilton 0.11592239141464233
+./Walker2d-v3_PPO_4_7884/actor_000000610321.pth                  | Hamilton 0.1401374489068985
+./Walker2d-v3_PPO_4_7884/actor_000000745534.pth                  | Hamilton 0.17884403467178345
+./Walker2d-v3_PPO_4_7884/actor_000000880592.pth                  | Hamilton 0.22284580767154694
+./Walker2d-v3_PPO_4_7884/actor_000001017668.pth                  | Hamilton 0.2631847858428955
+./Walker2d-v3_PPO_4_7884/actor_000001154163.pth                  | Hamilton 0.3264837861061096
+./Walker2d-v3_PPO_4_7884/actor_000001290606.pth                  | Hamilton 0.397513210773468
+./Walker2d-v3_PPO_4_7884/actor_000001431004.pth                  | Hamilton 0.4849456548690796
+./Walker2d-v3_PPO_4_7884/actor_000001578032.pth                  | Hamilton 0.6127609014511108
+./Walker2d-v3_PPO_4_7884/actor_000001728512.pth                  | Hamilton 0.7138102054595947
+./Walker2d-v3_PPO_4_7884/actor_000001883008.pth                  | Hamilton 0.8252093195915222
+./Walker2d-v3_PPO_4_7884/actor_000002036166.pth                  | Hamilton 0.9256483912467957
+./Walker2d-v3_PPO_4_7884/actor_000002187135.pth                  | Hamilton 0.9922093749046326
+./Walker2d-v3_PPO_4_7884/actor_000002340466.pth                  | Hamilton 1.0900201797485352
+./Walker2d-v3_PPO_4_7884/actor_000002492104.pth                  | Hamilton 1.2071281671524048
+./Walker2d-v3_PPO_4_7884/actor_000002645510.pth                  | Hamilton 1.2975560426712036
+./Walker2d-v3_PPO_4_7884/actor_000002794886.pth                  | Hamilton 1.3490664958953857
+./Walker2d-v3_PPO_4_7884/actor_000002946283.pth                  | Hamilton 1.3788185119628906
+./Walker2d-v3_PPO_4_7884/actor_000003098172.pth                  | Hamilton 1.3769645690917969
+./Walker2d-v3_PPO_4_7884/actor_000003244026.pth                  | Hamilton 1.4195348024368286
+./Walker2d-v3_PPO_4_7884/actor_000003388723.pth                  | Hamilton 1.4133703708648682
+./Walker2d-v3_PPO_4_7884/actor_000003543716.pth                  | Hamilton 1.4055488109588623
+./Walker2d-v3_PPO_4_7884/actor_000003696605.pth                  | Hamilton 1.4227633476257324
+./Walker2d-v3_PPO_4_7884/actor_000003843102.pth                  | Hamilton 1.4294084310531616
+./Walker2d-v3_PPO_4_7884/actor_000003988188.pth                  | Hamilton 1.3942257165908813
+./Walker2d-v3_PPO_4_7884/actor_000004133833.pth                  | Hamilton 1.4088448286056519
+./Walker2d-v3_PPO_4_7884/actor_000004285654.pth                  | Hamilton 1.4054874181747437
+./Walker2d-v3_PPO_4_7884/actor_000004434570.pth                  | Hamilton 1.332322359085083
+./Walker2d-v3_PPO_4_7884/actor_000004589946.pth                  | Hamilton 1.3136394023895264
+./Walker2d-v3_PPO_4_7884/actor_000004738336.pth                  | Hamilton 1.2826125621795654
+./Walker2d-v3_PPO_4_7884/actor_000004883155.pth                  | Hamilton 1.2865899801254272
+./Walker2d-v3_PPO_4_7884/actor_000005034912.pth                  | Hamilton 1.2543002367019653
+./Walker2d-v3_PPO_4_7884/actor_000005183905.pth                  | Hamilton 1.2268785238265991
+./Walker2d-v3_PPO_4_7884/actor_000005328808.pth                  | Hamilton 1.1741422414779663
+./Walker2d-v3_PPO_4_7884/actor_000005476784.pth                  | Hamilton 1.139819622039795
+./Walker2d-v3_PPO_4_7884/actor_000005623711.pth                  | Hamilton 1.1153515577316284
+./Walker2d-v3_PPO_4_7884/actor_000005773136.pth                  | Hamilton 1.1210931539535522
+./Walker2d-v3_PPO_4_7884/actor_000005926945.pth                  | Hamilton 1.1309336423873901
+./Walker2d-v3_PPO_4_7884/actor_000006069329.pth                  | Hamilton 1.105654001235962
+./Walker2d-v3_PPO_4_7884/actor_000006212489.pth                  | Hamilton 1.1002238988876343
+./Walker2d-v3_PPO_4_7884/actor_000006363845.pth                  | Hamilton 1.0909202098846436
+./Walker2d-v3_PPO_4_7884/actor_000006517253.pth                  | Hamilton 1.0542353391647339
+./Walker2d-v3_PPO_4_7884/actor_000006667502.pth                  | Hamilton 1.0891151428222656
+./Walker2d-v3_PPO_4_7884/actor_000006813599.pth                  | Hamilton 1.1217628717422485
+./Walker2d-v3_PPO_4_7884/actor_000006961590.pth                  | Hamilton 1.1565836668014526
+./Walker2d-v3_PPO_4_7884/actor_000007107006.pth                  | Hamilton 1.140400767326355
+./Walker2d-v3_PPO_4_7884/actor_000007247572.pth                  | Hamilton 1.1038604974746704
+./Walker2d-v3_PPO_4_7884/actor_000007400022.pth                  | Hamilton 1.0980366468429565
+./Walker2d-v3_PPO_4_7884/actor_000007546588.pth                  | Hamilton 1.1156584024429321
+./Walker2d-v3_PPO_4_7884/actor_000007697080.pth                  | Hamilton 1.1234101057052612
+./Walker2d-v3_PPO_4_7884/actor_000007842828.pth                  | Hamilton 1.08625066280365
+./Walker2d-v3_PPO_4_7884/actor_000007990789.pth                  | Hamilton 1.1056365966796875
+./Walker2d-v3_PPO_4_7884/actor_000008135041.pth                  | Hamilton 1.0732046365737915
+./Walker2d-v3_PPO_4_7884/actor_000008281602.pth                  | Hamilton 1.0186923742294312
+./Walker2d-v3_PPO_4_7884/actor_000008428605.pth                  | Hamilton 1.0509549379348755
+./Walker2d-v3_PPO_4_7884/actor_000008575028.pth                  | Hamilton 1.0293654203414917
+./Walker2d-v3_PPO_4_7884/actor_000008719602.pth                  | Hamilton 1.031142234802246
+./Walker2d-v3_PPO_4_7884/actor_000008870366.pth                  | Hamilton 1.0119407176971436
+./Walker2d-v3_PPO_4_7884/actor_000009015717.pth                  | Hamilton 0.9998535513877869
+./Walker2d-v3_PPO_4_7884/actor_000009160288.pth                  | Hamilton 0.9700120687484741
+./Walker2d-v3_PPO_4_7884/actor_000009303823.pth                  | Hamilton 0.9851129055023193
+./Walker2d-v3_PPO_4_7884/actor_000009450356.pth                  | Hamilton 0.9827463626861572
+./Walker2d-v3_PPO_4_7884/actor_000009596589.pth                  | Hamilton 0.9993273615837097
+./Walker2d-v3_PPO_4_7884/actor_000009741106.pth                  | Hamilton 0.9758424162864685
+./Walker2d-v3_PPO_4_7884/actor_000009881545.pth                  | Hamilton 0.9426652789115906
+./Walker2d-v3_PPO_4_7884/actor_000010023570.pth                  | Hamilton 0.9391447305679321
+./Walker2d-v3_PPO_4_7884/actor_000010169288.pth                  | Hamilton 0.9776617884635925
+./Walker2d-v3_PPO_4_7884/actor_000010314367.pth                  | Hamilton 0.967212438583374
+./Walker2d-v3_PPO_4_7884/actor_000010462803.pth                  | Hamilton 0.9687291979789734
+./Walker2d-v3_PPO_4_7884/actor_000010604819.pth                  | Hamilton 0.9568792581558228
+./Walker2d-v3_PPO_4_7884/actor_000010743516.pth                  | Hamilton 0.9551551938056946
+./Walker2d-v3_PPO_4_7884/actor_000010883673.pth                  | Hamilton 0.9347825050354004
+./Walker2d-v3_PPO_4_7884/actor_000011026189.pth                  | Hamilton 0.931612491607666
+./Walker2d-v3_PPO_4_7884/actor_000011173866.pth                  | Hamilton 0.9647425413131714
+./Walker2d-v3_PPO_4_7884/actor_000011319209.pth                  | Hamilton 0.943316638469696
+./Walker2d-v3_PPO_4_7884/actor_000011462060.pth                  | Hamilton 0.9403418302536011
+./Walker2d-v3_PPO_4_7884/actor_000011599892.pth                  | Hamilton 0.9124143719673157
+./Walker2d-v3_PPO_4_7884/actor_000011744775.pth                  | Hamilton 0.8836234211921692
+./Walker2d-v3_PPO_4_7884/actor_000011891037.pth                  | Hamilton 0.8960395455360413
+./Walker2d-v3_PPO_4_7884/actor_000012040383.pth                  | Hamilton 0.9100744724273682
+./Walker2d-v3_PPO_4_7884/actor_000012186731.pth                  | Hamilton 0.886787474155426
+./Walker2d-v3_PPO_4_7884/actor_000012333955.pth                  | Hamilton 0.8668569922447205
+./Walker2d-v3_PPO_4_7884/actor_000012488200.pth                  | Hamilton 0.903489887714386
+./Walker2d-v3_PPO_4_7884/actor_000012638981.pth                  | Hamilton 0.9060494899749756
+./Walker2d-v3_PPO_4_7884/actor_000012788489.pth                  | Hamilton 0.915973424911499
+./Walker2d-v3_PPO_4_7884/actor_000012932830.pth                  | Hamilton 0.8710293769836426
+./Walker2d-v3_PPO_4_7884/actor_000013079448.pth                  | Hamilton 0.8548725843429565
+./Walker2d-v3_PPO_4_7884/actor_000013223346.pth                  | Hamilton 0.8557795882225037
+./Walker2d-v3_PPO_4_7884/actor_000013371208.pth                  | Hamilton 0.8430655002593994
+./Walker2d-v3_PPO_4_7884/actor_000013520948.pth                  | Hamilton 0.8432157635688782
+./Walker2d-v3_PPO_4_7884/actor_000013671663.pth                  | Hamilton 0.8388532400131226
+./Walker2d-v3_PPO_4_7884/actor_000013821359.pth                  | Hamilton 0.83554607629776
+./Walker2d-v3_PPO_4_7884/actor_000013974606.pth                  | Hamilton 0.8343712091445923
+./Walker2d-v3_PPO_4_7884/actor_000014123633.pth                  | Hamilton 0.843206524848938
+./Walker2d-v3_PPO_4_7884/actor_000014272822.pth                  | Hamilton 0.8422938585281372
+./Walker2d-v3_PPO_4_7884/actor_000014422133.pth                  | Hamilton 0.8300326466560364
+./Walker2d-v3_PPO_4_7884/actor_000014574626.pth                  | Hamilton 0.8480035066604614
+./Walker2d-v3_PPO_4_7884/actor_000014724011.pth                  | Hamilton 0.8517335653305054
+./Walker2d-v3_PPO_4_7884/actor_000014867233.pth                  | Hamilton 0.8566312789916992
+./Walker2d-v3_PPO_4_7884/actor_000015012442.pth                  | Hamilton 0.8417342901229858
+./Walker2d-v3_PPO_4_7884/actor_000015150118.pth                  | Hamilton 0.8494038581848145
+./Walker2d-v3_PPO_4_7884/actor_000015286852.pth                  | Hamilton 0.8653177618980408
+./Walker2d-v3_PPO_4_7884/actor_000015428926.pth                  | Hamilton 0.8875323534011841
+./Walker2d-v3_PPO_4_7884/actor_000015578886.pth                  | Hamilton 0.8919367790222168
+./Walker2d-v3_PPO_4_7884/actor_000015726601.pth                  | Hamilton 0.9082167744636536
+./Walker2d-v3_PPO_4_7884/actor_000015872215.pth                  | Hamilton 0.9046029448509216
+./Walker2d-v3_PPO_4_7884/actor_000016016187.pth                  | Hamilton 0.8892053961753845
+./Walker2d-v3_PPO_4_7884/actor_000016159262.pth                  | Hamilton 0.8920382857322693
+./Walker2d-v3_PPO_4_7884/actor_000016302694.pth                  | Hamilton 0.854295551776886
+./Walker2d-v3_PPO_4_7884/actor_000016442077.pth                  | Hamilton 0.8632417917251587
+./Walker2d-v3_PPO_4_7884/actor_000016582661.pth                  | Hamilton 0.8530678749084473
+./Walker2d-v3_PPO_4_7884/actor_000016722503.pth                  | Hamilton 0.8256974816322327
+./Walker2d-v3_PPO_4_7884/actor_000016864550.pth                  | Hamilton 0.8281449675559998
+./Walker2d-v3_PPO_4_7884/actor_000017013977.pth                  | Hamilton 0.8289390802383423
+./Walker2d-v3_PPO_4_7884/actor_000017164857.pth                  | Hamilton 0.8402869701385498
+./Walker2d-v3_PPO_4_7884/actor_000017313426.pth                  | Hamilton 0.8473198413848877
+./Walker2d-v3_PPO_4_7884/actor_000017458602.pth                  | Hamilton 0.8511500358581543
+./Walker2d-v3_PPO_4_7884/actor_000017605108.pth                  | Hamilton 0.8387201428413391
+./Walker2d-v3_PPO_4_7884/actor_000017750555.pth                  | Hamilton 0.836371660232544
+./Walker2d-v3_PPO_4_7884/actor_000017899665.pth                  | Hamilton 0.7755534052848816
+./Walker2d-v3_PPO_4_7884/actor_000018045485.pth                  | Hamilton 0.7680171132087708
+./Walker2d-v3_PPO_4_7884/actor_000018183632.pth                  | Hamilton 0.7570532560348511
+./Walker2d-v3_PPO_4_7884/actor_000018330037.pth                  | Hamilton 0.7302579879760742
+./Walker2d-v3_PPO_4_7884/actor_000018481808.pth                  | Hamilton 0.707948625087738
+./Walker2d-v3_PPO_4_7884/actor_000018625126.pth                  | Hamilton 0.7164007425308228
+./Walker2d-v3_PPO_4_7884/actor_000018771570.pth                  | Hamilton 0.732720136642456
+./Walker2d-v3_PPO_4_7884/actor_000018920899.pth                  | Hamilton 0.703303873538971
+./Walker2d-v3_PPO_4_7884/actor_000019068053.pth                  | Hamilton 0.7047895789146423
+./Walker2d-v3_PPO_4_7884/actor_000019223353.pth                  | Hamilton 0.699423611164093
+./Walker2d-v3_PPO_4_7884/actor_000019369729.pth                  | Hamilton 0.686767578125
+./Walker2d-v3_PPO_4_7884/actor_000019519391.pth                  | Hamilton 0.6802480220794678
+./Walker2d-v3_PPO_4_7884/actor_000019659919.pth                  | Hamilton 0.6746554970741272
+./Walker2d-v3_PPO_4_7884/actor_000019807645.pth                  | Hamilton 0.681246280670166
+./Walker2d-v3_PPO_4_7884/actor_000019957758.pth                  | Hamilton 0.682015061378479
+./Walker2d-v3_PPO_4_7884/actor_000019957758.pth                  | Hamilton 0.682015061378479
+./Walker2d-v3_PPO_4_7884/actor__000000016096_00098.680.pth       | Hamilton 0.009500125423073769
+./Walker2d-v3_PPO_4_7884/actor__000000375681_00518.777.pth       | Hamilton 0.03045632876455784
+./Walker2d-v3_PPO_4_7884/actor__000000737265_00799.500.pth       | Hamilton 0.08073711395263672
+./Walker2d-v3_PPO_4_7884/actor__000001094283_00858.355.pth       | Hamilton 0.1364787071943283
+./Walker2d-v3_PPO_4_7884/actor__000001459056_02571.776.pth       | Hamilton 0.2304132878780365
+./Walker2d-v3_PPO_4_7884/actor__000001823860_05191.970.pth       | Hamilton 0.33594363927841187
+./Walker2d-v3_PPO_4_7884/actor__000002187135_05464.047.pth       | Hamilton 0.4610356092453003
+./Walker2d-v3_PPO_4_7884/actor__000002918093_05819.945.pth       | Hamilton 0.5923557281494141
+./Walker2d-v3_PPO_4_7884/actor__000003659378_06260.537.pth       | Hamilton 0.6636354923248291
+./Walker2d-v3_PPO_4_7884/actor__000004024376_06369.756.pth       | Hamilton 0.7016980051994324
+./Walker2d-v3_PPO_4_7884/actor__000004389276_06449.121.pth       | Hamilton 0.7344204187393188
+./Walker2d-v3_PPO_4_7884/actor__000004757994_06566.651.pth       | Hamilton 0.7607460618019104
+./Walker2d-v3_PPO_4_7884/actor__000005486413_06780.500.pth       | Hamilton 0.787914514541626
+./Walker2d-v3_PPO_4_7884/actor__000005850928_07051.599.pth       | Hamilton 0.8591291308403015
+./Walker2d-v3_PPO_4_7884/actor__000006952595_07151.677.pth       | Hamilton 0.9046728014945984
+./Walker2d-v3_PPO_4_7884/actor__000008419381_07250.233.pth       | Hamilton 0.9762046337127686
+./Walker2d-v3_PPO_4_7884/actor__000008786061_07354.451.pth       | Hamilton 1.012585997581482
+./Walker2d-v3_PPO_4_7884/actor__000011724686_07384.114.pth       | Hamilton 1.0615894794464111
+./Walker2d-v3_PPO_4_7884/actor__000012833068_07466.334.pth       | Hamilton 1.1436699628829956
+./Walker2d-v3_PPO_4_7884/actor__000014697394_07625.368.pth       | Hamilton 1.1226475238800049
+./Walker2d-v3_PPO_4_7884/actor__000015807921_07706.893.pth       | Hamilton 1.126160979270935
+./Walker2d-v3_PPO_4_7884/actor__000017641970_07742.604.pth       | Hamilton 0.9916056394577026
+./Walker2d-v3_PPO_4_7884/actor__000018754143_07884.901.pth       | Hamilton 0.8471044898033142
+"""
+    # Walker2d-v3_PPO_2_7191
+    data45 = """
+./Walker2d-v3_PPO_2_7191/actor_000000074593.pth                  | Hamilton 0.02706068381667137
+./Walker2d-v3_PPO_2_7191/actor_000000208200.pth                  | Hamilton 0.04495815187692642
+./Walker2d-v3_PPO_2_7191/actor_000000341240.pth                  | Hamilton 0.0657462626695633
+./Walker2d-v3_PPO_2_7191/actor_000000473718.pth                  | Hamilton 0.08721550554037094
+./Walker2d-v3_PPO_2_7191/actor_000000607635.pth                  | Hamilton 0.1116761863231659
+./Walker2d-v3_PPO_2_7191/actor_000000742810.pth                  | Hamilton 0.14602085947990417
+./Walker2d-v3_PPO_2_7191/actor_000000878175.pth                  | Hamilton 0.18098057806491852
+./Walker2d-v3_PPO_2_7191/actor_000001018008.pth                  | Hamilton 0.2286052256822586
+./Walker2d-v3_PPO_2_7191/actor_000001162862.pth                  | Hamilton 0.29176223278045654
+./Walker2d-v3_PPO_2_7191/actor_000001310774.pth                  | Hamilton 0.3957574665546417
+./Walker2d-v3_PPO_2_7191/actor_000001462296.pth                  | Hamilton 0.45471832156181335
+./Walker2d-v3_PPO_2_7191/actor_000001613578.pth                  | Hamilton 0.5143200159072876
+./Walker2d-v3_PPO_2_7191/actor_000001771270.pth                  | Hamilton 0.6280671954154968
+./Walker2d-v3_PPO_2_7191/actor_000001920864.pth                  | Hamilton 0.7256432771682739
+./Walker2d-v3_PPO_2_7191/actor_000002064887.pth                  | Hamilton 0.7917588949203491
+./Walker2d-v3_PPO_2_7191/actor_000002215407.pth                  | Hamilton 0.8519753813743591
+./Walker2d-v3_PPO_2_7191/actor_000002369579.pth                  | Hamilton 0.8804962038993835
+./Walker2d-v3_PPO_2_7191/actor_000002520021.pth                  | Hamilton 0.9376488924026489
+./Walker2d-v3_PPO_2_7191/actor_000002663448.pth                  | Hamilton 0.9509913921356201
+./Walker2d-v3_PPO_2_7191/actor_000002807613.pth                  | Hamilton 1.0002484321594238
+./Walker2d-v3_PPO_2_7191/actor_000002952238.pth                  | Hamilton 1.0015190839767456
+./Walker2d-v3_PPO_2_7191/actor_000003103261.pth                  | Hamilton 0.9994683861732483
+./Walker2d-v3_PPO_2_7191/actor_000003252154.pth                  | Hamilton 1.011381983757019
+./Walker2d-v3_PPO_2_7191/actor_000003399053.pth                  | Hamilton 1.040096640586853
+./Walker2d-v3_PPO_2_7191/actor_000003541941.pth                  | Hamilton 1.0437896251678467
+./Walker2d-v3_PPO_2_7191/actor_000003690148.pth                  | Hamilton 1.031385064125061
+./Walker2d-v3_PPO_2_7191/actor_000003840894.pth                  | Hamilton 1.0316625833511353
+./Walker2d-v3_PPO_2_7191/actor_000003988847.pth                  | Hamilton 1.0628533363342285
+./Walker2d-v3_PPO_2_7191/actor_000004133631.pth                  | Hamilton 1.073077917098999
+./Walker2d-v3_PPO_2_7191/actor_000004278794.pth                  | Hamilton 1.0695089101791382
+./Walker2d-v3_PPO_2_7191/actor_000004419695.pth                  | Hamilton 1.0806150436401367
+./Walker2d-v3_PPO_2_7191/actor_000004560055.pth                  | Hamilton 1.0987417697906494
+./Walker2d-v3_PPO_2_7191/actor_000004706520.pth                  | Hamilton 1.0848559141159058
+./Walker2d-v3_PPO_2_7191/actor_000004849941.pth                  | Hamilton 1.0855449438095093
+./Walker2d-v3_PPO_2_7191/actor_000004995749.pth                  | Hamilton 1.1250569820404053
+./Walker2d-v3_PPO_2_7191/actor_000005133769.pth                  | Hamilton 1.1274211406707764
+./Walker2d-v3_PPO_2_7191/actor_000005277326.pth                  | Hamilton 1.1044501066207886
+./Walker2d-v3_PPO_2_7191/actor_000005415725.pth                  | Hamilton 1.1185340881347656
+./Walker2d-v3_PPO_2_7191/actor_000005555160.pth                  | Hamilton 1.1340880393981934
+./Walker2d-v3_PPO_2_7191/actor_000005697136.pth                  | Hamilton 1.1250739097595215
+./Walker2d-v3_PPO_2_7191/actor_000005841632.pth                  | Hamilton 1.148882269859314
+./Walker2d-v3_PPO_2_7191/actor_000005984558.pth                  | Hamilton 1.1619127988815308
+./Walker2d-v3_PPO_2_7191/actor_000006132681.pth                  | Hamilton 1.1532893180847168
+./Walker2d-v3_PPO_2_7191/actor_000006275829.pth                  | Hamilton 1.1663776636123657
+./Walker2d-v3_PPO_2_7191/actor_000006413003.pth                  | Hamilton 1.1481581926345825
+./Walker2d-v3_PPO_2_7191/actor_000006549936.pth                  | Hamilton 1.1534254550933838
+./Walker2d-v3_PPO_2_7191/actor_000006687052.pth                  | Hamilton 1.1556867361068726
+./Walker2d-v3_PPO_2_7191/actor_000006832378.pth                  | Hamilton 1.145704984664917
+./Walker2d-v3_PPO_2_7191/actor_000006978471.pth                  | Hamilton 1.1522480249404907
+./Walker2d-v3_PPO_2_7191/actor_000007114562.pth                  | Hamilton 1.161920428276062
+./Walker2d-v3_PPO_2_7191/actor_000007252168.pth                  | Hamilton 1.1399940252304077
+./Walker2d-v3_PPO_2_7191/actor_000007389799.pth                  | Hamilton 1.1015349626541138
+./Walker2d-v3_PPO_2_7191/actor_000007526673.pth                  | Hamilton 1.083055019378662
+./Walker2d-v3_PPO_2_7191/actor_000007670063.pth                  | Hamilton 1.0688763856887817
+./Walker2d-v3_PPO_2_7191/actor_000007814612.pth                  | Hamilton 1.0752573013305664
+./Walker2d-v3_PPO_2_7191/actor_000007956925.pth                  | Hamilton 1.0846757888793945
+./Walker2d-v3_PPO_2_7191/actor_000008095882.pth                  | Hamilton 1.0713415145874023
+./Walker2d-v3_PPO_2_7191/actor_000008239587.pth                  | Hamilton 1.0811548233032227
+./Walker2d-v3_PPO_2_7191/actor_000008377481.pth                  | Hamilton 1.0645619630813599
+./Walker2d-v3_PPO_2_7191/actor_000008521335.pth                  | Hamilton 1.0533292293548584
+./Walker2d-v3_PPO_2_7191/actor_000008667889.pth                  | Hamilton 1.0226120948791504
+./Walker2d-v3_PPO_2_7191/actor_000008805826.pth                  | Hamilton 0.9843504428863525
+./Walker2d-v3_PPO_2_7191/actor_000008942533.pth                  | Hamilton 0.9783807396888733
+./Walker2d-v3_PPO_2_7191/actor_000009078231.pth                  | Hamilton 0.97062748670578
+./Walker2d-v3_PPO_2_7191/actor_000009217606.pth                  | Hamilton 0.9520869255065918
+./Walker2d-v3_PPO_2_7191/actor_000009360041.pth                  | Hamilton 0.9395900368690491
+./Walker2d-v3_PPO_2_7191/actor_000009501627.pth                  | Hamilton 0.9472063183784485
+./Walker2d-v3_PPO_2_7191/actor_000009640448.pth                  | Hamilton 0.9370429515838623
+./Walker2d-v3_PPO_2_7191/actor_000009777659.pth                  | Hamilton 0.9310764670372009
+./Walker2d-v3_PPO_2_7191/actor_000009914636.pth                  | Hamilton 0.8988937139511108
+./Walker2d-v3_PPO_2_7191/actor_000010057887.pth                  | Hamilton 0.9002514481544495
+./Walker2d-v3_PPO_2_7191/actor_000010199345.pth                  | Hamilton 0.9074289202690125
+./Walker2d-v3_PPO_2_7191/actor_000010342646.pth                  | Hamilton 0.8828000426292419
+./Walker2d-v3_PPO_2_7191/actor_000010483767.pth                  | Hamilton 0.8691655397415161
+./Walker2d-v3_PPO_2_7191/actor_000010621457.pth                  | Hamilton 0.8661413192749023
+./Walker2d-v3_PPO_2_7191/actor_000010761789.pth                  | Hamilton 0.8716228008270264
+./Walker2d-v3_PPO_2_7191/actor_000010907652.pth                  | Hamilton 0.8553466200828552
+./Walker2d-v3_PPO_2_7191/actor_000011051697.pth                  | Hamilton 0.837342381477356
+./Walker2d-v3_PPO_2_7191/actor_000011192313.pth                  | Hamilton 0.8361001014709473
+./Walker2d-v3_PPO_2_7191/actor_000011327120.pth                  | Hamilton 0.8421844244003296
+./Walker2d-v3_PPO_2_7191/actor_000011467774.pth                  | Hamilton 0.8517001271247864
+./Walker2d-v3_PPO_2_7191/actor_000011609896.pth                  | Hamilton 0.8417742848396301
+./Walker2d-v3_PPO_2_7191/actor_000011749306.pth                  | Hamilton 0.8494670987129211
+./Walker2d-v3_PPO_2_7191/actor_000011888778.pth                  | Hamilton 0.8304811120033264
+./Walker2d-v3_PPO_2_7191/actor_000012027245.pth                  | Hamilton 0.8229493498802185
+./Walker2d-v3_PPO_2_7191/actor_000012166536.pth                  | Hamilton 0.8057084679603577
+./Walker2d-v3_PPO_2_7191/actor_000012302897.pth                  | Hamilton 0.7905206084251404
+./Walker2d-v3_PPO_2_7191/actor_000012442116.pth                  | Hamilton 0.7911020517349243
+./Walker2d-v3_PPO_2_7191/actor_000012581024.pth                  | Hamilton 0.7934130430221558
+./Walker2d-v3_PPO_2_7191/actor_000012718639.pth                  | Hamilton 0.7995584011077881
+./Walker2d-v3_PPO_2_7191/actor_000012853882.pth                  | Hamilton 0.7985075116157532
+./Walker2d-v3_PPO_2_7191/actor_000012994206.pth                  | Hamilton 0.7893863916397095
+./Walker2d-v3_PPO_2_7191/actor_000013127551.pth                  | Hamilton 0.7848753333091736
+./Walker2d-v3_PPO_2_7191/actor_000013261980.pth                  | Hamilton 0.7858855128288269
+./Walker2d-v3_PPO_2_7191/actor_000013402455.pth                  | Hamilton 0.7683066129684448
+./Walker2d-v3_PPO_2_7191/actor_000013542251.pth                  | Hamilton 0.7840059399604797
+./Walker2d-v3_PPO_2_7191/actor_000013679767.pth                  | Hamilton 0.7833513617515564
+./Walker2d-v3_PPO_2_7191/actor_000013821556.pth                  | Hamilton 0.7994288206100464
+./Walker2d-v3_PPO_2_7191/actor_000013961131.pth                  | Hamilton 0.7847924828529358
+./Walker2d-v3_PPO_2_7191/actor_000014095936.pth                  | Hamilton 0.787776529788971
+./Walker2d-v3_PPO_2_7191/actor_000014229202.pth                  | Hamilton 0.8048922419548035
+./Walker2d-v3_PPO_2_7191/actor_000014365869.pth                  | Hamilton 0.795133113861084
+./Walker2d-v3_PPO_2_7191/actor_000014502155.pth                  | Hamilton 0.8053557276725769
+./Walker2d-v3_PPO_2_7191/actor_000014634023.pth                  | Hamilton 0.799594521522522
+./Walker2d-v3_PPO_2_7191/actor_000014770318.pth                  | Hamilton 0.7997891306877136
+./Walker2d-v3_PPO_2_7191/actor_000014907588.pth                  | Hamilton 0.7863771319389343
+./Walker2d-v3_PPO_2_7191/actor_000015041941.pth                  | Hamilton 0.7918623685836792
+./Walker2d-v3_PPO_2_7191/actor_000015176038.pth                  | Hamilton 0.7717202305793762
+./Walker2d-v3_PPO_2_7191/actor_000015315419.pth                  | Hamilton 0.7594095468521118
+./Walker2d-v3_PPO_2_7191/actor_000015455882.pth                  | Hamilton 0.7480865120887756
+./Walker2d-v3_PPO_2_7191/actor_000015599389.pth                  | Hamilton 0.7643914222717285
+./Walker2d-v3_PPO_2_7191/actor_000015735781.pth                  | Hamilton 0.751555323600769
+./Walker2d-v3_PPO_2_7191/actor_000015876693.pth                  | Hamilton 0.7530186772346497
+./Walker2d-v3_PPO_2_7191/actor_000016017560.pth                  | Hamilton 0.766223132610321
+./Walker2d-v3_PPO_2_7191/actor_000016155581.pth                  | Hamilton 0.769619345664978
+./Walker2d-v3_PPO_2_7191/actor_000016293273.pth                  | Hamilton 0.7689034938812256
+./Walker2d-v3_PPO_2_7191/actor_000016432715.pth                  | Hamilton 0.7646679878234863
+./Walker2d-v3_PPO_2_7191/actor_000016576664.pth                  | Hamilton 0.7605509757995605
+./Walker2d-v3_PPO_2_7191/actor_000016717356.pth                  | Hamilton 0.7519553303718567
+./Walker2d-v3_PPO_2_7191/actor_000016855020.pth                  | Hamilton 0.7263669371604919
+./Walker2d-v3_PPO_2_7191/actor_000016996667.pth                  | Hamilton 0.7400013208389282
+./Walker2d-v3_PPO_2_7191/actor_000017137727.pth                  | Hamilton 0.7125568389892578
+./Walker2d-v3_PPO_2_7191/actor__000000016301_-0002.010.pth       | Hamilton 0.016312673687934875
+./Walker2d-v3_PPO_2_7191/actor__000000374246_00380.411.pth       | Hamilton 0.035325028002262115
+./Walker2d-v3_PPO_2_7191/actor__000000734307_01400.557.pth       | Hamilton 0.07955460250377655
+./Walker2d-v3_PPO_2_7191/actor__000001090133_03548.353.pth       | Hamilton 0.1683308631181717
+./Walker2d-v3_PPO_2_7191/actor__000001452780_04881.900.pth       | Hamilton 0.25703248381614685
+./Walker2d-v3_PPO_2_7191/actor__000001809053_05199.737.pth       | Hamilton 0.3392091691493988
+./Walker2d-v3_PPO_2_7191/actor__000002167811_05380.266.pth       | Hamilton 0.41228827834129333
+./Walker2d-v3_PPO_2_7191/actor__000002529035_05508.923.pth       | Hamilton 0.5086715221405029
+./Walker2d-v3_PPO_2_7191/actor__000002889421_05659.489.pth       | Hamilton 0.597420334815979
+./Walker2d-v3_PPO_2_7191/actor__000003252154_05730.158.pth       | Hamilton 0.639396071434021
+./Walker2d-v3_PPO_2_7191/actor__000003616791_05853.276.pth       | Hamilton 0.7095003724098206
+./Walker2d-v3_PPO_2_7191/actor__000003979481_06037.587.pth       | Hamilton 0.7803106904029846
+./Walker2d-v3_PPO_2_7191/actor__000005054915_06161.796.pth       | Hamilton 0.8780654668807983
+./Walker2d-v3_PPO_2_7191/actor__000005415725_06286.334.pth       | Hamilton 0.9216188192367554
+./Walker2d-v3_PPO_2_7191/actor__000006488827_06423.980.pth       | Hamilton 0.9855380058288574
+./Walker2d-v3_PPO_2_7191/actor__000007570480_06497.105.pth       | Hamilton 0.9940043091773987
+./Walker2d-v3_PPO_2_7191/actor__000008641549_06607.059.pth       | Hamilton 1.014743685722351
+./Walker2d-v3_PPO_2_7191/actor__000009360041_06667.828.pth       | Hamilton 1.0375499725341797
+./Walker2d-v3_PPO_2_7191/actor__000010074838_06726.993.pth       | Hamilton 1.0260100364685059
+./Walker2d-v3_PPO_2_7191/actor__000011519821_06786.244.pth       | Hamilton 1.0455682277679443
+./Walker2d-v3_PPO_2_7191/actor__000012967548_06836.671.pth       | Hamilton 1.0122387409210205
+./Walker2d-v3_PPO_2_7191/actor__000014054768_07046.842.pth       | Hamilton 0.9785829186439514
+./Walker2d-v3_PPO_2_7191/actor__000014417693_07091.800.pth       | Hamilton 0.9941135048866272
+./Walker2d-v3_PPO_2_7191/actor__000015859169_07191.100.pth       | Hamilton 0.8641228675842285
+        """
+    # Walker2d-v3_PPO_3_5449
+    data46 = """
+./Walker2d-v3_PPO_3_5449/actor_000000074258.pth                  | Hamilton 0.05927193909883499
+./Walker2d-v3_PPO_3_5449/actor_000000210176.pth                  | Hamilton 0.08470804244279861
+./Walker2d-v3_PPO_3_5449/actor_000000344773.pth                  | Hamilton 0.12457162141799927
+./Walker2d-v3_PPO_3_5449/actor_000000480811.pth                  | Hamilton 0.17581620812416077
+./Walker2d-v3_PPO_3_5449/actor_000000615139.pth                  | Hamilton 0.24777986109256744
+./Walker2d-v3_PPO_3_5449/actor_000000751933.pth                  | Hamilton 0.3219289779663086
+./Walker2d-v3_PPO_3_5449/actor_000000893483.pth                  | Hamilton 0.4655914604663849
+./Walker2d-v3_PPO_3_5449/actor_000001043310.pth                  | Hamilton 0.6539282202720642
+./Walker2d-v3_PPO_3_5449/actor_000001196260.pth                  | Hamilton 0.8266529440879822
+./Walker2d-v3_PPO_3_5449/actor_000001345761.pth                  | Hamilton 0.8739662766456604
+./Walker2d-v3_PPO_3_5449/actor_000001494994.pth                  | Hamilton 1.0259034633636475
+./Walker2d-v3_PPO_3_5449/actor_000001645714.pth                  | Hamilton 0.9435088634490967
+./Walker2d-v3_PPO_3_5449/actor_000001793638.pth                  | Hamilton 1.0118099451065063
+./Walker2d-v3_PPO_3_5449/actor_000001939570.pth                  | Hamilton 0.890204906463623
+./Walker2d-v3_PPO_3_5449/actor_000002092800.pth                  | Hamilton 0.9676378965377808
+./Walker2d-v3_PPO_3_5449/actor_000002242869.pth                  | Hamilton 0.8449556827545166
+./Walker2d-v3_PPO_3_5449/actor_000002392652.pth                  | Hamilton 0.7909901738166809
+./Walker2d-v3_PPO_3_5449/actor_000002541433.pth                  | Hamilton 0.7888413667678833
+./Walker2d-v3_PPO_3_5449/actor_000002694797.pth                  | Hamilton 0.835628867149353
+./Walker2d-v3_PPO_3_5449/actor_000002845493.pth                  | Hamilton 0.7881745100021362
+./Walker2d-v3_PPO_3_5449/actor_000002995144.pth                  | Hamilton 0.8428267240524292
+./Walker2d-v3_PPO_3_5449/actor_000003144140.pth                  | Hamilton 0.8054295182228088
+./Walker2d-v3_PPO_3_5449/actor_000003291419.pth                  | Hamilton 0.6952739357948303
+./Walker2d-v3_PPO_3_5449/actor_000003440494.pth                  | Hamilton 0.7230075001716614
+./Walker2d-v3_PPO_3_5449/actor_000003589396.pth                  | Hamilton 0.6298981308937073
+./Walker2d-v3_PPO_3_5449/actor_000003737585.pth                  | Hamilton 0.6098143458366394
+./Walker2d-v3_PPO_3_5449/actor_000003886177.pth                  | Hamilton 0.5895996689796448
+./Walker2d-v3_PPO_3_5449/actor_000004032828.pth                  | Hamilton 0.5341766476631165
+./Walker2d-v3_PPO_3_5449/actor_000004181927.pth                  | Hamilton 0.5673055648803711
+./Walker2d-v3_PPO_3_5449/actor_000004329079.pth                  | Hamilton 0.5569615364074707
+./Walker2d-v3_PPO_3_5449/actor_000004479143.pth                  | Hamilton 0.5873989462852478
+./Walker2d-v3_PPO_3_5449/actor_000004628515.pth                  | Hamilton 0.5362474322319031
+./Walker2d-v3_PPO_3_5449/actor_000004777491.pth                  | Hamilton 0.542984664440155
+./Walker2d-v3_PPO_3_5449/actor_000004922135.pth                  | Hamilton 0.5058737993240356
+./Walker2d-v3_PPO_3_5449/actor_000005079640.pth                  | Hamilton 0.5049150586128235
+./Walker2d-v3_PPO_3_5449/actor_000005229014.pth                  | Hamilton 0.4917865991592407
+./Walker2d-v3_PPO_3_5449/actor_000005376125.pth                  | Hamilton 0.5029265880584717
+./Walker2d-v3_PPO_3_5449/actor_000005520214.pth                  | Hamilton 0.4371909201145172
+./Walker2d-v3_PPO_3_5449/actor_000005668593.pth                  | Hamilton 0.42250123620033264
+./Walker2d-v3_PPO_3_5449/actor_000005817298.pth                  | Hamilton 0.4222284257411957
+./Walker2d-v3_PPO_3_5449/actor_000005970805.pth                  | Hamilton 0.42004191875457764
+./Walker2d-v3_PPO_3_5449/actor_000006116171.pth                  | Hamilton 0.38574182987213135
+./Walker2d-v3_PPO_3_5449/actor_000006257903.pth                  | Hamilton 0.4004722535610199
+./Walker2d-v3_PPO_3_5449/actor_000006404988.pth                  | Hamilton 0.4078262448310852
+./Walker2d-v3_PPO_3_5449/actor_000006548649.pth                  | Hamilton 0.4215970039367676
+./Walker2d-v3_PPO_3_5449/actor_000006702295.pth                  | Hamilton 0.40582090616226196
+./Walker2d-v3_PPO_3_5449/actor_000006854724.pth                  | Hamilton 0.4143565595149994
+./Walker2d-v3_PPO_3_5449/actor_000007003979.pth                  | Hamilton 0.39081352949142456
+./Walker2d-v3_PPO_3_5449/actor_000007154368.pth                  | Hamilton 0.40674731135368347
+./Walker2d-v3_PPO_3_5449/actor_000007301571.pth                  | Hamilton 0.37200799584388733
+./Walker2d-v3_PPO_3_5449/actor_000007449284.pth                  | Hamilton 0.37650981545448303
+./Walker2d-v3_PPO_3_5449/actor_000007597071.pth                  | Hamilton 0.37701019644737244
+./Walker2d-v3_PPO_3_5449/actor_000007746696.pth                  | Hamilton 0.38779065012931824
+./Walker2d-v3_PPO_3_5449/actor_000007894699.pth                  | Hamilton 0.3533872067928314
+./Walker2d-v3_PPO_3_5449/actor_000008038341.pth                  | Hamilton 0.37704506516456604
+./Walker2d-v3_PPO_3_5449/actor_000008191243.pth                  | Hamilton 0.37151890993118286
+./Walker2d-v3_PPO_3_5449/actor_000008341748.pth                  | Hamilton 0.38730698823928833
+./Walker2d-v3_PPO_3_5449/actor_000008492965.pth                  | Hamilton 0.36730828881263733
+./Walker2d-v3_PPO_3_5449/actor_000008646414.pth                  | Hamilton 0.3151562511920929
+./Walker2d-v3_PPO_3_5449/actor_000008798459.pth                  | Hamilton 0.31878551840782166
+./Walker2d-v3_PPO_3_5449/actor_000008947944.pth                  | Hamilton 0.30067676305770874
+./Walker2d-v3_PPO_3_5449/actor_000009097431.pth                  | Hamilton 0.31717318296432495
+./Walker2d-v3_PPO_3_5449/actor_000009249438.pth                  | Hamilton 0.29750099778175354
+./Walker2d-v3_PPO_3_5449/actor_000009396922.pth                  | Hamilton 0.28379613161087036
+./Walker2d-v3_PPO_3_5449/actor_000009548836.pth                  | Hamilton 0.28231579065322876
+./Walker2d-v3_PPO_3_5449/actor_000009698775.pth                  | Hamilton 0.29302772879600525
+./Walker2d-v3_PPO_3_5449/actor_000009844873.pth                  | Hamilton 0.29226282238960266
+./Walker2d-v3_PPO_3_5449/actor_000009993815.pth                  | Hamilton 0.2809481918811798
+./Walker2d-v3_PPO_3_5449/actor_000010144489.pth                  | Hamilton 0.27926284074783325
+./Walker2d-v3_PPO_3_5449/actor_000010294691.pth                  | Hamilton 0.2632773816585541
+./Walker2d-v3_PPO_3_5449/actor_000010447771.pth                  | Hamilton 0.2708342671394348
+./Walker2d-v3_PPO_3_5449/actor_000010599047.pth                  | Hamilton 0.2633924186229706
+./Walker2d-v3_PPO_3_5449/actor_000010747502.pth                  | Hamilton 0.2496318370103836
+./Walker2d-v3_PPO_3_5449/actor_000010901222.pth                  | Hamilton 0.24378125369548798
+./Walker2d-v3_PPO_3_5449/actor_000011047347.pth                  | Hamilton 0.2540603280067444
+./Walker2d-v3_PPO_3_5449/actor_000011196414.pth                  | Hamilton 0.22598586976528168
+./Walker2d-v3_PPO_3_5449/actor_000011345566.pth                  | Hamilton 0.21788570284843445
+./Walker2d-v3_PPO_3_5449/actor_000011494670.pth                  | Hamilton 0.20984409749507904
+./Walker2d-v3_PPO_3_5449/actor_000011649553.pth                  | Hamilton 0.20027506351470947
+./Walker2d-v3_PPO_3_5449/actor_000011799782.pth                  | Hamilton 0.20682501792907715
+./Walker2d-v3_PPO_3_5449/actor_000011948669.pth                  | Hamilton 0.1994415670633316
+./Walker2d-v3_PPO_3_5449/actor_000012095490.pth                  | Hamilton 0.20922201871871948
+./Walker2d-v3_PPO_3_5449/actor_000012242089.pth                  | Hamilton 0.21021421253681183
+./Walker2d-v3_PPO_3_5449/actor_000012393008.pth                  | Hamilton 0.21288038790225983
+./Walker2d-v3_PPO_3_5449/actor_000012539995.pth                  | Hamilton 0.1932596117258072
+./Walker2d-v3_PPO_3_5449/actor_000012691132.pth                  | Hamilton 0.19240409135818481
+./Walker2d-v3_PPO_3_5449/actor_000012835382.pth                  | Hamilton 0.1945323795080185
+./Walker2d-v3_PPO_3_5449/actor_000012981267.pth                  | Hamilton 0.18749694526195526
+./Walker2d-v3_PPO_3_5449/actor_000013132524.pth                  | Hamilton 0.199021577835083
+./Walker2d-v3_PPO_3_5449/actor_000013284800.pth                  | Hamilton 0.18894587457180023
+./Walker2d-v3_PPO_3_5449/actor_000013436999.pth                  | Hamilton 0.1882842630147934
+./Walker2d-v3_PPO_3_5449/actor_000013587883.pth                  | Hamilton 0.1951446235179901
+./Walker2d-v3_PPO_3_5449/actor_000013734035.pth                  | Hamilton 0.1773858219385147
+./Walker2d-v3_PPO_3_5449/actor_000013884120.pth                  | Hamilton 0.17267131805419922
+./Walker2d-v3_PPO_3_5449/actor_000014027863.pth                  | Hamilton 0.1482010930776596
+./Walker2d-v3_PPO_3_5449/actor_000014181161.pth                  | Hamilton 0.15587134659290314
+./Walker2d-v3_PPO_3_5449/actor_000014327947.pth                  | Hamilton 0.14679761230945587
+./Walker2d-v3_PPO_3_5449/actor_000014477881.pth                  | Hamilton 0.1432546228170395
+./Walker2d-v3_PPO_3_5449/actor_000014622563.pth                  | Hamilton 0.133799210190773
+./Walker2d-v3_PPO_3_5449/actor_000014770568.pth                  | Hamilton 0.1289616972208023
+./Walker2d-v3_PPO_3_5449/actor_000014923072.pth                  | Hamilton 0.12415821850299835
+./Walker2d-v3_PPO_3_5449/actor_000015067951.pth                  | Hamilton 0.12816055119037628
+./Walker2d-v3_PPO_3_5449/actor_000015220741.pth                  | Hamilton 0.12286010384559631
+./Walker2d-v3_PPO_3_5449/actor_000015368278.pth                  | Hamilton 0.12356770038604736
+./Walker2d-v3_PPO_3_5449/actor_000015516619.pth                  | Hamilton 0.11822894215583801
+./Walker2d-v3_PPO_3_5449/actor_000015671095.pth                  | Hamilton 0.10763926804065704
+./Walker2d-v3_PPO_3_5449/actor_000015819755.pth                  | Hamilton 0.10935814678668976
+./Walker2d-v3_PPO_3_5449/actor_000015970361.pth                  | Hamilton 0.12423727661371231
+./Walker2d-v3_PPO_3_5449/actor_000016123149.pth                  | Hamilton 0.11704185605049133
+./Walker2d-v3_PPO_3_5449/actor_000016276082.pth                  | Hamilton 0.1224769726395607
+./Walker2d-v3_PPO_3_5449/actor_000016430277.pth                  | Hamilton 0.11499479413032532
+./Walker2d-v3_PPO_3_5449/actor_000016580498.pth                  | Hamilton 0.11111478507518768
+./Walker2d-v3_PPO_3_5449/actor_000016727817.pth                  | Hamilton 0.11295266449451447
+./Walker2d-v3_PPO_3_5449/actor_000016875091.pth                  | Hamilton 0.11787348240613937
+./Walker2d-v3_PPO_3_5449/actor_000017024821.pth                  | Hamilton 0.11866798996925354
+./Walker2d-v3_PPO_3_5449/actor_000017171210.pth                  | Hamilton 0.10967691987752914
+./Walker2d-v3_PPO_3_5449/actor_000017323249.pth                  | Hamilton 0.11170575022697449
+./Walker2d-v3_PPO_3_5449/actor_000017472690.pth                  | Hamilton 0.1056210920214653
+./Walker2d-v3_PPO_3_5449/actor_000017622262.pth                  | Hamilton 0.11044346541166306
+./Walker2d-v3_PPO_3_5449/actor_000017768490.pth                  | Hamilton 0.10271184146404266
+./Walker2d-v3_PPO_3_5449/actor_000017913653.pth                  | Hamilton 0.10808862000703812
+./Walker2d-v3_PPO_3_5449/actor_000018063553.pth                  | Hamilton 0.10521787405014038
+./Walker2d-v3_PPO_3_5449/actor_000018212101.pth                  | Hamilton 0.11340231448411942
+./Walker2d-v3_PPO_3_5449/actor_000018360973.pth                  | Hamilton 0.10834623873233795
+./Walker2d-v3_PPO_3_5449/actor_000018501420.pth                  | Hamilton 0.10186772048473358
+./Walker2d-v3_PPO_3_5449/actor_000018647528.pth                  | Hamilton 0.10813114047050476
+./Walker2d-v3_PPO_3_5449/actor_000018792642.pth                  | Hamilton 0.10287192463874817
+./Walker2d-v3_PPO_3_5449/actor_000018943652.pth                  | Hamilton 0.09922906011343002
+./Walker2d-v3_PPO_3_5449/actor_000019095722.pth                  | Hamilton 0.10815797746181488
+./Walker2d-v3_PPO_3_5449/actor_000019244988.pth                  | Hamilton 0.10201079398393631
+./Walker2d-v3_PPO_3_5449/actor_000019398384.pth                  | Hamilton 0.09539986401796341
+./Walker2d-v3_PPO_3_5449/actor_000019553640.pth                  | Hamilton 0.09772010892629623
+./Walker2d-v3_PPO_3_5449/actor_000019707502.pth                  | Hamilton 0.09324537217617035
+./Walker2d-v3_PPO_3_5449/actor_000019857759.pth                  | Hamilton 0.09246058762073517
+./Walker2d-v3_PPO_3_5449/actor_000020008414.pth                  | Hamilton 0.09673815965652466
+./Walker2d-v3_PPO_3_5449/actor__000000016162_00000.100.pth       | Hamilton 0.0024733352474868298
+./Walker2d-v3_PPO_3_5449/actor__000000369982_00844.587.pth       | Hamilton 0.012272307649254799
+./Walker2d-v3_PPO_3_5449/actor__000000726461_01317.149.pth       | Hamilton 0.04832163080573082
+./Walker2d-v3_PPO_3_5449/actor__000001082124_04293.286.pth       | Hamilton 0.1255750209093094
+./Walker2d-v3_PPO_3_5449/actor__000001438355_04606.865.pth       | Hamilton 0.18486599624156952
+./Walker2d-v3_PPO_3_5449/actor__000001793638_04759.254.pth       | Hamilton 0.21724434196949005
+./Walker2d-v3_PPO_3_5449/actor__000002148196_04847.393.pth       | Hamilton 0.22975826263427734
+./Walker2d-v3_PPO_3_5449/actor__000002503448_04925.915.pth       | Hamilton 0.22452126443386078
+./Walker2d-v3_PPO_3_5449/actor__000003209146_04928.707.pth       | Hamilton 0.2314271181821823
+./Walker2d-v3_PPO_3_5449/actor__000003560939_04932.584.pth       | Hamilton 0.22611020505428314
+./Walker2d-v3_PPO_3_5449/actor__000003915019_04978.277.pth       | Hamilton 0.24576348066329956
+./Walker2d-v3_PPO_3_5449/actor__000004263496_05288.619.pth       | Hamilton 0.256229043006897
+./Walker2d-v3_PPO_3_5449/actor__000007794050_05299.770.pth       | Hamilton 0.26436153054237366
+./Walker2d-v3_PPO_3_5449/actor__000008863552_05378.819.pth       | Hamilton 0.2479991912841797
+./Walker2d-v3_PPO_3_5449/actor__000010294691_05400.554.pth       | Hamilton 0.24982310831546783
+./Walker2d-v3_PPO_3_5449/actor__000016285635_05449.702.pth       | Hamilton 0.16927051544189453
+    """
+    # Walker2d-v3_PPO_2_5640
+    data47 = """
+./Walker2d-v3_PPO_2_5640/actor_000000076821.pth                  | Hamilton 0.06140350177884102
+./Walker2d-v3_PPO_2_5640/actor_000000212404.pth                  | Hamilton 0.09936045855283737
+./Walker2d-v3_PPO_2_5640/actor_000000347657.pth                  | Hamilton 0.14608590304851532
+./Walker2d-v3_PPO_2_5640/actor_000000484531.pth                  | Hamilton 0.22183483839035034
+./Walker2d-v3_PPO_2_5640/actor_000000626476.pth                  | Hamilton 0.3692648112773895
+./Walker2d-v3_PPO_2_5640/actor_000000768541.pth                  | Hamilton 0.5038611888885498
+./Walker2d-v3_PPO_2_5640/actor_000000915352.pth                  | Hamilton 0.45478299260139465
+./Walker2d-v3_PPO_2_5640/actor_000001064134.pth                  | Hamilton 0.710417628288269
+./Walker2d-v3_PPO_2_5640/actor_000001219433.pth                  | Hamilton 1.0367754697799683
+./Walker2d-v3_PPO_2_5640/actor_000001368798.pth                  | Hamilton 0.9565792679786682
+./Walker2d-v3_PPO_2_5640/actor_000001521736.pth                  | Hamilton 0.8148611783981323
+./Walker2d-v3_PPO_2_5640/actor_000001672462.pth                  | Hamilton 0.7896491289138794
+./Walker2d-v3_PPO_2_5640/actor_000001818396.pth                  | Hamilton 0.723064124584198
+./Walker2d-v3_PPO_2_5640/actor_000001968958.pth                  | Hamilton 0.7489979267120361
+./Walker2d-v3_PPO_2_5640/actor_000002122980.pth                  | Hamilton 0.6381734609603882
+./Walker2d-v3_PPO_2_5640/actor_000002275203.pth                  | Hamilton 0.7043440341949463
+./Walker2d-v3_PPO_2_5640/actor_000002424815.pth                  | Hamilton 0.6432493925094604
+./Walker2d-v3_PPO_2_5640/actor_000002573446.pth                  | Hamilton 0.6924611330032349
+./Walker2d-v3_PPO_2_5640/actor_000002723296.pth                  | Hamilton 0.5120658874511719
+./Walker2d-v3_PPO_2_5640/actor_000002876816.pth                  | Hamilton 0.5475721955299377
+./Walker2d-v3_PPO_2_5640/actor_000003024988.pth                  | Hamilton 0.5267606973648071
+./Walker2d-v3_PPO_2_5640/actor_000003174746.pth                  | Hamilton 0.5102020502090454
+./Walker2d-v3_PPO_2_5640/actor_000003319654.pth                  | Hamilton 0.5229117274284363
+./Walker2d-v3_PPO_2_5640/actor_000003470447.pth                  | Hamilton 0.5075846910476685
+./Walker2d-v3_PPO_2_5640/actor_000003621751.pth                  | Hamilton 0.5167932510375977
+./Walker2d-v3_PPO_2_5640/actor_000003777124.pth                  | Hamilton 0.4908055067062378
+./Walker2d-v3_PPO_2_5640/actor_000003927368.pth                  | Hamilton 0.3870166838169098
+./Walker2d-v3_PPO_2_5640/actor_000004078774.pth                  | Hamilton 0.4389871656894684
+./Walker2d-v3_PPO_2_5640/actor_000004230758.pth                  | Hamilton 0.35056108236312866
+./Walker2d-v3_PPO_2_5640/actor_000004382899.pth                  | Hamilton 0.3738396167755127
+./Walker2d-v3_PPO_2_5640/actor_000004530855.pth                  | Hamilton 0.36066770553588867
+./Walker2d-v3_PPO_2_5640/actor_000004681859.pth                  | Hamilton 0.35803788900375366
+./Walker2d-v3_PPO_2_5640/actor_000004832352.pth                  | Hamilton 0.3696693181991577
+./Walker2d-v3_PPO_2_5640/actor_000004977920.pth                  | Hamilton 0.28550100326538086
+./Walker2d-v3_PPO_2_5640/actor_000005128781.pth                  | Hamilton 0.2737581133842468
+./Walker2d-v3_PPO_2_5640/actor_000005279919.pth                  | Hamilton 0.31691408157348633
+./Walker2d-v3_PPO_2_5640/actor_000005431903.pth                  | Hamilton 0.31718602776527405
+./Walker2d-v3_PPO_2_5640/actor_000005590406.pth                  | Hamilton 0.3361060619354248
+./Walker2d-v3_PPO_2_5640/actor_000005744704.pth                  | Hamilton 0.31106844544410706
+./Walker2d-v3_PPO_2_5640/actor_000005887678.pth                  | Hamilton 0.270893394947052
+./Walker2d-v3_PPO_2_5640/actor_000006030184.pth                  | Hamilton 0.28500455617904663
+./Walker2d-v3_PPO_2_5640/actor_000006177722.pth                  | Hamilton 0.26184943318367004
+./Walker2d-v3_PPO_2_5640/actor_000006327757.pth                  | Hamilton 0.3042178750038147
+./Walker2d-v3_PPO_2_5640/actor_000006475432.pth                  | Hamilton 0.28963491320610046
+./Walker2d-v3_PPO_2_5640/actor_000006628363.pth                  | Hamilton 0.28662794828414917
+./Walker2d-v3_PPO_2_5640/actor_000006783728.pth                  | Hamilton 0.30702200531959534
+./Walker2d-v3_PPO_2_5640/actor_000006928952.pth                  | Hamilton 0.2299567312002182
+./Walker2d-v3_PPO_2_5640/actor_000007081286.pth                  | Hamilton 0.22566278278827667
+./Walker2d-v3_PPO_2_5640/actor_000007229422.pth                  | Hamilton 0.23525746166706085
+./Walker2d-v3_PPO_2_5640/actor_000007379040.pth                  | Hamilton 0.20558996498584747
+./Walker2d-v3_PPO_2_5640/actor_000007528255.pth                  | Hamilton 0.20947854220867157
+./Walker2d-v3_PPO_2_5640/actor_000007681834.pth                  | Hamilton 0.206080362200737
+./Walker2d-v3_PPO_2_5640/actor_000007828423.pth                  | Hamilton 0.15691331028938293
+./Walker2d-v3_PPO_2_5640/actor_000007979129.pth                  | Hamilton 0.1649388074874878
+./Walker2d-v3_PPO_2_5640/actor_000008133063.pth                  | Hamilton 0.12807220220565796
+./Walker2d-v3_PPO_2_5640/actor_000008284016.pth                  | Hamilton 0.15413163602352142
+./Walker2d-v3_PPO_2_5640/actor_000008435444.pth                  | Hamilton 0.16379103064537048
+./Walker2d-v3_PPO_2_5640/actor_000008586816.pth                  | Hamilton 0.14073342084884644
+./Walker2d-v3_PPO_2_5640/actor_000008736582.pth                  | Hamilton 0.16420258581638336
+./Walker2d-v3_PPO_2_5640/actor_000008890706.pth                  | Hamilton 0.12213072925806046
+./Walker2d-v3_PPO_2_5640/actor_000009041051.pth                  | Hamilton 0.1297212690114975
+./Walker2d-v3_PPO_2_5640/actor_000009193866.pth                  | Hamilton 0.15423282980918884
+./Walker2d-v3_PPO_2_5640/actor_000009344379.pth                  | Hamilton 0.1297639161348343
+./Walker2d-v3_PPO_2_5640/actor_000009495840.pth                  | Hamilton 0.13005506992340088
+./Walker2d-v3_PPO_2_5640/actor_000009645311.pth                  | Hamilton 0.13654427230358124
+./Walker2d-v3_PPO_2_5640/actor_000009796356.pth                  | Hamilton 0.09926596283912659
+./Walker2d-v3_PPO_2_5640/actor_000009950663.pth                  | Hamilton 0.10893446952104568
+./Walker2d-v3_PPO_2_5640/actor_000010105564.pth                  | Hamilton 0.11457328498363495
+./Walker2d-v3_PPO_2_5640/actor_000010258048.pth                  | Hamilton 0.09255792945623398
+./Walker2d-v3_PPO_2_5640/actor_000010410049.pth                  | Hamilton 0.11191736161708832
+./Walker2d-v3_PPO_2_5640/actor_000010561253.pth                  | Hamilton 0.10320854932069778
+./Walker2d-v3_PPO_2_5640/actor_000010715997.pth                  | Hamilton 0.08656732738018036
+./Walker2d-v3_PPO_2_5640/actor_000010870587.pth                  | Hamilton 0.08067519217729568
+./Walker2d-v3_PPO_2_5640/actor_000011017969.pth                  | Hamilton 0.09623593837022781
+./Walker2d-v3_PPO_2_5640/actor_000011162587.pth                  | Hamilton 0.08847132325172424
+./Walker2d-v3_PPO_2_5640/actor_000011308134.pth                  | Hamilton 0.08809972554445267
+./Walker2d-v3_PPO_2_5640/actor_000011455512.pth                  | Hamilton 0.07532154768705368
+./Walker2d-v3_PPO_2_5640/actor_000011596570.pth                  | Hamilton 0.07442637532949448
+./Walker2d-v3_PPO_2_5640/actor_000011744076.pth                  | Hamilton 0.06713340431451797
+./Walker2d-v3_PPO_2_5640/actor_000011891688.pth                  | Hamilton 0.07853170484304428
+./Walker2d-v3_PPO_2_5640/actor_000012041946.pth                  | Hamilton 0.07240073382854462
+./Walker2d-v3_PPO_2_5640/actor_000012191170.pth                  | Hamilton 0.06085826829075813
+./Walker2d-v3_PPO_2_5640/actor_000012340166.pth                  | Hamilton 0.0619654655456543
+./Walker2d-v3_PPO_2_5640/actor_000012493116.pth                  | Hamilton 0.07762257009744644
+./Walker2d-v3_PPO_2_5640/actor_000012643687.pth                  | Hamilton 0.0782988965511322
+./Walker2d-v3_PPO_2_5640/actor_000012789780.pth                  | Hamilton 0.07158641517162323
+./Walker2d-v3_PPO_2_5640/actor_000012933076.pth                  | Hamilton 0.0580611415207386
+./Walker2d-v3_PPO_2_5640/actor_000013080291.pth                  | Hamilton 0.07202361524105072
+./Walker2d-v3_PPO_2_5640/actor_000013228244.pth                  | Hamilton 0.07016364485025406
+./Walker2d-v3_PPO_2_5640/actor_000013376774.pth                  | Hamilton 0.05116642266511917
+./Walker2d-v3_PPO_2_5640/actor_000013523987.pth                  | Hamilton 0.06734585762023926
+./Walker2d-v3_PPO_2_5640/actor_000013673736.pth                  | Hamilton 0.06764388084411621
+./Walker2d-v3_PPO_2_5640/actor_000013824445.pth                  | Hamilton 0.07039181143045425
+./Walker2d-v3_PPO_2_5640/actor_000013971091.pth                  | Hamilton 0.05509909242391586
+./Walker2d-v3_PPO_2_5640/actor_000014116202.pth                  | Hamilton 0.05333920195698738
+./Walker2d-v3_PPO_2_5640/actor_000014266507.pth                  | Hamilton 0.05673415958881378
+./Walker2d-v3_PPO_2_5640/actor_000014416645.pth                  | Hamilton 0.047981712967157364
+./Walker2d-v3_PPO_2_5640/actor_000014565229.pth                  | Hamilton 0.03268176317214966
+./Walker2d-v3_PPO_2_5640/actor_000014711794.pth                  | Hamilton 0.03352981433272362
+./Walker2d-v3_PPO_2_5640/actor_000014856809.pth                  | Hamilton 0.035317469388246536
+./Walker2d-v3_PPO_2_5640/actor_000015007815.pth                  | Hamilton 0.0520830973982811
+./Walker2d-v3_PPO_2_5640/actor_000015155419.pth                  | Hamilton 0.037610314786434174
+./Walker2d-v3_PPO_2_5640/actor_000015303071.pth                  | Hamilton 0.04611772671341896
+./Walker2d-v3_PPO_2_5640/actor_000015450792.pth                  | Hamilton 0.052486881613731384
+./Walker2d-v3_PPO_2_5640/actor_000015601522.pth                  | Hamilton 0.03982250764966011
+./Walker2d-v3_PPO_2_5640/actor_000015754523.pth                  | Hamilton 0.05269639939069748
+./Walker2d-v3_PPO_2_5640/actor_000015898889.pth                  | Hamilton 0.059752415865659714
+./Walker2d-v3_PPO_2_5640/actor_000016050430.pth                  | Hamilton 0.04219430312514305
+./Walker2d-v3_PPO_2_5640/actor_000016202538.pth                  | Hamilton 0.048400912433862686
+./Walker2d-v3_PPO_2_5640/actor_000016350465.pth                  | Hamilton 0.0556575246155262
+./Walker2d-v3_PPO_2_5640/actor_000016498242.pth                  | Hamilton 0.04758830741047859
+./Walker2d-v3_PPO_2_5640/actor_000016646501.pth                  | Hamilton 0.03371794894337654
+./Walker2d-v3_PPO_2_5640/actor_000016797232.pth                  | Hamilton 0.04772068187594414
+./Walker2d-v3_PPO_2_5640/actor_000016949053.pth                  | Hamilton 0.041665639728307724
+./Walker2d-v3_PPO_2_5640/actor_000017095083.pth                  | Hamilton 0.052450161427259445
+./Walker2d-v3_PPO_2_5640/actor_000017244474.pth                  | Hamilton 0.04448487237095833
+./Walker2d-v3_PPO_2_5640/actor_000017395552.pth                  | Hamilton 0.04572470113635063
+./Walker2d-v3_PPO_2_5640/actor_000017547104.pth                  | Hamilton 0.049822088330984116
+./Walker2d-v3_PPO_2_5640/actor_000017694988.pth                  | Hamilton 0.033766359090805054
+./Walker2d-v3_PPO_2_5640/actor_000017839979.pth                  | Hamilton 0.04611736908555031
+./Walker2d-v3_PPO_2_5640/actor_000017990570.pth                  | Hamilton 0.038567353039979935
+./Walker2d-v3_PPO_2_5640/actor_000018146147.pth                  | Hamilton 0.03878886252641678
+./Walker2d-v3_PPO_2_5640/actor_000018296143.pth                  | Hamilton 0.04831673204898834
+./Walker2d-v3_PPO_2_5640/actor_000018445257.pth                  | Hamilton 0.049680113792419434
+./Walker2d-v3_PPO_2_5640/actor_000018593772.pth                  | Hamilton 0.04619337618350983
+./Walker2d-v3_PPO_2_5640/actor_000018746809.pth                  | Hamilton 0.05223681032657623
+./Walker2d-v3_PPO_2_5640/actor_000018890605.pth                  | Hamilton 0.052570175379514694
+./Walker2d-v3_PPO_2_5640/actor_000019036039.pth                  | Hamilton 0.04088686779141426
+./Walker2d-v3_PPO_2_5640/actor_000019184847.pth                  | Hamilton 0.03313204273581505
+./Walker2d-v3_PPO_2_5640/actor_000019328886.pth                  | Hamilton 0.048131126910448074
+./Walker2d-v3_PPO_2_5640/actor_000019469102.pth                  | Hamilton 0.04186626896262169
+./Walker2d-v3_PPO_2_5640/actor_000019610722.pth                  | Hamilton 0.04089484363794327
+./Walker2d-v3_PPO_2_5640/actor_000019755748.pth                  | Hamilton 0.04358883947134018
+./Walker2d-v3_PPO_2_5640/actor_000019903202.pth                  | Hamilton 0.032192736864089966
+./Walker2d-v3_PPO_2_5640/actor__000000016081_00028.184.pth       | Hamilton 0.0014493158087134361
+./Walker2d-v3_PPO_2_5640/actor__000000372808_00839.921.pth       | Hamilton 0.011533746495842934
+./Walker2d-v3_PPO_2_5640/actor__000000714027_02375.833.pth       | Hamilton 0.0472266860306263
+./Walker2d-v3_PPO_2_5640/actor__000001055158_03630.054.pth       | Hamilton 0.10037130862474442
+./Walker2d-v3_PPO_2_5640/actor__000001737725_04133.763.pth       | Hamilton 0.12496183812618256
+./Walker2d-v3_PPO_2_5640/actor__000002084540_04404.578.pth       | Hamilton 0.13333489000797272
+./Walker2d-v3_PPO_2_5640/actor__000003787316_04930.331.pth       | Hamilton 0.14740243554115295
+./Walker2d-v3_PPO_2_5640/actor__000004127199_04971.100.pth       | Hamilton 0.1509365439414978
+./Walker2d-v3_PPO_2_5640/actor__000006177722_05104.358.pth       | Hamilton 0.1656665951013565
+./Walker2d-v3_PPO_2_5640/actor__000008256410_05166.105.pth       | Hamilton 0.10291064530611038
+./Walker2d-v3_PPO_2_5640/actor__000012052404_05280.073.pth       | Hamilton 0.07355519384145737
+./Walker2d-v3_PPO_2_5640/actor__000013061458_05288.496.pth       | Hamilton 0.07532291859388351
+./Walker2d-v3_PPO_2_5640/actor__000013403600_05335.223.pth       | Hamilton 0.06522668898105621
+./Walker2d-v3_PPO_2_5640/actor__000013748557_05361.889.pth       | Hamilton 0.0660557672381401
+./Walker2d-v3_PPO_2_5640/actor__000017538344_05452.276.pth       | Hamilton 0.060848336666822433
+./Walker2d-v3_PPO_2_5640/actor__000018241887_05640.687.pth       | Hamilton 0.05773117393255234
+    """
+
+    # Ant-v3_PPOHtermK_6_6862
+    data51 = """
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000087603.pth                 | Hamilton 0.004111563321202993
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000246667.pth                 | Hamilton 0.00904847402125597
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000398257.pth                 | Hamilton 0.025377538055181503
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000545659.pth                 | Hamilton 0.08640637993812561
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000693256.pth                 | Hamilton 0.22825787961483002
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000838401.pth                 | Hamilton 0.5533413887023926
+    ./Ant-v3_PPOHtermK_6_6862/actor_000000987434.pth                 | Hamilton 1.2805309295654297
+    ./Ant-v3_PPOHtermK_6_6862/actor_000001133795.pth                 | Hamilton 1.4815641641616821
+    ./Ant-v3_PPOHtermK_6_6862/actor_000001283625.pth                 | Hamilton 1.6453808546066284
+    ./Ant-v3_PPOHtermK_6_6862/actor_000001436028.pth                 | Hamilton 1.9077728986740112
+    ./Ant-v3_PPOHtermK_6_6862/actor_000001584269.pth                 | Hamilton 1.9327963590621948
+    ./Ant-v3_PPOHtermK_6_6862/actor_000001733910.pth                 | Hamilton 1.7672089338302612
+    ./Ant-v3_PPOHtermK_6_6862/actor_000001888955.pth                 | Hamilton 2.3662257194519043
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002047932.pth                 | Hamilton 2.3127212524414062
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002200662.pth                 | Hamilton 2.4863293170928955
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002363463.pth                 | Hamilton 2.734362840652466
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002517425.pth                 | Hamilton 2.6895899772644043
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002675381.pth                 | Hamilton 2.6771883964538574
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002835295.pth                 | Hamilton 2.9090685844421387
+    ./Ant-v3_PPOHtermK_6_6862/actor_000002995491.pth                 | Hamilton 2.9900214672088623
+    ./Ant-v3_PPOHtermK_6_6862/actor_000003151664.pth                 | Hamilton 2.7318813800811768
+    ./Ant-v3_PPOHtermK_6_6862/actor_000003306704.pth                 | Hamilton 2.8500683307647705
+    ./Ant-v3_PPOHtermK_6_6862/actor_000003468221.pth                 | Hamilton 3.0387306213378906
+    ./Ant-v3_PPOHtermK_6_6862/actor_000003630115.pth                 | Hamilton 3.378432512283325
+    ./Ant-v3_PPOHtermK_6_6862/actor_000003791466.pth                 | Hamilton 3.1688318252563477
+    ./Ant-v3_PPOHtermK_6_6862/actor_000003952989.pth                 | Hamilton 3.180849552154541
+    ./Ant-v3_PPOHtermK_6_6862/actor_000004107299.pth                 | Hamilton 3.079395055770874
+    ./Ant-v3_PPOHtermK_6_6862/actor_000004266281.pth                 | Hamilton 3.0492520332336426
+    ./Ant-v3_PPOHtermK_6_6862/actor_000004418219.pth                 | Hamilton 3.1465437412261963
+    ./Ant-v3_PPOHtermK_6_6862/actor_000004577536.pth                 | Hamilton 3.235098123550415
+    ./Ant-v3_PPOHtermK_6_6862/actor_000004736440.pth                 | Hamilton 3.45585560798645
+    ./Ant-v3_PPOHtermK_6_6862/actor_000004891760.pth                 | Hamilton 3.501124143600464
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005049463.pth                 | Hamilton 3.7424118518829346
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005205544.pth                 | Hamilton 3.790123701095581
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005362281.pth                 | Hamilton 3.9188179969787598
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005527772.pth                 | Hamilton 3.9709179401397705
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005682452.pth                 | Hamilton 3.7400968074798584
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005838312.pth                 | Hamilton 3.8978843688964844
+    ./Ant-v3_PPOHtermK_6_6862/actor_000005997566.pth                 | Hamilton 4.282077312469482
+    ./Ant-v3_PPOHtermK_6_6862/actor_000006155727.pth                 | Hamilton 4.3972954750061035
+    ./Ant-v3_PPOHtermK_6_6862/actor_000006316241.pth                 | Hamilton 4.737549304962158
+    ./Ant-v3_PPOHtermK_6_6862/actor_000006473952.pth                 | Hamilton 4.755157470703125
+    ./Ant-v3_PPOHtermK_6_6862/actor_000006627564.pth                 | Hamilton 4.790607929229736
+    ./Ant-v3_PPOHtermK_6_6862/actor_000006789113.pth                 | Hamilton 5.055866718292236
+    ./Ant-v3_PPOHtermK_6_6862/actor_000006946831.pth                 | Hamilton 5.124453067779541
+    ./Ant-v3_PPOHtermK_6_6862/actor_000007104592.pth                 | Hamilton 5.167172431945801
+    ./Ant-v3_PPOHtermK_6_6862/actor_000007256785.pth                 | Hamilton 5.360196590423584
+    ./Ant-v3_PPOHtermK_6_6862/actor_000007408385.pth                 | Hamilton 5.436351776123047
+    ./Ant-v3_PPOHtermK_6_6862/actor_000007560620.pth                 | Hamilton 5.378294467926025
+    ./Ant-v3_PPOHtermK_6_6862/actor_000007712368.pth                 | Hamilton 5.422183990478516
+    ./Ant-v3_PPOHtermK_6_6862/actor_000007857981.pth                 | Hamilton 5.532299041748047
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008009371.pth                 | Hamilton 5.511137962341309
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008154302.pth                 | Hamilton 5.3729681968688965
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008303116.pth                 | Hamilton 5.573635578155518
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008454579.pth                 | Hamilton 5.734554290771484
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008604435.pth                 | Hamilton 5.67193078994751
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008757690.pth                 | Hamilton 5.687824726104736
+    ./Ant-v3_PPOHtermK_6_6862/actor_000008900052.pth                 | Hamilton 5.833279132843018
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009050747.pth                 | Hamilton 5.891057968139648
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009197457.pth                 | Hamilton 6.00933313369751
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009347330.pth                 | Hamilton 6.11137056350708
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009494809.pth                 | Hamilton 6.233556270599365
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009648731.pth                 | Hamilton 6.201189994812012
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009802830.pth                 | Hamilton 6.262927055358887
+    ./Ant-v3_PPOHtermK_6_6862/actor_000009947677.pth                 | Hamilton 6.23444938659668
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010090871.pth                 | Hamilton 6.1717047691345215
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010239256.pth                 | Hamilton 6.221645832061768
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010382777.pth                 | Hamilton 6.212965488433838
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010527422.pth                 | Hamilton 6.27482795715332
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010669250.pth                 | Hamilton 6.220563888549805
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010812839.pth                 | Hamilton 6.310513019561768
+    ./Ant-v3_PPOHtermK_6_6862/actor_000010952073.pth                 | Hamilton 6.290161609649658
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011095900.pth                 | Hamilton 6.4406585693359375
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011239724.pth                 | Hamilton 6.328786373138428
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011386056.pth                 | Hamilton 6.4611496925354
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011534945.pth                 | Hamilton 6.370532512664795
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011679265.pth                 | Hamilton 6.443540573120117
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011828814.pth                 | Hamilton 6.598026752471924
+    ./Ant-v3_PPOHtermK_6_6862/actor_000011973710.pth                 | Hamilton 6.660208702087402
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012114998.pth                 | Hamilton 6.538715362548828
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012260024.pth                 | Hamilton 6.747320175170898
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012402436.pth                 | Hamilton 6.661251544952393
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012546185.pth                 | Hamilton 6.686399459838867
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012688467.pth                 | Hamilton 6.857907295227051
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012832478.pth                 | Hamilton 6.824693202972412
+    ./Ant-v3_PPOHtermK_6_6862/actor_000012980017.pth                 | Hamilton 6.763824462890625
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013126035.pth                 | Hamilton 6.702686309814453
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013270598.pth                 | Hamilton 6.876688480377197
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013416374.pth                 | Hamilton 6.880148410797119
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013561230.pth                 | Hamilton 6.919610023498535
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013702191.pth                 | Hamilton 6.9075026512146
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013842919.pth                 | Hamilton 6.949341773986816
+    ./Ant-v3_PPOHtermK_6_6862/actor_000013988815.pth                 | Hamilton 6.828098773956299
+    ./Ant-v3_PPOHtermK_6_6862/actor_000014138333.pth                 | Hamilton 6.6650800704956055
+    ./Ant-v3_PPOHtermK_6_6862/actor_000014285220.pth                 | Hamilton 6.846170902252197
+    ./Ant-v3_PPOHtermK_6_6862/actor_000014427159.pth                 | Hamilton 6.799041271209717
+    ./Ant-v3_PPOHtermK_6_6862/actor_000014583105.pth                 | Hamilton 6.801196575164795
+    ./Ant-v3_PPOHtermK_6_6862/actor_000014727298.pth                 | Hamilton 6.7754411697387695
+    ./Ant-v3_PPOHtermK_6_6862/actor_000014868819.pth                 | Hamilton 6.792905807495117
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015011728.pth                 | Hamilton 6.869265556335449
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015155252.pth                 | Hamilton 6.774500846862793
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015300820.pth                 | Hamilton 6.753936767578125
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015447459.pth                 | Hamilton 6.735507965087891
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015599211.pth                 | Hamilton 6.690241813659668
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015743664.pth                 | Hamilton 6.789775371551514
+    ./Ant-v3_PPOHtermK_6_6862/actor_000015884557.pth                 | Hamilton 6.692172050476074
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016029921.pth                 | Hamilton 6.638717174530029
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016170424.pth                 | Hamilton 6.560934543609619
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016317889.pth                 | Hamilton 6.48925256729126
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016463893.pth                 | Hamilton 6.519744396209717
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016603620.pth                 | Hamilton 6.478171348571777
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016751777.pth                 | Hamilton 6.401797294616699
+    ./Ant-v3_PPOHtermK_6_6862/actor_000016902551.pth                 | Hamilton 6.257814884185791
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017043467.pth                 | Hamilton 6.341620445251465
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017185932.pth                 | Hamilton 6.317134380340576
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017333114.pth                 | Hamilton 6.2454023361206055
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017481615.pth                 | Hamilton 6.086867809295654
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017628701.pth                 | Hamilton 6.178828716278076
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017781552.pth                 | Hamilton 5.912972450256348
+    ./Ant-v3_PPOHtermK_6_6862/actor_000017927988.pth                 | Hamilton 5.986026763916016
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018075339.pth                 | Hamilton 5.951847553253174
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018221846.pth                 | Hamilton 5.759809494018555
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018368954.pth                 | Hamilton 5.641787528991699
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018519042.pth                 | Hamilton 5.591580390930176
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018666266.pth                 | Hamilton 5.464154243469238
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018811176.pth                 | Hamilton 5.375728607177734
+    ./Ant-v3_PPOHtermK_6_6862/actor_000018957031.pth                 | Hamilton 5.386233329772949
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019107266.pth                 | Hamilton 5.284639358520508
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019255930.pth                 | Hamilton 5.22750997543335
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019401309.pth                 | Hamilton 5.271519660949707
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019547857.pth                 | Hamilton 5.185274124145508
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019699533.pth                 | Hamilton 5.045224666595459
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019852074.pth                 | Hamilton 4.8921217918396
+    ./Ant-v3_PPOHtermK_6_6862/actor_000019997557.pth                 | Hamilton 4.950551509857178
+    ./Ant-v3_PPOHtermK_6_6862/actor__000000010957_00957.849.pth      | Hamilton 0.04204603284597397
+    ./Ant-v3_PPOHtermK_6_6862/actor__000000416210_01152.519.pth      | Hamilton 0.20841628313064575
+    ./Ant-v3_PPOHtermK_6_6862/actor__000001212994_02997.341.pth      | Hamilton 1.2611675262451172
+    ./Ant-v3_PPOHtermK_6_6862/actor__000002088219_04006.116.pth      | Hamilton 1.9224694967269897
+    ./Ant-v3_PPOHtermK_6_6862/actor__000002974593_04896.996.pth      | Hamilton 2.7628250122070312
+    ./Ant-v3_PPOHtermK_6_6862/actor__000003416406_05810.475.pth      | Hamilton 3.0727179050445557
+    ./Ant-v3_PPOHtermK_6_6862/actor__000004299876_05995.790.pth      | Hamilton 3.885120391845703
+    ./Ant-v3_PPOHtermK_6_6862/actor__000004741392_06281.468.pth      | Hamilton 4.302432060241699
+    ./Ant-v3_PPOHtermK_6_6862/actor__000006054387_06414.502.pth      | Hamilton 5.55662727355957
+    ./Ant-v3_PPOHtermK_6_6862/actor__000006942014_06539.019.pth      | Hamilton 6.010439395904541
+    ./Ant-v3_PPOHtermK_6_6862/actor__000009592078_06650.828.pth      | Hamilton 7.172863006591797
+    ./Ant-v3_PPOHtermK_6_6862/actor__000010033074_06712.405.pth      | Hamilton 7.369781494140625
+    ./Ant-v3_PPOHtermK_6_6862/actor__000010476567_06776.393.pth      | Hamilton 7.357755184173584
+    ./Ant-v3_PPOHtermK_6_6862/actor__000013565810_06815.816.pth      | Hamilton 7.623598575592041
+    ./Ant-v3_PPOHtermK_6_6862/actor__000015333872_06862.747.pth      | Hamilton 7.3322858810424805
+    """
+    # Ant-v3_PPO_5_6799
+    data54 = """
+./Ant-v3_PPO_5_6799/actor_000000093883.pth                       | Hamilton 0.005074503365904093
+./Ant-v3_PPO_5_6799/actor_000000254112.pth                       | Hamilton 0.012386777438223362
+./Ant-v3_PPO_5_6799/actor_000000413429.pth                       | Hamilton 0.037784725427627563
+./Ant-v3_PPO_5_6799/actor_000000567042.pth                       | Hamilton 0.07026351988315582
+./Ant-v3_PPO_5_6799/actor_000000726493.pth                       | Hamilton 0.21908153593540192
+./Ant-v3_PPO_5_6799/actor_000000882388.pth                       | Hamilton 0.36841586232185364
+./Ant-v3_PPO_5_6799/actor_000001037631.pth                       | Hamilton 0.4825523793697357
+./Ant-v3_PPO_5_6799/actor_000001199238.pth                       | Hamilton 1.0373966693878174
+./Ant-v3_PPO_5_6799/actor_000001359842.pth                       | Hamilton 1.291121482849121
+./Ant-v3_PPO_5_6799/actor_000001522417.pth                       | Hamilton 1.6402531862258911
+./Ant-v3_PPO_5_6799/actor_000001686742.pth                       | Hamilton 1.9664427042007446
+./Ant-v3_PPO_5_6799/actor_000001851366.pth                       | Hamilton 2.3771016597747803
+./Ant-v3_PPO_5_6799/actor_000002005324.pth                       | Hamilton 2.6183810234069824
+./Ant-v3_PPO_5_6799/actor_000002168956.pth                       | Hamilton 2.9140841960906982
+./Ant-v3_PPO_5_6799/actor_000002328271.pth                       | Hamilton 2.8002612590789795
+./Ant-v3_PPO_5_6799/actor_000002485601.pth                       | Hamilton 2.894040107727051
+./Ant-v3_PPO_5_6799/actor_000002652389.pth                       | Hamilton 2.832108974456787
+./Ant-v3_PPO_5_6799/actor_000002817057.pth                       | Hamilton 2.7549281120300293
+./Ant-v3_PPO_5_6799/actor_000002983113.pth                       | Hamilton 2.7792575359344482
+./Ant-v3_PPO_5_6799/actor_000003138878.pth                       | Hamilton 2.3709654808044434
+./Ant-v3_PPO_5_6799/actor_000003301338.pth                       | Hamilton 2.4817473888397217
+./Ant-v3_PPO_5_6799/actor_000003458485.pth                       | Hamilton 2.4570975303649902
+./Ant-v3_PPO_5_6799/actor_000003614187.pth                       | Hamilton 2.6773123741149902
+./Ant-v3_PPO_5_6799/actor_000003776163.pth                       | Hamilton 2.610283851623535
+./Ant-v3_PPO_5_6799/actor_000003930963.pth                       | Hamilton 2.8402206897735596
+./Ant-v3_PPO_5_6799/actor_000004090408.pth                       | Hamilton 2.82114315032959
+./Ant-v3_PPO_5_6799/actor_000004246929.pth                       | Hamilton 2.8226566314697266
+./Ant-v3_PPO_5_6799/actor_000004405943.pth                       | Hamilton 2.8057987689971924
+./Ant-v3_PPO_5_6799/actor_000004563834.pth                       | Hamilton 2.5844919681549072
+./Ant-v3_PPO_5_6799/actor_000004720746.pth                       | Hamilton 2.6300995349884033
+./Ant-v3_PPO_5_6799/actor_000004873595.pth                       | Hamilton 2.6104531288146973
+./Ant-v3_PPO_5_6799/actor_000005029293.pth                       | Hamilton 2.486684560775757
+./Ant-v3_PPO_5_6799/actor_000005183761.pth                       | Hamilton 2.53338623046875
+./Ant-v3_PPO_5_6799/actor_000005343847.pth                       | Hamilton 2.507483720779419
+./Ant-v3_PPO_5_6799/actor_000005493343.pth                       | Hamilton 2.57580828666687
+./Ant-v3_PPO_5_6799/actor_000005644460.pth                       | Hamilton 2.578012704849243
+./Ant-v3_PPO_5_6799/actor_000005793061.pth                       | Hamilton 2.5577147006988525
+./Ant-v3_PPO_5_6799/actor_000005949866.pth                       | Hamilton 2.7746925354003906
+./Ant-v3_PPO_5_6799/actor_000006098009.pth                       | Hamilton 2.7040562629699707
+./Ant-v3_PPO_5_6799/actor_000006252605.pth                       | Hamilton 2.5675675868988037
+./Ant-v3_PPO_5_6799/actor_000006403492.pth                       | Hamilton 2.4022552967071533
+./Ant-v3_PPO_5_6799/actor_000006560549.pth                       | Hamilton 2.5230021476745605
+./Ant-v3_PPO_5_6799/actor_000006716404.pth                       | Hamilton 2.4601328372955322
+./Ant-v3_PPO_5_6799/actor_000006866965.pth                       | Hamilton 2.413377523422241
+./Ant-v3_PPO_5_6799/actor_000007014246.pth                       | Hamilton 2.4905846118927
+./Ant-v3_PPO_5_6799/actor_000007164670.pth                       | Hamilton 2.5154776573181152
+./Ant-v3_PPO_5_6799/actor_000007324438.pth                       | Hamilton 2.3725459575653076
+./Ant-v3_PPO_5_6799/actor_000007478593.pth                       | Hamilton 2.418517589569092
+./Ant-v3_PPO_5_6799/actor_000007635257.pth                       | Hamilton 2.457030773162842
+./Ant-v3_PPO_5_6799/actor_000007787782.pth                       | Hamilton 2.3272931575775146
+./Ant-v3_PPO_5_6799/actor_000007936743.pth                       | Hamilton 2.247887134552002
+./Ant-v3_PPO_5_6799/actor_000008090262.pth                       | Hamilton 2.3328776359558105
+./Ant-v3_PPO_5_6799/actor_000008234363.pth                       | Hamilton 2.360222339630127
+./Ant-v3_PPO_5_6799/actor_000008388099.pth                       | Hamilton 2.2227847576141357
+./Ant-v3_PPO_5_6799/actor_000008539534.pth                       | Hamilton 2.1688270568847656
+./Ant-v3_PPO_5_6799/actor_000008689462.pth                       | Hamilton 2.0613059997558594
+./Ant-v3_PPO_5_6799/actor_000008839036.pth                       | Hamilton 2.1086008548736572
+./Ant-v3_PPO_5_6799/actor_000008992293.pth                       | Hamilton 1.9779132604599
+./Ant-v3_PPO_5_6799/actor_000009139903.pth                       | Hamilton 1.9654568433761597
+./Ant-v3_PPO_5_6799/actor_000009294066.pth                       | Hamilton 1.9782301187515259
+./Ant-v3_PPO_5_6799/actor_000009440658.pth                       | Hamilton 1.9262315034866333
+./Ant-v3_PPO_5_6799/actor_000009590270.pth                       | Hamilton 2.0049564838409424
+./Ant-v3_PPO_5_6799/actor_000009734535.pth                       | Hamilton 1.7898106575012207
+./Ant-v3_PPO_5_6799/actor_000009887791.pth                       | Hamilton 1.7079881429672241
+./Ant-v3_PPO_5_6799/actor_000010039418.pth                       | Hamilton 1.553754448890686
+./Ant-v3_PPO_5_6799/actor_000010191313.pth                       | Hamilton 1.5349966287612915
+./Ant-v3_PPO_5_6799/actor_000010340457.pth                       | Hamilton 1.6025221347808838
+./Ant-v3_PPO_5_6799/actor_000010488961.pth                       | Hamilton 1.55060613155365
+./Ant-v3_PPO_5_6799/actor_000010640089.pth                       | Hamilton 1.5156381130218506
+./Ant-v3_PPO_5_6799/actor_000010794482.pth                       | Hamilton 1.3353220224380493
+./Ant-v3_PPO_5_6799/actor_000010945279.pth                       | Hamilton 1.2922077178955078
+./Ant-v3_PPO_5_6799/actor_000011094906.pth                       | Hamilton 1.2890613079071045
+./Ant-v3_PPO_5_6799/actor_000011244721.pth                       | Hamilton 1.214226484298706
+./Ant-v3_PPO_5_6799/actor_000011398958.pth                       | Hamilton 1.1959927082061768
+./Ant-v3_PPO_5_6799/actor_000011552495.pth                       | Hamilton 1.1368263959884644
+./Ant-v3_PPO_5_6799/actor_000011707220.pth                       | Hamilton 0.979556679725647
+./Ant-v3_PPO_5_6799/actor_000011863011.pth                       | Hamilton 0.9126589894294739
+./Ant-v3_PPO_5_6799/actor_000012010070.pth                       | Hamilton 0.6956690549850464
+./Ant-v3_PPO_5_6799/actor_000012164675.pth                       | Hamilton 0.7874578833580017
+./Ant-v3_PPO_5_6799/actor_000012312880.pth                       | Hamilton 0.790744960308075
+./Ant-v3_PPO_5_6799/actor_000012472701.pth                       | Hamilton 0.7231869101524353
+./Ant-v3_PPO_5_6799/actor_000012622513.pth                       | Hamilton 0.7606087923049927
+./Ant-v3_PPO_5_6799/actor_000012775604.pth                       | Hamilton 0.7387474775314331
+./Ant-v3_PPO_5_6799/actor_000012934039.pth                       | Hamilton 0.7471483945846558
+./Ant-v3_PPO_5_6799/actor_000013091603.pth                       | Hamilton 0.7238107323646545
+./Ant-v3_PPO_5_6799/actor_000013251598.pth                       | Hamilton 0.6864250898361206
+./Ant-v3_PPO_5_6799/actor_000013406857.pth                       | Hamilton 0.6028667092323303
+./Ant-v3_PPO_5_6799/actor_000013561454.pth                       | Hamilton 0.6044448614120483
+./Ant-v3_PPO_5_6799/actor_000013717553.pth                       | Hamilton 0.622761607170105
+./Ant-v3_PPO_5_6799/actor_000013876547.pth                       | Hamilton 0.5787383913993835
+./Ant-v3_PPO_5_6799/actor_000014029743.pth                       | Hamilton 0.5842840075492859
+./Ant-v3_PPO_5_6799/actor_000014189140.pth                       | Hamilton 0.5771746635437012
+./Ant-v3_PPO_5_6799/actor_000014352768.pth                       | Hamilton 0.5072037577629089
+./Ant-v3_PPO_5_6799/actor_000014502447.pth                       | Hamilton 0.6147286891937256
+./Ant-v3_PPO_5_6799/actor_000014651310.pth                       | Hamilton 0.6233721971511841
+./Ant-v3_PPO_5_6799/actor_000014805698.pth                       | Hamilton 0.6438687443733215
+./Ant-v3_PPO_5_6799/actor_000014956381.pth                       | Hamilton 0.6372586488723755
+./Ant-v3_PPO_5_6799/actor_000015110777.pth                       | Hamilton 0.5142120122909546
+./Ant-v3_PPO_5_6799/actor_000015264842.pth                       | Hamilton 0.5593512654304504
+./Ant-v3_PPO_5_6799/actor_000015420141.pth                       | Hamilton 0.523980975151062
+./Ant-v3_PPO_5_6799/actor_000015576268.pth                       | Hamilton 0.5798567533493042
+./Ant-v3_PPO_5_6799/actor_000015729766.pth                       | Hamilton 0.5724379420280457
+./Ant-v3_PPO_5_6799/actor_000015880050.pth                       | Hamilton 0.5451202392578125
+./Ant-v3_PPO_5_6799/actor_000016036372.pth                       | Hamilton 0.5015071630477905
+./Ant-v3_PPO_5_6799/actor_000016195101.pth                       | Hamilton 0.5483999848365784
+./Ant-v3_PPO_5_6799/actor_000016352907.pth                       | Hamilton 0.5136932134628296
+./Ant-v3_PPO_5_6799/actor_000016510911.pth                       | Hamilton 0.4691963195800781
+./Ant-v3_PPO_5_6799/actor_000016666061.pth                       | Hamilton 0.5445407629013062
+./Ant-v3_PPO_5_6799/actor_000016817462.pth                       | Hamilton 0.5234227776527405
+./Ant-v3_PPO_5_6799/actor_000016972569.pth                       | Hamilton 0.5796849727630615
+./Ant-v3_PPO_5_6799/actor_000017123186.pth                       | Hamilton 0.5272115468978882
+./Ant-v3_PPO_5_6799/actor_000017275815.pth                       | Hamilton 0.45750850439071655
+./Ant-v3_PPO_5_6799/actor_000017422527.pth                       | Hamilton 0.49887269735336304
+./Ant-v3_PPO_5_6799/actor_000017580499.pth                       | Hamilton 0.46061211824417114
+./Ant-v3_PPO_5_6799/actor_000017735310.pth                       | Hamilton 0.4814170002937317
+./Ant-v3_PPO_5_6799/actor_000017888350.pth                       | Hamilton 0.48095399141311646
+./Ant-v3_PPO_5_6799/actor_000018048059.pth                       | Hamilton 0.5034792423248291
+./Ant-v3_PPO_5_6799/actor_000018202806.pth                       | Hamilton 0.4589376449584961
+./Ant-v3_PPO_5_6799/actor_000018358215.pth                       | Hamilton 0.4749937951564789
+./Ant-v3_PPO_5_6799/actor_000018516982.pth                       | Hamilton 0.4343283772468567
+./Ant-v3_PPO_5_6799/actor_000018673787.pth                       | Hamilton 0.4559686481952667
+./Ant-v3_PPO_5_6799/actor_000018823344.pth                       | Hamilton 0.4595167338848114
+./Ant-v3_PPO_5_6799/actor_000018980971.pth                       | Hamilton 0.4632956385612488
+./Ant-v3_PPO_5_6799/actor_000019133559.pth                       | Hamilton 0.46645283699035645
+./Ant-v3_PPO_5_6799/actor_000019285475.pth                       | Hamilton 0.4773906171321869
+./Ant-v3_PPO_5_6799/actor_000019442907.pth                       | Hamilton 0.4533741772174835
+./Ant-v3_PPO_5_6799/actor_000019596158.pth                       | Hamilton 0.4300614297389984
+./Ant-v3_PPO_5_6799/actor_000019743642.pth                       | Hamilton 0.4415527284145355
+./Ant-v3_PPO_5_6799/actor_000019899697.pth                       | Hamilton 0.44830670952796936
+./Ant-v3_PPO_5_6799/actor__000000010793_00947.179.pth            | Hamilton 0.01776743493974209
+./Ant-v3_PPO_5_6799/actor__000000652987_01597.806.pth            | Hamilton 0.14094121754169464
+./Ant-v3_PPO_5_6799/actor__000001272096_03643.128.pth            | Hamilton 0.48397231101989746
+./Ant-v3_PPO_5_6799/actor__000001881198_04605.684.pth            | Hamilton 0.9186487197875977
+./Ant-v3_PPO_5_6799/actor__000002521292_05754.153.pth            | Hamilton 1.1610654592514038
+./Ant-v3_PPO_5_6799/actor__000005762309_06584.520.pth            | Hamilton 1.5993343591690063
+./Ant-v3_PPO_5_6799/actor__000007707235_06667.059.pth            | Hamilton 1.6180704832077026
+./Ant-v3_PPO_5_6799/actor__000009001412_06779.400.pth            | Hamilton 1.5048744678497314
+    """
+    # Ant-v3_PPO_1_5652
+    data55 = """
+./Ant-v3_PPO_1_5652/actor_000000169067.pth                       | Hamilton 0.0069841961376369
+./Ant-v3_PPO_1_5652/actor_000000250914.pth                       | Hamilton 0.009560899809002876
+./Ant-v3_PPO_1_5652/actor_000000330483.pth                       | Hamilton 0.020319728180766106
+./Ant-v3_PPO_1_5652/actor_000000407810.pth                       | Hamilton 0.031599223613739014
+./Ant-v3_PPO_1_5652/actor_000000483432.pth                       | Hamilton 0.04474034905433655
+./Ant-v3_PPO_1_5652/actor_000000559814.pth                       | Hamilton 0.053308483213186264
+./Ant-v3_PPO_1_5652/actor_000000634714.pth                       | Hamilton 0.07590979337692261
+./Ant-v3_PPO_1_5652/actor_000000707799.pth                       | Hamilton 0.09556791931390762
+./Ant-v3_PPO_1_5652/actor_000000780532.pth                       | Hamilton 0.11470188200473785
+./Ant-v3_PPO_1_5652/actor_000000853463.pth                       | Hamilton 0.14212079346179962
+./Ant-v3_PPO_1_5652/actor_000000924971.pth                       | Hamilton 0.14334863424301147
+./Ant-v3_PPO_1_5652/actor_000000993933.pth                       | Hamilton 0.23164157569408417
+./Ant-v3_PPO_1_5652/actor_000001063847.pth                       | Hamilton 0.29071682691574097
+./Ant-v3_PPO_1_5652/actor_000001133194.pth                       | Hamilton 0.34055787324905396
+./Ant-v3_PPO_1_5652/actor_000001202299.pth                       | Hamilton 0.4016701281070709
+./Ant-v3_PPO_1_5652/actor_000001270003.pth                       | Hamilton 0.45839497447013855
+./Ant-v3_PPO_1_5652/actor_000001340760.pth                       | Hamilton 0.49206140637397766
+./Ant-v3_PPO_1_5652/actor_000001411600.pth                       | Hamilton 0.4933777153491974
+./Ant-v3_PPO_1_5652/actor_000001483487.pth                       | Hamilton 0.5019961595535278
+./Ant-v3_PPO_1_5652/actor_000001557749.pth                       | Hamilton 0.5797672867774963
+./Ant-v3_PPO_1_5652/actor_000001625870.pth                       | Hamilton 0.6342185139656067
+./Ant-v3_PPO_1_5652/actor_000001695936.pth                       | Hamilton 0.6761088371276855
+./Ant-v3_PPO_1_5652/actor_000001768913.pth                       | Hamilton 0.6023170948028564
+./Ant-v3_PPO_1_5652/actor_000001838635.pth                       | Hamilton 0.6019571423530579
+./Ant-v3_PPO_1_5652/actor_000001912070.pth                       | Hamilton 0.6810991764068604
+./Ant-v3_PPO_1_5652/actor_000001983892.pth                       | Hamilton 0.6134727597236633
+./Ant-v3_PPO_1_5652/actor_000002050529.pth                       | Hamilton 0.6821702718734741
+./Ant-v3_PPO_1_5652/actor_000002121921.pth                       | Hamilton 0.6696080565452576
+./Ant-v3_PPO_1_5652/actor_000002193576.pth                       | Hamilton 0.6481669545173645
+./Ant-v3_PPO_1_5652/actor_000002262973.pth                       | Hamilton 0.4746580123901367
+./Ant-v3_PPO_1_5652/actor_000002343933.pth                       | Hamilton 0.4034137725830078
+./Ant-v3_PPO_1_5652/actor_000002415955.pth                       | Hamilton 0.5272387266159058
+./Ant-v3_PPO_1_5652/actor_000002488950.pth                       | Hamilton 0.5453565716743469
+./Ant-v3_PPO_1_5652/actor_000002560971.pth                       | Hamilton 0.5164162516593933
+./Ant-v3_PPO_1_5652/actor_000002630874.pth                       | Hamilton 0.57940673828125
+./Ant-v3_PPO_1_5652/actor_000002701258.pth                       | Hamilton 0.5405268669128418
+./Ant-v3_PPO_1_5652/actor_000002771307.pth                       | Hamilton 0.5170269012451172
+./Ant-v3_PPO_1_5652/actor_000002840697.pth                       | Hamilton 0.5910995006561279
+./Ant-v3_PPO_1_5652/actor_000002912944.pth                       | Hamilton 0.6247982382774353
+./Ant-v3_PPO_1_5652/actor_000002988665.pth                       | Hamilton 0.5708028078079224
+./Ant-v3_PPO_1_5652/actor_000003064135.pth                       | Hamilton 0.5678332448005676
+./Ant-v3_PPO_1_5652/actor_000003136164.pth                       | Hamilton 0.5668685436248779
+./Ant-v3_PPO_1_5652/actor_000003209396.pth                       | Hamilton 0.6232424974441528
+./Ant-v3_PPO_1_5652/actor_000003282091.pth                       | Hamilton 0.7090603113174438
+./Ant-v3_PPO_1_5652/actor_000003354307.pth                       | Hamilton 0.6471967697143555
+./Ant-v3_PPO_1_5652/actor_000003423065.pth                       | Hamilton 0.6186540722846985
+./Ant-v3_PPO_1_5652/actor_000003490554.pth                       | Hamilton 0.7214058637619019
+./Ant-v3_PPO_1_5652/actor_000003568949.pth                       | Hamilton 0.716549813747406
+./Ant-v3_PPO_1_5652/actor_000003644933.pth                       | Hamilton 0.6535992622375488
+./Ant-v3_PPO_1_5652/actor_000003717814.pth                       | Hamilton 0.7264279723167419
+./Ant-v3_PPO_1_5652/actor_000003789800.pth                       | Hamilton 0.6259000301361084
+./Ant-v3_PPO_1_5652/actor_000003863836.pth                       | Hamilton 0.6691027283668518
+./Ant-v3_PPO_1_5652/actor_000003938472.pth                       | Hamilton 0.688693106174469
+./Ant-v3_PPO_1_5652/actor_000004014467.pth                       | Hamilton 0.6773417592048645
+./Ant-v3_PPO_1_5652/actor_000004088522.pth                       | Hamilton 0.6989647746086121
+./Ant-v3_PPO_1_5652/actor_000004158611.pth                       | Hamilton 0.7517485022544861
+./Ant-v3_PPO_1_5652/actor_000004232233.pth                       | Hamilton 0.7928637266159058
+./Ant-v3_PPO_1_5652/actor_000004304445.pth                       | Hamilton 0.6899208426475525
+./Ant-v3_PPO_1_5652/actor_000004372821.pth                       | Hamilton 0.7734887003898621
+./Ant-v3_PPO_1_5652/actor_000004441366.pth                       | Hamilton 0.7817652821540833
+./Ant-v3_PPO_1_5652/actor_000004515780.pth                       | Hamilton 0.8398405909538269
+./Ant-v3_PPO_1_5652/actor_000004589930.pth                       | Hamilton 0.8786786198616028
+./Ant-v3_PPO_1_5652/actor_000004663072.pth                       | Hamilton 0.8141953945159912
+./Ant-v3_PPO_1_5652/actor_000004735287.pth                       | Hamilton 0.7988201379776001
+./Ant-v3_PPO_1_5652/actor_000004810875.pth                       | Hamilton 0.7918642163276672
+./Ant-v3_PPO_1_5652/actor_000004884332.pth                       | Hamilton 0.8188532590866089
+./Ant-v3_PPO_1_5652/actor_000004954588.pth                       | Hamilton 0.8237034678459167
+./Ant-v3_PPO_1_5652/actor_000005025949.pth                       | Hamilton 0.8513928055763245
+./Ant-v3_PPO_1_5652/actor_000005100131.pth                       | Hamilton 0.7215188145637512
+./Ant-v3_PPO_1_5652/actor_000005176086.pth                       | Hamilton 0.6839065551757812
+./Ant-v3_PPO_1_5652/actor_000005246430.pth                       | Hamilton 0.7215323448181152
+./Ant-v3_PPO_1_5652/actor_000005318697.pth                       | Hamilton 0.729893684387207
+./Ant-v3_PPO_1_5652/actor_000005393017.pth                       | Hamilton 0.689328670501709
+./Ant-v3_PPO_1_5652/actor_000005467725.pth                       | Hamilton 0.7332067489624023
+./Ant-v3_PPO_1_5652/actor_000005538009.pth                       | Hamilton 0.7209208011627197
+./Ant-v3_PPO_1_5652/actor_000005608742.pth                       | Hamilton 0.7581558227539062
+./Ant-v3_PPO_1_5652/actor_000005681108.pth                       | Hamilton 0.7802922129631042
+./Ant-v3_PPO_1_5652/actor_000005749900.pth                       | Hamilton 0.7291790246963501
+./Ant-v3_PPO_1_5652/actor_000005819115.pth                       | Hamilton 0.7499415874481201
+./Ant-v3_PPO_1_5652/actor_000005889217.pth                       | Hamilton 0.8079853057861328
+./Ant-v3_PPO_1_5652/actor_000005961590.pth                       | Hamilton 0.7244646549224854
+./Ant-v3_PPO_1_5652/actor_000006032014.pth                       | Hamilton 0.662145733833313
+./Ant-v3_PPO_1_5652/actor_000006101744.pth                       | Hamilton 0.720055878162384
+./Ant-v3_PPO_1_5652/actor_000006169337.pth                       | Hamilton 0.7310866117477417
+./Ant-v3_PPO_1_5652/actor_000006239859.pth                       | Hamilton 0.7449906468391418
+./Ant-v3_PPO_1_5652/actor_000006308579.pth                       | Hamilton 0.7727760672569275
+./Ant-v3_PPO_1_5652/actor_000006381472.pth                       | Hamilton 0.7957735657691956
+./Ant-v3_PPO_1_5652/actor_000006446102.pth                       | Hamilton 0.7490442395210266
+./Ant-v3_PPO_1_5652/actor_000006519333.pth                       | Hamilton 0.7140330672264099
+./Ant-v3_PPO_1_5652/actor_000006588402.pth                       | Hamilton 0.6261993646621704
+./Ant-v3_PPO_1_5652/actor_000006661593.pth                       | Hamilton 0.5894293785095215
+./Ant-v3_PPO_1_5652/actor_000006735515.pth                       | Hamilton 0.6083714962005615
+./Ant-v3_PPO_1_5652/actor_000006805911.pth                       | Hamilton 0.5622373819351196
+./Ant-v3_PPO_1_5652/actor_000006873670.pth                       | Hamilton 0.527230441570282
+./Ant-v3_PPO_1_5652/actor_000006943941.pth                       | Hamilton 0.5927292108535767
+./Ant-v3_PPO_1_5652/actor_000007016527.pth                       | Hamilton 0.5469595789909363
+./Ant-v3_PPO_1_5652/actor_000007090346.pth                       | Hamilton 0.580588161945343
+./Ant-v3_PPO_1_5652/actor_000007163846.pth                       | Hamilton 0.5832631587982178
+./Ant-v3_PPO_1_5652/actor_000007235232.pth                       | Hamilton 0.583800733089447
+./Ant-v3_PPO_1_5652/actor_000007306734.pth                       | Hamilton 0.6016122102737427
+./Ant-v3_PPO_1_5652/actor_000007383598.pth                       | Hamilton 0.6271316409111023
+./Ant-v3_PPO_1_5652/actor_000007455852.pth                       | Hamilton 0.5809938907623291
+./Ant-v3_PPO_1_5652/actor_000007529852.pth                       | Hamilton 0.6324378252029419
+./Ant-v3_PPO_1_5652/actor_000007600442.pth                       | Hamilton 0.6212618947029114
+./Ant-v3_PPO_1_5652/actor_000007673957.pth                       | Hamilton 0.5678633451461792
+./Ant-v3_PPO_1_5652/actor_000007750665.pth                       | Hamilton 0.5429845452308655
+./Ant-v3_PPO_1_5652/actor_000007828312.pth                       | Hamilton 0.5519565939903259
+./Ant-v3_PPO_1_5652/actor_000007901719.pth                       | Hamilton 0.5232998132705688
+./Ant-v3_PPO_1_5652/actor_000007974511.pth                       | Hamilton 0.5144525766372681
+./Ant-v3_PPO_1_5652/actor_000008045528.pth                       | Hamilton 0.4854491353034973
+./Ant-v3_PPO_1_5652/actor_000008116599.pth                       | Hamilton 0.47758084535598755
+./Ant-v3_PPO_1_5652/actor_000008189711.pth                       | Hamilton 0.4661515951156616
+./Ant-v3_PPO_1_5652/actor_000008265604.pth                       | Hamilton 0.4524286985397339
+./Ant-v3_PPO_1_5652/actor_000008342324.pth                       | Hamilton 0.4611773192882538
+./Ant-v3_PPO_1_5652/actor_000008416636.pth                       | Hamilton 0.41194844245910645
+./Ant-v3_PPO_1_5652/actor_000008489589.pth                       | Hamilton 0.4226505160331726
+./Ant-v3_PPO_1_5652/actor_000008562342.pth                       | Hamilton 0.3516698479652405
+./Ant-v3_PPO_1_5652/actor_000008638083.pth                       | Hamilton 0.3146302402019501
+./Ant-v3_PPO_1_5652/actor_000008714962.pth                       | Hamilton 0.32267847657203674
+./Ant-v3_PPO_1_5652/actor_000008788282.pth                       | Hamilton 0.291159063577652
+./Ant-v3_PPO_1_5652/actor_000008870340.pth                       | Hamilton 0.2883017957210541
+./Ant-v3_PPO_1_5652/actor_000008951105.pth                       | Hamilton 0.2523723542690277
+./Ant-v3_PPO_1_5652/actor_000009027735.pth                       | Hamilton 0.2867855429649353
+./Ant-v3_PPO_1_5652/actor_000009103805.pth                       | Hamilton 0.22562040388584137
+./Ant-v3_PPO_1_5652/actor_000009180968.pth                       | Hamilton 0.2351466715335846
+./Ant-v3_PPO_1_5652/actor_000009254744.pth                       | Hamilton 0.2769852876663208
+./Ant-v3_PPO_1_5652/actor_000009337464.pth                       | Hamilton 0.20251613855361938
+./Ant-v3_PPO_1_5652/actor_000009414932.pth                       | Hamilton 0.21815727651119232
+./Ant-v3_PPO_1_5652/actor_000009489873.pth                       | Hamilton 0.2109820544719696
+./Ant-v3_PPO_1_5652/actor_000009565802.pth                       | Hamilton 0.22592395544052124
+./Ant-v3_PPO_1_5652/actor_000009641733.pth                       | Hamilton 0.20558813214302063
+./Ant-v3_PPO_1_5652/actor_000009721570.pth                       | Hamilton 0.1782127022743225
+./Ant-v3_PPO_1_5652/actor_000009793581.pth                       | Hamilton 0.19156116247177124
+./Ant-v3_PPO_1_5652/actor_000009867257.pth                       | Hamilton 0.17498981952667236
+./Ant-v3_PPO_1_5652/actor_000009941998.pth                       | Hamilton 0.21455034613609314
+./Ant-v3_PPO_1_5652/actor_000010022917.pth                       | Hamilton 0.1971164494752884
+./Ant-v3_PPO_1_5652/actor_000010099451.pth                       | Hamilton 0.1811075359582901
+./Ant-v3_PPO_1_5652/actor_000010179414.pth                       | Hamilton 0.20524540543556213
+./Ant-v3_PPO_1_5652/actor_000010258582.pth                       | Hamilton 0.16834595799446106
+./Ant-v3_PPO_1_5652/actor_000010332567.pth                       | Hamilton 0.1972096860408783
+./Ant-v3_PPO_1_5652/actor_000010407592.pth                       | Hamilton 0.16798628866672516
+./Ant-v3_PPO_1_5652/actor_000010482940.pth                       | Hamilton 0.1779131442308426
+./Ant-v3_PPO_1_5652/actor_000010552349.pth                       | Hamilton 0.17091748118400574
+./Ant-v3_PPO_1_5652/actor_000010632218.pth                       | Hamilton 0.2084471732378006
+./Ant-v3_PPO_1_5652/actor_000010711476.pth                       | Hamilton 0.18735790252685547
+./Ant-v3_PPO_1_5652/actor_000010788446.pth                       | Hamilton 0.2094695121049881
+./Ant-v3_PPO_1_5652/actor_000010867023.pth                       | Hamilton 0.18471428751945496
+./Ant-v3_PPO_1_5652/actor_000010947048.pth                       | Hamilton 0.180636927485466
+./Ant-v3_PPO_1_5652/actor_000011027106.pth                       | Hamilton 0.17618940770626068
+./Ant-v3_PPO_1_5652/actor_000011109058.pth                       | Hamilton 0.15484780073165894
+./Ant-v3_PPO_1_5652/actor_000011184037.pth                       | Hamilton 0.19102251529693604
+./Ant-v3_PPO_1_5652/actor_000011262347.pth                       | Hamilton 0.1894334852695465
+./Ant-v3_PPO_1_5652/actor_000011340574.pth                       | Hamilton 0.17500774562358856
+./Ant-v3_PPO_1_5652/actor_000011418073.pth                       | Hamilton 0.1880897432565689
+./Ant-v3_PPO_1_5652/actor_000011493178.pth                       | Hamilton 0.18235641717910767
+./Ant-v3_PPO_1_5652/actor_000011567282.pth                       | Hamilton 0.156173974275589
+./Ant-v3_PPO_1_5652/actor_000011640921.pth                       | Hamilton 0.1959352195262909
+./Ant-v3_PPO_1_5652/actor_000011717239.pth                       | Hamilton 0.1892167031764984
+./Ant-v3_PPO_1_5652/actor_000011795760.pth                       | Hamilton 0.1929270476102829
+./Ant-v3_PPO_1_5652/actor_000011874103.pth                       | Hamilton 0.1788388043642044
+./Ant-v3_PPO_1_5652/actor_000011952196.pth                       | Hamilton 0.17896829545497894
+./Ant-v3_PPO_1_5652/actor_000012034347.pth                       | Hamilton 0.187763050198555
+./Ant-v3_PPO_1_5652/actor_000012111216.pth                       | Hamilton 0.1680489331483841
+./Ant-v3_PPO_1_5652/actor_000012187379.pth                       | Hamilton 0.16268162429332733
+./Ant-v3_PPO_1_5652/actor_000012268094.pth                       | Hamilton 0.14186729490756989
+./Ant-v3_PPO_1_5652/actor_000012345268.pth                       | Hamilton 0.16010813415050507
+./Ant-v3_PPO_1_5652/actor_000012423459.pth                       | Hamilton 0.1609327793121338
+./Ant-v3_PPO_1_5652/actor_000012503019.pth                       | Hamilton 0.15605810284614563
+./Ant-v3_PPO_1_5652/actor_000012581527.pth                       | Hamilton 0.15872521698474884
+./Ant-v3_PPO_1_5652/actor_000012659369.pth                       | Hamilton 0.15299907326698303
+./Ant-v3_PPO_1_5652/actor_000012738137.pth                       | Hamilton 0.15954577922821045
+./Ant-v3_PPO_1_5652/actor_000012817414.pth                       | Hamilton 0.14546158909797668
+./Ant-v3_PPO_1_5652/actor_000012894607.pth                       | Hamilton 0.14075154066085815
+./Ant-v3_PPO_1_5652/actor_000012974090.pth                       | Hamilton 0.13155095279216766
+./Ant-v3_PPO_1_5652/actor_000013050723.pth                       | Hamilton 0.14252451062202454
+./Ant-v3_PPO_1_5652/actor_000013127946.pth                       | Hamilton 0.13593260943889618
+./Ant-v3_PPO_1_5652/actor_000013204486.pth                       | Hamilton 0.13663159310817719
+./Ant-v3_PPO_1_5652/actor_000013288684.pth                       | Hamilton 0.13915646076202393
+./Ant-v3_PPO_1_5652/actor_000013368224.pth                       | Hamilton 0.13286098837852478
+./Ant-v3_PPO_1_5652/actor_000013449387.pth                       | Hamilton 0.13698256015777588
+./Ant-v3_PPO_1_5652/actor_000013526191.pth                       | Hamilton 0.1327577829360962
+./Ant-v3_PPO_1_5652/actor_000013605516.pth                       | Hamilton 0.12888017296791077
+./Ant-v3_PPO_1_5652/actor_000013686127.pth                       | Hamilton 0.13338102400302887
+./Ant-v3_PPO_1_5652/actor_000013761511.pth                       | Hamilton 0.15550848841667175
+./Ant-v3_PPO_1_5652/actor_000013839577.pth                       | Hamilton 0.15162503719329834
+./Ant-v3_PPO_1_5652/actor_000013920160.pth                       | Hamilton 0.1384885609149933
+./Ant-v3_PPO_1_5652/actor_000013998922.pth                       | Hamilton 0.14208491146564484
+./Ant-v3_PPO_1_5652/actor_000014080430.pth                       | Hamilton 0.15164339542388916
+./Ant-v3_PPO_1_5652/actor_000014155054.pth                       | Hamilton 0.13233420252799988
+./Ant-v3_PPO_1_5652/actor_000014234949.pth                       | Hamilton 0.09791077673435211
+./Ant-v3_PPO_1_5652/actor_000014316097.pth                       | Hamilton 0.09895771741867065
+./Ant-v3_PPO_1_5652/actor_000014398371.pth                       | Hamilton 0.11614248901605606
+./Ant-v3_PPO_1_5652/actor_000014477234.pth                       | Hamilton 0.11270968616008759
+./Ant-v3_PPO_1_5652/actor_000014558000.pth                       | Hamilton 0.10100586712360382
+./Ant-v3_PPO_1_5652/actor_000014633977.pth                       | Hamilton 0.0960649624466896
+./Ant-v3_PPO_1_5652/actor_000014708606.pth                       | Hamilton 0.09586820006370544
+./Ant-v3_PPO_1_5652/actor_000014786566.pth                       | Hamilton 0.09393085539340973
+./Ant-v3_PPO_1_5652/actor_000014863062.pth                       | Hamilton 0.11305338144302368
+./Ant-v3_PPO_1_5652/actor_000014945417.pth                       | Hamilton 0.11354319006204605
+./Ant-v3_PPO_1_5652/actor_000015024788.pth                       | Hamilton 0.10254859924316406
+./Ant-v3_PPO_1_5652/actor_000015106880.pth                       | Hamilton 0.10442005842924118
+./Ant-v3_PPO_1_5652/actor_000015188696.pth                       | Hamilton 0.1076483502984047
+./Ant-v3_PPO_1_5652/actor_000015269254.pth                       | Hamilton 0.10799899697303772
+./Ant-v3_PPO_1_5652/actor_000015352186.pth                       | Hamilton 0.10403682291507721
+./Ant-v3_PPO_1_5652/actor_000015430730.pth                       | Hamilton 0.112589992582798
+./Ant-v3_PPO_1_5652/actor_000015509996.pth                       | Hamilton 0.10476023703813553
+./Ant-v3_PPO_1_5652/actor_000015594578.pth                       | Hamilton 0.08612991869449615
+./Ant-v3_PPO_1_5652/actor_000015675992.pth                       | Hamilton 0.07796421647071838
+./Ant-v3_PPO_1_5652/actor_000015756727.pth                       | Hamilton 0.09738533943891525
+./Ant-v3_PPO_1_5652/actor_000015836673.pth                       | Hamilton 0.08513901382684708
+./Ant-v3_PPO_1_5652/actor_000015915331.pth                       | Hamilton 0.09248708933591843
+./Ant-v3_PPO_1_5652/actor_000015994052.pth                       | Hamilton 0.1047055646777153
+./Ant-v3_PPO_1_5652/actor_000016075868.pth                       | Hamilton 0.07500381767749786
+./Ant-v3_PPO_1_5652/actor_000016155226.pth                       | Hamilton 0.09608280658721924
+./Ant-v3_PPO_1_5652/actor_000016237958.pth                       | Hamilton 0.09948208183050156
+./Ant-v3_PPO_1_5652/actor_000016319882.pth                       | Hamilton 0.09576436132192612
+./Ant-v3_PPO_1_5652/actor_000016400474.pth                       | Hamilton 0.08358833193778992
+./Ant-v3_PPO_1_5652/actor_000016479551.pth                       | Hamilton 0.08021368831396103
+./Ant-v3_PPO_1_5652/actor__000000008915_00966.274.pth            | Hamilton 0.004856710322201252
+./Ant-v3_PPO_1_5652/actor__000000449322_01366.960.pth            | Hamilton 0.021951785311102867
+./Ant-v3_PPO_1_5652/actor__000000866673_02317.041.pth            | Hamilton 0.06273657828569412
+./Ant-v3_PPO_1_5652/actor__000002568971_03993.560.pth            | Hamilton 0.2581771910190582
+./Ant-v3_PPO_1_5652/actor__000002998082_04643.997.pth            | Hamilton 0.32738110423088074
+./Ant-v3_PPO_1_5652/actor__000003431065_05183.716.pth            | Hamilton 0.42117103934288025
+./Ant-v3_PPO_1_5652/actor__000003863836_05462.534.pth            | Hamilton 0.4759177267551422
+./Ant-v3_PPO_1_5652/actor__000006015148_05608.758.pth            | Hamilton 0.5216149687767029
+./Ant-v3_PPO_1_5652/actor__000007294230_05652.746.pth            | Hamilton 0.5176161527633667
+    """
+    # Ant-v3_PPO_0_5855
+    data56 = """
+    ./Ant-v3_PPO_0/actor_000000085414.pth                            | Hamilton 0.0029025734402239323
+    ./Ant-v3_PPO_0/actor_000000243770.pth                            | Hamilton 0.006328597664833069
+    ./Ant-v3_PPO_0/actor_000000401074.pth                            | Hamilton 0.02756342850625515
+    ./Ant-v3_PPO_0/actor_000000560596.pth                            | Hamilton 0.04912560433149338
+    ./Ant-v3_PPO_0/actor_000000716464.pth                            | Hamilton 0.10722806304693222
+    ./Ant-v3_PPO_0/actor_000000873409.pth                            | Hamilton 0.24436624348163605
+    ./Ant-v3_PPO_0/actor_000001027516.pth                            | Hamilton 0.4213712513446808
+    ./Ant-v3_PPO_0/actor_000001177630.pth                            | Hamilton 0.7905212044715881
+    ./Ant-v3_PPO_0/actor_000001327142.pth                            | Hamilton 0.9974576234817505
+    ./Ant-v3_PPO_0/actor_000001474622.pth                            | Hamilton 0.8539029955863953
+    ./Ant-v3_PPO_0/actor_000001631244.pth                            | Hamilton 1.3321231603622437
+    ./Ant-v3_PPO_0/actor_000001790766.pth                            | Hamilton 1.5765880346298218
+    ./Ant-v3_PPO_0/actor_000001939431.pth                            | Hamilton 1.7624365091323853
+    ./Ant-v3_PPO_0/actor_000002086669.pth                            | Hamilton 1.8549476861953735
+    ./Ant-v3_PPO_0/actor_000002237150.pth                            | Hamilton 1.9288318157196045
+    ./Ant-v3_PPO_0/actor_000002385324.pth                            | Hamilton 1.9405803680419922
+    ./Ant-v3_PPO_0/actor_000002533284.pth                            | Hamilton 1.7299922704696655
+    ./Ant-v3_PPO_0/actor_000002684138.pth                            | Hamilton 1.5286706686019897
+    ./Ant-v3_PPO_0/actor_000002830980.pth                            | Hamilton 1.3947529792785645
+    ./Ant-v3_PPO_0/actor_000002980876.pth                            | Hamilton 1.2257091999053955
+    ./Ant-v3_PPO_0/actor_000003129933.pth                            | Hamilton 1.3302849531173706
+    ./Ant-v3_PPO_0/actor_000003282094.pth                            | Hamilton 1.3594427108764648
+    ./Ant-v3_PPO_0/actor_000003426790.pth                            | Hamilton 1.2633490562438965
+    ./Ant-v3_PPO_0/actor_000003572407.pth                            | Hamilton 1.3654605150222778
+    ./Ant-v3_PPO_0/actor_000003718858.pth                            | Hamilton 1.294988751411438
+    ./Ant-v3_PPO_0/actor_000003857839.pth                            | Hamilton 1.3169890642166138
+    ./Ant-v3_PPO_0/actor_000004003009.pth                            | Hamilton 1.1112805604934692
+    ./Ant-v3_PPO_0/actor_000004145535.pth                            | Hamilton 1.169765591621399
+    ./Ant-v3_PPO_0/actor_000004292479.pth                            | Hamilton 1.1815712451934814
+    ./Ant-v3_PPO_0/actor_000004444328.pth                            | Hamilton 1.0644750595092773
+    ./Ant-v3_PPO_0/actor_000004587701.pth                            | Hamilton 1.112640142440796
+    ./Ant-v3_PPO_0/actor_000004728468.pth                            | Hamilton 1.1046756505966187
+    ./Ant-v3_PPO_0/actor_000004872869.pth                            | Hamilton 1.0918989181518555
+    ./Ant-v3_PPO_0/actor_000005014430.pth                            | Hamilton 1.1371606588363647
+    ./Ant-v3_PPO_0/actor_000005159151.pth                            | Hamilton 1.1001709699630737
+    ./Ant-v3_PPO_0/actor_000005304228.pth                            | Hamilton 0.920396089553833
+    ./Ant-v3_PPO_0/actor_000005441214.pth                            | Hamilton 0.9862926602363586
+    ./Ant-v3_PPO_0/actor_000005584829.pth                            | Hamilton 1.0144598484039307
+    ./Ant-v3_PPO_0/actor_000005728220.pth                            | Hamilton 1.028064250946045
+    ./Ant-v3_PPO_0/actor_000005869702.pth                            | Hamilton 0.9929002523422241
+    ./Ant-v3_PPO_0/actor_000006008427.pth                            | Hamilton 1.0489033460617065
+    ./Ant-v3_PPO_0/actor_000006147835.pth                            | Hamilton 1.0967928171157837
+    ./Ant-v3_PPO_0/actor_000006287959.pth                            | Hamilton 1.0431030988693237
+    ./Ant-v3_PPO_0/actor_000006428281.pth                            | Hamilton 0.9418889284133911
+    ./Ant-v3_PPO_0/actor_000006564566.pth                            | Hamilton 0.8754620552062988
+    ./Ant-v3_PPO_0/actor_000006701337.pth                            | Hamilton 0.80799400806427
+    ./Ant-v3_PPO_0/actor_000006839567.pth                            | Hamilton 0.8622046709060669
+    ./Ant-v3_PPO_0/actor_000006978486.pth                            | Hamilton 0.8850733041763306
+    ./Ant-v3_PPO_0/actor_000007120505.pth                            | Hamilton 0.8072265982627869
+    ./Ant-v3_PPO_0/actor_000007259122.pth                            | Hamilton 0.8856381773948669
+    ./Ant-v3_PPO_0/actor_000007400504.pth                            | Hamilton 0.8131003379821777
+    ./Ant-v3_PPO_0/actor_000007543686.pth                            | Hamilton 0.8418211936950684
+    ./Ant-v3_PPO_0/actor_000007684431.pth                            | Hamilton 0.8467435240745544
+    ./Ant-v3_PPO_0/actor_000007822637.pth                            | Hamilton 0.6920300126075745
+    ./Ant-v3_PPO_0/actor_000007958464.pth                            | Hamilton 0.6199498176574707
+    ./Ant-v3_PPO_0/actor_000008099490.pth                            | Hamilton 0.7212328314781189
+    ./Ant-v3_PPO_0/actor_000008241567.pth                            | Hamilton 0.6973507404327393
+    ./Ant-v3_PPO_0/actor_000008384073.pth                            | Hamilton 0.6892178058624268
+    ./Ant-v3_PPO_0/actor_000008522044.pth                            | Hamilton 0.7241084575653076
+    ./Ant-v3_PPO_0/actor_000008663378.pth                            | Hamilton 0.6114094853401184
+    ./Ant-v3_PPO_0/actor_000008805321.pth                            | Hamilton 0.5926937460899353
+    ./Ant-v3_PPO_0/actor_000008950384.pth                            | Hamilton 0.6066598296165466
+    ./Ant-v3_PPO_0/actor_000009093238.pth                            | Hamilton 0.5689615607261658
+    ./Ant-v3_PPO_0/actor_000009239470.pth                            | Hamilton 0.513106644153595
+    ./Ant-v3_PPO_0/actor_000009385945.pth                            | Hamilton 0.496509850025177
+    ./Ant-v3_PPO_0/actor_000009530167.pth                            | Hamilton 0.47634872794151306
+    ./Ant-v3_PPO_0/actor_000009672484.pth                            | Hamilton 0.34248748421669006
+    ./Ant-v3_PPO_0/actor_000009812732.pth                            | Hamilton 0.36613577604293823
+    ./Ant-v3_PPO_0/actor_000009962345.pth                            | Hamilton 0.3264988958835602
+    ./Ant-v3_PPO_0/actor_000010105717.pth                            | Hamilton 0.31633368134498596
+    ./Ant-v3_PPO_0/actor_000010251397.pth                            | Hamilton 0.33853277564048767
+    ./Ant-v3_PPO_0/actor_000010397087.pth                            | Hamilton 0.3083697259426117
+    ./Ant-v3_PPO_0/actor_000010538222.pth                            | Hamilton 0.30327925086021423
+    ./Ant-v3_PPO_0/actor_000010689395.pth                            | Hamilton 0.30258941650390625
+    ./Ant-v3_PPO_0/actor_000010843033.pth                            | Hamilton 0.2216603308916092
+    ./Ant-v3_PPO_0/actor_000010990443.pth                            | Hamilton 0.2471635639667511
+    ./Ant-v3_PPO_0/actor_000011144672.pth                            | Hamilton 0.24953070282936096
+    ./Ant-v3_PPO_0/actor_000011289214.pth                            | Hamilton 0.14620532095432281
+    ./Ant-v3_PPO_0/actor_000011441873.pth                            | Hamilton 0.19712316989898682
+    ./Ant-v3_PPO_0/actor_000011584387.pth                            | Hamilton 0.09800136834383011
+    ./Ant-v3_PPO_0/actor_000011728758.pth                            | Hamilton 0.18696282804012299
+    ./Ant-v3_PPO_0/actor_000011875836.pth                            | Hamilton 0.1589224636554718
+    ./Ant-v3_PPO_0/actor_000012026877.pth                            | Hamilton 0.19990846514701843
+    ./Ant-v3_PPO_0/actor_000012170069.pth                            | Hamilton 0.20581716299057007
+    ./Ant-v3_PPO_0/actor_000012317557.pth                            | Hamilton 0.12021981179714203
+    ./Ant-v3_PPO_0/actor_000012466186.pth                            | Hamilton 0.16489849984645844
+    ./Ant-v3_PPO_0/actor_000012614491.pth                            | Hamilton 0.055201709270477295
+    ./Ant-v3_PPO_0/actor_000012766087.pth                            | Hamilton 0.08762515336275101
+    ./Ant-v3_PPO_0/actor_000012919013.pth                            | Hamilton 0.13393522799015045
+    ./Ant-v3_PPO_0/actor_000013069910.pth                            | Hamilton 0.12683454155921936
+    ./Ant-v3_PPO_0/actor_000013223674.pth                            | Hamilton 0.13377448916435242
+    ./Ant-v3_PPO_0/actor_000013381797.pth                            | Hamilton 0.10117260366678238
+    ./Ant-v3_PPO_0/actor_000013531514.pth                            | Hamilton 0.10573001205921173
+    ./Ant-v3_PPO_0/actor_000013690847.pth                            | Hamilton 0.12195708602666855
+    ./Ant-v3_PPO_0/actor_000013844307.pth                            | Hamilton 0.09576383233070374
+    ./Ant-v3_PPO_0/actor_000013998689.pth                            | Hamilton 0.12003029137849808
+    ./Ant-v3_PPO_0/actor_000014148265.pth                            | Hamilton 0.10425082594156265
+    ./Ant-v3_PPO_0/actor_000014298872.pth                            | Hamilton 0.09037936478853226
+    ./Ant-v3_PPO_0/actor_000014452702.pth                            | Hamilton 0.08776895701885223
+    ./Ant-v3_PPO_0/actor_000014604683.pth                            | Hamilton 0.08233048021793365
+    ./Ant-v3_PPO_0/actor_000014762569.pth                            | Hamilton 0.06156100332736969
+    ./Ant-v3_PPO_0/actor_000014920979.pth                            | Hamilton 0.07099446654319763
+    ./Ant-v3_PPO_0/actor_000015072102.pth                            | Hamilton 0.07946766167879105
+    ./Ant-v3_PPO_0/actor_000015221525.pth                            | Hamilton 0.04775020107626915
+    ./Ant-v3_PPO_0/actor_000015369866.pth                            | Hamilton 0.06353195756673813
+    ./Ant-v3_PPO_0/actor_000015532338.pth                            | Hamilton 0.06797437369823456
+    ./Ant-v3_PPO_0/actor_000015679584.pth                            | Hamilton 0.06938889622688293
+    ./Ant-v3_PPO_0/actor_000015838278.pth                            | Hamilton 0.046853866428136826
+    ./Ant-v3_PPO_0/actor_000015989063.pth                            | Hamilton 0.055338963866233826
+    ./Ant-v3_PPO_0/actor_000016141566.pth                            | Hamilton 0.010161545127630234
+    ./Ant-v3_PPO_0/actor_000016292189.pth                            | Hamilton 0.03867040574550629
+    ./Ant-v3_PPO_0/actor_000016449289.pth                            | Hamilton 0.0444650836288929
+    ./Ant-v3_PPO_0/actor_000016602294.pth                            | Hamilton 0.04583687335252762
+    ./Ant-v3_PPO_0/actor_000016757845.pth                            | Hamilton 0.0447036437690258
+    ./Ant-v3_PPO_0/actor_000016915256.pth                            | Hamilton 0.023902952671051025
+    ./Ant-v3_PPO_0/actor_000017071825.pth                            | Hamilton 0.037863556295633316
+    ./Ant-v3_PPO_0/actor_000017228431.pth                            | Hamilton 0.04261035844683647
+    ./Ant-v3_PPO_0/actor_000017379557.pth                            | Hamilton 0.05935411900281906
+    ./Ant-v3_PPO_0/actor_000017535941.pth                            | Hamilton 0.03696506470441818
+    ./Ant-v3_PPO_0/actor_000017698850.pth                            | Hamilton 0.03556128591299057
+    ./Ant-v3_PPO_0/actor_000017856089.pth                            | Hamilton 0.04959869384765625
+    ./Ant-v3_PPO_0/actor_000018014290.pth                            | Hamilton 0.051861897110939026
+    ./Ant-v3_PPO_0/actor_000018177096.pth                            | Hamilton 0.05240265652537346
+    ./Ant-v3_PPO_0/actor_000018334121.pth                            | Hamilton 0.0536409430205822
+    ./Ant-v3_PPO_0/actor_000018493290.pth                            | Hamilton 0.03107709065079689
+    ./Ant-v3_PPO_0/actor_000018650731.pth                            | Hamilton 0.03254678472876549
+    ./Ant-v3_PPO_0/actor_000018807593.pth                            | Hamilton 0.033785946667194366
+    ./Ant-v3_PPO_0/actor_000018969480.pth                            | Hamilton 0.02604510635137558
+    ./Ant-v3_PPO_0/actor_000019136172.pth                            | Hamilton 0.029944289475679398
+    ./Ant-v3_PPO_0/actor_000019287203.pth                            | Hamilton 0.053006611764431
+    ./Ant-v3_PPO_0/actor_000019438865.pth                            | Hamilton 0.009729847311973572
+    ./Ant-v3_PPO_0/actor_000019593388.pth                            | Hamilton 0.023494603112339973
+    ./Ant-v3_PPO_0/actor_000019744978.pth                            | Hamilton 0.04619710519909859
+    ./Ant-v3_PPO_0/actor_000019899676.pth                            | Hamilton 0.036250434815883636
+    ./Ant-v3_PPO_0/actor__000000010423_00994.712.pth                 | Hamilton 0.004397555720061064
+    ./Ant-v3_PPO_0/actor__000000665275_02040.477.pth                 | Hamilton 0.054149847477674484
+    ./Ant-v3_PPO_0/actor__000001327142_04493.069.pth                 | Hamilton 0.2578836977481842
+    ./Ant-v3_PPO_0/actor__000001988539_05181.520.pth                 | Hamilton 0.47620826959609985
+    ./Ant-v3_PPO_0/actor__000003313114_05609.881.pth                 | Hamilton 0.5133584141731262
+    ./Ant-v3_PPO_0/actor__000003980346_05855.220.pth                 | Hamilton 0.5323107838630676
+        """
+
+    # Swimmer-v3_PPOHtermK_3_153
+    data61 = """
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000000016000.pth              | Hamilton 0.015284018591046333
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000000440000.pth              | Hamilton 0.02318093739449978
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000000864000.pth              | Hamilton 0.02110038883984089
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000001288000.pth              | Hamilton 0.0277717225253582
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000001712000.pth              | Hamilton 0.03361089527606964
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000002136000.pth              | Hamilton 0.0430649071931839
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000002560000.pth              | Hamilton 0.052320223301649094
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000002984000.pth              | Hamilton 0.0483604297041893
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000003408000.pth              | Hamilton 0.05923140421509743
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000003832000.pth              | Hamilton 0.06308675557374954
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000004256000.pth              | Hamilton 0.06348717212677002
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000004680000.pth              | Hamilton 0.06725157797336578
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000005104000.pth              | Hamilton 0.06573229283094406
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000005528000.pth              | Hamilton 0.06860259920358658
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000005952000.pth              | Hamilton 0.06931988894939423
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000006376000.pth              | Hamilton 0.06955544650554657
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000006800000.pth              | Hamilton 0.07448301464319229
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000007224000.pth              | Hamilton 0.057893797755241394
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000007648000.pth              | Hamilton 0.07393565773963928
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000008072000.pth              | Hamilton 0.07223065942525864
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000008496000.pth              | Hamilton 0.06485088914632797
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000008920000.pth              | Hamilton 0.05824441835284233
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000009344000.pth              | Hamilton 0.06692440807819366
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000009768000.pth              | Hamilton 0.07243632525205612
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000010192000.pth              | Hamilton 0.07557813078165054
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000010616000.pth              | Hamilton 0.08084622770547867
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000011040000.pth              | Hamilton 0.08483884483575821
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000011464000.pth              | Hamilton 0.09236171096563339
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000011888000.pth              | Hamilton 0.08220705389976501
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000012312000.pth              | Hamilton 0.09198032319545746
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000012736000.pth              | Hamilton 0.08358502388000488
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000013160000.pth              | Hamilton 0.09170962125062943
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000013584000.pth              | Hamilton 0.09168653935194016
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000014008000.pth              | Hamilton 0.09277141094207764
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000014432000.pth              | Hamilton 0.08668225258588791
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000014856000.pth              | Hamilton 0.08933420479297638
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000015280000.pth              | Hamilton 0.08612120896577835
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000015704000.pth              | Hamilton 0.08954863250255585
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000016128000.pth              | Hamilton 0.08818070590496063
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000016552000.pth              | Hamilton 0.0858926996588707
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000016976000.pth              | Hamilton 0.08892080932855606
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000017400000.pth              | Hamilton 0.08661225438117981
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000017824000.pth              | Hamilton 0.09251777082681656
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000018248000.pth              | Hamilton 0.09396494925022125
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000018672000.pth              | Hamilton 0.09765814244747162
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000019096000.pth              | Hamilton 0.10147365182638168
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000019520000.pth              | Hamilton 0.10208629816770554
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000019944000.pth              | Hamilton 0.10211846977472305
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000020368000.pth              | Hamilton 0.10014037042856216
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000020792000.pth              | Hamilton 0.11104506254196167
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000021216000.pth              | Hamilton 0.10182332992553711
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000021640000.pth              | Hamilton 0.11111660301685333
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000022064000.pth              | Hamilton 0.10507290065288544
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000022488000.pth              | Hamilton 0.11727281659841537
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000022912000.pth              | Hamilton 0.1116613820195198
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000023336000.pth              | Hamilton 0.1207902729511261
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000023760000.pth              | Hamilton 0.12059961259365082
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000024184000.pth              | Hamilton 0.11582706868648529
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000024608000.pth              | Hamilton 0.11412307620048523
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000025032000.pth              | Hamilton 0.10451658070087433
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000025456000.pth              | Hamilton 0.1134413629770279
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000025880000.pth              | Hamilton 0.11217883229255676
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000026304000.pth              | Hamilton 0.12590916454792023
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000026728000.pth              | Hamilton 0.11783110350370407
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000027152000.pth              | Hamilton 0.12443403899669647
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000027576000.pth              | Hamilton 0.12275739759206772
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000028000000.pth              | Hamilton 0.1277901977300644
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000028424000.pth              | Hamilton 0.12068721652030945
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000028848000.pth              | Hamilton 0.1195996105670929
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000029272000.pth              | Hamilton 0.12629397213459015
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000029696000.pth              | Hamilton 0.13557474315166473
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000030120000.pth              | Hamilton 0.12547877430915833
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000030544000.pth              | Hamilton 0.14528505504131317
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000030968000.pth              | Hamilton 0.14160755276679993
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000031392000.pth              | Hamilton 0.12636616826057434
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000031816000.pth              | Hamilton 0.14631716907024384
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000032240000.pth              | Hamilton 0.1478620022535324
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000032664000.pth              | Hamilton 0.141898512840271
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000033088000.pth              | Hamilton 0.14540569484233856
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000033512000.pth              | Hamilton 0.150565505027771
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000033936000.pth              | Hamilton 0.15319319069385529
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000034360000.pth              | Hamilton 0.15617600083351135
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000034784000.pth              | Hamilton 0.15575018525123596
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000035208000.pth              | Hamilton 0.14449091255664825
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000035632000.pth              | Hamilton 0.1428202986717224
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000036056000.pth              | Hamilton 0.15125827491283417
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000036480000.pth              | Hamilton 0.14112010598182678
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000036904000.pth              | Hamilton 0.1489597111940384
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000037328000.pth              | Hamilton 0.14565598964691162
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000037752000.pth              | Hamilton 0.15420189499855042
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000038176000.pth              | Hamilton 0.14877143502235413
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000038600000.pth              | Hamilton 0.15154969692230225
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000039024000.pth              | Hamilton 0.15099884569644928
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000039448000.pth              | Hamilton 0.14501804113388062
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000039872000.pth              | Hamilton 0.15877105295658112
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000040296000.pth              | Hamilton 0.14741770923137665
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000040720000.pth              | Hamilton 0.1589246243238449
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000041144000.pth              | Hamilton 0.14963215589523315
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000041568000.pth              | Hamilton 0.1523827314376831
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000041992000.pth              | Hamilton 0.15112946927547455
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000042416000.pth              | Hamilton 0.15467104315757751
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000042840000.pth              | Hamilton 0.15519611537456512
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000043264000.pth              | Hamilton 0.16917535662651062
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000043688000.pth              | Hamilton 0.16293977200984955
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000044112000.pth              | Hamilton 0.1714775562286377
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000044536000.pth              | Hamilton 0.14362981915473938
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000044960000.pth              | Hamilton 0.16829423606395721
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000045384000.pth              | Hamilton 0.16601337492465973
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000045808000.pth              | Hamilton 0.18333348631858826
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000046232000.pth              | Hamilton 0.1440504938364029
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000046656000.pth              | Hamilton 0.15719082951545715
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000047080000.pth              | Hamilton 0.15102042257785797
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000047504000.pth              | Hamilton 0.14053581655025482
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000047928000.pth              | Hamilton 0.1395692080259323
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000048352000.pth              | Hamilton 0.1574215441942215
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000048776000.pth              | Hamilton 0.1586548238992691
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000049200000.pth              | Hamilton 0.15576069056987762
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000049624000.pth              | Hamilton 0.16046197712421417
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000050048000.pth              | Hamilton 0.15701504051685333
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000050472000.pth              | Hamilton 0.15996167063713074
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000050896000.pth              | Hamilton 0.16164934635162354
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000051320000.pth              | Hamilton 0.15149831771850586
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000051744000.pth              | Hamilton 0.174483522772789
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000052168000.pth              | Hamilton 0.1738002747297287
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000052592000.pth              | Hamilton 0.16324815154075623
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000053016000.pth              | Hamilton 0.16712622344493866
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000053440000.pth              | Hamilton 0.16858640313148499
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000053864000.pth              | Hamilton 0.1659340262413025
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000054288000.pth              | Hamilton 0.16154757142066956
+    ./Swimmer-v3_PPOHtermK_3_153/actor_000054712000.pth              | Hamilton 0.16616764664649963
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000000008000_00026.720.pth   | Hamilton -0.0056559364311397076
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000000296000_00043.494.pth   | Hamilton 0.03497564047574997
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000000580000_00044.778.pth   | Hamilton 0.049423009157180786
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000001144000_00049.282.pth   | Hamilton 0.05980132520198822
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000001692000_00065.766.pth   | Hamilton 0.03951427340507507
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000001964000_00091.779.pth   | Hamilton 0.048991721123456955
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000002784000_00094.737.pth   | Hamilton 0.05736237019300461
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000003056000_00099.481.pth   | Hamilton 0.05974080041050911
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000004148000_00104.685.pth   | Hamilton 0.06004209816455841
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000004420000_00105.507.pth   | Hamilton 0.07214643061161041
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000004696000_00105.942.pth   | Hamilton 0.08490351587533951
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000005244000_00109.913.pth   | Hamilton 0.08586522191762924
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000005520000_00113.042.pth   | Hamilton 0.10934942960739136
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000006616000_00114.542.pth   | Hamilton 0.11011172086000443
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000006888000_00117.570.pth   | Hamilton 0.0966690182685852
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000007160000_00119.502.pth   | Hamilton 0.10650037974119186
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000008808000_00121.802.pth   | Hamilton 0.12468832731246948
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000009900000_00123.984.pth   | Hamilton 0.11578761041164398
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000010176000_00125.334.pth   | Hamilton 0.1252458095550537
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000011548000_00126.883.pth   | Hamilton 0.12920786440372467
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000011820000_00127.968.pth   | Hamilton 0.12380073219537735
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000013996000_00130.706.pth   | Hamilton 0.15050362050533295
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000016956000_00132.336.pth   | Hamilton 0.1623106151819229
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000018576000_00135.680.pth   | Hamilton 0.15424451231956482
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000022420000_00138.739.pth   | Hamilton 0.16139452159404755
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000024120000_00140.370.pth   | Hamilton 0.17065179347991943
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000026676000_00141.306.pth   | Hamilton 0.1682356297969818
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000029496000_00143.761.pth   | Hamilton 0.1664300113916397
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000039568000_00144.932.pth   | Hamilton 0.1686769425868988
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000043916000_00147.217.pth   | Hamilton 0.17447277903556824
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000045632000_00148.932.pth   | Hamilton 0.1674611121416092
+    ./Swimmer-v3_PPOHtermK_3_153/actor__000049356000_00153.211.pth   | Hamilton 0.14647331833839417
+        """
+    # Swimmer-v3_PPO_2_157
+    data62 = """
+./Swimmer-v3_PPO_2_157/actor_000000016000.pth                    | Hamilton 0.019995037466287613
+./Swimmer-v3_PPO_2_157/actor_000000712000.pth                    | Hamilton 0.03158316761255264
+./Swimmer-v3_PPO_2_157/actor_000001408000.pth                    | Hamilton 0.03391844779253006
+./Swimmer-v3_PPO_2_157/actor_000002104000.pth                    | Hamilton 0.038075800985097885
+./Swimmer-v3_PPO_2_157/actor_000002800000.pth                    | Hamilton 0.03368336707353592
+./Swimmer-v3_PPO_2_157/actor_000003496000.pth                    | Hamilton 0.03722989186644554
+./Swimmer-v3_PPO_2_157/actor_000004192000.pth                    | Hamilton 0.0404045432806015
+./Swimmer-v3_PPO_2_157/actor_000004888000.pth                    | Hamilton 0.037362758070230484
+./Swimmer-v3_PPO_2_157/actor_000005584000.pth                    | Hamilton 0.03143014758825302
+./Swimmer-v3_PPO_2_157/actor_000006280000.pth                    | Hamilton 0.03598101809620857
+./Swimmer-v3_PPO_2_157/actor_000006976000.pth                    | Hamilton 0.04401993006467819
+./Swimmer-v3_PPO_2_157/actor_000007672000.pth                    | Hamilton 0.03900811821222305
+./Swimmer-v3_PPO_2_157/actor_000008368000.pth                    | Hamilton 0.038677118718624115
+./Swimmer-v3_PPO_2_157/actor_000009064000.pth                    | Hamilton 0.022812874987721443
+./Swimmer-v3_PPO_2_157/actor_000009760000.pth                    | Hamilton 0.023398952558636665
+./Swimmer-v3_PPO_2_157/actor_000010456000.pth                    | Hamilton 0.02106904238462448
+./Swimmer-v3_PPO_2_157/actor_000011152000.pth                    | Hamilton 0.024352645501494408
+./Swimmer-v3_PPO_2_157/actor_000011848000.pth                    | Hamilton 0.020867686718702316
+./Swimmer-v3_PPO_2_157/actor_000012544000.pth                    | Hamilton 0.018705010414123535
+./Swimmer-v3_PPO_2_157/actor_000013240000.pth                    | Hamilton 0.02120162919163704
+./Swimmer-v3_PPO_2_157/actor_000013936000.pth                    | Hamilton 0.025674479082226753
+./Swimmer-v3_PPO_2_157/actor_000014632000.pth                    | Hamilton 0.025216616690158844
+./Swimmer-v3_PPO_2_157/actor_000015328000.pth                    | Hamilton 0.02105531468987465
+./Swimmer-v3_PPO_2_157/actor_000016024000.pth                    | Hamilton 0.018278788775205612
+./Swimmer-v3_PPO_2_157/actor_000016720000.pth                    | Hamilton 0.013056074269115925
+./Swimmer-v3_PPO_2_157/actor_000017416000.pth                    | Hamilton 0.006706462241709232
+./Swimmer-v3_PPO_2_157/actor_000018112000.pth                    | Hamilton 0.008312438614666462
+./Swimmer-v3_PPO_2_157/actor_000018808000.pth                    | Hamilton 0.017496785148978233
+./Swimmer-v3_PPO_2_157/actor_000019504000.pth                    | Hamilton 0.016852933913469315
+./Swimmer-v3_PPO_2_157/actor_000020200000.pth                    | Hamilton 0.01514681987464428
+./Swimmer-v3_PPO_2_157/actor_000020896000.pth                    | Hamilton 0.015505579300224781
+./Swimmer-v3_PPO_2_157/actor_000021592000.pth                    | Hamilton 0.016421226784586906
+./Swimmer-v3_PPO_2_157/actor_000022288000.pth                    | Hamilton 0.010968300513923168
+./Swimmer-v3_PPO_2_157/actor_000022984000.pth                    | Hamilton 0.012436152435839176
+./Swimmer-v3_PPO_2_157/actor_000023680000.pth                    | Hamilton 0.01448430959135294
+./Swimmer-v3_PPO_2_157/actor_000024376000.pth                    | Hamilton 0.015711169689893723
+./Swimmer-v3_PPO_2_157/actor_000025072000.pth                    | Hamilton 0.01409896370023489
+./Swimmer-v3_PPO_2_157/actor_000025768000.pth                    | Hamilton 0.01505272276699543
+./Swimmer-v3_PPO_2_157/actor_000026464000.pth                    | Hamilton 0.01543173287063837
+./Swimmer-v3_PPO_2_157/actor_000027160000.pth                    | Hamilton 0.015697676688432693
+./Swimmer-v3_PPO_2_157/actor_000027856000.pth                    | Hamilton 0.013849505223333836
+./Swimmer-v3_PPO_2_157/actor_000028552000.pth                    | Hamilton 0.014705875888466835
+./Swimmer-v3_PPO_2_157/actor_000029248000.pth                    | Hamilton 0.015139546245336533
+./Swimmer-v3_PPO_2_157/actor_000029944000.pth                    | Hamilton 0.013185468502342701
+./Swimmer-v3_PPO_2_157/actor_000030640000.pth                    | Hamilton 0.01479868683964014
+./Swimmer-v3_PPO_2_157/actor_000031336000.pth                    | Hamilton 0.019362425431609154
+./Swimmer-v3_PPO_2_157/actor_000032032000.pth                    | Hamilton 0.022476935759186745
+./Swimmer-v3_PPO_2_157/actor_000032728000.pth                    | Hamilton 0.021831654012203217
+./Swimmer-v3_PPO_2_157/actor_000033424000.pth                    | Hamilton 0.016212865710258484
+./Swimmer-v3_PPO_2_157/actor_000034120000.pth                    | Hamilton 0.01690341718494892
+./Swimmer-v3_PPO_2_157/actor_000034816000.pth                    | Hamilton 0.017606357112526894
+./Swimmer-v3_PPO_2_157/actor_000035512000.pth                    | Hamilton 0.018641507253050804
+./Swimmer-v3_PPO_2_157/actor_000036208000.pth                    | Hamilton 0.01755562424659729
+./Swimmer-v3_PPO_2_157/actor_000036904000.pth                    | Hamilton 0.016795014962553978
+./Swimmer-v3_PPO_2_157/actor_000037600000.pth                    | Hamilton 0.014272648841142654
+./Swimmer-v3_PPO_2_157/actor_000038296000.pth                    | Hamilton 0.014743547886610031
+./Swimmer-v3_PPO_2_157/actor_000038992000.pth                    | Hamilton 0.014608648605644703
+./Swimmer-v3_PPO_2_157/actor_000039688000.pth                    | Hamilton 0.008981222286820412
+./Swimmer-v3_PPO_2_157/actor_000040384000.pth                    | Hamilton 0.014369030483067036
+./Swimmer-v3_PPO_2_157/actor_000041080000.pth                    | Hamilton 0.014613962732255459
+./Swimmer-v3_PPO_2_157/actor_000041776000.pth                    | Hamilton 0.01037408784031868
+./Swimmer-v3_PPO_2_157/actor_000042472000.pth                    | Hamilton 0.01845851168036461
+./Swimmer-v3_PPO_2_157/actor_000043168000.pth                    | Hamilton 0.020437849685549736
+./Swimmer-v3_PPO_2_157/actor_000043864000.pth                    | Hamilton 0.018492264673113823
+./Swimmer-v3_PPO_2_157/actor_000044560000.pth                    | Hamilton 0.017848167568445206
+./Swimmer-v3_PPO_2_157/actor_000045256000.pth                    | Hamilton 0.019611360505223274
+./Swimmer-v3_PPO_2_157/actor_000045952000.pth                    | Hamilton 0.016057956963777542
+./Swimmer-v3_PPO_2_157/actor_000046648000.pth                    | Hamilton 0.012315947562456131
+./Swimmer-v3_PPO_2_157/actor_000047344000.pth                    | Hamilton 0.012855513021349907
+./Swimmer-v3_PPO_2_157/actor_000048040000.pth                    | Hamilton 0.01187040377408266
+./Swimmer-v3_PPO_2_157/actor_000048736000.pth                    | Hamilton 0.013788025826215744
+./Swimmer-v3_PPO_2_157/actor_000049432000.pth                    | Hamilton 0.009797187522053719
+./Swimmer-v3_PPO_2_157/actor_000050128000.pth                    | Hamilton 0.011238890700042248
+./Swimmer-v3_PPO_2_157/actor_000050824000.pth                    | Hamilton 0.007988587953150272
+./Swimmer-v3_PPO_2_157/actor_000051520000.pth                    | Hamilton 0.00910080038011074
+./Swimmer-v3_PPO_2_157/actor_000052216000.pth                    | Hamilton 0.005356697365641594
+./Swimmer-v3_PPO_2_157/actor_000052912000.pth                    | Hamilton 0.0055587273091077805
+./Swimmer-v3_PPO_2_157/actor_000053608000.pth                    | Hamilton 0.008264468051493168
+./Swimmer-v3_PPO_2_157/actor_000054304000.pth                    | Hamilton 0.009239505976438522
+./Swimmer-v3_PPO_2_157/actor_000055000000.pth                    | Hamilton 0.012277119792997837
+./Swimmer-v3_PPO_2_157/actor_000055696000.pth                    | Hamilton 0.010112500749528408
+./Swimmer-v3_PPO_2_157/actor_000056392000.pth                    | Hamilton 0.01197579875588417
+./Swimmer-v3_PPO_2_157/actor_000057088000.pth                    | Hamilton 0.010916337370872498
+./Swimmer-v3_PPO_2_157/actor_000057784000.pth                    | Hamilton 0.011387772858142853
+./Swimmer-v3_PPO_2_157/actor_000058480000.pth                    | Hamilton 0.013467689976096153
+./Swimmer-v3_PPO_2_157/actor_000059176000.pth                    | Hamilton 0.009855030104517937
+./Swimmer-v3_PPO_2_157/actor_000059872000.pth                    | Hamilton 0.013516574166715145
+./Swimmer-v3_PPO_2_157/actor_000060568000.pth                    | Hamilton 0.011831969954073429
+./Swimmer-v3_PPO_2_157/actor_000061264000.pth                    | Hamilton 0.009549036622047424
+./Swimmer-v3_PPO_2_157/actor_000061960000.pth                    | Hamilton 0.00813988596200943
+./Swimmer-v3_PPO_2_157/actor_000062656000.pth                    | Hamilton 0.007627996616065502
+./Swimmer-v3_PPO_2_157/actor_000063352000.pth                    | Hamilton 0.007748943753540516
+./Swimmer-v3_PPO_2_157/actor_000064048000.pth                    | Hamilton 0.009834565222263336
+./Swimmer-v3_PPO_2_157/actor_000064744000.pth                    | Hamilton 0.009840334765613079
+./Swimmer-v3_PPO_2_157/actor_000065440000.pth                    | Hamilton 0.008699195459485054
+./Swimmer-v3_PPO_2_157/actor_000066136000.pth                    | Hamilton 0.009807972237467766
+./Swimmer-v3_PPO_2_157/actor_000066832000.pth                    | Hamilton 0.0083409883081913
+./Swimmer-v3_PPO_2_157/actor_000067528000.pth                    | Hamilton 0.009312639012932777
+./Swimmer-v3_PPO_2_157/actor_000068224000.pth                    | Hamilton 0.010695721954107285
+./Swimmer-v3_PPO_2_157/actor_000068920000.pth                    | Hamilton 0.010364196263253689
+./Swimmer-v3_PPO_2_157/actor_000069616000.pth                    | Hamilton 0.012949197553098202
+./Swimmer-v3_PPO_2_157/actor_000070312000.pth                    | Hamilton 0.011184034869074821
+./Swimmer-v3_PPO_2_157/actor_000071008000.pth                    | Hamilton 0.013443278148770332
+./Swimmer-v3_PPO_2_157/actor_000071704000.pth                    | Hamilton 0.011860419064760208
+./Swimmer-v3_PPO_2_157/actor_000072400000.pth                    | Hamilton 0.01005767285823822
+./Swimmer-v3_PPO_2_157/actor_000073096000.pth                    | Hamilton 0.009039181284606457
+./Swimmer-v3_PPO_2_157/actor_000073792000.pth                    | Hamilton 0.004229344427585602
+./Swimmer-v3_PPO_2_157/actor_000074488000.pth                    | Hamilton 0.0005344958044588566
+./Swimmer-v3_PPO_2_157/actor_000075184000.pth                    | Hamilton 0.005745874252170324
+./Swimmer-v3_PPO_2_157/actor_000075880000.pth                    | Hamilton 0.00572598073631525
+./Swimmer-v3_PPO_2_157/actor_000076576000.pth                    | Hamilton 0.005671259947121143
+./Swimmer-v3_PPO_2_157/actor_000077272000.pth                    | Hamilton 0.0034571047872304916
+./Swimmer-v3_PPO_2_157/actor_000077968000.pth                    | Hamilton 0.003943407908082008
+./Swimmer-v3_PPO_2_157/actor_000078664000.pth                    | Hamilton -0.002030279953032732
+./Swimmer-v3_PPO_2_157/actor_000079360000.pth                    | Hamilton 0.001996755599975586
+./Swimmer-v3_PPO_2_157/actor_000080056000.pth                    | Hamilton 0.003908275626599789
+./Swimmer-v3_PPO_2_157/actor_000080752000.pth                    | Hamilton 0.00192910002078861
+./Swimmer-v3_PPO_2_157/actor_000081448000.pth                    | Hamilton -0.00031784476595930755
+./Swimmer-v3_PPO_2_157/actor_000082144000.pth                    | Hamilton 0.0022377141285687685
+./Swimmer-v3_PPO_2_157/actor_000082840000.pth                    | Hamilton 0.0036601454485207796
+./Swimmer-v3_PPO_2_157/actor_000083536000.pth                    | Hamilton 0.005272920709103346
+./Swimmer-v3_PPO_2_157/actor_000084232000.pth                    | Hamilton 0.004845046903938055
+./Swimmer-v3_PPO_2_157/actor_000084928000.pth                    | Hamilton 0.00639183958992362
+./Swimmer-v3_PPO_2_157/actor_000085624000.pth                    | Hamilton 0.004767554812133312
+./Swimmer-v3_PPO_2_157/actor_000086320000.pth                    | Hamilton 0.008992607705295086
+./Swimmer-v3_PPO_2_157/actor_000087016000.pth                    | Hamilton 0.005928999278694391
+./Swimmer-v3_PPO_2_157/actor_000087712000.pth                    | Hamilton 0.00470054242759943
+./Swimmer-v3_PPO_2_157/actor_000088408000.pth                    | Hamilton 0.004120151977986097
+./Swimmer-v3_PPO_2_157/actor_000089104000.pth                    | Hamilton 0.005183403380215168
+./Swimmer-v3_PPO_2_157/actor_000089800000.pth                    | Hamilton 0.003859275486320257
+./Swimmer-v3_PPO_2_157/actor__000000008000_00024.399.pth         | Hamilton -0.0007429367396980524
+./Swimmer-v3_PPO_2_157/actor__000000468000_00088.503.pth         | Hamilton 0.005865113344043493
+./Swimmer-v3_PPO_2_157/actor__000000928000_00113.274.pth         | Hamilton 0.010407093912363052
+./Swimmer-v3_PPO_2_157/actor__000001388000_00126.480.pth         | Hamilton 0.011208338662981987
+./Swimmer-v3_PPO_2_157/actor__000001848000_00132.156.pth         | Hamilton 0.012549827806651592
+./Swimmer-v3_PPO_2_157/actor__000016428000_00133.427.pth         | Hamilton 0.014171402901411057
+./Swimmer-v3_PPO_2_157/actor__000017784000_00137.632.pth         | Hamilton 0.011679843068122864
+./Swimmer-v3_PPO_2_157/actor__000019592000_00138.403.pth         | Hamilton 0.013699631206691265
+./Swimmer-v3_PPO_2_157/actor__000020504000_00145.119.pth         | Hamilton 0.010951054282486439
+./Swimmer-v3_PPO_2_157/actor__000035052000_00149.012.pth         | Hamilton 0.012782643549144268
+./Swimmer-v3_PPO_2_157/actor__000041492000_00152.034.pth         | Hamilton 0.009379813447594643
+./Swimmer-v3_PPO_2_157/actor__000041952000_00153.683.pth         | Hamilton 0.009855174459517002
+./Swimmer-v3_PPO_2_157/actor__000052992000_00157.911.pth         | Hamilton 0.005188527517020702
+    """
+    # Swimmer-v3_PPO_3_121
+    data63 = """
+./Swimmer-v3_PPO_3_121/actor_000000024000.pth                    | Hamilton 0.020110653713345528
+./Swimmer-v3_PPO_3_121/actor_000000084000.pth                    | Hamilton 0.02715129218995571
+./Swimmer-v3_PPO_3_121/actor_000000144000.pth                    | Hamilton 0.028327804058790207
+./Swimmer-v3_PPO_3_121/actor_000000204000.pth                    | Hamilton 0.025701317936182022
+./Swimmer-v3_PPO_3_121/actor_000000264000.pth                    | Hamilton 0.028354130685329437
+./Swimmer-v3_PPO_3_121/actor_000000324000.pth                    | Hamilton 0.03895146772265434
+./Swimmer-v3_PPO_3_121/actor_000000384000.pth                    | Hamilton 0.04108880087733269
+./Swimmer-v3_PPO_3_121/actor_000000444000.pth                    | Hamilton 0.03940640389919281
+./Swimmer-v3_PPO_3_121/actor_000000504000.pth                    | Hamilton 0.04017093405127525
+./Swimmer-v3_PPO_3_121/actor_000000564000.pth                    | Hamilton 0.04205701872706413
+./Swimmer-v3_PPO_3_121/actor_000000624000.pth                    | Hamilton 0.039314862340688705
+./Swimmer-v3_PPO_3_121/actor_000000684000.pth                    | Hamilton 0.034143801778554916
+./Swimmer-v3_PPO_3_121/actor_000000744000.pth                    | Hamilton 0.031359873712062836
+./Swimmer-v3_PPO_3_121/actor_000000804000.pth                    | Hamilton 0.03140445426106453
+./Swimmer-v3_PPO_3_121/actor_000000864000.pth                    | Hamilton 0.029558423906564713
+./Swimmer-v3_PPO_3_121/actor_000000924000.pth                    | Hamilton 0.02673630230128765
+./Swimmer-v3_PPO_3_121/actor_000000984000.pth                    | Hamilton 0.027689866721630096
+./Swimmer-v3_PPO_3_121/actor_000001044000.pth                    | Hamilton 0.028624309226870537
+./Swimmer-v3_PPO_3_121/actor_000001104000.pth                    | Hamilton 0.02707952819764614
+./Swimmer-v3_PPO_3_121/actor_000001164000.pth                    | Hamilton 0.02607092820107937
+./Swimmer-v3_PPO_3_121/actor_000001224000.pth                    | Hamilton 0.027311982586979866
+./Swimmer-v3_PPO_3_121/actor_000001284000.pth                    | Hamilton 0.027716435492038727
+./Swimmer-v3_PPO_3_121/actor_000001344000.pth                    | Hamilton 0.02583765611052513
+./Swimmer-v3_PPO_3_121/actor_000001404000.pth                    | Hamilton 0.026801040396094322
+./Swimmer-v3_PPO_3_121/actor_000001464000.pth                    | Hamilton 0.026641536504030228
+./Swimmer-v3_PPO_3_121/actor_000001524000.pth                    | Hamilton 0.025790296494960785
+./Swimmer-v3_PPO_3_121/actor_000001584000.pth                    | Hamilton 0.02472236379981041
+./Swimmer-v3_PPO_3_121/actor_000001644000.pth                    | Hamilton 0.023757899180054665
+./Swimmer-v3_PPO_3_121/actor_000001704000.pth                    | Hamilton 0.021652374416589737
+./Swimmer-v3_PPO_3_121/actor_000001764000.pth                    | Hamilton 0.021052736788988113
+./Swimmer-v3_PPO_3_121/actor_000001824000.pth                    | Hamilton 0.019100451841950417
+./Swimmer-v3_PPO_3_121/actor_000001884000.pth                    | Hamilton 0.019208500161767006
+./Swimmer-v3_PPO_3_121/actor_000001944000.pth                    | Hamilton 0.018183141946792603
+./Swimmer-v3_PPO_3_121/actor_000002004000.pth                    | Hamilton 0.018541771918535233
+./Swimmer-v3_PPO_3_121/actor_000002064000.pth                    | Hamilton 0.018695896491408348
+./Swimmer-v3_PPO_3_121/actor_000002124000.pth                    | Hamilton 0.022700989618897438
+./Swimmer-v3_PPO_3_121/actor_000002184000.pth                    | Hamilton 0.02044208161532879
+./Swimmer-v3_PPO_3_121/actor_000002244000.pth                    | Hamilton 0.020912671461701393
+./Swimmer-v3_PPO_3_121/actor_000002304000.pth                    | Hamilton 0.018033040687441826
+./Swimmer-v3_PPO_3_121/actor_000002364000.pth                    | Hamilton 0.018431710079312325
+./Swimmer-v3_PPO_3_121/actor_000002424000.pth                    | Hamilton 0.018097015097737312
+./Swimmer-v3_PPO_3_121/actor_000002484000.pth                    | Hamilton 0.014529840089380741
+./Swimmer-v3_PPO_3_121/actor_000002544000.pth                    | Hamilton 0.011763281188905239
+./Swimmer-v3_PPO_3_121/actor_000002604000.pth                    | Hamilton 0.009444762021303177
+./Swimmer-v3_PPO_3_121/actor_000002664000.pth                    | Hamilton 0.010801385156810284
+./Swimmer-v3_PPO_3_121/actor_000002724000.pth                    | Hamilton 0.013880142010748386
+./Swimmer-v3_PPO_3_121/actor_000002784000.pth                    | Hamilton 0.00629993574693799
+./Swimmer-v3_PPO_3_121/actor_000002844000.pth                    | Hamilton 0.0032545998692512512
+./Swimmer-v3_PPO_3_121/actor_000002904000.pth                    | Hamilton 0.0011023205006495118
+./Swimmer-v3_PPO_3_121/actor_000002964000.pth                    | Hamilton 0.0008038826636038721
+./Swimmer-v3_PPO_3_121/actor_000003024000.pth                    | Hamilton 0.00023198139388114214
+./Swimmer-v3_PPO_3_121/actor_000003084000.pth                    | Hamilton 0.0035369268152862787
+./Swimmer-v3_PPO_3_121/actor_000003144000.pth                    | Hamilton 0.0013505296083167195
+./Swimmer-v3_PPO_3_121/actor_000003204000.pth                    | Hamilton 0.0022728133480995893
+./Swimmer-v3_PPO_3_121/actor_000003264000.pth                    | Hamilton 0.002597300335764885
+./Swimmer-v3_PPO_3_121/actor_000003324000.pth                    | Hamilton 0.0010193174239248037
+./Swimmer-v3_PPO_3_121/actor_000003384000.pth                    | Hamilton 0.0002685838844627142
+./Swimmer-v3_PPO_3_121/actor_000003444000.pth                    | Hamilton 0.0008530693594366312
+./Swimmer-v3_PPO_3_121/actor_000003504000.pth                    | Hamilton 0.0015817201929166913
+./Swimmer-v3_PPO_3_121/actor_000003564000.pth                    | Hamilton 0.006050200667232275
+./Swimmer-v3_PPO_3_121/actor_000003624000.pth                    | Hamilton 0.008601261302828789
+./Swimmer-v3_PPO_3_121/actor_000003684000.pth                    | Hamilton 0.0076811183243989944
+./Swimmer-v3_PPO_3_121/actor_000003744000.pth                    | Hamilton 0.006085643079131842
+./Swimmer-v3_PPO_3_121/actor_000003804000.pth                    | Hamilton 0.0021045375615358353
+./Swimmer-v3_PPO_3_121/actor_000003864000.pth                    | Hamilton 0.0021000357810407877
+./Swimmer-v3_PPO_3_121/actor_000003924000.pth                    | Hamilton -0.0015884075546637177
+./Swimmer-v3_PPO_3_121/actor_000003984000.pth                    | Hamilton -0.005167168099433184
+./Swimmer-v3_PPO_3_121/actor_000004044000.pth                    | Hamilton 0.0020239760633558035
+./Swimmer-v3_PPO_3_121/actor_000004104000.pth                    | Hamilton 0.0049362024292349815
+./Swimmer-v3_PPO_3_121/actor_000004164000.pth                    | Hamilton 0.008682173676788807
+./Swimmer-v3_PPO_3_121/actor_000004224000.pth                    | Hamilton 0.007948365062475204
+./Swimmer-v3_PPO_3_121/actor_000004284000.pth                    | Hamilton 0.011425988748669624
+./Swimmer-v3_PPO_3_121/actor_000004344000.pth                    | Hamilton 0.0050744046457111835
+./Swimmer-v3_PPO_3_121/actor_000004404000.pth                    | Hamilton -0.0013705224264413118
+./Swimmer-v3_PPO_3_121/actor_000004464000.pth                    | Hamilton -0.0022696650121361017
+./Swimmer-v3_PPO_3_121/actor_000004524000.pth                    | Hamilton -0.0029377539176493883
+./Swimmer-v3_PPO_3_121/actor_000004584000.pth                    | Hamilton -0.006270260084420443
+./Swimmer-v3_PPO_3_121/actor_000004644000.pth                    | Hamilton -0.003216156968846917
+./Swimmer-v3_PPO_3_121/actor_000004704000.pth                    | Hamilton -0.0018393512582406402
+./Swimmer-v3_PPO_3_121/actor_000004764000.pth                    | Hamilton -0.003030079649761319
+./Swimmer-v3_PPO_3_121/actor_000004824000.pth                    | Hamilton -9.265080734621733e-05
+./Swimmer-v3_PPO_3_121/actor_000004884000.pth                    | Hamilton -0.0025914961006492376
+./Swimmer-v3_PPO_3_121/actor_000004944000.pth                    | Hamilton -0.0010421517072245479
+./Swimmer-v3_PPO_3_121/actor_000005004000.pth                    | Hamilton -0.0013305610045790672
+./Swimmer-v3_PPO_3_121/actor_000005064000.pth                    | Hamilton -0.0027508672792464495
+./Swimmer-v3_PPO_3_121/actor_000005124000.pth                    | Hamilton -0.0010066138347610831
+./Swimmer-v3_PPO_3_121/actor_000005184000.pth                    | Hamilton 0.0029595736414194107
+./Swimmer-v3_PPO_3_121/actor_000005244000.pth                    | Hamilton -0.0012292381143197417
+./Swimmer-v3_PPO_3_121/actor_000005304000.pth                    | Hamilton -0.001544262282550335
+./Swimmer-v3_PPO_3_121/actor_000005364000.pth                    | Hamilton -0.004575483966618776
+./Swimmer-v3_PPO_3_121/actor_000005424000.pth                    | Hamilton -0.008215312846004963
+./Swimmer-v3_PPO_3_121/actor_000005484000.pth                    | Hamilton -0.017040060833096504
+./Swimmer-v3_PPO_3_121/actor_000005544000.pth                    | Hamilton -0.019839206710457802
+./Swimmer-v3_PPO_3_121/actor_000005604000.pth                    | Hamilton -0.015014270320534706
+./Swimmer-v3_PPO_3_121/actor_000005664000.pth                    | Hamilton -0.016327740624547005
+./Swimmer-v3_PPO_3_121/actor_000005724000.pth                    | Hamilton -0.01976838894188404
+./Swimmer-v3_PPO_3_121/actor_000005784000.pth                    | Hamilton -0.01817617379128933
+./Swimmer-v3_PPO_3_121/actor_000005844000.pth                    | Hamilton -0.02162090875208378
+./Swimmer-v3_PPO_3_121/actor_000005904000.pth                    | Hamilton -0.021669557318091393
+./Swimmer-v3_PPO_3_121/actor_000005964000.pth                    | Hamilton -0.022768324241042137
+./Swimmer-v3_PPO_3_121/actor_000006024000.pth                    | Hamilton -0.02053086832165718
+./Swimmer-v3_PPO_3_121/actor_000006084000.pth                    | Hamilton -0.019846003502607346
+./Swimmer-v3_PPO_3_121/actor_000006144000.pth                    | Hamilton -0.01994282752275467
+./Swimmer-v3_PPO_3_121/actor_000006204000.pth                    | Hamilton -0.021280312910676003
+./Swimmer-v3_PPO_3_121/actor_000006264000.pth                    | Hamilton -0.019609684124588966
+./Swimmer-v3_PPO_3_121/actor_000006324000.pth                    | Hamilton -0.01926925964653492
+./Swimmer-v3_PPO_3_121/actor_000006384000.pth                    | Hamilton -0.012251075357198715
+./Swimmer-v3_PPO_3_121/actor_000006444000.pth                    | Hamilton -0.015791069716215134
+./Swimmer-v3_PPO_3_121/actor_000006504000.pth                    | Hamilton -0.011971722356975079
+./Swimmer-v3_PPO_3_121/actor_000006564000.pth                    | Hamilton -0.01662479341030121
+./Swimmer-v3_PPO_3_121/actor_000006624000.pth                    | Hamilton -0.011844886466860771
+./Swimmer-v3_PPO_3_121/actor_000006684000.pth                    | Hamilton -0.01606610417366028
+./Swimmer-v3_PPO_3_121/actor_000006744000.pth                    | Hamilton -0.012678180821239948
+./Swimmer-v3_PPO_3_121/actor_000006804000.pth                    | Hamilton -0.015020159073174
+./Swimmer-v3_PPO_3_121/actor_000006864000.pth                    | Hamilton -0.01938313990831375
+./Swimmer-v3_PPO_3_121/actor_000006924000.pth                    | Hamilton -0.014173192903399467
+./Swimmer-v3_PPO_3_121/actor_000006984000.pth                    | Hamilton -0.01522061601281166
+./Swimmer-v3_PPO_3_121/actor_000007044000.pth                    | Hamilton -0.01016961969435215
+./Swimmer-v3_PPO_3_121/actor_000007104000.pth                    | Hamilton -0.001998821273446083
+./Swimmer-v3_PPO_3_121/actor_000007164000.pth                    | Hamilton -3.881568773067556e-05
+./Swimmer-v3_PPO_3_121/actor_000007224000.pth                    | Hamilton 0.0011051241308450699
+./Swimmer-v3_PPO_3_121/actor_000007284000.pth                    | Hamilton 0.004169078543782234
+./Swimmer-v3_PPO_3_121/actor_000007344000.pth                    | Hamilton 0.004327323753386736
+./Swimmer-v3_PPO_3_121/actor_000007404000.pth                    | Hamilton 0.002742733107879758
+./Swimmer-v3_PPO_3_121/actor_000007464000.pth                    | Hamilton 0.004444441292434931
+./Swimmer-v3_PPO_3_121/actor_000007524000.pth                    | Hamilton 0.005409060977399349
+./Swimmer-v3_PPO_3_121/actor_000007584000.pth                    | Hamilton 0.0029933673795312643
+./Swimmer-v3_PPO_3_121/actor_000007644000.pth                    | Hamilton 0.005345356650650501
+./Swimmer-v3_PPO_3_121/actor_000007704000.pth                    | Hamilton 0.006548906676471233
+./Swimmer-v3_PPO_3_121/actor__000000012000_00023.539.pth         | Hamilton -0.016312943771481514
+./Swimmer-v3_PPO_3_121/actor__000000468000_00044.515.pth         | Hamilton 0.00028338495758362114
+./Swimmer-v3_PPO_3_121/actor__000000918000_00048.165.pth         | Hamilton 0.012842411175370216
+./Swimmer-v3_PPO_3_121/actor__000001362000_00060.433.pth         | Hamilton 0.023773295804858208
+./Swimmer-v3_PPO_3_121/actor__000001812000_00087.028.pth         | Hamilton 0.0027495701797306538
+./Swimmer-v3_PPO_3_121/actor__000002262000_00091.127.pth         | Hamilton -0.0031706145964562893
+./Swimmer-v3_PPO_3_121/actor__000002712000_00096.560.pth         | Hamilton 0.013367146253585815
+./Swimmer-v3_PPO_3_121/actor__000003162000_00106.286.pth         | Hamilton 0.007930559106171131
+./Swimmer-v3_PPO_3_121/actor__000003612000_00110.085.pth         | Hamilton -0.0012087668292224407
+./Swimmer-v3_PPO_3_121/actor__000004968000_00113.125.pth         | Hamilton -0.0013892920687794685
+./Swimmer-v3_PPO_3_121/actor__000005424000_00117.198.pth         | Hamilton -0.00485979113727808
+./Swimmer-v3_PPO_3_121/actor__000005880000_00118.991.pth         | Hamilton -0.01140047051012516
+./Swimmer-v3_PPO_3_121/actor__000006330000_00121.160.pth         | Hamilton -0.012507532723248005
+"""
+
+    data = data11.split('\n')[1:-1]
+    ary1 = list()
+    ary2 = list()
+    for item in data:
+        item1 = item.split(' ')
+
+        obj_h = float(item1[-1])
+
+        item2 = item1[0].split('/')
+        item3 = item2[2].split('_')
+        if len(item2[2]) <= 22:
+            step = int(item3[-1][:-4])
+            ary1.append((step, obj_h))
+        else:
+            step = int(item3[-2])
+            score = float(item3[-1][:-4])
+
+            ary2.append((step, obj_h, score))
+
+    ary1 = np.array(ary1)
+    ary2 = np.array(ary2)
+
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(1)
+
+    x_step = ary1[:, 0]
+    y_obj_h = ary1[:, 1]
+    ax.plot(x_step, y_obj_h)
+
+    ax01 = ax.twinx()
+
+    x_step = ary2[:, 0]
+    y_score = ary2[:, 2]
+    ax01.plot(x_step, y_score)
+    plt.grid()
+    plt.show()
+
+
+if __name__ == '__main__':
+    demo_evaluator_actor_h_term_to_str()
+    # demo_get_h_term_curve_from_str()

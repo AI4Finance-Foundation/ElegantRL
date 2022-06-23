@@ -173,10 +173,8 @@ class AgentReSACHterm(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for 
                 buf_state = buffer.concatenate_state()
             else:
                 buf_state, buf_action, buf_reward, buf_mask = buffer.concatenate_buffer()
-                buf_r_sum = self.get_r_sum_h_term(buf_reward, buf_mask)
-
-                self.get_buf_h_term(buf_state, buf_action, buf_r_sum, buf_mask, buf_reward)  # todo H-term
-                del buf_action, buf_reward, buf_mask, buf_r_sum
+                self.get_buf_h_term_k(buf_state, buf_action, buf_mask, buf_reward)  # todo H-term
+                del buf_action, buf_reward, buf_mask
 
             action_log_std = self.act.get_action_log_std(buf_state).mean(dim=0, keepdim=True)
             action_log_std = action_log_std * torch.ones((self.batch_size, 1), device=self.device)
@@ -230,15 +228,17 @@ class AgentReSACHtermK(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for
     def update_net(self, buffer: ReplayBuffer):
         with torch.no_grad():  # H term
             if (buffer.next_p - buffer.prev_p) % buffer.max_capacity < 2 ** 12:
-                buf_state = buffer.concatenate_state()
+                # buf_state = buffer.concatenate_state()
+                pass
             else:
                 buf_state, buf_action, buf_reward, buf_mask = buffer.concatenate_buffer()
                 self.get_buf_h_term_k(buf_state, buf_action, buf_mask, buf_reward)  # todo H-term
-                del buf_action, buf_reward, buf_mask
-
-            action_log_std = self.act.get_action_log_std(buf_state).mean(dim=0, keepdim=True)
-            action_log_std = action_log_std * torch.ones((self.batch_size, 1), device=self.device)
+                del buf_state, buf_action, buf_reward, buf_mask
             del buf_state
+
+            # action_log_std = self.act.get_action_log_std(buf_state).mean(dim=0, keepdim=True)
+            # action_log_std = action_log_std * torch.ones((self.batch_size, 1), device=self.device)
+            # del buf_state
 
         alpha = self.alpha_log.exp().detach()
         update_a = 0
@@ -265,10 +265,12 @@ class AgentReSACHtermK(AgentSAC):  # Using TTUR (Two Time-scale Update Rule) for
             if if_update_actor:  # auto TTUR
                 update_a += 1
 
-                obj_action = self.criterion(self.act.get_action_log_std(state), action_log_std) * self.lambda_action
+                # obj_action = self.criterion(self.act.get_action_log_std(state), action_log_std) * self.lambda_action
 
                 q_value_pg = self.cri(state, a_noise_pg)
-                obj_actor = -(q_value_pg + logprob * alpha).mean() + obj_action + self.get_obj_h_term_k()  # todo H-term
+                obj_hamilton = self.get_obj_h_term_k() if update_a % self.h_term_update_gap == 0 else 0
+                # obj_actor = -(q_value_pg + logprob * alpha).mean() + obj_action + obj_hamilton  # todo H-term
+                obj_actor = -(q_value_pg + logprob * alpha).mean() + obj_hamilton  # todo H-term
                 self.optimizer_update(self.act_optimizer, obj_actor)
                 self.soft_update(self.act_target, self.act, self.soft_update_tau)
         return self.obj_c, -obj_actor.item(), alpha.item()
