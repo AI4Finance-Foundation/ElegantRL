@@ -103,10 +103,10 @@ class AgentDDPGHterm(AgentDDPG):
         if (buffer.next_p - buffer.prev_p) % buffer.max_capacity > 2 ** 11:
             with torch.no_grad():  # H term
                 buf_state, buf_action, buf_reward, buf_mask = buffer.concatenate_buffer()
-                buf_r_sum = self.get_r_sum_h_term(buf_reward, buf_mask)
+                #buf_r_sum = self.get_r_sum_h_term(buf_reward, buf_mask)
 
-                self.get_buf_h_term(buf_state, buf_action, buf_r_sum, buf_mask, buf_reward)  # todo H-term
-                del buf_state, buf_action, buf_reward, buf_mask, buf_r_sum
+                self.get_buf_h_term_k(buf_state, buf_action,buf_mask, buf_reward)  # todo H-term
+                del buf_state, buf_action, buf_reward, buf_mask
 
         obj_critic = torch.zeros(1)
         obj_actor = torch.zeros(1)
@@ -119,7 +119,7 @@ class AgentDDPGHterm(AgentDDPG):
 
             action = self.act(state)  # policy gradient
             if i % self.act_update_gap == 0:
-                obj_actor = -self.cri(state, action).mean() + self.get_obj_h_term()  # todo H-term
+                obj_actor = -self.cri(state, action).mean() + self.get_obj_h_term_k()  # todo H-term
             else:
                 obj_actor = -self.cri(state, action).mean()
 
