@@ -1,15 +1,12 @@
 import numpy as np
 import torch
-from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
-from elegantrl.agents.AgentBase import AgentBase
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 from torch import Tensor
 from typing import List, Tuple
-import numpy as np
-import torch
 from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
 from elegantrl.agents.AgentBase import AgentBase
+from elegantrl.train.replay_buffer import ReplayBufferList
 from typing import Tuple
 
 """[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)"""
@@ -655,3 +652,59 @@ class AgentSharePPO(AgentPPO):
 
         a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
+
+class AgentPPOHterm(AgentPPO):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
+        AgentPPO.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
+
+    def update_net(self, buffer: ReplayBufferList):
+        with torch.no_grad():
+            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
+            buf_len = buf_state.shape[0]
+
+            '''get buf_r_sum, buf_logprob'''
+            batch_size = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
+            buf_value = [self.cri_target(buf_state[i:i + batch_size]) for i in range(0, buf_len, batch_size)]
+            buf_value = torch.cat(buf_value, dim=0)
+            buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
+
+            buf_r_sum, buf_adv_v = self.get_reward_sum(buf_len, buf_reward, buf_mask, buf_value)  # detach()
+            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)
+            # buf_adv_v: buffer data of adv_v value
+            self.get_buf_h_term_k(buf_state, buf_action, buf_mask, buf_reward)  # todo H-term
+            del buf_noise
+
+        '''update network'''
+        obj_critic = torch.zeros(1)
+        obj_actor = torch.zeros(1)
+        assert buf_len >= self.batch_size
+        for i in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
+            indices = torch.randint(buf_len, size=(self.batch_size,), requires_grad=False, device=self.device)
+
+            state = buf_state[indices]
+            r_sum = buf_r_sum[indices]
+
+            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+
+            obj_critic = self.criterion(value, r_sum)
+            self.optimizer_update(self.cri_optimizer, obj_critic)
+            if self.if_cri_target:
+                self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+
+            if i % self.h_term_update_gap == 0:
+                '''PPO: Surrogate objective of Trust Region'''
+                adv_v = buf_adv_v[indices]
+                action = buf_action[indices]
+                logprob = buf_logprob[indices]
+
+                new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)  # it is obj_actor
+                ratio = (new_logprob - logprob.detach()).exp()
+                surrogate1 = adv_v * ratio
+                surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+                obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
+                obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy + self.get_obj_h_term_k()  # todo H-term
+                self.optimizer_update(self.act_optimizer, obj_actor)
+
+        action_std_log = getattr(self.act, 'action_std_log', torch.zeros(1)).mean()
+        return obj_critic.item(), -obj_actor.item(), action_std_log.item()  # logging_tuple
+
