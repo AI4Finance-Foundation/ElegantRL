@@ -215,6 +215,64 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
+    
+    def convert_trajectory(
+            self, traj_list: List[Tuple[Tensor, ...]],
+            last_done: Union[Tensor, list]
+    ) -> List[Tensor]:
+        # assert len(buf_items[0]) in {4, 5}
+        # assert len(buf_items[0][0]) == self.env_num
+        traj_list1 = list(map(list, zip(*traj_list)))  # state, reward, done, action, noise
+        del traj_list
+        # assert len(buf_items[0]) == step
+        # assert len(buf_items[0][0]) == self.env_num
+
+        '''stack items'''
+        traj_state = torch.stack(traj_list1[0])
+        traj_action = torch.stack(traj_list1[3])
+
+        if len(traj_action.shape) == 2:
+            traj_action = traj_action.unsqueeze(2)
+
+        if self.env_num > 1:
+            traj_reward = (torch.stack(traj_list1[1]) * self.reward_scale).unsqueeze(2)
+            traj_mask = ((1 - torch.stack(traj_list1[2])) * self.gamma).unsqueeze(2)
+        else:
+            traj_reward = (torch.tensor(traj_list1[1], dtype=torch.float32) * self.reward_scale).reshape(-1, 1, 1)
+            traj_mask = ((1 - torch.tensor(traj_list1[2], dtype=torch.float32)) * self.gamma).reshape(-1, 1, 1)
+
+        if len(traj_list1) <= 4:
+            traj_list2 = [traj_state, traj_reward, traj_mask, traj_action]
+        else:
+            traj_noise = torch.stack(traj_list1[4])
+            traj_list2 = [traj_state, traj_reward, traj_mask, traj_action, traj_noise]
+        del traj_list1
+
+        '''splice items'''
+        traj_list3 = list()
+        for j in range(len(traj_list2)):
+            cur_item = list()
+            buf_item = traj_list2[j]
+
+            for env_i in range(self.env_num):
+                last_step = last_done[env_i]
+
+                pre_item = self.traj_list[env_i][j]
+                if len(pre_item):
+                    cur_item.append(pre_item)
+
+                cur_item.append(buf_item[:last_step, env_i])
+
+                if self.if_use_old_traj:
+                    self.traj_list[env_i][j] = buf_item[last_step:, env_i]
+
+            traj_list3.append(torch.vstack(cur_item))
+        del traj_list2
+        # on-policy:  buf_item = [states, rewards, dones, actions, noises]
+        # off-policy: buf_item = [states, rewards, dones, actions]
+        # buf_items = [buf_item, ...]
+        return traj_list3
+
     def save_or_load_agent(self, cwd: str, if_save: bool):
         """save or load training files for Agent
 
