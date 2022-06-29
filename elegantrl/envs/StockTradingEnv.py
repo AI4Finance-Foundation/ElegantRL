@@ -9,12 +9,6 @@ import numpy as np
 import numpy.random as rd
 import pandas as pd
 
-"""finance environment
-Source: https://github.com/AI4Finance-Foundation/FinRL-Meta/blob/master/Demo_China_A_share_market.ipynb
-Source: https://github.com/AI4Fiance-Foundation/ElegantRL
-Modify: Github YonV1943
-"""
-
 
 class StockTradingEnv:
     def __init__(self, initial_amount=1e6, max_stock=1e2, buy_cost_pct=1e-3, sell_cost_pct=1e-3, gamma=0.99,
