@@ -5,7 +5,7 @@ import numpy.random as rd
 from copy import deepcopy
 from torch.nn.utils import clip_grad_norm_
 from torch import Tensor
-from typing import List, Tuple, Union #bug fix:NameError: name 'Union' is not defined elegantrl/agents/AgentBase.py", line 221, in AgentBase
+from typing import List, Tuple, Union 
 from collections import deque
 
 
