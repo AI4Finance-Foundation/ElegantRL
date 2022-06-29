@@ -11,3 +11,6 @@ from elegantrl.agents.AgentDDPG import AgentDDPG
 from elegantrl.agents.AgentTD3 import AgentTD3
 from elegantrl.agents.AgentSAC import AgentSAC, AgentModSAC
 from elegantrl.agents.AgentREDQ import AgentREDQ
+
+#on-policy
+from elegantrl.agents.AgentPPO import AgentPPO #bug fix:TypeError: 'module' object is not callable elegantrl/train/run.py", line 13, in init_agent
