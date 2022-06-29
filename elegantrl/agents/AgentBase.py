@@ -328,16 +328,12 @@ class AgentBase:
         '''update h-term buffer (states, actions, rewards_sum_norm)'''
         self.ten_state = torch.vstack([item[0].to(torch.float32) for item in self.h_term_buffer])
         self.ten_action = torch.vstack([item[1].to(torch.float32) for item in self.h_term_buffer])
-        # self.ten_mask = torch.vstack([item[3].to(torch.float32) for item in self.h_term_buffer]) * self.h_term_gamma
-        self.ten_mask = torch.vstack([item[3].to(torch.float32) for item in self.h_term_buffer]
-                                     ).squeeze(1)  # todo squeeze 2022-05-16
+        self.ten_mask = torch.vstack([item[3].to(torch.float32) for item in self.h_term_buffer]).squeeze(1)
 
         r_min = np.min(np.array([item[4] for item in self.h_term_buffer]))
         r_max = np.max(np.array([item[5] for item in self.h_term_buffer]))
-        # ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer])
-        ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer]
-                                  ).squeeze(1)  # todo squeeze 2022-05-16
-        self.ten_r_norm = (ten_reward - r_min) / (r_max - r_min)  # ten_r_norm.shape == (-1, )
+        ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer]).squeeze(1) 
+        self.ten_r_norm = (ten_reward - r_min) / (r_max - r_min) 
 
     def get_obj_h_term_k(self) -> Tensor:
         if self.ten_state is None or self.ten_state.shape[0] < 2 ** 12:
@@ -365,7 +361,6 @@ class AgentBase:
             discount *= self.h_term_gamma
             logprob = self.act.get_logprob(ten_state, ten_action)
             hamilton = logprob.sum(dim=1) + hamilton
-            # hamilton = (hamilton + ten_mask) * logprob.sum(dim=1).exp()
             obj_h += hamilton.clamp(-16,2) * self.ten_r_norm[indices_k] * discount
         return -obj_h.mean() * self.h_term_lambda
 
