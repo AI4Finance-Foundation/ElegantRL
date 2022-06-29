@@ -302,6 +302,73 @@ class AgentBase:
             for name, obj in name_obj_list:
                 save_path = f"{cwd}/{name}.pth"
                 load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
+    def get_buf_h_term_k(
+            self, buf_state: Tensor, buf_action: Tensor, buf_mask: Tensor, buf_reward: Tensor
+    ):
+        buf_dones = torch.where(buf_mask == 0)[0].detach().cpu() + 1
+        i = 0
+        for j in buf_dones:
+            rewards = buf_reward[i:j].to(torch.float16)
+            states = buf_state[i:j].to(torch.float16)
+            actions = buf_action[i:j].to(torch.float16)
+            masks = buf_mask[i:j].to(torch.float16)
+
+            r_sum = rewards.sum().item()
+            r_min = rewards.min().item()
+            r_max = rewards.max().item()
+
+            self.h_term_buffer.append([states, actions, rewards, masks, r_min, r_max, r_sum])
+            i = j
+
+        # throw low r_sum
+        q_arg_sort = np.argsort([item[6] for item in self.h_term_buffer])
+        h_term_throw = max(0, int(len(self.h_term_buffer) * self.h_term_drop_rate))
+        self.h_term_buffer = [self.h_term_buffer[i] for i in q_arg_sort[h_term_throw:]]
+
+        '''update h-term buffer (states, actions, rewards_sum_norm)'''
+        self.ten_state = torch.vstack([item[0].to(torch.float32) for item in self.h_term_buffer])
+        self.ten_action = torch.vstack([item[1].to(torch.float32) for item in self.h_term_buffer])
+        # self.ten_mask = torch.vstack([item[3].to(torch.float32) for item in self.h_term_buffer]) * self.h_term_gamma
+        self.ten_mask = torch.vstack([item[3].to(torch.float32) for item in self.h_term_buffer]
+                                     ).squeeze(1)  # todo squeeze 2022-05-16
+
+        r_min = np.min(np.array([item[4] for item in self.h_term_buffer]))
+        r_max = np.max(np.array([item[5] for item in self.h_term_buffer]))
+        # ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer])
+        ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer]
+                                  ).squeeze(1)  # todo squeeze 2022-05-16
+        self.ten_r_norm = (ten_reward - r_min) / (r_max - r_min)  # ten_r_norm.shape == (-1, )
+
+    def get_obj_h_term_k(self) -> Tensor:
+        if self.ten_state is None or self.ten_state.shape[0] < 2 ** 12:
+            return torch.zeros(1, dtype=torch.float32, device=self.device)
+
+        '''rd sample'''
+        k0 = self.h_term_k_step
+        h_term_batch_size = self.batch_size // k0
+        indices = torch.randint(k0, self.ten_state.shape[0], size=(h_term_batch_size,),
+                                requires_grad=False, device=self.device)
+
+        '''hamilton (K-spin, K=k)'''
+        hamilton = torch.zeros((h_term_batch_size,), dtype=torch.float32, device=self.device)
+        #print(h_term_batch_size, indices.shape, k0, self.ten_state.shape)
+        #print(self.ten_mask[:10])
+        #assert 0
+        obj_h = torch.zeros((h_term_batch_size, ), dtype=torch.float32, device=self.device)
+        discount = 1.0
+        for k1 in range(k0 - 1, -1, -1):
+            indices_k = indices - k1
+
+            ten_state = self.ten_state[indices_k]
+            ten_action = self.ten_action[indices_k]
+            ten_mask = self.ten_mask[indices_k]
+            discount *= self.h_term_gamma
+            logprob = self.act.get_logprob(ten_state, ten_action)
+            hamilton = logprob.sum(dim=1) + hamilton
+            # hamilton = (hamilton + ten_mask) * logprob.sum(dim=1).exp()
+            obj_h += hamilton.clamp(-16,2) * self.ten_r_norm[indices_k] * discount
+        return -obj_h.mean() * self.h_term_lambda
+
 
 
 class Tracker:
