@@ -3,7 +3,7 @@ import gym
 
 from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
 from elegantrl.train.config import Arguments
-from elegantrl.agents.AgentPPO import AgentPPO, AgentPPOHtermK
+from elegantrl.agents.AgentPPO import AgentPPO, AgentPPOHterm
 from elegantrl.envs.CustomGymEnv import GymNormaEnv
 
 
@@ -16,7 +16,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
                 'HalfCheetah-v3',
                 'Walker2d-v3',
                 ][env_id]
-    agent_class = [AgentPPO, AgentPPOHtermK][drl_id]
+    agent_class = [AgentPPO, AgentPPOHterm][drl_id]
 
 
     if env_name == 'Hopper-v3':
