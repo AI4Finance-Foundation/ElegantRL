@@ -6,7 +6,7 @@ from torch import Tensor
 from typing import List, Tuple
 from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.train.replay_buffer import ReplayBufferList
+from elegantrl.train.replay_buffer import ReplayBufferList, ReplayBuffer
 from elegantrl.train.config import Arguments #bug fix:NameError: name 'Arguments' is not defined def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
 from typing import Tuple
 
