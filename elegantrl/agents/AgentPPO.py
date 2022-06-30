@@ -6,7 +6,8 @@ from torch import Tensor
 from typing import List, Tuple
 from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.train.replay_buffer import ReplayBufferList
+from elegantrl.train.replay_buffer import ReplayBuffer #bug fix:ImportError: cannot import name 'ReplayBufferList' from 'elegantrl.train.replay_buffer'
+from elegantrl.train.config import Arguments #bug fix:NameError: name 'Arguments' is not defined def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
 from typing import Tuple
 
 """[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)"""
@@ -657,7 +658,7 @@ class AgentPPOHterm(AgentPPO):
     def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         AgentPPO.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
 
-    def update_net(self, buffer: ReplayBufferList):
+    def update_net(self, buffer: ReplayBuffer):#bug fix:ImportError: cannot import name 'ReplayBufferList' from 'elegantrl.train.replay_buffer'
         with torch.no_grad():
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
             buf_len = buf_state.shape[0]
