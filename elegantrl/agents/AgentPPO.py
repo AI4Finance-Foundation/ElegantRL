@@ -54,7 +54,7 @@ class AgentPPO(AgentBase):
         else:
             self.get_reward_sum = self.get_reward_sum_raw
 
-    def explore_one_env(self, env, target_step) -> list:
+    def explore_one_env(self, env, target_step, random_exploration=None) -> list:
         """
         Collect trajectories through the actor-environment interaction.
 
@@ -87,7 +87,7 @@ class AgentPPO(AgentBase):
         last_done[0] = step_i
         return self.convert_trajectory(traj_list, last_done)  # traj_list
 
-    def explore_vec_env(self, env, target_step) -> list:
+    def explore_vec_env(self, env, target_step, random_exploration = None) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
