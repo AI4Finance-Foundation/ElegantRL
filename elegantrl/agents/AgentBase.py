@@ -76,7 +76,7 @@ class AgentBase:
         self.current_rewards = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
         self.current_lengths = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
 
-    def explore_one_env(self, env, horizon_len: int) -> list:
+    def explore_one_env(self, env, horizon_len: int, random_exploration=None) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
