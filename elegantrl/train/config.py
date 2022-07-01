@@ -39,6 +39,7 @@ class Arguments:
             self.num_seed_steps = 2
             self.num_steps_per_episode = 128 
         else:  # on-policy
+            self.if_use_per = False
             self.replay_buffer_size = 2 ** 12  # capacity of replay buffer
             self.horizon_len = self.replay_buffer_size  # repeatedly update network to keep critic's loss small
             self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
