@@ -170,7 +170,7 @@ class PipeWorker:
             trajectory = agent.explore_env(env, target_step)
             self.pipes[worker_id][0].send(trajectory)
 
-import wandb
+#import wandb
 class PipeLearner:
     def __init__(self):
         #wandb.init(project="DDPG_H")
