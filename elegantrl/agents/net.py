@@ -411,6 +411,9 @@ class ActorPPO(nn.Module):
     @staticmethod
     def convert_action_for_env(action: Tensor) -> Tensor:
         return action.tanh()
+    @staticmethod
+    def get_a_to_e(action):
+        return action.int()
 
 
 class ActorDiscretePPO(nn.Module):
