@@ -6,7 +6,7 @@ import multiprocessing as mp
 
 from elegantrl.train.config import build_env
 from elegantrl.train.evaluator import Evaluator
-from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.replay_buffer import ReplayBuffer, ReplayBufferList
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentBase import AgentBase
 
