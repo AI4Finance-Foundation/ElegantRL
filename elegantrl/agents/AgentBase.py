@@ -7,6 +7,9 @@ from torch.nn.utils import clip_grad_norm_
 from torch import Tensor
 from typing import List, Tuple, Union 
 from collections import deque
+from elegantrl.train.replay_buffer import ReplayBuffer
+from elegantrl.train.config import Arguments
+
 
 
 class AgentBase:
