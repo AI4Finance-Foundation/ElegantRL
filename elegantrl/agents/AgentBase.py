@@ -10,7 +10,7 @@ from collections import deque
 
 
 class AgentBase:
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args=None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
         """initialize
         replace by different DRL algorithms
 
@@ -26,7 +26,6 @@ class AgentBase:
         self.num_layer = getattr(args, 'num_layer', 3)
         self.batch_size = getattr(args, 'batch_size', 128)
         self.action_dim = getattr(args, 'action_dim', 3)
-        self.state_dim = getattr(args, 'state_dim', 10)
         self.repeat_times = getattr(args, 'repeat_times', 1.)
         self.reward_scale = getattr(args, 'reward_scale', 1.)
         self.lambda_critic = getattr(args, 'lambda_critic', 1.)
@@ -34,12 +33,15 @@ class AgentBase:
         self.clip_grad_norm = getattr(args, 'clip_grad_norm', 3.0)
         self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
 
-        self.if_use_per = getattr(args, 'if_use_per', False)
+        self.if_use_per = getattr(args, 'if_use_per', None)
         self.if_off_policy = getattr(args, 'if_off_policy', None)
         self.if_use_old_traj = getattr(args, 'if_use_old_traj', False)
 
-        self.state = None  # assert self.state == (env_num, state_dim)
+        self.states = None  # assert self.states == (env_num, state_dim)
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.traj_list = [[torch.tensor((), dtype=torch.float32, device=self.device)
+                           for _ in range(4 if self.if_off_policy else 5)]
+                          for _ in range(self.env_num)]  # for `self.explore_vec_env()`
 
         '''network'''
         act_class = getattr(self, "act_class", None)
@@ -49,12 +51,15 @@ class AgentBase:
             if cri_class else self.act
 
         '''optimizer'''
-        self.learning_rate = args.learning_rate
         self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate) \
             if cri_class else self.act_optimizer
+        from types import MethodType  # built-in package of Python3
+        self.act_optimizer.parameters = MethodType(get_optim_param, self.act_optimizer)
+        self.cri_optimizer.parameters = MethodType(get_optim_param, self.cri_optimizer)
 
         '''target network'''
+        from copy import deepcopy
         self.if_act_target = args.if_act_target if hasattr(args, 'if_act_target') else \
             getattr(self, 'if_act_target', None)
         self.if_cri_target = args.if_cri_target if hasattr(args, 'if_cri_target') else \
@@ -68,35 +73,45 @@ class AgentBase:
         else:
             self.explore_env = self.explore_vec_env
 
-        self.criterion = torch.nn.SmoothL1Loss(reduction="mean")
-        self.traj_list = [
-            [list() for _ in range(4 if self.if_off_policy else 5)]
-            for _ in range(self.env_num)
-        ]  # for `self.explore_vec_env()`
+        if self.if_use_per:
+            self.criterion = torch.nn.SmoothL1Loss(reduction="none")
+            self.get_obj_critic = self.get_obj_critic_per
+        else:
+            self.criterion = torch.nn.SmoothL1Loss(reduction="mean")
+            self.get_obj_critic = self.get_obj_critic_raw
 
-        """tracker"""
-        self.reward_tracker = Tracker(args.tracker_len)
-        self.step_tracker = Tracker(args.tracker_len)
-        self.current_rewards = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
-        self.current_lengths = torch.zeros(self.env_num, dtype=torch.float32, device=self.device)
+        '''h_term'''
+        self.h_term_gamma = getattr(args, 'h_term_gamma', 0.8)
+        self.h_term_k_step = getattr(args, 'h_term_k_step', 4)
+        self.h_term_lambda = getattr(args, 'h_term_lambda', 2 ** -3)
+        self.h_term_update_gap = getattr(args, 'h_term_update_gap', 1)
+        self.h_term_drop_rate = getattr(args, 'h_term_drop_rate', 2 ** -3)  # drop the data in H-term ReplayBuffer
+        self.h_term_sample_rate = getattr(args, 'h_term_sample_rate', 2 ** -4)  # sample the data in H-term ReplayBuffer
+        self.h_term_buffer = list()
+        self.ten_state = None
+        self.ten_action = None
+        self.ten_r_norm = None
+        self.ten_reward = None
+        self.ten_mask = None
+        self.ten_v_sum = None
 
-    def explore_one_env(self, env, horizon_len: int, random_exploration=None) -> list:
+    def explore_one_env(self, env, target_step: int) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
         :param env: RL training environment. env.reset() env.step(). It should be a vector env.
-        :param horizon_len: explored horizon_len number of step in env
+        :param target_step: explored target_step number of step in env
         :return: `[traj, ]`
-        `traj = [(state, reward, done, action, noise), ...]` for on-policy
-        `traj = [(state, reward, done, action), ...]` for off-policy
+        `traj = [(state, reward, mask, action, noise), ...]` for on-policy
+        `traj = [(state, reward, mask, action), ...]` for off-policy
         """
         traj_list = []
         last_dones = [0, ]
-        state = self.state[0]
+        state = self.states[0]
 
         i = 0
         done = False
-        while i < horizon_len or not done:
+        while i < target_step or not done:
             tensor_state = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
             tensor_action = self.act.get_action(tensor_state.to(self.device)).detach().cpu()  # different
             next_state, reward, done, _ = env.step(tensor_action[0].numpy())  # different
@@ -106,79 +121,86 @@ class AgentBase:
             i += 1
             state = env.reset() if done else next_state
 
-        self.state[0] = state
+        self.states[0] = state
         last_dones[0] = i
         return self.convert_trajectory(traj_list, last_dones)  # traj_list
 
-    def explore_vec_env(self, env, horizon_len: int, random_exploration: bool) -> list:
+    def explore_vec_env(self, env, target_step: int) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
         :param env: RL training environment. env.reset() env.step(). It should be a vector env.
-        :param horizon_len: explored horizon_len number of step in env
+        :param target_step: explored target_step number of step in env
+        :return: `[traj, ...]`
+        `traj = [(state, reward, mask, action, noise), ...]` for on-policy
+        `traj = [(state, reward, mask, action), ...]` for off-policy
         """
-        obs = torch.zeros((horizon_len * self.env_num, self.state_dim)).to(self.device)
-        actions = torch.zeros((horizon_len * self.env_num, self.action_dim)).to(self.device)
-        rewards = torch.zeros((horizon_len * self.env_num)).to(self.device)
-        next_obs = torch.zeros((horizon_len * self.env_num, self.state_dim)).to(self.device)
-        dones = torch.zeros((horizon_len * self.env_num)).to(self.device)
+        traj_list = []
+        last_dones = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        states = self.states if self.if_use_old_traj else env.reset()
 
-        state = self.state if self.if_use_old_traj else env.reset()
-        done = torch.zeros(self.env_num).to(self.device)
+        i = 0
+        dones = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
+        while i < target_step or not any(dones):
+            actions = self.act.get_action(states).detach()  # different
+            next_states, rewards, dones, _ = env.step(actions)  # different
 
-        for i in range(horizon_len):
-            start = i * self.env_num
-            end = (i + 1) * self.env_num
-            obs[start:end] = state
-            dones[start:end] = done
+            traj_list.append((states.clone(), rewards.clone(), dones.clone(), actions))  # different
 
-            if random_exploration:
-                action = torch.rand((self.env_num, self.action_dim), device=self.device) * 2 - 1
-            else:
-                action = self.act.get_action(state).detach()  # different
-            next_state, reward, done, _ = env.step(action)  # different
-            state = next_state
+            i += 1
+            last_dones[torch.where(dones)[0]] = i  # behind `step_i+=1`
+            states = next_states
 
-            actions[start:end] = action
-            rewards[start:end] = reward
-            next_obs[start:end] = next_state
+        self.states = states
+        return self.convert_trajectory(traj_list, last_dones)  # traj_list
 
-            self.current_rewards += reward
-            self.current_lengths += 1
-            env_done_indices = torch.where(done == 1)
-            self.reward_tracker.update(self.current_rewards[env_done_indices])
-            self.step_tracker.update(self.current_lengths[env_done_indices])
-            not_dones = 1.0 - done.float()
-            self.current_rewards = self.current_rewards * not_dones
-            self.current_lengths = self.current_lengths * not_dones
-
-        self.state = state
-        return (obs, actions, self.reward_scale * rewards.reshape(-1, 1), next_obs, dones.reshape(-1, 1)), horizon_len * self.env_num
-
-    def update_net(self, buffer) -> tuple:
+    def update_net(self, buffer: ReplayBuffer) -> tuple:
         return 0.0, 0.0
 
-    def get_obj_critic(self, buffer, batch_size: int) -> (Tensor, Tensor):
+    def get_obj_critic_raw(self, buffer: ReplayBuffer, batch_size: int) -> (Tensor, Tensor):
         """
         Calculate the loss of networks with **uniform sampling**.
 
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and state.
+        :return: the loss of the network and states.
         """
         with torch.no_grad():
-            reward, done, action, state, next_state = buffer.sample_batch(batch_size)
-            next_a = self.act_target(next_state)
-            critic_targets: torch.Tensor = self.cri_target(next_state, next_a)
+            reward, mask, action, state, next_s = buffer.sample_batch(batch_size)
+            next_a = self.act_target(next_s)
+            critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
             (next_q, min_indices) = torch.min(critic_targets, dim=1, keepdim=True)
-            q_label = reward + done * next_q
+            q_label = reward + mask * next_q
 
         q = self.cri(state, action)
         obj_critic = self.criterion(q, q_label)
 
         return obj_critic, state
 
-    def optimizer_update(self, optimizer, objective):  # [ElegantRL 2021.11.11]
+    def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> (Tensor, Tensor):
+        """
+        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
+
+        :param buffer: the ReplayBuffer instance that stores the trajectories.
+        :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
+        :return: the loss of the network and states.
+        """
+        with torch.no_grad():
+            reward, mask, action, state, next_s, is_weights = buffer.sample_batch(batch_size)
+            next_a = self.act_target(next_s)
+            critic_targets: torch.Tensor = self.cri_target(next_s, next_a)
+            # taking a minimum while preserving the dimension for possible twin critics
+            (next_q, min_indices) = torch.min(critic_targets, dim=1, keepdim=True)
+            q_label = reward + mask * next_q
+
+        q = self.cri(state, action)
+        td_error = self.criterion(q, q_label)
+        obj_critic = (td_error * is_weights).mean()
+
+        buffer.td_error_update(td_error.detach())
+        return obj_critic, state
+
+    def optimizer_update(self, optimizer, objective): 
         """minimize the optimization objective via update the network parameters
 
         :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
@@ -219,7 +241,36 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    
+    def save_or_load_agent(self, cwd: str, if_save: bool):
+        """save or load training files for Agent
+
+        :param cwd: Current Working Directory. RL save training files in CWD.
+        :param if_save: True: save files. False: load files.
+        """
+
+        def load_torch_file(model, path: str):
+            state_dict = torch.load(path, map_location=lambda storage, loc: storage)
+            model.load_state_dict(state_dict)
+
+        name_obj_list = [
+            ("actor", self.act),
+            ("act_target", self.act_target),
+            ("act_optimizer", self.act_optimizer),
+            ("critic", self.cri),
+            ("cri_target", self.cri_target),
+            ("cri_optimizer", self.cri_optimizer),
+        ]
+        name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
+
+        if if_save:
+            for name, obj in name_obj_list:
+                save_path = f"{cwd}/{name}.pth"
+                torch.save(obj.state_dict(), save_path)
+        else:
+            for name, obj in name_obj_list:
+                save_path = f"{cwd}/{name}.pth"
+                load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
+
     def convert_trajectory(
             self, traj_list: List[Tuple[Tensor, ...]],
             last_done: Union[Tensor, list]
@@ -276,6 +327,16 @@ class AgentBase:
         # off-policy: buf_item = [states, rewards, dones, actions]
         # buf_items = [buf_item, ...]
         return traj_list3
+
+    def get_q_sum(self, buf_reward: Tensor, buf_mask: Tensor) -> Tensor:
+        total_size = buf_reward.shape[0]
+        buf_r_sum = torch.empty(total_size, dtype=torch.float32, device=self.device)  # reward sum
+
+        pre_r_sum = 0
+        for i in range(total_size - 1, -1, -1):
+            buf_r_sum[i] = buf_reward[i] + buf_mask[i] * pre_r_sum
+            pre_r_sum = buf_r_sum[i]
+        return buf_r_sum
 
     def save_or_load_agent(self, cwd: str, if_save: bool):
         """save or load training files for Agent
@@ -369,6 +430,11 @@ class AgentBase:
         return -obj_h.mean() * self.h_term_lambda
 
 
+def get_optim_param(optimizer: torch.optim) -> list:
+    params_list = []
+    for params_dict in optimizer.state_dict()["state"].values():
+        params_list.extend([t for t in params_dict.values() if isinstance(t, torch.Tensor)])
+    return params_list
 
 class Tracker:
     def __init__(self, max_len):
