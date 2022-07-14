@@ -26,7 +26,7 @@ class AgentSAC(AgentBase):
         obj_critic = torch.zeros(1)
         obj_actor = torch.zeros(1)
 
-        for _ in range(self.repeat_times):
+        for _ in range(int(self.repeat_times)):
             '''objective of critic (loss function of critic)'''
             obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
