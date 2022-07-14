@@ -28,15 +28,17 @@ def init_agent(args, gpu_id: int, env=None):
         agent.states = states
     return agent
 
+def init_buffer(args: Arguments, gpu_id: int) -> [ReplayBuffer or ReplayBufferList]:
+    if args.if_off_policy:
+        buffer = ReplayBuffer(gpu_id=gpu_id,
+                              max_capacity=args.max_memo,
+                              state_dim=args.state_dim,
+                              action_dim=1 if args.if_discrete else args.action_dim, )
+        buffer.save_or_load_history(args.cwd, if_save=False)
 
-def init_buffer(args, gpu_id: int) -> [ReplayBuffer]:
-    buffer = ReplayBuffer(gpu_id=gpu_id,
-                          max_capacity=args.replay_buffer_size,
-                          state_dim=args.state_dim,
-                          action_dim=1 if args.if_discrete else args.action_dim,
-                          if_use_per=args.if_use_per)
+    else:
+        buffer = ReplayBufferList()
     return buffer
-
 
 def init_evaluator(args, gpu_id: int) -> Evaluator:
     evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=args.env, args=args)
