@@ -501,7 +501,7 @@ class CriticPPO(nn.Module):
 
 
 class CriticTwin(nn.Module):  # shared parameter
-    def __init__(self, mid_dim, state_dim, action_dim):
+    def __init__(self, mid_dim,num_layer,  state_dim, action_dim):
         super().__init__()
         self.net_sa = nn.Sequential(
             nn.Linear(state_dim + action_dim, mid_dim),
