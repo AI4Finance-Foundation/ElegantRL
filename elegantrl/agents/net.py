@@ -477,19 +477,11 @@ class ActorDiscretePPO(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
+    def __init__(self, mid_dim: int, num_layer: int, state_dim: int, action_dim: int):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim + action_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, 1),
-        )
+        self.net = build_mlp(mid_dim, num_layer, input_dim=state_dim + action_dim, output_dim=1)
 
-    def forward(self, state, action):
+    def forward(self, state: Tensor, action: Tensor) -> Tensor:
         return self.net(torch.cat((state, action), dim=1))  # q value
 
 
