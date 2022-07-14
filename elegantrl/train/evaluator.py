@@ -7,6 +7,109 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class Evaluator:
+    def __init__(self, cwd: str, agent_id: int, eval_env, args: Arguments):
+        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder_path = f'{cwd}/recorder.npy'
+
+        self.cwd = cwd
+        self.agent_id = agent_id
+        self.eval_env = eval_env
+        self.eval_gap = args.eval_gap
+        self.eval_times1 = max(1, int(args.eval_times / np.e))
+        self.eval_times2 = max(0, int(args.eval_times - self.eval_times1))
+        self.target_return = args.target_return
+
+        self.r_max = -np.inf
+        self.eval_time = 0
+        self.used_time = 0
+        self.total_step = 0
+        self.start_time = time.time()
+        print(f"{'#' * 80}\n"
+              f"{'ID':<3}{'Step':>8}{'maxR':>8} |"
+              f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
+              f"{'expR':>8}{'objC':>7}{'etc.':>7}")
+
+    def evaluate_save_and_plot(self, act, steps: int, r_exp: float, log_tuple: tuple) -> (bool, bool):
+        self.total_step += steps  # update total training steps
+
+        if time.time() - self.eval_time < self.eval_gap:
+            if_reach_goal = False
+            if_save = False
+        else:
+            self.eval_time = time.time()
+
+            '''evaluate first time'''
+            rewards_steps_list = [get_cumulative_returns_and_step(self.eval_env, act)
+                                  for _ in range(self.eval_times1)]
+            rewards_steps_ary = np.array(rewards_steps_list, dtype=np.float32)
+
+            r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
+
+            '''evaluate second time'''
+            if r_avg > self.r_max:
+                rewards_steps_list.extend([get_cumulative_returns_and_step(self.eval_env, act)
+                                           for _ in range(self.eval_times2)])
+                rewards_steps_ary = np.array(rewards_steps_list, dtype=np.float32)
+                r_avg, s_avg = rewards_steps_ary.mean(axis=0)  # average of episode return and episode step
+
+            r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
+
+            '''save the policy network'''
+            if_save = r_avg > self.r_max
+            if if_save:  # save checkpoint with highest episode return
+                self.r_max = r_avg  # update max reward (episode return)
+
+                act_path = f"{self.cwd}/actor__{self.total_step:012}_{self.r_max:09.3f}.pth"
+                torch.save(act.state_dict(), act_path)  # save policy network in *.pth
+
+                print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
+
+            '''record the training information'''
+            self.recorder.append((self.total_step, r_avg, r_std, r_exp, *log_tuple))  # update recorder
+
+            '''print some information to Terminal'''
+            if_reach_goal = bool(self.r_max > self.target_return)  # check if_reach_goal
+            if if_reach_goal and self.used_time is None:
+                self.used_time = int(time.time() - self.start_time)
+                print(f"{'ID':<3}{'Step':>8}{'TargetR':>8} |"
+                      f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
+                      f"{'UsedTime':>8}  ########\n"
+                      f"{self.agent_id:<3}{self.total_step:8.2e}{self.target_return:8.2f} |"
+                      f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
+                      f"{self.used_time:>8}  ########")
+
+            print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |"
+                  f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
+                  f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
+
+            if hasattr(self.eval_env, 'curriculum_learning_for_evaluator'):
+                self.eval_env.curriculum_learning_for_evaluator(r_avg)
+
+            '''plot learning curve figure'''
+            if len(self.recorder) == 0:
+                print("| save_npy_draw_plot() WARNING: len(self.recorder)==0")
+                return None
+
+            np.save(self.recorder_path, self.recorder)
+
+            '''draw plot and save as figure'''
+            train_time = int(time.time() - self.start_time)
+            total_step = int(self.recorder[-1][0])
+            save_title = f"step_time_maxR_{int(total_step)}_{int(train_time)}_{self.r_max:.3f}"
+
+            save_learning_curve(self.recorder, self.cwd, save_title)
+
+        return if_reach_goal, if_save
+
+    def save_or_load_recoder(self, if_save: bool):
+        if if_save:
+            np.save(self.recorder_path, self.recorder)
+        elif os.path.exists(self.recorder_path):
+            recorder = np.load(self.recorder_path)
+            self.recorder = [tuple(i) for i in recorder]  # convert numpy to list
+            self.total_step = self.recorder[-1][0]
+
+class Evaluator_isaacgym:
     def __init__(self, cwd, agent_id, eval_env, args):
         self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
