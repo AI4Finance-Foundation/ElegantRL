@@ -41,8 +41,11 @@ def init_buffer(args: Arguments, gpu_id: int) -> [ReplayBuffer or ReplayBufferLi
         buffer = ReplayBufferList()
     return buffer
 
-def init_evaluator(args, gpu_id: int) -> Evaluator:
-    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=args.env, args=args)
+def init_evaluator(args: Arguments, gpu_id: int) -> Evaluator:
+    eval_func = args.eval_env_func if getattr(args, "eval_env_func") else args.env_func
+    eval_args = args.eval_env_args if getattr(args, "eval_env_args") else args.env_args
+    eval_env = build_env(args.env, eval_func, eval_args)
+    evaluator = Evaluator(cwd=args.cwd, agent_id=gpu_id, eval_env=eval_env, args=args)
     return evaluator
 
 
