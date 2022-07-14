@@ -5,7 +5,7 @@ from elegantrl.train.run import train_and_evaluate, train_and_evaluate_mp
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentDDPG import AgentDDPG, AgentDDPGHterm
 from elegantrl.agents.AgentTD3 import AgentTD3
-from elegantrl.agents.AgentSAC import AgentSAC, AgentReSAC, AgentReSACHterm, AgentReSACHtermK
+from elegantrl.agents.AgentSAC import AgentSAC
 
 
 def demo_ddpg_td3_sac(gpu_id, drl_id, env_id):  # 2022.02.02
@@ -16,7 +16,7 @@ def demo_ddpg_td3_sac(gpu_id, drl_id, env_id):  # 2022.02.02
                 'Hopper-v2',
                 'HalfCheetah-v2'
                 'Humanoid-v3', ][env_id]
-    agent = [AgentDDPG, AgentTD3, AgentSAC, AgentReSAC][drl_id]
+    agent = [AgentDDPG, AgentTD3, AgentSAC][drl_id]
 
     if env_name in {'Pendulum-v0', 'Pendulum-v1'}:
         from elegantrl.envs.CustomGymEnv import PendulumEnv
@@ -2144,7 +2144,7 @@ def demo_ddpg_h_term(gpu_id, drl_id, env_id):  # 2022.04.04
                 'Walker2d-v3',
                 'Humanoid-v3', ][env_id]
     agent_class = [AgentDDPG, AgentDDPGHterm, AgentTD3,
-                   AgentSAC, AgentReSAC, AgentReSACHterm, AgentReSACHtermK][drl_id]
+                   AgentSAC][drl_id]
 
     # from elegantrl.train.config import get_gym_env_args
     # env = gym.make(env_name)
