@@ -10,7 +10,6 @@ from elegantrl.train.config import Arguments
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
-
 class AgentDDPG(AgentBase):
     """
     Bases: ``AgentBase``
@@ -94,8 +93,6 @@ class AgentDDPG(AgentBase):
 
         buffer.td_error_update(td_error.detach())
         return obj_critic, state
-
-
 class AgentDDPGHterm(AgentDDPG):
     def update_net(self, buffer: ReplayBuffer) -> tuple:
         if (buffer.next_p - buffer.prev_p) % buffer.max_capacity > 2 ** 11:
