@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import numpy as np
 import numpy.random as rd
 import torch
