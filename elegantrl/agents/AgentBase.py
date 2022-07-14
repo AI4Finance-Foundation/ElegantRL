@@ -69,6 +69,10 @@ class AgentBase:
             self.explore_env = self.explore_vec_env
 
         self.criterion = torch.nn.SmoothL1Loss(reduction="mean")
+        self.traj_list = [
+            [list() for _ in range(4 if self.if_off_policy else 5)]
+            for _ in range(self.env_num)
+        ]  # for `self.explore_vec_env()`
 
         """tracker"""
         self.reward_tracker = Tracker(args.tracker_len)
