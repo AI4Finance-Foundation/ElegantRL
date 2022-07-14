@@ -279,7 +279,41 @@ class Evaluator_isaacgym:
 """util"""
 
 
-def get_cumulative_returns_and_step(env, act) -> (float, int):  # [ElegantRL.2022.03.03]
+def get_cumulative_returns_and_step(env, act) -> (float, int):  
+    """Usage
+    eval_times = 4
+    net_dim = 2 ** 7
+    actor_path = './LunarLanderContinuous-v2_PPO_1/actor.pth'
+
+    env = build_env(env_func=env_func, env_args=env_args)
+    act = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
+    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+
+    r_s_ary = [get_episode_return_and_step(env, act) for _ in range(eval_times)]
+    r_s_ary = np.array(r_s_ary, dtype=np.float32)
+    r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
+    """
+    max_step = env.max_step
+    if_discrete = env.if_discrete
+    device = next(act.parameters()).device  # net.parameters() is a Python generator.
+
+    state = env.reset()
+    steps = None
+    returns = 0.0  # sum of rewards in an episode
+    for steps in range(max_step):
+        tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        tensor_action = act(tensor_state).argmax(dim=1) if if_discrete else act(tensor_state)
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        state, reward, done, _ = env.step(action)
+        returns += reward
+        if done:
+            break
+    returns = getattr(env, 'cumulative_returns', returns)
+    steps += 1
+    return returns, steps
+
+
+def get_cumulative_returns_and_step_isaacgym(env, act) -> (float, int):  # [ElegantRL.2022.03.03]
     """Usage
     eval_times = 4
     net_dim = 2 ** 7
