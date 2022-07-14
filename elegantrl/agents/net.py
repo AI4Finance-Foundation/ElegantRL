@@ -237,7 +237,7 @@ class Actor(nn.Module):
 
 
 class ActorSAC(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
+    def __init__(self, mid_dim, num_layer,state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(
             nn.Linear(state_dim, mid_dim),
@@ -282,7 +282,7 @@ class ActorSAC(nn.Module):
 
 
 class ActorFixSAC(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
+    def __init__(self, mid_dim, num_layer, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(
             nn.Linear(state_dim, mid_dim),
