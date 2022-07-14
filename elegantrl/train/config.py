@@ -7,12 +7,12 @@ from pprint import pprint
 '''config for agent'''
 
 
+
 class Arguments:
-    def __init__(self, agent, env=None, env_func=None, env_args=None):
+    def __init__(self, agent_class=None, env=None, env_func=None, env_args: dict = None):
         self.env = env  # the environment for training
         self.env_func = env_func  # env = env_func(*env_args)
         self.env_args = env_args  # env = env_func(*env_args)
-        self.if_Isaac = True
 
         self.env_num = self.update_attr('env_num')  # env_num = 1. In vector env, env_num > 1.
         self.max_step = self.update_attr('max_step')  # the max step of an episode
@@ -21,39 +21,35 @@ class Arguments:
         self.action_dim = self.update_attr('action_dim')  # vector dimension (feature number) of action
         self.if_discrete = self.update_attr('if_discrete')  # discrete or continuous action space
         self.target_return = self.update_attr('target_return')  # target average episode return
-        self.target_step = 1e8
 
-        self.agent = agent  # DRL algorithm
-        self.net_dim = 2 ** 7  # the network width
-        self.layer_num = 2  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
-        self.if_off_policy = self.get_if_off_policy()  # agent is on-policy or off-policy
-        self.if_use_old_traj = True  # save old data to splice and get a complete trajectory (for vector env)
-        self.if_act_target = False
-        self.if_cri_target = True
+        self.agent_class = agent_class  # the class of DRL algorithm
+        self.net_dim = 2 ** 8  # the network width
+        self.num_layer = 3  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
         if self.if_off_policy:  # off-policy
-            self.replay_buffer_size = 1e6  # capacity of replay buffer
-            self.horizon_len = 1  # repeatedly update network to keep critic's loss small
+            self.max_memo = 2 ** 21  # capacity of replay buffer, 2 ** 21 ~= 2e6
+            self.target_step = 2 ** 10  # repeatedly update network to keep critic's loss small
             self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 0  # collect horizon_len, then update network
+            self.repeat_times = 2 ** 0  # collect target_step, then update network
             self.if_use_per = False  # use PER (Prioritized Experience Replay) for sparse reward
-            self.num_seed_steps = 2
-            self.num_steps_per_episode = 128 
         else:  # on-policy
-            self.if_use_per = False
-            self.replay_buffer_size = 2 ** 12  # capacity of replay buffer
-            self.horizon_len = self.replay_buffer_size  # repeatedly update network to keep critic's loss small
+            self.max_memo = 2 ** 12  # capacity of replay buffer
+            self.target_step = self.max_memo  # repeatedly update network to keep critic's loss small
             self.batch_size = self.net_dim * 2  # num of transitions sampled from replay buffer.
-            self.repeat_times = 2 ** 4  # collect horizon_len, then update network
-            self.if_use_gae = True  # use PER: GAE (Generalized Advantage Estimation) for sparse reward
+            self.repeat_times = 2 ** 4  # collect target_step, then update network
+            self.if_use_gae = False  # use PER: GAE (Generalized Advantage Estimation) for sparse reward
 
         '''Arguments for training'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
-        self.learning_rate = 2 ** -12  # 2 ** -15 ~= 3e-5
+        self.lambda_critic = 2 ** 0  # the objective coefficient of critic network
+        self.learning_rate = 2 ** -15  # 2 ** -15 ~= 3e-5
         self.soft_update_tau = 2 ** -8  # 2 ** -8 ~= 5e-3
+        self.clip_grad_norm = 3.0  # 0.1 ~ 4.0, clip the gradient after normalization
+        self.if_off_policy = self.if_off_policy()  # agent is on-policy or off-policy
+        self.if_use_old_traj = False  # save old data to splice and get a complete trajectory (for vector env)
 
         '''Arguments for device'''
-        self.worker_num = 1  # rollout workers number pre GPU (adjust it to get high GPU usage)
+        self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
         self.thread_num = 8  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
         self.random_seed = 0  # initialize random seed in self.init_before_training()
         self.learner_gpus = 0  # `int` means the ID of single GPU, -1 means CPU
@@ -62,15 +58,16 @@ class Arguments:
         self.cwd = None  # current working directory to save model. None means set automatically
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = +np.inf  # break training if 'total_step > break_step'
-        self.if_over_write = False  # over write the best policy network (actor.pth)
+        self.if_over_write = False  # overwrite the best policy network (actor.pth)
         self.if_allow_break = True  # allow break training when reach goal (early termination)
 
         '''Arguments for evaluate'''
-        self.tracker_len = 100 # todo
-        self.eval_gap = 1e6  # evaluate the agent per eval_gap seconds
-        self.reevaluate = False
+        self.save_gap = 2  # save the policy network (actor.pth) for learning curve, +np.inf means don't save
+        self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
         self.eval_times = 2 ** 4  # number of times that get episode return
-        
+        self.eval_env_func = None  # eval_env = eval_env_func(*eval_env_args)
+        self.eval_env_args = None  # eval_env = eval_env_func(*eval_env_args)
+
     def init_before_training(self):
         np.random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
@@ -79,7 +76,7 @@ class Arguments:
 
         '''auto set'''
         if self.cwd is None:
-            self.cwd = f'./result/{self.env_name}_{self.agent.__name__[5:]}_{self.random_seed}'
+            self.cwd = f'./{self.env_name}_{self.agent_class.__name__[5:]}_{self.learner_gpus}'
 
         '''remove history'''
         if self.if_remove is None:
@@ -93,11 +90,17 @@ class Arguments:
         os.makedirs(self.cwd, exist_ok=True)
 
     def update_attr(self, attr: str):
-        return getattr(self.env, attr) if self.env_args is None else self.env_args[attr]
+        try:
+            attribute_value = getattr(self.env, attr) if self.env_args is None else self.env_args[attr]
+        except Exception as error:
+            print(f"| Argument.update_attr() Error: {error}")
+            attribute_value = None
+        return attribute_value
 
-    def get_if_off_policy(self):
-        name = self.agent.__name__
-        return all((name.find('PPO') == -1, name.find('A2C') == -1))  # if_off_policy
+    def if_off_policy(self) -> bool:
+        name = self.agent_class.__name__
+        if_off_policy = all((name.find('PPO') == -1, name.find('A2C') == -1))
+        return if_off_policy
 
     def print(self):
         # prints out args in a neat, readable format
