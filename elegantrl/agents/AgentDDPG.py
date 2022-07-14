@@ -39,7 +39,7 @@ class AgentDDPG(AgentBase):
         self.explore_noise_std = getattr(args, 'explore_noise_std', 0.1)  # explore noise of action
         self.act.explore_noise_std = self.explore_noise_std
         self.act_target.explore_noise_std = self.act.explore_noise_std
-        # self.ou_noise = OrnsteinUhlenbeckNoise(size=action_dim, sigma=self.explore_noise_std)
+        
 
     def update_net(self, buffer: ReplayBuffer) -> tuple:
         obj_critic = torch.zeros(1)
@@ -78,8 +78,6 @@ class AgentDDPG(AgentBase):
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> (Tensor, Tensor):
         """
-        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
-
         :param buffer: the ReplayBuffer instance that stores the trajectories.
         :param batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
         :return: the loss of the network and states.
