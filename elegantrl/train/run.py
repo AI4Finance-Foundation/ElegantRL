@@ -11,8 +11,24 @@ from elegantrl.train.replay_buffer import ReplayBuffer, ReplayBufferList
 from elegantrl.train.config import Arguments
 from elegantrl.agents.AgentBase import AgentBase
 
+def init_agent(args: Arguments, gpu_id: int, env=None) -> AgentBase:
+    agent = args.agent_class(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
+    agent.save_or_load_agent(args.cwd, if_save=False)
 
-def init_agent(args, gpu_id: int, env=None):
+    if env is not None:
+        '''assign `agent.states` for exploration'''
+        if args.env_num == 1:
+            state = env.reset()
+            assert isinstance(state, np.ndarray) or isinstance(state, torch.Tensor)
+            assert state.shape in {(args.state_dim,), args.state_dim}
+            states = [state, ]
+        else:
+            states = env.reset()
+            assert isinstance(states, torch.Tensor)
+            assert states.shape == (args.env_num, args.state_dim)
+        agent.states = states
+    return agent
+def init_agent_isaacgym(args, gpu_id: int, env=None):
     agent = args.agent(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
     agent.save_or_load_agent(args.cwd, if_save=False)
 
