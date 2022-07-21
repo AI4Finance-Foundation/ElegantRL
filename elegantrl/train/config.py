@@ -25,7 +25,7 @@ class Arguments:
 
         self.agent = agent  # DRL algorithm
         self.net_dim = 2 ** 7  # the network width
-        self.layer_num = 2  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
+        self.num_layer = 2  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
         self.if_off_policy = self.get_if_off_policy()  # agent is on-policy or off-policy
         self.if_use_old_traj = True  # continue the last exploration
         self.obs_norm = False
