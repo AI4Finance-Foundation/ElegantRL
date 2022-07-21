@@ -13,7 +13,7 @@ The class should be initialized at the start of the training process. For exampl
 
    from elegantrl.train.config import Arguments
    from elegantrl.agents.AgentPPO import AgentPPO
-   from elegantrl.envs.Gym import build_env
+   from elegantrl.train.config import build_env
    import gym
    
    args = Arguments(build_env('Pendulum-v1'), AgentPPO())

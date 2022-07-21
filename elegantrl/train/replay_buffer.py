@@ -305,6 +305,42 @@ class ReplayBufferList(list):  # for on-policy
         torch.save(state_std, f"{cwd}/state_std.pt")
         print(f"| {self.__class__.__name__}: \nstate_std = {state_std}")
 
+
+class ReplayBufferList(list):  # for on-policy
+    def __init__(self):
+        list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
+
+    def update_buffer(self, traj_list):
+        cur_items = list(map(list, zip(*traj_list)))
+        self[:] = [torch.cat(item, dim=0) for item in cur_items]
+
+        steps = self[1].shape[0]
+        r_exp = self[1].mean().item()
+        return steps, r_exp
+
+    def get_state_norm(self, cwd='.'):
+        batch_size = 2 ** 10
+        buf_state = self[0]
+
+        state_len = buf_state.shape[0]
+        state_avg = torch.zeros_like(buf_state[0])
+        state_std = torch.zeros_like(buf_state[0])
+
+        i = 0
+        for i in range(0, state_len, batch_size):
+            state_avg += buf_state[i:i + batch_size].mean(axis=0)
+            state_std += buf_state[i:i + batch_size].std(axis=0)
+        i += 1
+
+        state_avg = state_avg / i
+        torch.save(state_avg, f"{cwd}/state_norm_avg.pt")
+        print(f"| {self.__class__.__name__}: state_avg {state_avg}")
+
+        state_std = state_std / i + 1e-6
+        torch.save(state_std, f"{cwd}/state_norm_std.pt")
+        print(f"| {self.__class__.__name__}: state_std {state_std}")
+
+
 class BinarySearchTree:
     """Binary Search Tree for PER
     Contributor: Github GyChou, Github mississippiu

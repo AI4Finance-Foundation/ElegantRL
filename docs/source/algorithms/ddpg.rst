@@ -25,7 +25,7 @@ Code Snippet
     import torch
     from elegantrl.run import train_and_evaluate
     from elegantrl.config import Arguments
-    from elegantrl.envs.gym import build_env
+    from elegantrl.train.config import build_env
     from elegantrl.agents.AgentDDPG import AgentDDPG
     
     # train and save

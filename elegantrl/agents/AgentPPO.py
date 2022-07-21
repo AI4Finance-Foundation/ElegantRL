@@ -1,14 +1,14 @@
+from typing import Tuple
+
 import numpy as np
 import torch
-import torch.nn as nn
-from torch.nn.utils import clip_grad_norm_
 from torch import Tensor
-from typing import List, Tuple
-from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
+
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.train.replay_buffer import ReplayBufferList, ReplayBuffer
-from elegantrl.train.config import Arguments #bug fix:NameError: name 'Arguments' is not defined def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
-from typing import Tuple
+from elegantrl.agents.net import ActorPPO, ActorDiscretePPO, CriticPPO, SharePPO
+from elegantrl.train.config import \
+    Arguments  # bug fix:NameError: name 'Arguments' is not defined def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
+from elegantrl.train.replay_buffer import ReplayBufferList
 
 """[ElegantRL.2021.12.12](github.com/AI4Fiance-Foundation/ElegantRL)"""
 
@@ -29,7 +29,7 @@ class AgentPPO(AgentBase):
     """
 
     def __init__(
-        self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
+            self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
     ):
         self.if_off_policy = False
         self.act_class = getattr(self, "act_class", ActorPPO)
@@ -48,7 +48,7 @@ class AgentPPO(AgentBase):
         )  # could be 0.95~0.99, GAE (ICLR.2016.)
 
         if getattr(
-            args, "if_use_gae", False
+                args, "if_use_gae", False
         ):  # GAE (Generalized Advantage Estimation) for sparse reward
             self.get_reward_sum = self.get_reward_sum_gae
         else:
@@ -87,7 +87,7 @@ class AgentPPO(AgentBase):
         last_done[0] = step_i
         return self.convert_trajectory(traj_list, last_done)  # traj_list
 
-    def explore_vec_env(self, env, target_step, random_exploration = None) -> list:
+    def explore_vec_env(self, env, target_step, random_exploration=None) -> list:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
@@ -138,9 +138,9 @@ class AgentPPO(AgentBase):
             buf_len = buf_state.shape[0]
 
             """get buf_r_sum, buf_logprob"""
-            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
             buf_value = [
-                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+                self.cri_target(buf_state[i: i + bs]) for i in range(0, buf_len, bs)
             ]
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
@@ -193,7 +193,7 @@ class AgentPPO(AgentBase):
         return obj_critic.item(), -obj_actor.item(), a_std_log.item()  # logging_tuple
 
     def get_reward_sum_raw(
-        self, buf_len, buf_reward, buf_mask, buf_value
+            self, buf_len, buf_reward, buf_mask, buf_value
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the **reward-to-go** and **advantage estimation**.
@@ -216,7 +216,7 @@ class AgentPPO(AgentBase):
         return buf_r_sum, buf_adv_v
 
     def get_reward_sum_gae(
-        self, buf_len, ten_reward, ten_mask, ten_value
+            self, buf_len, ten_reward, ten_mask, ten_value
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Calculate the **reward-to-go** and **advantage estimation** using GAE.
@@ -260,7 +260,7 @@ class AgentDiscretePPO(AgentPPO):
     """
 
     def __init__(
-        self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
+            self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
     ):
         self.act_class = getattr(self, "act_class", ActorDiscretePPO)
         self.cri_class = getattr(self, "cri_class", CriticPPO)
@@ -274,16 +274,16 @@ class AgentSharePPO(AgentPPO):
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(
-        self,
-        net_dim=256,
-        state_dim=8,
-        action_dim=2,
-        reward_scale=1.0,
-        gamma=0.99,
-        learning_rate=1e-4,
-        if_per_or_gae=False,
-        env_num=1,
-        gpu_id=0,
+            self,
+            net_dim=256,
+            state_dim=8,
+            action_dim=2,
+            reward_scale=1.0,
+            gamma=0.99,
+            learning_rate=1e-4,
+            if_per_or_gae=False,
+            env_num=1,
+            gpu_id=0,
     ):
         self.device = torch.device(
             f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
@@ -324,9 +324,9 @@ class AgentSharePPO(AgentPPO):
             # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
 
             """get buf_r_sum, buf_logprob"""
-            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
             buf_value = [
-                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+                self.cri_target(buf_state[i: i + bs]) for i in range(0, buf_len, bs)
             ]
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
@@ -335,7 +335,7 @@ class AgentSharePPO(AgentPPO):
                 buf_len, buf_reward, buf_mask, buf_value
             )  # detach()
             buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (
-                self.lambda_a_value / torch.std(buf_adv_v) + 1e-5
+                    self.lambda_a_value / torch.std(buf_adv_v) + 1e-5
             )
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
@@ -540,7 +540,7 @@ class AgentDiscretePPO(AgentPPO):
     """
 
     def __init__(
-        self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
+            self, net_dim: int, state_dim: int, action_dim: int, gpu_id=0, args=None
     ):
         self.act_class = getattr(self, "act_class", ActorDiscretePPO)
         self.cri_class = getattr(self, "cri_class", CriticPPO)
@@ -554,16 +554,16 @@ class AgentSharePPO(AgentPPO):
         self.obj_c = (-np.log(0.5)) ** 0.5  # for reliable_lambda
 
     def init(
-        self,
-        net_dim=256,
-        state_dim=8,
-        action_dim=2,
-        reward_scale=1.0,
-        gamma=0.99,
-        learning_rate=1e-4,
-        if_per_or_gae=False,
-        env_num=1,
-        gpu_id=0,
+            self,
+            net_dim=256,
+            state_dim=8,
+            action_dim=2,
+            reward_scale=1.0,
+            gamma=0.99,
+            learning_rate=1e-4,
+            if_per_or_gae=False,
+            env_num=1,
+            gpu_id=0,
     ):
         self.device = torch.device(
             f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
@@ -604,9 +604,9 @@ class AgentSharePPO(AgentPPO):
             # (ten_state, ten_action, ten_noise, ten_reward, ten_mask) = buffer
 
             """get buf_r_sum, buf_logprob"""
-            bs = 2**10  # set a smaller 'BatchSize' when out of GPU memory.
+            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
             buf_value = [
-                self.cri_target(buf_state[i : i + bs]) for i in range(0, buf_len, bs)
+                self.cri_target(buf_state[i: i + bs]) for i in range(0, buf_len, bs)
             ]
             buf_value = torch.cat(buf_value, dim=0)
             buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
@@ -615,7 +615,7 @@ class AgentSharePPO(AgentPPO):
                 buf_len, buf_reward, buf_mask, buf_value
             )  # detach()
             buf_adv_v = (buf_adv_v - buf_adv_v.mean()) * (
-                self.lambda_a_value / torch.std(buf_adv_v) + 1e-5
+                    self.lambda_a_value / torch.std(buf_adv_v) + 1e-5
             )
             # buf_adv_v: buffer data of adv_v value
             del buf_noise, buffer[:]
@@ -654,11 +654,13 @@ class AgentSharePPO(AgentPPO):
         a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
         return obj_critic.item(), obj_actor.item(), a_std_log.item()  # logging_tuple
 
+
 class AgentPPOHterm(AgentPPO):
-    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args: Arguments = None):
+    def __init__(self, net_dim: int, state_dim: int, action_dim: int, gpu_id: int = 0, args=None):
         AgentPPO.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
 
-    def update_net(self, buffer: ReplayBufferList):#bug fix:ImportError: cannot import name 'ReplayBufferList' from 'elegantrl.train.replay_buffer'
+    def update_net(self,
+                   buffer: ReplayBufferList):  # bug fix:ImportError: cannot import name 'ReplayBufferList' from 'elegantrl.train.replay_buffer'
         with torch.no_grad():
             buf_state, buf_reward, buf_mask, buf_action, buf_noise = [ten.to(self.device) for ten in buffer]
             buf_len = buf_state.shape[0]
@@ -708,4 +710,3 @@ class AgentPPOHterm(AgentPPO):
 
         action_std_log = getattr(self.act, 'action_std_log', torch.zeros(1)).mean()
         return obj_critic.item(), -obj_actor.item(), action_std_log.item()  # logging_tuple
-
