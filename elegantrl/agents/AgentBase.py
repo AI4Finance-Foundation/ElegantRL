@@ -1,15 +1,14 @@
 import os
-import torch
-import numpy as np
-import numpy.random as rd
-from copy import deepcopy
-from torch.nn.utils import clip_grad_norm_
-from torch import Tensor
-from typing import List, Tuple, Union 
 from collections import deque
-from elegantrl.train.replay_buffer import ReplayBuffer
-from elegantrl.train.config import Arguments
+from typing import List, Tuple, Union
 
+import numpy as np
+import torch
+from torch import Tensor
+from torch.nn.utils import clip_grad_norm_
+
+from elegantrl.train.config import Arguments
+from elegantrl.train.replay_buffer import ReplayBuffer
 
 
 class AgentBase:
@@ -203,7 +202,7 @@ class AgentBase:
         buffer.td_error_update(td_error.detach())
         return obj_critic, state
 
-    def optimizer_update(self, optimizer, objective): 
+    def optimizer_update(self, optimizer, objective):
         """minimize the optimization objective via update the network parameters
 
         :param optimizer: `optimizer = torch.optim.SGD(net.parameters(), learning_rate)`
@@ -370,6 +369,7 @@ class AgentBase:
             for name, obj in name_obj_list:
                 save_path = f"{cwd}/{name}.pth"
                 load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
+
     def get_buf_h_term_k(
             self, buf_state: Tensor, buf_action: Tensor, buf_mask: Tensor, buf_reward: Tensor
     ):
@@ -400,8 +400,8 @@ class AgentBase:
 
         r_min = np.min(np.array([item[4] for item in self.h_term_buffer]))
         r_max = np.max(np.array([item[5] for item in self.h_term_buffer]))
-        ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer]).squeeze(1) 
-        self.ten_r_norm = (ten_reward - r_min) / (r_max - r_min) 
+        ten_reward = torch.vstack([item[2].to(torch.float32) for item in self.h_term_buffer]).squeeze(1)
+        self.ten_r_norm = (ten_reward - r_min) / (r_max - r_min)
 
     def get_obj_h_term_k(self) -> Tensor:
         if self.ten_state is None or self.ten_state.shape[0] < 2 ** 12:
@@ -415,10 +415,10 @@ class AgentBase:
 
         '''hamilton (K-spin, K=k)'''
         hamilton = torch.zeros((h_term_batch_size,), dtype=torch.float32, device=self.device)
-        #print(h_term_batch_size, indices.shape, k0, self.ten_state.shape)
-        #print(self.ten_mask[:10])
-        #assert 0
-        obj_h = torch.zeros((h_term_batch_size, ), dtype=torch.float32, device=self.device)
+        # print(h_term_batch_size, indices.shape, k0, self.ten_state.shape)
+        # print(self.ten_mask[:10])
+        # assert 0
+        obj_h = torch.zeros((h_term_batch_size,), dtype=torch.float32, device=self.device)
         discount = 1.0
         for k1 in range(k0 - 1, -1, -1):
             indices_k = indices - k1
@@ -429,7 +429,7 @@ class AgentBase:
             discount *= self.h_term_gamma
             logprob = self.act.get_logprob(ten_state, ten_action)
             hamilton = logprob.sum(dim=1) + hamilton
-            obj_h += hamilton.clamp(-16,2) * self.ten_r_norm[indices_k] * discount
+            obj_h += hamilton.clamp(-16, 2) * self.ten_r_norm[indices_k] * discount
         return -obj_h.mean() * self.h_term_lambda
 
 
@@ -438,6 +438,7 @@ def get_optim_param(optimizer: torch.optim) -> list:
     for params_dict in optimizer.state_dict()["state"].values():
         params_list.extend([t for t in params_dict.values() if isinstance(t, torch.Tensor)])
     return params_list
+
 
 class Tracker:
     def __init__(self, max_len):

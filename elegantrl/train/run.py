@@ -1,15 +1,16 @@
+import multiprocessing as mp
 import os
 import time
-import torch
+
 import numpy as np
-import multiprocessing as mp
+import torch
 
-
+from elegantrl.agents.AgentBase import AgentBase
+from elegantrl.train.config import Arguments
 from elegantrl.train.config import build_env
 from elegantrl.train.evaluator import Evaluator
 from elegantrl.train.replay_buffer import ReplayBuffer, ReplayBufferList
-from elegantrl.train.config import Arguments
-from elegantrl.agents.AgentBase import AgentBase
+
 
 def init_agent(args: Arguments, gpu_id: int, env=None) -> AgentBase:
     agent = args.agent_class(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
@@ -28,6 +29,8 @@ def init_agent(args: Arguments, gpu_id: int, env=None) -> AgentBase:
             assert states.shape == (args.env_num, args.state_dim)
         agent.states = states
     return agent
+
+
 def init_agent_isaacgym(args, gpu_id: int, env=None):
     agent = args.agent(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
     agent.save_or_load_agent(args.cwd, if_save=False)
@@ -45,6 +48,7 @@ def init_agent_isaacgym(args, gpu_id: int, env=None):
         agent.states = states
     return agent
 
+
 def init_buffer(args: Arguments, gpu_id: int) -> [ReplayBuffer or ReplayBufferList]:
     if args.if_off_policy:
         buffer = ReplayBuffer(gpu_id=gpu_id,
@@ -56,6 +60,7 @@ def init_buffer(args: Arguments, gpu_id: int) -> [ReplayBuffer or ReplayBufferLi
     else:
         buffer = ReplayBufferList()
     return buffer
+
 
 def init_evaluator(args: Arguments, gpu_id: int) -> Evaluator:
     eval_func = args.eval_env_func if getattr(args, "eval_env_func") else args.env_func
@@ -127,9 +132,6 @@ def train_and_evaluate(args):
     agent.save_or_load_agent(cwd, if_save=True)
 
 
-
-
-
 '''train multiple process'''
 
 
@@ -192,19 +194,19 @@ class PipeWorker:
             trajectory = agent.explore_env(env, target_step)
             self.pipes[worker_id][0].send(trajectory)
 
-#import wandb
+
+# import wandb
 class PipeLearner:
     def __init__(self):
-        #wandb.init(project="DDPG_H")
+        # wandb.init(project="DDPG_H")
         pass
-        
 
     @staticmethod
     def run(args: Arguments, comm_eva: mp.Pipe, comm_exp: mp.Pipe):
         torch.set_grad_enabled(False)
         gpu_id = args.learner_gpus
         cwd = args.cwd
-        #wandb.init(project="DDPG_H")
+        # wandb.init(project="DDPG_H")
 
         '''init'''
         agent = init_agent(args, gpu_id)
@@ -219,7 +221,7 @@ class PipeLearner:
             torch.set_grad_enabled(True)
             logging_tuple = agent.update_net(buffer)
             torch.set_grad_enabled(False)
-            #wandb.log({"obj_cri": logging_tuple[0], "obj_act": logging_tuple[1]})
+            # wandb.log({"obj_cri": logging_tuple[0], "obj_act": logging_tuple[1]})
             if_train, if_save = comm_eva.evaluate_and_save_mp(agent.act, steps, r_exp, logging_tuple)
         agent.save_or_load_agent(cwd, if_save=True)
         print(f'| Learner: Save in {cwd}')

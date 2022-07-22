@@ -45,7 +45,7 @@ def demo(seed, config):
     args.eval_gap = 1e6
     args.learner_gpus = gpu_id
     args.random_seed = seed
-    args.cwd = f'./result/{args.env_name}_{args.agent.__name__[5:]}_{args.env_num}envs/{args.random_seed}'
+    args.cwd = f'./result/{args.env_name}_{args.agent_class.__name__[5:]}_{args.env_num}envs/{args.random_seed}'
 
     train_and_evaluate(args)
 
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     #     'horizon_len': 32,
     #     'batch_size': 16384,
     # }
-    #config = {
+    # config = {
     #     'env_name': 'ShadowHand',
     #     'env_num': 16384,
     #     'state_dim': 211,
@@ -81,7 +81,7 @@ if __name__ == '__main__':
     #     'reward_scale': 0.01,
     #     'horizon_len': 8,
     #     'batch_size': 32768,
-    #}
+    # }
     # config = {
     #     'env_name': 'Anymal',
     #     'env_num': 4096,
