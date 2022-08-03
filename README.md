@@ -6,7 +6,7 @@
 [![PyPI](https://img.shields.io/pypi/v/elegantrl.svg)](https://pypi.org/project/elegantrl/)
 
 <br/>
-<a href="https://github.com/AI4Finance-LLC/ElegantRL" target="\_blank">
+<a href="https://github.com/AI4Finance-Foundation/ElegantRL" target="\_blank">
 	<div align="center">
 		<img src="figs/icon.jpg" width="40%"/> 
 	</div>
