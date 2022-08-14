@@ -1,6 +1,6 @@
-## Readme of helloworld 
+## ElegantRL helloworld 
 
-Three algorithms are 
+Three algorithms are included: 
 - Deep Q-Network (DQN): the first DRL algorithm.
 - Deep Deterministic Policy Gradient (DDPG): the first Actor-Critic DRL algorithm.
 - Proximal Policy Gradient (PPO): a popular DRL algorithm.
@@ -42,11 +42,11 @@ One sentence summary: an agent `agent.py` with Actor-Critic networks `net.py` is
 
 ---
 
-## The training logging
+## The training log
 
-The training logging of DQN:
+The training log of DQN:
 ```
-| `step`: Number of samples, or total training steps, or running times of `env.step()`.
+| `step`: Number of samples
 | `time`: Time spent from the start of training to this moment.
 | `avgR`: Average value of cumulative rewards, which is the sum of rewards in an episode.
 | `stdR`: Standard dev of cumulative rewards, which is the sum of rewards in an episode.
