@@ -390,8 +390,8 @@ class AgentMAPPO:
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
-        for k, v in train_info.items():
-            v /= num_updates
+        for k in train_info.keys():
+            train_info[k] /= num_updates
 
         return train_info
 
