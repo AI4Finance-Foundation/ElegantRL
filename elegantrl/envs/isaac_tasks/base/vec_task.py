@@ -585,7 +585,7 @@ class VecTask(Env):
         self.last_step = self.gym.get_frame_count(self.sim)
         if self.first_randomization:
             do_nonenv_randomize = True
-            env_ids = list(range(self.num_envs))
+            env_ids = [range(self.num_envs)]
         else:
             do_nonenv_randomize = (self.last_step - self.last_rand_step) >= rand_freq
             rand_envs = torch.where(

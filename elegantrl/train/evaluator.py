@@ -9,7 +9,7 @@ from elegantrl.train.config import Arguments
 
 class Evaluator:
     def __init__(self, cwd: str, agent_id: int, eval_env, args: Arguments):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = []  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
         self.cwd = cwd
@@ -112,7 +112,7 @@ class Evaluator:
 
 class Evaluator_isaacgym:
     def __init__(self, cwd, agent_id, eval_env, args):
-        self.recorder = list()  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = []  # total_step, r_avg, r_std, obj_c, ...
         self.recorder_path = f'{cwd}/recorder.npy'
 
         self.cwd = cwd
@@ -350,8 +350,8 @@ def get_cumulative_returns_and_step_isaacgym(env, act) -> (float, int):  # [Eleg
 def get_rewards_step_list_from_vec_env(env, act) -> list:  # todo
     device = env.device
 
-    rewards_ary = list()
-    dones_ary = list()
+    rewards_ary = []
+    dones_ary = []
     state = env.reset()
     for _ in range(env.max_step):
         action = act(state.to(device))
@@ -366,8 +366,8 @@ def get_rewards_step_list_from_vec_env(env, act) -> list:  # todo
     # assert rewards_ary.shape == (env.env_num, )
     # assert dones_ary.shape == (env.env_num, )
 
-    reward_list = list()
-    steps_list = list()
+    reward_list = []
+    steps_list = []
     for i in range(env.env_num):
         dones_where = torch.where(dones_ary[:, i] == 1)[0]
         episode_num = dones_where.shape[0]
@@ -391,7 +391,7 @@ def get_rewards_step_list_from_vec_env(env, act) -> list:  # todo
     #       f'\n             std {steps_list.std(0):9.2f}'
     #       f'\n     episode_num {steps_list.shape[0]}')
     # return reward_list, steps_list
-    reward_step_list = list(zip(reward_list, steps_list))
+    reward_step_list = [zip(reward_list, steps_list)]
     return reward_step_list
 
 
@@ -533,7 +533,7 @@ def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval
     act = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
 
     '''evaluate'''
-    step_epi_r_s_ary = list()
+    step_epi_r_s_ary = []
 
     act_names = [name for name in os.listdir(dir_path) if len(name) == 19]
     from tqdm import tqdm
@@ -665,7 +665,7 @@ def run():
     #     np.savetxt(f"{dir_path}-step_epi_r_s_ary.txt", step_epi_r_s_ary)
 
     '''load step_epi_r_s_ary'''
-    step_epi_r_s_ary = list()
+    step_epi_r_s_ary = []
 
     cwd_path = '.'
     ary_names = [name for name in os.listdir('.')
@@ -682,7 +682,7 @@ def run():
     import matplotlib.pyplot as plt
     # plt.plot(step_epi_r_s_ary[:, 0], step_epi_r_s_ary[:, 1])
 
-    plot_x_y_up_dw_step = list()
+    plot_x_y_up_dw_step = []
     n = 8
     for i in range(0, len(step_epi_r_s_ary), n):
         y_ary = step_epi_r_s_ary[i:i + n, 1]

@@ -531,7 +531,7 @@ class CriticREDQ(nn.Module):  # modified REDQ (Randomized Ensemble Double Q-lear
     def __init__(self, mid_dim, state_dim, action_dim):
         super().__init__()
         self.critic_num = 8
-        self.critic_list = list()
+        self.critic_list = []
         for critic_id in range(self.critic_num):
             child_cri_net = Critic(mid_dim, state_dim, action_dim).net
             setattr(self, f"critic{critic_id:02}", child_cri_net)
@@ -802,7 +802,7 @@ class ShareSPG(nn.Module):  # SPG means stochastic policy gradient
 
 def build_mlp(mid_dim, num_layer, input_dim, output_dim):  # MLP (MultiLayer Perceptron)
     assert num_layer >= 1
-    net_list = list()
+    net_list = []
     if num_layer == 1:
         net_list.extend([nn.Linear(input_dim, output_dim), ])
     else:  # elif num_layer >= 2:

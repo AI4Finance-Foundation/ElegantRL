@@ -385,7 +385,7 @@ class Trifinger(VecTask):
         ]
         self._fingertips_handles = OrderedDict.fromkeys(fingertips_frames, None)
         # mapping from name to gym dof index
-        robot_dof_names = list()
+        robot_dof_names = []
         for finger_pos in ["0", "120", "240"]:
             robot_dof_names += [
                 f"finger_base_to_upper_joint_{finger_pos}",
@@ -484,7 +484,7 @@ class Trifinger(VecTask):
         self._last_action = torch.zeros(
             self.num_envs, action_dim, dtype=torch.float, device=self.device
         )
-        fingertip_handles_indices = list(self._fingertips_handles.values())
+        fingertip_handles_indices = [self._fingertips_handles.values()]
         object_indices = self.gym_indices["object"]
         # timestep 0 is current tensor
         curr_history_length = 0
@@ -614,7 +614,7 @@ class Trifinger(VecTask):
         # initialize gym indices buffer as a list
         # note: later the list is converted to torch tensor for ease in interfacing with IsaacGym.
         for asset_name in self.gym_indices.keys():
-            self.gym_indices[asset_name] = list()
+            self.gym_indices[asset_name] = []
         # count number of shapes and bodies
         max_agg_bodies = 0
         max_agg_shapes = 0
@@ -943,7 +943,7 @@ class Trifinger(VecTask):
             )
 
         # extract frame handles
-        fingertip_handles_indices = list(self._fingertips_handles.values())
+        fingertip_handles_indices = [self._fingertips_handles.values()]
         object_indices = self.gym_indices["object"]
         # update state histories
         self._fingertips_frames_state_history.appendleft(

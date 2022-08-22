@@ -62,7 +62,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
-        traj_list = list()
+        traj_list = []
         last_done = [
             0,
         ]
@@ -95,7 +95,7 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where each trajectory is a list of transitions [(state, other), ...].
         """
-        traj_list = list()
+        traj_list = []
         last_done = torch.zeros(self.env_num, dtype=torch.int, device=self.device)
         ten_s = self.states
 
@@ -391,7 +391,7 @@ class AgentPPO_isaacgym(AgentBase):
         self.act_update_gap = getattr(args, 'act_update_gap', 1)
 
     def explore_one_env(self, env, horizon_len: int) -> list:
-        traj_list = list()
+        traj_list = []
         last_dones = [0, ]
         state = self.state[0]
 
@@ -455,8 +455,8 @@ class AgentPPO_isaacgym(AgentBase):
         assert buffer_size >= self.batch_size
 
         '''update network'''
-        obj_critic_list = list()
-        obj_actor_list = list()
+        obj_critic_list = []
+        obj_actor_list = []
         indices = np.arange(buffer_size)
         for epoch in range(self.repeat_times):
             np.random.shuffle(indices)

@@ -251,8 +251,8 @@ def check_isaac_gym(env_name='Ant', gpu_id=0):
     from tqdm import trange
 
     device = torch.device(f"cuda:{gpu_id}")
-    rewards_ary = list()
-    dones_ary = list()
+    rewards_ary = []
+    dones_ary = []
     env.reset()
     print()
     for _ in trange(env.max_step * 2):
@@ -267,8 +267,8 @@ def check_isaac_gym(env_name='Ant', gpu_id=0):
     print(f'\nrewards_ary.shape {rewards_ary.shape}'
           f'\ndones_ary.shape   {dones_ary.shape}')
 
-    reward_list = list()
-    steps_list = list()
+    reward_list = []
+    steps_list = []
     print()
     for i in trange(env.env_num):
         dones_where = torch.where(dones_ary[:, i] == 1)[0]

@@ -89,7 +89,7 @@ class AgentBase:
         self.h_term_update_gap = getattr(args, 'h_term_update_gap', 1)
         self.h_term_drop_rate = getattr(args, 'h_term_drop_rate', 2 ** -3)  # drop the data in H-term ReplayBuffer
         self.h_term_sample_rate = getattr(args, 'h_term_sample_rate', 2 ** -4)  # sample the data in H-term ReplayBuffer
-        self.h_term_buffer = list()
+        self.h_term_buffer = []
         self.ten_state = None
         self.ten_action = None
         self.ten_r_norm = None
@@ -279,7 +279,7 @@ class AgentBase:
     ) -> List[Tensor]:
         # assert len(buf_items[0]) in {4, 5}
         # assert len(buf_items[0][0]) == self.env_num
-        traj_list1 = list(map(list, zip(*traj_list)))  # state, reward, done, action, noise
+        traj_list1 = [map(list, zip(*traj_list))]  # state, reward, done, action, noise
         del traj_list
         # assert len(buf_items[0]) == step
         # assert len(buf_items[0][0]) == self.env_num
@@ -306,9 +306,9 @@ class AgentBase:
         del traj_list1
 
         '''splice items'''
-        traj_list3 = list()
+        traj_list3 = []
         for j in range(len(traj_list2)):
-            cur_item = list()
+            cur_item = []
             buf_item = traj_list2[j]
 
             for env_i in range(self.env_num):
