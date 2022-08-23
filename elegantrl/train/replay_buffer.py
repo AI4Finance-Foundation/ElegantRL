@@ -126,7 +126,7 @@ class ReplayBuffer:  # for off-policy
             self.sample_batch = self.sample_batch_per
 
     def update_buffer(self, traj_list: List[List]):
-        traj_items = list(map(list, zip(*traj_list)))
+        traj_items = [map(list, zip(*traj_list))]
 
         states, rewards, masks, actions = [torch.cat(item, dim=0) for item in traj_items]
         self.add_capacity = rewards.shape[0]
@@ -277,7 +277,7 @@ class ReplayBufferList(list):  # for on-policy
         list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
 
     def update_buffer(self, traj_list: List[List]) -> (int, float):
-        cur_items = list(map(list, zip(*traj_list)))
+        cur_items = [map(list, zip(*traj_list))]
         self[:] = [torch.cat(item, dim=0) for item in cur_items]
 
         steps = self[1].shape[0]
@@ -311,7 +311,7 @@ class ReplayBufferList(list):  # for on-policy
         list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
 
     def update_buffer(self, traj_list):
-        cur_items = list(map(list, zip(*traj_list)))
+        cur_items = [map(list, zip(*traj_list))]
         self[:] = [torch.cat(item, dim=0) for item in cur_items]
 
         steps = self[1].shape[0]

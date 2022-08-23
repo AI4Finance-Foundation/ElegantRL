@@ -71,7 +71,7 @@ class Critic(nn.Module):
 
 
 def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
-    net_list = list()
+    net_list = []
     for i in range(len(dims) - 1):
         net_list.extend([nn.Linear(dims[i], dims[i + 1]), nn.ReLU()])
     del net_list[-1]  # remove the activation of output layer
@@ -311,7 +311,7 @@ class Evaluator:
         self.eval_times = eval_times  # number of times that get episodic cumulative return
         self.eval_per_step = eval_per_step  # evaluate the agent per training steps
 
-        self.recorder = list()
+        self.recorder = []
         print("\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
               "\n| `time`: Time spent from the start of training to this moment."
               "\n| `avgR`: Average value of cumulative rewards, which is the sum of rewards in an episode."

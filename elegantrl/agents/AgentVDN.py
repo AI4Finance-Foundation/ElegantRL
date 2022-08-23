@@ -23,7 +23,7 @@ class AgentVDN:
         self.mac = mac
         self.logger = logger
 
-        self.params = list(mac.parameters())
+        self.params = [mac.parameters()]
 
         self.last_target_update_episode = 0
 
@@ -31,7 +31,7 @@ class AgentVDN:
         if args.mixer is not None:
             args.mixer == "vdn"
             self.mixer = VDN()
-            self.params += list(self.mixer.parameters())
+            self.params += [self.mixer.parameters()]
             self.target_mixer = copy.deepcopy(self.mixer)
 
         self.optimiser = RMSprop(

@@ -31,11 +31,11 @@ class AgentQMix:
 
         self.last_target_update_episode = 0
         self.device = th.device("cuda" if args.use_cuda else "cpu")
-        self.params = list(mac.parameters())
+        self.params = [mac.parameters()]
         self.mixer = QMix(args)
 
         self.target_mixer = copy.deepcopy(self.mixer)
-        self.params += list(self.mixer.parameters())
+        self.params += [self.mixer.parameters()]
 
         if self.args.optimizer == "adam":
             self.optimiser = Adam(

@@ -138,7 +138,7 @@ def train_and_evaluate(args):
 def train_and_evaluate_mp(args: Arguments):
     args.init_before_training()
 
-    process = list()
+    process = []
     mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 
     evaluator_pipe = PipeEvaluator()

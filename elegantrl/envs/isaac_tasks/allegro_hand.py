@@ -410,9 +410,9 @@ class AllegroHand(VecTask):
 
         shadow_hand_rb_count = self.gym.get_asset_rigid_body_count(shadow_hand_asset)
         object_rb_count = self.gym.get_asset_rigid_body_count(object_asset)
-        self.object_rb_handles = list(
+        self.object_rb_handles = [
             range(shadow_hand_rb_count, shadow_hand_rb_count + object_rb_count)
-        )
+        ]
 
         for i in range(self.num_envs):
             # create env instance

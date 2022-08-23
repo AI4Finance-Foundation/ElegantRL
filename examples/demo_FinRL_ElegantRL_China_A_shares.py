@@ -61,7 +61,7 @@ class StockTradingEnv:
             self.amount = self.initial_amount
             self.shares = np.zeros(self.shares_num, dtype=np.float32)
 
-        self.rewards = list()
+        self.rewards = []
         self.total_asset = (self.close_ary[self.day] * self.shares).sum() + self.amount
         return self.get_state()
 
@@ -118,8 +118,8 @@ class StockTradingEnv:
         elif os.path.exists(self.df_pwd):  # convert pandas.DataFrame to numpy.array
             df = pd.read_pickle(self.df_pwd)
 
-            tech_ary = list()
-            close_ary = list()
+            tech_ary = []
+            close_ary = []
             df_len = len(df.index.unique())  # df_len = max_step
             for day in range(df_len):
                 item = df.loc[day]
@@ -361,7 +361,7 @@ class AgentPPO:
 
         self.states = None  # assert self.states == (self.env_num, state_dim)
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-        self.traj_list = [[list() for _ in range(4 if self.if_off_policy else 5)]
+        self.traj_list = [[[] for _ in range(4 if self.if_off_policy else 5)]
                           for _ in range(self.env_num)]  # for `self.explore_vec_env()`
 
         act_class = getattr(self, "act_class", None)
@@ -463,7 +463,7 @@ class AgentPPO:
         # assert len(buf_items) == step_i
         # assert len(buf_items[0]) in {4, 5}
         # assert len(buf_items[0][0]) == self.env_num
-        traj_list = list(map(list, zip(*traj_list)))  # state, reward, done, action, noise
+        traj_list = [map(list, zip(*traj_list))]  # state, reward, done, action, noise
         # assert len(buf_items) == {4, 5}
         # assert len(buf_items[0]) == step
         # assert len(buf_items[0][0]) == self.env_num
@@ -488,7 +488,7 @@ class ReplayBufferList(list):  # for on-policy
         list.__init__(self)
 
     def update_buffer(self, traj_list):
-        cur_items = list(map(list, zip(*traj_list)))
+        cur_items = [map(list, zip(*traj_list))]
         self[:] = [torch.cat(item, dim=0) for item in cur_items]
 
         steps = self[1].shape[0]

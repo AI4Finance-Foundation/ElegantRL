@@ -26,7 +26,7 @@ def train_agent(args: Config):
         buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
         buffer.update(buffer_items)  # warm up for ReplayBuffer
     else:
-        buffer = list()
+        buffer = []
 
     '''start training'''
     cwd = args.cwd
@@ -79,7 +79,7 @@ class Evaluator:
         self.eval_times = eval_times  # number of times that get episodic cumulative return
         self.eval_per_step = eval_per_step  # evaluate the agent per training steps
 
-        self.recorder = list()
+        self.recorder = []
         print("| Evaluator:"
               "\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
               "\n| `time`: Time spent from the start of training to this moment."

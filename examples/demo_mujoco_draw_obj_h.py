@@ -5137,8 +5137,8 @@ def demo_get_h_term_curve_from_str():
 """
 
     data = data11.split('\n')[1:-1]
-    ary1 = list()
-    ary2 = list()
+    ary1 = []
+    ary2 = []
     for item in data:
         item1 = item.split(' ')
 
