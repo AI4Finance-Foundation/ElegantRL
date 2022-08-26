@@ -90,9 +90,8 @@ def train_and_evaluate(args):
 
     agent.state = env.reset()
     if args.if_off_policy:
-        trajectory, step = agent.explore_env(env, args.num_seed_steps * args.num_steps_per_episode, True)
+        trajectory = agent.explore_env(env, args.num_seed_steps * args.num_steps_per_episode)
         buffer.update_buffer(trajectory)
-        steps += step
 
     '''start training'''
     cwd = args.cwd
@@ -104,8 +103,8 @@ def train_and_evaluate(args):
 
     if_train = True
     while if_train:
-        trajectory, step = agent.explore_env(env, horizon_len, False)
-        steps += step
+        trajectory = agent.explore_env(env, horizon_len)
+        steps, r_exp = buffer.update_buffer((trajectory,))
         if if_off_policy:
             buffer.update_buffer(trajectory)
             torch.set_grad_enabled(True)
@@ -116,9 +115,9 @@ def train_and_evaluate(args):
             logging_tuple = agent.update_net(trajectory)
             torch.set_grad_enabled(False)
 
-        r_exp = agent.reward_tracker.mean()
-        step_exp = agent.step_tracker.mean()
-        (if_reach_goal, if_save) = evaluator.evaluate_save_and_plot(agent.act, steps, r_exp, step_exp, logging_tuple)
+        #r_exp = agent.reward_tracker.mean()
+        #step_exp = agent.step_tracker.mean()
+        (if_reach_goal, if_save) = evaluator.evaluate_save_and_plot(agent.act, steps, r_exp, logging_tuple)
         dont_break = not if_allow_break
         not_reached_goal = not if_reach_goal
         stop_dir_absent = not os.path.exists(f"{cwd}/stop")
@@ -138,7 +137,7 @@ def train_and_evaluate(args):
 def train_and_evaluate_mp(args: Arguments):
     args.init_before_training()
 
-    process = []
+    process = list()
     mp.set_start_method(method='spawn', force=True)  # force all the multiprocessing to 'spawn' methods
 
     evaluator_pipe = PipeEvaluator()
