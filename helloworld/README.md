@@ -82,7 +82,9 @@ The training logging of PPO:
 
 ---
 
-# The API of ElegantRL(Helloworld) and ElegantRL
+# Discuss at BBS forum page: 
+
+# APIs of ElegantRL, Helloworld
 
 ```
 run.py 
