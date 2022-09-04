@@ -82,9 +82,7 @@ The training logging of PPO:
 
 ---
 
-# Discuss at BBS forum page: 
-
-# APIs of ElegantRL, Helloworld
+# The API of ElegantRL(Helloworld) and ElegantRL
 
 ```
 run.py 
@@ -179,7 +177,7 @@ ElegantRL库 所有算法的基类，基类的初始化方法，会记录训练�
 
 - 输入：
   - `target_net: nn.module` 需要被更新的目标网络
-  - `current_net： nn.module` 用于更新目标网络的当前网络
+  - `current_net：nn.module` 用于更新目标网络的当前网络
   - `tau：float` 是一个位于0.0到1.0之间的数值。`tau=1.0`表示直接把`current_net`复制给`target_net`，相当于在“硬更新”。 `tau` 越大更新给`target_net` 带来的更新幅度越大。软更新使用这条公式`target_net = target_net * (1-tau) +current_net * tau`
   - `gpu_id: int` 表示GPU的编号，用于获取计算设备，`gpu_id=-1`表示用CPU计算。有`torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")`
   - `args: Config()` 记录超参数的类。强化学习的超参数多，我们整理出必要超参数放在 `Config()`这个类里，如果想要RL算法需要用到新增超参数，可以用 `args=Config(); args.xxxx=*` 直接新建超参数，避免频繁修改库的底层文件。所以这里才使用 args 去传递超参数，而不是直接将超参数在 `__init__` 里面展开。（欢迎讨论更好的超参数传输方法）
@@ -191,11 +189,24 @@ ElegantRL库 所有算法的基类，基类的初始化方法，会记录训练�
 
 **todo 描述 DQN算法以及它的变体相对于 AgentBase 的差别**
 
-`explore_env(env, horizon_len, if_random) -> buffer_items`
-- 描述：探索环境
+`explore_env(env, horizon_len, if_random) -> (state, action, reward, done, next_state, info_dict)`
+- 描述：让智能体在环境中探索，并收集用于训练的数据
 - 输入：
+  - `env:` 用于智能体训练的仿真环境，含有两个方法：重置环境`env.reset()`，与智能体互动`env.step()`
+  - `horizon_len: int` 在每一轮探索中，智能体与环境的互动步数。它控制了每轮更新中，将会有多少新的数据用于训练网络。如果智能体在达到`horizon_len`之前提前触发`done=True`，那么程序将会自行调用`env.reset()`去重置环境。
 - 输出：
-- 用法：
+  - `state: Tensor` 按时刻有序排列的状态state
+  - `action: Tensor` 按时刻有序排列的动作action，如果是离散动作，那么这里将记录 `torch.long`格式的整数
+  - `reward: Tensor` 按时刻有序排列的奖励reward
+  - `done: Tensor` 按时刻有序排列的停止标记done。episode结束时有`done=True`，其余时刻`done=False`
+  - `next_state: Tensor` 按时刻有序排列的状态state.相对于`state`而言，`next_staet`是下一时刻的state。可以传`None`表示没有需要传输的数据。
+  - `info_dict: dict` 记录额外信息的字典。可以传`None`表示没有需要传输的数据。
+- 用法：每一个强化学习算法都需要使用这个函数获取训练网络所需的数据`state, action, reward, done, next_state`。
+
+> **备注，让函数`explore_env()` 返回结果包含 `next_state` 是必要的**。不返回 `next_state`，而是用`next_state=state[index+1]`的方法从`state`中生成，那么会遇到以下问题：
+> 一个episode达到最大步数`max_step`之后，智能体会探索得到一段结尾`done==False`的不完整轨迹。我们不可以令这一段轨迹的结尾`done==True`，避免它错误地把结尾的 next Q value 计算为零。
+> 如果用`next_state=state[index+1]`的方法，那么它会把结尾的 next state 链接到 reset 后得到的state。这是错误的。除非我们在`next_state=state[index+1]`的方法中，额外地记录下 不完整轨迹结尾`done==False`的 `index`，并在 random sample 的步骤中将这些`index` 排除。
+> 虽然少记录`next_state` 能节省显存，但牺牲代码可读性，或者牺牲Q值计算准确性 更不应该做。所以这里认为**让函数`explore_env()` 返回结果包含 `next_state` 是必要的**。
 
 `update_net(buffer) -> training_logging`
 - 描述：根据算法设定的优化目标优化网络参数，并输出训练日志。查看训练日志，画出中间变量的曲线，可以给RL训练超参数提供修改思路。
