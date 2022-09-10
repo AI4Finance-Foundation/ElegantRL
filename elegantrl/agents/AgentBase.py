@@ -279,7 +279,7 @@ class AgentBase:
     ) -> List[Tensor]:
         # assert len(buf_items[0]) in {4, 5}
         # assert len(buf_items[0][0]) == self.env_num
-        traj_list1 = [map(list, zip(*traj_list))]  # state, reward, done, action, noise
+        traj_list1 = list(map(list, zip(*traj_list)))  # state, reward, done, action, noise
         del traj_list
         # assert len(buf_items[0]) == step
         # assert len(buf_items[0][0]) == self.env_num
