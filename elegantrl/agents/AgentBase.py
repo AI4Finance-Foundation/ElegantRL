@@ -109,19 +109,20 @@ class AgentBase:
         """
         traj_list = []
         last_dones = [0, ]
-        state = self.states[0]
 
         i = 0
         done = False
-        while i < target_step or not done:
-            tensor_state = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            tensor_action = self.act.get_action(tensor_state.to(self.device)).detach().cpu()  # different
-            next_state, reward, done, _ = env.step(tensor_action[0].numpy())  # different
+        while i < target_step:
+            state = env.reset()
+            while not done:
+                tensor_state = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+                tensor_action = self.act.get_action(tensor_state.to(self.device)).detach().cpu()  # different
+                next_state, reward, done, _ = env.step(tensor_action[0].numpy())  # different
 
-            traj_list.append((tensor_state, reward, done, tensor_action))  # different
+                traj_list.append((tensor_state, reward, done, tensor_action))  # different
 
-            i += 1
-            state = env.reset() if done else next_state
+                i += 1
+                state = next_state
 
         self.states[0] = state
         last_dones[0] = i
