@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.distributions.normal import Normal
 import numpy as np
 import numpy.random as rd
 
@@ -393,13 +394,19 @@ class ActorPPO(nn.Module):
     def forward(self, state: Tensor) -> Tensor:
         return self.net(state).tanh()  # action.tanh()
 
-    def get_action(self, state: Tensor) -> (Tensor, Tensor):
+    def get_action(self, state: Tensor) -> (Tensor, Tensor):  # for exploration
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()
 
-        noise = torch.randn_like(action_avg)
-        action = action_avg + noise * action_std
-        return action, noise
+        dist = Normal(action_avg, action_std)
+        action = dist.sample()
+        logprob = dist.log_prob(action).sum(1)
+        return action, logprob
+    
+    @staticmethod
+    def convert_action_for_env(action: Tensor) -> Tensor:
+        return action.tanh()
+
 
     def get_logprob(self, state: Tensor, action: Tensor) -> Tensor:
         action_avg = self.net(state)

@@ -54,7 +54,7 @@ class AgentPPO(AgentBase):
         else:
             self.get_reward_sum = self.get_reward_sum_raw
 
-    def explore_one_env(self, env, target_step, random_exploration=None) -> list:
+    def explore_one_env(self, env, horizon_len) -> list:
         """
         Collect trajectories through the actor-environment interaction.
 
@@ -62,30 +62,34 @@ class AgentPPO(AgentBase):
         :param target_step: the total step for the interaction.
         :return: a list of trajectories [traj, ...] where `traj = [(state, other), ...]`.
         """
-        traj_list = []
-        last_done = [
-            0,
-        ]
-        state = self.states[0]
+        states = torch.zeros((horizon_len, self.state_dim), dtype=torch.float32).to(self.device)
+        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.float32).to(self.device)
+        logprobs = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
+        rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
+        dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
-        step_i = 0
-        done = False
+        ary_state = self.states[0]
+
         get_action = self.act.get_action
-        get_a_to_e = self.act.get_a_to_e
-        while step_i < target_step or not done:
-            ten_s = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
-            ten_a, ten_n = [
-                ten.cpu() for ten in get_action(ten_s.to(self.device))
-            ]  # different
-            next_s, reward, done, _ = env.step(get_a_to_e(ten_a)[0].numpy())
+        convert = self.act.convert_action_for_env
+        for i in range(horizon_len):
+            state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device)
+            action, logprob = [t.squeeze() for t in get_action(state.unsqueeze(0))]
+            ary_action = convert(action).detach().cpu().numpy()
+            ary_state, reward, done, _ = env.step(ary_action)
+            if done:
+                ary_state = env.reset()
 
-            traj_list.append((ten_s, reward, done, ten_a, ten_n))  # different
+            states[i] = state
+            actions[i] = action
+            logprobs[i] = logprob
+            rewards[i] = reward
+            dones[i] = done
 
-            step_i += 1
-            state = env.reset() if done else next_s
-        self.states[0] = state
-        last_done[0] = step_i
-        return self.convert_trajectory(traj_list, last_done)  # traj_list
+        self.states[0] = ary_state
+        rewards = (rewards * self.reward_scale).unsqueeze(1)
+        undones = (1 - dones.type(torch.float32)).unsqueeze(1)
+        return states, actions, logprobs, rewards, undones
 
     def explore_vec_env(self, env, target_step, random_exploration=None) -> list:
         """
@@ -132,65 +136,52 @@ class AgentPPO(AgentBase):
         :return: a tuple of the log information.
         """
         with torch.no_grad():
-            buf_state, buf_reward, buf_mask, buf_action, buf_noise = [
-                ten.to(self.device) for ten in buffer
-            ]
-            buf_len = buf_state.shape[0]
+            states, actions, logprobs, rewards, undones = buffer
+            buffer_size = states.shape[0]
 
-            """get buf_r_sum, buf_logprob"""
-            bs = 2 ** 10  # set a smaller 'BatchSize' when out of GPU memory.
-            buf_value = [
-                self.cri_target(buf_state[i: i + bs]) for i in range(0, buf_len, bs)
-            ]
-            buf_value = torch.cat(buf_value, dim=0)
-            buf_logprob = self.act.get_old_logprob(buf_action, buf_noise)
+            '''get advantages reward_sums'''
+            bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+            values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
+            values = torch.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
 
-            buf_r_sum, buf_adv_v = self.get_reward_sum(
-                buf_len, buf_reward, buf_mask, buf_value
-            )  # detach()
-            buf_adv_v = (buf_adv_v - buf_adv_v.mean()) / (buf_adv_v.std() + 1e-5)
-            # buf_adv_v: buffer data of adv_v value
-            del buf_noise
+            advantages = self.get_advantages(rewards, undones, values)  # advantages.shape == (buffer_size, )
+            reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
+            del rewards, undones, values
 
-        """update network"""
-        obj_critic = None
-        obj_actor = None
-        assert buf_len >= self.batch_size
-        for _ in range(int(1 + buf_len * self.repeat_times / self.batch_size)):
-            indices = torch.randint(
-                buf_len,
-                size=(self.batch_size,),
-                requires_grad=False,
-                device=self.device,
-            )
+            advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
+        assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size,)
 
-            state = buf_state[indices]
-            r_sum = buf_r_sum[indices]
-            adv_v = buf_adv_v[indices]
-            action = buf_action[indices]
-            logprob = buf_logprob[indices]
+        '''update network'''
+        obj_critics = 0.0
+        obj_actors = 0.0
 
-            """PPO: Surrogate objective of Trust Region"""
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(
-                state, action
-            )  # it is obj_actor
-            ratio = (new_logprob - logprob.detach()).exp()
-            surrogate1 = adv_v * ratio
-            surrogate2 = adv_v * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
-            obj_surrogate = -torch.min(surrogate1, surrogate2).mean()
-            obj_actor = obj_surrogate + obj_entropy * self.lambda_entropy
-            self.optimizer_update(self.act_optimizer, obj_actor)
+        update_times = int(buffer_size * self.repeat_times / self.batch_size)
+        assert update_times >= 1
+        for _ in range(update_times):
+            indices = torch.randint(buffer_size, size=(self.batch_size,), requires_grad=False)
+            state = states[indices]
+            action = actions[indices]
+            logprob = logprobs[indices]
+            advantage = advantages[indices]
+            reward_sum = reward_sums[indices]
 
-            value = self.cri(state).squeeze(
-                1
-            )  # critic network predicts the reward_sum (Q value) of state
-            obj_critic = self.criterion(value, r_sum)
+            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            obj_critic = self.criterion(value, reward_sum)
             self.optimizer_update(self.cri_optimizer, obj_critic)
-            if self.if_cri_target:
-                self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
-        a_std_log = getattr(self.act, "a_std_log", torch.zeros(1)).mean()
-        return obj_critic.item(), -obj_actor.item(), a_std_log.item()  # logging_tuple
+            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
+            ratio = (new_logprob - logprob.detach()).exp()
+            surrogate1 = advantage * ratio
+            surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+            obj_surrogate = torch.min(surrogate1, surrogate2).mean()
+
+            obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
+            self.optimizer_update(self.act_optimizer, -obj_actor)
+
+            obj_critics += obj_critic.item()
+            obj_actors += obj_actor.item()
+        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
+        return obj_critics / update_times, obj_actors / update_times, a_std_log.item()
 
     def get_reward_sum_raw(
             self, buf_len, buf_reward, buf_mask, buf_value
@@ -244,6 +235,21 @@ class AgentPPO(AgentBase):
             pre_adv_v = ten_value[i] + buf_adv_v[i] * self.lambda_gae_adv
             # ten_mask[i] * pre_adv_v == (1-done) * gamma * pre_adv_v
         return buf_r_sum, buf_adv_v
+    
+    def get_advantages(self, rewards: Tensor, undones: Tensor, values: Tensor) -> Tensor:
+        advantages = torch.empty_like(values)  # advantage value
+        masks = undones * self.gamma
+        horizon_len = rewards.shape[0]
+
+        next_state = torch.tensor(self.states, dtype=torch.float32).to(self.device)
+        next_value = self.cri(next_state).detach()[0, 0]
+
+        advantage = 0  # last_gae_lambda
+        for t in range(horizon_len - 1, -1, -1):
+            delta = rewards[t] + masks[t] * next_value - values[t]
+            advantages[t] = advantage = delta + masks[t] * self.lambda_gae_adv * advantage
+            next_value = values[t]
+        return advantages
 
 
 class AgentDiscretePPO(AgentPPO):
