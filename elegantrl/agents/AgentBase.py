@@ -35,6 +35,8 @@ class AgentBase:
         self.clip_grad_norm = getattr(args, 'clip_grad_norm', 3.0)
         self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
 
+        self.state_dim = state_dim
+        self.action_dim = action_dim
         self.if_use_per = getattr(args, 'if_use_per', None)
         self.if_off_policy = getattr(args, 'if_off_policy', None)
         self.if_use_old_traj = getattr(args, 'if_use_old_traj', False)
@@ -96,6 +98,7 @@ class AgentBase:
         self.ten_reward = None
         self.ten_mask = None
         self.ten_v_sum = None
+        
 
     def explore_one_env(self, env, target_step: int) -> list:
         """
