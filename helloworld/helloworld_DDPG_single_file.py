@@ -161,7 +161,7 @@ class AgentDDPG(AgentBase):
 
     def explore_env(self, env, horizon_len: int, if_random: bool = False) -> [Tensor]:
         states = torch.zeros((horizon_len, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.int32).to(self.device)
+        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.float32).to(self.device)
         rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
@@ -169,7 +169,7 @@ class AgentDDPG(AgentBase):
         get_action = self.act.get_action
         for i in range(horizon_len):
             state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device)
-            action = torch.rand(1, self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))[0]
+            action = torch.rand(self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))[0]
 
             ary_action = action.detach().cpu().numpy()
             ary_state, reward, done, _ = env.step(ary_action)
