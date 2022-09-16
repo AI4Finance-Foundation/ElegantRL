@@ -2,10 +2,8 @@ import os
 import time
 import gym
 import numpy as np
-import numpy.random as rd
 import torch
 import torch.nn as nn
-from copy import deepcopy
 from torch import Tensor
 from torch.distributions.normal import Normal
 
@@ -104,13 +102,13 @@ def get_gym_env_args(env, if_print: bool) -> dict:
         env_name = env.unwrapped.spec.id
         state_shape = env.observation_space.shape
         state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
-
         if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
-        if if_discrete:  # make sure it is discrete action space
-            action_dim = env.action_space.n
-        elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
-            action_dim = env.action_space.shape[0]
-
+        action_dim = env.action_space.n if if_discrete else env.action_space.shape[0]
+    else:
+        env_name = env.env_name
+        state_dim = env.state_dim
+        action_dim = env.action_dim
+        if_discrete = env.if_discrete
     env_args = {'env_name': env_name, 'state_dim': state_dim, 'action_dim': action_dim, 'if_discrete': if_discrete}
     print(f"env_args = {repr(env_args)}") if if_print else None
     return env_args
@@ -145,7 +143,7 @@ class AgentBase:
         self.reward_scale = args.reward_scale
         self.soft_update_tau = args.soft_update_tau
 
-        self.states = None  # assert self.states == (1, state_dim)
+        self.last_state = None  # save the last state of the trajectory for training
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         act_class = getattr(self, "act_class", None)
@@ -191,7 +189,7 @@ class AgentPPO(AgentBase):
         rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
-        ary_state = self.states[0]
+        ary_state = self.last_state
 
         get_action = self.act.get_action
         convert = self.act.convert_action_for_env
@@ -210,7 +208,7 @@ class AgentPPO(AgentBase):
             rewards[i] = reward
             dones[i] = done
 
-        self.states[0] = ary_state
+        self.last_state = ary_state
         rewards = (rewards * self.reward_scale).unsqueeze(1)
         undones = (1 - dones.type(torch.float32)).unsqueeze(1)
         return states, actions, logprobs, rewards, undones
@@ -270,7 +268,7 @@ class AgentPPO(AgentBase):
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        next_state = torch.tensor(self.states, dtype=torch.float32).to(self.device)
+        next_state = torch.tensor(self.last_state, dtype=torch.float32).to(self.device)
         next_value = self.cri(next_state).detach()[0, 0]
 
         advantage = 0  # last_gae_lambda
@@ -301,20 +299,20 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
         state, reward, done, info_dict = self.env.step(action * 2)
         return state.reshape(self.state_dim), float(reward), done, info_dict
 
-    
+
 def train_agent(args: Config):
     args.init_before_training()
 
     env = build_env(args.env_class, args.env_args)
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.states = env.reset()[np.newaxis, :]
+    agent.last_state = env.reset()
 
     evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
                           eval_per_step=args.eval_per_step,
                           eval_times=args.eval_times,
                           cwd=args.cwd)
     torch.set_grad_enabled(False)
-    while True: # start training
+    while True:  # start training
         buffer_items = agent.explore_env(env, args.horizon_len)
 
         torch.set_grad_enabled(True)
@@ -340,7 +338,7 @@ def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_
         cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
         print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
 
-        
+
 class Evaluator:
     def __init__(self, eval_env, eval_per_step: int = 1e4, eval_times: int = 8, cwd: str = '.'):
         self.cwd = cwd
@@ -360,7 +358,7 @@ class Evaluator:
               f"\n| `objC`: Objective of Critic network. Or call it loss function of critic network."
               f"\n| `objA`: Objective of Actor network. It is the average Q value of the critic network."
               f"\n| {'step':>8}  {'time':>8}  | {'avgR':>8}  {'stdR':>6}  {'avgS':>6}  | {'objC':>8}  {'objA':>8}")
-            
+
     def evaluate_and_save(self, actor, horizon_len: int, logging_tuple: tuple):
         self.total_step += horizon_len
         if self.eval_step + self.eval_per_step > self.total_step:
@@ -375,7 +373,7 @@ class Evaluator:
 
         used_time = time.time() - self.start_time
         self.recorder.append((self.total_step, used_time, avg_r))
-        
+
         print(f"| {self.total_step:8.2e}  {used_time:8.0f}  "
               f"| {avg_r:8.2f}  {std_r:6.2f}  {avg_s:6.0f}  "
               f"| {logging_tuple[0]:8.2f}  {logging_tuple[1]:8.2f}")

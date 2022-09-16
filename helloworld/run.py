@@ -11,7 +11,7 @@ def train_agent(args: Config):
 
     env = build_env(args.env_class, args.env_args)
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.states = env.reset()[np.newaxis, :]
+    agent.last_state = env.reset()[np.newaxis, :]
 
     evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
                           eval_per_step=args.eval_per_step,
