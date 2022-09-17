@@ -271,41 +271,6 @@ class ReplayBuffer:  # for off-policy
         self.prev_p = self.next_p
         return buf_state, buf_action, buf_reward, buf_mask
 
-
-class ReplayBufferList(list):  # for on-policy
-    def __init__(self):
-        list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
-
-    def update_buffer(self, traj_list: List[List]) -> (int, float):
-        cur_items = [map(list, zip(*traj_list))]
-        self[:] = [torch.cat(item, dim=0) for item in cur_items]
-
-        steps = self[1].shape[0]
-        r_exp = self[1].mean().item()
-        return steps, r_exp
-
-    def get_state_norm(self, cwd='.',
-                       state_avg: Union[Tensor, float] = 0.0,
-                       state_std: [Tensor, float] = 1.0):
-        try:
-            torch.save(state_avg, f"{cwd}/env_state_avg.pt")
-            torch.save(state_std, f"{cwd}/env_state_std.pt")
-        except Exception as error:
-            print(error)
-
-        state_avg, state_std = get_state_avg_std(
-            buf_state=self[0],
-            batch_size=2 ** 10,
-            state_avg=state_avg,
-            state_std=state_std,
-        )
-
-        torch.save(state_avg, f"{cwd}/state_avg.pt")
-        print(f"| {self.__class__.__name__}: \nstate_avg = {state_avg}")
-        torch.save(state_std, f"{cwd}/state_std.pt")
-        print(f"| {self.__class__.__name__}: \nstate_std = {state_std}")
-
-
 class ReplayBufferList(list):  # for on-policy
     def __init__(self):
         list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
