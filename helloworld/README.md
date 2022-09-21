@@ -42,9 +42,9 @@ One sentence summary: an agent `agent.py` with Actor-Critic networks `net.py` is
 
 ---
 
-## The training log
+## The screenshot of training log
 
-The training log of DQN:
+DQN:
 ```
 | `step`: Number of samples
 | `time`: Time spent from the start of training to this moment.
@@ -81,7 +81,7 @@ env_args = {'env_name': 'LunarLander-v2',
 | DDQN and D3QN train faster than DQN 
 ```
 
-The training log of DDPG:
+DDPG:
 ```
 |     step      time  |     avgR    stdR    avgS  |     objC      objA
 | 2.05e+04       108  | -1289.55  159.09     200  |     3.68   -165.12
@@ -89,7 +89,7 @@ The training log of DDPG:
 | 6.14e+04       509  |  -150.34   81.19     200  |     1.53    -95.60
 ```
 
-The training log of PPO:
+of PPO:
 ```
 env_args = {'env_name': 'Pendulum-v1',
             'state_dim': 3,
@@ -118,7 +118,7 @@ env_args = {'env_name': 'LunarLanderContinuous-v2',
 
 ---
 
-# The API of ElegantRL(Helloworld) and ElegantRL
+# The file structure of ElegantRL(Helloworld) and ElegantRL
 
 ```
 run.py 
@@ -132,18 +132,18 @@ config.py -->  agent.py
 - net.py -> agent.py
 - (config.py, env.py) -> run.py
 
-- 数据类型 `Tensor` 指代 `torch.Tensor` 
-- 数据类型 `Array` 指代 `numpy.ndarray`
+- DataType `Tensor` stands for `torch.Tensor` 
+- DataType `Array` stands for `numpy.ndarray`
 
 ## file net.py
 ### class Qnet
-DQN系列算法的Q network，，继承自torch默认的网络父类`nn.Module`
+Q network in DQN，，inherited from `nn.Module`, base class for all neural network modules in pytorch
 
 `forward(state) -> action` 
-- 描述：输出确定策略
-- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
-- 输出：`action: shape == (-1, action_dim)`, **各个离散动作的Q值**，格式为`torch.float32`
-- 用法：使用策略 `render_agent()`，评估策略`get_rewards_and_steps()`
+- Description：output deterministic policy
+- Input：`state: shape == (-1, state_dim)`, current state
+- Output：`action: shape == (-1, action_dim)`, **Q value for each action**，datatype is`torch.float32`
+- Instructions：使用策略 `render_agent()`，evaluate policy with `get_rewards_and_steps()`
 
 `get_action(state) -> action`
 - 描述：输出随机策略
