@@ -14,15 +14,15 @@ Three algorithms are included:
 
 ## Run.
 
-You can run the single file of RL algorithms DQN, DDPG and PPO:
+You can run the single file of DQN, DDPG and PPO:
 - DQN (off-policy RL algorithm for discrete action space) `helloworld/helloworld_DQN_single_file.py`
 - DDPG (off-policy RL algorithm for continuous action space) `helloworld/helloworld_DDPG_single_file.py`
 - PPO (off-policy RL algorithm for continuous action space) `helloworld/helloworld_PPO_single_file.py`
 
 Or you can:
-1. Build the folder `helloworld` in the current working directory. 
-2. Put `net.py`, `agent.py`, `config.py`, `env.py`, `run.py` and `tutorial_*.py` in the folder `helloworld`.
-3. Run `tutorial_*.py`. 
+1. Build the folder `helloworld`. 
+2. Put `net.py`, `agent.py`, `config.py`, `env.py`, `run.py` and `tutorial_*.py` in this folder.
+3. Run `tutorial_*.py` in this folder. 
 
 In `tutorial_*.py`, there are:
 ```
@@ -53,31 +53,67 @@ The training log of DQN:
 | `avgS`: Average of steps in an episode.
 | `objC`: Objective of Critic network. Or call it loss function of critic network.
 | `objA`: Objective of Actor network. It is the average Q value of the critic network.
+env_args = {'env_name': 'CartPole-v0',
+            'state_dim': 4,
+            'action_dim': 2,
+            'if_discrete': True}
 |     step      time  |     avgR    stdR    avgS  |     objC      objA
-| 2.05e+04        48  |     9.25    0.66       9  |     6.13     90.66
-| 4.10e+04       120  |   129.84   22.61     130  |     0.81     21.17
-...
-| 1.64e+05      1122  |   115.88   15.86     116  |     0.18     19.58
-| 1.84e+05      1414  |   152.72   30.05     153  |     0.17     19.42
+| 2.05e+04        60  |     9.38    0.82       9  |     5.79     85.69
+| 4.10e+04       182  |   157.41   29.16     157  |     0.73     20.82
+| 6.14e+04       320  |   138.72   23.36     139  |     0.31     19.65
+| 8.19e+04       471  |   106.91   11.28     107  |     0.21     19.49
+
+env_args = {'env_name': 'LunarLander-v2',
+            'state_dim': 8,
+            'action_dim': 4,
+            'if_discrete': True}
+|     step      time  |     avgR    stdR    avgS  |     objC      objA
+| 2.05e+04       142  |   -30.49   19.97    1000  |     1.91     20.09
+| 8.19e+04       791  |   -27.40   19.82    1000  |     2.30     16.74
+| 1.43e+05      1892  |   -54.18  125.79     819  |     2.21     11.73
+| 2.05e+05      3480  |   -12.79   70.03     933  |     1.71     15.49
+| 2.66e+05      5304  |   167.56  102.91     481  |     1.14     41.37
+| 3.28e+05      7443  |   145.19   88.17     664  |     1.18     20.50
+| 3.89e+05      9672  |   232.74   35.30     475  |     0.86     18.23
+| Save learning curve in ./LunarLander-v2_DQN_0/LearningCurve.jpg
+| Press 'y' to load actor.pth and render:y
+| render and load actor from: ./LunarLander-v2_DQN_0/actor_000000389120_00009672_00232.74.pth
+| DDQN and D3QN train faster than DQN 
 ```
 
-The training logging of DDPG:
+The training log of DDPG:
 ```
 |     step      time  |     avgR    stdR    avgS  |     objC      objA
-| 2.05e+04        83  | -1257.86   95.30     200  |     2.87   -155.83
-| 4.10e+04       224  |  -980.77   65.55     200  |     2.36   -168.30
-| 6.14e+04       417  |  -838.92  140.21     200  |     1.94   -153.69
-| 8.19e+04       666  |  -245.80  263.86     200  |     2.38   -134.42
+| 2.05e+04       108  | -1289.55  159.09     200  |     3.68   -165.12
+| 4.10e+04       282  |  -253.97  169.84     200  |     1.81   -162.71
+| 6.14e+04       509  |  -150.34   81.19     200  |     1.53    -95.60
 ```
 
-The training logging of PPO:
+The training log of PPO:
 ```
+env_args = {'env_name': 'Pendulum-v1',
+            'state_dim': 3,
+            'action_dim': 1,
+            'if_discrete': False}
 |     step      time  |     avgR    stdR    avgS  |     objC      objA
-| 2.00e+04        22  | -1335.30  239.78     200  |    56.31      0.02
-| 4.00e+04        45  | -1311.17  227.48     200  |    44.50      0.02
-...
-| 1.80e+05       203  |  -174.62  125.42     200  |     3.04      0.02
-| 2.00e+05       225  |  -255.44  277.14     200  |     3.74      0.02
+| 4.00e+04        49  | -1070.47  230.96     200  |    47.91      0.01
+| 8.00e+04       106  | -1048.20  124.73     200  |    31.93      0.02
+| 1.20e+05       158  |  -841.23   86.72     200  |    15.85      0.01
+| 1.60e+05       211  |  -299.09  196.78     200  |    16.56      0.02
+| 2.00e+05       263  |  -188.97  127.64     200  |     3.51      0.02
+| Save learning curve in ./Pendulum_PPO_0/LearningCurve.jpg
+
+env_args = {'env_name': 'LunarLanderContinuous-v2',
+            'state_dim': 8,
+            'action_dim': 2,
+            'if_discrete': False}
+|     step      time  |     avgR    stdR    avgS  |     objC      objA
+| 2.00e+04        53  |  -232.54   75.45     197  |    11.75      0.13
+| 1.00e+05       689  |   143.02   66.60     828  |     1.91      0.14
+| 2.00e+05      1401  |    61.57  133.74     534  |     3.92      0.15
+| 3.00e+05      2088  |   108.64  103.73     668  |     2.44      0.18
+| 4.00e+05      2724  |   159.55   96.49     522  |     2.37      0.19
+| Save learning curve in ./LunarLanderContinuous-v2_PPO_0/LearningCurve.jpg
 ```
 
 ---
@@ -105,37 +141,83 @@ DQN系列算法的Q network，，继承自torch默认的网络父类`nn.Module`
 
 `forward(state) -> action` 
 - 描述：输出确定策略
-- 输入：`state: Tensor, state.shape == (-1, state_dim)`, 策略当前时刻的状态
-- 输出：`action: Tensor, action.shape == (-1, action_dim)`, **各个离散动作的Q值**，格式为`torch.float32`
+- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
+- 输出：`action: shape == (-1, action_dim)`, **各个离散动作的Q值**，格式为`torch.float32`
 - 用法：使用策略 `render_agent()`，评估策略`get_rewards_and_steps()`
 
 `get_action(state) -> action`
 - 描述：输出随机策略
-- 输入：`state: torch.float, state.shape == (-1, state_dim)`, 策略当前时刻的状态
-- 输出：`action: torch.int, action.shape == (-1, 1)`, 对随机策略进行采样后的**离散动作序号**，格式为`torch.int`
-- 用法：探索环境 `agent.explore_net()`
+- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
+- 输出：`action: shape == (-1, 1)`, 对随机策略进行采样后的**离散动作序号**，格式为`torch.int`
+- 用法：探索环境 `agent.explore_env()`
 
 ### class Actor
 Policy gradient 算法的策略网络actor，继承自torch默认的网络父类`nn.Module`
 
 `forward(state) -> action` 
 - 描述：输出确定策略
-- 输入：`state: Tensor, state.shape == (-1, state_dim)`, 策略当前时刻的状态
-- 输出：`action: Tensor, action.shape == (-1, action_dim)`, 连续动作
+- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
+- 输出：`action: shape == (-1, action_dim)`, 连续动作
 - 用法：使用策略 `render_agent()`，评估策略`get_rewards_and_steps()`
 
 `get_action(state) -> action`
 - 描述：输出随机策略
-- 输入：`state: torch.float, state.shape == (-1, state_dim)`, 策略当前时刻的状态
-- 输出：`action: torch.int, action.shape == (-1, action_dim)`, 对随机策略进行采样后的连续动作
-- 用法：探索环境 `agent.explore_net()`
+- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
+- 输出：`action: shape == (-1, action_dim)`, 对随机策略进行采样后的连续动作
+- 用法：探索环境 `agent.explore_env()`
 
 ### class Critic
 Policy gradient 算法的价值网络critic，继承自torch默认的网络父类`nn.Module`
 
 `forward(state, action) -> q_value` 
 - 描述：输出对state-action pairs 的Q值估计
-- 输入：`state: Tensor action: Tensor` state-action pairs
+- 输入：
+  - `state: shape == (-1, state_dim)` 状态
+  - `action: shape == (-1, action_dim)`, 连续动作
+- 输出：`q_value: Tensor, q_value.shape == (-1, 1)`, 价值网络对 state-action pairs 的Q值估计
+- 用法：计算价值网络的优化目标 `get_obj_critic()`，为策略网络提供梯度 `update_net()`
+
+### class ActorPPO
+Policy gradient 算法的策略网络actor，继承自torch默认的网络父类`nn.Module`
+
+`forward(state) -> action` 
+- 描述：输出确定策略
+- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
+- 输出：`action: shape == (-1, action_dim)`, 连续动作
+- 用法：使用策略`render_agent()`，评估策略`get_rewards_and_steps()`
+
+`get_action(state) -> (action, logprob)`
+- 描述：输出随机策略
+- 输入：`state: shape == (-1, state_dim)`, 策略当前时刻的状态
+- 输出：
+  - `action: shape == (-1, action_dim)`, 对随机策略进行采样后的连续动作
+  - `logprob: shape == (-1, )`, **对数概率值 logarithmic probability**，在线策略on-policy 需要这个值去估计随机策略下，当前抽样动作的出现概率
+- 用法：探索环境 `agent.explore_env()`
+
+`get_logprob_entropy(state, action) -> (logprob, entropy)`
+- 描述：输出随机策略
+- 输入：
+  - `state: shape == (-1, state_dim)` 状态
+  - `action: shape == (-1, action_dim)`, 连续动作
+- 输出：
+  - `logprob: shape == (-1, )`, **对数概率值 logarithmic probability**，在线策略on-policy 需要这个值去估计随机策略下，当前抽样动作的出现概率
+  - `entropy: shape == (-1, )`, **策略的熵**，描述了在当前state-action pairs下，策略的随机程度
+- 用法：更新网络参数 `agent.update_net()`
+
+`convert_action_for_env(action) -> action` 
+- 描述：将实数范围内的连续动作，处理成有界区间内的连续动作
+- 输入：`action: shape == (-1, action_dim)`, 连续动作，范围是整个实数区域`(-inf, +inf)`
+- 输出：`action: shape == (-1, action_dim)`, 连续动作，范围是一个有界区间`(-1.0, +1.0)`
+- 用法：将PPO的策略网络输出的原始动作，输入到`env.step(action)` 之前，对无界连续动作处理成有界连续动作
+
+### class Critic
+Policy gradient 算法的价值网络critic，继承自torch默认的网络父类`nn.Module`
+
+`forward(state, action) -> q_value` 
+- 描述：输出对state-action pairs 的Q值估计
+- 输入：
+  - `state: shape == (-1, state_dim)` 状态
+  - `action: shape == (-1, action_dim)`, 连续动作
 - 输出：`q_value: Tensor, q_value.shape == (-1, 1)`, 价值网络对 state-action pairs 的Q值估计
 - 用法：计算价值网络的优化目标 `get_obj_critic()`，为策略网络提供梯度 `update_net()`
 
@@ -153,8 +235,8 @@ Policy gradient 算法的价值网络critic，继承自torch默认的网络父�
 ### class AgentBase
 ElegantRL库 所有算法的基类，基类的初始化方法，会记录训练网络需要的超参数，新建神经网络实例，定义网络优化器，定义损失函数
 
-`__init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config())` 
-- 描述：输出确定策略
+`__init__(self, net_dims, state_dim, action_dim, gpu_id, args)` 
+- 描述：初始化一个确定策略算法
 - 输入：
   - `net_dims: [int]` 这里输入的只是网络隐藏层的特征数量列表，如 `net_dims=[32, 16]` 将建立的策略网络每层特征数量为 `[state_dim, 32, 16, action_dim]`
   - `state_dim: int` 状态向量的特征数量
@@ -162,7 +244,7 @@ ElegantRL库 所有算法的基类，基类的初始化方法，会记录训练�
   - `gpu_id: int` 表示GPU的编号，用于获取计算设备，`gpu_id=-1`表示用CPU计算。有`torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")`
   - `args: Config()` 记录超参数的类。强化学习的超参数多，我们整理出必要超参数放在 `Config()`这个类里，如果想要RL算法需要用到新增超参数，可以用 `args=Config(); args.xxxx=*` 直接新建超参数，避免频繁修改库的底层文件。所以这里才使用 args 去传递超参数，而不是直接将超参数在 `__init__` 里面展开。（欢迎讨论更好的超参数传输方法）
 - 输出：无
-- 用法：ElegantRL库 所有算法的基类，新建的算法 `AgentXXX` 会继承这个基类
+- 用法：所有算法的基类，新建的算法 `AgentXXX` 会继承这个基类
 
 `optimizer_update(optimizer, objective)`
 - 描述：使用优化器去优化目标
@@ -170,7 +252,7 @@ ElegantRL库 所有算法的基类，基类的初始化方法，会记录训练�
   - `optimizer` 神经网络的优化器。常用的有随机梯度下降+动量 SGD+momentum，收敛快但泛化性能略低的Adam。例如`optimizer = torch.optim.SGD(network.parameters(), learning_rate)` 
   - `objective` 神经网络的优化目标。 神经网络的优化器会根据优化目标提供的梯度，更新网络的参数去最小化优化目标。（价值网络的）优化目标是“最小化预测值与标签的距离”时，可以把这个衡量距离的函数称为“损失函数”。（策略网络的）优化目标是“最大化 价值网络输出的Q值”，等同于“最小化 价值网络输出的Q值的负数”，这种情况下不适合将称之为“损失函数”
 - 输出：`mlp_net: nn.Sequantial` 新建的一个MLP网络
-- 用法：只给`net.py` 里的任何类调用（**是否要在这个函数前面加 一个下划线 表示私有？**）
+- 用法：给`update_net()`用来更新网络参数
 
 `soft_update(target_net, current_net, tau)`
 - 描述：使用软更新的方法更新目标网络。可以稳定强化学习的训练过程。可以理解成软更新得到的 `target_net` 是对不同时间截面上的 当前网络 的加权平均。越远离当前时刻的 `current_net` 的权重越低。软更新可以在优化目标含有的噪声较大的情况下，减弱噪声对稳定训练的影响
@@ -187,43 +269,112 @@ ElegantRL库 所有算法的基类，基类的初始化方法，会记录训练�
 ### class AgentDQN
 算法DQN
 
-**todo 描述 DQN算法以及它的变体相对于 AgentBase 的差别**
-
-`explore_env(env, horizon_len, if_random) -> (state, action, reward, done, next_state, info_dict)`
+`explore_env(self, env, horizon_len, if_random) -> (states, actions, rewards, undones, info_dict)`
 - 描述：让智能体在环境中探索，并收集用于训练的数据
 - 输入：
   - `env:` 用于智能体训练的仿真环境，含有两个方法：重置环境`env.reset()`，与智能体互动`env.step()`
-  - `horizon_len: int` 在每一轮探索中，智能体与环境的互动步数。它控制了每轮更新中，将会有多少新的数据用于训练网络。如果智能体在达到`horizon_len`之前提前触发`done=True`，那么程序将会自行调用`env.reset()`去重置环境。
+    - `horizon_len: int` 在每一轮探索中，智能体与环境的互动步数。控制了每轮更新中用于网络训练的新增样本数。触发`done=True`时，调用`env.reset()`去重置环境得到`next_state`
 - 输出：
-  - `state: Tensor` 按时刻有序排列的状态state
-  - `action: Tensor` 按时刻有序排列的动作action，如果是离散动作，那么这里将记录 `torch.long`格式的整数
-  - `reward: Tensor` 按时刻有序排列的奖励reward
-  - `done: Tensor` 按时刻有序排列的停止标记done。episode结束时有`done=True`，其余时刻`done=False`
-  - `next_state: Tensor` 按时刻有序排列的状态state.相对于`state`而言，`next_staet`是下一时刻的state。可以传`None`表示没有需要传输的数据。
+  - `states: shape == (horizon_len, state_dim)` 按时刻有序排列的状态state
+  - `actions: shape == (horizon_len, 1)` 按时刻有序排列的动作action，**这里将记录离散动作的序号，为torch.int`格式的整数**
+  - `rewards: shape == (horizon_len, 1)` 按时刻有序排列的奖励reward
+  - `undones: shape == (horizon_len, 1)` 按时刻有序排列的停止标记undone。episode结束时有`undone=False`，其余时刻`undone=True`
   - `info_dict: dict` 记录额外信息的字典。可以传`None`表示没有需要传输的数据。
-- 用法：每一个强化学习算法都需要使用这个函数获取训练网络所需的数据`state, action, reward, done, next_state`。
+- 用法：在`run.train_agent()`函数里，让智能体与环境交互获取训练所需的数据`state, action, reward, undone`。
 
-> **备注，让函数`explore_env()` 返回结果包含 `next_state` 是必要的**。不返回 `next_state`，而是用`next_state=state[index+1]`的方法从`state`中生成，那么会遇到以下问题：
-> 一个episode达到最大步数`max_step`之后，智能体会探索得到一段结尾`done==False`的不完整轨迹。我们不可以令这一段轨迹的结尾`done==True`，避免它错误地把结尾的 next Q value 计算为零。
-> 如果用`next_state=state[index+1]`的方法，那么它会把结尾的 next state 链接到 reset 后得到的state。这是错误的。除非我们在`next_state=state[index+1]`的方法中，额外地记录下 不完整轨迹结尾`done==False`的 `index`，并在 random sample 的步骤中将这些`index` 排除。
-> 虽然少记录`next_state` 能节省显存，但牺牲代码可读性，或者牺牲Q值计算准确性 更不应该做。所以这里认为**让函数`explore_env()` 返回结果包含 `next_state` 是必要的**。
-
-`update_net(buffer) -> training_logging`
+`update_net(self, buffer) -> (obj_critic_value, obj_actor_value, ...)`
 - 描述：根据算法设定的优化目标优化网络参数，并输出训练日志。查看训练日志，画出中间变量的曲线，可以给RL训练超参数提供修改思路。
 - 输入：
+  - `buffer: ReplayBuffer` 经验回放缓存，有更新缓存数据的方法`buffer.update()`，以及随机抽取环境数据的方法`buffer.sample()`  
+- 输出：输出一个记录了训练产生的日志数据，组成了一个浮点数元组。
+  - `obj_critic_value: float` critic网络的优化目标是：最小化critic拟合Q值的损失函数，这里输出critic的损失函数的均值
+  - `obj_actor_value: float` actor网络的优化目标是：最大化critic给actor动作估计的Q值，这里输出的是Q值估计的均值
+  - `...: float` 其他数值
+- 用法：在`run.train_agent()`函数里，让智能体使用 ReplayBuffer 更新网络
+
+`get_obj_critic(self, buffer, batch_size) -> (obj_critic, states)`
+- 描述：先计算得到需要critic去拟合的Q值作为标签，然后输出critic估计的Q值与标签的距离
+- 输入：
+  - `buffer: ReplayBuffer` 经验回放缓存，有更新缓存数据的方法`buffer.update()`，以及随机抽取环境数据的方法`buffer.sample()`  
+  - `batch_size: int` 每一次从经验回放缓存 `buffer` 中随机抽取样本的个数
 - 输出：
-- 用法：
+  - `obj_critic: Tensor` critic网络的优化目标是：最小化critic拟合Q值的损失函数
+  - `state: shape == (horizon_len, state_dim)` 按时刻有序排列的状态state
+- 用法：在`update_net()`函数里，得到critic网络的优化目标，以及用于计算actor网络优化目标的`states`，**DQN算法的Qnet可以视为拟合Q值的critic网络，DQN没有actor网络**
 
 
 ### class AgentDDPG
 算法DDPG
 
-**todo 描述 off-policy (continuous action) DRL算法相对于 AgentBase 的差别**
+`explore_env(self, env, horizon_len, if_random) -> (states, actions, rewards, undones, info_dict)`
+- 描述：让智能体在环境中探索，并收集用于训练的数据
+- 输入：
+  - `env:` 用于智能体训练的仿真环境，含有两个方法：重置环境`env.reset()`，与智能体互动`env.step()`
+    - `horizon_len: int` 在每一轮探索中，智能体与环境的互动步数。控制了每轮更新中用于网络训练的新增样本数。触发`done=True`时，调用`env.reset()`去重置环境得到`next_state`
+- 输出：
+  - `states: shape == (horizon_len, state_dim)` 按时刻有序排列的状态state
+  - `actions: shape == (horizon_len, action_dim)` 按时刻有序排列的动作action
+  - `rewards: shape == (horizon_len, 1)` 按时刻有序排列的奖励reward
+  - `undones: shape == (horizon_len, 1)` 按时刻有序排列的停止标记undone。episode结束时有`undone=False`，其余时刻`undone=True`
+  - `info_dict: dict` 记录额外信息的字典。可以传`None`表示没有需要传输的数据。
+- 用法：在`run.train_agent()`函数里，让智能体与环境交互获取训练所需的数据`state, action, reward, undone`。
+
+`update_net(self, buffer) -> (obj_critic_value, obj_actor_value, ...)`
+- 描述：根据算法设定的优化目标优化网络参数，并输出训练日志。查看训练日志，画出中间变量的曲线，可以给RL训练超参数提供修改思路。
+- 输入：
+  - `buffer: ReplayBuffer` 经验回放缓存，有更新缓存数据的方法`buffer.update()`，以及随机抽取环境数据的方法`buffer.sample()`  
+- 输出：输出一个记录了训练产生的日志数据，组成了一个浮点数元组。
+  - `obj_critic_value: float` critic网络的优化目标是：最小化critic拟合Q值的损失函数，这里输出critic的损失函数的均值
+  - `obj_actor_value: float` actor网络的优化目标是：最大化critic给actor动作估计的Q值，这里输出的是Q值估计的均值
+  - `...: float` 其他数值
+- 用法：在`run.train_agent()`函数里，让智能体使用 ReplayBuffer 更新网络
+
+`get_obj_critic(self, buffer, batch_size) -> (obj_critic, states)`
+- 描述：先计算得到需要critic去拟合的Q值作为标签，然后输出critic估计的Q值与标签的距离
+- 输入：
+  - `buffer: ReplayBuffer` 经验回放缓存，有更新缓存数据的方法`buffer.update()`，以及随机抽取环境数据的方法`buffer.sample()`  
+  - `batch_size: int` 每一次从经验回放缓存 `buffer` 中随机抽取样本的个数
+- 输出：
+  - `obj_critic: Tensor` critic网络的优化目标是：最小化critic拟合Q值的损失函数
+  - `state: shape == (horizon_len, state_dim)` 按时刻有序排列的状态state
+- 用法：在`update_net()`函数里，得到critic网络的优化目标，以及用于计算actor网络优化目标的`states`
 
 ### class AgentPPO
 算法PPO
 
-**todo 描述 on-policy DRL算法相对于 off-policy DRL算法的差别**
+`explore_env(self, env, horizon_len, if_random) -> (states, actions, logprobs, rewards, undones, info_dict)`
+- 描述：让智能体在环境中探索，并收集用于训练的数据
+- 输入：
+  - `env:` 用于智能体训练的仿真环境，含有两个方法：重置环境`env.reset()`，与智能体互动`env.step()`
+    - `horizon_len: int` 在每一轮探索中，智能体与环境的互动步数。控制了每轮更新中用于网络训练的新增样本数。触发`done=True`时，调用`env.reset()`去重置环境得到`next_state`
+- 输出：
+  - `states: shape == (horizon_len, state_dim)` 按时刻有序排列的状态state
+  - `actions: shape == (horizon_len, action_dim)` 按时刻有序排列的动作action
+  - `logprobs: shape == (horizon_len, )` 按时刻有序排列的**对数概率值 logarithmic probability**，在线策略on-policy 需要这个值去估计随机策略下，当前抽样动作的出现概率
+  - `rewards: shape == (horizon_len, 1)` 按时刻有序排列的奖励reward
+  - `undones: shape == (horizon_len, 1)` 按时刻有序排列的停止标记undone。episode结束时有`undone=False`，其余时刻`undone=True`
+  - `info_dict: dict` 记录额外信息的字典。可以传`None`表示没有需要传输的数据。
+- 用法：在`run.train_agent()`函数里，让智能体与环境交互获取训练所需的数据`state, action, reward, undone`。
+
+`update_net(self, buffer) -> (obj_critic_value, obj_actor_value, ...)`
+- 描述：根据算法设定的优化目标优化网络参数，并输出训练日志。查看训练日志，画出中间变量的曲线，可以给RL训练超参数提供修改思路。
+- 输入：
+  - `buffer: ReplayBuffer` 经验回放缓存，有更新缓存数据的方法`buffer.update()`，以及随机抽取环境数据的方法`buffer.sample()`  
+- 输出：输出一个记录了训练产生的日志数据，组成了一个浮点数元组。
+  - `obj_critic_value: float` critic网络的优化目标是：最小化critic拟合Q值的损失函数，这里输出critic的损失函数的均值
+  - `obj_actor_value: float` actor网络的优化目标是：最大化critic给actor动作估计的Q值，这里输出的是Q值估计的均值
+  - `...: float` 其他数值
+- 用法：在`run.train_agent()`函数里，让智能体使用 ReplayBuffer 更新网络
+
+`get_advantages(self, rewards, undones, values) -> (obj_critic, states)`
+- **描述：计算在线策略的优势值**
+- 输入：
+  - `rewards: shape == (horizon_len, 1)` 按时刻有序排列的奖励reward
+  - `undones: shape == (horizon_len, 1)` 按时刻有序排列的停止标记undone。episode结束时有`undone=False`，其余时刻`undone=True`
+  - `values: shape == (horizon_len, )` **按时刻有序排列的优势值估计，不带梯度。由在线策略的critic网络(advantage value function)，基于旧的策略算出**
+- 输出：
+  - `advantages: shape == (horizon_len, )` **按时刻有序排列的优势值估计，带有梯度。由在线策略的critic网络(advantage value function)，基于新的策略算出**
+- 用法：在`update_net()`函数里，**算出即将被优化的策略的优势值**，用于后续计算actor网络的优化目标
 
 ---
 

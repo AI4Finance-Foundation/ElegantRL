@@ -1,10 +1,10 @@
-import torch
 from copy import deepcopy
+import torch
 from torch import Tensor
+from config import Config
 from net import QNet  # DQN
 from net import Actor, Critic  # DDPG
 from net import ActorPPO, CriticPPO  # PPO
-from config import Config
 
 
 class AgentBase:
@@ -20,7 +20,7 @@ class AgentBase:
         self.if_off_policy = args.if_off_policy
         self.soft_update_tau = args.soft_update_tau
 
-        self.states = None  # assert self.states == (1, state_dim)
+        self.last_state = None  # save the last state of the trajectory for training. `last_state.shape == (state_dim)`
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         act_class = getattr(self, "act_class", None)
@@ -65,7 +65,7 @@ class AgentDQN(AgentBase):
         rewards = torch.ones(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
-        ary_state = self.states[0]
+        ary_state = self.last_state
 
         get_action = self.act.get_action
         for i in range(horizon_len):
@@ -85,7 +85,7 @@ class AgentDQN(AgentBase):
             rewards[i] = reward
             dones[i] = done
 
-        self.states[0] = ary_state
+        self.last_state = ary_state
         rewards = (rewards * self.reward_scale).unsqueeze(1)
         undones = (1.0 - dones.type(torch.float32)).unsqueeze(1)
         return states, actions, rewards, undones
@@ -117,9 +117,9 @@ class AgentDQN(AgentBase):
 
 class AgentDDPG(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, 'act_class', Actor)
-        self.cri_class = getattr(self, 'cri_class', Critic)
-        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.act_class = getattr(self, 'act_class', Actor)  # get the attribute of object `self`, set Actor in default
+        self.cri_class = getattr(self, 'cri_class', Critic)  # get the attribute of object `self`, set Critic in default
+        AgentBase.__init__(self, net_dims, state_dim, action_dim, gpu_id, args)
         self.act_target = deepcopy(self.act)
         self.cri_target = deepcopy(self.cri)
 
@@ -127,19 +127,15 @@ class AgentDDPG(AgentBase):
 
     def explore_env(self, env, horizon_len: int, if_random: bool = False) -> [Tensor]:
         states = torch.zeros((horizon_len, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.int32).to(self.device)
+        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.float32).to(self.device)
         rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
-        ary_state = self.states[0]
-
+        ary_state = self.last_state
         get_action = self.act.get_action
         for i in range(horizon_len):
             state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device)
-            if if_random:
-                action = torch.rand(1, self.action_dim) * 2 - 1.0
-            else:
-                action = get_action(state.unsqueeze(0)).squeeze(0)
+            action = torch.rand(self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0)).squeeze(0)
 
             ary_action = action.detach().cpu().numpy()
             ary_state, reward, done, _ = env.step(ary_action)
@@ -151,41 +147,37 @@ class AgentDDPG(AgentBase):
             rewards[i] = reward
             dones[i] = done
 
-        self.states[0] = ary_state
-        rewards = (rewards * self.reward_scale).unsqueeze(1)
-        undones = (1 - dones.type(torch.float32)).unsqueeze(1)
+        self.last_state = ary_state
+        rewards = rewards.unsqueeze(1)
+        undones = (1.0 - dones.type(torch.float32)).unsqueeze(1)
         return states, actions, rewards, undones
 
     def update_net(self, buffer) -> [float]:
-        obj_critics = 0.0
-        obj_actors = 0.0
-
+        obj_critics = obj_actors = 0.0
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
-        assert update_times >= 1
+        assert update_times > 0
         for i in range(update_times):
             obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+            obj_critics += obj_critic.item()
 
             action = self.act(state)
             obj_actor = self.cri_target(state, action).mean()
             self.optimizer_update(self.act_optimizer, -obj_actor)
             self.soft_update(self.act_target, self.act, self.soft_update_tau)
-
-            obj_critics += obj_critic.item()
             obj_actors += obj_actor.item()
         return obj_critics / update_times, obj_actors / update_times
 
     def get_obj_critic(self, buffer, batch_size: int) -> (Tensor, Tensor):
         with torch.no_grad():
-            state, action, reward, undone, next_state = buffer.sample(batch_size)
-            next_action = self.act_target(next_state)
-            next_q = self.cri_target(next_state, next_action)
-            q_label = reward + undone * self.gamma * next_q
-
-        q_value = self.cri(state, action)
-        obj_critic = self.criterion(q_value, q_label)
-        return obj_critic, state
+            states, actions, rewards, undones, next_states = buffer.sample(batch_size)
+            next_actions = self.act_target(next_states)
+            next_q_values = self.cri_target(next_states, next_actions)
+            q_labels = rewards + undones * self.gamma * next_q_values
+        q_values = self.cri(states, actions)
+        obj_critic = self.criterion(q_values, q_labels)
+        return obj_critic, states
 
 
 class AgentPPO(AgentBase):
@@ -207,7 +199,7 @@ class AgentPPO(AgentBase):
         rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
-        ary_state = self.states[0]
+        ary_state = self.last_state
 
         get_action = self.act.get_action
         convert = self.act.convert_action_for_env
@@ -226,7 +218,7 @@ class AgentPPO(AgentBase):
             rewards[i] = reward
             dones[i] = done
 
-        self.states[0] = ary_state
+        self.last_state = ary_state
         rewards = (rewards * self.reward_scale).unsqueeze(1)
         undones = (1 - dones.type(torch.float32)).unsqueeze(1)
         return states, actions, logprobs, rewards, undones
@@ -286,8 +278,8 @@ class AgentPPO(AgentBase):
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        next_state = torch.tensor(self.states, dtype=torch.float32).to(self.device)
-        next_value = self.cri(next_state).detach()[0, 0]
+        next_state = torch.tensor(self.last_state, dtype=torch.float32).to(self.device)
+        next_value = self.cri(next_state.unsqueeze(0)).detach().squeeze(1).squeeze(0)
 
         advantage = 0  # last_gae_lambda
         for t in range(horizon_len - 1, -1, -1):
@@ -303,7 +295,6 @@ class ReplayBuffer:  # for off-policy
         self.if_full = False
         self.cur_size = 0
         self.max_size = max_size
-
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         self.states = torch.empty((max_size, state_dim), dtype=torch.float32, device=self.device)
@@ -316,23 +307,15 @@ class ReplayBuffer:  # for off-policy
         p = self.p + rewards.shape[0]  # pointer
         if p > self.max_size:
             self.if_full = True
-
             p0 = self.p
             p1 = self.max_size
             p2 = self.max_size - self.p
             p = p - self.max_size
 
-            self.states[p0:p1] = states[:p2]
-            self.states[0:p] = states[-p:]
-
-            self.actions[p0:p1] = actions[:p2]
-            self.actions[0:p] = actions[-p:]
-
-            self.rewards[p0:p1] = rewards[:p2]
-            self.rewards[0:p] = rewards[-p:]
-
-            self.undones[p0:p1] = undones[:p2]
-            self.undones[0:p] = undones[-p:]
+            self.states[p0:p1], self.states[0:p] = states[:p2], states[-p:]
+            self.actions[p0:p1], self.actions[0:p] = actions[:p2], actions[-p:]
+            self.rewards[p0:p1], self.rewards[0:p] = rewards[:p2], rewards[-p:]
+            self.undones[p0:p1], self.undones[0:p] = undones[:p2], undones[-p:]
         else:
             self.states[self.p:p] = states
             self.actions[self.p:p] = actions
@@ -342,9 +325,5 @@ class ReplayBuffer:  # for off-policy
         self.cur_size = self.max_size if self.if_full else self.p
 
     def sample(self, batch_size: int) -> [Tensor]:
-        indices = torch.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
-        return (self.states[indices],
-                self.actions[indices],
-                self.rewards[indices],
-                self.undones[indices],
-                self.states[indices + 1],)  # next state
+        ids = torch.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
+        return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
