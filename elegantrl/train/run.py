@@ -103,7 +103,7 @@ def train_and_evaluate(args):
     if_train = True
     while if_train:
         trajectory = agent.explore_env(env, horizon_len)
-        steps += horizon_len
+        steps = horizon_len
         if if_off_policy:
             buffer.update_buffer(trajectory)
             torch.set_grad_enabled(True)
