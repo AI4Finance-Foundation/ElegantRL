@@ -7,15 +7,17 @@ def check_class_q_net(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32)
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device)
 
-    '''check'''
+    '''check for agent.AgentDQN'''
     act = QNet(dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(device)
     act.explore_rate = 0.1
 
+    '''check for run.get_rewards_and_steps'''
     action = act(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)
 
+    '''check for agent.AgentDQN.explore_env'''
     action = act.get_action(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.int, torch.long}
@@ -34,13 +36,13 @@ def check_class_actor(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)
-    assert torch.any((-1.0 < action) & (action < +1.0))
+    assert torch.any((-1.0 <= action) & (action <= +1.0))
 
     action = act.get_action(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)
-    assert torch.any((-1.0 < action) & (action < +1.0))
+    assert torch.any((-1.0 <= action) & (action <= +1.0))
 
 
 def check_class_critic(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
@@ -71,13 +73,13 @@ def check_class_actor_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64,
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)
     action = act.convert_action_for_env(action)
-    assert torch.any((-1.0 < action) & (action < +1.0))
+    assert torch.any((-1.0 <= action) & (action <= +1.0))
 
     action, logprob = act.get_action(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)
-    assert torch.any((-1.0 < action) & (action < +1.0))
+    assert torch.any((-1.0 <= action) & (action <= +1.0))
     assert isinstance(logprob, Tensor)
     assert logprob.shape == (batch_size,)
 
@@ -106,17 +108,17 @@ def check_def_build_mlp():
     net_dims = (64, 32)
     net = build_mlp(dims=net_dims)
     assert isinstance(net, nn.Sequential)
-    assert len(net) == 1 == (len(net_dims) - 1) * 2 - 1
+    assert len(net) == 1 == len(net_dims) * 2 - 3
 
     net_dims = (64, 32, 16)
     net = build_mlp(dims=net_dims)
     assert isinstance(net, nn.Sequential)
-    assert len(net) == 3 == (len(net_dims) - 1) * 2 - 1
+    assert len(net) == 3 == len(net_dims) * 2 - 3
 
     net_dims = (64, 32, 16, 8)
     net = build_mlp(dims=net_dims)
     assert isinstance(net, nn.Sequential)
-    assert len(net) == 5 == (len(net_dims) - 1) * 2 - 1
+    assert len(net) == 5 == len(net_dims) * 2 - 3
 
 
 if __name__ == '__main__':
