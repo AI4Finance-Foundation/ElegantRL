@@ -3,7 +3,7 @@ from env import PendulumEnv
 from unittest.mock import patch
 
 
-def check_class_config():
+def check_config():
     args = Config()  # check dummy Config
     assert args.get_if_off_policy() is True
 
@@ -39,7 +39,7 @@ def check_class_config():
 
 
 @patch('builtins.input', lambda *args: 'y')
-def check_def_config_init_before_training_yes():
+def check_config_init_before_training_yes():
     from agent import AgentDDPG
     env_args = {'env_name': 'Pendulum-v1', 'state_dim': 3, 'action_dim': 1, 'if_discrete': False}
     env_class = gym.make
@@ -51,7 +51,7 @@ def check_def_config_init_before_training_yes():
 
 
 @patch('builtins.input', lambda *args: 'n')
-def check_def_config_init_before_training_no():
+def check_config_init_before_training_no():
     from agent import AgentDDPG
     env_args = {'env_name': 'Pendulum', 'state_dim': 3, 'action_dim': 1, 'if_discrete': False}
     env_class = PendulumEnv
@@ -67,7 +67,7 @@ def tutorial_unittest_mock_patch():
     print('Print_input():', input())
 
 
-def check_def_kwargs_filter():
+def check_kwargs_filter():
     env_args = {'env_name': 'Pendulum-v1', 'state_dim': 3, 'action_dim': 1, 'if_discrete': False}
     env_class = PendulumEnv
     env = env_class(**kwargs_filter(env_class.__init__, env_args.copy()))
@@ -75,7 +75,7 @@ def check_def_kwargs_filter():
     assert hasattr(env, 'step')
 
 
-def check_def_build_env():
+def check_build_env():
     env_args = {'env_name': 'CartPole-v1', 'state_dim': 4, 'action_dim': 2, 'if_discrete': True}
     env_class = gym.make
     env = build_env(env_class=env_class, env_args=env_args)
@@ -93,7 +93,7 @@ def check_def_build_env():
     assert isinstance(env.if_discrete, bool)
 
 
-def check_def_get_gym_env_args():
+def check_get_gym_env_args():
     env_args = {'env_name': 'CartPole-v1', 'state_dim': 4, 'action_dim': 2, 'if_discrete': True}
     env_class = gym.make
     env = build_env(env_class=env_class, env_args=env_args)
@@ -114,12 +114,12 @@ def check_def_get_gym_env_args():
 
 
 if __name__ == '__main__':
-    check_class_config()
-    check_def_config_init_before_training_no()
-    check_def_config_init_before_training_yes()
+    check_config()
+    check_config_init_before_training_no()
+    check_config_init_before_training_yes()
     tutorial_unittest_mock_patch()
 
-    check_def_kwargs_filter()
-    check_def_build_env()
-    check_def_get_gym_env_args()
+    check_kwargs_filter()
+    check_build_env()
+    check_get_gym_env_args()
     print('| Finish checking.')

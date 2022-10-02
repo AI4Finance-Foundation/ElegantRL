@@ -3,7 +3,7 @@ import torch.nn
 from net import *
 
 
-def check_class_q_net(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
+def check_q_net(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device)
 
@@ -24,7 +24,7 @@ def check_class_q_net(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32)
     assert action.shape == (batch_size, 1)
 
 
-def check_class_actor(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
+def check_actor(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device)
 
@@ -45,7 +45,7 @@ def check_class_actor(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32)
     assert torch.any((-1.0 <= action) & (action <= +1.0))
 
 
-def check_class_critic(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
+def check_critic(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device)
     action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32, device=device)
@@ -59,7 +59,7 @@ def check_class_critic(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32
     assert q.shape == (batch_size, 1)
 
 
-def check_class_actor_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
+def check_actor_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device)
 
@@ -91,7 +91,7 @@ def check_class_actor_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64,
     assert entropy.shape == (batch_size,)
 
 
-def check_class_critic_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
+def check_critic_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device)
 
@@ -104,7 +104,7 @@ def check_class_critic_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64
     assert q.shape == (batch_size, 1)
 
 
-def check_def_build_mlp():
+def check_build_mlp():
     net_dims = (64, 32)
     net = build_mlp(dims=net_dims)
     assert isinstance(net, nn.Sequential)
@@ -122,10 +122,10 @@ def check_def_build_mlp():
 
 
 if __name__ == '__main__':
-    check_class_q_net()
-    check_class_actor()
-    check_class_critic()
-    check_class_actor_ppo()
-    check_class_critic_ppo()
-    check_def_build_mlp()
+    check_q_net()
+    check_actor()
+    check_critic()
+    check_actor_ppo()
+    check_critic_ppo()
+    check_build_mlp()
     print('| Finish checking.')

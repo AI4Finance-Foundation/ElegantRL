@@ -351,7 +351,7 @@ class Evaluator:
         self.eval_times = eval_times  # number of times that get episodic cumulative return
         self.eval_per_step = eval_per_step  # evaluate the agent per training steps
 
-        self.recorder = list()
+        self.recorder = []
         print("\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
               "\n| `time`: Time spent from the start of training to this moment."
               "\n| `avgR`: Average value of cumulative rewards, which is the sum of rewards in an episode."

@@ -5,7 +5,7 @@ from env import PendulumEnv
 from agent import *
 
 
-def check_class_agent_base(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
+def check_agent_base(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_id=0):
     device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state = torch.rand(size=(batch_size, state_dim), dtype=torch.float32, device=device).detach()
     action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32, device=device).detach()
@@ -28,7 +28,7 @@ def check_class_agent_base(state_dim=4, action_dim=2, batch_size=3, net_dims=(64
     assert agent.soft_update(target_net=target_net, current_net=current_net, tau=3e-5) is None
 
 
-def check_class_agent_dqn(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
+def check_agent_dqn(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     from config import build_env
     env_args = {'env_name': 'CartPole-v1', 'state_dim': 4, 'action_dim': 2, 'if_discrete': True}
     env = build_env(env_class=gym.make, env_args=env_args)
@@ -83,7 +83,7 @@ def check_class_agent_dqn(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
     assert len(logging_tuple) >= 2
 
 
-def check_class_agent_ddpg(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
+def check_agent_ddpg(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     from config import build_env
     env_args = {'env_name': 'Pendulum', 'state_dim': 3, 'action_dim': 1, 'if_discrete': False}
     env = build_env(env_class=PendulumEnv, env_args=env_args)
@@ -136,7 +136,7 @@ def check_class_agent_ddpg(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_
     assert len(logging_tuple) >= 2
 
 
-def check_class_agent_ppo(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
+def check_agent_ppo(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     from config import build_env
     env_args = {'env_name': 'Pendulum', 'state_dim': 3, 'action_dim': 1, 'if_discrete': False}
     env = build_env(env_class=PendulumEnv, env_args=env_args)
@@ -184,8 +184,8 @@ def check_class_agent_ppo(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
 
 
 if __name__ == '__main__':
-    check_class_agent_base()
-    check_class_agent_dqn()
-    check_class_agent_ddpg()
-    check_class_agent_ppo()
+    check_agent_base()
+    check_agent_dqn()
+    check_agent_ddpg()
+    check_agent_ppo()
     print('| Finish checking.')

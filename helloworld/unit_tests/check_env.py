@@ -1,7 +1,7 @@
 from env import *
 
 
-def check_class_pendulum_env():
+def check_pendulum_env():
     env = PendulumEnv()
     assert isinstance(env.env_name, str)
     assert isinstance(env.state_dim, int)
@@ -22,5 +22,5 @@ def check_class_pendulum_env():
 
 
 if __name__ == '__main__':
-    check_class_pendulum_env()
+    check_pendulum_env()
     print('| Finish checking.')
