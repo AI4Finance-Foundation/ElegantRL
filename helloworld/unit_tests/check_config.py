@@ -3,7 +3,7 @@ from env import PendulumEnv
 from unittest.mock import patch
 
 
-def check_class_config():
+def check_config():
     args = Config()  # check dummy Config
     assert args.get_if_off_policy() is True
 
@@ -114,7 +114,7 @@ def check_def_get_gym_env_args():
 
 
 if __name__ == '__main__':
-    check_class_config()
+    check_config()
     check_def_config_init_before_training_no()
     check_def_config_init_before_training_yes()
     tutorial_unittest_mock_patch()

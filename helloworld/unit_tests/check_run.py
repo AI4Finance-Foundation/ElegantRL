@@ -60,7 +60,7 @@ def check_def_draw_learning_curve_using_recorder(cwd='./temp'):
     shutil.rmtree(cwd)
 
 
-def check_class_evaluator(net_dims=(64, 32), horizon_len=1024, eval_per_step=16, eval_times=2, cwd='./temp'):
+def check_evaluator(net_dims=(64, 32), horizon_len=1024, eval_per_step=16, eval_times=2, cwd='./temp'):
     from env import PendulumEnv
     env_args = {'env_name': 'Pendulum-v1', 'state_dim': 3, 'action_dim': 1, 'if_discrete': False}
     env_class = PendulumEnv
@@ -81,6 +81,6 @@ def check_class_evaluator(net_dims=(64, 32), horizon_len=1024, eval_per_step=16,
 if __name__ == '__main__':
     check_def_draw_learning_curve_using_recorder()
     check_def_get_rewards_and_steps()
-    check_class_evaluator()
+    check_evaluator()
     print('| Finish checking.')
 
