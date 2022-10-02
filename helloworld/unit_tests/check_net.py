@@ -104,7 +104,7 @@ def check_critic_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32),
     assert q.shape == (batch_size, 1)
 
 
-def check__build_mlp():
+def check_build_mlp():
     net_dims = (64, 32)
     net = build_mlp(dims=net_dims)
     assert isinstance(net, nn.Sequential)
@@ -127,5 +127,5 @@ if __name__ == '__main__':
     check_critic()
     check_actor_ppo()
     check_critic_ppo()
-    check__build_mlp()
+    check_build_mlp()
     print('| Finish checking.')
