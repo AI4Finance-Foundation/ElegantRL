@@ -87,7 +87,6 @@ def train_and_evaluate(args):
     agent = init_agent(args, gpu_id, env)
     buffer = init_buffer(args, gpu_id)
     evaluator = init_evaluator(args, gpu_id)
-
     agent.state = env.reset()
     if args.if_off_policy:
         trajectory = agent.explore_env(env, args.num_seed_steps * args.num_steps_per_episode)
@@ -100,23 +99,21 @@ def train_and_evaluate(args):
     if_allow_break = args.if_allow_break
     if_off_policy = args.if_off_policy
     del args
-
+    steps = 0
     if_train = True
     while if_train:
         trajectory = agent.explore_env(env, horizon_len)
-        steps, r_exp = buffer.update_buffer((trajectory,))
+        steps = horizon_len
         if if_off_policy:
             buffer.update_buffer(trajectory)
             torch.set_grad_enabled(True)
             logging_tuple = agent.update_net(buffer)
             torch.set_grad_enabled(False)
         else:
+            r_exp = trajectory[3].mean().item()
             torch.set_grad_enabled(True)
             logging_tuple = agent.update_net(trajectory)
             torch.set_grad_enabled(False)
-
-        #r_exp = agent.reward_tracker.mean()
-        #step_exp = agent.step_tracker.mean()
         (if_reach_goal, if_save) = evaluator.evaluate_save_and_plot(agent.act, steps, r_exp, logging_tuple)
         dont_break = not if_allow_break
         not_reached_goal = not if_reach_goal

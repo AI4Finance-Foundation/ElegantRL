@@ -32,7 +32,6 @@ class Evaluator:
 
     def evaluate_save_and_plot(self, act, steps: int, r_exp: float, log_tuple: tuple) -> (bool, bool):
         self.total_step += steps  # update total training steps
-
         if time.time() - self.eval_time < self.eval_gap:
             if_reach_goal = False
             if_save = False
@@ -78,14 +77,13 @@ class Evaluator:
                       f"{self.agent_id:<3}{self.total_step:8.2e}{self.target_return:8.2f} |"
                       f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
                       f"{self.used_time:>8}  ########")
-
             print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |"
                   f"{r_avg:8.2f}{r_std:7.1f}{s_avg:7.0f}{s_std:6.0f} |"
                   f"{r_exp:8.2f}{''.join(f'{n:7.2f}' for n in log_tuple)}")
 
             if hasattr(self.eval_env, 'curriculum_learning_for_evaluator'):
                 self.eval_env.curriculum_learning_for_evaluator(r_avg)
-
+                
             '''plot learning curve figure'''
             if len(self.recorder) == 0:
                 print("| save_npy_draw_plot() WARNING: len(self.recorder)==0")
@@ -97,9 +95,8 @@ class Evaluator:
             train_time = int(time.time() - self.start_time)
             total_step = int(self.recorder[-1][0])
             save_title = f"step_time_maxR_{int(total_step)}_{int(train_time)}_{self.r_max:.3f}"
-
+            
             save_learning_curve(self.recorder, self.cwd, save_title)
-
         return if_reach_goal, if_save
 
     def save_or_load_recoder(self, if_save: bool):
@@ -417,9 +414,10 @@ def save_learning_curve(
     write `mpl.use('Agg')` before `import matplotlib.pyplot as plt`
     https://stackoverflow.com/a/4935945/9293137
     """
+    
     import matplotlib.pyplot as plt
     fig, axs = plt.subplots(2)
-
+    
     '''axs[0]'''
     ax00 = axs[0]
     ax00.cla()
@@ -435,7 +433,6 @@ def save_learning_curve(
     ax00.plot(steps, r_avg, label='Episode Return', color=color0)
     ax00.fill_between(steps, r_avg - r_std, r_avg + r_std, facecolor=color0, alpha=0.3)
     ax00.grid()
-
     '''axs[1]'''
     ax10 = axs[1]
     ax10.cla()

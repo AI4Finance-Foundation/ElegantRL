@@ -22,9 +22,9 @@ class Arguments:
         self.target_return = self.update_attr('target_return')  # target average episode return
 
         self.agent_class = agent_class  # the class of DRL algorithm
-        self.net_dim = 2 ** 8  # the network width
+        self.net_dim = 2 ** 4  # the network width
         self.num_layer = 3  # layer number of MLP (Multi-layer perception, `assert layer_num>=2`)
-        self.horizon_len = 1  # number of steps per exploration
+        self.horizon_len = 32  # number of steps per exploration
         if self.if_off_policy:  # off-policy
             self.max_memo = 2 ** 21  # capacity of replay buffer, 2 ** 21 ~= 2e6
             self.batch_size = self.net_dim  # num of transitions sampled from replay buffer.
@@ -65,7 +65,7 @@ class Arguments:
 
         '''Arguments for evaluate'''
         self.save_gap = 2  # save the policy network (actor.pth) for learning curve, +np.inf means don't save
-        self.eval_gap = 2 ** 7  # evaluate the agent per eval_gap seconds
+        self.eval_gap = 2 ** 4  # evaluate the agent per eval_gap seconds
         self.eval_times = 2 ** 4  # number of times that get episode return
         self.eval_env_func = None  # eval_env = eval_env_func(*eval_env_args)
         self.eval_env_args = None  # eval_env = eval_env_func(*eval_env_args)

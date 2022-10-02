@@ -2,10 +2,8 @@ import os
 import time
 import gym
 import numpy as np
-import numpy.random as rd
 import torch
 import torch.nn as nn
-from copy import deepcopy
 from torch import Tensor
 from torch.distributions.normal import Normal
 
@@ -59,11 +57,13 @@ def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
     return nn.Sequential(*net_list)
 
 
-class Config:
+class Config:  # for on-policy
     def __init__(self, agent_class=None, env_class=None, env_args=None):
+        self.agent_class = agent_class  # agent = agent_class(...)
+        self.if_off_policy = False  # whether off-policy or on-policy of DRL algorithm
+
         self.env_class = env_class  # env = env_class(**env_args)
         self.env_args = env_args  # env = env_class(**env_args)
-
         if env_args is None:  # dummy env_args
             env_args = {'env_name': None, 'state_dim': None, 'action_dim': None, 'if_discrete': None}
         self.env_name = env_args['env_name']  # the name of environment. Be used to set 'cwd'.
@@ -71,14 +71,11 @@ class Config:
         self.action_dim = env_args['action_dim']  # vector dimension (feature number) of action
         self.if_discrete = env_args['if_discrete']  # discrete or continuous action space
 
-        self.agent_class = agent_class  # agent = agent_class(...)
-
         '''Arguments for reward shaping'''
         self.gamma = 0.99  # discount factor of future rewards
         self.reward_scale = 1.0  # an approximate target reward usually be closed to 256
 
         '''Arguments for training'''
-        self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
@@ -87,9 +84,16 @@ class Config:
         self.buffer_size = None  # ReplayBuffer size. Empty the ReplayBuffer for on-policy.
         self.repeat_times = 8.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
 
+        '''Arguments for device'''
+        self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
+        self.thread_num = int(8)  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
+        self.random_seed = int(0)  # initialize random seed in self.init_before_training()
+
         '''Arguments for evaluate'''
         self.cwd = None  # current working directory to save model. None means set automatically
+        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = +np.inf  # break training if 'total_step > break_step'
+
         self.eval_times = int(32)  # number of times that get episodic cumulative return
         self.eval_per_step = int(2e4)  # evaluate the agent per training steps
 
@@ -100,8 +104,22 @@ class Config:
 
 
 def get_gym_env_args(env, if_print: bool) -> dict:
+    """Get a dict ``env_args`` about a standard OpenAI gym env information.
+
+    param env: a standard OpenAI gym env
+    param if_print: [bool] print the dict about env information.
+    return: env_args [dict]
+
+    env_args = {
+        'env_name': env_name,       # [str] the environment name, such as XxxXxx-v0
+        'state_dim': state_dim,     # [int] the dimension of state
+        'action_dim': action_dim,   # [int] the dimension of action or the number of discrete action
+        'if_discrete': if_discrete, # [bool] action space is discrete or continuous
+    }
+    """
     if {'unwrapped', 'observation_space', 'action_space', 'spec'}.issubset(dir(env)):  # isinstance(env, gym.Env):
         env_name = env.unwrapped.spec.id
+
         state_shape = env.observation_space.shape
         state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
@@ -110,9 +128,27 @@ def get_gym_env_args(env, if_print: bool) -> dict:
             action_dim = env.action_space.n
         elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
             action_dim = env.action_space.shape[0]
+            if any(env.action_space.high - 1):
+                print('WARNING: env.action_space.high', env.action_space.high)
+            if any(env.action_space.low + 1):
+                print('WARNING: env.action_space.low', env.action_space.low)
+        else:
+            raise RuntimeError('\n| Error in get_gym_env_info(). Please set these value manually:'
+                               '\n  `state_dim=int; action_dim=int; if_discrete=bool;`'
+                               '\n  And keep action_space in range (-1, 1).')
+    else:
+        env_name = env.env_name
+        state_dim = env.state_dim
+        action_dim = env.action_dim
+        if_discrete = env.if_discrete
 
-    env_args = {'env_name': env_name, 'state_dim': state_dim, 'action_dim': action_dim, 'if_discrete': if_discrete}
-    print(f"env_args = {repr(env_args)}") if if_print else None
+    env_args = {'env_name': env_name,
+                'state_dim': state_dim,
+                'action_dim': action_dim,
+                'if_discrete': if_discrete, }
+    if if_print:
+        env_args_str = repr(env_args).replace(',', f",\n{'':11}")
+        print(f"env_args = {env_args_str}")
     return env_args
 
 
@@ -126,6 +162,7 @@ def kwargs_filter(function, kwargs: dict) -> dict:
 
 def build_env(env_class=None, env_args=None):
     if env_class.__module__ == 'gym.envs.registration':  # special rule
+        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
         env = env_class(id=env_args['env_name'])
     else:
         env = env_class(**kwargs_filter(env_class.__init__, env_args.copy()))
@@ -143,9 +180,11 @@ class AgentBase:
         self.batch_size = args.batch_size
         self.repeat_times = args.repeat_times
         self.reward_scale = args.reward_scale
+        self.learning_rate = args.learning_rate
+        self.if_off_policy = args.if_off_policy
         self.soft_update_tau = args.soft_update_tau
 
-        self.states = None  # assert self.states == (1, state_dim)
+        self.last_state = None  # save the last state of the trajectory for training. `last_state.shape == (state_dim)`
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         act_class = getattr(self, "act_class", None)
@@ -154,8 +193,8 @@ class AgentBase:
         self.cri = self.cri_target = cri_class(net_dims, state_dim, action_dim).to(self.device) \
             if cri_class else self.act
 
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), args.learning_rate)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), args.learning_rate) \
+        self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate) \
             if cri_class else self.act_optimizer
 
         self.criterion = torch.nn.SmoothL1Loss()
@@ -168,6 +207,7 @@ class AgentBase:
 
     @staticmethod
     def soft_update(target_net: torch.nn.Module, current_net: torch.nn.Module, tau: float):
+        # assert target_net is not current_net
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
@@ -191,7 +231,7 @@ class AgentPPO(AgentBase):
         rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
-        ary_state = self.states[0]
+        ary_state = self.last_state
 
         get_action = self.act.get_action
         convert = self.act.convert_action_for_env
@@ -210,7 +250,7 @@ class AgentPPO(AgentBase):
             rewards[i] = reward
             dones[i] = done
 
-        self.states[0] = ary_state
+        self.last_state = ary_state
         rewards = (rewards * self.reward_scale).unsqueeze(1)
         undones = (1 - dones.type(torch.float32)).unsqueeze(1)
         return states, actions, logprobs, rewards, undones
@@ -270,8 +310,8 @@ class AgentPPO(AgentBase):
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        next_state = torch.tensor(self.states, dtype=torch.float32).to(self.device)
-        next_value = self.cri(next_state).detach()[0, 0]
+        next_state = torch.tensor(self.last_state, dtype=torch.float32).to(self.device)
+        next_value = self.cri(next_state.unsqueeze(0)).detach().squeeze(1).squeeze(0)
 
         advantage = 0  # last_gae_lambda
         for t in range(horizon_len - 1, -1, -1):
@@ -282,9 +322,10 @@ class AgentPPO(AgentBase):
 
 
 class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
-    def __init__(self):
+    def __init__(self, gym_env_name=None):
         gym.logger.set_level(40)  # Block warning
-        gym_env_name = "Pendulum-v0" if gym.__version__ < '0.18.0' else "Pendulum-v1"
+        if gym_env_name is None:
+            gym_env_name = "Pendulum-v0" if gym.__version__ < '0.18.0' else "Pendulum-v1"
         super().__init__(env=gym.make(gym_env_name))
 
         '''the necessary env information when you design a custom env'''
@@ -297,24 +338,26 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
         return self.env.reset()
 
     def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):  # agent interacts in env
+        # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
         # We suggest that adjust action space to (-1, +1) when designing a custom env.
         state, reward, done, info_dict = self.env.step(action * 2)
-        return state.reshape(self.state_dim), float(reward), done, info_dict
+        state = state.reshape(self.state_dim)
+        return state, float(reward), done, info_dict
 
-    
+
 def train_agent(args: Config):
     args.init_before_training()
 
     env = build_env(args.env_class, args.env_args)
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.states = env.reset()[np.newaxis, :]
+    agent.last_state = env.reset()
 
     evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
                           eval_per_step=args.eval_per_step,
                           eval_times=args.eval_times,
                           cwd=args.cwd)
     torch.set_grad_enabled(False)
-    while True: # start training
+    while True:  # start training
         buffer_items = agent.explore_env(env, args.horizon_len)
 
         torch.set_grad_enabled(True)
@@ -340,7 +383,7 @@ def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_
         cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
         print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
 
-        
+
 class Evaluator:
     def __init__(self, eval_env, eval_per_step: int = 1e4, eval_times: int = 8, cwd: str = '.'):
         self.cwd = cwd
@@ -360,7 +403,7 @@ class Evaluator:
               f"\n| `objC`: Objective of Critic network. Or call it loss function of critic network."
               f"\n| `objA`: Objective of Actor network. It is the average Q value of the critic network."
               f"\n| {'step':>8}  {'time':>8}  | {'avgR':>8}  {'stdR':>6}  {'avgS':>6}  | {'objC':>8}  {'objA':>8}")
-            
+
     def evaluate_and_save(self, actor, horizon_len: int, logging_tuple: tuple):
         self.total_step += horizon_len
         if self.eval_step + self.eval_per_step > self.total_step:
@@ -375,7 +418,7 @@ class Evaluator:
 
         used_time = time.time() - self.start_time
         self.recorder.append((self.total_step, used_time, avg_r))
-        
+
         print(f"| {self.total_step:8.2e}  {used_time:8.0f}  "
               f"| {avg_r:8.2f}  {std_r:6.2f}  {avg_s:6.0f}  "
               f"| {logging_tuple[0]:8.2f}  {logging_tuple[1]:8.2f}")

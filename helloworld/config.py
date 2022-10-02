@@ -6,18 +6,17 @@ import numpy as np
 
 class Config:
     def __init__(self, agent_class=None, env_class=None, env_args=None):
+        self.agent_class = agent_class  # agent = agent_class(...)
+        self.if_off_policy = self.get_if_off_policy()  # whether off-policy or on-policy of DRL algorithm
+
         self.env_class = env_class  # env = env_class(**env_args)
         self.env_args = env_args  # env = env_class(**env_args)
-
         if env_args is None:  # dummy env_args
             env_args = {'env_name': None, 'state_dim': None, 'action_dim': None, 'if_discrete': None}
         self.env_name = env_args['env_name']  # the name of environment. Be used to set 'cwd'.
         self.state_dim = env_args['state_dim']  # vector dimension (feature number) of state
         self.action_dim = env_args['action_dim']  # vector dimension (feature number) of action
         self.if_discrete = env_args['if_discrete']  # discrete or continuous action space
-
-        self.agent_class = agent_class  # agent = agent_class(...)
-        self.if_off_policy = self.get_if_off_policy()  # whether off-policy or on-policy of DRL algorithm
 
         '''Arguments for reward shaping'''
         self.gamma = 0.99  # discount factor of future rewards
@@ -136,6 +135,7 @@ def kwargs_filter(function, kwargs: dict) -> dict:
 def build_env(env_class=None, env_args=None):
     if env_class.__module__ == 'gym.envs.registration':  # special rule
         import gym
+        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
         gym.logger.set_level(40)  # Block warning
         env = env_class(id=env_args['env_name'])
     else:

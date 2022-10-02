@@ -35,6 +35,8 @@ class AgentBase:
         self.clip_grad_norm = getattr(args, 'clip_grad_norm', 3.0)
         self.soft_update_tau = getattr(args, 'soft_update_tau', 2 ** -8)
 
+        self.state_dim = state_dim
+        self.action_dim = action_dim
         self.if_use_per = getattr(args, 'if_use_per', None)
         self.if_off_policy = getattr(args, 'if_off_policy', None)
         self.if_use_old_traj = getattr(args, 'if_use_old_traj', False)
@@ -96,6 +98,7 @@ class AgentBase:
         self.ten_reward = None
         self.ten_mask = None
         self.ten_v_sum = None
+        
 
     def explore_one_env(self, env, target_step: int) -> list:
         """
@@ -243,36 +246,6 @@ class AgentBase:
         """
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
-
-    def save_or_load_agent(self, cwd: str, if_save: bool):
-        """save or load training files for Agent
-
-        :param cwd: Current Working Directory. RL save training files in CWD.
-        :param if_save: True: save files. False: load files.
-        """
-
-        def load_torch_file(model, path: str):
-            state_dict = torch.load(path, map_location=lambda storage, loc: storage)
-            model.load_state_dict(state_dict)
-
-        name_obj_list = [
-            ("actor", self.act),
-            ("act_target", self.act_target),
-            ("act_optimizer", self.act_optimizer),
-            ("critic", self.cri),
-            ("cri_target", self.cri_target),
-            ("cri_optimizer", self.cri_optimizer),
-        ]
-        name_obj_list = [(name, obj) for name, obj in name_obj_list if obj is not None]
-
-        if if_save:
-            for name, obj in name_obj_list:
-                save_path = f"{cwd}/{name}.pth"
-                torch.save(obj.state_dict(), save_path)
-        else:
-            for name, obj in name_obj_list:
-                save_path = f"{cwd}/{name}.pth"
-                load_torch_file(obj, save_path) if os.path.isfile(save_path) else None
 
     def convert_trajectory(
             self, traj_list: List[Tuple[Tensor, ...]],
