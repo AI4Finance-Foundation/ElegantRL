@@ -5,7 +5,7 @@ import numpy as np
 from run import *
 
 
-def check_def_get_rewards_and_steps(net_dims=(64, 32)):
+def check__get_rewards_and_steps(net_dims=(64, 32)):
     pass
 
     """discrete env"""
@@ -45,7 +45,7 @@ def check_def_get_rewards_and_steps(net_dims=(64, 32)):
     assert episode_steps >= 1
 
 
-def check_def_draw_learning_curve_using_recorder(cwd='./temp'):
+def check__draw_learning_curve_using_recorder(cwd='./temp'):
     os.makedirs(cwd, exist_ok=True)
     recorder_path = f"{cwd}/recorder.npy"
     recorder_len = 8
@@ -79,8 +79,8 @@ def check_evaluator(net_dims=(64, 32), horizon_len=1024, eval_per_step=16, eval_
 
 
 if __name__ == '__main__':
-    check_def_draw_learning_curve_using_recorder()
-    check_def_get_rewards_and_steps()
+    check__draw_learning_curve_using_recorder()
+    check__get_rewards_and_steps()
     check_evaluator()
     print('| Finish checking.')
 
