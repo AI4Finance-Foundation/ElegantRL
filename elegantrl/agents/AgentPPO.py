@@ -180,8 +180,8 @@ class AgentPPO(AgentBase):
 
             obj_critics += obj_critic.item()
             obj_actors += obj_actor.item()
-        a_std_log = getattr(self.act, 'a_std_log', torch.zeros(1)).mean()
-        return obj_critics / update_times, obj_actors / update_times, a_std_log.item()
+        action_std = getattr(self.act, 'action_std_log', torch.zeros(1)).exp().mean()
+        return obj_critics / update_times, obj_actors / update_times, action_std.item()
 
     def get_reward_sum_raw(
             self, buf_len, buf_reward, buf_mask, buf_value
