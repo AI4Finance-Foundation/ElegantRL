@@ -1,13 +1,13 @@
 ## ElegantRL helloworld 
 
-Three algorithms are included: 
+Three typical algorithms are presented: 
 - Deep Q-Network (DQN): the first DRL algorithm.
 - Deep Deterministic Policy Gradient (DDPG): the first Actor-Critic DRL algorithm.
 - Proximal Policy Gradient (PPO): a popular DRL algorithm.
 
 
 `helloworld` is made simple.
-- **Fewer lines of code**. (code lines <1000)
+- **Fewer lines of code**. (number of lines < 1000)
 - **Little packages requirements**. (`torch` and `gym`)
 - **Keep a consistent style with ElegantRL**.
 
@@ -15,9 +15,9 @@ Three algorithms are included:
 ## Run.
 
 You can run the single file of DQN, DDPG and PPO:
-- DQN (off-policy RL algorithm for discrete action space) `helloworld/helloworld_DQN_single_file.py`
-- DDPG (off-policy RL algorithm for continuous action space) `helloworld/helloworld_DDPG_single_file.py`
-- PPO (off-policy RL algorithm for continuous action space) `helloworld/helloworld_PPO_single_file.py`
+- DQN (off-policy DRL algorithm for discrete action space) `helloworld/helloworld_DQN_single_file.py`
+- DDPG (off-policy DRL algorithm for continuous action space) `helloworld/helloworld_DDPG_single_file.py`
+- PPO (off-policy DRL algorithm for continuous action space) `helloworld/helloworld_PPO_single_file.py`
 
 Or you can:
 1. Build the folder `helloworld`. 
