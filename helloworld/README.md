@@ -11,6 +11,26 @@ Three typical DRL algorithms are presented:
 - **Little packages requirements**. (`torch` and `gym`)
 - **Keep a consistent style with ElegantRL**.
 
+## Install
+
+Install `torch` for deep learning. 
+```
+pip3 install torch
+```
+
+Install `gym` for reinforcement learning.
+```
+# LinuxOS (Ubuntu) 
+sudo apt install swig
+python3 -m pip install --upgrade pip --no-warn-script-location
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym==0.23.1
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym[Box2D] 
+
+# WindowOS
+python -m pip install --upgrade pip
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com gym==0.23.1
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com swig gym[Box2D] 
+```
 
 ## Run.
 
