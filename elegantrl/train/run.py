@@ -81,7 +81,7 @@ def train_and_evaluate(args):
     gpu_id = args.learner_gpus
 
     '''init'''
-    env = args.env
+    env = build_env(args.env, args.env_func, args.env_args)
     steps = 0
 
     agent = init_agent(args, gpu_id, env)
