@@ -50,8 +50,8 @@ class AgentBase:
         '''network'''
         act_class = getattr(self, "act_class", None)
         cri_class = getattr(self, "cri_class", None)
-        self.act = act_class(net_dim, self.num_layer, state_dim, action_dim).to(self.device)
-        self.cri = cri_class(net_dim, self.num_layer, state_dim, action_dim).to(self.device) \
+        self.act = act_class(net_dim, state_dim, action_dim).to(self.device)
+        self.cri = cri_class(net_dim, state_dim, action_dim).to(self.device) \
             if cri_class else self.act
 
         '''optimizer'''
