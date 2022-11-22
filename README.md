@@ -17,7 +17,7 @@
 ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is developed for practitioners with
 the following advantages:
 
-- **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization, supporting [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
+- **Cloud-native**: follows a cloud-native paradigm through microservice architecture and containerization, and supports [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
 
 - **Scalable**: fully exploits the parallelism of DRL algorithms at multiple levels, making it easily scale out to hundreds or thousands of computing nodes on a cloud platform, say, a [DGX SuperPOD platform](https://www.nvidia.com/en-us/data-center/dgx-superpod/) with thousands of GPUs.
 
@@ -32,10 +32,10 @@ the following advantages:
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
 - **DDPG, TD3, SAC, PPO, REDQ** for continuous actions in single-agent environment,
-- **DQN, Double DQN, D3QN, SAC** for discrete actions in single-agent environment,
+- **DQN, Double DQN, D3QN** for discrete actions in single-agent environment,
 - **QMIX, VDN, MADDPG, MAPPO, MATD3** in multi-agent environment.
 
-For the details of DRL algorithms, please check out the educational
+For the details of DRL algorithms, please refer to the educational
 webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
 
 ElegantRL supports the following simulators:
