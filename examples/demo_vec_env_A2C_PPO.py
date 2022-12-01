@@ -1,8 +1,8 @@
 import sys
 # import gym
 
-from elegantrl.train.run import train_agent  # , train_agent_multiprocessing
-from elegantrl.train.config import Config, get_gym_env_args, build_vec_env
+from elegantrl.train.run import train_agent, train_agent_multiprocessing
+from elegantrl.train.config import Config, get_gym_env_args
 from elegantrl.agents.AgentPPO import AgentVecPPO
 from elegantrl.agents.AgentA2C import AgentVecA2C
 
@@ -12,7 +12,7 @@ sys.path.append("../")
 def train_ppo_a2c_for_pendulum():
     from elegantrl.envs.CustomGymEnv import PendulumEnv
 
-    agent_class = [AgentVecPPO, AgentVecPPO][0]  # DRL algorithm name # todo 2022-12-01 16:45:58
+    agent_class = [AgentVecPPO, AgentVecA2C][0]  # DRL algorithm name
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -35,12 +35,11 @@ def train_ppo_a2c_for_pendulum():
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-    if_single_pricess = True
-    if if_single_pricess:
+    if_single_process = True
+    if if_single_process:
         train_agent(args)
     else:
-        # train_agent_multiprocessing(args)  # train_agent(args)
-        pass
+        train_agent_multiprocessing(args)  # train_agent(args)
     """
     -2000 < -1200 < -200 < -80
     ################################################################################
