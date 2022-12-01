@@ -1,5 +1,5 @@
 import sys
-# import gym
+from argparse import ArgumentParser
 
 from elegantrl.train.run import train_agent, train_agent_multiprocessing
 from elegantrl.train.config import Config, get_gym_env_args
@@ -144,8 +144,14 @@ def demo_load_pendulum_vectorized_env():
 
 
 if __name__ == '__main__':
-    GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0  # >=0 means GPU ID, -1 means CPU
-    DRL_ID = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-    ENV_ID = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+    Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
+    Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
+    Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
+    Parser.add_argument('--env', type=int, default=0, help='the environment ID for training')
+
+    Args = Parser.parse_args()
+    GPU_ID = Args.gpu
+    DRL_ID = Args.drl
+    ENV_ID = Args.env
 
     train_ppo_a2c_for_pendulum()
