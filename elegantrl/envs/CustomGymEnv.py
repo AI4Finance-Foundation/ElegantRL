@@ -1,44 +1,49 @@
 import gym
 import numpy as np
 import torch
-from torch import Tensor
 
 '''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 Array = np.ndarray
+Tensor = torch.Tensor
+
+InstallGymBox2D = """Install gym[Box2D]
+# LinuxOS (Ubuntu) 
+sudo apt install swig
+python3 -m pip install --upgrade pip --no-warn-script-location
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym==0.23.1
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym[Box2D] 
+
+# WindowOS (Windows NT)
+python -m pip install --upgrade pip
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com gym==0.23.1
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com swig gym[Box2D] 
+"""
 
 
-class PendulumEnv(gym.Wrapper):  # [ElegantRL.2022.04.04]
-    def __init__(self, gym_env_id='Pendulum-v1', target_return=-200):
-        if gym.__version__ < '0.18.0':
-            gym_env_id = 'Pendulum-v0'
-        elif gym.__version__ >= '0.20.0':
-            gym_env_id = 'Pendulum-v1'
+class PendulumEnv:  # a demo of custom gym env
+    def __init__(self):
         gym.logger.set_level(40)  # Block warning
-        super(PendulumEnv, self).__init__(env=gym.make(gym_env_id))
+        assert gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
+        env_name = "Pendulum-v0" if gym.__version__ < '0.18.0' else "Pendulum-v1"
+        self.env = gym.make(env_name)
 
-        # from elegantrl.envs.Gym import get_gym_env_info
-        # get_gym_env_info(env, if_print=True)  # use this function to print the env information
-        self.env_num = 1  # the env number of VectorEnv is greater than 1
-        self.env_name = gym_env_id  # the name of this env.
-        self.max_step = 200  # the max step of each episode
-        self.state_dim = 3  # feature number of state
-        self.action_dim = 1  # feature number of action
+        '''the necessary env information when you design a custom env'''
+        self.env_name = env_name  # the name of this env.
+        self.num_envs = 1  # the number of sub env is greater than 1 in vectorized env.
+        self.max_step = getattr(self.env, '_max_episode_steps')  # the max step number of an episode.
+        self.state_dim = self.env.observation_space.shape[0]  # feature number of state
+        self.action_dim = self.env.action_space.shape[0]  # feature number of action
         self.if_discrete = False  # discrete action or continuous action
-        self.target_return = target_return  # episode return is between (-1600, 0)
 
-        print(f'\n| {self.__class__.__name__}: Pendulum Env set its action space as (-2, +2).'
-              f'\n| And we scale the action, and set the action space as (-1, +1).'
-              f'\n| So do not use your policy network on raw env directly.')
+    def reset(self) -> Array:  # reset the agent in env
+        return self.env.reset()
 
-    def reset(self):
-        return self.env.reset().astype(np.float32)
-
-    def step(self, action: np.ndarray):
-        # PendulumEnv set its action space as (-2, +2). It is bad.  # https://github.com/openai/gym/wiki/Pendulum-v0
-        # I suggest to set action space as (-1, +1) when you design your own env.
-        state, reward, done, info_dict = self.env.step(action * 2)  # state, reward, done, info_dict
-        return state.astype(np.float32), reward, done, info_dict
+    def step(self, action: Array) -> (Array, float, bool, dict):  # agent interacts in env
+        # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
+        # We suggest that adjust action space to (-1, +1) when designing a custom env.
+        state, reward, done, info_dict = self.env.step(action * 2)
+        return state, reward, done, info_dict
 
 
 class GymNormaEnv(gym.Wrapper):
@@ -539,3 +544,69 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         # action_space.low = -0.4
         state, reward, done, info_dict = self.env.step(action * 2.5)  # state, reward, done, info_dict
         return self.get_state_norm(state), reward, done, info_dict
+
+
+'''gym vector env'''
+
+
+class PendulumVecEnv:  # demo of custom gym env
+    def __init__(self, num_envs: int = 4, gpu_id: int = -1):
+        gym.logger.set_level(40)  # Block warning
+        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
+        env_name = "Pendulum-v1"
+        self.env = gym.vector.make(env_name, num_envs=num_envs)
+        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+
+        '''the necessary env information when you design a custom env'''
+        temp_env = gym.make(env_name)
+        self.env_name = env_name  # the name of this env.
+        self.num_envs = num_envs  # the number of sub env in vectorized env.
+        self.max_step = getattr(temp_env, '_max_episode_steps')  # the max step number in an episode for evaluation
+        self.state_dim = self.env.observation_space.shape[1]  # feature number of state
+        self.action_dim = self.env.action_space.shape[1]  # feature number of action
+        self.if_discrete = False  # discrete action or continuous action
+        temp_env.close()
+
+    def reset(self) -> Tensor:  # reset the agent in env
+        ary_state = self.env.reset()
+        return torch.tensor(ary_state, dtype=torch.float32, device=self.device)
+
+    def step(self, action: Tensor) -> (Tensor, Tensor, Tensor, (dict,)):  # agent interacts in env
+        # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
+        # We suggest that adjust action space to (-1, +1) when designing a custom env.
+        ary_action = action.cpu().data.numpy()
+        ary_state, ary_reward, ary_done, info_dicts = self.env.step(ary_action * 2)
+        state = torch.tensor(ary_state, dtype=torch.float32, device=self.device)
+        reward = torch.tensor(ary_reward, dtype=torch.float32, device=self.device)
+        done = torch.tensor(ary_done, dtype=torch.bool, device=self.device)
+        return state, reward, done, info_dicts
+
+
+class GymVecEnv:  # demo of gym-style vectorized env
+    def __init__(self, env_name: str, num_envs: int = 4, gpu_id: int = -1):
+        gym.logger.set_level(40)  # Block warning
+        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
+        self.env = gym.vector.make(env_name, num_envs=num_envs)
+        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+
+        '''the necessary env information when you design a custom env'''
+        temp_env = gym.make(env_name)
+        self.env_name = env_name  # the name of this env.
+        self.num_envs = num_envs  # the number of sub env in vectorized env.
+        self.max_step = getattr(temp_env, '_max_episode_steps')  # the max step number in an episode for evaluation
+        self.state_dim = self.env.observation_space.shape[1]  # feature number of state
+        self.action_dim = self.env.action_space.shape[1]  # feature number of action
+        self.if_discrete = False  # discrete action or continuous action
+        temp_env.close()
+
+    def reset(self) -> Tensor:  # reset the agent in env
+        ary_state = self.env.reset()
+        return torch.tensor(ary_state, dtype=torch.float32, device=self.device)
+
+    def step(self, action: Tensor) -> (Tensor, Tensor, Tensor, (dict,)):  # agent interacts in env
+        ary_action = action.cpu().data.numpy()
+        ary_state, ary_reward, ary_done, info_dicts = self.env.step(ary_action)
+        state = torch.tensor(ary_state, dtype=torch.float32, device=self.device)
+        reward = torch.tensor(ary_reward, dtype=torch.float32, device=self.device)
+        done = torch.tensor(ary_done, dtype=torch.bool, device=self.device)
+        return state, reward, done, info_dicts

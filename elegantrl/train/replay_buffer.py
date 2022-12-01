@@ -54,7 +54,7 @@ class ReplayBuffer_isaacgym:  # for off-policy
             self.buf_reward[0:p] = rewards[-p:]
             self.buf_next_state[0:p] = next_states[-p:]
             self.buf_done[0:p] = dones[-p:]
-            
+
         else:
             self.buf_state[self.next_p:p] = states
             self.buf_action[self.next_p:p] = actions
@@ -72,16 +72,16 @@ class ReplayBuffer_isaacgym:  # for off-policy
 
             indices, is_weights = self.per_tree.get_indices_is_weights(batch_size, start, end)
             return (
-            self.buf_state[indices],
-            self.buf_action[indices],
-            self.buf_reward[indices],
-            self.buf_next_state[indices],
-            self.buf_done[indices],
-            torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)
+                self.buf_state[indices],
+                self.buf_action[indices],
+                self.buf_reward[indices],
+                self.buf_next_state[indices],
+                self.buf_done[indices],
+                torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)
             )
-           
+
         indices = torch.randint(self.cur_capacity, size=(batch_size,), device=self.device)
-        
+
         '''replace indices using the latest sample'''
         i1 = self.next_p
         i0 = self.next_p - self.add_capacity
@@ -94,12 +94,11 @@ class ReplayBuffer_isaacgym:  # for off-policy
             self.buf_action[indices],
             self.buf_reward[indices],
             self.buf_next_state[indices],
-            self.buf_done[indices]  
+            self.buf_done[indices]
         )
-    
+
     def td_error_update(self, td_error):
         self.per_tree.td_error_update(td_error)
-
 
 
 class ReplayBuffer:  # for off-policy
@@ -271,6 +270,7 @@ class ReplayBuffer:  # for off-policy
         self.prev_p = self.next_p
         return buf_state, buf_action, buf_reward, buf_mask
 
+
 class ReplayBufferList(list):  # for on-policy
     def __init__(self):
         list.__init__(self)  # (buf_state, buf_reward, buf_mask, buf_action, buf_noise) = self[:]
@@ -312,6 +312,7 @@ class BinarySearchTree:
     Reference: https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
     Reference: https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
     """
+
     def __init__(self, memo_len):
         self.memo_len = memo_len  # replay buffer len
         self.prob_ary = np.zeros((memo_len - 1) + memo_len)  # parent_nodes_num + leaf_nodes_num
@@ -320,9 +321,11 @@ class BinarySearchTree:
         self.indices = None
         self.depth = int(np.log2(self.max_capacity))
 
-        # PER.  Prioritized Experience Replay. Section 4
-        # alpha, beta = 0.7, 0.5 for rank-based variant
-        # alpha, beta = 0.6, 0.4 for proportional variant
+        """
+        PER.  Prioritized Experience Replay. Section 4
+        alpha, beta = 0.7, 0.5 for rank-based variant
+        alpha, beta = 0.6, 0.4 for proportional variant
+        """
         self.per_alpha = 0.6  # alpha = (Uniform:0, Greedy:1)
         self.per_beta = 0.4  # beta = (PER:0, NotPER:1)
 
@@ -380,7 +383,7 @@ class BinarySearchTree:
                     parent_idx = r_idx
         return min(leaf_idx, self.cur_capacity - 2)  # leaf_idx
 
-    def get_indices_is_weights(self, batch_size, start, end):
+    def get_indices_is_weights(self, batch_size, start=None, end=None):
         self.per_beta = min(1., self.per_beta + 0.001)
 
         # get random values for searching indices with proportional prioritization
@@ -398,3 +401,172 @@ class BinarySearchTree:
         prob = td_error.squeeze().clamp(1e-6, 10).pow(self.per_alpha)
         prob = prob.cpu().numpy()
         self.update_ids(self.indices, prob)
+
+
+'''vectorized env'''
+
+
+class ReplayBufferVecEnv:  # for off-policy, vectorized env
+    def __init__(self,
+                 max_size: int,
+                 state_dim: int,
+                 action_dim: int,
+                 gpu_id: int = 0,
+                 num_envs: int = 1,
+                 if_use_per: bool = False):
+        self.p = 0  # pointer
+        self.if_full = False
+        self.cur_size = 0
+        self.add_size = 0
+        self.max_size = max_size
+        self.num_envs = num_envs
+        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+
+        self.states = torch.empty((max_size, num_envs, state_dim), dtype=torch.float32, device=self.device)
+        self.actions = torch.empty((max_size, num_envs, action_dim), dtype=torch.float32, device=self.device)
+        self.rewards = torch.empty((max_size, num_envs), dtype=torch.float32, device=self.device)
+        self.undones = torch.empty((max_size, num_envs), dtype=torch.float32, device=self.device)
+
+        self.avoid_ids = []
+
+        self.if_use_per = if_use_per
+        if if_use_per:
+            self.per_tree = BinarySearchTree(max_size * num_envs)
+            self.sample = self.sample_per
+
+    def update(self, items: [Tensor]):
+        states, actions, rewards, undones = items
+        # assert states.shape[1:] == (env_num, state_dim)
+        # assert actions.shape[1:] == (env_num, action_dim)
+        # assert rewards.shape[1:] == (env_num,)
+        # assert undones.shape[1:] == (env_num,)
+        add_size = rewards.shape[0]
+
+        p = self.p + add_size  # pointer
+        if p > self.max_size:
+            self.if_full = True
+            p0 = self.p
+            p1 = self.max_size
+            p2 = self.max_size - self.p
+            p = p - self.max_size
+
+            self.states[p0:p1], self.states[0:p] = states[:p2], states[-p:]
+            self.actions[p0:p1], self.actions[0:p] = actions[:p2], actions[-p:]
+            self.rewards[p0:p1], self.rewards[0:p] = rewards[:p2], rewards[-p:]
+            self.undones[p0:p1], self.undones[0:p] = undones[:p2], undones[-p:]
+
+            self.avoid_ids = [i for i in self.avoid_ids if p <= i < p0]
+        else:
+            self.states[self.p:p] = states
+            self.actions[self.p:p] = actions
+            self.rewards[self.p:p] = rewards
+            self.undones[self.p:p] = undones
+
+            self.avoid_ids = [i for i in self.avoid_ids if (i < self.p) or (i <= p)]
+        self.p = p
+        self.add_size = add_size
+        self.cur_size = self.max_size if self.if_full else self.p
+
+    def sample(self, batch_size: int) -> (Tensor, Tensor, Tensor, Tensor, Tensor):
+        ids = torch.randint(self.cur_size * self.num_envs, size=(batch_size,), requires_grad=False)
+        ids0 = torch.remainder(ids, self.cur_size)  # ids % self.cur_size
+        ids1 = torch.div(ids, self.cur_size, rounding_mode='floor')  # ids // self.cur_size
+
+        for avoid_id in self.avoid_ids + [self.cur_size, ]:
+            ids0[ids0 == avoid_id] -= 1
+        ids0 = torch.remainder(ids0, self.cur_size)  # ids % self.cur_size
+
+        return (self.states[ids0, ids1],
+                self.actions[ids0, ids1],
+                self.rewards[ids0, ids1],
+                self.undones[ids0, ids1],
+                self.states[ids0 + 1, ids1],)  # next_state
+
+    def sample_per(self, batch_size: int) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor):
+        beg = -self.max_size
+        end = (self.cur_size - self.max_size) if (self.cur_size < self.max_size) else -1
+
+        ids, is_weights = self.per_tree.get_indices_is_weights(batch_size, beg, end)
+        is_weights = torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)  # important sampling weights
+
+        ids0 = torch.remainder(ids, self.cur_size)  # ids % self.cur_size
+        ids1 = torch.div(ids, self.cur_size, rounding_mode='floor')  # ids // self.cur_size
+
+        for avoid_id in self.avoid_ids + [self.cur_size, ]:
+            ids0[ids0 == avoid_id] -= 1
+        ids0 = torch.remainder(ids0, self.cur_size)  # ids % self.cur_size
+
+        return (self.states[ids0, ids1],
+                self.actions[ids0, ids1],
+                self.rewards[ids0, ids1],
+                self.undones[ids0, ids1],
+                self.states[ids0 + 1, ids1],  # next_state
+                is_weights)
+
+    def td_error_update(self, td_error: Tensor):
+        self.per_tree.td_error_update(td_error)
+
+    def save_or_load_history(self, cwd: str, if_save: bool):
+        item_names = (
+            (self.states, "states"),
+            (self.actions, "actions"),
+            (self.rewards, "rewards"),
+            (self.undones, "undones"),
+            (self.avoid_ids, "avoid_ids")
+        )
+
+        if if_save:
+            for item, name in item_names:
+                if self.cur_size == self.p:
+                    buf_item = item[:self.cur_size]
+                else:
+                    buf_item = torch.vstack((item[self.p:self.cur_size], item[0:self.p]))
+                file_path = f"{cwd}/replay_buffer_{name}.pt"
+                print(f"| {self.__class__.__name__}: Save {file_path}")
+                torch.save(buf_item, file_path)
+
+        elif all([os.path.isfile(f"{cwd}/replay_buffer_{name}.pt") for item, name in item_names]):
+            max_sizes = []
+            for item, name in item_names:
+                file_path = f"{cwd}/replay_buffer_{name}.pt"
+                print(f"| {self.__class__.__name__}: Load {file_path}")
+                buf_item = torch.load(file_path)
+
+                max_size = buf_item.shape[0]
+                item[:max_size] = buf_item
+                max_sizes.append(max_size)
+            assert all([max_size == max_sizes[0] for max_size in max_sizes])
+            self.cur_size = max_sizes[0]
+
+    def get_state_norm(self, cwd: str = '.',
+                       state_avg: [float, Tensor] = 0.0,
+                       state_std: [float, Tensor] = 1.0):
+        try:
+            torch.save(state_avg, f"{cwd}/env_state_avg.pt")
+            torch.save(state_std, f"{cwd}/env_state_std.pt")
+        except Exception as error:
+            print(error)
+
+        '''limit the size of state to avoid Out Of Memory'''
+        batch_size = 1024
+        if self.cur_size > batch_size:
+            ids = torch.randint(self.cur_size, size=(batch_size,), requires_grad=False)
+            states = self.states[ids]
+        else:
+            states = self.states
+
+        '''recover using old avg and std'''
+        states = states * state_std - state_avg
+
+        '''get new avg std'''
+        # state_avg = states.mean(dim=0, keepdim=True)
+        # state_std = states.std(dim=0, keepdim=True)
+        q_tensor = torch.tensor((0.1, 0.5, 0.9), device=states.device)
+        state_quantile = torch.quantile(states, q=q_tensor, dim=0, keepdim=True)
+        state_avg = state_quantile[1]
+        state_std = (state_quantile[2] - state_quantile[0]) * 3
+
+        torch.save(state_avg, f"{cwd}/state_norm_avg.pt")
+        print(f"| {self.__class__.__name__}: \nstate_avg = {state_avg}")
+        torch.save(state_std, f"{cwd}/state_norm_std.pt")
+        print(f"| {self.__class__.__name__}: \nstate_std = {state_std}")

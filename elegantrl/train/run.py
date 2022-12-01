@@ -11,6 +11,11 @@ from elegantrl.train.config import build_env
 from elegantrl.train.evaluator import Evaluator
 from elegantrl.train.replay_buffer import ReplayBuffer, ReplayBufferList
 
+"""vectorized env"""
+from elegantrl.train.config import Config, build_vec_env
+from elegantrl.train.replay_buffer import ReplayBufferVecEnv
+from elegantrl.train.evaluator_vec_env import EvaluatorVecEnv
+
 
 def init_agent(args: Arguments, gpu_id: int, env=None) -> AgentBase:
     agent = args.agent_class(args.net_dim, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
@@ -301,3 +306,84 @@ def process_safely_terminate(process: list):
             p.kill()
         except OSError as e:
             print(e)
+
+
+"""vectorized env"""
+
+if os.name == 'nt':  # if is WindowOS (Windows NT)
+    """Fix bug about Anaconda in WindowOS
+    OMP: Error #15: Initializing libiomp5md.dll, but found libiomp5md.dll already initialized.
+    """
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+
+def train_agent(args: Config):
+    args.init_before_training()
+    torch.set_grad_enabled(False)
+
+    '''init environment'''
+    env = build_vec_env(args.env_class, args.env_args, args.gpu_id)
+
+    '''init agent'''
+    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
+    agent.save_or_load_agent(args.cwd, if_save=False)
+
+    '''init agent.last_state'''
+    state = env.reset()
+    if args.num_envs == 1:
+        assert state.shape == (args.state_dim,)
+        assert isinstance(state, np.ndarray)
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+    else:
+        assert state.shape == (args.num_envs, args.state_dim)
+        assert isinstance(state, torch.Tensor)
+        state = env.reset().to(agent.device)
+    assert state.shape == (args.num_envs, args.state_dim)
+    assert isinstance(state, torch.Tensor)
+    agent.last_state = state.detach()
+
+    '''init buffer'''
+    if args.if_off_policy:
+        buffer = ReplayBufferVecEnv(gpu_id=args.gpu_id,  # todo
+                                    num_envs=args.num_envs,
+                                    max_size=args.buffer_size,
+                                    state_dim=args.state_dim,
+                                    action_dim=1 if args.if_discrete else args.action_dim)
+        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
+        buffer.update(buffer_items)  # warm up for ReplayBuffer
+    else:
+        buffer = []
+
+    '''init evaluator'''
+    eval_env_class = args.eval_env_class if args.eval_env_class else args.env_class
+    eval_env_args = args.eval_env_args if args.eval_env_args else args.env_args
+    eval_env = build_env(eval_env_class, eval_env_args, args.gpu_id)
+    evaluator = EvaluatorVecEnv(cwd=args.cwd, agent_id=0, eval_env=eval_env, args=args, if_tensorboard=False)
+
+    '''train loop'''
+    cwd = args.cwd
+    break_step = args.break_step
+    horizon_len = args.horizon_len
+    if_off_policy = args.if_off_policy
+    del args
+
+    if_train = True
+    while if_train:
+        buffer_items = agent.explore_env(env, horizon_len)
+        exp_r = buffer_items[2].mean().item()
+        if if_off_policy:
+            buffer.update(buffer_items)
+        else:
+            buffer[:] = buffer_items
+
+        torch.set_grad_enabled(True)
+        logging_tuple = agent.update_net(buffer)
+        torch.set_grad_enabled(False)
+
+        evaluator.evaluate_and_save(actor=agent.act, steps=horizon_len, exp_r=exp_r, logging_tuple=logging_tuple)
+        if_train = (evaluator.total_step <= break_step) and (not os.path.exists(f"{cwd}/stop"))
+
+    print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+    evaluator.save_training_curve_jpg()
+    agent.save_or_load_agent(cwd, if_save=True)
+    buffer.save_or_load_history(cwd, if_save=True) if if_off_policy else None
