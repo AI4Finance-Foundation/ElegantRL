@@ -2,18 +2,18 @@ from setuptools import setup, find_packages
 
 setup(
     name="elegantrl",
-    version="0.3.3",
+    version="0.3.5",
     author="Xiaoyang Liu, Steven Li, Hongyang Yang, Jiahao Zheng",
     author_email="XL2427@columbia.edu",
     url="https://github.com/AI4Finance-LLC/ElegantRL",
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=[
-        "gym",
-        "matplotlib",
-        "numpy",
         "torch",
-        "box2d-py",
+        "numpy",
+        "matplotlib",
+        "gym",
+        "gym[Box2D]",
     ],
     description="Lightweight, Efficient and Stable DRL Implementation Using PyTorch",
     classifiers=[
