@@ -91,10 +91,9 @@ class EvaluatorVecEnv:
         if_save = avg_r > prev_max_r
         if if_save:
             self.save_training_curve_jpg()
-            print(f"{self.agent_id:<3}{self.total_step:8.2e}{train_time:8.0f} |"
-                  f"{self.max_r:8.2f}")  # save policy and print
         if not self.if_keep_save:
             return
+
         self.save_counter += 1
         actor_path = None
         if if_save:  # save checkpoint with the highest episode return

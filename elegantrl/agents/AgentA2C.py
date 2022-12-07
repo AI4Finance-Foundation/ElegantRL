@@ -1,6 +1,7 @@
 import torch
 
-from elegantrl.agents.AgentPPO import AgentPPO, AgentSharePPO
+from elegantrl.agents.AgentPPO import AgentPPO
+
 from elegantrl.agents.net import ActorDiscretePPO
 
 """vectorized env"""

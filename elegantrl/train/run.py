@@ -360,7 +360,7 @@ def train_agent(args: Config):
     '''init evaluator'''
     eval_env_class = args.eval_env_class if args.eval_env_class else args.env_class
     eval_env_args = args.eval_env_args if args.eval_env_args else args.env_args
-    eval_env = build_env(eval_env_class, eval_env_args, args.gpu_id)
+    eval_env = build_vec_env(eval_env_class, eval_env_args, args.gpu_id)
     evaluator = EvaluatorVecEnv(cwd=args.cwd, agent_id=0, eval_env=eval_env, args=args, if_tensorboard=False)
 
     '''train loop'''

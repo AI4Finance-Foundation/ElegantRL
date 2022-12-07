@@ -149,7 +149,7 @@ if __name__ == '__main__':
     Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
     Parser.add_argument('--env', type=int, default=0, help='the environment ID for training')
 
-    Args = Parser.parse_args()  # todo 2022-12-06
+    Args = Parser.parse_args()
     GPU_ID = Args.gpu
     DRL_ID = Args.drl
     ENV_ID = Args.env
