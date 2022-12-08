@@ -2,20 +2,18 @@ from setuptools import setup, find_packages
 
 setup(
     name="elegantrl",
-    version="0.3.3",
+    version="0.3.5",
     author="Xiaoyang Liu, Steven Li, Hongyang Yang, Jiahao Zheng",
     author_email="XL2427@columbia.edu",
     url="https://github.com/AI4Finance-LLC/ElegantRL",
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=[
-        "gym",
-        "matplotlib",
-        "numpy",
-        "pybullet",
         "torch",
-        "opencv-python",
-        "box2d-py",
+        "numpy",
+        "matplotlib",
+        "gym",
+        "gym[Box2D]",
     ],
     description="Lightweight, Efficient and Stable DRL Implementation Using PyTorch",
     classifiers=[
@@ -27,9 +25,10 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
-    keywords="Deep Reinforcment Learning",
+    keywords="Deep Reinforcement Learning",
     python_requires=">=3.6",
 )

@@ -1,18 +1,13 @@
-# DRL env
-gym>=0.17
-
 # ML framework
 torch
-
 
 # data handling
 numpy
 
 # plot/simulation
 matplotlib
-pybullet
-opencv-python
-box2d-py
+gym>=0.18
+gym[Box2D]
 
 # profiling
 wandb

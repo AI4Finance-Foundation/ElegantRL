@@ -4,6 +4,8 @@ import torch
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from elegantrl.train.config import Arguments
+
+
 # import wandb
 
 
@@ -83,7 +85,7 @@ class Evaluator:
 
             if hasattr(self.eval_env, 'curriculum_learning_for_evaluator'):
                 self.eval_env.curriculum_learning_for_evaluator(r_avg)
-                
+
             '''plot learning curve figure'''
             if len(self.recorder) == 0:
                 print("| save_npy_draw_plot() WARNING: len(self.recorder)==0")
@@ -95,7 +97,7 @@ class Evaluator:
             train_time = int(time.time() - self.start_time)
             total_step = int(self.recorder[-1][0])
             save_title = f"step_time_maxR_{int(total_step)}_{int(train_time)}_{self.r_max:.3f}"
-            
+
             save_learning_curve(self.recorder, self.cwd, save_title)
         return if_reach_goal, if_save
 
@@ -106,6 +108,7 @@ class Evaluator:
             recorder = np.load(self.recorder_path)
             self.recorder = [tuple(i) for i in recorder]  # convert numpy to list
             self.total_step = self.recorder[-1][0]
+
 
 class Evaluator_isaacgym:
     def __init__(self, cwd, agent_id, eval_env, args):
@@ -149,10 +152,10 @@ class Evaluator_isaacgym:
             '''save the policy network'''
             if_checkpoint = r_exp > self.r_max
             if if_checkpoint:  # save checkpoint with highest episode return
-                    self.r_max = r_exp  # update max reward (episode return)
-                    act_path = f"{self.cwd}/actor_{self.total_step:08}_{self.r_max:09.3f}.pth"
-                    torch.save(act.state_dict(), act_path)  # save policy network in *.pth
-                    # print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
+                self.r_max = r_exp  # update max reward (episode return)
+                act_path = f"{self.cwd}/actor_{self.total_step:08}_{self.r_max:09.3f}.pth"
+                torch.save(act.state_dict(), act_path)  # save policy network in *.pth
+                # print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.r_max:8.2f} |")  # save policy and print
 
             '''record the training information'''
             self.used_time = int(time.time() - self.start_time)
@@ -169,17 +172,18 @@ class Evaluator_isaacgym:
             self.tensorboard.add_scalar("info/actor_obj_time", -1 * log_tuple[1], self.used_time)
             self.tensorboard.add_scalar("info/env_step_sample", step_exp, self.used_time)
             self.tensorboard.add_scalar("reward/reward_time", r_exp, self.used_time)
-            
+
             '''print some information to Terminal'''
-            if_reach_goal = bool(self.r_max > self.target_return or self.total_step > self.target_step)  # check if_reach_goal
+            if_reach_goal = bool(
+                self.r_max > self.target_return or self.total_step > self.target_step)  # check if_reach_goal
 
             print(f"{self.agent_id:<3}{self.total_step:8.2e}{self.used_time:>8} |"
-                    f"{self.r_max:8.2f}{r_exp:8.2f}{step_exp:8.2f} |"
-                    f"{''.join(f'{n:7.2f}' for n in log_tuple)}")
+                  f"{self.r_max:8.2f}{r_exp:8.2f}{step_exp:8.2f} |"
+                  f"{''.join(f'{n:7.2f}' for n in log_tuple)}")
 
             if len(self.recorder) == 0:
-                    print("| save_npy_draw_plot() WARNING: len(self.recorder)==0")
-                    return None
+                print("| save_npy_draw_plot() WARNING: len(self.recorder)==0")
+                return None
             np.save(self.recorder_path, self.recorder)
 
         return if_reach_goal, if_checkpoint
@@ -188,7 +192,7 @@ class Evaluator_isaacgym:
         self.total_step = steps  # update total training steps
 
         if time.time() - self.eval_time < self.eval_gap:
-        # if self.total_step - self.eval_step < self.eval_gap:
+            # if self.total_step - self.eval_step < self.eval_gap:
             if_reach_goal = False
             if_checkpoint = False
         else:
@@ -201,7 +205,8 @@ class Evaluator_isaacgym:
                 r_avg, s_avg = rewards_steps_ary.mean(axis=0).cpu()  # average of episode return and episode step
                 r_std, s_std = rewards_steps_ary.std(axis=0).cpu()  # standard dev. of episode return and episode step
             else:
-                rewards_steps_list = [get_cumulative_returns_and_step(self.eval_env, act) for _ in range(self.eval_times)]
+                rewards_steps_list = [get_cumulative_returns_and_step(self.eval_env, act) for _ in
+                                      range(self.eval_times)]
                 rewards_steps_ary = np.array(rewards_steps_list, dtype=np.float32)
                 r_avg, s_avg = rewards_steps_ary.mean(axis=0)
                 r_std, s_std = rewards_steps_ary.std(axis=0)  # standard dev. of episode return and episode step
@@ -276,7 +281,7 @@ class Evaluator_isaacgym:
 """util"""
 
 
-def get_cumulative_returns_and_step(env, act) -> (float, int):  
+def get_cumulative_returns_and_step(env, act) -> (float, int):
     """Usage
     eval_times = 4
     net_dim = 2 ** 7
@@ -414,10 +419,10 @@ def save_learning_curve(
     write `mpl.use('Agg')` before `import matplotlib.pyplot as plt`
     https://stackoverflow.com/a/4935945/9293137
     """
-    
+
     import matplotlib.pyplot as plt
     fig, axs = plt.subplots(2)
-    
+
     '''axs[0]'''
     ax00 = axs[0]
     ax00.cla()

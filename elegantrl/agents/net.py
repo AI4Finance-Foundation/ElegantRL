@@ -194,7 +194,6 @@ class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
 """Actor (policy network)"""
 
 
-
 class Actor(nn.Module):
     def __init__(self, mid_dim: int, num_layer: int, state_dim: int, action_dim: int):
         super().__init__()
@@ -236,9 +235,8 @@ class Actor(nn.Module):
         return logprob
 
 
-
 class ActorSAC(nn.Module):
-    def __init__(self, mid_dim, num_layer,state_dim, action_dim):
+    def __init__(self, mid_dim, num_layer, state_dim, action_dim):
         super().__init__()
         self.net_state = nn.Sequential(
             nn.Linear(state_dim, mid_dim),
@@ -377,106 +375,89 @@ class ActorFixSAC(nn.Module):
         return a_noise.tanh(), log_prob.sum(1, keepdim=True)
 
 
-class ActorPPO(nn.Module):
-    def __init__(self, mid_dim: int, num_layer: int, state_dim: int, action_dim: int):
+class ActorBase(nn.Module):
+    def __init__(self, state_dim: int, action_dim: int):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, action_dim)
-        )
-        # the logarithm (log) of standard deviation (std) of action, it is a trainable parameter
-        self.action_std_log = nn.Parameter(torch.zeros((1, action_dim)) - 0.5, requires_grad=True)
-        self.log_sqrt_2pi = np.log(np.sqrt(2 * np.pi))
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.net = None  # build_mlp(dims=[state_dim, *dims, action_dim])
+        self.explore_noise_std = None  # standard deviation of exploration action noise
+        self.ActionDist = torch.distributions.normal.Normal
+
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+
+    def state_norm(self, state: Tensor) -> Tensor:
+        return (state - self.state_avg) / self.state_std
+
+
+class ActorPPO(ActorBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp_net(dims=[state_dim, *dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
+
+        self.action_std_log = nn.Parameter(torch.zeros((1, action_dim)), requires_grad=True)  # trainable parameter
 
     def forward(self, state: Tensor) -> Tensor:
+        state = self.state_norm(state)
         return self.net(state).tanh()  # action.tanh()
 
     def get_action(self, state: Tensor) -> (Tensor, Tensor):  # for exploration
+        state = self.state_norm(state)
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()
 
-        dist = Normal(action_avg, action_std)
+        dist = self.ActionDist(action_avg, action_std)
         action = dist.sample()
         logprob = dist.log_prob(action).sum(1)
         return action, logprob
-    
-    @staticmethod
-    def convert_action_for_env(action: Tensor) -> Tensor:
-        return action.tanh()
-
-
-    def get_logprob(self, state: Tensor, action: Tensor) -> Tensor:
-        action_avg = self.net(state)
-        action_std = self.action_std_log.exp()
-
-        delta = ((action_avg - action) / action_std).pow(2).__mul__(0.5)
-        logprob = -(self.action_std_log + self.log_sqrt_2pi + delta)  # new_logprob
-        return logprob
 
     def get_logprob_entropy(self, state: Tensor, action: Tensor) -> (Tensor, Tensor):
+        state = self.state_norm(state)
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()
 
-        delta = ((action_avg - action) / action_std).pow(2) * 0.5
-        logprob = -(self.action_std_log + self.log_sqrt_2pi + delta).sum(1)  # new_logprob
-
-        dist_entropy = (logprob.exp() * logprob).mean()  # policy entropy
-        return logprob, dist_entropy
-
-    def get_old_logprob(self, _action: Tensor, noise: Tensor) -> Tensor:  # noise = action - a_noise
-        delta = noise.pow(2).__mul__(0.5)
-        return -(self.action_std_log + self.log_sqrt_2pi + delta).sum(1)  # old_logprob
+        dist = self.ActionDist(action_avg, action_std)
+        logprob = dist.log_prob(action).sum(1)
+        entropy = dist.entropy().sum(1)
+        return logprob, entropy
 
     @staticmethod
     def convert_action_for_env(action: Tensor) -> Tensor:
         return action.tanh()
-    @staticmethod
-    def get_a_to_e(action):  # convert action of network to action of environment
-        return action.tanh()
 
 
-class ActorDiscretePPO(nn.Module):
-    def __init__(self, mid_dim, state_dim, action_dim):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, mid_dim),
-            nn.ReLU(),
-            nn.Linear(mid_dim, action_dim),
-        )
-        self.action_dim = action_dim
+class ActorDiscretePPO(ActorBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp_net(dims=[state_dim, *dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
+
+        self.ActionDist = torch.distributions.Categorical
         self.soft_max = nn.Softmax(dim=-1)
-        self.Categorical = torch.distributions.Categorical
 
-    def forward(self, state):
-        return self.net(state)  # action_prob without softmax
+    def forward(self, state: Tensor) -> Tensor:
+        state = self.state_norm(state)
+        a_prob = self.net(state)  # action_prob without softmax
+        return a_prob.argmax(dim=1)  # get the indices of discrete action
 
-    def get_action(self, state):
+    def get_action(self, state: Tensor) -> (Tensor, Tensor):
+        state = self.state_norm(state)
         a_prob = self.soft_max(self.net(state))
-        # action = Categorical(a_prob).sample()
-        samples_2d = torch.multinomial(a_prob, num_samples=1, replacement=True)
-        action = samples_2d.reshape(state.size(0))
-        return action, a_prob
+        a_dist = self.ActionDist(a_prob)
+        action = a_dist.sample()
+        logprob = a_dist.log_prob(action)
+        return action, logprob
 
-    def get_logprob_entropy(self, state, a_int):
-        # assert a_int.shape == (batch_size, 1)
-        a_prob = self.soft_max(self.net(state))
-        dist = self.Categorical(a_prob)
-        return dist.log_prob(a_int.squeeze(1)), dist.entropy().mean()
-
-    def get_old_logprob(self, a_int, a_prob):
-        # assert a_int.shape == (batch_size, 1)
-        dist = self.Categorical(a_prob)
-        return dist.log_prob(a_int.squeeze(1))
+    def get_logprob_entropy(self, state: Tensor, action: Tensor) -> (Tensor, Tensor):
+        state = self.state_norm(state)
+        a_prob = self.soft_max(self.net(state))  # action.shape == (batch_size, 1), action.dtype = torch.int
+        dist = self.ActionDist(a_prob)
+        return dist.log_prob(action.squeeze(1)), dist.entropy().mean()
 
     @staticmethod
-    def get_a_to_e(action):
+    def convert_action_for_env(action: Tensor) -> Tensor:
         return action.int()
 
 
@@ -492,23 +473,8 @@ class Critic(nn.Module):
         return self.net(torch.cat((state, action), dim=1))  # q value
 
 
-class CriticPPO(nn.Module):
-    def __init__(self, mid_dim: int, num_layer: int, state_dim: int, _action_dim: int):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            nn.ReLU(),
-            nn.Linear(128, 1)
-        )
-
-    def forward(self, state: Tensor) -> Tensor:
-        return self.net(state)  # advantage value
-
-
 class CriticTwin(nn.Module):  # shared parameter
-    def __init__(self, mid_dim,num_layer,  state_dim, action_dim):
+    def __init__(self, mid_dim, num_layer, state_dim, action_dim):
         super().__init__()
         self.net_sa = nn.Sequential(
             nn.Linear(state_dim + action_dim, mid_dim),
@@ -607,6 +573,38 @@ class CriticMultiple(nn.Module):
     def get_q_values(self, state, action):
         x = self.mid_n(self.enc_s(state) + self.enc_a(action))
         return self.net_q(x)  # multiple Q values
+
+
+class CriticBase(nn.Module):  # todo state_norm, value_norm
+    def __init__(self, state_dim: int, action_dim: int):
+        super().__init__()
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.net = None  # build_mlp(dims=[state_dim + action_dim, *dims, 1])
+
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+        self.value_avg = nn.Parameter(torch.zeros((1,)), requires_grad=False)
+        self.value_std = nn.Parameter(torch.ones((1,)), requires_grad=False)
+
+    def state_norm(self, state: Tensor) -> Tensor:
+        return (state - self.state_avg) / self.state_std  # todo state_norm
+
+    def value_re_norm(self, value: Tensor) -> Tensor:
+        return value * self.value_std + self.value_avg  # todo value_norm
+
+
+class CriticPPO(CriticBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp_net(dims=[state_dim, *dims, 1])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
+
+    def forward(self, state: Tensor) -> Tensor:
+        state = self.state_norm(state)
+        value = self.net(state)
+        value = self.value_re_norm(value)
+        return value  # value
 
 
 """Share Actor and Critic network"""
@@ -821,6 +819,29 @@ def build_mlp(mid_dim, num_layer, input_dim, output_dim):  # MLP (MultiLayer Per
 
 
 def layer_norm(layer, std=1.0, bias_const=1e-6):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+
+
+def build_mlp_net(dims: [int], activation: nn = None, if_raw_out: bool = True) -> nn.Sequential:
+    """
+    build MLP (MultiLayer Perceptron)
+
+    dims: the middle dimension, `dims[-1]` is the output dimension of this network
+    activation: the activation function
+    if_remove_out_layer: if remove the activation function of the output layer.
+    """
+    if activation is None:
+        activation = nn.ReLU
+    net_list = []
+    for i in range(len(dims) - 1):
+        net_list.extend([nn.Linear(dims[i], dims[i + 1]), activation()])
+    if if_raw_out:
+        del net_list[-1]  # delete the activation function of the output layer to keep raw output
+    return nn.Sequential(*net_list)
+
+
+def layer_init_with_orthogonal(layer, std=1.0, bias_const=1e-6):
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
 
