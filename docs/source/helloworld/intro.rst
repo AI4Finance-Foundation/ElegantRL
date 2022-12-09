@@ -2,7 +2,7 @@
 Hello, World!
 ==================== 
 
-We will help you understand and get hands-on experience with `ElegantRL-HelloWorld <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld>`_.
+We will help you understand and get hands-on experience with `ElegantRL-HelloWorld <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/helloworld>`_.
 
 .. contents:: Table of Contents
     :depth: 3
@@ -20,7 +20,7 @@ As a high-level overview, the relations among the files are as follows. Initiali
 net.py
 ------
 
-Our `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/net.py>`_ contains three types of networks. Each type of networks includes a base network for inheritance and a set of variations for algorithms.
+Our `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/net.py>`_ contains three types of networks. Each type of networks includes a base network for inheritance and a set of variations for algorithms.
 
     - Q-Net
       
@@ -31,7 +31,7 @@ Our `net.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/eleg
 agent.py
 --------
 
-`agent.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/agent.py>`_ contains classes of different DRL agent, where each agent corresponds to a DRL algorithms. In addition, it also contains the Replay Buffer class for data storage.
+`agent.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/agent.py>`_ contains classes of different DRL agent, where each agent corresponds to a DRL algorithms. In addition, it also contains the Replay Buffer class for data storage.
 
 In this HelloWorld, we focus on DQN, SAC, and PPO, which are the most representative and commonly used DRL algorithms.
 
@@ -40,14 +40,14 @@ For a complete list of DRL algorithms, please go to `here <https://github.com/AI
 env.py
 ------
 
-`env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/env.py>`_ contains a wrapper class that preprocesses the Gym-styled environment (env).
+`env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/env.py>`_ contains a wrapper class that preprocesses the Gym-styled environment (env).
 
 Refer to `OpenAI's explanation <https://github.com/openai/gym/blob/master/gym/core.py>`_ to better understand the how a Gym-styled environment is formulated.
 
 run.py
 ------
 
-`run.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/run.py>`_ contains basic functions for the training and evaluating process. In the training process ``train_and_evaluate``, there are two major steps:
+`run.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/run.py>`_ contains basic functions for the training and evaluating process. In the training process ``train_and_evaluate``, there are two major steps:
 
   1. Initialization:
   
@@ -77,7 +77,7 @@ In **run.py**, we also provide an evaluator to periodically evaluate and save th
 demo.py
 ---------------------
 
-`demo.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/demo.py>`_ contains four demo functions:
+`demo.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/demo.py>`_ contains four demo functions:
 
     - discrete action    +   off-policy algorithm
     - discrete action    +   on-policy algorithm
@@ -88,7 +88,7 @@ demo.py
 Run the Code
 ============
 
-In `demo.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/elegantrl_helloworld/demo.py>`_, there are four functions that are available to run in the main function. You can see ``demo_continuous_action_on_policy()`` called at the bottom of the file.
+In `demo.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/demo.py>`_, there are four functions that are available to run in the main function. You can see ``demo_continuous_action_on_policy()`` called at the bottom of the file.
 
 .. code-block:: python
 
