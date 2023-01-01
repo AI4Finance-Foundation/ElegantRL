@@ -55,7 +55,7 @@ ElegantRL supports the following simulators:
 - [Citation](#Citation)
 
 
-## News
+## Tutorials
 
 - [Towardsdatascience] [A New Era of Massively Parallel Simulation: A Practical Tutorial Using ElegantRL](https://medium.com/towards-data-science/a-new-era-of-massively-parallel-simulation-a-practical-tutorial-using-elegantrl-5ebc483c3385), Nov. 2, 2022.
 - [MLearning.ai] [ElegantRL: Much More Stable Deep Reinforcement Learning Algorithms than Stable-Baseline3](https://medium.com/mlearning-ai/elegantrl-much-much-more-stable-than-stable-baseline3-f096533c26db), Mar. 3, 2022.
