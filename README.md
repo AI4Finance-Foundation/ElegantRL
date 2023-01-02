@@ -182,3 +182,12 @@ To cite this repository:
   howpublished = {\url{https://github.com/AI4Finance-Foundation/ElegantRL}},
 }
 ```
+
+```
+@article{liu2021elegantrl,
+  title={ElegantRL-Podracer: Scalable and elastic library for cloud-native deep reinforcement learning},
+  author={Liu, Xiao-Yang and Li, Zechu and Yang, Zhuoran and Zheng, Jiahao and Wang, Zhaoran and Walid, Anwar and Guo, Jian and Jordan, Michael I},
+  journal={NeurIPS, Workshop on Deep Reinforcement Learning},
+  year={2021}
+}
+```
