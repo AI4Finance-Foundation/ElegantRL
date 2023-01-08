@@ -1,6 +1,8 @@
 import os
+import sys
 import time
 from copy import deepcopy
+
 import gym
 import numpy as np
 import torch
@@ -30,8 +32,9 @@ class Config:  # for off-policy
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
+        self.state_value_tau = 0.1  # 0.05 ~ 0.50
         self.batch_size = int(64)  # num of transitions sampled from replay buffer.
-        self.horizon_len = int(512)  # collect horizon_len step while exploring, then update network
+        self.horizon_len = int(256)  # collect horizon_len step while exploring, then update network
         self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
         self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
 
@@ -45,8 +48,8 @@ class Config:  # for off-policy
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = +np.inf  # break training if 'total_step > break_step'
 
-        self.eval_times = int(32)  # number of times that get episodic cumulative return
-        self.eval_per_step = int(2e4)  # evaluate the agent per training steps
+        self.eval_times = int(16)  # number of times that get episodic cumulative return
+        self.eval_per_step = int(1e4)  # evaluate the agent per training steps
 
     def init_before_training(self):
         if self.cwd is None:  # set cwd (current working directory) for saving model
@@ -54,22 +57,87 @@ class Config:  # for off-policy
         os.makedirs(self.cwd, exist_ok=True)
 
 
-class QNet(nn.Module):  # `nn.Module` is a PyTorch module for neural network
-    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+class ActorBase(nn.Module):  # todo state_norm
+    def __init__(self, state_dim: int, action_dim: int):
         super().__init__()
-        self.net = build_mlp(dims=[state_dim, *dims, action_dim])
-        self.explore_rate = None
+        self.state_dim = state_dim
         self.action_dim = action_dim
+        self.net = None  # build_mlp(dims=[state_dim, *dims, action_dim])
+        self.explore_noise_std = None  # standard deviation of exploration action noise
+        self.ActionDist = torch.distributions.normal.Normal
+
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+
+    def state_norm(self, state: Tensor) -> Tensor:
+        return (state - self.state_avg) / self.state_std  # todo state_norm
+
+
+class Actor(ActorBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
 
     def forward(self, state: Tensor) -> Tensor:
-        return self.net(state)  # Q values for multiple actions
+        state = self.state_norm(state)
+        action = self.net(state)
+        return action.tanh()
 
-    def get_action(self, state: Tensor) -> Tensor:  # return the index [int] of discrete action for exploration
-        if self.explore_rate < torch.rand(1):
-            action = self.net(state).argmax(dim=1, keepdim=True)
-        else:
-            action = torch.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+    def get_action(self, state: Tensor) -> Tensor:  # for exploration
+        state = self.state_norm(state)
+        action_avg = self.net(state).tanh()
+        dist = self.ActionDist(action_avg, self.explore_noise_std)
+        action = dist.sample()
+        return action.clip(-1.0, 1.0)
+
+
+class CriticBase(nn.Module):  # todo state_norm, value_norm
+    def __init__(self, state_dim: int, action_dim: int):
+        super().__init__()
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.net = None  # build_mlp(dims=[state_dim + action_dim, *dims, 1])
+
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+        self.value_avg = nn.Parameter(torch.zeros((1,)), requires_grad=False)
+        self.value_std = nn.Parameter(torch.ones((1,)), requires_grad=False)
+
+    def state_norm(self, state: Tensor) -> Tensor:
+        return (state - self.state_avg) / self.state_std  # todo state_norm
+
+    def value_re_norm(self, value: Tensor) -> Tensor:
+        return value * self.value_std + self.value_avg  # todo value_norm
+
+
+class CriticTwin(CriticBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.enc_sa = build_mlp(dims=[state_dim + action_dim, *dims])  # encoder of state and action
+        self.dec_q1 = build_mlp(dims=[dims[-1], action_dim])  # decoder of Q value 1
+        self.dec_q2 = build_mlp(dims=[dims[-1], action_dim])  # decoder of Q value 2
+        layer_init_with_orthogonal(self.dec_q1[-1], std=0.5)
+        layer_init_with_orthogonal(self.dec_q2[-1], std=0.5)
+
+    def forward(self, state: Tensor, action: Tensor) -> Tensor:
+        state = self.state_norm(state)
+        sa_tmp = self.enc_sa(torch.cat((state, action), dim=1))
+        value = self.dec_q1(sa_tmp)
+        value = self.value_re_norm(value)
+        return value  # Q value
+
+    def get_q1_q2(self, state, action):
+        state = self.state_norm(state)
+        sa_tmp = self.enc_sa(torch.cat((state, action), dim=1))
+        value1 = self.value_re_norm(self.dec_q1(sa_tmp))
+        value2 = self.value_re_norm(self.dec_q2(sa_tmp))
+        return value1, value2  # two Q values
+
+
+def layer_init_with_orthogonal(layer, std=1.0, bias_const=1e-6):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
 
 
 def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
@@ -128,6 +196,7 @@ class AgentBase:
         self.learning_rate = args.learning_rate
         self.if_off_policy = args.if_off_policy
         self.soft_update_tau = args.soft_update_tau
+        self.state_value_tau = args.state_value_tau
 
         self.last_state = None  # save the last state of the trajectory for training. `last_state.shape == (state_dim)`
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
@@ -156,71 +225,104 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
+    def update_avg_std_for_state_value_norm(self, states: Tensor, returns: Tensor):
+        tau = self.state_value_tau
+        if tau == 0:
+            return
 
-class AgentDQN(AgentBase):
+        state_avg = states.mean(dim=0, keepdim=True)
+        state_std = states.std(dim=0, keepdim=True)
+        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
+        self.act.state_std[:] = self.cri.state_std * (1 - tau) + state_std * tau + 1e-4
+        self.cri.state_avg[:] = self.act.state_avg
+        self.cri.state_std[:] = self.cri.state_std
+
+        returns_avg = returns.mean(dim=0)
+        returns_std = returns.std(dim=0)
+        self.cri.value_avg[:] = self.cri.value_avg * (1 - tau) + returns_avg * tau
+        self.cri.value_std[:] = self.cri.value_std * (1 - tau) + returns_std * tau + 1e-4
+
+
+class AgentTD3(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, "act_class", QNet)
-        self.cri_class = getattr(self, "cri_class", None)  # means `self.cri = self.act`
-        AgentBase.__init__(self, net_dims, state_dim, action_dim, gpu_id, args)
-        self.act_target = self.cri_target = deepcopy(self.act)
+        self.act_class = getattr(self, 'act_class', Actor)  # get the attribute of object `self`
+        self.cri_class = getattr(self, 'cri_class', CriticTwin)  # get the attribute of object `self`
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.cri_target = deepcopy(self.cri)
+        self.act_target = deepcopy(self.act)
 
-        self.act.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
-        # the probability of choosing action randomly in epsilon-greedy
+        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.06)  # standard deviation of exploration noise
+        self.policy_noise_std = getattr(args, 'policy_noise_std', 0.12)  # standard deviation of exploration noise
+        self.update_freq = getattr(args, 'update_freq', 2)  # standard deviation of exploration noise
+        self.horizon_len = 0
 
     def explore_env(self, env, horizon_len: int, if_random: bool = False) -> [Tensor]:
+        self.act.explore_noise_std = self.act_target.explore_noise_std = self.explore_noise_std
+        self.horizon_len = 0
+
         states = torch.zeros((horizon_len, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, 1), dtype=torch.int32).to(self.device)
-        rewards = torch.ones(horizon_len, dtype=torch.float32).to(self.device)
+        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.float32).to(self.device)
+        rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
         dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
 
         ary_state = self.last_state
-
         get_action = self.act.get_action
         for i in range(horizon_len):
             state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device)
-            if if_random:
-                action = torch.randint(self.action_dim, size=(1,))[0]
-            else:
-                action = get_action(state.unsqueeze(0))[0, 0]
+            action = torch.rand(self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))[0]
+
+            states[i] = state
+            actions[i] = action
 
             ary_action = action.detach().cpu().numpy()
             ary_state, reward, done, _ = env.step(ary_action)
             if done:
                 ary_state = env.reset()
 
-            states[i] = state
-            actions[i] = action
             rewards[i] = reward
             dones[i] = done
 
         self.last_state = ary_state
-        rewards = (rewards * self.reward_scale).unsqueeze(1)
+        rewards = rewards.unsqueeze(1)
         undones = (1.0 - dones.type(torch.float32)).unsqueeze(1)
         return states, actions, rewards, undones
 
     def update_net(self, buffer) -> [float]:
-        obj_critics = 0.0
-        q_values = 0.0
+        self.act.explore_noise_std = self.act_target.explore_noise_std = self.policy_noise_std
 
+        states = buffer.states[-self.horizon_len:]
+        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
+        self.update_avg_std_for_state_value_norm(
+            states=states.reshape((-1, self.state_dim)),
+            returns=reward_sums.reshape((-1,))
+        )
+
+        obj_critics = obj_actors = 0.0
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
-        assert update_times >= 1
-        for i in range(update_times):
-            obj_critic, q_value = self.get_obj_critic(buffer, self.batch_size)
+        for t in range(update_times):
+            obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
             obj_critics += obj_critic.item()
-            q_values += q_value.item()
-        return obj_critics / update_times, q_values / update_times
+
+            if t % self.update_freq == 0:
+                action = self.act(state)  # policy gradient
+                obj_actor = (self.cri(state, action)).mean()
+                self.optimizer_update(self.act_optimizer, -obj_actor)
+                self.soft_update(self.act_target, self.act, self.soft_update_tau)
+                obj_actors += obj_actor.item()
+        return obj_critics / update_times, obj_actors / (update_times / self.update_freq)
 
     def get_obj_critic(self, buffer, batch_size: int) -> (Tensor, Tensor):
         with torch.no_grad():
             state, action, reward, undone, next_state = buffer.sample(batch_size)
-            next_q = self.cri_target(next_state).max(dim=1, keepdim=True)[0]
+
+            next_action = self.act.get_action(next_state)  # stochastic policy
+            next_q = torch.min(*self.cri_target.get_q1_q2(next_state, next_action))  # twin critics
             q_label = reward + undone * self.gamma * next_q
-        q_value = self.cri(state).gather(1, action.long())
-        obj_critic = self.criterion(q_value, q_label)
-        return obj_critic, q_value.mean()
+        q1, q2 = self.cri.get_q1_q2(state, action)
+        obj_critic = (self.criterion(q1, q_label) + self.criterion(q2, q_label)) / 2.
+        return obj_critic, state
 
 
 class ReplayBuffer:  # for off-policy
@@ -263,13 +365,39 @@ class ReplayBuffer:  # for off-policy
         return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
 
 
+class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
+    def __init__(self, gym_env_name=None):
+        gym.logger.set_level(40)  # Block warning
+        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
+        if gym_env_name is None:
+            gym_env_name = "Pendulum-v0" if gym.__version__ < '0.18.0' else "Pendulum-v1"
+        super().__init__(env=gym.make(gym_env_name))
+
+        '''the necessary env information when you design a custom env'''
+        self.env_name = gym_env_name  # the name of this env.
+        self.state_dim = self.observation_space.shape[0]  # feature number of state
+        self.action_dim = self.action_space.shape[0]  # feature number of action
+        self.if_discrete = False  # discrete action or continuous action
+
+    def reset(self) -> np.ndarray:  # reset the agent in env
+        return self.env.reset()
+
+    def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):  # agent interacts in env
+        # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
+        # We suggest that adjust action space to (-1, +1) when designing a custom env.
+        state, reward, done, info_dict = self.env.step(action * 2)
+        state = state.reshape(self.state_dim)
+        return state, float(reward * 0.5), done, info_dict
+
+
 def train_agent(args: Config):
     args.init_before_training()
+    gpu_id = args.gpu_id
 
     env = build_env(args.env_class, args.env_args)
-    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=0, args=args)
+    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
     agent.last_state = env.reset()
-    buffer = ReplayBuffer(gpu_id=0, max_size=args.buffer_size,
+    buffer = ReplayBuffer(gpu_id=gpu_id, max_size=args.buffer_size,
                           state_dim=args.state_dim, action_dim=1 if args.if_discrete else args.action_dim, )
     buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
     buffer.update(buffer_items)  # warm up for ReplayBuffer
@@ -300,7 +428,7 @@ class Evaluator:
         self.eval_times = eval_times  # number of times that get episodic cumulative return
         self.eval_per_step = eval_per_step  # evaluate the agent per training steps
 
-        self.recorder = []
+        self.recorder = list()
         print("\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
               "\n| `time`: Time spent from the start of training to this moment."
               "\n| `avgR`: Average value of cumulative rewards, which is the sum of rewards in an episode."
@@ -332,12 +460,13 @@ class Evaluator:
 
 def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):  # cumulative_rewards and episode_steps
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
+
     state = env.reset()
     episode_steps = 0
     cumulative_returns = 0.0  # sum of rewards in an episode
     for episode_steps in range(12345):
         tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-        tensor_action = actor(tensor_state).argmax(dim=1)
+        tensor_action = actor(tensor_state)
         action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         cumulative_returns += reward
@@ -346,23 +475,33 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int): 
             env.render()
         if done:
             break
+    cumulative_returns = getattr(env, 'cumulative_returns', cumulative_returns)  # todo
     return cumulative_returns, episode_steps + 1
 
 
-def train_dqn_for_cartpole():
+def train_sac_for_pendulum(gpu_id=0):
     env_args = {
-        'env_name': 'CartPole-v0',  # A pole is attached by an un-actuated joint to a cart.
-        'state_dim': 4,  # (CartPosition, CartVelocity, PoleAngle, PoleAngleVelocity)
-        'action_dim': 2,  # (Push cart to the left, Push cart to the right)
-        'if_discrete': True,  # discrete action space
+        'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
+        'state_dim': 3,  # the x-y coordinates of the pendulum's free end and its angular velocity.
+        'action_dim': 1,  # the torque applied to free end of the pendulum
+        'if_discrete': False  # continuous action space, symbols → direction, value → force
     }  # env_args = get_gym_env_args(env=gym.make('CartPole-v0'), if_print=True)
 
-    args = Config(agent_class=AgentDQN, env_class=gym.make, env_args=env_args)  # see `Config` for explanation
-    args.break_step = int(2e5)  # break training if 'total_step > break_step'
+    args = Config(agent_class=AgentTD3, env_class=PendulumEnv, env_args=env_args)  # see `Config` for explanation
+    args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
-    args.gamma = 0.95  # discount factor of future rewards
+    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
+    args.gamma = 0.97  # discount factor of future rewards
 
     train_agent(args)
 
 
-train_dqn_for_cartpole()
+train_sac_for_pendulum(gpu_id=int(sys.argv[1]) if len(sys.argv) > 1 else -1)
+"""
+|     step      time  |     avgR    stdR    avgS  |     objC      objA
+| 1.02e+04       108  |  -745.94   26.63     200  |     0.76    -54.69
+| 2.05e+04       302  |  -409.87   22.87     200  |     1.14    -72.69
+| 3.07e+04       501  |  -309.10   31.90     200  |     0.74    -58.23
+| 4.10e+04       800  |   -83.88   46.36     200  |     0.68    -43.74
+| 5.12e+04      1103  |   -79.66   53.86     200  |     0.48    -32.24
+"""
