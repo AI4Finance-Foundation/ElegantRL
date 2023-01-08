@@ -1,8 +1,8 @@
 import gym
-import numpy as np
 import torch
+import numpy as np
 
-'''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
+'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 Array = np.ndarray
 Tensor = torch.Tensor
@@ -544,69 +544,3 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         # action_space.low = -0.4
         state, reward, done, info_dict = self.env.step(action * 2.5)  # state, reward, done, info_dict
         return self.get_state_norm(state), reward, done, info_dict
-
-
-'''gym vector env'''
-
-
-class PendulumVecEnv:  # demo of custom gym env
-    def __init__(self, num_envs: int = 4, gpu_id: int = -1):
-        gym.logger.set_level(40)  # Block warning
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
-        env_name = "Pendulum-v1"
-        self.env = gym.vector.make(env_name, num_envs=num_envs)
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-
-        '''the necessary env information when you design a custom env'''
-        temp_env = gym.make(env_name)
-        self.env_name = env_name  # the name of this env.
-        self.num_envs = num_envs  # the number of sub env in vectorized env.
-        self.max_step = getattr(temp_env, '_max_episode_steps')  # the max step number in an episode for evaluation
-        self.state_dim = self.env.observation_space.shape[1]  # feature number of state
-        self.action_dim = self.env.action_space.shape[1]  # feature number of action
-        self.if_discrete = False  # discrete action or continuous action
-        temp_env.close()
-
-    def reset(self) -> Tensor:  # reset the agent in env
-        ary_state = self.env.reset()
-        return torch.tensor(ary_state, dtype=torch.float32, device=self.device)
-
-    def step(self, action: Tensor) -> (Tensor, Tensor, Tensor, (dict,)):  # agent interacts in env
-        # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
-        # We suggest that adjust action space to (-1, +1) when designing a custom env.
-        ary_action = action.cpu().data.numpy()
-        ary_state, ary_reward, ary_done, info_dicts = self.env.step(ary_action * 2)
-        state = torch.tensor(ary_state, dtype=torch.float32, device=self.device)
-        reward = torch.tensor(ary_reward, dtype=torch.float32, device=self.device)
-        done = torch.tensor(ary_done, dtype=torch.bool, device=self.device)
-        return state, reward, done, info_dicts
-
-
-class GymVecEnv:  # demo of gym-style vectorized env
-    def __init__(self, env_name: str, num_envs: int = 4, gpu_id: int = -1):
-        gym.logger.set_level(40)  # Block warning
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
-        self.env = gym.vector.make(env_name, num_envs=num_envs)
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-
-        '''the necessary env information when you design a custom env'''
-        temp_env = gym.make(env_name)
-        self.env_name = env_name  # the name of this env.
-        self.num_envs = num_envs  # the number of sub env in vectorized env.
-        self.max_step = getattr(temp_env, '_max_episode_steps')  # the max step number in an episode for evaluation
-        self.state_dim = self.env.observation_space.shape[1]  # feature number of state
-        self.action_dim = self.env.action_space.shape[1]  # feature number of action
-        self.if_discrete = False  # discrete action or continuous action
-        temp_env.close()
-
-    def reset(self) -> Tensor:  # reset the agent in env
-        ary_state = self.env.reset()
-        return torch.tensor(ary_state, dtype=torch.float32, device=self.device)
-
-    def step(self, action: Tensor) -> (Tensor, Tensor, Tensor, (dict,)):  # agent interacts in env
-        ary_action = action.cpu().data.numpy()
-        ary_state, ary_reward, ary_done, info_dicts = self.env.step(ary_action)
-        state = torch.tensor(ary_state, dtype=torch.float32, device=self.device)
-        reward = torch.tensor(ary_reward, dtype=torch.float32, device=self.device)
-        done = torch.tensor(ary_done, dtype=torch.bool, device=self.device)
-        return state, reward, done, info_dicts

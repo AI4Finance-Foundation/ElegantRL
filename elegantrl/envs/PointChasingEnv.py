@@ -2,7 +2,6 @@ import numpy as np
 import numpy.random as rd
 import torch
 
-'''[ElegantRL.2022.05.05](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 Array = np.ndarray
 Tensor = torch.Tensor

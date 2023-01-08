@@ -1,16 +1,14 @@
 from elegantrl.agents.AgentBase import AgentBase
 
-# DQN
-from elegantrl.agents.AgentDQN import AgentDQN
-from elegantrl.agents.AgentDoubleDQN import AgentDoubleDQN
-from elegantrl.agents.AgentDuelingDQN import AgentDuelingDQN
-from elegantrl.agents.AgentDuelingDoubleDQN import AgentDuelingDoubleDQN
+# DQN (off-policy)
+from elegantrl.agents.AgentDQN import AgentDQN, AgentDuelingDQN
+from elegantrl.agents.AgentDQN import AgentDoubleDQN, AgentD3QN
 
 # off-policy
 from elegantrl.agents.AgentDDPG import AgentDDPG
 from elegantrl.agents.AgentTD3 import AgentTD3
 from elegantrl.agents.AgentSAC import AgentSAC, AgentModSAC
-from elegantrl.agents.AgentREDQ import AgentREDQ
 
-#on-policy
-from elegantrl.agents.AgentPPO import AgentPPO, AgentPPOHterm
+# on-policy
+from elegantrl.agents.AgentPPO import AgentPPO, AgentDiscretePPO
+from elegantrl.agents.AgentA2C import AgentA2C, AgentDiscreteA2C
