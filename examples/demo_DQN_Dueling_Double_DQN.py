@@ -3,10 +3,10 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl.train.run import train_agent, train_agent_multiprocessing
-    from elegantrl.train.config import Config, get_gym_env_args, VecEnv
-    from elegantrl.agents.AgentDQN import AgentDQN, AgentDuelingDQN
-    from elegantrl.agents.AgentDQN import AgentDoubleDQN, AgentD3QN
+    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import Config, get_gym_env_args
+    from elegantrl.agents import AgentDQN, AgentDuelingDQN
+    from elegantrl.agents import AgentDoubleDQN, AgentD3QN
 
 
 def train_dqn_for_cartpole():

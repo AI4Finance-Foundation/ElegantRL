@@ -3,10 +3,10 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl.train.run import train_agent, train_agent_multiprocessing
-    from elegantrl.train.config import Config, get_gym_env_args
-    from elegantrl.agents.AgentPPO import AgentPPO, AgentDiscretePPO
-    from elegantrl.agents.AgentA2C import AgentA2C, AgentDiscreteA2C
+    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import Config, get_gym_env_args
+    from elegantrl.agents import AgentPPO, AgentDiscretePPO
+    from elegantrl.agents import AgentA2C, AgentDiscreteA2C
 
 """continuous action"""
 

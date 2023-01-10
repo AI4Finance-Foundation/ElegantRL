@@ -3,10 +3,10 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl.train.run import train_agent, train_agent_multiprocessing
-    from elegantrl.train.config import Config, get_gym_env_args
-    from elegantrl.agents.AgentTD3 import AgentTD3
-    from elegantrl.agents.AgentSAC import AgentSAC, AgentModSAC
+    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import Config, get_gym_env_args
+    from elegantrl.agents import AgentTD3
+    from elegantrl.agents import AgentSAC, AgentModSAC
 
 
 def train_ddpg_for_pendulum():
