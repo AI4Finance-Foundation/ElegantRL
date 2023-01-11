@@ -124,7 +124,7 @@ class Evaluator:
             self.total_step = self.recorder[-1][0]
 
     def get_rewards_and_step_single_env(self, actor) -> Tensor:
-        rewards_steps_list = [get_rewards_and_step(self.env, actor) for _ in range(self.eval_times)]
+        rewards_steps_list = [get_rewards_and_steps(self.env, actor) for _ in range(self.eval_times)]
         rewards_steps_ten = torch.tensor(rewards_steps_list, dtype=torch.float32)
         return rewards_steps_ten  # rewards_steps_ten.shape[1] == 2
 
@@ -149,7 +149,7 @@ class Evaluator:
 """util"""
 
 
-def get_rewards_and_step(env, actor) -> (float, int):
+def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
     """Usage
     eval_times = 4
     net_dim = 2 ** 7
@@ -178,6 +178,11 @@ def get_rewards_and_step(env, actor) -> (float, int):
         action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
         state, reward, done, _ = env.step(action)
         returns += reward
+
+        if if_render:
+            env.render()
+            time.sleep(0.02)
+
         if done:
             break
     else:
@@ -187,7 +192,7 @@ def get_rewards_and_step(env, actor) -> (float, int):
     return returns, steps
 
 
-def get_rewards_and_step_from_vec_env(env, act) -> [(float, float)]:
+def get_rewards_and_step_from_vec_env(env, actor) -> [(float, float)]:
     device = env.device
     env_num = env.num_envs
     max_step = env.max_step
@@ -199,7 +204,7 @@ def get_rewards_and_step_from_vec_env(env, act) -> [(float, float)]:
 
     state = env.reset()  # must reset in vectorized env
     for t in range(max_step):
-        action = act(state.to(device))
+        action = actor(state.to(device))
         # assert action.shape == (env.env_num, env.action_dim)
         if if_discrete:
             action = action.argmax(dim=1, keepdim=True)
@@ -330,7 +335,7 @@ def demo_evaluator_actor_pth():
     # act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
 
     '''evaluate'''
-    r_s_ary = [get_rewards_and_step(env, act) for _ in range(eval_times)]
+    r_s_ary = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
     r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 
@@ -371,7 +376,7 @@ def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval
         act_path = f"{dir_path}/{act_name}"
 
         act.load_state_dict(torch.load(act_path, map_location=lambda storage, loc: storage))
-        r_s_ary = [get_rewards_and_step(env, act) for _ in range(eval_times)]
+        r_s_ary = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
         r_s_ary = np.array(r_s_ary, dtype=np.float32)
         r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 

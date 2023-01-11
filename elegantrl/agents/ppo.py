@@ -117,7 +117,6 @@ class AgentPPO(AgentBase):
 
         self.last_state = state
 
-        actions = actions.unsqueeze(2) if self.if_discrete else actions
         rewards *= self.reward_scale
         undones = 1.0 - dones.type(torch.float32)
         return states, actions, logprobs, rewards, undones
@@ -141,7 +140,6 @@ class AgentPPO(AgentBase):
 
             advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-4)
 
-            # todo value_norm
             self.update_avg_std_for_normalization(
                 states=states.reshape((-1, self.state_dim)),
                 returns=reward_sums.reshape((-1,))
@@ -215,7 +213,6 @@ class AgentPPO(AgentBase):
 class AgentDiscretePPO(AgentPPO):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         self.act_class = getattr(self, "act_class", ActorDiscretePPO)
-        self.cri_class = getattr(self, "cri_class", CriticPPO)
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
 
     def explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
@@ -246,10 +243,10 @@ class AgentDiscretePPO(AgentPPO):
             action, logprob = get_action(state)
             states[t] = state
 
-            ary_action = convert(action[0]).detach().cpu().numpy()
-            ary_state, reward, done, _ = env.step(ary_action)  # next_state
+            int_action = convert(action).item()
+            ary_state, reward, done, _ = env.step(int_action)  # next_state
             state = torch.as_tensor(env.reset() if done else ary_state,
-                                    dtype=torch.float32, device=self.device).unsqueeze(0)
+                                    dtype=torch.float32, device=self.device)
             actions[t] = action
             logprobs[t] = logprob
             rewards[t] = reward
@@ -296,7 +293,7 @@ class AgentDiscretePPO(AgentPPO):
 
         self.last_state = state
 
-        actions = actions.unsqueeze(2) if self.if_discrete else actions
+        actions = actions.unsqueeze(2)
         rewards *= self.reward_scale
         undones = 1.0 - dones.type(torch.float32)
         return states, actions, logprobs, rewards, undones

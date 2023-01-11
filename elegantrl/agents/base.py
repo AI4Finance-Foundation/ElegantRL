@@ -1,6 +1,6 @@
 import os
 import torch
-from typing import Tuple
+from typing import Tuple, Union
 from torch import Tensor
 from torch.nn.utils import clip_grad_norm_
 
@@ -24,7 +24,6 @@ class AgentBase:
         self.gamma = args.gamma  # discount factor of future rewards
         self.num_envs = args.num_envs  # the number of sub envs in vectorized env. `num_envs=1` in single env.
         self.batch_size = args.batch_size  # num of transitions sampled from replay buffer.
-        self.if_discrete = args.if_discrete  # if the action space of env is discrete or continuous
         self.repeat_times = args.repeat_times  # repeatedly update network using ReplayBuffer
         self.reward_scale = args.reward_scale  # an approximate target reward usually be closed to 256
         self.learning_rate = args.learning_rate  # the learning rate for network updating
@@ -145,10 +144,10 @@ class AgentBase:
         undones = 1.0 - dones.type(torch.float32)
         return states, actions, rewards, undones
 
-    def update_net(self, buffer: ReplayBuffer) -> Tuple[float, ...]:
-        obj_critic = 0.0
-        obj_actor = 0.0
-        assert isinstance(buffer, ReplayBuffer) or isinstance(buffer, list)
+    def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> Tuple[float, ...]:
+        obj_critic = 0.0  # criterion(q_value, q_label).mean().item()
+        obj_actor = 0.0  # q_value.mean().item()
+        assert isinstance(buffer, ReplayBuffer) or isinstance(buffer, tuple)
         assert isinstance(self.batch_size, int)
         assert isinstance(self.repeat_times, int)
         assert isinstance(self.reward_scale, float)

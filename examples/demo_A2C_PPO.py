@@ -683,8 +683,8 @@ def demo_load_pendulum_and_render():
 
     '''evaluate'''
     eval_times = 2 ** 7
-    from elegantrl.train.evaluator import get_rewards_and_step
-    rewards_step_list = [get_rewards_and_step(env, act) for _ in range(eval_times)]
+    from elegantrl.train.evaluator import get_rewards_and_steps
+    rewards_step_list = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
     rewards_step_ten = torch.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
           f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
