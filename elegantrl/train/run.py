@@ -7,7 +7,7 @@ import torch.multiprocessing as mp  # torch.multiprocessing extends multiprocess
 from multiprocessing import Process, Pipe
 from elegantrl.train.config import Config, build_env
 from elegantrl.train.replay_buffer import ReplayBuffer
-from elegantrl.train.evaluator import Evaluator
+from elegantrl.train.evaluator import Evaluator, get_rewards_and_steps
 
 '''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
@@ -16,6 +16,8 @@ if os.name == 'nt':  # if is WindowOS (Windows NT)
     OMP: Error #15: Initializing libiomp5md.dll, but found libiomp5md.dll already initialized.
     """
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+'''train'''
 
 
 def train_agent(args: Config):
@@ -305,3 +307,22 @@ class EvaluatorProc(Process):
         print(f'| TrainingTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
         eval_env.close() if hasattr(eval_env, 'close') else None
+
+
+'''render'''
+
+
+def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_path: str, render_times: int = 8):
+    env = build_env(env_class, env_args)
+
+    state_dim = env_args['state_dim']
+    action_dim = env_args['action_dim']
+    agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
+    actor = agent.act
+    del agent
+
+    print(f"| render and load actor from: {actor_path}")
+    actor.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    for i in range(render_times):
+        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
+        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
