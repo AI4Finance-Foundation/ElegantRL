@@ -29,7 +29,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
             values = torch.empty_like(rewards)  # values.shape == (buffer_size, buffer_num)
             for i in range(0, buffer_size, bs):
                 for j in range(buffer_num):
-                    values[i:i + bs, j] = self.cri(states[i:i + bs, j]).squeeze(1)
+                    values[i:i + bs, j] = self.cri(states[i:i + bs, j])
 
             advantages = self.get_advantages(rewards, undones, values)  # shape == (buffer_size, buffer_num)
             reward_sums = advantages + values  # shape == (buffer_size, buffer_num)
@@ -56,7 +56,7 @@ class AgentA2C(AgentPPO):  # A2C.2015, PPO.2016
             advantage = advantages[ids0, ids1]
             reward_sum = reward_sums[ids0, ids1]
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, reward_sum)
             self.optimizer_update(self.cri_optimizer, obj_critic)
 

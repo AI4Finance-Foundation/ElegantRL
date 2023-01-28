@@ -306,7 +306,7 @@ def draw_learning_curve(recorder: np.ndarray = None,
 
 def demo_evaluator_actor_pth():
     import gym
-    from elegantrl.agents.ppo import AgentPPO
+    from elegantrl.agents.AgentPPO import AgentPPO
     from elegantrl.train.config import Config, build_env
 
     gpu_id = 0  # >=0 means GPU ID, -1 means CPU
@@ -393,7 +393,7 @@ def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval
 
 def demo_load_pendulum_and_render():
     import torch
-    from elegantrl.agents.ppo import AgentPPO
+    from elegantrl.agents.AgentPPO import AgentPPO
     from elegantrl.train.config import Config, build_env
 
     gpu_id = 0  # >=0 means GPU ID, -1 means CPU
@@ -454,7 +454,7 @@ def demo_load_pendulum_and_render():
 
 
 def run():
-    from elegantrl.agents.ppo import AgentPPO
+    from elegantrl.agents.AgentPPO import AgentPPO
     flag_id = 1  # int(sys.argv[1])
 
     gpu_id = [2, 3][flag_id]

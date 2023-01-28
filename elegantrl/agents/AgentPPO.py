@@ -117,7 +117,6 @@ class AgentPPO(AgentBase):
 
         self.last_state = state
 
-        actions = actions.unsqueeze(2) if self.if_discrete else actions
         rewards *= self.reward_scale
         undones = 1.0 - dones.type(torch.float32)
         return states, actions, logprobs, rewards, undones
@@ -133,7 +132,7 @@ class AgentPPO(AgentBase):
             values = torch.empty_like(rewards)  # values.shape == (buffer_size, buffer_num)
             for i in range(0, buffer_size, bs):
                 for j in range(buffer_num):
-                    values[i:i + bs, j] = self.cri(states[i:i + bs, j]).squeeze(1)
+                    values[i:i + bs, j] = self.cri(states[i:i + bs, j])
 
             advantages = self.get_advantages(rewards, undones, values)  # shape == (buffer_size, buffer_num)
             reward_sums = advantages + values  # shape == (buffer_size, buffer_num)
@@ -141,7 +140,6 @@ class AgentPPO(AgentBase):
 
             advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-4)
 
-            # todo value_norm
             self.update_avg_std_for_normalization(
                 states=states.reshape((-1, self.state_dim)),
                 returns=reward_sums.reshape((-1,))
@@ -166,7 +164,7 @@ class AgentPPO(AgentBase):
             advantage = advantages[ids0, ids1]
             reward_sum = reward_sums[ids0, ids1]
 
-            value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+            value = self.cri(state)  # critic network predicts the reward_sum (Q value) of state
             obj_critic = self.criterion(value, reward_sum)
             self.optimizer_update(self.cri_optimizer, obj_critic)
 
@@ -190,7 +188,7 @@ class AgentPPO(AgentBase):
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        next_value = self.cri(self.last_state).detach().squeeze(1)
+        next_value = self.cri(self.last_state).detach()
 
         advantage = torch.zeros_like(next_value)  # last advantage value by GAE (Generalized Advantage Estimate)
         for t in range(horizon_len - 1, -1, -1):
@@ -215,7 +213,6 @@ class AgentPPO(AgentBase):
 class AgentDiscretePPO(AgentPPO):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         self.act_class = getattr(self, "act_class", ActorDiscretePPO)
-        self.cri_class = getattr(self, "cri_class", CriticPPO)
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
 
     def explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
@@ -246,10 +243,10 @@ class AgentDiscretePPO(AgentPPO):
             action, logprob = get_action(state)
             states[t] = state
 
-            ary_action = convert(action[0]).detach().cpu().numpy()
-            ary_state, reward, done, _ = env.step(ary_action)  # next_state
+            int_action = convert(action).item()
+            ary_state, reward, done, _ = env.step(int_action)  # next_state
             state = torch.as_tensor(env.reset() if done else ary_state,
-                                    dtype=torch.float32, device=self.device).unsqueeze(0)
+                                    dtype=torch.float32, device=self.device)
             actions[t] = action
             logprobs[t] = logprob
             rewards[t] = reward
@@ -296,7 +293,7 @@ class AgentDiscretePPO(AgentPPO):
 
         self.last_state = state
 
-        actions = actions.unsqueeze(2) if self.if_discrete else actions
+        actions = actions.unsqueeze(2)
         rewards *= self.reward_scale
         undones = 1.0 - dones.type(torch.float32)
         return states, actions, logprobs, rewards, undones
