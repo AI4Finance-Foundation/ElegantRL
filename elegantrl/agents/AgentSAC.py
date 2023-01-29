@@ -9,8 +9,6 @@ from elegantrl.agents.net import ActorSAC, ActorFixSAC, CriticTwin
 from elegantrl.train.config import Config
 from elegantrl.train.replay_buffer import ReplayBuffer
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class AgentSAC(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):

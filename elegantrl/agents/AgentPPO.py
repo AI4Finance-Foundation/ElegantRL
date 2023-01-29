@@ -7,8 +7,6 @@ from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import ActorPPO, CriticPPO
 from elegantrl.agents.net import ActorDiscretePPO
 
-"""[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)"""
-
 
 class AgentPPO(AgentBase):
     """
@@ -246,7 +244,7 @@ class AgentDiscretePPO(AgentPPO):
             int_action = convert(action).item()
             ary_state, reward, done, _ = env.step(int_action)  # next_state
             state = torch.as_tensor(env.reset() if done else ary_state,
-                                    dtype=torch.float32, device=self.device)
+                                    dtype=torch.float32, device=self.device).unsqueeze(0)
             actions[t] = action
             logprobs[t] = logprob
             rewards[t] = reward

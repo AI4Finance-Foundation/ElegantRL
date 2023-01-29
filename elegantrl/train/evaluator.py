@@ -6,8 +6,6 @@ from torch import Tensor
 
 from elegantrl.train.config import Config
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class Evaluator:
     def __init__(self, cwd: str, env, args: Config, if_tensorboard: bool = False):

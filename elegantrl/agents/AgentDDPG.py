@@ -9,8 +9,6 @@ from elegantrl.train.replay_buffer import ReplayBuffer
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, Critic
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class AgentDDPG(AgentBase):
     """DDPG(Deep Deterministic Policy Gradient)

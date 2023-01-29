@@ -130,8 +130,10 @@ def check_agent_dqn_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env'''
         for if_random in (True, False):
@@ -179,8 +181,10 @@ def check_agent_ddpg_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env if_random=True'''
         if_random = True
@@ -233,14 +237,10 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
-
-        convert = agent.act.convert_action_for_env
-        action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32).detach() * 6 - 3
-        assert torch.any((action < -1.0) | (+1.0 < action))
-        action = convert(action)
-        assert torch.any((-1.0 <= action) & (action <= +1.0))
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env'''
         buffer_items = agent.explore_env(env=env, horizon_len=horizon_len)
@@ -254,7 +254,6 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
         states, actions, logprobs, rewards, undones = buffer_items
 
         values = agent.cri(states)
-        print(values.shape)
         assert values.shape == (horizon_len, num_envs)
 
         advantages = agent.get_advantages(rewards, undones, values)
@@ -266,7 +265,7 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
         assert len(logging_tuple) >= 2
 
 
-def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):  # FIXME
+def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     print("\n| check_agent_ppo_discrete_style()")
 
     env_args = {'env_name': 'CartPole-v1', 'state_dim': 4, 'action_dim': 2, 'if_discrete': True}
@@ -285,14 +284,10 @@ def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 3
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
-
-        convert = agent.act.convert_action_for_env
-        action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32).detach() * 6 - 3
-        assert torch.any((action < -1.0) | (+1.0 < action))
-        action = convert(action)
-        assert torch.any((-1.0 <= action) & (action <= +1.0))
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env'''
         buffer_items = agent.explore_env(env=env, horizon_len=horizon_len)
@@ -305,7 +300,7 @@ def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 3
         '''check for agent.update_net'''
         states, actions, logprobs, rewards, undones = buffer_items
 
-        values = agent.cri(states).squeeze(1)
+        values = agent.cri(states)
         assert values.shape == (horizon_len, num_envs)
 
         advantages = agent.get_advantages(rewards, undones, values)
@@ -324,3 +319,4 @@ if __name__ == '__main__':
     check_agent_dqn_style()
     check_agent_ddpg_style()
     check_agent_ppo_style()
+    check_agent_ppo_discrete_style()

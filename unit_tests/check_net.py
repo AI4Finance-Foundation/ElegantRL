@@ -144,7 +144,18 @@ def check_actor(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_
         action = act(state)
         if actor_class in {ActorDiscretePPO}:
             action = action.unsqueeze(1)
+
         logprob, entropy = act.get_logprob_entropy(state, action)
+        convert = act.convert_action_for_env
+        if actor_class in {ActorDiscretePPO}:
+            action = action.unsqueeze(1)
+            assert action.dtype in {torch.int, torch.long}
+            _action = convert(action)
+            assert _action.dtype in {torch.int, torch.long}
+        else:
+            assert torch.any((-torch.inf < action) | (action < torch.inf))
+            _action = convert(action)
+            assert torch.any((-1.0 <= _action) & (_action <= +1.0))
 
         assert isinstance(logprob, Tensor)
         assert logprob.dtype in {torch.float}

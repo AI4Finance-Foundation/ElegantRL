@@ -6,8 +6,6 @@ from torch.nn.utils import clip_grad_norm_
 
 from elegantrl.train import Config, ReplayBuffer
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class AgentBase:
     """

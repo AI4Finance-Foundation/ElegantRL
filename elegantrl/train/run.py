@@ -9,8 +9,6 @@ from elegantrl.train.config import Config, build_env
 from elegantrl.train.replay_buffer import ReplayBuffer
 from elegantrl.train.evaluator import Evaluator, get_rewards_and_steps
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 if os.name == 'nt':  # if is WindowOS (Windows NT)
     """Fix bug about Anaconda in WindowOS
     OMP: Error #15: Initializing libiomp5md.dll, but found libiomp5md.dll already initialized.
