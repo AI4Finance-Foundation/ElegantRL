@@ -73,8 +73,8 @@ def check_agent_base(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32),
     action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32, device=device).detach()
 
     '''check AgentBase.__init__'''
-    from elegantrl.agents.base import AgentBase
-    from elegantrl.agents.ddpg import AgentDDPG
+    from elegantrl.agents.AgentBase import AgentBase
+    from elegantrl.agents.AgentDDPG import AgentDDPG
     agent = AgentDDPG(net_dims, state_dim, action_dim, gpu_id=gpu_id, args=Config())
     AgentBase.__init__(agent, net_dims, state_dim, action_dim, gpu_id=gpu_id, args=Config())
 
@@ -122,20 +122,22 @@ def check_agent_dqn_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
     if_discrete = env_args['if_discrete']
 
     '''init agent'''
-    from elegantrl.agents.dqn import AgentDQN, AgentDuelingDQN, AgentDoubleDQN, AgentD3QN
+    from elegantrl.agents.AgentDQN import AgentDQN, AgentDuelingDQN, AgentDoubleDQN, AgentD3QN
     for agent_class in (AgentDQN, AgentDuelingDQN, AgentDoubleDQN, AgentD3QN):
-        print(f"| agent_class = {agent_class.__name__}")
+        print(f"  agent_class = {agent_class.__name__}")
 
         buffer = ReplayBuffer(gpu_id=gpu_id, max_size=int(1e4), state_dim=state_dim, action_dim=1, )
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env'''
         for if_random in (True, False):
-            print(f"| if_random = {if_random}")
+            print(f"  if_random = {if_random}")
 
             buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=if_random)
             _check_buffer_items_for_off_policy(
@@ -169,30 +171,39 @@ def check_agent_ddpg_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_
     if_discrete = env_args['if_discrete']
 
     '''init agent'''
-    from elegantrl.agents.ddpg import AgentDDPG
-    from elegantrl.agents.td3 import AgentTD3
-    from elegantrl.agents.sac import AgentSAC, AgentModSAC
+    from elegantrl.agents.AgentDDPG import AgentDDPG
+    from elegantrl.agents.AgentTD3 import AgentTD3
+    from elegantrl.agents.AgentSAC import AgentSAC, AgentModSAC
     for agent_class in (AgentDDPG, AgentTD3, AgentSAC, AgentModSAC):
-        print(f"| agent_class = {agent_class.__name__}")
+        print(f"  agent_class = {agent_class.__name__}")
 
         buffer = ReplayBuffer(gpu_id=gpu_id, max_size=int(1e4), state_dim=state_dim, action_dim=action_dim, )
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
-        '''check for agent.explore_env'''
-        for if_random in (True, False):
-            print(f"| if_random = {if_random}")
+        '''check for agent.explore_env if_random=True'''
+        if_random = True
+        buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=if_random)
+        _check_buffer_items_for_off_policy(
+            buffer_items=buffer_items, if_discrete=if_discrete,
+            horizon_len=horizon_len, num_envs=num_envs,
+            state_dim=state_dim, action_dim=action_dim
+        )
+        buffer.update(buffer_items)
 
-            buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=if_random)
-            _check_buffer_items_for_off_policy(
-                buffer_items=buffer_items, if_discrete=if_discrete,
-                horizon_len=horizon_len, num_envs=num_envs,
-                state_dim=state_dim, action_dim=action_dim
-            )
-            buffer.update(buffer_items)
+        if_random = False
+        buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=if_random)
+        _check_buffer_items_for_off_policy(
+            buffer_items=buffer_items, if_discrete=if_discrete,
+            horizon_len=horizon_len, num_envs=num_envs,
+            state_dim=state_dim, action_dim=action_dim
+        )
+        buffer.update(buffer_items)
 
         '''check for agent.update_net'''
         buffer.update(buffer_items)
@@ -218,22 +229,18 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
     if_discrete = env_args['if_discrete']
 
     '''init agent'''
-    from elegantrl.agents.ppo import AgentPPO  # , AgentDiscretePPO
-    from elegantrl.agents.a2c import AgentA2C  # , AgentDiscreteA2C
+    from elegantrl.agents.AgentPPO import AgentPPO  # , AgentDiscretePPO
+    from elegantrl.agents.AgentA2C import AgentA2C  # , AgentDiscreteA2C
     for agent_class in (AgentPPO, AgentA2C):
-        print(f"| agent_class = {agent_class.__name__}")
+        print(f"  agent_class = {agent_class.__name__}")
 
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
-
-        convert = agent.act.convert_action_for_env
-        action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32).detach() * 6 - 3
-        assert torch.any((action < -1.0) | (+1.0 < action))
-        action = convert(action)
-        assert torch.any((-1.0 <= action) & (action <= +1.0))
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env'''
         buffer_items = agent.explore_env(env=env, horizon_len=horizon_len)
@@ -246,7 +253,7 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
         '''check for agent.update_net'''
         states, actions, logprobs, rewards, undones = buffer_items
 
-        values = agent.cri(states).squeeze(1)
+        values = agent.cri(states)
         assert values.shape == (horizon_len, num_envs)
 
         advantages = agent.get_advantages(rewards, undones, values)
@@ -258,7 +265,7 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
         assert len(logging_tuple) >= 2
 
 
-def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):  # FIXME
+def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     print("\n| check_agent_ppo_discrete_style()")
 
     env_args = {'env_name': 'CartPole-v1', 'state_dim': 4, 'action_dim': 2, 'if_discrete': True}
@@ -269,22 +276,18 @@ def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 3
     if_discrete = env_args['if_discrete']
 
     '''init agent'''
-    from elegantrl.agents.ppo import AgentDiscretePPO
-    from elegantrl.agents.a2c import AgentDiscreteA2C
+    from elegantrl.agents.AgentPPO import AgentDiscretePPO
+    from elegantrl.agents.AgentA2C import AgentDiscreteA2C
     for agent_class in (AgentDiscretePPO, AgentDiscreteA2C):
-        print(f"| agent_class = {agent_class.__name__}")
+        print(f"  agent_class = {agent_class.__name__}")
 
         args = Config()
         args.batch_size = batch_size
         agent = agent_class(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-        agent.last_state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device)
-        assert isinstance(agent.last_state, Tensor)
-
-        convert = agent.act.convert_action_for_env
-        action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32).detach() * 6 - 3
-        assert torch.any((action < -1.0) | (+1.0 < action))
-        action = convert(action)
-        assert torch.any((-1.0 <= action) & (action <= +1.0))
+        state = torch.tensor(env.reset(), dtype=torch.float32, device=agent.device).unsqueeze(0)
+        assert isinstance(state, Tensor)
+        assert state.shape == (num_envs, state_dim)
+        agent.last_state = state
 
         '''check for agent.explore_env'''
         buffer_items = agent.explore_env(env=env, horizon_len=horizon_len)
@@ -297,7 +300,7 @@ def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 3
         '''check for agent.update_net'''
         states, actions, logprobs, rewards, undones = buffer_items
 
-        values = agent.cri(states).squeeze(1)
+        values = agent.cri(states)
         assert values.shape == (horizon_len, num_envs)
 
         advantages = agent.get_advantages(rewards, undones, values)
@@ -310,9 +313,10 @@ def check_agent_ppo_discrete_style(batch_size=3, horizon_len=16, net_dims=(64, 3
 
 
 if __name__ == '__main__':
+    print('\n| check_agents.py.')
     check_agent_base()
+
     check_agent_dqn_style()
     check_agent_ddpg_style()
     check_agent_ppo_style()
-    # check_agent_ppo_discrete_style()
-    print('| Finish checking.')
+    check_agent_ppo_discrete_style()
