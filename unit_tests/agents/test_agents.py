@@ -320,9 +320,3 @@ if __name__ == '__main__':
     check_agent_ddpg_style()
     check_agent_ppo_style()
     check_agent_ppo_discrete_style()
-
-"""
-This PR updates the directory `./unit_tests`:
-- build the same directory tree between `./elegantrl` and `./unit_tests`. For example: `./elegantrl/agents/net.py` is corresponding to `./unit_tests/agents/test_net.py`
-- rename the `check_***.py` to `test_***.py`, which is a better name for unit tests.
-"""
