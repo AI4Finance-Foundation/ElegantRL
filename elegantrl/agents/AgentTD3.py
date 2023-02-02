@@ -8,8 +8,6 @@ from elegantrl.train.replay_buffer import ReplayBuffer
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, CriticTwin
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class AgentTD3(AgentBase):
     """Twin Delayed DDPG algorithm.
