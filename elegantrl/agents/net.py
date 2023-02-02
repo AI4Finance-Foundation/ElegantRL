@@ -4,25 +4,43 @@ import torch.nn as nn
 from torch import Tensor
 from torch.distributions.normal import Normal
 
-# import numpy as np
-# import numpy.random as rd
-
 """DQN"""
 
 
-class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
-    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+class QNetBase(nn.Module):  # nn.Module is a standard PyTorch Network
+    def __init__(self, state_dim: int, action_dim: int):
         super().__init__()
+        self.explore_rate = 0.125
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.net = None  # build_mlp(dims=[state_dim + action_dim, *dims, 1])
+
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+        self.value_avg = nn.Parameter(torch.zeros((1,)), requires_grad=False)
+        self.value_std = nn.Parameter(torch.ones((1,)), requires_grad=False)
+
+    def state_norm(self, state: Tensor) -> Tensor:
+        return (state - self.state_avg) / self.state_std
+
+    def value_re_norm(self, value: Tensor) -> Tensor:
+        return value * self.value_std + self.value_avg
+
+
+class QNet(QNetBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net = build_mlp(dims=[state_dim, *dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.1)
 
-        self.explore_rate = 0.125
-        self.action_dim = action_dim
-
     def forward(self, state):
-        return self.net(state)  # Q values for multiple actions
+        state = self.state_norm(state)
+        value = self.net(state)
+        value = self.value_re_norm(value)
+        return value  # Q values for multiple actions
 
     def get_action(self, state):
+        state = self.state_norm(state)
         if self.explore_rate < torch.rand(1):
             action = self.net(state).argmax(dim=1, keepdim=True)
         else:
@@ -30,9 +48,9 @@ class QNet(nn.Module):  # nn.Module is a standard PyTorch Network
         return action
 
 
-class QNetDuel(nn.Module):  # Dueling DQN
+class QNetDuel(QNetBase):  # Dueling DQN
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
-        super().__init__()
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net_state = build_mlp(dims=[state_dim, *dims])
         self.net_adv = build_mlp(dims=[dims[-1], 1])  # advantage value
         self.net_val = build_mlp(dims=[dims[-1], action_dim])  # Q value
@@ -40,16 +58,17 @@ class QNetDuel(nn.Module):  # Dueling DQN
         layer_init_with_orthogonal(self.net_adv[-1], std=0.1)
         layer_init_with_orthogonal(self.net_val[-1], std=0.1)
 
-        self.explore_rate = 0.125
-        self.action_dim = action_dim
-
     def forward(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val(s_enc)  # q value
         q_adv = self.net_adv(s_enc)  # advantage value
-        return q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
+        value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
+        value = self.value_re_norm(value)
+        return value
 
     def get_action(self, state):
+        state = self.state_norm(state)
         if self.explore_rate < torch.rand(1):
             s_enc = self.net_state(state)  # encoded state
             q_val = self.net_val(s_enc)  # q value
@@ -59,32 +78,34 @@ class QNetDuel(nn.Module):  # Dueling DQN
         return action
 
 
-class QNetTwin(nn.Module):  # Double DQN
+class QNetTwin(QNetBase):  # Double DQN
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
-        super().__init__()
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net_state = build_mlp(dims=[state_dim, *dims])
         self.net_val1 = build_mlp(dims=[dims[-1], action_dim])  # Q value 1
         self.net_val2 = build_mlp(dims=[dims[-1], action_dim])  # Q value 2
+        self.soft_max = nn.Softmax(dim=1)
 
         layer_init_with_orthogonal(self.net_val1[-1], std=0.1)
         layer_init_with_orthogonal(self.net_val2[-1], std=0.1)
 
-        self.explore_rate = 0.125
-        self.action_dim = action_dim
-        self.soft_max = nn.Softmax(dim=1)
-
     def forward(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
         return q_val  # one group of Q values
 
     def get_q1_q2(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val1 = self.net_val1(s_enc)  # q value 1
+        q_val1 = self.value_re_norm(q_val1)
         q_val2 = self.net_val2(s_enc)  # q value 2
+        q_val2 = self.value_re_norm(q_val2)
         return q_val1, q_val2  # two groups of Q values
 
     def get_action(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
         if self.explore_rate < torch.rand(1):
@@ -95,43 +116,47 @@ class QNetTwin(nn.Module):  # Double DQN
         return action
 
 
-class QNetTwinDuel(nn.Module):  # D3QN: Dueling Double DQN
+class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
-        super().__init__()
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net_state = build_mlp(dims=[state_dim, *dims])
         self.net_adv1 = build_mlp(dims=[dims[-1], 1])  # advantage value 1
         self.net_val1 = build_mlp(dims=[dims[-1], action_dim])  # Q value 1
         self.net_adv2 = build_mlp(dims=[dims[-1], 1])  # advantage value 2
         self.net_val2 = build_mlp(dims=[dims[-1], action_dim])  # Q value 2
+        self.soft_max = nn.Softmax(dim=1)
 
         layer_init_with_orthogonal(self.net_adv1[-1], std=0.1)
         layer_init_with_orthogonal(self.net_val1[-1], std=0.1)
         layer_init_with_orthogonal(self.net_adv2[-1], std=0.1)
         layer_init_with_orthogonal(self.net_val2[-1], std=0.1)
 
-        self.explore_rate = 0.125
-        self.action_dim = action_dim
-        self.soft_max = nn.Softmax(dim=1)
-
     def forward(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
         q_adv = self.net_adv1(s_enc)  # advantage value
-        return q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # one dueling Q value
+        value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # one dueling Q value
+        value = self.value_re_norm(value)
+        return value
 
     def get_q1_q2(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
 
         q_val1 = self.net_val1(s_enc)  # q value 1
         q_adv1 = self.net_adv1(s_enc)  # advantage value 1
         q_duel1 = q_val1 - q_val1.mean(dim=1, keepdim=True) + q_adv1
+        q_duel1 = self.value_re_norm(q_duel1)
 
         q_val2 = self.net_val2(s_enc)  # q value 2
         q_adv2 = self.net_adv2(s_enc)  # advantage value 2
         q_duel2 = q_val2 - q_val2.mean(dim=1, keepdim=True) + q_adv2
+        q_duel2 = self.value_re_norm(q_duel2)
         return q_duel1, q_duel2  # two dueling Q values
 
     def get_action(self, state):
+        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
         if self.explore_rate < torch.rand(1):
@@ -387,7 +412,7 @@ class CriticPPO(CriticBase):
         state = self.state_norm(state)
         value = self.net(state)
         value = self.value_re_norm(value)
-        return value  # value
+        return value.squeeze(1)  # q value
 
 
 """utils"""
@@ -484,16 +509,16 @@ class ConvNet(nn.Module):  # pixel-level state encoder
         x = x / 128.0 - 1.0
         return self.net(x)
 
-    # @staticmethod
-    # def check():
-    #     inp_dim = 3
-    #     out_dim = 32
-    #     batch_size = 2
-    #     image_size = [224, 112][1]
-    #     # from elegantrl.net import Conv2dNet
-    #     net = Conv2dNet(inp_dim, out_dim, image_size)
-    #
-    #     x = torch.ones((batch_size, image_size, image_size, inp_dim), dtype=torch.uint8) * 255
-    #     print(x.shape)
-    #     y = net(x)
-    #     print(y.shape)
+    @staticmethod
+    def check():
+        inp_dim = 3
+        out_dim = 32
+        batch_size = 2
+        image_size = [224, 112][1]
+        # from elegantrl.net import Conv2dNet
+        net = ConvNet(inp_dim, out_dim, image_size)
+
+        image = torch.ones((batch_size, image_size, image_size, inp_dim), dtype=torch.uint8) * 255
+        print(image.shape)
+        output = net(image)
+        print(output.shape)
