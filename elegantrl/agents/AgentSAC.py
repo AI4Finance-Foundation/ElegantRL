@@ -9,8 +9,6 @@ from elegantrl.agents.net import ActorSAC, ActorFixSAC, CriticTwin
 from elegantrl.train.config import Config
 from elegantrl.train.replay_buffer import ReplayBuffer
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class AgentSAC(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
@@ -78,9 +76,9 @@ class AgentSAC(AgentBase):
 
 
 class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and Two Time-scale Update Rule
-    def __init__(self, net_dim, state_dim, action_dim, gpu_id=0, args=None):
+    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         self.act_class = getattr(self, "act_class", ActorFixSAC)
-        super().__init__(net_dim, state_dim, action_dim, gpu_id, args)
+        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
         self.obj_c = 1.0  # for reliable_lambda
 
     def update_net(self, buffer: ReplayBuffer) -> Tuple[float, ...]:

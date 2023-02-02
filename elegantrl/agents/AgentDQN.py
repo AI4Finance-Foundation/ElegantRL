@@ -9,10 +9,8 @@ from elegantrl.agents.net import QNetTwin, QNetTwinDuel
 from elegantrl.train.config import Config
 from elegantrl.train.replay_buffer import ReplayBuffer
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
-
-class AgentDQN(AgentBase):  # [ElegantRL.2022.04.18]
+class AgentDQN(AgentBase):
     """
     Deep Q-Network algorithm. “Human-Level Control Through Deep Reinforcement Learning”. Mnih V. et al.. 2015.
 

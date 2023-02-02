@@ -9,8 +9,6 @@ from elegantrl.train.replay_buffer import ReplayBuffer
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, Critic
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class AgentDDPG(AgentBase):
     """DDPG(Deep Deterministic Policy Gradient)
@@ -65,7 +63,7 @@ class AgentDDPG(AgentBase):
         with torch.no_grad():
             state, action, reward, undone, next_s = buffer.sample(batch_size)
             next_a = self.act_target(next_s)  # policy noise
-            next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
+            next_q = self.cri_target(next_s, next_a)  # twin critics
             q_label = reward + undone * self.gamma * next_q
 
         q_value = self.cri(state, action)
