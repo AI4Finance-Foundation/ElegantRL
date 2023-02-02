@@ -166,7 +166,7 @@ class Learner(Process):
                 last_state_list[worker_id] = last_state
 
             '''Learner update training data to (buffer, agent)'''
-            buffer_items_tensor = [torch.cat(tensors, dim=1) for tensors in zip(*buffer_items_list)]
+            buffer_items_tensor = [torch.cat(tensors, dim=1) for tensors in list(zip(*buffer_items_list))]
             if if_off_policy:
                 buffer.update(buffer_items_tensor)
             else:
