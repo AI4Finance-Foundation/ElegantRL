@@ -96,7 +96,8 @@ def train_agent_multiprocessing(args: Config):
     args.init_before_training()
 
     """Don't set method='fork' when send tensor in GPU"""
-    mp.set_start_method(method='forkserver', force=True)  # method in {'spawn', 'forkserver'}
+    method = 'spawn' if os.name == 'nt' else 'forkserver'  # os.name == 'nt' means Windows NT operating system (WinOS)
+    mp.set_start_method(method=method, force=True)
 
     '''build the Pipe'''
     worker_pipes = [Pipe(duplex=False) for _ in range(args.num_workers)]  # receive, send
