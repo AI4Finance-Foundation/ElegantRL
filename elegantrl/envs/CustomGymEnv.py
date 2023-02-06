@@ -9,15 +9,13 @@ Tensor = torch.Tensor
 
 InstallGymBox2D = """Install gym[Box2D]
 # LinuxOS (Ubuntu) 
-sudo apt install swig
+sudo apt update && sudo apt install swig
 python3 -m pip install --upgrade pip --no-warn-script-location
-pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym==0.23.1
-pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym[Box2D] 
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym==0.23.1 gym[Box2D]
 
 # WindowOS (Windows NT)
 python -m pip install --upgrade pip
-pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com gym==0.23.1
-pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com swig gym[Box2D] 
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com swig gym==0.23.1 gym[Box2D] 
 """
 
 
@@ -45,6 +43,8 @@ class PendulumEnv:  # a demo of custom gym env
         state, reward, done, info_dict = self.env.step(action * 2)
         return state, reward, done, info_dict
 
+    def render(self):
+        self.env.render()
 
 class GymNormaEnv(gym.Wrapper):
     def __init__(self, env_name: str = 'Hopper-v3'):

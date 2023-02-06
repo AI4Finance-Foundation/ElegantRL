@@ -140,6 +140,9 @@ def check_agent_dqn_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
             print(f"  if_random = {if_random}")
 
             buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=if_random)
+            assert isinstance(agent.last_state, Tensor)
+            assert agent.last_state.shape == (num_envs, state_dim)
+
             _check_buffer_items_for_off_policy(
                 buffer_items=buffer_items, if_discrete=if_discrete,
                 horizon_len=horizon_len, num_envs=num_envs,
@@ -198,6 +201,9 @@ def check_agent_ddpg_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_
 
         if_random = False
         buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=if_random)
+        assert isinstance(agent.last_state, Tensor)
+        assert agent.last_state.shape == (num_envs, state_dim)
+
         _check_buffer_items_for_off_policy(
             buffer_items=buffer_items, if_discrete=if_discrete,
             horizon_len=horizon_len, num_envs=num_envs,
@@ -244,6 +250,9 @@ def check_agent_ppo_style(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_i
 
         '''check for agent.explore_env'''
         buffer_items = agent.explore_env(env=env, horizon_len=horizon_len)
+        assert isinstance(agent.last_state, Tensor)
+        assert agent.last_state.shape == (num_envs, state_dim)
+
         _check_buffer_items_for_ppo_style(
             buffer_items=buffer_items, if_discrete=if_discrete,
             horizon_len=horizon_len, num_envs=num_envs,

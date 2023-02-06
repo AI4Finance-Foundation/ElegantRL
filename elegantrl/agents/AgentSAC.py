@@ -26,7 +26,7 @@ class AgentSAC(AgentBase):
             states, actions, rewards, undones = buffer.add_item
             self.update_avg_std_for_normalization(
                 states=states.reshape((-1, self.state_dim)),
-                returns=self.get_returns(rewards=rewards, undones=undones).reshape((-1,))
+                returns=self.get_cumulative_rewards(rewards=rewards, undones=undones).reshape((-1,))
             )
 
         '''update network'''
@@ -61,18 +61,34 @@ class AgentSAC(AgentBase):
 
         return obj_critics / update_times, obj_actors / update_times, alphas / update_times
 
-    def get_obj_critic(self, buffer, batch_size: int) -> Tuple[Tensor, Tensor]:
+    def get_obj_critic_raw(self, buffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
-            state, action, reward, undone, next_s = buffer.sample(batch_size)
-            next_a, next_logprob = self.act.get_action_logprob(next_s)  # stochastic policy
-            next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
+            states, actions, rewards, undones, next_ss = buffer.sample(batch_size)  # next_ss: next states
+            next_as, next_logprobs = self.act.get_action_logprob(next_ss)  # next actions
+            next_qs = self.cri_target.get_q_min(next_ss, next_as)  # next q values
 
             alpha = self.alpha_log.exp().detach()
-            q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
+            q_labels = rewards + undones * self.gamma * (next_qs - next_logprobs * alpha)
 
-        q1, q2 = self.cri.get_q1_q2(state, action)
-        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
-        return obj_critic, state
+        q1, q2 = self.cri.get_q1_q2(states, actions)
+        obj_critic = self.criterion(q1, q_labels) + self.criterion(q2, q_labels)  # twin critics
+        return obj_critic, states
+
+    def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
+        with torch.no_grad():
+            states, actions, rewards, undones, next_ss, is_weights, is_indices = buffer.sample_for_per(batch_size)
+            next_as, next_logprobs = self.act.get_action_logprob(next_ss)
+            next_qs = self.cri_target.get_q_min(next_ss, next_as)
+
+            alpha = self.alpha_log.exp().detach()
+            q_labels = rewards + undones * self.gamma * (next_qs - next_logprobs * alpha)
+
+        q1, q2 = self.cri.get_q1_q2(states, actions)
+        td_errors = self.criterion(q1, q_labels) + self.criterion(q2, q_labels)
+        obj_critic = (td_errors * is_weights).mean()
+
+        buffer.td_error_update_for_per(is_indices.detach(), td_errors.detach())
+        return obj_critic, states
 
 
 class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and Two Time-scale Update Rule
@@ -86,7 +102,7 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and Two Time-
             states, actions, rewards, undones = buffer.add_item
             self.update_avg_std_for_normalization(
                 states=states.reshape((-1, self.state_dim)),
-                returns=self.get_returns(rewards=rewards, undones=undones).reshape((-1,))
+                returns=self.get_cumulative_rewards(rewards=rewards, undones=undones).reshape((-1,))
             )
 
         '''update network'''
