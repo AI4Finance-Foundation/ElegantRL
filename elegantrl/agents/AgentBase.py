@@ -86,20 +86,22 @@ class AgentBase:
         rewards = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
         dones = torch.zeros((horizon_len, self.num_envs), dtype=torch.bool).to(self.device)
 
-        state = self.last_state  # last_state.shape = (state_dim, ) for a single env.
+        state = self.last_state  # state.shape == (1, state_dim) for a single env.
+
         get_action = self.act.get_action
         for t in range(horizon_len):
-            action = torch.rand(1, self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))
+            action = torch.rand(1, self.action_dim) * 2 - 1.0 if if_random else get_action(state)
             states[t] = state
 
             ary_action = action[0].detach().cpu().numpy()
             ary_state, reward, done, _ = env.step(ary_action)  # next_state
-            state = torch.as_tensor(env.reset() if done else ary_state, dtype=torch.float32, device=self.device)
+            ary_state = env.reset() if done else ary_state  # ary_state.shape == (state_dim, )
+            state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device).unsqueeze(0)
             actions[t] = action
             rewards[t] = reward
             dones[t] = done
 
-        self.last_state = state
+        self.last_state = state  # state.shape == (1, state_dim) for a single env.
 
         rewards *= self.reward_scale
         undones = 1.0 - dones.type(torch.float32)
@@ -123,13 +125,12 @@ class AgentBase:
         rewards = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
         dones = torch.zeros((horizon_len, self.num_envs), dtype=torch.bool).to(self.device)
 
-        state = self.last_state  # last_state.shape = (num_envs, state_dim) for a vectorized env.
-
+        state = self.last_state  # last_state.shape == (num_envs, state_dim)
         get_action = self.act.get_action
         for t in range(horizon_len):
             action = torch.rand(self.num_envs, self.action_dim) * 2 - 1.0 if if_random \
                 else get_action(state).detach()
-            states[t] = state
+            states[t] = state  # state.shape == (num_envs, state_dim)
 
             state, reward, done, _ = env.step(action)  # next_state
             actions[t] = action
@@ -152,43 +153,29 @@ class AgentBase:
         return obj_critic, obj_actor
 
     def get_obj_critic_raw(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
-        """
-        Calculate the loss of networks with **uniform sampling**.
-
-        buffer: the ReplayBuffer instance that stores the trajectories.
-        batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and states.
-        """
         with torch.no_grad():
-            states, actions, rewards, undones, next_states = buffer.sample(batch_size)
-            next_actions = self.act_target(next_states)
-            next_q_values = self.cri_target(next_states, next_actions)
-            q_labels = rewards + undones * self.gamma * next_q_values
+            state, action, reward, undone, next_s = buffer.sample(batch_size)
+            next_a = self.act_target(next_s)  # policy noise
+            next_q = self.cri_target(next_s, next_a)  # twin critics
+            q_label = reward + undone * self.gamma * next_q
 
-        q_values = self.cri(states, actions)
-        obj_critic = self.criterion(q_values, q_labels)
-        return obj_critic, states
+        q_value = self.cri(state, action)
+        obj_critic = self.criterion(q_value, q_label)
+        return obj_critic, state
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
-        """
-        Calculate the loss of the network with **Prioritized Experience Replay (PER)**.
-
-        buffer: the ReplayBuffer instance that stores the trajectories.
-        batch_size: the size of batch data for Stochastic Gradient Descent (SGD).
-        :return: the loss of the network and states.
-        """
         with torch.no_grad():
-            states, actions, rewards, undones, next_states, is_weights = buffer.sample(batch_size)
-            next_actions = self.act_target(next_states)
-            next_q_values = self.cri_target(next_states, next_actions)
-            q_labels = rewards + undones * self.gamma * next_q_values
+            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
+            next_a = self.act_target(next_s)  # policy noise
+            next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
+            q_label = reward + undone * self.gamma * next_q
 
-        q_values = self.cri(states, actions)
-        td_errors = self.criterion(q_values, q_labels)
-        obj_critic = (td_errors * is_weights).mean()
+        q_value = self.cri(state, action)
+        td_error = self.criterion(q_value, q_label)
+        obj_critic = (td_error * is_weight).mean()
 
-        buffer.td_error_update(td_errors.detach())
-        return obj_critic, states
+        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
+        return obj_critic, state
 
     def get_returns(self, rewards: Tensor, undones: Tensor) -> Tensor:
         returns = torch.empty_like(rewards)
@@ -196,10 +183,7 @@ class AgentBase:
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        if self.num_envs == 1:
-            last_state = self.last_state.unsqueeze(0)
-        else:
-            last_state = self.last_state
+        last_state = self.last_state
         next_action = self.act_target(last_state)
         next_value = self.cri_target(last_state, next_action).detach()
         for t in range(horizon_len - 1, -1, -1):
@@ -273,11 +257,11 @@ class AgentBase:
         assert self.save_attr_names.issuperset({'act', 'act_target', 'act_optimizer'})
 
         for attr_name in self.save_attr_names:
-            save_path = f"{cwd}/{attr_name}.pth"
+            file_path = f"{cwd}/{attr_name}.pth"
             if if_save:
-                torch.save(getattr(self, attr_name), save_path)
-            elif os.path.isfile(save_path):
-                setattr(self, attr_name, torch.load(save_path, map_location=self.device))
+                torch.save(getattr(self, attr_name), file_path)
+            elif os.path.isfile(file_path):
+                setattr(self, attr_name, torch.load(file_path, map_location=self.device))
 
 
 def get_optim_param(optimizer: torch.optim) -> list:  # backup

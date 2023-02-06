@@ -67,14 +67,14 @@ class AgentPPO(AgentBase):
 
             ary_action = convert(action[0]).detach().cpu().numpy()
             ary_state, reward, done, _ = env.step(ary_action)  # next_state
-            state = torch.as_tensor(env.reset() if done else ary_state,
-                                    dtype=torch.float32, device=self.device).unsqueeze(0)
+            ary_state = env.reset() if done else ary_state  # ary_state.shape == (state_dim, )
+            state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device).unsqueeze(0)
             actions[t] = action
             logprobs[t] = logprob
             rewards[t] = reward
             dones[t] = done
 
-        self.last_state = state
+        self.last_state = state  # state.shape == (1, state_dim) for a single env.
 
         rewards *= self.reward_scale
         undones = 1.0 - dones.type(torch.float32)

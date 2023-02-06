@@ -68,7 +68,7 @@ class AgentTD3(AgentBase):
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
-            state, action, reward, undone, next_s, is_weight = buffer.sample(batch_size)
+            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
             next_a = self.act_target.get_action_noise(next_s, self.policy_noise_std)  # policy noise
             next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
             q_label = reward + undone * self.gamma * next_q
@@ -77,5 +77,5 @@ class AgentTD3(AgentBase):
         td_error = self.criterion(q1, q_label) + self.criterion(q2, q_label)
         obj_critic = (td_error * is_weight).mean()
 
-        buffer.td_error_update(td_error.detach())
+        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
         return obj_critic, state

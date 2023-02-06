@@ -2,6 +2,7 @@ import numpy as np
 import numpy.random as rd
 import torch
 from copy import deepcopy
+from typing import Tuple
 from torch import Tensor
 
 from elegantrl.train.config import Config
@@ -59,7 +60,7 @@ class AgentDDPG(AgentBase):
             self.soft_update(self.act_target, self.act, self.soft_update_tau)
         return obj_critics / update_times, obj_actors / update_times
 
-    def get_obj_critic_raw(self, buffer: ReplayBuffer, batch_size: int) -> (Tensor, Tensor):
+    def get_obj_critic_raw(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
             state, action, reward, undone, next_s = buffer.sample(batch_size)
             next_a = self.act_target(next_s)  # policy noise
@@ -70,9 +71,9 @@ class AgentDDPG(AgentBase):
         obj_critic = self.criterion(q_value, q_label)
         return obj_critic, state
 
-    def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> (Tensor, Tensor):
+    def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
-            state, action, reward, undone, next_s, is_weight = buffer.sample(batch_size)
+            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
             next_a = self.act_target(next_s)  # policy noise
             next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
             q_label = reward + undone * self.gamma * next_q
@@ -81,7 +82,7 @@ class AgentDDPG(AgentBase):
         td_error = self.criterion(q_value, q_label)
         obj_critic = (td_error * is_weight).mean()
 
-        buffer.td_error_update(td_error.detach())
+        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
         return obj_critic, state
 
 

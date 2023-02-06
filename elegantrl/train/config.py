@@ -5,8 +5,6 @@ from typing import List
 from torch import Tensor
 from multiprocessing import Pipe, Process
 
-'''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
-
 
 class Config:
     def __init__(self, agent_class=None, env_class=None, env_args=None):
@@ -234,7 +232,6 @@ class SubEnv(Process):
             action = self.sub_pipe0.recv()
             if action is None:
                 state = env.reset()
-                state = torch.tensor(state)
                 self.vec_pipe1.send((self.env_id, state))
             else:
                 state, reward, done, info_dict = env.step(action)
@@ -270,6 +267,7 @@ class VecEnv:
             for env_id, sub_pipe0 in enumerate(sub_pipe0s)
         ]
 
+        [setattr(p, 'daemon', True) for p in self.sub_envs]  # set before process start to exit safely
         [p.start() for p in self.sub_envs]
 
     def reset(self) -> Tensor:  # reset the agent in env
@@ -278,7 +276,7 @@ class VecEnv:
         for pipe in self.sub_pipe1s:
             pipe.send(None)
         states, = self.get_orderly_zip_list_return()
-        states = torch.stack(states).to(self.device)
+        states = torch.tensor(np.stack(states), dtype=torch.float32, device=self.device)
         return states
 
     def step(self, action: Tensor) -> (Tensor, Tensor, Tensor, List[dict]):  # agent interacts in env
@@ -288,14 +286,14 @@ class VecEnv:
         for pipe, a in zip(self.sub_pipe1s, action):
             pipe.send(a)
 
-        states, rewards, undones, info_dicts = self.get_orderly_zip_list_return()
+        states, rewards, dones, info_dicts = self.get_orderly_zip_list_return()
         states = torch.tensor(np.stack(states), dtype=torch.float32, device=self.device)
         rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
-        undones = torch.tensor(undones, dtype=torch.bool, device=self.device)
-        return states, rewards, undones, info_dicts
+        dones = torch.tensor(dones, dtype=torch.bool, device=self.device)
+        return states, rewards, dones, info_dicts
 
     def close(self):
-        [p.terminate() for p in self.sub_envs]
+        [process.terminate() for process in self.sub_envs]
 
     def get_orderly_zip_list_return(self):
         for _ in range(self.num_envs):

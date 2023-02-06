@@ -61,7 +61,7 @@ class AgentSAC(AgentBase):
 
         return obj_critics / update_times, obj_actors / update_times, alphas / update_times
 
-    def get_obj_critic(self, buffer, batch_size: int) -> Tuple[Tensor, Tensor]:
+    def get_obj_critic_raw(self, buffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
             state, action, reward, undone, next_s = buffer.sample(batch_size)
             next_a, next_logprob = self.act.get_action_logprob(next_s)  # stochastic policy
@@ -72,6 +72,22 @@ class AgentSAC(AgentBase):
 
         q1, q2 = self.cri.get_q1_q2(state, action)
         obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)  # twin critics
+        return obj_critic, state
+
+    def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
+        with torch.no_grad():
+            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
+            next_a, next_logprob = self.act.get_action_logprob(next_s)  # stochastic policy
+            next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
+
+            alpha = self.alpha_log.exp().detach()
+            q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
+
+        q1, q2 = self.cri.get_q1_q2(state, action)
+        td_error = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+        obj_critic = (td_error * is_weight).mean()
+
+        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
         return obj_critic, state
 
 

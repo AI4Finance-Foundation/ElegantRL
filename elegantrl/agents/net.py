@@ -246,7 +246,7 @@ class ActorSAC(ActorBase):
         action_tanh = action.tanh()
         logprob = dist.log_prob(a_avg)
         logprob -= (-action_tanh.pow(2) + 1.000001).log()  # fix logprob using the derivative of action.tanh()
-        return action_tanh, logprob.sum(1, keepdim=True)
+        return action_tanh, logprob.sum(1)
 
 
 class ActorFixSAC(ActorSAC):
@@ -265,7 +265,7 @@ class ActorFixSAC(ActorSAC):
 
         logprob = dist.log_prob(a_avg)
         logprob -= 2 * (math.log(2) - action - self.soft_plus(action * -2))  # fix logprob using SoftPlus
-        return action.tanh(), logprob.sum(1, keepdim=True)
+        return action.tanh(), logprob.sum(1)
 
 
 class ActorPPO(ActorBase):
