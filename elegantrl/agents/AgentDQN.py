@@ -112,7 +112,7 @@ class AgentDQN(AgentBase):
             states, actions, rewards, undones = buffer.add_item
             self.update_avg_std_for_normalization(
                 states=states.reshape((-1, self.state_dim)),
-                returns=self.get_returns(rewards=rewards, undones=undones).reshape((-1,))
+                returns=self.get_cumulative_rewards(rewards=rewards, undones=undones).reshape((-1,))
             )
 
         '''update network'''
@@ -138,13 +138,13 @@ class AgentDQN(AgentBase):
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            state, action, reward, undone, next_s = buffer.sample(batch_size)
-            next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0].squeeze(1)
-            q_label = reward + undone * self.gamma * next_q
+            states, actions, rewards, undones, next_ss = buffer.sample(batch_size)  # next_ss: next states
+            next_qs = self.cri_target(next_ss).max(dim=1, keepdim=True)[0].squeeze(1)  # next q_values
+            q_labels = rewards + undones * self.gamma * next_qs
 
-        q_value = self.cri(state).gather(1, action.long()).squeeze(1)
-        obj_critic = self.criterion(q_value, q_label)
-        return obj_critic, q_value
+        q_values = self.cri(states).gather(1, actions.long()).squeeze(1)
+        obj_critic = self.criterion(q_values, q_labels)
+        return obj_critic, q_values
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         """
@@ -155,19 +155,20 @@ class AgentDQN(AgentBase):
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
+            states, actions, rewards, undones, next_ss, is_weights, is_indices = buffer.sample_for_per(batch_size)
+            # is_weights, is_indices: important sampling `weights, indices` by Prioritized Experience Replay (PER)
 
-            next_q = self.cri_target(next_s).max(dim=1, keepdim=True)[0].squeeze(1)
-            q_label = reward + undone * self.gamma * next_q
+            next_qs = self.cri_target(next_ss).max(dim=1, keepdim=True)[0].squeeze(1)  # q values in next step
+            q_labels = rewards + undones * self.gamma * next_qs
 
-        q_value = self.cri(state).gather(1, action.long()).squeeze(1)
-        td_error = self.criterion(q_value, q_label)  # or td_error = (q_value - q_label).abs()
-        obj_critic = (td_error * is_weight).mean()
+        q_values = self.cri(states).gather(1, actions.long()).squeeze(1)
+        td_errors = self.criterion(q_values, q_labels)  # or td_error = (q_value - q_label).abs()
+        obj_critic = (td_errors * is_weights).mean()
 
-        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
-        return obj_critic, q_value
+        buffer.td_error_update_for_per(is_indices.detach(), td_errors.detach())
+        return obj_critic, q_values
 
-    def get_returns(self, rewards: Tensor, undones: Tensor) -> Tensor:
+    def get_cumulative_rewards(self, rewards: Tensor, undones: Tensor) -> Tensor:
         returns = torch.empty_like(rewards)
 
         masks = undones * self.gamma
@@ -199,13 +200,13 @@ class AgentDoubleDQN(AgentDQN):
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            state, action, reward, undone, next_s = buffer.sample(batch_size)
+            states, actions, rewards, undones, next_ss = buffer.sample(batch_size)
 
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0].squeeze(1)
-            q_label = reward + undone * self.gamma * next_q
+            next_qs = torch.min(*self.cri_target.get_q1_q2(next_ss)).max(dim=1, keepdim=True)[0].squeeze(1)
+            q_labels = rewards + undones * self.gamma * next_qs
 
-        q1, q2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.act.get_q1_q2(state)]
-        obj_critic = self.criterion(q1, q_label) + self.criterion(q2, q_label)
+        q1, q2 = [qs.gather(1, actions.long()).squeeze(1) for qs in self.act.get_q1_q2(states)]
+        obj_critic = self.criterion(q1, q_labels) + self.criterion(q2, q_labels)
         return obj_critic, q1
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
@@ -217,16 +218,16 @@ class AgentDoubleDQN(AgentDQN):
         :return: the loss of the network and Q values.
         """
         with torch.no_grad():
-            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
+            states, actions, rewards, undones, next_ss, is_weights, is_indices = buffer.sample_for_per(batch_size)
 
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_s)).max(dim=1, keepdim=True)[0].squeeze(1)
-            q_label = reward + undone * self.gamma * next_q
+            next_qs = torch.min(*self.cri_target.get_q1_q2(next_ss)).max(dim=1, keepdim=True)[0].squeeze(1)
+            q_labels = rewards + undones * self.gamma * next_qs
 
-        q1, q2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.act.get_q1_q2(state)]
-        td_error = self.criterion(q1, q_label) + self.criterion(q2, q_label)
-        obj_critic = (td_error * is_weight).mean()
+        q1, q2 = [qs.gather(1, actions.long()).squeeze(1) for qs in self.act.get_q1_q2(states)]
+        td_errors = self.criterion(q1, q_labels) + self.criterion(q2, q_labels)
+        obj_critic = (td_errors * is_weights).mean()
 
-        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
+        buffer.td_error_update_for_per(is_indices.detach(), td_errors.detach())
         return obj_critic, q1
 
 

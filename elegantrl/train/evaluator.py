@@ -3,6 +3,7 @@ import time
 import torch.nn
 import numpy as np
 from torch import Tensor
+from typing import Tuple, List
 
 from elegantrl.train.config import Config
 
@@ -40,9 +41,9 @@ class Evaluator:
               f"{'expR':>8}{'objC':>7}{'objA':>7}{'etc.':>7}")
 
         if getattr(env, 'num_envs', 1) == 1:  # get attribute
-            self.get_rewards_and_step = self.get_rewards_and_step_single_env
+            self.get_cumulative_rewards_and_step = self.get_cumulative_rewards_and_step_single_env
         else:  # vectorized environment
-            self.get_rewards_and_step = self.get_rewards_and_step_vectorized_env
+            self.get_cumulative_rewards_and_step = self.get_cumulative_rewards_and_step_vectorized_env
 
         if if_tensorboard:
             from torch.utils.tensorboard import SummaryWriter
@@ -57,7 +58,7 @@ class Evaluator:
 
         self.eval_step_counter = self.total_step
 
-        rewards_step_ten = self.get_rewards_and_step(actor)
+        rewards_step_ten = self.get_cumulative_rewards_and_step(actor)
         returns = rewards_step_ten[:, 0]  # episodic cumulative returns of an
         steps = rewards_step_ten[:, 1]  # episodic step number
         avg_r = returns.mean().item()
@@ -121,13 +122,13 @@ class Evaluator:
             self.recorder = [tuple(i) for i in recorder]  # convert numpy to list
             self.total_step = self.recorder[-1][0]
 
-    def get_rewards_and_step_single_env(self, actor) -> Tensor:
-        rewards_steps_list = [get_rewards_and_steps(self.env, actor) for _ in range(self.eval_times)]
+    def get_cumulative_rewards_and_step_single_env(self, actor) -> Tensor:
+        rewards_steps_list = [get_cumulative_rewards_and_steps(self.env, actor) for _ in range(self.eval_times)]
         rewards_steps_ten = torch.tensor(rewards_steps_list, dtype=torch.float32)
         return rewards_steps_ten  # rewards_steps_ten.shape[1] == 2
 
-    def get_rewards_and_step_vectorized_env(self, actor) -> Tensor:
-        rewards_step_list = [get_rewards_and_step_from_vec_env(self.env, actor)
+    def get_cumulative_rewards_and_step_vectorized_env(self, actor) -> Tensor:
+        rewards_step_list = [get_cumulative_rewards_and_step_from_vec_env(self.env, actor)
                              for _ in range(max(1, self.eval_times // self.env.num_envs))]
         rewards_step_list = sum(rewards_step_list, [])
         rewards_step_ten = torch.tensor(rewards_step_list)
@@ -147,7 +148,7 @@ class Evaluator:
 """util"""
 
 
-def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
+def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, int]:
     """Usage
     eval_times = 4
     net_dim = 2 ** 7
@@ -190,7 +191,7 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
     return returns, steps
 
 
-def get_rewards_and_step_from_vec_env(env, actor) -> [(float, float)]:
+def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float, float], ...]:
     device = env.device
     env_num = env.num_envs
     max_step = env.max_step
@@ -333,7 +334,7 @@ def demo_evaluator_actor_pth():
     # act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
 
     '''evaluate'''
-    r_s_ary = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
+    r_s_ary = [get_cumulative_rewards_and_steps(env, act) for _ in range(eval_times)]
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
     r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 
@@ -374,7 +375,7 @@ def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval
         act_path = f"{dir_path}/{act_name}"
 
         act.load_state_dict(torch.load(act_path, map_location=lambda storage, loc: storage))
-        r_s_ary = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
+        r_s_ary = [get_cumulative_rewards_and_steps(env, act) for _ in range(eval_times)]
         r_s_ary = np.array(r_s_ary, dtype=np.float32)
         r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 

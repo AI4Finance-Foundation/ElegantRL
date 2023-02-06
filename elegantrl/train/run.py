@@ -9,7 +9,7 @@ from multiprocessing import Process, Pipe
 
 from elegantrl.train.config import Config, build_env
 from elegantrl.train.replay_buffer import ReplayBuffer
-from elegantrl.train.evaluator import Evaluator, get_rewards_and_steps
+from elegantrl.train.evaluator import Evaluator, get_cumulative_rewards_and_steps
 
 if os.name == 'nt':  # if is WindowOS (Windows NT)
     """Fix bug about Anaconda in WindowOS
@@ -356,5 +356,5 @@ def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_
     print(f"| render and load actor from: {actor_path}")
     actor.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
     for i in range(render_times):
-        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
+        cumulative_reward, episode_step = get_cumulative_rewards_and_steps(env, actor, if_render=True)
         print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")

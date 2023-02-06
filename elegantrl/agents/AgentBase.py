@@ -154,30 +154,32 @@ class AgentBase:
 
     def get_obj_critic_raw(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
-            state, action, reward, undone, next_s = buffer.sample(batch_size)
-            next_a = self.act_target(next_s)  # policy noise
-            next_q = self.cri_target(next_s, next_a)  # twin critics
-            q_label = reward + undone * self.gamma * next_q
+            states, actions, rewards, undones, next_ss = buffer.sample(batch_size)  # next_ss: next states
+            next_as = self.act_target(next_ss)  # next actions
+            next_qs = self.cri_target(next_ss, next_as)  # next q values
+            q_labels = rewards + undones * self.gamma * next_qs
 
-        q_value = self.cri(state, action)
-        obj_critic = self.criterion(q_value, q_label)
-        return obj_critic, state
+        q_values = self.cri(states, actions)
+        obj_critic = self.criterion(q_values, q_labels)
+        return obj_critic, states
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
-            state, action, reward, undone, next_s, is_weight, is_indices = buffer.sample_for_per(batch_size)
-            next_a = self.act_target(next_s)  # policy noise
-            next_q = self.cri_target.get_q_min(next_s, next_a)  # twin critics
-            q_label = reward + undone * self.gamma * next_q
+            states, actions, rewards, undones, next_ss, is_weights, is_indices = buffer.sample_for_per(batch_size)
+            # is_weights, is_indices: important sampling `weights, indices` by Prioritized Experience Replay (PER)
 
-        q_value = self.cri(state, action)
-        td_error = self.criterion(q_value, q_label)
-        obj_critic = (td_error * is_weight).mean()
+            next_as = self.act_target(next_ss)
+            next_qs = self.cri_target(next_ss, next_as)
+            q_labels = rewards + undones * self.gamma * next_qs
 
-        buffer.td_error_update_for_per(is_indices.detach(), td_error.detach())
-        return obj_critic, state
+        q_values = self.cri(states, actions)
+        td_errors = self.criterion(q_values, q_labels)
+        obj_critic = (td_errors * is_weights).mean()
 
-    def get_returns(self, rewards: Tensor, undones: Tensor) -> Tensor:
+        buffer.td_error_update_for_per(is_indices.detach(), td_errors.detach())
+        return obj_critic, states
+
+    def get_cumulative_rewards(self, rewards: Tensor, undones: Tensor) -> Tensor:
         returns = torch.empty_like(rewards)
 
         masks = undones * self.gamma
