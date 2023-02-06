@@ -52,6 +52,7 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous():
         train_agent_multiprocessing(args)  # train_agent(args)
 
     """
+-1500 < -200 < 200 < 290
 ################################################################################
 ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 2  4.00e+03      73 |  -53.40  119.4    733   226 |   -0.90   1.21  -2.89   0.28
@@ -65,8 +66,6 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 2  3.24e+05     902 |  179.12  119.1    512   316 |    0.13   0.60  11.21   0.02
 2  3.64e+05     993 |  250.26   21.2    351   170 |    0.41   0.56  10.92   0.02
 | UsedTime:    1082 | SavedDir: ./LunarLanderContinuous-v2_ModSAC_0
-
--1500 < -200 < 200 < 290
 ################################################################################
 ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 3  4.00e+03      20 | -237.07   67.0    233   105 |   -0.71   1.37  -1.28
