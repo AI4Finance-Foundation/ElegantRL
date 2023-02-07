@@ -191,7 +191,7 @@ def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tup
     return returns, steps
 
 
-def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float, float], ...]:
+def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float, int]]:
     device = env.device
     env_num = env.num_envs
     max_step = env.max_step
