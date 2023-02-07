@@ -91,8 +91,8 @@ One sentence summary: an agent (_agent.py_) with Actor-Critic networks (_net.py_
   	- **run.py**  # training loop
   	- worker.py  # the worker class (explores the env, saving the data to replay buffer)
   	- learner.py  # the learner class (update the networks, using the data in replay buffer)
-  	- evaluator.py  # the evaluator class (evaluate the cumulative returns of policy network)
-  	- replay_buffer.py # the buffer class (save sequences of transitions for training)
+  	- evaluator.py  # the evaluator class (evaluate the cumulative rewards of policy network)
+  	- replay_buffer.py # the buffer class (save a sequence of transitions for training)
 - **elegantrl_helloworld** # tutorial version
   - config.py  # configurations (hyper-parameter)
   - **agent.py**  # DRL algorithms
