@@ -94,7 +94,7 @@ def train_agent(args: Config):
 
     print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
-    env.close()
+    env.close() if hasattr(env, 'close') else None
     evaluator.save_training_curve_jpg()
     agent.save_or_load_agent(cwd, if_save=True)
     if if_save_buffer and hasattr(buffer, 'save_or_load_history'):
