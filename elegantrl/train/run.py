@@ -177,7 +177,7 @@ class Learner(Process):
         if if_off_policy:
             buffer_items_tensor = (states, actions, rewards, undones)
         else:
-            logprobs = torch.empty((horizon_len, num_seqs, action_dim), dtype=torch.float32, device=agent.device)
+            logprobs = torch.empty((horizon_len, num_seqs), dtype=torch.float32, device=agent.device)
             buffer_items_tensor = (states, actions, logprobs, rewards, undones)
 
         if_train = True
