@@ -49,7 +49,7 @@ def train_agent(args: Config):
     if args.if_off_policy:
         buffer = ReplayBuffer(
             gpu_id=args.gpu_id,
-            num_envs=args.num_envs,
+            num_seqs=args.num_envs,
             max_size=args.buffer_size,
             state_dim=args.state_dim,
             action_dim=1 if args.if_discrete else args.action_dim,
@@ -142,11 +142,10 @@ class Learner(Process):
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init buffer'''
-        num_buffers = args.num_envs * args.num_workers
         if args.if_off_policy:
             buffer = ReplayBuffer(
                 gpu_id=args.gpu_id,
-                num_envs=num_buffers,
+                num_seqs=args.num_envs * args.num_workers,
                 max_size=args.buffer_size,
                 state_dim=args.state_dim,
                 action_dim=1 if args.if_discrete else args.action_dim,
@@ -159,26 +158,26 @@ class Learner(Process):
         '''loop'''
         if_off_policy = args.if_off_policy
         if_save_buffer = args.if_save_buffer
-        horizon_len = args.horizon_len
         num_workers = args.num_workers
-        assert num_workers == len(self.send_pipes)
         num_envs = args.num_envs
         state_dim = args.state_dim
         action_dim = args.action_dim
-        steps = args.horizon_len * args.num_workers
+        horizon_len = args.horizon_len
+        num_seqs = args.num_envs * args.num_workers
+        num_steps = args.horizon_len * args.num_workers
         cwd = args.cwd
         del args
 
-        agent.last_state = torch.empty((num_buffers, state_dim), dtype=torch.float32, device=agent.device)
+        agent.last_state = torch.empty((num_seqs, state_dim), dtype=torch.float32, device=agent.device)
 
-        states = torch.empty((horizon_len, num_buffers, state_dim), dtype=torch.float32, device=agent.device)
-        actions = torch.empty((horizon_len, num_buffers, action_dim), dtype=torch.float32, device=agent.device)
-        rewards = torch.empty((horizon_len, num_buffers), dtype=torch.float32, device=agent.device)
-        undones = torch.empty((horizon_len, num_buffers), dtype=torch.bool, device=agent.device)
+        states = torch.empty((horizon_len, num_seqs, state_dim), dtype=torch.float32, device=agent.device)
+        actions = torch.empty((horizon_len, num_seqs, action_dim), dtype=torch.float32, device=agent.device)
+        rewards = torch.empty((horizon_len, num_seqs), dtype=torch.float32, device=agent.device)
+        undones = torch.empty((horizon_len, num_seqs), dtype=torch.bool, device=agent.device)
         if if_off_policy:
             buffer_items_tensor = (states, actions, rewards, undones)
         else:
-            logprobs = torch.empty((horizon_len, num_buffers, action_dim), dtype=torch.float32, device=agent.device)
+            logprobs = torch.empty((horizon_len, num_seqs, action_dim), dtype=torch.float32, device=agent.device)
             buffer_items_tensor = (states, actions, logprobs, rewards, undones)
 
         if_train = True
@@ -217,7 +216,7 @@ class Learner(Process):
 
             '''Learner send actor and training log to Evaluator'''
             exp_r = buffer_items_tensor[2].mean().item()  # the average rewards of exploration
-            self.eval_pipe.send((actor, steps, exp_r, logging_tuple))
+            self.eval_pipe.send((actor, num_steps, exp_r, logging_tuple))
 
         '''Learner send the terminal signal to workers after break the loop'''
         for send_pipe in self.send_pipes:
