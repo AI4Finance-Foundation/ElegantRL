@@ -13,7 +13,7 @@ class ReplayBuffer:  # for off-policy
                  state_dim: int,
                  action_dim: int,
                  gpu_id: int = 0,
-                 num_envs: int = 1,
+                 num_seqs: int = 1,
                  if_use_per: bool = False,
                  args: Config = Config()):
         self.p = 0  # pointer
@@ -22,17 +22,39 @@ class ReplayBuffer:  # for off-policy
         self.add_size = 0
         self.add_item = None
         self.max_size = max_size
-        self.num_envs = num_envs
+        self.num_seqs = num_seqs
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
-        self.states = torch.empty((max_size, num_envs, state_dim), dtype=torch.float32, device=self.device)
-        self.actions = torch.empty((max_size, num_envs, action_dim), dtype=torch.float32, device=self.device)
-        self.rewards = torch.empty((max_size, num_envs), dtype=torch.float32, device=self.device)
-        self.undones = torch.empty((max_size, num_envs), dtype=torch.float32, device=self.device)
+        """The struction of ReplayBuffer (for example, num_seqs = num_workers * num_envs == 2*4 = 8
+        ReplayBuffer:
+        worker0 for env0:   sequence of sub_env0.0  self.states  = Tensor[s, s, ..., s, ..., s]     
+                                                    self.actions = Tensor[a, a, ..., a, ..., a]   
+                                                    self.rewards = Tensor[r, r, ..., r, ..., r]   
+                                                    self.undones = Tensor[d, d, ..., d, ..., d]
+                                                                          <-----max_size----->
+                                                                          <-cur_size->
+                                                                                     ↑ pointer
+                            sequence of sub_env0.1  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+                            sequence of sub_env0.2  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+                            sequence of sub_env0.3  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+        worker1 for env1:   sequence of sub_env1.0  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+                            sequence of sub_env1.1  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+                            sequence of sub_env1.2  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+                            sequence of sub_env1.3  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
+        
+        d: done=True
+        D: done=False
+        sequence of transition: s-a-r-d, s-a-r-d, s-a-r-D  s-a-r-d, s-a-r-d, s-a-r-d, s-a-r-d, s-a-r-D  s-a-r-d, ...
+                                <------trajectory------->  <----------trajectory--------------------->  <-----------
+        """
+        self.states = torch.empty((max_size, num_seqs, state_dim), dtype=torch.float32, device=self.device)
+        self.actions = torch.empty((max_size, num_seqs, action_dim), dtype=torch.float32, device=self.device)
+        self.rewards = torch.empty((max_size, num_seqs), dtype=torch.float32, device=self.device)
+        self.undones = torch.empty((max_size, num_seqs), dtype=torch.float32, device=self.device)
 
         self.if_use_per = if_use_per
         if if_use_per:
-            self.sum_trees = [SumTree(buf_len=max_size) for _ in range(num_envs)]
+            self.sum_trees = [SumTree(buf_len=max_size) for _ in range(num_seqs)]
             self.per_alpha = getattr(args, 'per_alpha', 0.6)  # alpha = (Uniform:0, Greedy:1)
             self.per_beta = getattr(args, 'per_beta', 0.4)  # alpha = (Uniform:0, Greedy:1)
             """PER.  Prioritized Experience Replay. Section 4
@@ -87,7 +109,7 @@ class ReplayBuffer:  # for off-policy
     def sample(self, batch_size: int) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         sample_len = self.cur_size - 1
 
-        ids = torch.randint(sample_len * self.num_envs, size=(batch_size,), requires_grad=False)
+        ids = torch.randint(sample_len * self.num_seqs, size=(batch_size,), requires_grad=False)
         ids0 = torch.fmod(ids, sample_len)  # ids % sample_len
         ids1 = torch.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
 
@@ -105,9 +127,9 @@ class ReplayBuffer:  # for off-policy
         is_indices: list = []
         is_weights: list = []
 
-        assert batch_size % self.num_envs == 0
-        sub_batch_size = batch_size // self.num_envs
-        for env_i in range(self.num_envs):
+        assert batch_size % self.num_seqs == 0
+        sub_batch_size = batch_size // self.num_seqs
+        for env_i in range(self.num_seqs):
             sum_tree = self.sum_trees[env_i]
             _is_indices, _is_weights = sum_tree.important_sampling(batch_size, beg, end, self.per_beta)
             is_indices.append(_is_indices + sub_batch_size * env_i)
@@ -133,8 +155,8 @@ class ReplayBuffer:  # for off-policy
 
         # self.sum_tree.update_ids(is_indices.cpu(), prob.cpu())
         batch_size = td_error.shape[0]
-        sub_batch_size = batch_size // self.num_envs
-        for env_i in range(self.num_envs):
+        sub_batch_size = batch_size // self.num_seqs
+        for env_i in range(self.num_seqs):
             sum_tree = self.sum_trees[env_i]
             slice_i = env_i * sub_batch_size
             slice_j = slice_i + sub_batch_size
