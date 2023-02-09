@@ -42,8 +42,8 @@ class ReplayBuffer:  # for off-policy
                             sequence of sub_env1.2  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
                             sequence of sub_env1.3  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
         
-        d: done=True
-        D: done=False
+        D: done=True
+        d: done=False
         sequence of transition: s-a-r-d, s-a-r-d, s-a-r-D  s-a-r-d, s-a-r-d, s-a-r-d, s-a-r-d, s-a-r-D  s-a-r-d, ...
                                 <------trajectory------->  <----------trajectory--------------------->  <-----------
         """
