@@ -2,7 +2,7 @@ import torch
 
 from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.net import Actor, Critic
-
+from elegantrl.agents.AgentDDPG import AgentDDPG
 
 class AgentMADDPG(AgentBase):
     """
