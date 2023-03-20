@@ -23,7 +23,7 @@ the following advantages:
 
 - **Elastic**: allows to elastically and automatically allocate computing resources on the cloud.
 
-- **Lightweight**: the core codes have <1,000 lines (check [Elegantrl_Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)).
+- **Lightweight**: the core codes have <1,000 lines (check [Elegantrl_Helloworld](./helloworld)).
 
 - **Efficient**: in many testing cases (e.g., single-GPU/multi-GPU/GPU-cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
 
