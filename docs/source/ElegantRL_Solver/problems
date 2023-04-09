@@ -1,0 +1,7 @@
+Classical nonconvex/nonlinear optimizations (continuous variables) and combinatorial optimizations (discrete variables) are listed here.
+  - Graph max-cut
+  - TSP
+  - MILP
+  - MIMO
+  - Compressive sensing
+  
