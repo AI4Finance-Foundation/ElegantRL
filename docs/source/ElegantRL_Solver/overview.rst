@@ -61,6 +61,12 @@ RLSolver
 ```
 
 
+**ElegantRL_Solver features high-performance and stability:**
+
+**High-performance: it can find high-quality optimum, or even (nearly) global optimum.
+
+**Stable**: it leverages computing resource to implement the Hamiltonian-term as an add-on regularization to model-free DRL algorithms. Such an add-on H-term utilizes computing power (can be computed in parallel on GPU) to search for the "minimum-energy state", corresponding to the stable state of a system.
+
 
   
 
