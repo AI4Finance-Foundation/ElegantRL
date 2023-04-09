@@ -193,6 +193,7 @@ class ReplayBuffer:  # for off-policy
                 max_sizes.append(max_size)
             assert all([max_size == max_sizes[0] for max_size in max_sizes])
             self.cur_size = max_sizes[0]
+            self.if_full = self.cur_size == self.max_size
 
 
 class SumTree:
