@@ -1,4 +1,4 @@
-Key Concepts and Features
+Overview
 =============
 
 One sentence summary: ElegantRL_Solver is a high-performance RL Solver.
@@ -23,14 +23,14 @@ Key references:
 
   - Nair, Vinod, et al. "Solving mixed integer programs using neural networks." arXiv preprint arXiv:2012.13349 (2020).
 
-Environments: ElegantRL_Solver includes the following environments with the support of massively parallel simulation on GPUs.
+Environments: 
   - MIMO Beamforming in 5G/6G.
   - Classical Simulation of Quantum Circuits.
   - Compressive Sensing.
   - Portfolio Management.
   - OR-Gym.
 
-File Structure
+File Structure:
 ```
 RLSolver
 ├── optimal
