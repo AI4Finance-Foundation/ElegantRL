@@ -125,6 +125,7 @@ Or install with the newest version through GitHub:
 .. toctree::
    :maxdepth: 1
    :caption: ElegantRL_Solver
+   
    ElegantRL_Solver/overview
    
    
