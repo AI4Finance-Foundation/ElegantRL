@@ -122,6 +122,11 @@ Or install with the newest version through GitHub:
    algorithms/vdn
    algorithms/mappo
    
+.. toctree::
+   :maxdepth: 1
+   :caption: ElegantRL_Solver
+   ElegantRL_Solver/overview
+   
    
 .. toctree::
    :maxdepth: 1
