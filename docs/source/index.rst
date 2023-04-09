@@ -130,7 +130,9 @@ Or install with the newest version through GitHub:
    
    ElegantRL_Solver/overview
    ElegantRL_Solver/helloworld
-   
+   ElegantRL_Solver/problems
+   ElegantRL_Solver/build_models
+   ElegantRL_Solver/comparisons
    
    
 .. toctree::
