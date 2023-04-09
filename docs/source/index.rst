@@ -129,6 +129,8 @@ Or install with the newest version through GitHub:
    :caption: ElegantRL_Solver
    
    ElegantRL_Solver/overview
+   ElegantRL_Solver/helloworld
+   
    
    
 .. toctree::
