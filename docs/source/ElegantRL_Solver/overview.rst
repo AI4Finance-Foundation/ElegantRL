@@ -31,30 +31,30 @@ Environments:
   - OR-Gym.
 
 File Structure:
-RLSolver
-├── optimal
-|   ├──branch-and-bound.py
-|   └──cutting_plane.py
-├── helloworld
-|   ├──milp
-|   ├──tsp
-|   └──graph_maxcut
-└── rlsolver (main folder)
-    ├── envs
-    |   (nonconvex optimizations)
-    |   ├── learn2optimize
-    |   └── mimo_beamforming
-    |   (combinatorial optimizations)
-    |   ├── portfolio_management
-    |   ├── quantum_circuits
-    |   ├── vehicle_routing
-    |   ├── virtual_machine_placement
-    |   └── chip_design
-    |── rlsolver_learn2optimize
-    |── rlsolver_mimo_beamforming
-    |── rlsolver_portfolio_management
-    |── rlsolver_quantum_circuits
-    └── utils
+-RLSolver
+-├── optimal
+-|   ├──branch-and-bound.py
+-|   └──cutting_plane.py
+-├── helloworld
+-|   ├──milp
+-|   ├──tsp
+-|   └──graph_maxcut
+-└── rlsolver (main folder)
+-    ├── envs
+-    |   (nonconvex optimizations)
+-    |   ├── learn2optimize
+-    |   └── mimo_beamforming
+-    |   (combinatorial optimizations)
+-    |   ├── portfolio_management
+-    |   ├── quantum_circuits
+-    |   ├── vehicle_routing
+-    |   ├── virtual_machine_placement
+-    |   └── chip_design
+-    |── rlsolver_learn2optimize
+-    |── rlsolver_mimo_beamforming
+-   |── rlsolver_portfolio_management
+-    |── rlsolver_quantum_circuits
+-    └── utils
 
 
 
