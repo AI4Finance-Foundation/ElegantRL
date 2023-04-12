@@ -52,15 +52,19 @@ SAC算法的 `alpha_log` 也能进行类似的裁剪
 
 RLlib 的优势：
 - 1. 他们有ray 可以调度多卡之间的传输，多卡的时候选择 生产者-消费者 模式，保证把计算资源用满
+
 - 2. RLlib的复杂代码把RL过程抽象出来了，他们可以选择 TensorFlow 或者 PyTorch 作为深度学习的后端
 
 RLlib的劣势：
 - 1. 让 生产者worker 和 消费者 learner 异步的方案，数据不够新，虽然计算资源用尽了，但是计算效率降低了
+
 - 2. 现在大家都 PyTorch ，RLlib 的代码太复杂了，用起来有门槛，反而不容易用
 
 ELegantRL 在单卡上和 RLlib比较：
 - 1. 论文写了，我们让 一张GPU运行完worker，就让 learner直接用 worker收集到的data，数据不用挪动，因此快。
+
 - 2. 我们的代码从 worker 到 learner都支持了 vectorized env，（我不清楚现在RLlib 的worker 是否支持 vectorized env ，但他们的 learner 支持不了）
+
 - 3. 我们还开发了 vwap 的 vectorized env，而不只是 stable baselines3 或者 天授的EnvPool 那种 subprocessing vectorized env
 
 ELegantRL 在多卡上和RLlib比较：
@@ -70,11 +74,14 @@ ELegantRL 在多卡上和RLlib比较：
 
 比SB3更稳定，是因为，ELegantRL 和 sb3在以下两点差别明显：
 - 1. 我们还开发了 vmap 的 vectorized env，而不只是 stable baselines3 或者 天授的EnvPool 那种 subprocessing vectorized env，用GPU做仿真环境的并行（StockTradingVecEnv），采集数据量多了2个数量级以上，数据多，所以训练稳定
+
 - 2. 我们用了 H term，这个真的有用，可以让训练变稳定：在根据符合贝尔曼公式Q值的优化方向的基础上，再使用一个 H term 找出另一个优化方向，两个优化方向同时使用，更不容易掉进局部最优，所以稳定（可惜当前ELegantRL库 只有 半年前的代码支持了 H term，还需要人手把 Hterm 的代码升级到 2023年2月份的版本）
 
 比SB3快：
 - 1. 我们的 ReplayBuffer优化过，按顺序储存 state，所以不需要重复保存 state_t 和 state_t+1，再加上我们的ReplayBuffer都是 PyTorch tensor 格式 + 指针，抽取数据没有用PyTorch自带的 dataLoader，而是自己写的，因此快
+
 - 2. 我们的 worker 和 learner 都有 针对 vectorized env 的优化，sb3没有
+
 - 3. 我们给FinRL任务以及 RLSolver任务 开发了 GPU并行仿真环境，sb3 没有
 	
   
