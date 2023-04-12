@@ -67,7 +67,14 @@ ELegantRL 在多卡上和RLlib比较：
 我们在金融任务上，使用了 PPO+Podracer，而不是 RLlib 的 Producter&Comsumer 的模式，让PPO算法的数据利用效率更高，而且我们还套了一层 遗传算法在外面方便跳出局部最优，达到更好的次优。
 
 
+比SB3更稳定，是因为，ELegantRL 和 sb3在以下两点差别明显：
+1. 我们还开发了 vmap 的 vectorized env，而不只是 stable baselines3 或者 天授的EnvPool 那种 subprocessing vectorized env，用GPU做仿真环境的并行（StockTradingVecEnv），采集数据量多了2个数量级以上，数据多，所以训练稳定
+2. 我们用了 H term，这个真的有用，可以让训练变稳定：在根据符合贝尔曼公式Q值的优化方向的基础上，再使用一个 H term 找出另一个优化方向，两个优化方向同时使用，更不容易掉进局部最优，所以稳定（可惜当前ELegantRL库 只有 半年前的代码支持了 H term，还需要人手把 Hterm 的代码升级到 2023年2月份的版本）
 
+比SB3快：
+1. 我们的 ReplayBuffer优化过，按顺序储存 state，所以不需要重复保存 state_t 和 state_t+1，再加上我们的ReplayBuffer都是 PyTorch tensor 格式 + 指针，抽取数据没有用PyTorch自带的 dataLoader，而是自己写的，因此快
+2. 我们的 worker 和 learner 都有 针对 vectorized env 的优化，sb3没有
+3. 我们给FinRL任务以及 RLSolver任务 开发了 GPU并行仿真环境，sb3 没有
 	
   
   
