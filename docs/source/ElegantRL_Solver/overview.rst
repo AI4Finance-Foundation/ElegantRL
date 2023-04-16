@@ -30,60 +30,38 @@ Environments:
   - Portfolio Management.
   - OR-Gym.
 
+```
 File Structure:
 -RLSolver
-
 -├── optimal
-
 -|   ├──branch-and-bound.py
-
 -|   └──cutting_plane.py
-
 -├── helloworld
-
 -|   ├──milp
-
 -|   ├──tsp
-
 -|   └──graph_maxcut
-
 -└── rlsolver (main folder)
-
 -    ├── envs
-
 -    |   (nonconvex optimizations)
-
 -    |   ├── learn2optimize
-
 -    |   └── mimo_beamforming
-
 -    |   (combinatorial optimizations)
-
 -    |   ├── portfolio_management
-
 -    |   ├── quantum_circuits
-
 -    |   ├── vehicle_routing
-
 -    |   ├── virtual_machine_placement
-
 -    |   └── chip_design
-
 -    |── rlsolver_learn2optimize
-
 -    |── rlsolver_mimo_beamforming
-
--   |── rlsolver_portfolio_management
-
+-    |── rlsolver_portfolio_management
 -    |── rlsolver_quantum_circuits
-
 -    └── utils
 
 
 
 **ElegantRL_Solver features high-performance and stability:**
 
-**High-performance**: it can find high-quality optimum, or even (nearly) global optimum.
+**High-performance**: it can find high-quality local optimum, or even (nearly) global optimum.
 
 **Stable**: it leverages computing resource to implement the Hamiltonian-term as an add-on regularization to model-free DRL algorithms. Such an add-on H-term utilizes computing power (can be computed in parallel on GPU) to search for the "minimum-energy state", corresponding to the stable state of a system.
 
