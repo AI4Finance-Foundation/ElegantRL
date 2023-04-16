@@ -3,11 +3,9 @@ Overview
 
 One sentence summary: ElegantRL_Solver is a high-performance RL Solver.
 
-We aim to find high-quality optimum, or even (nearly) global optimum, for nonconvex/nonlinear optimizations (continuous variables) and combinatorial optimizations (discrete variables).
+We aim to find high-quality optimum, or even (nearly) global optimum, for nonconvex/nonlinear optimizations (continuous variables) and combinatorial optimizations (discrete variables). We provide pretrained neural networks to perform real-time inference for nonconvex optimization problems, including combinatorial optimization problems.
 
-We provide pretrained neural networks to perform real-time inference for nonconvex optimization problems, including combinatorial optimization problems.
-
-This project is built on ElegantRL and OpenAI Gym.
+This project is built on [ElegantRL](https://github.com/AI4Finance-Foundation/ElegantRL) and OpenAI Gym.
 
 The following two key technologies are under active development:
   - Massively parallel simuations of gym-environments on GPU, using thousands of CUDA cores and tensor cores.
@@ -56,7 +54,7 @@ File Structure:
 -    |── rlsolver_portfolio_management
 -    |── rlsolver_quantum_circuits
 -    └── utils
-
+```
 
 
 **ElegantRL_Solver features high-performance and stability:**
