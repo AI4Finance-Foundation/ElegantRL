@@ -232,7 +232,7 @@ class AgentBase:
         self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
         self.act.state_std[:] = self.cri.state_std * (1 - tau) + state_std * tau + 1e-4
         self.cri.state_avg[:] = self.act.state_avg
-        self.cri.state_std[:] = self.cri.state_std
+        self.cri.state_std[:] = self.act.state_std
 
         returns_avg = returns.mean(dim=0)
         returns_std = returns.std(dim=0)
