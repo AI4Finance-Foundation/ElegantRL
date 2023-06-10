@@ -7,7 +7,7 @@ We will help you understand and get hands-on experience with `ElegantRL-HelloWor
 .. contents:: Table of Contents
     :depth: 3
 
-"Net-Agent-Env-Run" File Structure
+File Structure ("Net-Agent-Env-Run")
 =========
 
 .. figure:: ../images/File_structure.png
