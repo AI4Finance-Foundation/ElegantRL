@@ -1,4 +1,4 @@
-## ElegantRL “小雅”: Massively Parallel Library for Cloud-native Deep Reinforcement Learning
+## ElegantRL “小雅”: Massively Parallel Deep Reinforcement Learning
 
 [![Downloads](https://pepy.tech/badge/elegantrl)](https://pepy.tech/project/elegantrl)
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
