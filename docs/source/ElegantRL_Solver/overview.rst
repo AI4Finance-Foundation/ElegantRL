@@ -20,10 +20,7 @@ Key references:
 
   - Nair, Vinod, et al. "Solving mixed integer programs using neural networks." arXiv preprint arXiv:2012.13349 (2020).
 
-Problems: 
-  - Graph maxcut
-  - TSP
-  - TNCO
+Environments: 
   - MIMO Beamforming in 5G/6G.
   - Classical NP-Hard problems.
   - Classical Simulation of Quantum Circuits.
@@ -33,29 +30,29 @@ Problems:
 
 File Structure:
 ```
-RLSolver
-└──helloworld
-   └──maxcut.py
-   └──maxcut_env.py
-└──opt_methods
-└──readme
-   └──graph_partitioning.md
-   └──maxcut.md
-   └──tsp.md
-└──rlsolver (main folder)
-   └──data (datasets for problems)
-   └──envs
-   └──result (store output files)
-   └──rlsolver_learn2opt
-      └──mimo
-      └──tensor_train
-   └──graph_partitioning.py
-   └──graph_partitioning_gurobi.py
-   └──maxcut.py
-   └──maxcut_gurobi.py
-   └──tsp.py
-   └──tsp_gurobi.py
-   └──utils.py
+-RLSolver
+-├── opt_methods
+-|   ├──branch-and-bound.py
+-|   └──cutting_plane.py
+-├── helloworld
+-|   ├──maxcut.py
+-|   ├──maxcut_env.py
+-└── rlsolver (main folder)
+-    ├── envs
+-    |   ├── _base
+-    |   └── maxcut
+-    |   └── tsp
+-    |   ├── portfolio_management
+-    |── rlsolver_learn2opt
+-    |   ├── mimo
+-    |   ├── tensor_train
+-    └── utils
+-    └── graph_partitioning.py
+-    └── graph_partitioning_gurobi.py
+-    └── maxcut.py
+-    └── maxcut_gurobi.py
+-    └── tsp.py
+-    └── tsp_gurobi.py
 ```
 
 
