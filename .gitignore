@@ -16,3 +16,4 @@ runs/
 **/.vscode
 # JetBrains folder
 .idea/
+.env-erl/
