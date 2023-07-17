@@ -2,8 +2,8 @@ import os
 import time
 import torch
 import numpy as np
-from .config import Config, build_env
-from .agent import ReplayBuffer
+from config import Config, build_env
+from agent import ReplayBuffer
 
 
 def train_agent(args: Config):
