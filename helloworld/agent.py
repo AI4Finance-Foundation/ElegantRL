@@ -1,10 +1,10 @@
 from copy import deepcopy
 import torch
 from torch import Tensor
-from config import Config
-from net import QNet  # DQN
-from net import Actor, Critic  # DDPG
-from net import ActorPPO, CriticPPO  # PPO
+from .config import Config
+from .net import QNet  # DQN
+from .net import Actor, Critic  # DDPG
+from .net import ActorPPO, CriticPPO  # PPO
 
 
 class AgentBase:
