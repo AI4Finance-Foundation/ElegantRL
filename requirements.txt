@@ -6,7 +6,7 @@ numpy
 
 # plot/simulation
 matplotlib
-gym>=0.18
+gym==0.25.2
 gym[Box2D]
 
 # profiling
