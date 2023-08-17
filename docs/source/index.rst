@@ -122,13 +122,13 @@ Or install with the newest version through GitHub:
  
 .. toctree::
    :maxdepth: 1
-   :caption: ElegantRL_Solver
+   :caption: RLSolver
    
-   ElegantRL_Solver/overview
-   ElegantRL_Solver/helloworld
-   ElegantRL_Solver/datasets
-   ElegantRL_Solver/environments
-   ElegantRL_Solver/benchmarks
+   RLSolver/overview
+   RLSolver/helloworld
+   RLSolver/datasets
+   RLSolver/environments
+   RLSolver/benchmarks
    
    
 .. toctree::
