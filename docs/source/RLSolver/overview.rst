@@ -1,11 +1,10 @@
 Overview
 =============
 
-One sentence summary: ElegantRL_Solver is a high-performance RL Solver.
+One sentence summary: RLSolver is a high-performance RL Solver.
 
 We aim to find high-quality optimum, or even (nearly) global optimum, for nonconvex/nonlinear optimizations (continuous variables) and combinatorial optimizations (discrete variables). We provide pretrained neural networks to perform real-time inference for nonconvex optimization problems, including combinatorial optimization problems.
 
-This project is built on [ElegantRL](https://github.com/AI4Finance-Foundation/ElegantRL) and OpenAI Gym.
 
 The following two key technologies are under active development:
   - Massively parallel simuations of gym-environments on GPU, using thousands of CUDA cores and tensor cores.
@@ -20,7 +19,8 @@ Key references:
 
   - Nair, Vinod, et al. "Solving mixed integer programs using neural networks." arXiv preprint arXiv:2012.13349 (2020).
 
-Environments: 
+MCMC: 
+  - Maxcut
   - MIMO Beamforming in 5G/6G.
   - Classical NP-Hard problems.
   - Classical Simulation of Quantum Circuits.
@@ -35,10 +35,13 @@ File Structure:
 -|   ├──branch-and-bound.py
 -|   └──cutting_plane.py
 -├── helloworld
--|   ├──maxcut.py
--|   ├──maxcut_env.py
+-|   ├──maxcut
+-|       ├──data
+-|       ├──result
+-|       ├──mcmc.py
+-|       ├──l2a.py
 -└── rlsolver (main folder)
--    ├── envs
+-    ├── mcmc
 -    |   ├── _base
 -    |   └── maxcut
 -    |   └── tsp
@@ -47,8 +50,6 @@ File Structure:
 -    |   ├── mimo
 -    |   ├── tensor_train
 -    └── utils
--    └── graph_partitioning.py
--    └── graph_partitioning_gurobi.py
 -    └── maxcut.py
 -    └── maxcut_gurobi.py
 -    └── tsp.py
@@ -56,7 +57,7 @@ File Structure:
 ```
 
 
-**ElegantRL_Solver features high-performance and stability:**
+**RLSolver features high-performance and stability:**
 
 **High-performance**: it can find high-quality optimum, or even (nearly) global optimum.
 
