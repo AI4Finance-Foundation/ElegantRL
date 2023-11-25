@@ -19,8 +19,7 @@
 [![](https://dcbadge.vercel.app/api/server/trsr8SXpW5)](https://discord.gg/trsr8SXpW5)
 
 
-ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is developed for users/developers with
-the following advantages:
+ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is developed for users/developers with the following advantages:
 
 - **Cloud-native**: follows a cloud-native paradigm through micro-service architecture and containerization, and supports [ElegantRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/elegantrl-podracer.html) and [FinRL-Podracer](https://elegantrl.readthedocs.io/en/latest/tutorial/finrl-podracer.html).
 
@@ -41,11 +40,11 @@ ElegantRL implements the following model-free deep reinforcement learning (DRL) 
 - **DQN, Double DQN, D3QN** for discrete actions in single-agent environment,
 - **QMIX, VDN, MADDPG, MAPPO, MATD3** in multi-agent environment.
 
-For the details of DRL algorithms, please refer to the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
+For more details of DRL algorithms, please refer to the educational webpage [OpenAI Spinning Up](https://spinningup.openai.com/en/latest/).
 
 ElegantRL supports the following simulators:
 
-- **Isaac Gym** for massively parallel simulation,
+- **Isaac Gym** for massively parallel simulations,
 - **OpenAI Gym, MuJoCo, PyBullet, FinRL** for benchmarking.
 
 
