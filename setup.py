@@ -5,7 +5,7 @@ setup(
     version="0.3.6",
     author="Xiaoyang Liu, Steven Li, Ming Zhu, Hongyang Yang, Jiahao Zheng",
     author_email="XL2427@columbia.edu",
-    url="https://github.com/AI4Finance-LLC/ElegantRL",
+    url="https://github.com/AI4Finance-Foundation/ElegantRL",
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=[
@@ -27,6 +27,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
