@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="elegantrl",
-    version="0.3.6",
-    author="Xiaoyang Liu, Steven Li, Ming Zhu, Hongyang Yang, Jiahao Zheng",
-    author_email="XL2427@columbia.edu",
+    name="ElegantRL",
+    version="0.3.7",
+    author="AI4Finance Foundation",
+    author_email="contact@ai4finance.org",
     url="https://github.com/AI4Finance-Foundation/ElegantRL",
     license="Apache 2.0",
     packages=find_packages(),
