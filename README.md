@@ -33,11 +33,14 @@ ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is 
 
 - **Lightweight**: the core codes have <1,000 lines (check [Elegantrl_Helloworld](./helloworld)).
 
-- **Efficient**: in many testing cases (e.g., single-GPU/multi-GPU/GPU-cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray).
+- **Efficient**: in many testing cases (e.g., single-GPU/multi-GPU/GPU-cloud), we find it more efficient than [Ray RLlib](https://github.com/ray-project/ray). 
 
 - **Stable**: much much much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various methods such as the Hamiltonian term.
+  
 - **Practical**: used in multipe projects ([RLSolver](https://github.com/AI4Finance-Foundation/RLSolver), [FinRL](https://github.com/AI4Finance-Foundation/FinRL), [FinRL-Meta](https://github.com/AI4Finance-Foundation/FinRL-Meta), [TransportRL](https://github.com/AI4Finance-Foundation/TransportRL) etc.)
 
+- **Massively parallel simulations** are used in multipe projects ([RLSolver](https://github.com/AI4Finance-Foundation/RLSolver), [TransportRL](https://github.com/AI4Finance-Foundation/TransportRL) etc.), and achieve high sampling efficiency. 
+  
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
 - **DDPG, TD3, SAC, PPO, REDQ** for continuous actions in single-agent environment,
