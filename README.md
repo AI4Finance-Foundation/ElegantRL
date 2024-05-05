@@ -39,7 +39,7 @@ ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is 
   
 - **Practical**: used in multipe projects ([RLSolver](https://github.com/AI4Finance-Foundation/RLSolver), [FinRL](https://github.com/AI4Finance-Foundation/FinRL), [FinRL-Meta](https://github.com/AI4Finance-Foundation/FinRL-Meta), [TransportRL](https://github.com/AI4Finance-Foundation/TransportRL) etc.)
 
-- **Massively parallel simulations** are used in multipe projects ([RLSolver](https://github.com/AI4Finance-Foundation/RLSolver), [TransportRL](https://github.com/AI4Finance-Foundation/TransportRL) etc.), and achieve high sampling efficiency. 
+- **Massively parallel simulations** are used in multipe projects ([RLSolver](https://github.com/AI4Finance-Foundation/RLSolver), [RLCO](https://github.com/zhumingpassional/RLCO) [TransportRL](https://github.com/AI4Finance-Foundation/TransportRL) etc.); therefore, sampling efficiency is high since we can build many many GPU-based environments. 
   
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
