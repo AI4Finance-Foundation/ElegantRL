@@ -173,6 +173,8 @@ def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tup
         tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         tensor_action = actor(tensor_state)
         if if_discrete:
+            if tensor_action.dim() == 1:
+                tensor_action = tensor_action.unsqueeze(0)
             tensor_action = tensor_action.argmax(dim=1)
         action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
         state, reward, done, _ = env.step(action)
