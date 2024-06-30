@@ -5,7 +5,7 @@ from copy import deepcopy
 from torch import Tensor
 
 from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import ActorSAC, ActorFixSAC, CriticTwin
+from elegantrl.agents.net import ActorSAC, ActorFixSAC, CriticEnsemble
 from elegantrl.train.config import Config
 from elegantrl.train.replay_buffer import ReplayBuffer
 
@@ -13,7 +13,7 @@ from elegantrl.train.replay_buffer import ReplayBuffer
 class AgentSAC(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         self.act_class = getattr(self, 'act_class', ActorSAC)
-        self.cri_class = getattr(self, 'cri_class', CriticTwin)
+        self.cri_class = getattr(self, 'cri_class', CriticEnsemble)
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
         self.cri_target = deepcopy(self.cri)
 
@@ -65,26 +65,26 @@ class AgentSAC(AgentBase):
         with torch.no_grad():
             states, actions, rewards, undones, next_ss = buffer.sample(batch_size)  # next_ss: next states
             next_as, next_logprobs = self.act.get_action_logprob(next_ss)  # next actions
-            next_qs = self.cri_target.get_q_min(next_ss, next_as)  # next q values
+            next_qs, _ = torch.min(self.cri_target.get_q_values(next_ss, next_as), dim=-1, keepdim=True)
 
             alpha = self.alpha_log.exp().detach()
             q_labels = rewards + undones * self.gamma * (next_qs - next_logprobs * alpha)
 
-        q1, q2 = self.cri.get_q1_q2(states, actions)
-        obj_critic = self.criterion(q1, q_labels) + self.criterion(q2, q_labels)  # twin critics
+        q_values = self.cri.get_q_values(states, actions)
+        obj_critic = self.criterion(q_values, q_labels.repeat(1,1, q_values.shape[-1]))
         return obj_critic, states
 
     def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
         with torch.no_grad():
             states, actions, rewards, undones, next_ss, is_weights, is_indices = buffer.sample_for_per(batch_size)
             next_as, next_logprobs = self.act.get_action_logprob(next_ss)
-            next_qs = self.cri_target.get_q_min(next_ss, next_as)
+            next_qs, _ = torch.min(self.cri_target.get_q_values(next_ss, next_as), dim=-1, keepdim=True)
 
             alpha = self.alpha_log.exp().detach()
             q_labels = rewards + undones * self.gamma * (next_qs - next_logprobs * alpha)
 
-        q1, q2 = self.cri.get_q1_q2(states, actions)
-        td_errors = self.criterion(q1, q_labels) + self.criterion(q2, q_labels)
+        q_values = self.cri.get_q_values(states, actions)
+        td_errors = self.criterion(q_values, q_labels.repeat(1,1, q_values.shape[-1]))
         obj_critic = (td_errors * is_weights).mean()
 
         buffer.td_error_update_for_per(is_indices.detach(), td_errors.detach())
@@ -140,3 +140,11 @@ class AgentModSAC(AgentSAC):  # Modified SAC using reliable_lambda and Two Time-
                 self.optimizer_update(self.act_optimizer, -obj_actor)
 
         return obj_critics / update_times, obj_actors / update_times, alphas / update_times
+
+
+class AgentReDQ(AgentSAC):
+    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        self.act_class = getattr(self, "act_class", ActorFixSAC)
+        self.cri_class = getattr(self, "cri_class", CriticEnsemble)
+        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        self.obj_c = 1.0  # for reliable_lambda

@@ -2,12 +2,15 @@ import os
 import sys
 import time
 from copy import deepcopy
+from typing import Tuple, List
 
-import gym
+import gymnasium
 import numpy as np
-import torch
+import torch as th
 import torch.nn as nn
-from torch import Tensor
+
+ARY = np.ndarray
+TEN = th.Tensor
 
 
 class Config:  # for off-policy
@@ -40,7 +43,7 @@ class Config:  # for off-policy
 
         '''Arguments for device'''
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
-        self.thread_num = int(8)  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
+        self.thread_num = int(8)  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
         self.random_seed = int(0)  # initialize random seed in self.init_before_training()
 
         '''Arguments for evaluate'''
@@ -57,20 +60,20 @@ class Config:  # for off-policy
         os.makedirs(self.cwd, exist_ok=True)
 
 
-class ActorBase(nn.Module):  # todo state_norm
+class ActorBase(nn.Module):
     def __init__(self, state_dim: int, action_dim: int):
         super().__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.net = None  # build_mlp(dims=[state_dim, *dims, action_dim])
-        self.ActionDist = torch.distributions.normal.Normal
+        self.ActionDist = th.distributions.normal.Normal
         self.action_std = None
 
-        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
-        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
 
-    def state_norm(self, state: Tensor) -> Tensor:
-        return (state - self.state_avg) / self.state_std  # todo state_norm
+    def state_norm(self, state: TEN) -> TEN:
+        return (state - self.state_avg) / self.state_std
 
 
 class Actor(ActorBase):
@@ -78,12 +81,12 @@ class Actor(ActorBase):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net = build_mlp(dims=[state_dim, *dims, action_dim])
 
-    def forward(self, state: Tensor) -> Tensor:
+    def forward(self, state: TEN) -> TEN:
         state = self.state_norm(state)
         action = self.net(state)
         return action.tanh()
 
-    def get_action(self, state: Tensor) -> Tensor:  # for exploration
+    def get_action(self, state: TEN) -> TEN:  # for exploration
         state = self.state_norm(state)
         action_avg = self.net(state).tanh()
         dist = self.ActionDist(action_avg, self.action_std)
@@ -99,29 +102,29 @@ class ActorSAC(ActorBase):
         self.dec_a_std = build_mlp(dims=[dims[-1], action_dim])  # decoder of action log_std
         self.soft_plus = nn.Softplus()
 
-    def forward(self, state: Tensor) -> Tensor:
+    def forward(self, state: TEN) -> TEN:
         state = self.state_norm(state)
         state_tmp = self.enc_s(state)  # temporary tensor of state
         return self.dec_a_avg(state_tmp).tanh()  # action
 
-    def get_action(self, state: Tensor) -> Tensor:  # for exploration
+    def get_action(self, state: TEN) -> TEN:  # for exploration
         state = self.state_norm(state)
         state_tmp = self.enc_s(state)  # temporary tensor of state
         action_avg = self.dec_a_avg(state_tmp)
         action_std = self.dec_a_std(state_tmp).clamp(-20, 2).exp()
 
-        noise = torch.randn_like(action_avg, requires_grad=True)
+        noise = th.randn_like(action_avg, requires_grad=True)
         action = action_avg + action_std * noise
         return action.tanh()  # action (re-parameterize)
 
-    def get_action_logprob(self, state: Tensor) -> [Tensor, Tensor]:
+    def get_action_logprob(self, state: TEN) -> Tuple[TEN, TEN]:
         state = self.state_norm(state)
         state_tmp = self.enc_s(state)  # temporary tensor of state
         action_log_std = self.dec_a_std(state_tmp).clamp(-20, 2)
         action_std = action_log_std.exp()
         action_avg = self.dec_a_avg(state_tmp)
 
-        noise = torch.randn_like(action_avg, requires_grad=True)
+        noise = th.randn_like(action_avg, requires_grad=True)
         action = action_avg + action_std * noise
         logprob = -action_log_std - noise.pow(2) * 0.5 - np.log(np.sqrt(2 * np.pi))
         # dist = self.Normal(action_avg, action_std)
@@ -134,45 +137,59 @@ class ActorSAC(ActorBase):
         return action.tanh(), logprob.sum(1, keepdim=True)
 
 
-class CriticBase(nn.Module):  # todo state_norm, value_norm
+class CriticBase(nn.Module):
     def __init__(self, state_dim: int, action_dim: int):
         super().__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.net = None  # build_mlp(dims=[state_dim + action_dim, *dims, 1])
 
-        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
-        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
-        self.value_avg = nn.Parameter(torch.zeros((1,)), requires_grad=False)
-        self.value_std = nn.Parameter(torch.ones((1,)), requires_grad=False)
+        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
+        self.value_avg = nn.Parameter(th.zeros((1,)), requires_grad=False)
+        self.value_std = nn.Parameter(th.ones((1,)), requires_grad=False)
 
-    def state_norm(self, state: Tensor) -> Tensor:
-        return (state - self.state_avg) / self.state_std  # todo state_norm
+    def state_norm(self, state: TEN) -> TEN:
+        return (state - self.state_avg) / self.state_std
 
-    def value_re_norm(self, value: Tensor) -> Tensor:
-        return value * self.value_std + self.value_avg  # todo value_norm
+    def value_re_norm(self, value: TEN) -> TEN:
+        return value * self.value_std + self.value_avg
 
 
 class CriticTwin(CriticBase):
-    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int, num_q_values: int = 8):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.enc_sa = build_mlp(dims=[state_dim + action_dim, *dims])  # encoder of state and action
-        self.dec_q1 = build_mlp(dims=[dims[-1], 1])  # decoder of Q value 1
-        self.dec_q2 = build_mlp(dims=[dims[-1], 1])  # decoder of Q value 2
+        self.net = build_mlp(dims=[state_dim + action_dim, *dims, num_q_values])  # encoder of state and action
 
-    def forward(self, state: Tensor, action: Tensor) -> Tensor:
-        state = self.state_norm(state)
-        sa_tmp = self.enc_sa(torch.cat((state, action), dim=1))
-        value = self.dec_q1(sa_tmp)
-        value = self.value_re_norm(value)
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        values = self.get_q_values(state=state, action=action)
+        value = values.mean(dim=1, keepdim=True)
         return value  # Q value
 
-    def get_q1_q2(self, state, action):
+    def get_q_values(self, state, action):
         state = self.state_norm(state)
-        sa_tmp = self.enc_sa(torch.cat((state, action), dim=1))
-        value1 = self.value_re_norm(self.dec_q1(sa_tmp))
-        value2 = self.value_re_norm(self.dec_q2(sa_tmp))
-        return value1, value2  # two Q values
+        values = self.net(th.cat((state, action), dim=1))
+        values = self.value_re_norm(values)
+        return values  # Q values
+
+
+class CriticEnsemble(CriticBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int, num_ensembles: int = 8):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.encoder_sa = build_mlp(dims=[state_dim + action_dim, dims[0]])  # encoder of state and action
+        self.decoder_qs = [build_mlp(dims=[*dims, 1]) for _ in range(num_ensembles)]  # decoder of Q values
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        values = self.get_q_values(state=state, action=action)
+        value = values.mean(dim=1, keepdim=True)
+        return value  # Q value
+
+    def get_q_values(self, state, action):
+        state = self.state_norm(state)
+        sa_tmp = self.encoder_sa(th.cat((state, action), dim=1))
+        values = th.concat([dec_q(sa_tmp) for dec_q in self.decoder_qs], dim=1)
+        values = self.value_re_norm(values)
+        return values  # Q values
 
 
 def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
@@ -188,7 +205,7 @@ def get_gym_env_args(env, if_print: bool) -> dict:
         env_name = env.unwrapped.spec.id
         state_shape = env.observation_space.shape
         state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
-        if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
+        if_discrete = isinstance(env.action_space, gymnasium.spaces.Discrete)
         action_dim = env.action_space.n if if_discrete else env.action_space.shape[0]
     else:
         env_name = env.env_name
@@ -209,8 +226,7 @@ def kwargs_filter(function, kwargs: dict) -> dict:
 
 
 def build_env(env_class=None, env_args=None):
-    if env_class.__module__ == 'gym.envs.registration':  # special rule
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
+    if env_class.__module__ == 'gymnasium.envs.registration':  # special rule
         env = env_class(id=env_args['env_name'])
     else:
         env = env_class(**kwargs_filter(env_class.__init__, env_args.copy()))
@@ -226,14 +242,14 @@ class ReplayBuffer:  # for off-policy
         self.cur_size = 0
         self.add_size = 0
         self.max_size = max_size
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
-        self.states = torch.empty((max_size, state_dim), dtype=torch.float32, device=self.device)
-        self.actions = torch.empty((max_size, action_dim), dtype=torch.float32, device=self.device)
-        self.rewards = torch.empty((max_size, 1), dtype=torch.float32, device=self.device)
-        self.undones = torch.empty((max_size, 1), dtype=torch.float32, device=self.device)
+        self.states = th.empty((max_size, state_dim), dtype=th.float32, device=self.device)
+        self.actions = th.empty((max_size, action_dim), dtype=th.float32, device=self.device)
+        self.rewards = th.empty((max_size, 1), dtype=th.float32, device=self.device)
+        self.undones = th.empty((max_size, 1), dtype=th.float32, device=self.device)
 
-    def update(self, items: [Tensor]):
+    def update(self, items: List[TEN]):
         states, actions, rewards, undones = items
         add_size = rewards.shape[0]
         p = self.p + add_size  # pointer
@@ -257,13 +273,13 @@ class ReplayBuffer:  # for off-policy
         self.add_size = add_size
         self.cur_size = self.max_size if self.if_full else self.p
 
-    def sample(self, batch_size: int) -> [Tensor]:
-        ids = torch.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
+    def sample(self, batch_size: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
+        ids = th.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
         return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
 
-    def slice(self, data: Tensor, slice_size: int) -> Tensor:
+    def slice(self, data: TEN, slice_size: int) -> TEN:
         slice_data = data[self.p - slice_size:self.p] if slice_size >= self.p \
-            else torch.vstack((data[slice_size - self.p:], data[:self.p]))
+            else th.vstack((data[slice_size - self.p:], data[:self.p]))
         return slice_data
 
 
@@ -282,7 +298,7 @@ class AgentBase:
         self.state_value_tau = args.state_value_tau
 
         self.last_state = None  # save the last state of the trajectory for training. `last_state.shape == (state_dim)`
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         act_class = getattr(self, "act_class", None)
         cri_class = getattr(self, "cri_class", None)
@@ -290,51 +306,54 @@ class AgentBase:
         self.cri = self.cri_target = cri_class(net_dims, state_dim, action_dim).to(self.device) \
             if cri_class else self.act
 
-        self.act_optimizer = torch.optim.Adam(self.act.parameters(), self.learning_rate)
-        self.cri_optimizer = torch.optim.Adam(self.cri.parameters(), self.learning_rate) \
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate) \
             if cri_class else self.act_optimizer
 
-        self.criterion = torch.nn.SmoothL1Loss()
+        self.criterion = th.nn.SmoothL1Loss()
 
-    def explore_env(self, env, horizon_len: int, if_random: bool = False) -> [Tensor]:
-        states = torch.zeros((horizon_len, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.action_dim), dtype=torch.float32).to(self.device)
-        rewards = torch.zeros(horizon_len, dtype=torch.float32).to(self.device)
-        dones = torch.zeros(horizon_len, dtype=torch.bool).to(self.device)
+    def explore_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN]:
+        states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
+        actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
+        rewards = th.zeros(horizon_len, dtype=th.float32).to(self.device)
+        dones = th.zeros(horizon_len, dtype=th.bool).to(self.device)
 
         state = self.last_state
 
         get_action = self.act.get_action
         for i in range(horizon_len):
-            action = torch.rand(self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))[0]
+            action = th.rand(self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))[0]
             states[i] = state
 
             ary_action = action.detach().cpu().numpy()
-            ary_state, reward, done, _ = env.step(ary_action)
-            state = torch.as_tensor(env.reset() if done else ary_state,
-                                    dtype=torch.float32, device=self.device)
+            old_state, reward, terminated, truncated, _ = env.step(ary_action)
+            done = terminated or truncated
+
+            new_state, info_dict = env.reset()
+            state = th.as_tensor(new_state if done else old_state,
+                                 dtype=th.float32, device=self.device)
             actions[i] = action
             rewards[i] = reward
             dones[i] = done
 
         self.last_state = state
         rewards = rewards.unsqueeze(1)
-        undones = (1.0 - dones.type(torch.float32)).unsqueeze(1)
+        undones = (1.0 - dones.type(th.float32)).unsqueeze(1)
         return states, actions, rewards, undones
 
     @staticmethod
-    def optimizer_update(optimizer, objective: Tensor):
+    def optimizer_update(optimizer, objective: TEN):
         optimizer.zero_grad()
         objective.backward()
         optimizer.step()
 
     @staticmethod
-    def soft_update(target_net: torch.nn.Module, current_net: torch.nn.Module, tau: float):
+    def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):
         # assert target_net is not current_net
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    def update_avg_std_for_state_value_norm(self, states: Tensor, returns: Tensor):
+    def update_avg_std_for_state_value_norm(self, states: TEN, returns: TEN):
         tau = self.state_value_tau
         if tau == 0:
             return
@@ -366,9 +385,9 @@ class AgentTD3(AgentBase):
         self.update_freq = getattr(args, 'update_freq', 2)  # standard deviation of exploration noise
         self.horizon_len = 0
 
-    def update_net(self, buffer: ReplayBuffer) -> [float]:
+    def update_net(self, buffer: ReplayBuffer, if_update_act: bool = True) -> Tuple[float, float]:
         self.act.action_std = self.act_target.action_std = self.policy_noise_std
-        with torch.no_grad():
+        with th.no_grad():
             add_states = buffer.slice(buffer.states, buffer.add_size)
             add_actions = buffer.slice(buffer.actions, buffer.add_size)
             add_returns = self.cri_target(add_states, add_actions)
@@ -383,9 +402,9 @@ class AgentTD3(AgentBase):
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
             obj_critics += obj_critic.item()
 
-            if t % self.update_freq == 0:
+            if if_update_act and (t % self.update_freq == 0):
                 action = self.act(state)  # policy gradient
-                obj_actor = (self.cri(state, action)).mean()
+                obj_actor = self.cri(state, action).mean()
                 self.optimizer_update(self.act_optimizer, -obj_actor)
                 self.soft_update(self.act_target, self.act, self.soft_update_tau)
                 obj_actors += obj_actor.item()
@@ -393,15 +412,16 @@ class AgentTD3(AgentBase):
         self.act.action_std = self.act_target.action_std = self.explore_noise_std
         return obj_critics / update_times, obj_actors / (update_times / self.update_freq)
 
-    def get_obj_critic(self, buffer, batch_size: int) -> (Tensor, Tensor):
-        with torch.no_grad():
+    def get_obj_critic(self, buffer, batch_size: int) -> Tuple[TEN, TEN]:
+        with th.no_grad():
             state, action, reward, undone, next_state = buffer.sample(batch_size)
             next_action = self.act_target.get_action(next_state)  # stochastic policy
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_state, next_action))  # twin critics
+            next_q, _ = th.min(self.cri_target.get_q_values(next_state, next_action), dim=1, keepdim=True)
             q_label = reward + undone * self.gamma * next_q
 
-        q1, q2 = self.cri.get_q1_q2(state, action)
-        obj_critic = (self.criterion(q1, q_label) + self.criterion(q2, q_label)) / 2.
+        q_values = self.cri.get_q_values(state, action)
+        q_labels = q_label.repeat(1, q_values.shape[1])
+        obj_critic = self.criterion(q_values, q_labels)
         return obj_critic, state
 
 
@@ -412,12 +432,12 @@ class AgentSAC(AgentBase):
         super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
         self.cri_target = deepcopy(self.cri)
 
-        self.alpha_log = torch.tensor(-1, dtype=torch.float32, requires_grad=True, device=self.device)  # trainable var
-        self.alpha_optim = torch.optim.Adam((self.alpha_log,), lr=args.learning_rate)
+        self.alpha_log = th.tensor(-1, dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
+        self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
         self.target_entropy = -np.log(action_dim)
 
-    def update_net(self, buffer: ReplayBuffer) -> [float]:
-        with torch.no_grad():
+    def update_net(self, buffer: ReplayBuffer, if_update_act: bool = True) -> [float]:
+        with th.no_grad():
             add_states = buffer.slice(buffer.states, buffer.add_size)
             add_actions = buffer.slice(buffer.actions, buffer.add_size)
             add_returns = self.cri_target(add_states, add_actions)
@@ -432,37 +452,45 @@ class AgentSAC(AgentBase):
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
             obj_critics += obj_critic.item()
 
-            action, logprob = self.act.get_action_logprob(state)  # policy gradient
-            obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
-            self.optimizer_update(self.alpha_optim, obj_alpha)
+            if if_update_act:
+                action, logprob = self.act.get_action_logprob(state)  # policy gradient
+                obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
+                self.optimizer_update(self.alpha_optim, obj_alpha)
 
-            alpha = self.alpha_log.exp().detach()
-            obj_actor = (self.cri(state, action) - logprob * alpha).mean()
-            self.optimizer_update(self.act_optimizer, -obj_actor)
-            obj_actors += obj_actor.item()
+                alpha = self.alpha_log.exp().detach()
+                obj_actor = (self.cri(state, action) - logprob * alpha).mean()
+                self.optimizer_update(self.act_optimizer, -obj_actor)
+                obj_actors += obj_actor.item()
         return obj_critics / update_times, obj_actors / update_times
 
-    def get_obj_critic(self, buffer, batch_size: int) -> (Tensor, Tensor):
-        with torch.no_grad():
+    def get_obj_critic(self, buffer, batch_size: int) -> Tuple[TEN, TEN]:
+        with th.no_grad():
             state, action, reward, undone, next_state = buffer.sample(batch_size)
 
             next_action, next_logprob = self.act.get_action_logprob(next_state)  # stochastic policy
-            next_q = torch.min(*self.cri_target.get_q1_q2(next_state, next_action))  # twin critics
+            next_q, _ = th.min(self.cri_target.get_q_values(next_state, next_action), dim=1, keepdim=True)
             alpha = self.alpha_log.exp()
             q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
 
-        q1, q2 = self.cri.get_q1_q2(state, action)
-        obj_critic = (self.criterion(q1, q_label) + self.criterion(q2, q_label)) / 2.
+        q_values = self.cri.get_q_values(state, action)
+        q_labels = q_label.repeat(1, q_values.shape[1])
+        obj_critic = self.criterion(q_values, q_labels)
         return obj_critic, state
 
 
-class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
-    def __init__(self, gym_env_name=None):
-        gym.logger.set_level(40)  # Block warning
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
-        if gym_env_name is None:
-            gym_env_name = "Pendulum-v0" if gym.__version__ < '0.18.0' else "Pendulum-v1"
-        super().__init__(env=gym.make(gym_env_name))
+class AgentReDQ(AgentSAC):  # Randomized Ensemble Double Q-Learning
+    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        self.act_class = getattr(self, 'act_class', ActorSAC)  # get the attribute of object `self`
+        self.cri_class = getattr(self, 'cri_class', CriticEnsemble)  # get the attribute of object `self`
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.cri_target = deepcopy(self.cri)
+
+
+class PendulumEnv(gymnasium.Wrapper):  # a demo of custom gym env
+    def __init__(self):
+        # gymnasium.logger.set_level(40)  # Block warning
+        gym_env_name = 'Pendulum-v1'
+        super().__init__(env=gymnasium.make(gym_env_name))
 
         '''the necessary env information when you design a custom env'''
         self.env_name = gym_env_name  # the name of this env.
@@ -470,15 +498,16 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
         self.action_dim = self.action_space.shape[0]  # feature number of action
         self.if_discrete = False  # discrete action or continuous action
 
-    def reset(self) -> np.ndarray:  # reset the agent in env
-        return self.env.reset()
+    def reset(self, **kwargs) -> Tuple[ARY, dict]:  # reset the agent in env
+        state, info_dict = self.env.reset()
+        return state, info_dict
 
-    def step(self, action: np.ndarray) -> (np.ndarray, float, bool, dict):  # agent interacts in env
+    def step(self, action: ARY) -> Tuple[ARY, float, bool, bool, dict]:  # agent interacts in env
         # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
         # We suggest that adjust action space to (-1, +1) when designing a custom env.
-        state, reward, done, info_dict = self.env.step(action * 2)
+        state, reward, terminated, truncated, info_dict = self.env.step(action * 2)
         state = state.reshape(self.state_dim)
-        return state, float(reward * 0.5), done, info_dict
+        return state, float(reward) * 0.5, terminated, truncated, info_dict
 
 
 def train_agent(args: Config):
@@ -486,8 +515,10 @@ def train_agent(args: Config):
     gpu_id = args.gpu_id
 
     env = build_env(args.env_class, args.env_args)
+    state, info_dict = env.reset()
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
-    agent.last_state = torch.as_tensor(env.reset(), dtype=torch.float32, device=agent.device)
+    agent.last_state = th.tensor(state, dtype=th.float32, device=agent.device)
+
     buffer = ReplayBuffer(gpu_id=gpu_id, max_size=args.buffer_size,
                           state_dim=args.state_dim, action_dim=1 if args.if_discrete else args.action_dim, )
     buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
@@ -495,14 +526,17 @@ def train_agent(args: Config):
 
     evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
                           eval_per_step=args.eval_per_step, eval_times=args.eval_times, cwd=args.cwd)
-    torch.set_grad_enabled(False)
+
+    th.set_grad_enabled(True)
+    agent.update_net(buffer=buffer, if_update_act=False)
+    th.set_grad_enabled(False)
     while True:  # start training
         buffer_items = agent.explore_env(env, args.horizon_len)
         buffer.update(buffer_items)
 
-        torch.set_grad_enabled(True)
+        th.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
-        torch.set_grad_enabled(False)
+        th.set_grad_enabled(False)
 
         evaluator.evaluate_and_save(agent.act, args.horizon_len, logging_tuple)
         if (evaluator.total_step > args.break_step) or os.path.exists(f"{args.cwd}/stop"):
@@ -552,14 +586,15 @@ class Evaluator:
 def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):  # cumulative_rewards and episode_steps
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
-    state = env.reset()
+    state, info_dict = env.reset()
     episode_steps = 0
     cumulative_returns = 0.0  # sum of rewards in an episode
     for episode_steps in range(12345):
-        tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        tensor_state = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
         tensor_action = actor(tensor_state)
-        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
-        state, reward, done, _ = env.step(action)
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
+        state, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
         cumulative_returns += reward
 
         if if_render:
@@ -570,10 +605,10 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int): 
 
 
 def train_sac_td3_for_pendulum():
-    agent_class = [AgentSAC, AgentTD3][0]  # DRL algorithm name
+    agent_class = [AgentSAC, AgentTD3][1]  # DRL algorithm name
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
-        'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
+        'env_name': 'Pendulum-v1',  # Apply torque on the free end to swing a pendulum into an upright position
         'state_dim': 3,  # the x-y coordinates of the pendulum's free end and its angular velocity.
         'action_dim': 1,  # the torque applied to free end of the pendulum
         'if_discrete': False  # continuous action space, symbols → direction, value → force
@@ -581,12 +616,12 @@ def train_sac_td3_for_pendulum():
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(4e4)  # break training if 'total_step > break_step'
-    args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
-    args.gamma = 0.97  # discount factor of future rewards
-    args.horizon_len = 64  # collect horizon_len step while exploring, then update network
+    args.break_step = int(8e4)  # break training if 'total_step > break_step'
+    args.net_dims = (128, 128)  # the middle layer dimension of MultiLayer Perceptron
+    args.gamma = 0.98  # discount factor of future rewards
+    args.horizon_len = 256  # collect horizon_len step while exploring, then update network
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.state_value_tau = 0.02
+    args.state_value_tau = 0.05
     args.explore_noise_std = 0.10
     args.policy_noise_std = 0.15
 
@@ -610,14 +645,14 @@ def train_sac_td3_for_pendulum():
 
 def train_sac_td3_for_lunar_lander():
     agent_class = [AgentSAC, AgentTD3][0]  # DRL algorithm name
-    env_class = gym.make
+    env_class = gymnasium.make
     env_args = {
         'env_name': 'LunarLanderContinuous-v2',  # A lander learns to land on a landing pad
         'state_dim': 8,  # coordinates xy, linear velocities xy, angle, angular velocity, two booleans
         'action_dim': 2,  # fire main engine or side engine.
         'if_discrete': False  # continuous action space, symbols → direction, value → force
     }
-    get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
+    get_gym_env_args(env=gymnasium.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
     # pip install box2d box2d-kengz --user
     # https://stackoverflow.com/questions/50037674/attributeerror-module-box2d-has-no-attribute-rand-limit-swigconstant
 
@@ -647,5 +682,5 @@ def train_sac_td3_for_lunar_lander():
 
 if __name__ == '__main__':
     GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else -1
-    # train_sac_td3_for_pendulum()
-    train_sac_td3_for_lunar_lander()
+    train_sac_td3_for_pendulum()
+    # train_sac_td3_for_lunar_lander()

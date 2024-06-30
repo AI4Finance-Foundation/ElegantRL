@@ -402,6 +402,28 @@ class CriticTwin(CriticBase):  # shared parameter
         return values[:, 0], values[:, 1]  # two Q values
 
 
+class CriticEnsemble(CriticBase):
+    def __init__(self, dims: [int], state_dim: int, action_dim: int, num_ensembles: int = 4):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.encoder_sa = build_mlp(dims=[state_dim + action_dim, dims[0]])  # encoder of state and action
+        self.decoder_qs = [build_mlp(dims=[*dims, 1]) for _ in range(num_ensembles)]  # decoder of Q values
+
+        for dec_q in self.decoder_qs:
+            layer_init_with_orthogonal(dec_q[-1], std=0.5)
+
+    def forward(self, state, action):
+        values = self.get_q_values(state=state, action=action)
+        value = values.mean(dim=1, keepdim=True)
+        return value  # Q value
+
+    def get_q_values(self, state, action):
+        state = self.state_norm(state)
+        sa_tmp = self.encoder_sa(torch.cat((state, action), dim=1))
+        values = torch.concat([dec_q(sa_tmp) for dec_q in self.decoder_qs], dim=1)
+        values = self.value_re_norm(values)
+        return values  # Q values
+
+
 class CriticPPO(CriticBase):
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
