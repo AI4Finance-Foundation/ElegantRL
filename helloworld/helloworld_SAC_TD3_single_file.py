@@ -605,7 +605,8 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int): 
 
 
 def train_sac_td3_for_pendulum():
-    agent_class = [AgentSAC, AgentTD3][1]  # DRL algorithm name
+    agent_class = [AgentSAC, AgentTD3][0]  # DRL algorithm name
+    print(f"agent_class  {agent_class.__name__}")
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum-v1',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -616,14 +617,15 @@ def train_sac_td3_for_pendulum():
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(8e4)  # break training if 'total_step > break_step'
+    args.gpu_id = GPU_ID
+    args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.98  # discount factor of future rewards
-    args.horizon_len = 256  # collect horizon_len step while exploring, then update network
+    args.horizon_len = 128  # collect horizon_len step while exploring, then update network
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.state_value_tau = 0.05
-    args.explore_noise_std = 0.10
-    args.policy_noise_std = 0.15
+    args.explore_noise_std = 0.05
+    args.policy_noise_std = 0.10
 
     train_agent(args)
     """
