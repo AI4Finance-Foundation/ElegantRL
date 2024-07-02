@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from copy import deepcopy
-from typing import Tuple, List
+from typing import Tuple
 
 import gymnasium
 import numpy as np
@@ -33,7 +33,7 @@ class Config:  # for off-policy
 
         '''Arguments for training'''
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
-        self.learning_rate = 1e-4  # 2 ** -14 ~= 6e-5
+        self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
         self.state_value_tau = 0.1  # 0.05 ~ 0.50
         self.batch_size = int(64)  # num of transitions sampled from replay buffer.
@@ -43,7 +43,7 @@ class Config:  # for off-policy
 
         '''Arguments for device'''
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
-        self.thread_num = int(8)  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
+        self.thread_num = int(8)  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
         self.random_seed = int(0)  # initialize random seed in self.init_before_training()
 
         '''Arguments for evaluate'''
@@ -67,7 +67,6 @@ class ActorBase(nn.Module):
         self.action_dim = action_dim
         self.net = None  # build_mlp(dims=[state_dim, *dims, action_dim])
         self.ActionDist = th.distributions.normal.Normal
-        self.action_std = None
 
         self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
         self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
@@ -80,16 +79,17 @@ class Actor(ActorBase):
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net = build_mlp(dims=[state_dim, *dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
 
     def forward(self, state: TEN) -> TEN:
         state = self.state_norm(state)
         action = self.net(state)
         return action.tanh()
 
-    def get_action(self, state: TEN) -> TEN:  # for exploration
+    def get_action(self, state: TEN, action_std: float) -> TEN:  # for exploration
         state = self.state_norm(state)
         action_avg = self.net(state).tanh()
-        dist = self.ActionDist(action_avg, self.action_std)
+        dist = self.ActionDist(action_avg, action_std)
         action = dist.sample()
         return action.clip(-1.0, 1.0)
 
@@ -107,7 +107,7 @@ class ActorSAC(ActorBase):
         state_tmp = self.enc_s(state)  # temporary tensor of state
         return self.dec_a_avg(state_tmp).tanh()  # action
 
-    def get_action(self, state: TEN) -> TEN:  # for exploration
+    def get_action(self, state: TEN, **_kwargs) -> TEN:  # for exploration
         state = self.state_norm(state)
         state_tmp = self.enc_s(state)  # temporary tensor of state
         action_avg = self.dec_a_avg(state_tmp)
@@ -159,14 +159,15 @@ class CriticBase(nn.Module):
 class CriticTwin(CriticBase):
     def __init__(self, dims: [int], state_dim: int, action_dim: int, num_q_values: int = 8):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net = build_mlp(dims=[state_dim + action_dim, *dims, num_q_values])  # encoder of state and action
+        self.net = build_mlp(dims=[state_dim + action_dim, *dims, num_q_values])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
 
     def forward(self, state: TEN, action: TEN) -> TEN:
         values = self.get_q_values(state=state, action=action)
-        value = values.mean(dim=1, keepdim=True)
+        value = values.mean(dim=-1, keepdim=True)
         return value  # Q value
 
-    def get_q_values(self, state, action):
+    def get_q_values(self, state: TEN, action: TEN) -> TEN:
         state = self.state_norm(state)
         values = self.net(th.cat((state, action), dim=1))
         values = self.value_re_norm(values)
@@ -177,19 +178,30 @@ class CriticEnsemble(CriticBase):
     def __init__(self, dims: [int], state_dim: int, action_dim: int, num_ensembles: int = 8):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.encoder_sa = build_mlp(dims=[state_dim + action_dim, dims[0]])  # encoder of state and action
-        self.decoder_qs = [build_mlp(dims=[*dims, 1]) for _ in range(num_ensembles)]  # decoder of Q values
+        self.decoder_qs = []
+        for net_i in range(num_ensembles):
+            decoder_q = build_mlp(dims=[*dims, 1])
+            layer_init_with_orthogonal(decoder_q[-1], std=0.5)
+
+            self.decoder_qs.append(decoder_q)
+            setattr(self, f"decoder_q{net_i:02}", decoder_q)
 
     def forward(self, state: TEN, action: TEN) -> TEN:
         values = self.get_q_values(state=state, action=action)
-        value = values.mean(dim=1, keepdim=True)
+        value = values.mean(dim=-1, keepdim=True)
         return value  # Q value
 
-    def get_q_values(self, state, action):
+    def get_q_values(self, state: TEN, action: TEN) -> TEN:
         state = self.state_norm(state)
-        sa_tmp = self.encoder_sa(th.cat((state, action), dim=1))
-        values = th.concat([dec_q(sa_tmp) for dec_q in self.decoder_qs], dim=1)
+        tensor_sa = self.encoder_sa(th.cat((state, action), dim=1))
+        values = th.concat([decoder_q(tensor_sa) for decoder_q in self.decoder_qs], dim=-1)
         values = self.value_re_norm(values)
         return values  # Q values
+
+
+def layer_init_with_orthogonal(layer, std=1.0, bias_const=1e-6):
+    th.nn.init.orthogonal_(layer.weight, std)
+    th.nn.init.constant_(layer.bias, bias_const)
 
 
 def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
@@ -235,54 +247,6 @@ def build_env(env_class=None, env_args=None):
     return env
 
 
-class ReplayBuffer:  # for off-policy
-    def __init__(self, max_size: int, state_dim: int, action_dim: int, gpu_id: int = 0):
-        self.p = 0  # pointer
-        self.if_full = False
-        self.cur_size = 0
-        self.add_size = 0
-        self.max_size = max_size
-        self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
-
-        self.states = th.empty((max_size, state_dim), dtype=th.float32, device=self.device)
-        self.actions = th.empty((max_size, action_dim), dtype=th.float32, device=self.device)
-        self.rewards = th.empty((max_size, 1), dtype=th.float32, device=self.device)
-        self.undones = th.empty((max_size, 1), dtype=th.float32, device=self.device)
-
-    def update(self, items: List[TEN]):
-        states, actions, rewards, undones = items
-        add_size = rewards.shape[0]
-        p = self.p + add_size  # pointer
-        if p > self.max_size:
-            self.if_full = True
-            p0 = self.p
-            p1 = self.max_size
-            p2 = self.max_size - self.p
-            p = p - self.max_size
-
-            self.states[p0:p1], self.states[0:p] = states[:p2], states[-p:]
-            self.actions[p0:p1], self.actions[0:p] = actions[:p2], actions[-p:]
-            self.rewards[p0:p1], self.rewards[0:p] = rewards[:p2], rewards[-p:]
-            self.undones[p0:p1], self.undones[0:p] = undones[:p2], undones[-p:]
-        else:
-            self.states[self.p:p] = states
-            self.actions[self.p:p] = actions
-            self.rewards[self.p:p] = rewards
-            self.undones[self.p:p] = undones
-        self.p = p
-        self.add_size = add_size
-        self.cur_size = self.max_size if self.if_full else self.p
-
-    def sample(self, batch_size: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
-        ids = th.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
-        return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
-
-    def slice(self, data: TEN, slice_size: int) -> TEN:
-        slice_data = data[self.p - slice_size:self.p] if slice_size >= self.p \
-            else th.vstack((data[slice_size - self.p:], data[:self.p]))
-        return slice_data
-
-
 class AgentBase:
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         self.state_dim = state_dim
@@ -290,10 +254,10 @@ class AgentBase:
 
         self.gamma = args.gamma
         self.batch_size = args.batch_size
+        self.horizon_len = args.horizon_len
         self.repeat_times = args.repeat_times
         self.reward_scale = args.reward_scale
         self.learning_rate = args.learning_rate
-        self.if_off_policy = args.if_off_policy
         self.soft_update_tau = args.soft_update_tau
         self.state_value_tau = args.state_value_tau
 
@@ -312,31 +276,37 @@ class AgentBase:
 
         self.criterion = th.nn.SmoothL1Loss()
 
+    def get_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state)
+
     def explore_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN]:
+        self.horizon_len = 0
+
         states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
         rewards = th.zeros(horizon_len, dtype=th.float32).to(self.device)
         dones = th.zeros(horizon_len, dtype=th.bool).to(self.device)
 
-        state = self.last_state
-
-        get_action = self.act.get_action
+        ary_state = self.last_state
+        get_action = self.get_action
         for i in range(horizon_len):
-            action = th.rand(self.action_dim) * 2 - 1.0 if if_random else get_action(state.unsqueeze(0))[0]
+            state = th.as_tensor(ary_state, dtype=th.float32, device=self.device)
+            action = th.rand(self.action_dim) * 2 - 1.0 if if_random \
+                else get_action(state.unsqueeze(0))[0]
+
             states[i] = state
+            actions[i] = action
 
             ary_action = action.detach().cpu().numpy()
-            old_state, reward, terminated, truncated, _ = env.step(ary_action)
+            ary_state, reward, terminated, truncated, _ = env.step(ary_action)
             done = terminated or truncated
+            if done:
+                ary_state, info_dict = env.reset()
 
-            new_state, info_dict = env.reset()
-            state = th.as_tensor(new_state if done else old_state,
-                                 dtype=th.float32, device=self.device)
-            actions[i] = action
             rewards[i] = reward
             dones[i] = done
 
-        self.last_state = state
+        self.last_state = ary_state
         rewards = rewards.unsqueeze(1)
         undones = (1.0 - dones.type(th.float32)).unsqueeze(1)
         return states, actions, rewards, undones
@@ -361,14 +331,14 @@ class AgentBase:
         state_avg = states.mean(dim=0, keepdim=True)
         state_std = states.std(dim=0, keepdim=True)
         self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
-        self.act.state_std[:] = self.cri.state_std * (1 - tau) + state_std * tau + 1e-4
+        self.act.state_std[:] = (self.cri.state_std * (1 - tau) + state_std * tau).clamp_min(1e-6)
         self.cri.state_avg[:] = self.act.state_avg
-        self.cri.state_std[:] = self.act.state_std
+        self.cri.state_std[:] = self.cri.state_std
 
         returns_avg = returns.mean(dim=0)
         returns_std = returns.std(dim=0)
         self.cri.value_avg[:] = self.cri.value_avg * (1 - tau) + returns_avg * tau
-        self.cri.value_std[:] = self.cri.value_std * (1 - tau) + returns_std * tau + 1e-4
+        self.cri.value_std[:] = (self.cri.value_std * (1 - tau) + returns_std * tau).clamp_min(1e-6)
 
 
 class AgentTD3(AgentBase):
@@ -379,56 +349,61 @@ class AgentTD3(AgentBase):
         self.cri_target = deepcopy(self.cri)
         self.act_target = deepcopy(self.act)
 
-        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.06)  # standard deviation of exploration noise
-        self.policy_noise_std = getattr(args, 'policy_noise_std', 0.12)  # standard deviation of exploration noise
-        self.act.action_std = self.explore_noise_std
+        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
+        self.policy_noise_std = getattr(args, 'policy_noise_std', 0.10)  # standard deviation of exploration noise
         self.update_freq = getattr(args, 'update_freq', 2)  # standard deviation of exploration noise
-        self.horizon_len = 0
 
-    def update_net(self, buffer: ReplayBuffer, if_update_act: bool = True) -> Tuple[float, float]:
-        self.act.action_std = self.act_target.action_std = self.policy_noise_std
-        with th.no_grad():
-            add_states = buffer.slice(buffer.states, buffer.add_size)
-            add_actions = buffer.slice(buffer.actions, buffer.add_size)
-            add_returns = self.cri_target(add_states, add_actions)
-            self.update_avg_std_for_state_value_norm(states=add_states, returns=add_returns)
-            del add_states, add_actions, add_returns
+    def get_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state, action_std=self.explore_noise_std)
 
-        obj_critics = obj_actors = 0.0
+    def update_net(self, buffer, if_update_actor: bool = True) -> Tuple[float, float]:
+        states = buffer.states[-self.horizon_len:]
+        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
+        self.update_avg_std_for_state_value_norm(
+            states=states.reshape((-1, self.state_dim)),
+            returns=reward_sums.reshape((-1,))
+        )
+
+        obj_critics = []
+        obj_actors = []
+
+        th.set_grad_enabled(True)
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
         for t in range(update_times):
             obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-            obj_critics += obj_critic.item()
+            obj_critics.append(obj_critic.item())
 
-            if if_update_act and (t % self.update_freq == 0):
+            if if_update_actor and (t % self.update_freq == 0):
                 action = self.act(state)  # policy gradient
-                obj_actor = self.cri(state, action).mean()
+                obj_actor = (self.cri(state, action)).mean()
                 self.optimizer_update(self.act_optimizer, -obj_actor)
                 self.soft_update(self.act_target, self.act, self.soft_update_tau)
-                obj_actors += obj_actor.item()
+                obj_actors.append(obj_actor.item())
+        th.set_grad_enabled(False)
 
-        self.act.action_std = self.act_target.action_std = self.explore_noise_std
-        return obj_critics / update_times, obj_actors / (update_times / self.update_freq)
+        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
+        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
+        return obj_critic_avg, obj_actor_avg
 
     def get_obj_critic(self, buffer, batch_size: int) -> Tuple[TEN, TEN]:
         with th.no_grad():
             state, action, reward, undone, next_state = buffer.sample(batch_size)
-            next_action = self.act_target.get_action(next_state)  # stochastic policy
-            next_q, _ = th.min(self.cri_target.get_q_values(next_state, next_action), dim=1, keepdim=True)
-            q_label = reward + undone * self.gamma * next_q
 
+            next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # stochastic policy
+            next_q, _ = self.cri_target.get_q_values(next_state, next_action).min(dim=-1, keepdim=True)
+
+            q_label = reward + undone * self.gamma * next_q
         q_values = self.cri.get_q_values(state, action)
-        q_labels = q_label.repeat(1, q_values.shape[1])
-        obj_critic = self.criterion(q_values, q_labels)
+        obj_critic = self.criterion(q_values, q_label.repeat(1, q_values.shape[-1]))
         return obj_critic, state
 
 
 class AgentSAC(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         self.act_class = getattr(self, 'act_class', ActorSAC)  # get the attribute of object `self`
-        self.cri_class = getattr(self, 'cri_class', CriticTwin)  # get the attribute of object `self`
+        self.cri_class = getattr(self, 'cri_class', CriticEnsemble)  # get the attribute of object `self`
         super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
         self.cri_target = deepcopy(self.cri)
 
@@ -436,23 +411,29 @@ class AgentSAC(AgentBase):
         self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
         self.target_entropy = -np.log(action_dim)
 
-    def update_net(self, buffer: ReplayBuffer, if_update_act: bool = True) -> [float]:
-        with th.no_grad():
-            add_states = buffer.slice(buffer.states, buffer.add_size)
-            add_actions = buffer.slice(buffer.actions, buffer.add_size)
-            add_returns = self.cri_target(add_states, add_actions)
-            self.update_avg_std_for_state_value_norm(states=add_states, returns=add_returns)
-            del add_states, add_actions, add_returns
+    def get_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state)  # stochastic policy for exploration, set action_std automatically
 
-        obj_critics = obj_actors = 0.0
+    def update_net(self, buffer, if_update_actor: bool = True) -> [float]:
+        states = buffer.states[-self.horizon_len:]
+        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
+        self.update_avg_std_for_state_value_norm(
+            states=states.reshape((-1, self.state_dim)),
+            returns=reward_sums.reshape((-1,))
+        )
+
+        obj_critics = []
+        obj_actors = []
+
+        th.set_grad_enabled(True)
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
         for i in range(update_times):
             obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-            obj_critics += obj_critic.item()
+            obj_critics.append(obj_critic.item())
 
-            if if_update_act:
+            if if_update_actor:
                 action, logprob = self.act.get_action_logprob(state)  # policy gradient
                 obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
                 self.optimizer_update(self.alpha_optim, obj_alpha)
@@ -460,8 +441,12 @@ class AgentSAC(AgentBase):
                 alpha = self.alpha_log.exp().detach()
                 obj_actor = (self.cri(state, action) - logprob * alpha).mean()
                 self.optimizer_update(self.act_optimizer, -obj_actor)
-                obj_actors += obj_actor.item()
-        return obj_critics / update_times, obj_actors / update_times
+                obj_actors.append(obj_actor.item())
+        th.set_grad_enabled(False)
+
+        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
+        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
+        return obj_critic_avg, obj_actor_avg
 
     def get_obj_critic(self, buffer, batch_size: int) -> Tuple[TEN, TEN]:
         with th.no_grad():
@@ -478,12 +463,44 @@ class AgentSAC(AgentBase):
         return obj_critic, state
 
 
-class AgentReDQ(AgentSAC):  # Randomized Ensemble Double Q-Learning
-    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, 'act_class', ActorSAC)  # get the attribute of object `self`
-        self.cri_class = getattr(self, 'cri_class', CriticEnsemble)  # get the attribute of object `self`
-        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
-        self.cri_target = deepcopy(self.cri)
+class ReplayBuffer:  # for off-policy
+    def __init__(self, max_size: int, state_dim: int, action_dim: int, gpu_id: int = 0):
+        self.p = 0  # pointer
+        self.if_full = False
+        self.cur_size = 0
+        self.max_size = max_size
+        self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+
+        self.states = th.empty((max_size, state_dim), dtype=th.float32, device=self.device)
+        self.actions = th.empty((max_size, action_dim), dtype=th.float32, device=self.device)
+        self.rewards = th.empty((max_size, 1), dtype=th.float32, device=self.device)
+        self.undones = th.empty((max_size, 1), dtype=th.float32, device=self.device)
+
+    def update(self, items: Tuple[TEN, TEN, TEN, TEN]):
+        states, actions, rewards, undones = items
+        p = self.p + rewards.shape[0]  # pointer
+        if p > self.max_size:
+            self.if_full = True
+            p0 = self.p
+            p1 = self.max_size
+            p2 = self.max_size - self.p
+            p = p - self.max_size
+
+            self.states[p0:p1], self.states[0:p] = states[:p2], states[-p:]
+            self.actions[p0:p1], self.actions[0:p] = actions[:p2], actions[-p:]
+            self.rewards[p0:p1], self.rewards[0:p] = rewards[:p2], rewards[-p:]
+            self.undones[p0:p1], self.undones[0:p] = undones[:p2], undones[-p:]
+        else:
+            self.states[self.p:p] = states
+            self.actions[self.p:p] = actions
+            self.rewards[self.p:p] = rewards
+            self.undones[self.p:p] = undones
+        self.p = p
+        self.cur_size = self.max_size if self.if_full else self.p
+
+    def sample(self, batch_size: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
+        ids = th.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
+        return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
 
 
 class PendulumEnv(gymnasium.Wrapper):  # a demo of custom gym env
@@ -513,30 +530,26 @@ class PendulumEnv(gymnasium.Wrapper):  # a demo of custom gym env
 def train_agent(args: Config):
     args.init_before_training()
     gpu_id = args.gpu_id
+    th.set_grad_enabled(False)
+
+    evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
+                          eval_per_step=args.eval_per_step, eval_times=args.eval_times, cwd=args.cwd)
 
     env = build_env(args.env_class, args.env_args)
-    state, info_dict = env.reset()
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
-    agent.last_state = th.tensor(state, dtype=th.float32, device=agent.device)
+    agent.last_state, info_dict = env.reset()
 
     buffer = ReplayBuffer(gpu_id=gpu_id, max_size=args.buffer_size,
                           state_dim=args.state_dim, action_dim=1 if args.if_discrete else args.action_dim, )
     buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
     buffer.update(buffer_items)  # warm up for ReplayBuffer
 
-    evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
-                          eval_per_step=args.eval_per_step, eval_times=args.eval_times, cwd=args.cwd)
-
-    th.set_grad_enabled(True)
-    agent.update_net(buffer=buffer, if_update_act=False)
-    th.set_grad_enabled(False)
+    agent.update_net(buffer, if_update_actor=False)
     while True:  # start training
         buffer_items = agent.explore_env(env, args.horizon_len)
         buffer.update(buffer_items)
 
-        th.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
-        th.set_grad_enabled(False)
 
         evaluator.evaluate_and_save(agent.act, args.horizon_len, logging_tuple)
         if (evaluator.total_step > args.break_step) or os.path.exists(f"{args.cwd}/stop"):
@@ -592,21 +605,24 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int): 
     for episode_steps in range(12345):
         tensor_state = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
         tensor_action = actor(tensor_state)
-        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
         state, reward, terminated, truncated, _ = env.step(action)
-        done = terminated or truncated
         cumulative_returns += reward
 
         if if_render:
             env.render()
+
+        done = terminated or truncated
         if done:
             break
+    cumulative_returns = getattr(env.unwrapped, 'cumulative_returns', cumulative_returns)
     return cumulative_returns, episode_steps + 1
 
 
-def train_sac_td3_for_pendulum():
-    agent_class = [AgentSAC, AgentTD3][0]  # DRL algorithm name
-    print(f"agent_class  {agent_class.__name__}")
+def train_td3_for_pendulum(gpu_id: int = 0):
+    agent_class = [AgentSAC, AgentTD3][1]  # DRL algorithm name
+    print(f"agent_class {agent_class.__name__}")
+
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum-v1',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -616,37 +632,42 @@ def train_sac_td3_for_pendulum():
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
-    args.gpu_id = GPU_ID
-    args.break_step = int(2e5)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 128)  # the middle layer dimension of MultiLayer Perceptron
-    args.gamma = 0.98  # discount factor of future rewards
-    args.horizon_len = 128  # collect horizon_len step while exploring, then update network
-    args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.state_value_tau = 0.05
-    args.explore_noise_std = 0.05
-    args.policy_noise_std = 0.10
+    args = Config(agent_class=AgentTD3, env_class=env_class, env_args=env_args)  # see `Config` for explanation
+    args.break_step = int(4e8)  # break training if 'total_step > break_step'
+    args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
+    args.gamma = 0.97  # discount factor of future rewards
 
+    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     train_agent(args)
     """
-    cumulative returns range: -2000 < -1000 < -200 < -80
+    cumulative returns range: -1000 < -700 < -100 < -50
 
-    SAC
+    agent_class  AgentSAC  env_name Pendulum-v1
     |     step      time  |     avgR    stdR    avgS  |     objC      objA
-    | 1.00e+04       135  |  -211.21   55.50     200  |     0.88    -69.34
-    | 2.01e+04       479  |   -74.14   56.91     200  |     0.62    -22.68
-    | 3.01e+04      1029  |   -69.16   36.39     200  |     0.36    -16.79
+    | 1.02e+04        37  |  -623.17  114.43     200  |     0.65    -62.60
+    | 2.05e+04       103  |  -482.81   27.75     200  |     0.94    -91.89
+    | 3.07e+04       190  |  -213.40   97.32     200  |     0.78    -77.40
+    | 4.10e+04       296  |   -77.75   41.87     200  |     0.62    -46.33
+    | 5.12e+04       427  |   -70.72   22.34     200  |     0.47    -32.85
+    | 6.14e+04       585  |  -101.31   39.49     200  |     0.37    -24.73
+    | 7.17e+04       768  |   -72.49   50.92     200  |     0.34    -18.68
 
-    TD3
+    agent_class  AgentTD3  env_name Pendulum-v1
     |     step      time  |     avgR    stdR    avgS  |     objC      objA
-    | 1.00e+04       103  |  -771.30   38.15     200  |     1.03    -98.23
-    | 2.01e+04       380  |   -89.88   62.76     200  |     0.73    -50.82
-    | 3.01e+04       813  |   -91.69   42.66     200  |     0.45    -30.01
+    | 1.02e+04        34  |  -732.08   44.68     200  |     0.70    -63.95
+    | 2.05e+04        92  |  -418.86   32.07     200  |     0.69    -90.68
+    | 3.07e+04       173  |  -237.52   50.73     200  |     0.67    -73.77
+    | 4.10e+04       280  |   -61.79    2.99     200  |     0.58    -49.62
+    | 5.12e+04       415  |   -79.03   40.78     200  |     0.44    -33.22
+    | 6.14e+04       574  |   -83.73   53.11     200  |     0.36    -26.39
+    | 7.17e+04       759  |   -75.11   43.56     200  |     0.28    -23.41
     """
 
 
-def train_sac_td3_for_lunar_lander():
+def train_sac_td3_for_lunar_lander(gpu_id: int = 0):
     agent_class = [AgentSAC, AgentTD3][0]  # DRL algorithm name
+    print(f"agent_class {agent_class.__name__}")
+
     env_class = gymnasium.make
     env_args = {
         'env_name': 'LunarLanderContinuous-v2',  # A lander learns to land on a landing pad
@@ -655,8 +676,6 @@ def train_sac_td3_for_lunar_lander():
         'if_discrete': False  # continuous action space, symbols → direction, value → force
     }
     get_gym_env_args(env=gymnasium.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
-    # pip install box2d box2d-kengz --user
-    # https://stackoverflow.com/questions/50037674/attributeerror-module-box2d-has-no-attribute-rand-limit-swigconstant
 
     args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)  # break training if 'total_step > break_step'
@@ -665,8 +684,7 @@ def train_sac_td3_for_lunar_lander():
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.state_value_tau = 0.1  # do rolling normalization on state using soft update tau
 
-    args.gpu_id = GPU_ID
-    args.random_seed = GPU_ID
+    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     train_agent(args)
     """   
     cumulative returns range: -1500 < -140 < 200 < 280
@@ -684,5 +702,5 @@ def train_sac_td3_for_lunar_lander():
 
 if __name__ == '__main__':
     GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else -1
-    train_sac_td3_for_pendulum()
-    # train_sac_td3_for_lunar_lander()
+    # train_td3_for_pendulum(gpu_id=GPU_ID)
+    train_sac_td3_for_lunar_lander(gpu_id=GPU_ID)
