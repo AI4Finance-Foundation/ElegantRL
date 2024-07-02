@@ -8,6 +8,11 @@
 [![Downloads](https://pepy.tech/badge/elegantrl/week)](https://pepy.tech/project/elegantrl)
 [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/)
 [![PyPI](https://img.shields.io/pypi/v/elegantrl.svg)](https://pypi.org/project/elegantrl/)
+![License](https://img.shields.io/github/license/AI4Finance-Foundation/elegantrl.svg?color=brightgreen)
+![](https://img.shields.io/github/issues-raw/AI4Finance-Foundation/elegantrl?label=Issues)
+![](https://img.shields.io/github/issues-closed-raw/AI4Finance-Foundation/elegantrl?label=Closed+Issues)
+![](https://img.shields.io/github/issues-pr-raw/AI4Finance-Foundation/elegantrl?label=Open+PRs)
+![](https://img.shields.io/github/issues-pr-closed-raw/AI4Finance-Foundation/elegantrl?label=Closed+PRs)
 
 <br/>
 <a href="https://github.com/AI4Finance-Foundation/ElegantRL" target="\_blank">
@@ -21,6 +26,9 @@
 “小雅”源于《诗经·小雅·鹤鸣》，旨在「他山之石，可以攻玉」。
 
 [![](https://dcbadge.vercel.app/api/server/trsr8SXpW5)](https://discord.gg/trsr8SXpW5)
+
+![Visitors](https://api.visitorbadge.io/api/VisitorHit?user=AI4Finance-Foundation&repo=elegantrl&countColor=%23B17A)
+
 
 
 ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is developed for users/developers with the following advantages:
