@@ -75,9 +75,9 @@ class ActorBase(nn.Module):
 
 
 class Actor(ActorBase):
-    def __init__(self, dims: List[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net = build_mlp(dims=[state_dim, *dims, action_dim])
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
 
     def forward(self, state: TEN) -> TEN:
@@ -94,11 +94,11 @@ class Actor(ActorBase):
 
 
 class ActorSAC(ActorBase):
-    def __init__(self, dims: List[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.encoder_s = build_mlp(dims=[state_dim, *dims])  # encoder of state
-        self.decoder_a_avg = build_mlp(dims=[dims[-1], action_dim])  # decoder of action mean
-        self.decoder_a_std = build_mlp(dims=[dims[-1], action_dim])  # decoder of action log_std
+        self.encoder_s = build_mlp(dims=[state_dim, *net_dims])  # encoder of state
+        self.decoder_a_avg = build_mlp(dims=[net_dims[-1], action_dim])  # decoder of action mean
+        self.decoder_a_std = build_mlp(dims=[net_dims[-1], action_dim])  # decoder of action log_std
         self.soft_plus = nn.Softplus()
 
     def forward(self, state: TEN) -> TEN:
@@ -154,10 +154,22 @@ class CriticBase(nn.Module):
         return value * self.value_std + self.value_avg
 
 
-class CriticTwin(CriticBase):
-    def __init__(self, dims: List[int], state_dim: int, action_dim: int, num_q_values: int = 8):
+class Critic(CriticBase):
+    def __init__(self, net_dims: [int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net = build_mlp(dims=[state_dim + action_dim, *dims, num_q_values])
+        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, 1])
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        state = self.state_norm(state)
+        value = self.net(th.cat((state, action), dim=1))
+        value = self.value_re_norm(value)
+        return value  # Q value
+
+
+class CriticTwin(CriticBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, num_ensembles])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
 
     def forward(self, state: TEN, action: TEN) -> TEN:
@@ -173,12 +185,12 @@ class CriticTwin(CriticBase):
 
 
 class CriticEnsemble(CriticBase):
-    def __init__(self, dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.encoder_sa = build_mlp(dims=[state_dim + action_dim, dims[0]])  # encoder of state and action
+        self.encoder_sa = build_mlp(dims=[state_dim + action_dim, net_dims[0]])  # encoder of state and action
         self.decoder_qs = []
         for net_i in range(num_ensembles):
-            decoder_q = build_mlp(dims=[*dims, 1])
+            decoder_q = build_mlp(dims=[*net_dims, 1])
             layer_init_with_orthogonal(decoder_q[-1], std=0.5)
 
             self.decoder_qs.append(decoder_q)
@@ -295,40 +307,43 @@ class ReplayBuffer:  # for off-policy
         )
 
 
-class AlgoBase:
+class AgentBase:
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.state_dim = state_dim
-        self.action_dim = action_dim
+        self.net_dims: List[int] = net_dims
+        self.state_dim: int = state_dim
+        self.action_dim: int = action_dim
 
-        self.gamma = args.gamma
-        self.batch_size = args.batch_size
-        self.horizon_len = args.horizon_len
-        self.repeat_times = args.repeat_times
-        self.reward_scale = args.reward_scale
-        self.learning_rate = args.learning_rate
-        self.soft_update_tau = args.soft_update_tau
-        self.state_value_tau = args.state_value_tau
+        self.gamma: float = args.gamma
+        self.batch_size: int = args.batch_size
+        self.horizon_len: int = args.horizon_len
+        self.repeat_times: float = args.repeat_times
+        self.reward_scale: float = args.reward_scale
+        self.learning_rate: float = args.learning_rate
+        self.soft_update_tau: float = args.soft_update_tau
+        self.state_value_tau: float = args.state_value_tau
 
-        self.last_state = None  # save the last state of the trajectory for training. `last_state.shape == (state_dim)`
+        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
+
+        self.last_state: Optional[ARY] = None  # state of the trajectory for training. `shape == (state_dim)`
         self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
-        act_class = getattr(self, "act_class", None)
-        cri_class = getattr(self, "cri_class", None)
-        self.act = self.act_target = act_class(net_dims, state_dim, action_dim).to(self.device)
-        self.cri = self.cri_target = cri_class(net_dims, state_dim, action_dim).to(self.device) \
-            if cri_class else self.act
+        self.act: Optional[ActorBase] = None
+        self.cri: Optional[CriticBase] = None
+        self.act_target = self.act
+        self.cri_target = self.cri
 
-        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
-        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate) \
-            if cri_class else self.act_optimizer
-
+        self.act_optimizer: Optional[th.optim] = None
+        self.cri_optimizer: Optional[th.optim] = None
         self.criterion = th.nn.SmoothL1Loss()
 
-    def get_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state)
+    def get_random_action(self) -> TEN:
+        return th.rand(self.action_dim) * 2 - 1.0
+
+    def get_policy_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
 
     def explore_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
-        self.horizon_len = 0
+        self.horizon_len = horizon_len  # update horizon_len for update_net()
 
         states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
@@ -337,11 +352,10 @@ class AlgoBase:
         truncates = th.zeros(horizon_len, dtype=th.bool).to(self.device)
 
         ary_state = self.last_state
-        get_action = self.get_action
         for i in range(horizon_len):
             state = th.as_tensor(ary_state, dtype=th.float32, device=self.device)
-            action = th.rand(self.action_dim) * 2 - 1.0 if if_random \
-                else get_action(state.unsqueeze(0))[0]
+            action = self.get_random_action() if if_random \
+                else self.get_policy_action(state)
 
             states[i] = state
             actions[i] = action
@@ -361,6 +375,56 @@ class AlgoBase:
         unmasks = th.logical_not(truncates).unsqueeze(1)
         return states, actions, rewards, undones, unmasks
 
+    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+        with th.no_grad():
+            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
+
+            next_action = self.act(next_state)  # deterministic policy
+            next_q = self.cri_target(next_state, next_action)
+
+            q_label = reward + undone * self.gamma * next_q
+
+        q_value = self.cri(state, action) * unmask
+        obj_critic = self.criterion(q_value, q_label)
+        return obj_critic, state
+
+    def update_actor_net(self, state: TEN, update_t: int, if_skip: bool = False) -> Optional[TEN]:
+        if if_skip:
+            return None
+
+        action_pg = self.act(state)  # action to policy gradient
+        obj_actor = self.cri(state, action_pg).mean()
+        return obj_actor
+
+    def update_net(self, buffer, if_skip_actor: bool = False) -> Tuple[float, float]:
+        states = buffer.states[-self.horizon_len:]
+        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
+
+        tau = 1.0 if if_skip_actor else self.soft_update_tau
+        self.update_avg_std_for_state_value_norm(states=states, returns=reward_sums, tau=tau)
+
+        obj_critics = []
+        obj_actors = []
+
+        th.set_grad_enabled(True)
+        update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
+        for update_t in range(update_times):
+            obj_critic, state = self.update_critic_net(buffer, self.batch_size)
+            self.optimizer_update(self.cri_optimizer, obj_critic)
+            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
+            obj_critics.append(obj_critic.item())
+
+            obj_actor = self.update_actor_net(state, update_t, if_skip_actor)
+            if isinstance(obj_actor, TEN):
+                self.optimizer_update(self.act_optimizer, -obj_actor)
+                self.soft_update(self.act_target, self.act, self.soft_update_tau)
+                obj_actors.append(obj_actor.item())
+        th.set_grad_enabled(False)
+
+        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
+        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
+        return obj_critic_avg, obj_actor_avg
+
     @staticmethod
     def optimizer_update(optimizer, objective: TEN):
         optimizer.zero_grad()
@@ -369,7 +433,8 @@ class AlgoBase:
 
     @staticmethod
     def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):
-        # assert target_net is not current_net
+        if target_net is current_net:
+            return
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
@@ -390,59 +455,43 @@ class AlgoBase:
         self.cri.value_std[:] = (self.cri.value_std * (1 - tau) + returns_std * tau).clamp_min(1e-4)
 
 
-class AlgoTD3(AlgoBase):
+class AgentDDPG(AgentBase):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, 'act_class', Actor)  # get the attribute of object `self`
-        self.cri_class = getattr(self, 'cri_class', CriticTwin)  # get the attribute of object `self`
         super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
-        self.cri_target = deepcopy(self.cri)
+        self.explore_noise_std = getattr(args, 'explore_noise', 0.05)  # set for `self.get_policy_action()`
+
+        self.act = Actor(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.cri = Critic(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
+        self.cri_target = deepcopy(self.cri)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
-        self.policy_noise_std = getattr(args, 'policy_noise_std', 0.10)  # standard deviation of exploration noise
+    def get_policy_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
+
+
+class AgentTD3(AgentBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
         self.update_freq = getattr(args, 'update_freq', 2)  # standard deviation of exploration noise
+        self.num_ensembles = getattr(args, 'num_ensembles', 8)  # the number of critic networks
+        self.policy_noise_std = getattr(args, 'policy_noise_std', 0.10)  # standard deviation of exploration noise
+        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
 
-    def get_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state, action_std=self.explore_noise_std)
+        self.act = Actor(net_dims, state_dim, action_dim).to(self.device)
+        self.cri = CriticTwin(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.cri_target = deepcopy(self.cri)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-    def update_net(self, buffer, if_update_actor: bool = True) -> Tuple[float, float]:
-        states = buffer.states[-self.horizon_len:]
-        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
-        self.update_avg_std_for_state_value_norm(
-            states=states.reshape((-1, self.state_dim)),
-            returns=reward_sums.reshape((-1,)),
-            tau=self.soft_update_tau if if_update_actor else 1.0,
-        )
-
-        obj_critics = []
-        obj_actors = []
-
-        th.set_grad_enabled(True)
-        update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
-        for t in range(update_times):
-            obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
-            self.optimizer_update(self.cri_optimizer, obj_critic)
-            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-            obj_critics.append(obj_critic.item())
-
-            if if_update_actor and (t % self.update_freq == 0):
-                action = self.act(state)  # policy gradient
-                obj_actor = (self.cri(state, action)).mean()
-                self.optimizer_update(self.act_optimizer, -obj_actor)
-                self.soft_update(self.act_target, self.act, self.soft_update_tau)
-                obj_actors.append(obj_actor.item())
-        th.set_grad_enabled(False)
-
-        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
-        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
-        return obj_critic_avg, obj_actor_avg
-
-    def get_obj_critic(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
-            next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # stochastic policy
-            next_q, _ = self.cri_target.get_q_values(next_state, next_action).min(dim=1, keepdim=True)
+            next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # deterministic policy
+            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1, keepdim=True)[0]
 
             q_label = reward + undone * self.gamma * next_q
 
@@ -451,62 +500,40 @@ class AlgoTD3(AlgoBase):
         obj_critic = self.criterion(q_values, q_labels)
         return obj_critic, state
 
+    def update_actor_net(self, state: TEN, update_t: int = 0, if_skip: bool = False) -> Optional[TEN]:
+        if if_skip:
+            return None
 
-class AlgoSAC(AlgoBase):
+        action_pg = self.act(state)  # action to policy gradient
+        obj_actor = self.cri_target.get_q_values(state, action_pg).mean()
+        return obj_actor
+
+
+class AgentSAC(AgentBase):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, 'act_class', ActorSAC)  # get the attribute of object `self`
-        self.cri_class = getattr(self, 'cri_class', CriticEnsemble)  # get the attribute of object `self`
         super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.num_ensembles = getattr(args, 'num_ensembles', 8)  # the number of critic networks
+
+        self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
+        self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
+        self.act_target = self.act
         self.cri_target = deepcopy(self.cri)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
         self.alpha_log = th.tensor(-1, dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
         self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
         self.target_entropy = -np.log(action_dim)
 
-    def get_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state)  # stochastic policy for exploration, set action_std automatically
+    def get_policy_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state.unsqueeze(0))[0]  # stochastic policy for exploration
 
-    def update_net(self, buffer: ReplayBuffer, if_update_actor: bool = True) -> Tuple[float, float]:
-        states = buffer.states[-self.horizon_len:]
-        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
-        self.update_avg_std_for_state_value_norm(
-            states=states.reshape((-1, self.state_dim)),
-            returns=reward_sums.reshape((-1,)),
-            tau=self.soft_update_tau if if_update_actor else 1.0,
-        )
-
-        obj_critics = []
-        obj_actors = []
-
-        th.set_grad_enabled(True)
-        update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
-        for i in range(update_times):
-            obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
-            self.optimizer_update(self.cri_optimizer, obj_critic)
-            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-            obj_critics.append(obj_critic.item())
-
-            if if_update_actor:
-                action, logprob = self.act.get_action_logprob(state)  # policy gradient
-                obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
-                self.optimizer_update(self.alpha_optim, obj_alpha)
-
-                alpha = self.alpha_log.exp().detach()
-                obj_actor = (self.cri(state, action) - logprob * alpha).mean()
-                self.optimizer_update(self.act_optimizer, -obj_actor)
-                obj_actors.append(obj_actor.item())
-        th.set_grad_enabled(False)
-
-        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
-        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
-        return obj_critic_avg, obj_actor_avg
-
-    def get_obj_critic(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
             next_action, next_logprob = self.act.get_action_logprob(next_state)  # stochastic policy
-            next_q, _ = th.min(self.cri_target.get_q_values(next_state, next_action), dim=1, keepdim=True)
+            next_q = th.min(self.cri_target.get_q_values(next_state, next_action), dim=1, keepdim=True)[0]
             alpha = self.alpha_log.exp()
             q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
 
@@ -515,8 +542,20 @@ class AlgoSAC(AlgoBase):
         obj_critic = self.criterion(q_values, q_labels)
         return obj_critic, state
 
+    def update_actor_net(self, state: TEN, update_t: int = 0, if_skip: bool = False) -> Optional[TEN]:
+        if if_skip:
+            return None
 
-class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
+        action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
+        obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
+        self.optimizer_update(self.alpha_optim, obj_alpha)
+
+        alpha = self.alpha_log.exp().detach()
+        obj_actor = (self.cri(state, action_pg) - logprob * alpha).mean()
+        return obj_actor
+
+
+class PendulumEnv(gym.Wrapper):  # a demo of custom env
     def __init__(self):
         # gymnasium.logger.set_level(40)  # Block warning
         gym_env_name = 'Pendulum-v1'
@@ -557,7 +596,7 @@ def train_agent(args: Config):
     buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
     buffer.update(buffer_items)  # warm up for ReplayBuffer
 
-    agent.update_net(buffer, if_update_actor=False)
+    agent.update_net(buffer, if_skip_actor=False)
     while True:  # start training
         buffer_items = agent.explore_env(env, args.horizon_len)
         buffer.update(buffer_items)
@@ -624,17 +663,29 @@ def get_rewards_and_steps(env, actor: ActorBase, if_render: bool = False) -> (fl
 
         if if_render:
             env.render()
-
-        done = terminated or truncated
-        if done:
+        if terminated or truncated:
             break
     cumulative_returns = getattr(env.unwrapped, 'cumulative_returns', cumulative_returns)
-    episode_steps += 1
-    return cumulative_returns, episode_steps
+    return cumulative_returns, episode_steps + 1
 
 
-def train_sac_td3_for_pendulum(gpu_id: int = 0):
-    agent_class = [AlgoSAC, AlgoTD3][0]  # DRL algorithm name
+def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_path: str, render_times: int = 8):
+    env = build_env(env_class, env_args)
+
+    state_dim = env_args['state_dim']
+    action_dim = env_args['action_dim']
+    agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
+    actor = agent.act
+
+    print(f"| render and load actor from: {actor_path}")
+    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
+    for i in range(render_times):
+        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
+        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
+
+
+def train_sac_td3_ddpg_for_pendulum(gpu_id: int = 0, drl_id: int = 0):
+    agent_class = [AgentSAC, AgentTD3, AgentDDPG][drl_id]  # DRL algorithm name
     print(f"agent_class {agent_class.__name__}")
 
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -646,13 +697,18 @@ def train_sac_td3_for_pendulum(gpu_id: int = 0):
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class=AlgoTD3, env_class=env_class, env_args=env_args)  # see `Config` for explanation
-    args.break_step = int(4e8)  # break training if 'total_step > break_step'
+    args = Config(agent_class=agent_class, env_class=env_class, env_args=env_args)  # see `Config` for explanation
+    args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
 
     args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     train_agent(args)
+    if input("| Press 'y' to load actor.pth and render:"):
+        actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
+        actor_path = f"{args.cwd}/{actor_name}"
+        render_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
+
     """
     cumulative returns range: -1000 < -700 < -100 < -50
 
@@ -663,8 +719,6 @@ def train_sac_td3_for_pendulum(gpu_id: int = 0):
     | 3.07e+04       190  |  -213.40   97.32     200  |     0.78    -77.40
     | 4.10e+04       296  |   -77.75   41.87     200  |     0.62    -46.33
     | 5.12e+04       427  |   -70.72   22.34     200  |     0.47    -32.85
-    | 6.14e+04       585  |  -101.31   39.49     200  |     0.37    -24.73
-    | 7.17e+04       768  |   -72.49   50.92     200  |     0.34    -18.68
 
     AgentTD3  env_name Pendulum-v1
     |     step      time  |     avgR    stdR    avgS  |     objC      objA
@@ -673,13 +727,11 @@ def train_sac_td3_for_pendulum(gpu_id: int = 0):
     | 3.07e+04       173  |  -237.52   50.73     200  |     0.67    -73.77
     | 4.10e+04       280  |   -61.79    2.99     200  |     0.58    -49.62
     | 5.12e+04       415  |   -79.03   40.78     200  |     0.44    -33.22
-    | 6.14e+04       574  |   -83.73   53.11     200  |     0.36    -26.39
-    | 7.17e+04       759  |   -75.11   43.56     200  |     0.28    -23.41
     """
 
 
-def train_sac_td3_for_lunar_lander(gpu_id: int = 0):
-    agent_class = [AlgoSAC, AlgoTD3][0]  # DRL algorithm name
+def train_sac_td3_ddpg_for_lunar_lander(gpu_id: int = 0, drl_id: int = 0):
+    agent_class = [AgentSAC, AgentTD3, AgentDDPG][drl_id]  # DRL algorithm name
     print(f"agent_class {agent_class.__name__}")
 
     env_class = gym.make
@@ -691,7 +743,7 @@ def train_sac_td3_for_lunar_lander(gpu_id: int = 0):
     }
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class=agent_class, env_class=env_class, env_args=env_args)  # see `Config` for explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.horizon_len = 256  # collect horizon_len step while exploring, then update network
@@ -705,6 +757,11 @@ def train_sac_td3_for_lunar_lander(gpu_id: int = 0):
 
     args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     train_agent(args)
+    if input("| Press 'y' to load actor.pth and render:"):
+        actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
+        actor_path = f"{args.cwd}/{actor_name}"
+        render_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
+
     """   
     cumulative returns range: -1500 < -140 < 200 < 280
 
@@ -719,7 +776,6 @@ def train_sac_td3_for_lunar_lander(gpu_id: int = 0):
     | 1.42e+05      5105  |   162.57   53.90     799  |     1.45      9.00
     | 1.62e+05      6552  |   139.77   79.76     787  |     1.42      8.45
     | 1.82e+05      8191  |   121.63   79.18     869  |     1.46      6.80
-    | 2.02e+05     10008  |   110.12   81.12     913  |     1.62      5.80
 
     AgentTD3  env_name LunarLanderContinuous-v2
     |     step      time  |     avgR    stdR    avgS  |     objC      objA
@@ -732,11 +788,11 @@ def train_sac_td3_for_lunar_lander(gpu_id: int = 0):
     | 1.42e+05      2998  |   -24.59   60.55     987  |     0.95     25.17
     | 1.62e+05      3827  |   137.89  160.10     483  |     1.09     20.72
     | 1.82e+05      4776  |    48.25  110.73     722  |     0.96     31.02
-    | 2.02e+05      5821  |   240.80   73.34     370  |     0.90     28.31
     """
 
 
 if __name__ == '__main__':
-    GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else -1
-    train_sac_td3_for_pendulum(gpu_id=GPU_ID)
-    train_sac_td3_for_lunar_lander(gpu_id=GPU_ID)
+    GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    DRL_ID = int(sys.argv[2]) if len(sys.argv) > 1 else 0
+    train_sac_td3_ddpg_for_pendulum(gpu_id=GPU_ID, drl_id=DRL_ID)
+    train_sac_td3_ddpg_for_lunar_lander(gpu_id=GPU_ID, drl_id=DRL_ID)
