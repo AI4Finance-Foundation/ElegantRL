@@ -35,7 +35,8 @@ class Config:  # for off-policy
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
-        self.state_value_tau = 0.1  # 0.05 ~ 0.50
+        self.state_update_tau = 1e-2  # 1e-2 ~ 1e-7
+        self.value_update_tau = 1e-5  # 1e-4 ~ 1e-9
         self.batch_size = int(64)  # num of transitions sampled from replay buffer.
         self.horizon_len = int(256)  # collect horizon_len step while exploring, then update network
         self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
@@ -320,7 +321,8 @@ class AgentBase:
         self.reward_scale: float = args.reward_scale
         self.learning_rate: float = args.learning_rate
         self.soft_update_tau: float = args.soft_update_tau
-        self.state_value_tau: float = args.state_value_tau
+        self.state_update_tau: float = args.state_update_tau
+        self.value_update_tau: float = args.value_update_tau
 
         self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
 
@@ -399,9 +401,12 @@ class AgentBase:
     def update_net(self, buffer, if_skip_actor: bool = False) -> Tuple[float, float]:
         states = buffer.states[-self.horizon_len:]
         reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
-
-        tau = 1.0 if if_skip_actor else self.soft_update_tau
-        self.update_avg_std_for_state_value_norm(states=states, returns=reward_sums, tau=tau)
+        self.update_avg_std_for_state_value_norm(
+            states=states,
+            returns=reward_sums,
+            state_tau=1.0 if if_skip_actor else self.state_update_tau,
+            value_tau=1.0 if if_skip_actor else self.value_update_tau,
+        )
 
         obj_critics = []
         obj_actors = []
@@ -438,21 +443,20 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    def update_avg_std_for_state_value_norm(self, states: TEN, returns: TEN, tau: float):
-        if tau == 0:
-            return
+    def update_avg_std_for_state_value_norm(self, states: TEN, returns: TEN, state_tau: float, value_tau: float):
+        if state_tau > 0 and self.state_update_tau != 0:
+            state_avg = states.mean(dim=0, keepdim=True)
+            state_std = states.std(dim=0, keepdim=True)
+            self.act.state_avg[:] = self.act.state_avg * (1 - state_tau) + state_avg * state_tau
+            self.act.state_std[:] = (self.cri.state_std * (1 - state_tau) + state_std * state_tau).clamp_min(1e-4)
+            self.cri.state_avg[:] = self.act.state_avg
+            self.cri.state_std[:] = self.cri.state_std
 
-        state_avg = states.mean(dim=0, keepdim=True)
-        state_std = states.std(dim=0, keepdim=True)
-        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
-        self.act.state_std[:] = (self.cri.state_std * (1 - tau) + state_std * tau).clamp_min(1e-4)
-        self.cri.state_avg[:] = self.act.state_avg
-        self.cri.state_std[:] = self.cri.state_std
-
-        returns_avg = returns.mean(dim=0)
-        returns_std = returns.std(dim=0)
-        self.cri.value_avg[:] = self.cri.value_avg * (1 - tau) + returns_avg * tau
-        self.cri.value_std[:] = (self.cri.value_std * (1 - tau) + returns_std * tau).clamp_min(1e-4)
+        if value_tau > 0 and self.value_update_tau != 0:
+            returns_avg = returns.mean(dim=0)
+            returns_std = returns.std(dim=0)
+            self.cri.value_avg[:] = self.cri.value_avg * (1 - value_tau) + returns_avg * value_tau
+            self.cri.value_std[:] = (self.cri.value_std * (1 - value_tau) + returns_std * value_tau).clamp_min(1e-4)
 
 
 class AgentDDPG(AgentBase):
@@ -747,8 +751,9 @@ def train_sac_td3_ddpg_for_lunar_lander(gpu_id: int = 0, drl_id: int = 0):
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.horizon_len = 256  # collect horizon_len step while exploring, then update network
-    args.repeat_times = 2.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.state_value_tau = 0.001  # do rolling normalization on state using soft update tau
+    args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
+    args.state_update_tau = 1e-6  # do rolling normalization on state using soft update tau
+    args.value_update_tau = 1e-6  # do rolling normalization on value using soft update tau
     args.batch_size = 256  # do rolling normalization on state using soft update tau
     args.gamma = 0.98
 
