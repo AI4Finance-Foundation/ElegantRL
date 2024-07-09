@@ -1,6 +1,6 @@
 from erl_config import Config, get_gym_env_args
 from erl_agent import AgentDDPG
-from run import train_agent
+from erl_run import train_agent
 from erl_env import PendulumEnv
 
 

@@ -1,69 +1,69 @@
 import os
 import time
-import torch
+from typing import List
+
+import torch as th
 import numpy as np
+
 from erl_config import Config, build_env
 from erl_agent import ReplayBuffer
 
 
 def train_agent(args: Config):
     args.init_before_training()
+    th.set_grad_enabled(False)
+
+    evaluator = Evaluator(
+        eval_env=build_env(args.env_class, args.env_args),
+        eval_per_step=args.eval_per_step,
+        eval_times=args.eval_times,
+        cwd=args.cwd,
+    )
 
     env = build_env(args.env_class, args.env_args)
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.last_state = env.reset()
-
-    evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
-                          eval_per_step=args.eval_per_step,
-                          eval_times=args.eval_times,
-                          cwd=args.cwd)
+    agent.last_state, info_dict = env.reset()
 
     if args.if_off_policy:
-        buffer = ReplayBuffer(gpu_id=args.gpu_id,
-                              max_size=args.buffer_size,
-                              state_dim=args.state_dim,
-                              action_dim=1 if args.if_discrete else args.action_dim, )
+        buffer = ReplayBuffer(
+            gpu_id=args.gpu_id,
+            max_size=args.buffer_size,
+            state_dim=args.state_dim,
+            action_dim=1 if args.if_discrete else args.action_dim,
+        )
         buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
         buffer.update(buffer_items)  # warm up for ReplayBuffer
     else:
         buffer = []
 
     '''start training'''
-    cwd = args.cwd
-    break_step = args.break_step
-    horizon_len = args.horizon_len
-    if_off_policy = args.if_off_policy
-    del args
-
-    torch.set_grad_enabled(False)
+    if args.if_off_policy:
+        agent.update_net(buffer, if_skip_actor=False)
     while True:
-        buffer_items = agent.explore_env(env, horizon_len)
-        if if_off_policy:
+        buffer_items = agent.explore_env(env, args.horizon_len)
+        if args.if_off_policy:
             buffer.update(buffer_items)
         else:
             buffer[:] = buffer_items
 
-        torch.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
-        torch.set_grad_enabled(False)
 
-        evaluator.evaluate_and_save(agent.act, horizon_len, logging_tuple)
-        if (evaluator.total_step > break_step) or os.path.exists(f"{cwd}/stop"):
+        evaluator.evaluate_and_save(agent.act, args.horizon_len, logging_tuple)
+        if (evaluator.total_step > args.break_step) or os.path.exists(f"{args.cwd}/stop"):
             break  # stop training when reach `break_step` or `mkdir cwd/stop`
     evaluator.close()
 
 
-def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_path: str, render_times: int = 8):
+def render_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
     env = build_env(env_class, env_args)
 
     state_dim = env_args['state_dim']
     action_dim = env_args['action_dim']
     agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
     actor = agent.act
-    del agent
 
     print(f"| render and load actor from: {actor_path}")
-    actor.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     for i in range(render_times):
         cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
         print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
@@ -106,7 +106,7 @@ class Evaluator:
         self.recorder.append((self.total_step, used_time, avg_r))
 
         save_path = f"{self.cwd}/actor_{self.total_step:012.0f}_{used_time:08.0f}_{avg_r:08.2f}.pth"
-        torch.save(actor.state_dict(), save_path)
+        th.save(actor.state_dict(), save_path)
         print(f"| {self.total_step:8.2e}  {used_time:8.0f}  "
               f"| {avg_r:8.2f}  {std_r:6.2f}  {avg_s:6.0f}  "
               f"| {logging_tuple[0]:8.2f}  {logging_tuple[1]:8.2f}")
@@ -116,26 +116,24 @@ class Evaluator:
         draw_learning_curve_using_recorder(self.cwd)
 
 
-def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):  # cumulative_rewards and episode_steps
-    if_discrete = env.if_discrete
+def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
-    state = env.reset()
+    state, info_dict = env.reset()
     episode_steps = 0
     cumulative_returns = 0.0  # sum of rewards in an episode
     for episode_steps in range(12345):
-        tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
-        tensor_action = actor(tensor_state).argmax(dim=1) if if_discrete else actor(tensor_state)
+        tensor_state = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
+        tensor_action = actor(tensor_state)
         action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
-        state, reward, done, _ = env.step(action)
+        state, reward, terminated, truncated, _ = env.step(action)
         cumulative_returns += reward
 
         if if_render:
             env.render()
-            time.sleep(0.02)
-        if done:
+        if terminated or truncated:
             break
-    cumulative_returns = getattr(env, 'cumulative_returns', cumulative_returns)
+    cumulative_returns = getattr(env.unwrapped, 'cumulative_returns', cumulative_returns)
     return cumulative_returns, episode_steps + 1
 
 

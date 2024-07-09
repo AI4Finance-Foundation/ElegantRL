@@ -2,7 +2,7 @@ import os
 import gym
 from erl_config import Config, get_gym_env_args
 from erl_agent import AgentDQN
-from run import train_agent, render_agent
+from erl_run import train_agent, render_agent
 
 gym.logger.set_level(40)  # Block warning
 

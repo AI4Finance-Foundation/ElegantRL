@@ -296,30 +296,30 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates).unsqueeze(1)
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def update_net(self, buffer:List[TEN, TEN, TEN, TEN, TEN, TEN], **kwargs) -> [float]:
-        with th.no_grad():
-            states, actions, logprobs, rewards, undones, unmasks = buffer
-            buffer_size = states.shape[0]
+    def update_net(self, buffer: List[TEN, TEN, TEN, TEN, TEN, TEN], **kwargs) -> Tuple[float, float, float]:
+        states, actions, logprobs, rewards, undones, unmasks = buffer
+        buffer_size = states.shape[0]
 
-            '''get advantages reward_sums'''
-            bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
-            values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
-            values = th.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
+        '''get advantages reward_sums'''
+        bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+        values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
+        values = th.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
 
-            advantages = self.get_advantages(rewards, undones, unmasks, values)  # advantages.shape == (buffer_size, )
-            reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
-            del rewards, undones, values
+        advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
+        reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
+        del rewards, undones, values
 
-            advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
+        advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
         assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size,)
 
         '''update network'''
-        obj_critics = 0.0
-        obj_actors = 0.0
+        obj_critics = []
+        obj_actors = []
 
+        th.set_grad_enabled(True)
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
-        for _ in range(update_times):
+        for update_t in range(update_times):
             indices = th.randint(buffer_size, size=(self.batch_size,), requires_grad=False)
             state = states[indices]
             action = actions[indices]
@@ -327,31 +327,47 @@ class AgentPPO(AgentBase):
             advantage = advantages[indices]
             reward_sum = reward_sums[indices]
 
-            value = (self.cri(state) * unmasks).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
-            obj_critic = self.criterion(value, reward_sum)
+            obj_critic = self.update_critic_net_with_advantage(state, reward_sum)
             self.optimizer_update(self.cri_optimizer, obj_critic)
+            obj_critics.append(obj_critic.item())
 
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
-            ratio = (new_logprob - logprob.detach()).exp()
-            surrogate1 = advantage * ratio
-            surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
-            obj_surrogate = th.min(surrogate1, surrogate2).mean()
-
-            obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
+            obj_actor = self.update_actor_net_with_advantage(state, action, logprob, advantage)
             self.optimizer_update(self.act_optimizer, -obj_actor)
+            obj_actors.append(obj_actor.item())
+        th.set_grad_enabled(False)
 
-            obj_critics += obj_critic.item()
-            obj_actors += obj_actor.item()
+        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
+        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
         a_std_log = getattr(self.act, 'a_std_log', th.zeros(1)).mean()
-        return obj_critics / update_times, obj_actors / update_times, a_std_log.item()
+        return obj_critic_avg, obj_actor_avg, a_std_log.item()
 
-    def get_advantages(self, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
+    def update_critic_net_with_advantage(self, state: TEN, reward_sum: TEN) -> TEN:
+        value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+        obj_critic = self.criterion(value, reward_sum)
+        return obj_critic
+
+    def update_actor_net_with_advantage(self, state: TEN, action: TEN, logprob: TEN, advantage: TEN) -> TEN:
+        new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
+        ratio = (new_logprob - logprob.detach()).exp()
+        surrogate1 = advantage * ratio
+        surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+        obj_surrogate = th.min(surrogate1, surrogate2).mean()
+
+        obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
+        return obj_actor
+
+    def get_advantages(self, states: TEN, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
         advantages = th.empty_like(values)  # advantage value
 
-        masks = th.logical_and(undones, unmasks) * self.gamma
+        # update undones rewards when truncated
+        truncated = th.logical_not(unmasks)
+        if th.any(truncated):
+            rewards[truncated] += self.cri(states[truncated]).detach().squeeze(1)
+            undones[truncated] = False
+
+        masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        # TODO unmasks
         next_state = th.tensor(self.last_state, dtype=th.float32).to(self.device)
         next_value = self.cri(next_state.unsqueeze(0)).detach().squeeze(1).squeeze(0)
 

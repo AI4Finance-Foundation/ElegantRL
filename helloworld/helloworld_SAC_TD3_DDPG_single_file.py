@@ -397,6 +397,7 @@ class AgentBase:
 
         th.set_grad_enabled(True)
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
+        assert update_times >= 1
         for update_t in range(update_times):
             obj_critic, state = self.update_critic_net(buffer, self.batch_size)
             self.optimizer_update(self.cri_optimizer, obj_critic)
@@ -563,18 +564,25 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom env
 
 def train_agent(args: Config):
     args.init_before_training()
-    gpu_id = args.gpu_id
     th.set_grad_enabled(False)
 
-    evaluator = Evaluator(eval_env=build_env(args.env_class, args.env_args),
-                          eval_per_step=args.eval_per_step, eval_times=args.eval_times, cwd=args.cwd)
+    evaluator = Evaluator(
+        eval_env=build_env(args.env_class, args.env_args),
+        eval_per_step=args.eval_per_step,
+        eval_times=args.eval_times,
+        cwd=args.cwd,
+    )
 
     env = build_env(args.env_class, args.env_args)
-    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=gpu_id, args=args)
+    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
     agent.last_state, info_dict = env.reset()
 
-    buffer = ReplayBuffer(gpu_id=gpu_id, max_size=args.buffer_size,
-                          state_dim=args.state_dim, action_dim=1 if args.if_discrete else args.action_dim, )
+    buffer = ReplayBuffer(
+        gpu_id=args.gpu_id,
+        max_size=args.buffer_size,
+        state_dim=args.state_dim,
+        action_dim=1 if args.if_discrete else args.action_dim,
+    )
     buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
     buffer.update(buffer_items)  # warm up for ReplayBuffer
 
@@ -651,7 +659,7 @@ def get_rewards_and_steps(env, actor: ActorBase, if_render: bool = False) -> (fl
     return cumulative_returns, episode_steps + 1
 
 
-def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_path: str, render_times: int = 8):
+def render_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
     env = build_env(env_class, env_args)
 
     state_dim = env_args['state_dim']
