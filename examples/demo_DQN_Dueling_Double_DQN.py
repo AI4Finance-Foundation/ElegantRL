@@ -21,7 +21,7 @@ def train_dqn_for_cartpole():
                 'if_discrete': True, }
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -77,7 +77,7 @@ def train_dqn_for_cartpole_vec_env():
     }
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -129,7 +129,7 @@ def train_dqn_for_lunar_lander():
 
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(5e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -184,7 +184,7 @@ def train_dqn_for_lunar_lander_vec_env():
     }
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512

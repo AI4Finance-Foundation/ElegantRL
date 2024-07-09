@@ -25,7 +25,7 @@ def train_ppo_a2c_for_pendulum():
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)  # break training if 'total_step > break_step'
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
@@ -72,7 +72,7 @@ def train_ppo_a2c_for_pendulum_vec_env():
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards

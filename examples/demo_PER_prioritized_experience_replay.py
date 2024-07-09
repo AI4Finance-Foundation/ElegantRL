@@ -22,7 +22,7 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous():
                 'if_discrete': False}
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.net_dims = (256, 256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 128
     args.gamma = 0.99  # discount factor of future rewards

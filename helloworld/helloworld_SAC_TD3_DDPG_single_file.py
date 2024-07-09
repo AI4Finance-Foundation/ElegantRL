@@ -35,8 +35,7 @@ class Config:  # for off-policy
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
-        self.state_update_tau = 1e-2  # 1e-2 ~ 1e-7
-        self.value_update_tau = 1e-5  # 1e-4 ~ 1e-9
+        self.state_update_tau = 1e-2  # 1e-1 ~ 1e-6
         self.batch_size = int(64)  # num of transitions sampled from replay buffer.
         self.horizon_len = int(256)  # collect horizon_len step while exploring, then update network
         self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
@@ -145,14 +144,9 @@ class CriticBase(nn.Module):
 
         self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
         self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
-        self.value_avg = nn.Parameter(th.zeros((1,)), requires_grad=False)
-        self.value_std = nn.Parameter(th.ones((1,)), requires_grad=False)
 
     def state_norm(self, state: TEN) -> TEN:
         return (state - self.state_avg) / self.state_std
-
-    def value_re_norm(self, value: TEN) -> TEN:
-        return value * self.value_std + self.value_avg
 
 
 class Critic(CriticBase):
@@ -163,7 +157,6 @@ class Critic(CriticBase):
     def forward(self, state: TEN, action: TEN) -> TEN:
         state = self.state_norm(state)
         value = self.net(th.cat((state, action), dim=1))
-        value = self.value_re_norm(value)
         return value  # Q value
 
 
@@ -181,7 +174,6 @@ class CriticTwin(CriticBase):
     def get_q_values(self, state: TEN, action: TEN) -> TEN:
         state = self.state_norm(state)
         values = self.net(th.cat((state, action), dim=1))
-        values = self.value_re_norm(values)
         return values  # Q values
 
 
@@ -206,7 +198,6 @@ class CriticEnsemble(CriticBase):
         state = self.state_norm(state)
         tensor_sa = self.encoder_sa(th.cat((state, action), dim=1))
         values = th.concat([decoder_q(tensor_sa) for decoder_q in self.decoder_qs], dim=-1)
-        values = self.value_re_norm(values)
         return values  # Q values
 
 
@@ -322,7 +313,6 @@ class AgentBase:
         self.learning_rate: float = args.learning_rate
         self.soft_update_tau: float = args.soft_update_tau
         self.state_update_tau: float = args.state_update_tau
-        self.value_update_tau: float = args.value_update_tau
 
         self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
 
@@ -359,14 +349,13 @@ class AgentBase:
             action = self.get_random_action() if if_random \
                 else self.get_policy_action(state)
 
-            states[i] = state
-            actions[i] = action
-
             ary_action = action.detach().cpu().numpy()
             ary_state, reward, terminal, truncate, _ = env.step(ary_action)
             if terminal or truncate:
                 ary_state, info_dict = env.reset()
 
+            states[i] = state
+            actions[i] = action
             rewards[i] = reward
             terminals[i] = terminal
             truncates[i] = truncate
@@ -400,13 +389,8 @@ class AgentBase:
 
     def update_net(self, buffer, if_skip_actor: bool = False) -> Tuple[float, float]:
         states = buffer.states[-self.horizon_len:]
-        reward_sums = buffer.rewards[-self.horizon_len:] * (1 / (1 - self.gamma))
-        self.update_avg_std_for_state_value_norm(
-            states=states,
-            returns=reward_sums,
-            state_tau=1.0 if if_skip_actor else self.state_update_tau,
-            value_tau=1.0 if if_skip_actor else self.value_update_tau,
-        )
+        state_update_tau = 1.0 if if_skip_actor else self.state_update_tau
+        self.update_avg_std_for_state_norm(states=states, tau=state_update_tau)
 
         obj_critics = []
         obj_actors = []
@@ -443,20 +427,15 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    def update_avg_std_for_state_value_norm(self, states: TEN, returns: TEN, state_tau: float, value_tau: float):
-        if state_tau > 0 and self.state_update_tau != 0:
-            state_avg = states.mean(dim=0, keepdim=True)
-            state_std = states.std(dim=0, keepdim=True)
-            self.act.state_avg[:] = self.act.state_avg * (1 - state_tau) + state_avg * state_tau
-            self.act.state_std[:] = (self.cri.state_std * (1 - state_tau) + state_std * state_tau).clamp_min(1e-4)
-            self.cri.state_avg[:] = self.act.state_avg
-            self.cri.state_std[:] = self.cri.state_std
-
-        if value_tau > 0 and self.value_update_tau != 0:
-            returns_avg = returns.mean(dim=0)
-            returns_std = returns.std(dim=0)
-            self.cri.value_avg[:] = self.cri.value_avg * (1 - value_tau) + returns_avg * value_tau
-            self.cri.value_std[:] = (self.cri.value_std * (1 - value_tau) + returns_std * value_tau).clamp_min(1e-4)
+    def update_avg_std_for_state_norm(self, states: TEN, tau: float):
+        if tau == 0 or self.state_update_tau == 0:
+            return
+        state_avg = states.mean(dim=0, keepdim=True)
+        state_std = states.std(dim=0, keepdim=True)
+        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
+        self.act.state_std[:] = (self.cri.state_std * (1 - tau) + state_std * tau).clamp_min(1e-4)
+        self.cri.state_avg[:] = self.act.state_avg
+        self.cri.state_std[:] = self.cri.state_std
 
 
 class AgentDDPG(AgentBase):
@@ -520,7 +499,7 @@ class AgentSAC(AgentBase):
 
         self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
         self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
-        self.act_target = self.act
+        self.act_target = deepcopy(self.act)
         self.cri_target = deepcopy(self.cri)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
@@ -561,7 +540,6 @@ class AgentSAC(AgentBase):
 
 class PendulumEnv(gym.Wrapper):  # a demo of custom env
     def __init__(self):
-        # gymnasium.logger.set_level(40)  # Block warning
         gym_env_name = 'Pendulum-v1'
         super().__init__(env=gym.make(gym_env_name))
 
@@ -752,8 +730,7 @@ def train_sac_td3_ddpg_for_lunar_lander(gpu_id: int = 0, drl_id: int = 0):
     args.net_dims = (128, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.horizon_len = 256  # collect horizon_len step while exploring, then update network
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.state_update_tau = 1e-6  # do rolling normalization on state using soft update tau
-    args.value_update_tau = 1e-6  # do rolling normalization on value using soft update tau
+    args.state_update_tau = 1e-2  # do rolling normalization on state using soft update tau
     args.batch_size = 256  # do rolling normalization on state using soft update tau
     args.gamma = 0.98
 

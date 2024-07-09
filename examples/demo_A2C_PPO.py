@@ -25,7 +25,7 @@ def train_ppo_a2c_for_pendulum():
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)  # break training if 'total_step > break_step'
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
@@ -72,7 +72,7 @@ def train_ppo_a2c_for_pendulum_vec_env():
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
@@ -111,7 +111,7 @@ def train_ppo_a2c_for_lunar_lander_continuous():
                 'if_discrete': False}
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(4e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -163,7 +163,7 @@ def train_ppo_a2c_for_lunar_lander_continuous_vec_env():
     }
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -215,7 +215,7 @@ def train_ppo_a2c_for_bipedal_walker():
     }
     get_gym_env_args(env=gym.make('BipedalWalker-v3'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -271,7 +271,7 @@ def train_ppo_a2c_for_bipedal_walker_vec_env():
     }
     get_gym_env_args(env=gym.make('BipedalWalker-v3'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -343,7 +343,7 @@ def train_ppo_a2c_for_stock_trading():
                 'end_idx': id1, }
     # get_gym_vec_env_args(env=StockTradingEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = gamma  # discount factor of future rewards
@@ -409,7 +409,7 @@ def train_ppo_a2c_for_stock_trading_vec_env():
                 'end_idx': id1, }
     # get_gym_vec_env_args(env=StockTradingVecEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = gamma  # discount factor of future rewards
@@ -466,7 +466,7 @@ def train_discrete_ppo_a2c_for_cartpole():
     }
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -520,7 +520,7 @@ def train_discrete_ppo_a2c_for_cartpole_vec_env():
     }
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -567,7 +567,7 @@ def train_discrete_ppo_a2c_for_lunar_lander():
     }
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(4e6)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
@@ -620,7 +620,7 @@ def train_discrete_ppo_a2c_for_lunar_lander_vec_env():
     }
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(4e6)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512

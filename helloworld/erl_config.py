@@ -26,6 +26,7 @@ class Config:
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
+        self.state_update_tau = 1e-2  # 2 ** -6 ~= 1e-2
         if self.if_off_policy:  # off-policy
             self.batch_size = int(64)  # num of transitions sampled from replay buffer.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update network
@@ -33,7 +34,7 @@ class Config:
             self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
         else:  # on-policy
             self.batch_size = int(128)  # num of transitions sampled from replay buffer.
-            self.horizon_len = int(2000)  # collect horizon_len step while exploring, then update network
+            self.horizon_len = int(2048)  # collect horizon_len step while exploring, then update network
             self.buffer_size = None  # ReplayBuffer size. Empty the ReplayBuffer for on-policy.
             self.repeat_times = 8.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
 
@@ -133,10 +134,7 @@ def kwargs_filter(function, kwargs: dict) -> dict:
 
 
 def build_env(env_class=None, env_args=None):
-    if env_class.__module__ == 'gym.envs.registration':  # special rule
-        import gym
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
-        gym.logger.set_level(40)  # Block warning
+    if env_class.__module__ == 'gymnasium.envs.registration':  # special rule
         env = env_class(id=env_args['env_name'])
     else:
         env = env_class(**kwargs_filter(env_class.__init__, env_args.copy()))

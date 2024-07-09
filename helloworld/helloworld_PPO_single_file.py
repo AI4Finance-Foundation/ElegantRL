@@ -455,7 +455,7 @@ def train_ppo_for_pendulum():
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
     args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
@@ -475,7 +475,7 @@ def train_ppo_for_lunar_lander():
     }
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(4e5)  # break training if 'total_step > break_step'
     args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
     args.repeat_times = 32  # repeatedly update network using ReplayBuffer to keep critic's loss small

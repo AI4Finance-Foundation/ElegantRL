@@ -1,7 +1,7 @@
 import os
 import gym
-from config import Config, get_gym_env_args
-from agent import AgentDQN
+from erl_config import Config, get_gym_env_args
+from erl_agent import AgentDQN
 from run import train_agent, render_agent
 
 gym.logger.set_level(40)  # Block warning
@@ -20,7 +20,7 @@ def train_dqn_for_cartpole(gpu_id=0):
     }
     get_gym_env_args(env=gym.make('CartPole-v0'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
     args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
@@ -44,7 +44,7 @@ def train_dqn_for_lunar_lander(gpu_id=0):
     }
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(4e5)  # break training if 'total_step > break_step'
     args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     args.explore_rate = 0.1  # the probability of choosing action randomly in epsilon-greedy

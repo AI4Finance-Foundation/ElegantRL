@@ -1,7 +1,7 @@
-from config import Config, get_gym_env_args
-from agent import AgentDDPG
+from erl_config import Config, get_gym_env_args
+from erl_agent import AgentDDPG
 from run import train_agent
-from env import PendulumEnv
+from erl_env import PendulumEnv
 
 
 def train_ddpg_for_pendulum(gpu_id=0):
@@ -16,7 +16,7 @@ def train_ddpg_for_pendulum(gpu_id=0):
         'if_discrete': False  # continuous action space, symbols → direction, value → force
     }  # env_args = get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
-    args = Config(agent_class, env_class, env_args)  # see `config.py Arguments()` for hyperparameter explanation
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(6e4)  # break training if 'total_step > break_step'
     args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
     args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
