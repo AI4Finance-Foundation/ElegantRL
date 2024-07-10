@@ -26,7 +26,6 @@ class Config:
         self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
-        self.state_update_tau = 1e-2  # 2 ** -6 ~= 1e-2
         if self.if_off_policy:  # off-policy
             self.batch_size = int(64)  # num of transitions sampled from replay buffer.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update network

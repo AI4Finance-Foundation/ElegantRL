@@ -33,13 +33,8 @@ def train_agent(args: Config):
         )
         buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
         buffer.update(buffer_items)  # warm up for ReplayBuffer
-
-        agent.update_avg_std_for_state_norm(states=buffer.states)
     else:
         buffer = []
-        buffer_items = agent.explore_env(env, args.horizon_len, if_random=True)
-        buffer[:] = buffer_items
-
 
     '''start training'''
     while True:

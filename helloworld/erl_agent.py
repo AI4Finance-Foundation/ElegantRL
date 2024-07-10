@@ -71,7 +71,6 @@ class AgentBase:
         self.reward_scale: float = args.reward_scale
         self.learning_rate: float = args.learning_rate
         self.soft_update_tau: float = args.soft_update_tau
-        self.state_update_tau: float = args.state_update_tau
 
         self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
 
@@ -148,10 +147,6 @@ class AgentBase:
         return obj_actor
 
     def update_net(self, buffer, if_skip_actor: bool = False) -> Tuple[float, float]:
-        states = buffer.states[-self.horizon_len:]
-        state_update_tau = 1.0 if if_skip_actor else self.state_update_tau
-        self.update_avg_std_for_state_norm(states=states, tau=state_update_tau)
-
         obj_critics = []
         obj_actors = []
 
@@ -187,15 +182,6 @@ class AgentBase:
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
-    def update_avg_std_for_state_norm(self, states: TEN, tau: float):
-        if tau == 0 or self.state_update_tau == 0:
-            return
-        state_avg = states.mean(dim=0, keepdim=True)
-        state_std = states.std(dim=0, keepdim=True)
-        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
-        self.act.state_std[:] = (self.cri.state_std * (1 - tau) + state_std * tau).clamp_min(1e-4)
-        self.cri.state_avg[:] = self.act.state_avg
-        self.cri.state_std[:] = self.cri.state_std
 
 
 '''utils of network'''
@@ -265,51 +251,6 @@ class AgentDQN(AgentBase):
     def update_actor_net(self, state: TEN, update_t: int, if_skip: bool = False) -> Optional[TEN]:
         if if_skip:
             return None
-
-
-'''AgentDDPG'''
-
-
-class Actor(nn.Module):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__()
-        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
-        self.explore_noise_std = None  # standard deviation of exploration action noise
-
-    def forward(self, state: TEN) -> TEN:
-        action = self.net(state)
-        return action.tanh()
-
-    def get_action(self, state: TEN, action_std: float) -> TEN:  # for exploration
-        action_avg = self.net(state).tanh()
-        dist = self.ActionDist(action_avg, action_std)
-        action = dist.sample()
-        return action.clip(-1.0, 1.0)
-
-
-class Critic(nn.Module):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__()
-        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, 1])
-
-    def forward(self, state: TEN, action: TEN) -> TEN:
-        return self.net(th.cat((state, action), dim=1))  # Q value
-
-
-class AgentDDPG(AgentBase):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
-        self.explore_noise_std = getattr(args, 'explore_noise', 0.05)  # set for `self.get_policy_action()`
-
-        self.act = Actor(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
-        self.cri = Critic(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
-        self.act_target = deepcopy(self.act)
-        self.cri_target = deepcopy(self.cri)
-        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
-        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
-
-    def get_policy_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
 
 
 '''AgentPPO'''
@@ -494,6 +435,51 @@ class AgentPPO(AgentBase):
         return advantages
 
 
+'''AgentDDPG'''
+
+
+class Actor(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        self.explore_noise_std = None  # standard deviation of exploration action noise
+
+    def forward(self, state: TEN) -> TEN:
+        action = self.net(state)
+        return action.tanh()
+
+    def get_action(self, state: TEN, action_std: float) -> TEN:  # for exploration
+        action_avg = self.net(state).tanh()
+        dist = self.ActionDist(action_avg, action_std)
+        action = dist.sample()
+        return action.clip(-1.0, 1.0)
+
+
+class Critic(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, 1])
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        return self.net(th.cat((state, action), dim=1))  # Q value
+
+
+class AgentDDPG(AgentBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.explore_noise_std = getattr(args, 'explore_noise', 0.05)  # set for `self.get_policy_action()`
+
+        self.act = Actor(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.cri = Critic(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.cri_target = deepcopy(self.cri)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
+
+    def get_policy_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
+
+
 '''AgentTD3'''
 
 
@@ -616,3 +602,49 @@ class CriticEnsemble(nn.Module):
         tensor_sa = self.encoder_sa(th.cat((state, action), dim=1))
         values = th.concat([decoder_q(tensor_sa) for decoder_q in self.decoder_qs], dim=-1)
         return values  # Q values
+
+
+class AgentSAC(AgentBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.num_ensembles = getattr(args, 'num_ensembles', 8)  # the number of critic networks
+
+        self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
+        self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.cri_target = deepcopy(self.cri)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
+
+        self.alpha_log = th.tensor(-1, dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
+        self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
+        self.target_entropy = -np.log(action_dim)
+
+    def get_policy_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state.unsqueeze(0))[0]  # stochastic policy for exploration
+
+    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+        with th.no_grad():
+            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
+
+            next_action, next_logprob = self.act.get_action_logprob(next_state)  # stochastic policy
+            next_q = th.min(self.cri_target.get_q_values(next_state, next_action), dim=1, keepdim=True)[0]
+            alpha = self.alpha_log.exp()
+            q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
+
+        q_values = self.cri.get_q_values(state, action) * unmask
+        q_labels = q_label.repeat(1, q_values.shape[1])
+        obj_critic = self.criterion(q_values, q_labels)
+        return obj_critic, state
+
+    def update_actor_net(self, state: TEN, update_t: int = 0, if_skip: bool = False) -> Optional[TEN]:
+        if if_skip:
+            return None
+
+        action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
+        obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
+        self.optimizer_update(self.alpha_optim, obj_alpha)
+
+        alpha = self.alpha_log.exp().detach()
+        obj_actor = (self.cri(state, action_pg) - logprob * alpha).mean()
+        return obj_actor
