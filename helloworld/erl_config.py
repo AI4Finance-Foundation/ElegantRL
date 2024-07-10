@@ -1,5 +1,5 @@
 import os
-import gym
+import gymnasium as gym
 import torch as th
 import numpy as np
 

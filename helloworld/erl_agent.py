@@ -26,9 +26,10 @@ class ReplayBuffer:  # for off-policy
         self.actions = th.empty((max_size, action_dim), dtype=th.float32, device=self.device)
         self.rewards = th.empty((max_size, 1), dtype=th.float32, device=self.device)
         self.undones = th.empty((max_size, 1), dtype=th.float32, device=self.device)
+        self.unmasks = th.empty((max_size, 1), dtype=th.float32, device=self.device)
 
-    def update(self, items: [TEN]):
-        states, actions, rewards, undones = items
+    def update(self, items: Tuple[TEN, TEN, TEN, TEN, TEN]):
+        states, actions, rewards, undones, unmasks = items
         p = self.p + rewards.shape[0]  # pointer
         if p > self.max_size:
             self.if_full = True
@@ -41,17 +42,26 @@ class ReplayBuffer:  # for off-policy
             self.actions[p0:p1], self.actions[0:p] = actions[:p2], actions[-p:]
             self.rewards[p0:p1], self.rewards[0:p] = rewards[:p2], rewards[-p:]
             self.undones[p0:p1], self.undones[0:p] = undones[:p2], undones[-p:]
+            self.unmasks[p0:p1], self.unmasks[0:p] = unmasks[:p2], unmasks[-p:]
         else:
             self.states[self.p:p] = states
             self.actions[self.p:p] = actions
             self.rewards[self.p:p] = rewards
             self.undones[self.p:p] = undones
+            self.unmasks[self.p:p] = unmasks
         self.p = p
         self.cur_size = self.max_size if self.if_full else self.p
 
-    def sample(self, batch_size: int) -> [TEN]:
+    def sample(self, batch_size: int) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         ids = th.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
-        return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
+        return (
+            self.states[ids],
+            self.actions[ids],
+            self.rewards[ids],
+            self.undones[ids],
+            self.unmasks[ids],
+            self.states[ids + 1],
+        )
 
 
 '''Agent of DRL algorithms'''
@@ -66,7 +76,6 @@ class AgentBase:
 
         self.gamma: float = args.gamma
         self.batch_size: int = args.batch_size
-        self.horizon_len: int = args.horizon_len
         self.repeat_times: float = args.repeat_times
         self.reward_scale: float = args.reward_scale
         self.learning_rate: float = args.learning_rate
@@ -93,8 +102,6 @@ class AgentBase:
         return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
 
     def explore_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
-        self.horizon_len = horizon_len  # update horizon_len for update_net()
-
         states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
         rewards = th.zeros(horizon_len, dtype=th.float32).to(self.device)
@@ -138,15 +145,12 @@ class AgentBase:
         obj_critic = self.criterion(q_value, q_label)
         return obj_critic, state
 
-    def update_actor_net(self, state: TEN, update_t: int, if_skip: bool = False) -> Optional[TEN]:
-        if if_skip:
-            return None
-
+    def update_actor_net(self, state: TEN, update_t: int) -> Optional[TEN]:
         action_pg = self.act(state)  # action to policy gradient
         obj_actor = self.cri(state, action_pg).mean()
         return obj_actor
 
-    def update_net(self, buffer, if_skip_actor: bool = False) -> Tuple[float, float]:
+    def update_net(self, buffer) -> Tuple[float, float]:
         obj_critics = []
         obj_actors = []
 
@@ -158,7 +162,7 @@ class AgentBase:
             self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
             obj_critics.append(obj_critic.item())
 
-            obj_actor = self.update_actor_net(state, update_t, if_skip_actor)
+            obj_actor = self.update_actor_net(state, update_t)
             if isinstance(obj_actor, TEN):
                 self.optimizer_update(self.act_optimizer, -obj_actor)
                 self.soft_update(self.act_target, self.act, self.soft_update_tau)
@@ -181,7 +185,6 @@ class AgentBase:
             return
         for tar, cur in zip(target_net.parameters(), current_net.parameters()):
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
-
 
 
 '''utils of network'''
@@ -352,7 +355,7 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates).unsqueeze(1)
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def update_net(self, buffer: List[TEN, TEN, TEN, TEN, TEN, TEN], **kwargs) -> Tuple[float, float, float]:
+    def update_net(self, buffer) -> Tuple[float, float, float]:
         states, actions, logprobs, rewards, undones, unmasks = buffer
         buffer_size = states.shape[0]
 
@@ -443,6 +446,7 @@ class Actor(nn.Module):
         super().__init__()
         self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         self.explore_noise_std = None  # standard deviation of exploration action noise
+        self.ActionDist = torch.distributions.normal.Normal
 
     def forward(self, state: TEN) -> TEN:
         action = self.net(state)
