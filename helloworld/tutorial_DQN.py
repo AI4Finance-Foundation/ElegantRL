@@ -2,7 +2,7 @@ import os
 import gym
 from erl_config import Config, get_gym_env_args
 from erl_agent import AgentDQN
-from erl_run import train_agent, render_agent
+from erl_run import train_agent, valid_agent
 
 gym.logger.set_level(40)  # Block warning
 
@@ -54,7 +54,7 @@ def train_dqn_for_lunar_lander(gpu_id=0):
     if input("| Press 'y' to load actor.pth and render:"):
         actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
         actor_path = f"{args.cwd}/{actor_name}"
-        render_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
+        valid_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
 
 
 if __name__ == "__main__":

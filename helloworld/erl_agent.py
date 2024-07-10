@@ -3,14 +3,15 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import torch as th
+import torch.distributions.normal
+import torch.nn as nn
 
 from erl_config import Config
-from erl_net import QNetwork  # DQN
-from erl_net import Actor, Critic  # DDPG
-from erl_net import ActorPPO, CriticPPO  # PPO
 
 ARY = np.ndarray
 TEN = th.Tensor
+
+'''ReplayBuffer'''
 
 
 class ReplayBuffer:  # for off-policy
@@ -51,6 +52,9 @@ class ReplayBuffer:  # for off-policy
     def sample(self, batch_size: int) -> [TEN]:
         ids = th.randint(self.cur_size - 1, size=(batch_size,), requires_grad=False)
         return self.states[ids], self.actions[ids], self.rewards[ids], self.undones[ids], self.states[ids + 1]
+
+
+'''Agent of DRL algorithms'''
 
 
 class AgentBase:
@@ -194,6 +198,42 @@ class AgentBase:
         self.cri.state_std[:] = self.cri.state_std
 
 
+'''utils of network'''
+
+
+def build_mlp(dims: List[int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
+    net_list = []
+    for i in range(len(dims) - 1):
+        net_list.extend([nn.Linear(dims[i], dims[i + 1]), nn.ReLU()])
+    del net_list[-1]  # remove the activation of output layer
+    return nn.Sequential(*net_list)
+
+
+def layer_init_with_orthogonal(layer, std=1.0, bias_const=1e-6):
+    th.nn.init.orthogonal_(layer.weight, std)
+    th.nn.init.constant_(layer.bias, bias_const)
+
+
+'''AgentDQN'''
+
+
+class QNetwork(nn.Module):  # `nn.Module` is a PyTorch module for neural network
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        self.action_dim = action_dim
+
+    def forward(self, state: TEN) -> TEN:
+        return self.net(state)  # Q values for multiple actions
+
+    def get_action(self, state: TEN, explore_rate: float) -> TEN:  # return the index List[int] of discrete action
+        if explore_rate < th.rand(1):
+            action = self.net(state).argmax(dim=1, keepdim=True)
+        else:
+            action = th.randint(self.action_dim, size=(state.shape[0], 1))
+        return action
+
+
 class AgentDQN(AgentBase):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
@@ -227,6 +267,35 @@ class AgentDQN(AgentBase):
             return None
 
 
+'''AgentDDPG'''
+
+
+class Actor(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        self.explore_noise_std = None  # standard deviation of exploration action noise
+
+    def forward(self, state: TEN) -> TEN:
+        action = self.net(state)
+        return action.tanh()
+
+    def get_action(self, state: TEN, action_std: float) -> TEN:  # for exploration
+        action_avg = self.net(state).tanh()
+        dist = self.ActionDist(action_avg, action_std)
+        action = dist.sample()
+        return action.clip(-1.0, 1.0)
+
+
+class Critic(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, 1])
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        return self.net(th.cat((state, action), dim=1))  # Q value
+
+
 class AgentDDPG(AgentBase):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
@@ -241,6 +310,52 @@ class AgentDDPG(AgentBase):
 
     def get_policy_action(self, state: TEN) -> TEN:
         return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
+
+
+'''AgentPPO'''
+
+
+class ActorPPO(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        self.action_std_log = nn.Parameter(th.zeros((1, action_dim)), requires_grad=True)  # trainable parameter
+        self.ActionDist = torch.distributions.normal.Normal
+
+    def forward(self, state: TEN) -> TEN:
+        action = self.net(state)
+        return self.convert_action_for_env(action)
+
+    def get_action(self, state: TEN) -> Tuple[TEN, TEN]:  # for exploration
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
+
+        dist = self.ActionDist(action_avg, action_std)
+        action = dist.sample()
+        logprob = dist.log_prob(action).sum(1)
+        return action, logprob
+
+    def get_logprob_entropy(self, state: TEN, action: TEN) -> Tuple[TEN, TEN]:
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
+
+        dist = self.ActionDist(action_avg, action_std)
+        logprob = dist.log_prob(action).sum(1)
+        entropy = dist.entropy().sum(1)
+        return logprob, entropy
+
+    @staticmethod
+    def convert_action_for_env(action: TEN) -> TEN:
+        return action.tanh()
+
+
+class CriticPPO(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int):
+        super().__init__()
+        self.net = build_mlp(dims=[state_dim, *net_dims, 1])
+
+    def forward(self, state: TEN) -> TEN:
+        return self.net(state)  # advantage value
 
 
 class AgentPPO(AgentBase):
@@ -377,3 +492,127 @@ class AgentPPO(AgentBase):
             advantages[t] = advantage = delta + masks[t] * self.lambda_gae_adv * advantage
             next_value = values[t]
         return advantages
+
+
+'''AgentTD3'''
+
+
+class CriticTwin(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, num_ensembles])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        values = self.get_q_values(state=state, action=action)
+        value = values.mean(dim=-1, keepdim=True)
+        return value  # Q value
+
+    def get_q_values(self, state: TEN, action: TEN) -> TEN:
+        values = self.net(th.cat((state, action), dim=1))
+        return values  # Q values
+
+
+class AgentTD3(AgentBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.update_freq = getattr(args, 'update_freq', 2)  # standard deviation of exploration noise
+        self.num_ensembles = getattr(args, 'num_ensembles', 8)  # the number of critic networks
+        self.policy_noise_std = getattr(args, 'policy_noise_std', 0.10)  # standard deviation of exploration noise
+        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
+
+        self.act = Actor(net_dims, state_dim, action_dim).to(self.device)
+        self.cri = CriticTwin(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.cri_target = deepcopy(self.cri)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
+
+    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+        with th.no_grad():
+            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
+
+            next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # deterministic policy
+            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1, keepdim=True)[0]
+
+            q_label = reward + undone * self.gamma * next_q
+
+        q_values = self.cri.get_q_values(state, action) * unmask
+        q_labels = q_label.repeat(1, q_values.shape[1])
+        obj_critic = self.criterion(q_values, q_labels)
+        return obj_critic, state
+
+    def update_actor_net(self, state: TEN, update_t: int = 0, if_skip: bool = False) -> Optional[TEN]:
+        if if_skip:
+            return None
+
+        action_pg = self.act(state)  # action to policy gradient
+        obj_actor = self.cri_target.get_q_values(state, action_pg).mean()
+        return obj_actor
+
+
+'''AgentSAC'''
+
+
+class ActorSAC(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.encoder_s = build_mlp(dims=[state_dim, *net_dims])  # encoder of state
+        self.decoder_a_avg = build_mlp(dims=[net_dims[-1], action_dim])  # decoder of action mean
+        self.decoder_a_std = build_mlp(dims=[net_dims[-1], action_dim])  # decoder of action log_std
+        self.soft_plus = nn.Softplus()
+
+    def forward(self, state: TEN) -> TEN:
+        state_tmp = self.encoder_s(state)  # temporary tensor of state
+        return self.decoder_a_avg(state_tmp).tanh()  # action
+
+    def get_action(self, state: TEN, **_kwargs) -> TEN:  # for exploration
+        state_tmp = self.encoder_s(state)  # temporary tensor of state
+        action_avg = self.decoder_a_avg(state_tmp)
+        action_std = self.decoder_a_std(state_tmp).clamp(-20, 2).exp()
+
+        noise = th.randn_like(action_avg, requires_grad=True)
+        action = action_avg + action_std * noise
+        return action.tanh()  # action (re-parameterize)
+
+    def get_action_logprob(self, state: TEN) -> Tuple[TEN, TEN]:
+        state_tmp = self.encoder_s(state)  # temporary tensor of state
+        action_log_std = self.decoder_a_std(state_tmp).clamp(-20, 2)
+        action_std = action_log_std.exp()
+        action_avg = self.decoder_a_avg(state_tmp)
+
+        noise = th.randn_like(action_avg, requires_grad=True)
+        action = action_avg + action_std * noise
+        logprob = -action_log_std - noise.pow(2) * 0.5 - np.log(np.sqrt(2 * np.pi))
+        # dist = self.Normal(action_avg, action_std)
+        # action = dist.sample()
+        # logprob = dist.log_prob(action)
+
+        '''fix logprob by adding the derivative of y=tanh(x)'''
+        logprob -= (np.log(2.) - action - self.soft_plus(-2. * action)) * 2.  # better than below
+        # logprob -= (1.000001 - action.tanh().pow(2)).log()
+        return action.tanh(), logprob.sum(1, keepdim=True)
+
+
+class CriticEnsemble(nn.Module):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.encoder_sa = build_mlp(dims=[state_dim + action_dim, net_dims[0]])  # encoder of state and action
+        self.decoder_qs = []
+        for net_i in range(num_ensembles):
+            decoder_q = build_mlp(dims=[*net_dims, 1])
+            layer_init_with_orthogonal(decoder_q[-1], std=0.5)
+
+            self.decoder_qs.append(decoder_q)
+            setattr(self, f"decoder_q{net_i:02}", decoder_q)
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        values = self.get_q_values(state=state, action=action)
+        value = values.mean(dim=-1, keepdim=True)
+        return value  # Q value
+
+    def get_q_values(self, state: TEN, action: TEN) -> TEN:
+        state = self.state_norm(state)
+        tensor_sa = self.encoder_sa(th.cat((state, action), dim=1))
+        values = th.concat([decoder_q(tensor_sa) for decoder_q in self.decoder_qs], dim=-1)
+        return values  # Q values

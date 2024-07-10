@@ -1,6 +1,6 @@
 import os
 import gym
-import torch
+import torch as th
 import numpy as np
 
 
@@ -53,9 +53,9 @@ class Config:
 
     def init_before_training(self):
         np.random.seed(self.random_seed)
-        torch.manual_seed(self.random_seed)
-        torch.set_num_threads(self.thread_num)
-        torch.set_default_dtype(torch.float32)
+        th.manual_seed(self.random_seed)
+        th.set_num_threads(self.thread_num)
+        th.set_default_dtype(th.float32)
 
         if self.cwd is None:  # set cwd (current working directory) for saving model
             self.cwd = f'./{self.env_name}_{self.agent_class.__name__[5:]}_{self.random_seed}'
