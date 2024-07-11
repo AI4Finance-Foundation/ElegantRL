@@ -6,7 +6,7 @@ import torch as th
 import numpy as np
 
 from erl_config import Config, build_env
-from erl_agent import ReplayBuffer
+from erl_agent import ReplayBuffer, AgentBase
 
 
 def train_agent(args: Config):
@@ -21,7 +21,7 @@ def train_agent(args: Config):
     )
 
     env = build_env(args.env_class, args.env_args)
-    agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
+    agent: AgentBase = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
     agent.last_state, info_dict = env.reset()
 
     if args.if_off_policy:
@@ -31,14 +31,12 @@ def train_agent(args: Config):
             state_dim=args.state_dim,
             action_dim=1 if args.if_discrete else args.action_dim,
         )
-        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
+        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times)
         buffer.update(buffer_items)  # warm up for ReplayBuffer
     else:
         buffer = []
 
     '''start training'''
-    if args.if_off_policy:
-        agent.update_net(buffer, if_skip_actor=False)
     while True:
         buffer_items = agent.explore_env(env, args.horizon_len)
         if args.if_off_policy:
@@ -54,7 +52,7 @@ def train_agent(args: Config):
     evaluator.close()
 
 
-def render_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
+def valid_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
     env = build_env(env_class, env_args)
 
     state_dim = env_args['state_dim']

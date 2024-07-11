@@ -659,7 +659,7 @@ def get_rewards_and_steps(env, actor: ActorBase, if_render: bool = False) -> (fl
     return cumulative_returns, episode_steps + 1
 
 
-def render_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
+def valid_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
     env = build_env(env_class, env_args)
 
     state_dim = env_args['state_dim']
@@ -697,7 +697,7 @@ def train_sac_td3_ddpg_for_pendulum(gpu_id: int = 0, drl_id: int = 0):
     if input("| Press 'y' to load actor.pth and render:"):
         actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
         actor_path = f"{args.cwd}/{actor_name}"
-        render_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
+        valid_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
 
     """
     cumulative returns range: -1000 < -700 < -100 < -50
@@ -750,7 +750,7 @@ def train_sac_td3_ddpg_for_lunar_lander(gpu_id: int = 0, drl_id: int = 0):
     if input("| Press 'y' to load actor.pth and render:"):
         actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
         actor_path = f"{args.cwd}/{actor_name}"
-        render_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
+        valid_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
 
     """   
     cumulative returns range: -1500 < -140 < 200 < 280

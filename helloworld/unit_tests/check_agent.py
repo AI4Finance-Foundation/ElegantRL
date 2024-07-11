@@ -18,10 +18,10 @@ def check_agent_base(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32),
     action_grad = agent.act(state)
     q_value = agent.cri(state, action_grad)
     obj_act = -q_value.mean()
-    assert agent.optimizer_update(agent.act_optimizer, obj_act) is None
+    assert agent.optimizer_backward(agent.act_optimizer, obj_act) is None
     q_value = agent.cri(state, action)
     obj_cri = agent.criterion(q_value, torch.zeros_like(q_value).detach()).mean()
-    assert agent.optimizer_update(agent.cri_optimizer, obj_cri) is None
+    assert agent.optimizer_backward(agent.cri_optimizer, obj_cri) is None
 
     current_net = agent.cri
     target_net = deepcopy(agent.cri)
