@@ -31,7 +31,7 @@ def train_agent(args: Config):
             state_dim=args.state_dim,
             action_dim=1 if args.if_discrete else args.action_dim,
         )
-        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
+        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times)
         buffer.update(buffer_items)  # warm up for ReplayBuffer
     else:
         buffer = []

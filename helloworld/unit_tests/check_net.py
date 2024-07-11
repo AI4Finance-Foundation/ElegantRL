@@ -18,7 +18,7 @@ def check_q_net(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_
     assert action.shape == (batch_size, action_dim)
 
     '''check for agent.AgentDQN.explore_env'''
-    action = act.get_action(state=state)
+    action = act.explore_action(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.int, torch.long}
     assert action.shape == (batch_size, 1)
@@ -38,7 +38,7 @@ def check_actor(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), gpu_
     assert action.shape == (batch_size, action_dim)
     assert torch.any((-1.0 <= action) & (action <= +1.0))
 
-    action = act.get_action(state=state)
+    action = act.explore_action(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)
@@ -75,7 +75,7 @@ def check_actor_ppo(state_dim=4, action_dim=2, batch_size=3, net_dims=(64, 32), 
     action = act.convert_action_for_env(action)
     assert torch.any((-1.0 <= action) & (action <= +1.0))
 
-    action, logprob = act.get_action(state=state)
+    action, logprob = act.explore_action(state=state)
     assert isinstance(action, Tensor)
     assert action.dtype in {torch.float}
     assert action.shape == (batch_size, action_dim)

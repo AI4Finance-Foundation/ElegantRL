@@ -69,7 +69,9 @@ class ReplayBuffer:  # for off-policy
 
 class AgentBase:
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.if_off_policy: bool = False
+        self.if_discrete: bool = args.if_discrete
+        self.if_off_policy: bool = args.if_off_policy
+
         self.net_dims: List[int] = net_dims
         self.state_dim: int = state_dim
         self.action_dim: int = action_dim
@@ -93,17 +95,12 @@ class AgentBase:
 
         self.act_optimizer: Optional[th.optim] = None
         self.cri_optimizer: Optional[th.optim] = None
-        self.criterion = th.nn.SmoothL1Loss()
+        self.criterion = th.nn.SmoothL1Loss(reduction='none')
 
-    def get_random_action(self) -> TEN:
-        return th.rand(self.action_dim) * 2 - 1.0
-
-    def get_policy_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
-
-    def explore_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
+    def explore_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
         states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
-        actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
+        actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device) \
+            if not self.if_discrete else th.zeros((horizon_len, 1), dtype=th.int32).to(self.device)
         rewards = th.zeros(horizon_len, dtype=th.float32).to(self.device)
         terminals = th.zeros(horizon_len, dtype=th.bool).to(self.device)
         truncates = th.zeros(horizon_len, dtype=th.bool).to(self.device)
@@ -111,8 +108,7 @@ class AgentBase:
         ary_state = self.last_state
         for i in range(horizon_len):
             state = th.as_tensor(ary_state, dtype=th.float32, device=self.device)
-            action = self.get_random_action() if if_random \
-                else self.get_policy_action(state)
+            action = self.explore_action(state)
 
             states[i] = state
             actions[i] = action
@@ -132,7 +128,26 @@ class AgentBase:
         unmasks = th.logical_not(truncates).unsqueeze(1)
         return states, actions, rewards, undones, unmasks
 
-    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+    def explore_action(self, state: TEN) -> TEN:
+        return self.act.explore_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
+
+    def update_net(self, buffer) -> Tuple[float, ...]:
+        objs_critic = []
+        objs_actor = []
+
+        th.set_grad_enabled(True)
+        update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
+        for update_t in range(update_times):
+            obj_critic, obj_actor = self.update_objectives(buffer, self.batch_size, update_t)
+            objs_critic.append(obj_critic)
+            objs_actor.append(obj_actor) if isinstance(obj_actor, float) else None
+        th.set_grad_enabled(False)
+
+        obj_avg_critic = np.nanmean(objs_critic) if len(objs_critic) else 0.0
+        obj_avg_actor = np.nanmean(objs_actor) if len(objs_actor) else 0.0
+        return obj_avg_critic, obj_avg_actor
+
+    def update_objectives(self, buffer: ReplayBuffer, batch_size: int, _update_t: int) -> Tuple[float, float]:
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
@@ -142,39 +157,18 @@ class AgentBase:
             q_label = reward + undone * self.gamma * next_q
 
         q_value = self.cri(state, action) * unmask
-        obj_critic = self.criterion(q_value, q_label)
-        return obj_critic, state
+        obj_critic = (self.criterion(q_value, q_label) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
+        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
-    def update_actor_net(self, state: TEN, update_t: int) -> Optional[TEN]:
         action_pg = self.act(state)  # action to policy gradient
         obj_actor = self.cri(state, action_pg).mean()
-        return obj_actor
-
-    def update_net(self, buffer) -> Tuple[float, float]:
-        obj_critics = []
-        obj_actors = []
-
-        th.set_grad_enabled(True)
-        update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
-        for update_t in range(update_times):
-            obj_critic, state = self.update_critic_net(buffer, self.batch_size)
-            self.optimizer_update(self.cri_optimizer, obj_critic)
-            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-            obj_critics.append(obj_critic.item())
-
-            obj_actor = self.update_actor_net(state, update_t)
-            if isinstance(obj_actor, TEN):
-                self.optimizer_update(self.act_optimizer, -obj_actor)
-                self.soft_update(self.act_target, self.act, self.soft_update_tau)
-                obj_actors.append(obj_actor.item())
-        th.set_grad_enabled(False)
-
-        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
-        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
-        return obj_critic_avg, obj_actor_avg
+        self.optimizer_backward(self.act_optimizer, -obj_actor)
+        self.soft_update(self.act_target, self.act, self.soft_update_tau)
+        return obj_critic.item(), obj_actor.item()
 
     @staticmethod
-    def optimizer_update(optimizer, objective: TEN):
+    def optimizer_backward(optimizer, objective: TEN):
         optimizer.zero_grad()
         objective.backward()
         optimizer.step()
@@ -213,7 +207,7 @@ class QNetwork(nn.Module):  # `nn.Module` is a PyTorch module for neural network
         self.action_dim = action_dim
 
     def forward(self, state: TEN) -> TEN:
-        return self.net(state)  # Q values for multiple actions
+        return self.net(state).argmax(dim=1)  # Q values for multiple actions
 
     def get_action(self, state: TEN, explore_rate: float) -> TEN:  # return the index List[int] of discrete action
         if explore_rate < th.rand(1):
@@ -221,6 +215,9 @@ class QNetwork(nn.Module):  # `nn.Module` is a PyTorch module for neural network
         else:
             action = th.randint(self.action_dim, size=(state.shape[0], 1))
         return action
+
+    def get_q_values(self, state:TEN) -> TEN:
+        return self.net(state)
 
 
 class AgentDQN(AgentBase):
@@ -234,26 +231,23 @@ class AgentDQN(AgentBase):
         self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
         # the probability of choosing action randomly in epsilon-greedy
 
-    def get_random_action(self) -> TEN:
-        return th.randint(self.action_dim, size=(1,))[0]
+    def explore_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state.unsqueeze(0), explore_rate=self.explore_rate)[0, 0]
 
-    def get_policy_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state.unsqueeze(0), explore_rate=self.explore_rate)[0]
-
-    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+    def update_objectives(self, buffer: ReplayBuffer, batch_size: int, _update_t: int) -> Tuple[float, float]:
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
-            next_q = self.cri_target(next_state).max(dim=1, keepdim=True)[0]
+            next_q = self.cri_target.get_q_values(next_state).max(dim=1, keepdim=True)[0]
             q_label = reward + undone * self.gamma * next_q
 
-        q_value = self.cri(state).gather(1, action.long())
-        obj_critic = self.criterion(q_value, q_label)
-        return obj_critic, state
+        q_value = self.cri.get_q_values(state).gather(1, action.long())
+        obj_critic = (self.criterion(q_value, q_label) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
+        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
-    def update_actor_net(self, state: TEN, update_t: int, if_skip: bool = False) -> Optional[TEN]:
-        if if_skip:
-            return None
+        obj_actor = q_value.detach().mean()
+        return obj_critic.item(), obj_actor.item()
 
 
 '''AgentPPO'''
@@ -320,10 +314,6 @@ class AgentPPO(AgentBase):
         self.lambda_entropy = getattr(args, "lambda_entropy", 0.01)  # could be 0.00~0.10
         self.lambda_entropy = th.tensor(self.lambda_entropy, dtype=th.float32, device=self.device)
 
-    def get_policy_action(self, state: TEN) -> Tuple[TEN, TEN]:
-        actions, logprobs = self.act.get_action(state.unsqueeze(0))
-        return actions[0], logprobs[0]
-
     def explore_env(self, env, horizon_len: int, **kwargs) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
@@ -336,7 +326,7 @@ class AgentPPO(AgentBase):
         convert = self.act.convert_action_for_env
         for i in range(horizon_len):
             state = th.as_tensor(ary_state, dtype=th.float32, device=self.device)
-            action, logprob = self.get_policy_action(state)
+            action, logprob = self.explore_action(state)
 
             ary_action = convert(action).detach().cpu().numpy()
             ary_state, reward, terminal, truncate, _ = env.step(ary_action)
@@ -355,6 +345,10 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates).unsqueeze(1)
         return states, actions, logprobs, rewards, undones, unmasks
 
+    def explore_action(self, state: TEN) -> Tuple[TEN, TEN]:
+        actions, logprobs = self.act.get_action(state.unsqueeze(0))
+        return actions[0], logprobs[0]
+
     def update_net(self, buffer) -> Tuple[float, float, float]:
         states, actions, logprobs, rewards, undones, unmasks = buffer
         buffer_size = states.shape[0]
@@ -371,6 +365,8 @@ class AgentPPO(AgentBase):
         advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
         assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size,)
 
+        buffer = states, actions, unmasks, logprobs, advantages, reward_sums
+
         '''update network'''
         obj_critics = []
         obj_actors = []
@@ -379,20 +375,9 @@ class AgentPPO(AgentBase):
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
         for update_t in range(update_times):
-            indices = th.randint(buffer_size, size=(self.batch_size,), requires_grad=False)
-            state = states[indices]
-            action = actions[indices]
-            logprob = logprobs[indices]
-            advantage = advantages[indices]
-            reward_sum = reward_sums[indices]
-
-            obj_critic = self.update_critic_net_with_advantage(state, reward_sum)
-            self.optimizer_update(self.cri_optimizer, obj_critic)
-            obj_critics.append(obj_critic.item())
-
-            obj_actor = self.update_actor_net_with_advantage(state, action, logprob, advantage)
-            self.optimizer_update(self.act_optimizer, -obj_actor)
-            obj_actors.append(obj_actor.item())
+            obj_critic, obj_actor = self.update_objectives(buffer, self.batch_size, update_t)
+            obj_critics.append(obj_critic)
+            obj_actors.append(obj_actor)
         th.set_grad_enabled(False)
 
         obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
@@ -400,20 +385,30 @@ class AgentPPO(AgentBase):
         a_std_log = getattr(self.act, 'a_std_log', th.zeros(1)).mean()
         return obj_critic_avg, obj_actor_avg, a_std_log.item()
 
-    def update_critic_net_with_advantage(self, state: TEN, reward_sum: TEN) -> TEN:
-        value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
-        obj_critic = self.criterion(value, reward_sum)
-        return obj_critic
+    def update_objectives(self, buffer: Tuple[TEN, ...], batch_size: int, _update_t: int) -> Tuple[float, float]:
+        states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
-    def update_actor_net_with_advantage(self, state: TEN, action: TEN, logprob: TEN, advantage: TEN) -> TEN:
+        buffer_size = states.shape[0]
+        indices = th.randint(buffer_size, size=(self.batch_size,), requires_grad=False)
+        state = states[indices]
+        action = actions[indices]
+        unmask = unmasks[indices]
+        logprob = logprobs[indices]
+        advantage = advantages[indices]
+        reward_sum = reward_sums[indices]
+
+        value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+        obj_critic = (self.criterion(value, reward_sum) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
+
         new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
         ratio = (new_logprob - logprob.detach()).exp()
         surrogate1 = advantage * ratio
         surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
         obj_surrogate = th.min(surrogate1, surrogate2).mean()
-
         obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
-        return obj_actor
+        self.optimizer_backward(self.act_optimizer, -obj_actor)
+        return obj_critic.item(), obj_actor.item()
 
     def get_advantages(self, states: TEN, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
         advantages = th.empty_like(values)  # advantage value
@@ -421,7 +416,7 @@ class AgentPPO(AgentBase):
         # update undones rewards when truncated
         truncated = th.logical_not(unmasks)
         if th.any(truncated):
-            rewards[truncated] += self.cri(states[truncated]).detach().squeeze(1)
+            rewards[truncated] += self.cri(states[truncated.squeeze(1)]).detach().squeeze(1)
             undones[truncated] = False
 
         masks = undones * self.gamma
@@ -480,7 +475,7 @@ class AgentDDPG(AgentBase):
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-    def get_policy_action(self, state: TEN) -> TEN:
+    def explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
 
 
@@ -518,7 +513,7 @@ class AgentTD3(AgentBase):
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+    def update_objectives(self, buffer: ReplayBuffer, batch_size: int, _update_t: int) -> Tuple[float, float]:
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
@@ -527,18 +522,20 @@ class AgentTD3(AgentBase):
 
             q_label = reward + undone * self.gamma * next_q
 
-        q_values = self.cri.get_q_values(state, action) * unmask
+        q_values = self.cri.get_q_values(state, action)
         q_labels = q_label.repeat(1, q_values.shape[1])
-        obj_critic = self.criterion(q_values, q_labels)
-        return obj_critic, state
+        obj_critic = (self.criterion(q_values, q_labels) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
+        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
-    def update_actor_net(self, state: TEN, update_t: int = 0, if_skip: bool = False) -> Optional[TEN]:
-        if if_skip:
-            return None
-
-        action_pg = self.act(state)  # action to policy gradient
-        obj_actor = self.cri_target.get_q_values(state, action_pg).mean()
-        return obj_actor
+        if _update_t % self.update_freq == 0:
+            action_pg = self.act(state)  # action to policy gradient
+            obj_actor = self.cri(state, action_pg).mean()
+            self.optimizer_backward(self.act_optimizer, -obj_actor)
+            self.soft_update(self.act_target, self.act, self.soft_update_tau)
+        else:
+            obj_actor = torch.tensor(float('nan'))
+        return obj_critic.item(), obj_actor.item()
 
 
 '''AgentSAC'''
@@ -615,7 +612,7 @@ class AgentSAC(AgentBase):
 
         self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
         self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
-        self.act_target = deepcopy(self.act)
+        # self.act_target = deepcopy(self.act)
         self.cri_target = deepcopy(self.cri)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
@@ -624,10 +621,10 @@ class AgentSAC(AgentBase):
         self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
         self.target_entropy = -np.log(action_dim)
 
-    def get_policy_action(self, state: TEN) -> TEN:
+    def explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state.unsqueeze(0))[0]  # stochastic policy for exploration
 
-    def update_critic_net(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[TEN, TEN]:
+    def update_objectives(self, buffer: ReplayBuffer, batch_size: int, _update_t: int) -> Tuple[float, float]:
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
@@ -636,19 +633,17 @@ class AgentSAC(AgentBase):
             alpha = self.alpha_log.exp()
             q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
 
-        q_values = self.cri.get_q_values(state, action) * unmask
+        q_values = self.cri.get_q_values(state, action)
         q_labels = q_label.repeat(1, q_values.shape[1])
-        obj_critic = self.criterion(q_values, q_labels)
-        return obj_critic, state
-
-    def update_actor_net(self, state: TEN, update_t: int = 0, if_skip: bool = False) -> Optional[TEN]:
-        if if_skip:
-            return None
+        obj_critic = (self.criterion(q_values, q_labels) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
+        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
         action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
         obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
-        self.optimizer_update(self.alpha_optim, obj_alpha)
+        self.optimizer_backward(self.alpha_optim, obj_alpha)
+        # self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
         alpha = self.alpha_log.exp().detach()
         obj_actor = (self.cri(state, action_pg) - logprob * alpha).mean()
-        return obj_actor
+        return obj_critic.item(), obj_actor.item()

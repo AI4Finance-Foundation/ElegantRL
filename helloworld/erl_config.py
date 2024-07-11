@@ -23,7 +23,7 @@ class Config:
         self.reward_scale = 1.0  # an approximate target reward usually be closed to 256
 
         '''Arguments for training'''
-        self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
+        self.net_dims = [64, 32]  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
         if self.if_off_policy:  # off-policy
@@ -48,7 +48,7 @@ class Config:
         self.break_step = +np.inf  # break training if 'total_step > break_step'
 
         self.eval_times = int(32)  # number of times that get episodic cumulative return
-        self.eval_per_step = int(2e4)  # evaluate the agent per training steps
+        self.eval_per_step = int(1e4)  # evaluate the agent per training steps
 
     def init_before_training(self):
         np.random.seed(self.random_seed)

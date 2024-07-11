@@ -1,11 +1,11 @@
 import os
-import gym
+import sys
+import gymnasium as gym
+
 from erl_config import Config, get_gym_env_args
 from erl_agent import AgentPPO
 from erl_run import train_agent, valid_agent
 from erl_env import PendulumEnv
-
-gym.logger.set_level(40)  # Block warning
 
 
 def train_ppo_for_pendulum(gpu_id=0):
@@ -23,12 +23,16 @@ def train_ppo_for_pendulum(gpu_id=0):
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
-    args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
-    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
+    args.net_dims = [64, 32]  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
     args.repeat_times = 16  # repeatedly update network using ReplayBuffer to keep critic's loss small
 
+    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     train_agent(args)
+    if input("| Press 'y' to load actor.pth and render:") == 'y':
+        actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
+        actor_path = f"{args.cwd}/{actor_name}"
+        valid_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
 
 
 def train_ppo_for_lunar_lander(gpu_id=0):
@@ -48,19 +52,20 @@ def train_ppo_for_lunar_lander(gpu_id=0):
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(4e5)  # break training if 'total_step > break_step'
-    args.net_dims = (64, 32)  # the middle layer dimension of MultiLayer Perceptron
-    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
+    args.net_dims = [64, 32]  # the middle layer dimension of MultiLayer Perceptron
     args.repeat_times = 32  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.lambda_entropy = 0.04  # the lambda of the policy entropy term in PPO
+    args.gamma = 0.98
 
+    args.gpu_id = gpu_id  # the ID of single GPU, -1 means CPU
     train_agent(args)
-    if input("| Press 'y' to load actor.pth and render:"):
+    if input("| Press 'y' to load actor.pth and render:") == 'y':
         actor_name = sorted([s for s in os.listdir(args.cwd) if s[-4:] == '.pth'])[-1]
         actor_path = f"{args.cwd}/{actor_name}"
         valid_agent(env_class, env_args, args.net_dims, agent_class, actor_path)
 
 
 if __name__ == "__main__":
-    GPU_ID = 0
-    train_ppo_for_pendulum(GPU_ID)
-    train_ppo_for_lunar_lander(GPU_ID)
+    GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    train_ppo_for_pendulum(gpu_id=GPU_ID)
+    train_ppo_for_lunar_lander(gpu_id=GPU_ID)
