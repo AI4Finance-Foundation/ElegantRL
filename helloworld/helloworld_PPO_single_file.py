@@ -233,7 +233,7 @@ class AgentPPO(AgentBase):
 
         ary_state = self.last_state
 
-        get_action = self.act.explore_action
+        get_action = self.act.get_action
         convert = self.act.convert_action_for_env
         for i in range(horizon_len):
             state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device)
