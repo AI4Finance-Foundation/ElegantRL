@@ -9,64 +9,6 @@ from erl_config import Config, build_env
 from erl_agent import ReplayBuffer, AgentBase
 
 
-def train_agent(args: Config):
-    args.init_before_training()
-    th.set_grad_enabled(False)
-
-    evaluator = Evaluator(
-        eval_env=build_env(args.env_class, args.env_args),
-        eval_per_step=args.eval_per_step,
-        eval_times=args.eval_times,
-        cwd=args.cwd,
-    )
-
-    env = build_env(args.env_class, args.env_args)
-    agent: AgentBase = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.last_state, info_dict = env.reset()
-
-    if args.if_off_policy:
-        buffer = ReplayBuffer(
-            gpu_id=args.gpu_id,
-            max_size=args.buffer_size,
-            state_dim=args.state_dim,
-            action_dim=1 if args.if_discrete else args.action_dim,
-        )
-        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times)
-        buffer.update(buffer_items)  # warm up for ReplayBuffer
-    else:
-        buffer = []
-
-    '''start training'''
-    while True:
-        buffer_items = agent.explore_env(env, args.horizon_len)
-        if args.if_off_policy:
-            buffer.update(buffer_items)
-        else:
-            buffer[:] = buffer_items
-
-        logging_tuple = agent.update_net(buffer)
-
-        evaluator.evaluate_and_save(agent.act, args.horizon_len, logging_tuple)
-        if (evaluator.total_step > args.break_step) or os.path.exists(f"{args.cwd}/stop"):
-            break  # stop training when reach `break_step` or `mkdir cwd/stop`
-    evaluator.close()
-
-
-def valid_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
-    env = build_env(env_class, env_args)
-
-    state_dim = env_args['state_dim']
-    action_dim = env_args['action_dim']
-    agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
-    actor = agent.act
-
-    print(f"| render and load actor from: {actor_path}")
-    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
-    for i in range(render_times):
-        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
-        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
-
-
 class Evaluator:
     def __init__(self, eval_env, eval_per_step: int = 1e4, eval_times: int = 8, cwd: str = '.'):
         self.cwd = cwd
@@ -152,3 +94,61 @@ def draw_learning_curve_using_recorder(cwd: str):
     # plt.show()  # if use `mpl.use('Agg')` to draw figures without GUI, then plt can't plt.show()
     plt.savefig(file_path)
     print(f"| Save learning curve in {file_path}")
+
+
+def train_agent(args: Config):
+    args.init_before_training()
+    th.set_grad_enabled(False)
+
+    evaluator = Evaluator(
+        eval_env=build_env(args.env_class, args.env_args),
+        eval_per_step=args.eval_per_step,
+        eval_times=args.eval_times,
+        cwd=args.cwd,
+    )
+
+    env = build_env(args.env_class, args.env_args)
+    agent: AgentBase = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
+    agent.last_state, info_dict = env.reset()
+
+    if args.if_off_policy:
+        buffer = ReplayBuffer(
+            gpu_id=args.gpu_id,
+            max_size=args.buffer_size,
+            state_dim=args.state_dim,
+            action_dim=1 if args.if_discrete else args.action_dim,
+        )
+        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times)
+        buffer.update(buffer_items)  # warm up for ReplayBuffer
+    else:
+        buffer = []
+
+    '''start training'''
+    while True:
+        buffer_items = agent.explore_env(env, args.horizon_len)
+        if args.if_off_policy:
+            buffer.update(buffer_items)
+        else:
+            buffer[:] = buffer_items
+
+        logging_tuple = agent.update_net(buffer)
+
+        evaluator.evaluate_and_save(agent.act, args.horizon_len, logging_tuple)
+        if (evaluator.total_step > args.break_step) or os.path.exists(f"{args.cwd}/stop"):
+            break  # stop training when reach `break_step` or `mkdir cwd/stop`
+    evaluator.close()
+
+
+def valid_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
+    env = build_env(env_class, env_args)
+
+    state_dim = env_args['state_dim']
+    action_dim = env_args['action_dim']
+    agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
+    actor = agent.act
+
+    print(f"| render and load actor from: {actor_path}")
+    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
+    for i in range(render_times):
+        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
+        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")

@@ -742,13 +742,23 @@ def demo_load_pendulum_vectorized_env():
     eval_times = 2 ** 7
     from elegantrl.train.evaluator import get_cumulative_rewards_and_step_from_vec_env
     rewards_step_list = []
-    [rewards_step_list.extend(get_cumulative_rewards_and_step_from_vec_env(env, act)) for _ in range(eval_times // num_envs)]
+    [rewards_step_list.extend(get_cumulative_rewards_and_step_from_vec_env(env, act)) for _ in
+     range(eval_times // num_envs)]
     rewards_step_ten = torch.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
           f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
 
 
+def temp_run():
+    train_ppo_a2c_for_pendulum()
+
+
 if __name__ == '__main__':
+    GPU_ID = 0
+    DRL_ID = 0
+    temp_run()
+    exit()  # TODO
+
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
     Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')

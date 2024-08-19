@@ -1,7 +1,7 @@
 import os
-import gymnasium as gym
-import torch as th
 import numpy as np
+import torch as th
+import gymnasium as gym
 
 
 class Config:

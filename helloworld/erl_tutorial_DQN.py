@@ -66,4 +66,26 @@ def train_dqn_for_lunar_lander(gpu_id=0):
 if __name__ == "__main__":
     GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     train_dqn_for_cartpole(gpu_id=GPU_ID)
+    """
+    | Arguments Remove cwd: ./CartPole-v1_DQN_0
+    | Evaluator:
+    | `step`: Number of samples, or total training steps, or running times of `env.step()`.
+    | `time`: Time spent from the start of training to this moment.
+    | `avgR`: Average value of cumulative rewards, which is the sum of rewards in an episode.
+    | `stdR`: Standard dev of cumulative rewards, which is the sum of rewards in an episode.
+    | `avgS`: Average of steps in an episode.
+    | `objC`: Objective of Critic network. Or call it loss function of critic network.
+    | `objA`: Objective of Actor network. It is the average Q value of the critic network.
+    |     step      time  |     avgR    stdR    avgS  |     objC      objA
+    | 1.02e+04        19  |    17.31    2.11      17  |     0.92     19.77
+    | 2.05e+04        39  |     9.47    0.71       9  |     0.93     23.96
+    | 3.07e+04        66  |   191.25   18.10     191  |     1.38     31.52
+    | 4.10e+04        98  |   212.41   16.34     212  |     0.65     21.52
+    | 5.12e+04       141  |   183.41   10.96     183  |     0.47     21.10
+    | 6.14e+04       184  |   171.94    8.44     172  |     0.34     20.48
+    | 7.17e+04       233  |   173.00    8.85     173  |     0.27     19.88
+    | 8.19e+04       290  |   115.84    3.61     116  |     0.24     19.95
+    | 9.22e+04       349  |   128.44    5.99     128  |     0.19     19.80
+    """
+
     train_dqn_for_lunar_lander(gpu_id=GPU_ID)
