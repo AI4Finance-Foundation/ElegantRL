@@ -1,10 +1,9 @@
-from copy import deepcopy
-from typing import List, Optional, Tuple
-
 import numpy as np
 import torch as th
-import torch.distributions.normal
 import torch.nn as nn
+import torch.distributions.normal
+from copy import deepcopy
+from typing import List, Optional, Tuple
 
 from erl_config import Config
 
@@ -216,7 +215,7 @@ class QNetwork(nn.Module):  # `nn.Module` is a PyTorch module for neural network
             action = th.randint(self.action_dim, size=(state.shape[0], 1))
         return action
 
-    def get_q_values(self, state:TEN) -> TEN:
+    def get_q_values(self, state: TEN) -> TEN:
         return self.net(state)
 
 
@@ -305,9 +304,6 @@ class AgentPPO(AgentBase):
         self.cri = CriticPPO(net_dims=net_dims, state_dim=state_dim).to(self.device)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
-
-        self.act_class = getattr(self, "act_class", ActorPPO)
-        self.cri_class = getattr(self, "cri_class", CriticPPO)
 
         self.ratio_clip = getattr(args, "ratio_clip", 0.25)  # `ratio.clamp(1 - clip, 1 + clip)`
         self.lambda_gae_adv = getattr(args, "lambda_gae_adv", 0.95)  # could be 0.80~0.99
@@ -484,7 +480,7 @@ class AgentDDPG(AgentBase):
 
 class CriticTwin(nn.Module):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        super().__init__()
         self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, num_ensembles])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
 
@@ -543,7 +539,7 @@ class AgentTD3(AgentBase):
 
 class ActorSAC(nn.Module):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        super().__init__()
         self.encoder_s = build_mlp(dims=[state_dim, *net_dims])  # encoder of state
         self.decoder_a_avg = build_mlp(dims=[net_dims[-1], action_dim])  # decoder of action mean
         self.decoder_a_std = build_mlp(dims=[net_dims[-1], action_dim])  # decoder of action log_std
@@ -582,8 +578,8 @@ class ActorSAC(nn.Module):
 
 
 class CriticEnsemble(nn.Module):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 8):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 4):
+        super().__init__()
         self.encoder_sa = build_mlp(dims=[state_dim + action_dim, net_dims[0]])  # encoder of state and action
         self.decoder_qs = []
         for net_i in range(num_ensembles):
@@ -599,10 +595,9 @@ class CriticEnsemble(nn.Module):
         return value  # Q value
 
     def get_q_values(self, state: TEN, action: TEN) -> TEN:
-        state = self.state_norm(state)
         tensor_sa = self.encoder_sa(th.cat((state, action), dim=1))
         values = th.concat([decoder_q(tensor_sa) for decoder_q in self.decoder_qs], dim=-1)
-        return values  # Q values
+        return values  # Q values   tr4
 
 
 class AgentSAC(AgentBase):
@@ -612,12 +607,12 @@ class AgentSAC(AgentBase):
 
         self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
         self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
-        # self.act_target = deepcopy(self.act)
+        # self.act_target = deepcopy(self.act)  # TODO
         self.cri_target = deepcopy(self.cri)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-        self.alpha_log = th.tensor(-1, dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
+        self.alpha_log = th.tensor((-1,), dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
         self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
         self.target_entropy = -np.log(action_dim)
 
@@ -633,17 +628,25 @@ class AgentSAC(AgentBase):
             alpha = self.alpha_log.exp()
             q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
 
+        '''objective of critic (loss function of critic)'''
         q_values = self.cri.get_q_values(state, action)
         q_labels = q_label.repeat(1, q_values.shape[1])
         obj_critic = (self.criterion(q_values, q_labels) * unmask).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
+        '''objective of alpha (temperature parameter automatic adjustment)'''
         action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-        obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
+        obj_alpha = (self.alpha_log * (self.target_entropy - logprob).detach()).mean()
         self.optimizer_backward(self.alpha_optim, obj_alpha)
-        # self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
+        '''objective of actor'''
         alpha = self.alpha_log.exp().detach()
-        obj_actor = (self.cri(state, action_pg) - logprob * alpha).mean()
+        with torch.no_grad():
+            self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
+
+        q_value_pg = self.cri_target(state, action_pg).mean()
+        obj_actor = (q_value_pg - logprob * alpha).mean()
+        self.optimizer_backward(self.act_optimizer, -obj_actor)
+        # self.soft_update(self.act_target, self.act, self.soft_update_tau)
         return obj_critic.item(), obj_actor.item()
