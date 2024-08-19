@@ -515,12 +515,11 @@ class AgentSAC(AgentBase):
 
         self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
         self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
-        # self.act_target = deepcopy(self.act)
         self.cri_target = deepcopy(self.cri)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-        self.alpha_log = th.tensor(-1, dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
+        self.alpha_log = th.tensor((-1,), dtype=th.float32, requires_grad=True, device=self.device)  # trainable var
         self.alpha_optim = th.optim.Adam((self.alpha_log,), lr=args.learning_rate)
         self.target_entropy = -np.log(action_dim)
 
@@ -536,19 +535,27 @@ class AgentSAC(AgentBase):
             alpha = self.alpha_log.exp()
             q_label = reward + undone * self.gamma * (next_q - next_logprob * alpha)
 
+        '''objective of critic (loss function of critic)'''
         q_values = self.cri.get_q_values(state, action)
         q_labels = q_label.repeat(1, q_values.shape[1])
         obj_critic = (self.criterion(q_values, q_labels) * unmask).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
+        '''objective of alpha (temperature parameter automatic adjustment)'''
         action_pg, logprob = self.act.get_action_logprob(state)  # policy gradient
-        obj_alpha = (self.alpha_log * (-logprob + self.target_entropy).detach()).mean()
+        obj_alpha = (self.alpha_log * (self.target_entropy - logprob).detach()).mean()
         self.optimizer_backward(self.alpha_optim, obj_alpha)
-        # self.soft_update(self.act_target, self.act, self.soft_update_tau)
 
+        '''objective of actor'''
         alpha = self.alpha_log.exp().detach()
-        obj_actor = (self.cri(state, action_pg) - logprob * alpha).mean()
+        with torch.no_grad():
+            self.alpha_log[:] = self.alpha_log.clamp(-16, 2)
+
+        q_value_pg = self.cri_target(state, action_pg).mean()
+        obj_actor = (q_value_pg - logprob * alpha).mean()
+        self.optimizer_backward(self.act_optimizer, -obj_actor)
+        # self.soft_update(self.act_target, self.act, self.soft_update_tau)
         return obj_critic.item(), obj_actor.item()
 
 
@@ -787,7 +794,7 @@ def train_sac_td3_ddpg_for_lunar_lander(gpu_id: int = 0, drl_id: int = 0):
 
 if __name__ == '__main__':
     GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0
-    DRL_ID = int(sys.argv[2]) if len(sys.argv) > 1 else 1
+    DRL_ID = int(sys.argv[2]) if len(sys.argv) > 1 else 0
     # agent_class = [AgentSAC, AgentTD3, AgentDDPG][drl_id]
 
     train_sac_td3_ddpg_for_pendulum(gpu_id=GPU_ID, drl_id=DRL_ID)
@@ -804,11 +811,11 @@ AgentSAC  env_name Pendulum-v1
 
 AgentTD3  env_name Pendulum-v1
 |     step      time  |     avgR    stdR    avgS  |     objC      objA
-| 1.02e+04        34  |  -732.08   44.68     200  |     0.70    -63.95
-| 2.05e+04        92  |  -418.86   32.07     200  |     0.69    -90.68
-| 3.07e+04       173  |  -237.52   50.73     200  |     0.67    -73.77
-| 4.10e+04       280  |   -61.79    2.99     200  |     0.58    -49.62
-| 5.12e+04       415  |   -79.03   40.78     200  |     0.44    -33.22
+| 1.02e+04        80  |  -775.71   38.21     200  |     2.08    -58.31
+| 2.05e+04       190  |  -682.85   23.14     200  |     1.22    -98.91
+| 3.07e+04       330  |  -451.86   34.99     200  |     0.82   -115.65
+| 4.10e+04       506  |  -100.34   84.90     200  |     0.75   -108.58
+| 5.12e+04       715  |  -103.01   60.56     200  |     1.17    -85.16
 
 
 cumulative returns range: -1500 < -140 < 200 < 280
