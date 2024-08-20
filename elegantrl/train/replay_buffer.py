@@ -27,10 +27,10 @@ class ReplayBuffer:  # for off-policy
 
         """The struction of ReplayBuffer (for example, num_seqs = num_workers * num_envs == 2*4 = 8
         ReplayBuffer:
-        worker0 for env0:   sequence of sub_env0.0  self.states  = Tensor[s, s, ..., s, ..., s]     
-                                                    self.actions = Tensor[a, a, ..., a, ..., a]   
-                                                    self.rewards = Tensor[r, r, ..., r, ..., r]   
-                                                    self.undones = Tensor[d, d, ..., d, ..., d]
+        worker0 for env0:   sequence of sub_env0.0  self.states  = TEN[s, s, ..., s, ..., s]     
+                                                    self.actions = TEN[a, a, ..., a, ..., a]   
+                                                    self.rewards = TEN[r, r, ..., r, ..., r]   
+                                                    self.undones = TEN[d, d, ..., d, ..., d]
                                                                           <-----max_size----->
                                                                           <-cur_size->
                                                                                      ↑ pointer

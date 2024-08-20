@@ -3,7 +3,7 @@ import torch as th
 import torch.nn as nn
 import torch.distributions.normal
 from copy import deepcopy
-from typing import List, Optional, Tuple
+from typing import List, Tuple, Optional
 
 from erl_config import Config
 
@@ -71,7 +71,6 @@ class AgentBase:
         self.if_discrete: bool = args.if_discrete
         self.if_off_policy: bool = args.if_off_policy
 
-        self.net_dims: List[int] = net_dims
         self.state_dim: int = state_dim
         self.action_dim: int = action_dim
 

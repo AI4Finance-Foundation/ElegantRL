@@ -104,11 +104,11 @@ class AgentMAPPO:
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
         :param deterministic: (bool) whether the action should be mode of distribution or should be sampled.
-        :return values: (torch.Tensor) value function predictions.
-        :return actions: (torch.Tensor) actions to take.
-        :return action_log_probs: (torch.Tensor) log probabilities of chosen actions.
-        :return rnn_states_actor: (torch.Tensor) updated actor network RNN states.
-        :return rnn_states_critic: (torch.Tensor) updated critic network RNN states.
+        :return values: (torch.TEN) value function predictions.
+        :return actions: (torch.TEN) actions to take.
+        :return action_log_probs: (torch.TEN) log probabilities of chosen actions.
+        :return rnn_states_actor: (torch.TEN) updated actor network RNN states.
+        :return rnn_states_critic: (torch.TEN) updated critic network RNN states.
         """
         actions, action_log_probs, rnn_states_actor = self.actor(
             obs, rnn_states_actor, masks, available_actions, deterministic
@@ -124,7 +124,7 @@ class AgentMAPPO:
         :param cent_obs (np.ndarray): centralized input to the critic.
         :param rnn_states_critic: (np.ndarray) if critic is RNN, RNN states for critic.
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
-        :return values: (torch.Tensor) value function predictions.
+        :return values: (torch.TEN) value function predictions.
         """
         values, _ = self.critic(cent_obs, rnn_states_critic, masks)
         return values
@@ -151,10 +151,10 @@ class AgentMAPPO:
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
-        :param active_masks: (torch.Tensor) denotes whether an agent is active or dead.
-        :return values: (torch.Tensor) value function predictions.
-        :return action_log_probs: (torch.Tensor) log probabilities of the input actions.
-        :return dist_entropy: (torch.Tensor) action distribution entropy for the given inputs.
+        :param active_masks: (torch.TEN) denotes whether an agent is active or dead.
+        :return values: (torch.TEN) value function predictions.
+        :return action_log_probs: (torch.TEN) log probabilities of the input actions.
+        :return dist_entropy: (torch.TEN) action distribution entropy for the given inputs.
         """
         action_log_probs, dist_entropy = self.actor.evaluate_actions(
             obs, rnn_states_actor, action, masks, available_actions, active_masks
@@ -187,11 +187,11 @@ class AgentMAPPO:
         """
         Calculate value function loss.
 
-        :param values: (torch.Tensor) value function predictions.
-        :param value_preds_batch: (torch.Tensor) "old" value  predictions from data batch (used for value clip loss)
-        :param return_batch: (torch.Tensor) reward to go returns.
-        :param active_masks_batch: (torch.Tensor) denotes if agent is active or dead at a given timesep.
-        :return value_loss: (torch.Tensor) value function loss.
+        :param values: (torch.TEN) value function predictions.
+        :param value_preds_batch: (torch.TEN) "old" value  predictions from data batch (used for value clip loss)
+        :param return_batch: (torch.TEN) reward to go returns.
+        :param active_masks_batch: (torch.TEN) denotes if agent is active or dead at a given timesep.
+        :return value_loss: (torch.TEN) value function loss.
         """
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(
             -self.clip_param, self.clip_param
@@ -233,12 +233,12 @@ class AgentMAPPO:
 
         :param sample: (Tuple) contains data batch with which to update networks.
         :update_actor: (bool) whether to update actor network.
-        :return value_loss: (torch.Tensor) value function loss.
-        :return critic_grad_norm: (torch.Tensor) gradient norm from critic up9date.
-        :return policy_loss: (torch.Tensor) actor(policy) loss value.
-        :return dist_entropy: (torch.Tensor) action entropies.
-        :return actor_grad_norm: (torch.Tensor) gradient norm from actor update.
-        :return imp_weights: (torch.Tensor) importance sampling weights.
+        :return value_loss: (torch.TEN) value function loss.
+        :return critic_grad_norm: (torch.TEN) gradient norm from critic up9date.
+        :return policy_loss: (torch.TEN) actor(policy) loss value.
+        :return dist_entropy: (torch.TEN) action entropies.
+        :return actor_grad_norm: (torch.TEN) gradient norm from actor update.
+        :return imp_weights: (torch.TEN) importance sampling weights.
         """
         (
             share_obs_batch,
