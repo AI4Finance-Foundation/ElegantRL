@@ -74,8 +74,8 @@ class GymNormaEnv(gym.Wrapper):
             self.if_discrete = False
             self.target_return = 360.0
 
-            # self.state_avg = torch.zeros(1, dtype=torch.float32)
-            # self.state_std = torch.ones(1, dtype=torch.float32)
+            # self.state_avg = th.zeros(1, dtype=th.float32)
+            # self.state_std = th.ones(1, dtype=th.float32)
             # 6 runs
             self.state_avg = torch.tensor([0.5877, -0.2745, -0.2057, 0.0802, 0.0105, 0.0158, -0.0047, -0.0057],
                                           dtype=torch.float32)
@@ -90,8 +90,8 @@ class GymNormaEnv(gym.Wrapper):
             self.if_discrete = False
             self.target_return = 5000
 
-            # self.state_avg = torch.zeros(1, dtype=torch.float32)
-            # self.state_std = torch.ones(1, dtype=torch.float32)
+            # self.state_avg = th.zeros(1, dtype=th.float32)
+            # self.state_std = th.ones(1, dtype=th.float32)
             # 2 runs
             self.state_avg = torch.tensor([6.3101e-01, 9.3039e-01, 1.1357e-02, -6.0412e-02, -1.9220e-01,
                                            1.4675e-01, 6.7936e-01, -1.2429e-01, -6.3794e-01, -2.9083e-02,
@@ -131,7 +131,7 @@ class GymNormaEnv(gym.Wrapper):
                                            0.0000, 0.0000, 0.0000], dtype=torch.float32)
 
             # 4 runs
-            # self.state_avg = torch.tensor([6.1537e-01, 8.9688e-01, 2.1685e-02, -5.6615e-02, -3.6099e-01,
+            # self.state_avg = th.tensor([6.1537e-01, 8.9688e-01, 2.1685e-02, -5.6615e-02, -3.6099e-01,
             #                                5.5272e-02, 6.4884e-01, -1.1314e-01, -5.7535e-01, -1.1797e-01,
             #                                -5.4735e-01, 1.2350e-01, 6.3261e-01, 5.0387e+00, -3.1005e-01,
             #                                5.8508e-03, -4.0760e-03, -3.9709e-03, -4.0554e-02, -4.4973e-03,
@@ -153,8 +153,8 @@ class GymNormaEnv(gym.Wrapper):
             #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
             #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
             #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
-            #                                0.0000e+00], dtype=torch.float32)
-            # self.state_std = torch.tensor([0.1276, 0.0580, 0.0686, 0.0839, 0.1335, 0.3699, 0.2019, 0.4514, 0.1049,
+            #                                0.0000e+00], dtype=th.float32)
+            # self.state_std = th.tensor([0.1276, 0.0580, 0.0686, 0.0839, 0.1335, 0.3699, 0.2019, 0.4514, 0.1049,
             #                                0.1996, 0.0715, 0.4507, 0.1640, 1.3036, 1.0192, 1.2708, 1.6660, 1.5512,
             #                                1.2885, 4.3279, 3.5145, 6.1747, 2.1667, 2.8137, 1.4356, 6.1903, 2.8142,
             #                                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
@@ -166,7 +166,7 @@ class GymNormaEnv(gym.Wrapper):
             #                                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
             #                                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
             #                                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-            #                                0.0000, 0.0000, 0.0000], dtype=torch.float32)
+            #                                0.0000, 0.0000, 0.0000], dtype=th.float32)
         elif env_name == 'HalfCheetah-v3':
             self.env_num = 1
             self.env_name = env_name
@@ -200,12 +200,12 @@ class GymNormaEnv(gym.Wrapper):
                                            1.0560, 2.7070, 3.1108, 4.4344, 6.4363, 3.1945, 4.4594, 6.0115],
                                           dtype=torch.float32)
             # 11 runs
-            # self.state_avg = torch.tensor([1.2026, 0.3181, -0.2361, -0.6064, -0.0210, -0.2863, -0.3759, -0.0214,
+            # self.state_avg = th.tensor([1.2026, 0.3181, -0.2361, -0.6064, -0.0210, -0.2863, -0.3759, -0.0214,
             #                                4.7048, -0.0621, -0.0452, -0.1847, -0.6116, 0.0934, -0.0572, -0.5106,
-            #                                -0.5421], dtype=torch.float32)
-            # self.state_std = torch.tensor([0.0975, 0.2671, 0.2845, 0.6044, 0.6855, 0.3448, 0.4304, 0.7049, 1.5023,
+            #                                -0.5421], dtype=th.float32)
+            # self.state_std = th.tensor([0.0975, 0.2671, 0.2845, 0.6044, 0.6855, 0.3448, 0.4304, 0.7049, 1.5023,
             #                                1.0364, 3.8605, 4.0202, 5.9124, 6.7366, 4.3993, 5.2269, 6.5471],
-            #                               dtype=torch.float32)
+            #                               dtype=th.float32)
         else:
             self.state_avg = torch.zeros(1, dtype=torch.float32)
             self.state_std = torch.ones(1, dtype=torch.float32)
@@ -243,7 +243,7 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         self.target_return = target_return  # episode return is between (-1600, 0)
 
         # 5 runs
-        # self.state_avg = torch.tensor([1.2027e+00, 9.0388e-01, -1.0409e-01, 4.4935e-02, -2.8785e-02,
+        # self.state_avg = th.tensor([1.2027e+00, 9.0388e-01, -1.0409e-01, 4.4935e-02, -2.8785e-02,
         #                                2.9601e-01, -3.1656e-01, 3.0909e-01, -4.3196e-02, -1.2750e-01,
         #                                -2.6788e-01, -1.1086e+00, -1.1024e-01, 1.2908e-01, -5.8439e-01,
         #                                -1.6043e+00, 8.1362e-02, -7.7958e-01, -4.3869e-01, -4.9594e-02,
@@ -318,8 +318,8 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
         #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
         #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
-        #                                0.0000e+00], dtype=torch.float32)
-        # self.state_std = torch.tensor([3.7685e-02, 4.5415e-02, 6.8201e-02, 9.5235e-02, 1.2801e-01, 2.2247e-01,
+        #                                0.0000e+00], dtype=th.float32)
+        # self.state_std = th.tensor([3.7685e-02, 4.5415e-02, 6.8201e-02, 9.5235e-02, 1.2801e-01, 2.2247e-01,
         #                                2.2774e-01, 1.9151e-01, 1.0900e-01, 1.8950e-01, 3.8430e-01, 6.4591e-01,
         #                                1.1708e-01, 1.7833e-01, 4.0411e-01, 6.1461e-01, 2.8869e-01, 3.0227e-01,
         #                                4.4105e-01, 3.1090e-01, 3.5227e-01, 2.9399e-01, 8.6883e-01, 3.8865e-01,
@@ -381,7 +381,7 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
         #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
         #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
-        #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00], dtype=torch.float32)
+        #                                0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00], dtype=th.float32)
         # 8 runs
         self.state_avg = torch.tensor([1.2108e+00, 9.0593e-01, -1.2575e-01, 4.8278e-02, -4.7363e-02,
                                        3.0758e-01, -3.6351e-01, 3.3824e-01, -4.4513e-02, -9.5673e-02,
@@ -522,8 +522,8 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
                                        0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
                                        0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00,
                                        0.0000e+00, 0.0000e+00, 0.0000e+00, 0.0000e+00], dtype=torch.float32)
-        # self.state_avg = torch.zeros(1, dtype=torch.float32)
-        # self.state_std = torch.ones(1, dtype=torch.float32)
+        # self.state_avg = th.zeros(1, dtype=th.float32)
+        # self.state_std = th.ones(1, dtype=th.float32)
 
         self.state_std = torch.clamp(self.state_std, 2 ** -4, 2 ** 4)
         print(f'\n| {self.__class__.__name__}: We modified MuJoCo Env and do norm for state to make it better.'

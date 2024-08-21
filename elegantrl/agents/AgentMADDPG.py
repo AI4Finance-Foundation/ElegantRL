@@ -41,7 +41,7 @@ class AgentMADDPG(AgentBase):
         agent_id=0,
     ):
         self.agents = [AgentDDPG() for i in range(n_agents)]
-        self.explore_env = self.explore_one_env
+        self.explore_env = self._explore_one_env
         self.if_off_policy = True
         self.n_agents = n_agents
 
@@ -155,7 +155,7 @@ class AgentMADDPG(AgentBase):
 
         return
 
-    def explore_one_env(self, env, target_step) -> list:
+    def _explore_one_env(self, env, target_step) -> list:
         """
         Exploring the environment for target_step.
         param env: the Environment instance to be explored.

@@ -50,7 +50,7 @@ autodoc_mock_imports = [
     "matplotlib",
     "numpy",
     "pybullet",
-    "torch",
+    "th",
     "opencv-python",
 ]
 

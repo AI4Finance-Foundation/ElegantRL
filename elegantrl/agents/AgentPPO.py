@@ -1,297 +1,364 @@
-import torch
-from typing import Tuple
-from torch import Tensor
+import numpy as np
+import torch as th
+from torch import nn
+from typing import Tuple, List
 
 from elegantrl.train.config import Config
-from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import ActorPPO, CriticPPO
-from elegantrl.agents.net import ActorDiscretePPO
+from elegantrl.agents.AgentBase import AgentBase, ActorBase, CriticBase
+from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
+
+TEN = th.Tensor
 
 
 class AgentPPO(AgentBase):
-    """
-    PPO algorithm. “Proximal Policy Optimization Algorithms”. John Schulman. et al.. 2017.
-
-    net_dims: the middle layer dimension of MLP (MultiLayer Perceptron)
-    state_dim: the dimension of state (the number of state vector)
-    action_dim: the dimension of action (or the number of discrete action)
-    gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
-    args: the arguments for agent training. `args = Config()`
+    """PPO algorithm + GAE
+    “Proximal Policy Optimization Algorithms”. John Schulman. et al.. 2017.
+    “Generalized Advantage Estimation”. John Schulman. et al..
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, "act_class", ActorPPO)
-        self.cri_class = getattr(self, "cri_class", CriticPPO)
-        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        super().__init__(net_dims, state_dim, action_dim, gpu_id, args)
         self.if_off_policy = False
 
+        self.act = ActorPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.cri = CriticPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
+
         self.ratio_clip = getattr(args, "ratio_clip", 0.25)  # `ratio.clamp(1 - clip, 1 + clip)`
-        self.lambda_gae_adv = getattr(args, "lambda_gae_adv", 0.95)  # could be 0.50~0.99 # GAE for sparse reward
-        self.lambda_entropy = getattr(args, "lambda_entropy", 0.01)  # could be 0.00~0.20
-        self.lambda_entropy = torch.tensor(self.lambda_entropy, dtype=torch.float32, device=self.device)
+        self.lambda_gae_adv = getattr(args, "lambda_gae_adv", 0.95)  # could be 0.80~0.99
+        self.lambda_entropy = getattr(args, "lambda_entropy", 0.01)  # could be 0.00~0.10
+        self.lambda_entropy = th.tensor(self.lambda_entropy, dtype=th.float32, device=self.device)
 
-        if getattr(args, 'if_use_v_trace', False):
-            self.get_advantages = self.get_advantages_vtrace  # get advantage value in reverse time series (V-trace)
-        else:
-            self.get_advantages = self.get_advantages_origin  # get advantage value using critic network
-        self.value_avg = torch.zeros(1, dtype=torch.float32, device=self.device)
-        self.value_std = torch.ones(1, dtype=torch.float32, device=self.device)
+        self.if_use_v_trace = getattr(args, 'if_use_v_trace', True)
 
-    def explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
+    def _explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
         env: RL training environment. env.reset() env.step(). It should be a vector env.
         horizon_len: collect horizon_len step while exploring to update networks
-        return: `(states, actions, rewards, undones)` for off-policy
+        return: `(states, actions, logprobs, rewards, undones, unmasks)` for on-policy
             env_num == 1
-            states.shape == (horizon_len, env_num, state_dim)
-            actions.shape == (horizon_len, env_num, action_dim)
-            logprobs.shape == (horizon_len, env_num, action_dim)
-            rewards.shape == (horizon_len, env_num)
-            undones.shape == (horizon_len, env_num)
+            `states.shape == (horizon_len, num_envs, state_dim)`
+            `actions.shape == (horizon_len, num_envs, action_dim)`
+            `logprobs.shape == (horizon_len, num_envs, action_dim)`
+            `rewards.shape == (horizon_len, num_envs)`
+            `undones.shape == (horizon_len, num_envs)`
+            `unmasks.shape == (horizon_len, num_envs)`
         """
-        states = torch.zeros((horizon_len, self.num_envs, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.num_envs, self.action_dim), dtype=torch.float32).to(self.device)
-        logprobs = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        rewards = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        dones = torch.zeros((horizon_len, self.num_envs), dtype=torch.bool).to(self.device)
+        states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
+        actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device) \
+            if not self.if_discrete else th.zeros(horizon_len, dtype=th.int32).to(self.device)
+        logprobs = th.zeros(horizon_len, dtype=th.float32).to(self.device)
+        rewards = th.zeros(horizon_len, dtype=th.float32).to(self.device)
+        terminals = th.zeros(horizon_len, dtype=th.bool).to(self.device)
+        truncates = th.zeros(horizon_len, dtype=th.bool).to(self.device)
 
         state = self.last_state  # shape == (1, state_dim) for a single env.
-
-        get_action = self.act.get_action
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
-            action, logprob = get_action(state)
-            states[t] = state
+            action, logprob = self._explore_one_action(state)
 
-            ary_action = convert(action[0]).detach().cpu().numpy()
-            ary_state, reward, done, _ = env.step(ary_action)  # next_state
-            ary_state = env.reset() if done else ary_state  # ary_state.shape == (state_dim, )
-            state = torch.as_tensor(ary_state, dtype=torch.float32, device=self.device).unsqueeze(0)
+            states[t] = state
             actions[t] = action
             logprobs[t] = logprob
+
+            state, reward, terminal, truncate, _ = env.step(convert(action))
+
             rewards[t] = reward
-            dones[t] = done
+            terminals[t] = terminal
+            truncates[t] = truncate
 
         self.last_state = state  # state.shape == (1, state_dim) for a single env.
+        states = states.view((horizon_len, 1, self.state_dim))
+        actions = actions.view((horizon_len, 1, self.action_dim if not self.if_discrete else 1))
+        undones = th.logical_not(terminals).view((horizon_len, 1))
+        unmasks = th.logical_not(truncates).view((horizon_len, 1))
+        return states, actions, logprobs, rewards, undones, unmasks
 
-        rewards *= self.reward_scale
-        undones = 1.0 - dones.type(torch.float32)
-        return states, actions, logprobs, rewards, undones
-
-    def explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
+    def _explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
         env: RL training environment. env.reset() env.step(). It should be a vector env.
         horizon_len: collect horizon_len step while exploring to update networks
-        return: `(states, actions, rewards, undones)` for off-policy
-            states.shape == (horizon_len, env_num, state_dim)
-            actions.shape == (horizon_len, env_num, action_dim)
-            logprobs.shape == (horizon_len, env_num, action_dim)
-            rewards.shape == (horizon_len, env_num)
-            undones.shape == (horizon_len, env_num)
+        return: `(states, actions, logprobs, rewards, undones, unmasks)` for on-policy
+            `states.shape == (horizon_len, num_envs, state_dim)`
+            `actions.shape == (horizon_len, num_envs, action_dim)`
+            `logprobs.shape == (horizon_len, num_envs, action_dim)`
+            `rewards.shape == (horizon_len, num_envs)`
+            `undones.shape == (horizon_len, num_envs)`
+            `unmasks.shape == (horizon_len, num_envs)`
         """
-        states = torch.zeros((horizon_len, self.num_envs, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.num_envs, self.action_dim), dtype=torch.float32).to(self.device)
-        logprobs = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        rewards = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        dones = torch.zeros((horizon_len, self.num_envs), dtype=torch.bool).to(self.device)
+        states = th.zeros((horizon_len, self.num_envs, self.state_dim), dtype=th.float32).to(self.device)
+        actions = th.zeros((horizon_len, self.num_envs, self.action_dim), dtype=th.float32).to(self.device) \
+            if not self.if_discrete else th.zeros((horizon_len, self.num_envs,), dtype=th.int32).to(self.device)
+        logprobs = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
+        rewards = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
+        terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
+        truncates = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
 
         state = self.last_state  # shape == (env_num, state_dim) for a vectorized env.
 
-        get_action = self.act.get_action
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
-            action, logprob = get_action(state)
-            states[t] = state
+            action, logprob = self._explore_vec_action(state)
 
-            state, reward, done, _ = env.step(convert(action))  # next_state
+            states[t] = state
             actions[t] = action
             logprobs[t] = logprob
+
+            state, reward, terminal, truncate, _ = env.step(convert(action))  # next_state
+
             rewards[t] = reward
-            dones[t] = done
+            terminals[t] = terminal
+            truncates[t] = truncate
 
         self.last_state = state
+        undones = th.logical_not(terminals)
+        unmasks = th.logical_not(truncates)
+        return states, actions, logprobs, rewards, undones, unmasks
 
-        rewards *= self.reward_scale
-        undones = 1.0 - dones.type(torch.float32)
-        return states, actions, logprobs, rewards, undones
+    def _explore_one_action(self, state: TEN) -> Tuple[TEN, TEN]:
+        actions, logprobs = self.act.get_action(state.unsqueeze(0))
+        return actions[0], logprobs[0]
 
-    def update_net(self, buffer) -> Tuple[float, ...]:
-        with torch.no_grad():
-            states, actions, logprobs, rewards, undones = buffer
-            buffer_size = states.shape[0]
-            buffer_num = states.shape[1]
+    def _explore_vec_action(self, state: TEN) -> Tuple[TEN, TEN]:
+        actions, logprobs = self.act.get_action(state)
+        return actions, logprobs
 
-            '''get advantages and reward_sums'''
-            bs = 2 ** 10  # set a smaller 'batch_size' to avoiding out of GPU memory.
-            values = torch.empty_like(rewards)  # values.shape == (buffer_size, buffer_num)
-            for i in range(0, buffer_size, bs):
-                for j in range(buffer_num):
-                    values[i:i + bs, j] = self.cri(states[i:i + bs, j])
+    def update_net(self, buffer) -> Tuple[float, float, float]:
+        states, actions, logprobs, rewards, undones, unmasks = buffer
+        buffer_size = states.shape[0]
 
-            advantages = self.get_advantages(rewards, undones, values)  # shape == (buffer_size, buffer_num)
-            reward_sums = advantages + values  # shape == (buffer_size, buffer_num)
-            del rewards, undones, values
+        '''get advantages reward_sums'''
+        bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+        values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
+        values = th.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
 
-            advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-4)
+        advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
+        reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
+        del rewards, undones, values
 
-            self.update_avg_std_for_normalization(
-                states=states.reshape((-1, self.state_dim)),
-                returns=reward_sums.reshape((-1,))
-            )
-        # assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size, buffer_num)
+        advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
+        assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size,)
+
+        buffer = states, actions, unmasks, logprobs, advantages, reward_sums
 
         '''update network'''
-        obj_critics = 0.0
-        obj_actors = 0.0
-        sample_len = buffer_size - 1
+        obj_critics = []
+        obj_actors = []
 
+        th.set_grad_enabled(True)
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
-        for _ in range(update_times):
-            ids = torch.randint(sample_len * buffer_num, size=(self.batch_size,), requires_grad=False)
-            ids0 = torch.fmod(ids, sample_len)  # ids % sample_len
-            ids1 = torch.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
+        for update_t in range(update_times):
+            obj_critic, obj_actor = self.update_objectives(buffer, self.batch_size, update_t)
+            obj_critics.append(obj_critic)
+            obj_actors.append(obj_actor)
+        th.set_grad_enabled(False)
 
-            state = states[ids0, ids1]
-            action = actions[ids0, ids1]
-            logprob = logprobs[ids0, ids1]
-            advantage = advantages[ids0, ids1]
-            reward_sum = reward_sums[ids0, ids1]
+        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
+        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
+        a_std_log = getattr(self.act, 'a_std_log', th.zeros(1)).mean()
+        return obj_critic_avg, obj_actor_avg, a_std_log.item()
 
-            value = self.cri(state)  # critic network predicts the reward_sum (Q value) of state
-            obj_critic = self.criterion(value, reward_sum)
-            self.optimizer_update(self.cri_optimizer, obj_critic)
+    def update_objectives(self, buffer: Tuple[TEN, ...], batch_size: int, _update_t: int) -> Tuple[float, float]:
+        states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
-            new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
-            ratio = (new_logprob - logprob.detach()).exp()
-            surrogate1 = advantage * ratio
-            surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
-            obj_surrogate = torch.min(surrogate1, surrogate2).mean()
+        buffer_size = states.shape[0]
+        indices = th.randint(buffer_size, size=(batch_size,), requires_grad=False)
+        state = states[indices]
+        action = actions[indices]
+        unmask = unmasks[indices]
+        logprob = logprobs[indices]
+        advantage = advantages[indices]
+        reward_sum = reward_sums[indices]
 
-            obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
-            self.optimizer_update(self.act_optimizer, -obj_actor)
+        value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+        obj_critic = (self.criterion(value, reward_sum) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
 
-            obj_critics += obj_critic.item()
-            obj_actors += obj_actor.item()
-        a_std_log = self.act.action_std_log.mean() if hasattr(self.act, 'action_std_log') else torch.zeros(1)
-        return obj_critics / update_times, obj_actors / update_times, a_std_log.item()
+        new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
+        ratio = (new_logprob - logprob.detach()).exp()
+        surrogate1 = advantage * ratio
+        surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+        obj_surrogate = th.min(surrogate1, surrogate2).mean()
+        obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
+        self.optimizer_backward(self.act_optimizer, -obj_actor)
+        return obj_critic.item(), obj_actor.item()
 
-    def get_advantages_origin(self, rewards: Tensor, undones: Tensor, values: Tensor) -> Tensor:
-        advantages = torch.empty_like(values)  # advantage value
+    def get_advantages(self, states: TEN, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
+        advantages = th.empty_like(values)  # advantage value
 
-        masks = undones * self.gamma
-        horizon_len = rewards.shape[0]
-
-        next_value = self.cri(self.last_state).detach()
-
-        advantage = torch.zeros_like(next_value)  # last advantage value by GAE (Generalized Advantage Estimate)
-        for t in range(horizon_len - 1, -1, -1):
-            next_value = rewards[t] + masks[t] * next_value
-            advantages[t] = advantage = next_value - values[t] + masks[t] * self.lambda_gae_adv * advantage
-            next_value = values[t]
-        return advantages
-
-    def get_advantages_vtrace(self, rewards: Tensor, undones: Tensor, values: Tensor) -> Tensor:
-        advantages = torch.empty_like(values)  # advantage value
+        # update undones rewards when truncated
+        truncated = th.logical_not(unmasks)
+        if th.any(truncated):
+            rewards[truncated] += self.cri(states[truncated.squeeze(1)]).detach().squeeze(1)
+            undones[truncated] = False
 
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        advantage = torch.zeros_like(values[0])  # last advantage value by GAE (Generalized Advantage Estimate)
-        for t in range(horizon_len - 1, -1, -1):
-            advantages[t] = rewards[t] - values[t] + masks[t] * advantage
-            advantage = values[t] + self.lambda_gae_adv * advantages[t]
+        next_state = th.tensor(self.last_state, dtype=th.float32).to(self.device)
+        next_value = self.cri(next_state.unsqueeze(0)).detach().squeeze(1).squeeze(0)
+
+        advantage = th.zeros_like(next_value)  # last advantage value by GAE (Generalized Advantage Estimate)
+        if self.if_use_v_trace:  # get advantage value in reverse time series (V-trace)
+            for t in range(horizon_len - 1, -1, -1):
+                next_value = rewards[t] + masks[t] * next_value
+                advantages[t] = advantage = next_value - values[t] + masks[t] * self.lambda_gae_adv * advantage
+                next_value = values[t]
+        else:  # get advantage value using the estimated value of critic network
+            for t in range(horizon_len - 1, -1, -1):
+                advantages[t] = rewards[t] - values[t] + masks[t] * advantage
+                advantage = values[t] + self.lambda_gae_adv * advantages[t]
         return advantages
+
+
+class AgentA2C(AgentPPO):
+    """A2C algorithm.
+    “Asynchronous Methods for Deep Reinforcement Learning”. Mnih V. et al.. 2016.
+    """
+
+    def update_objectives(self, buffer: Tuple[TEN, ...], batch_size: int, _update_t: int) -> Tuple[float, float]:
+        states, actions, unmasks, logprobs, advantages, reward_sums = buffer
+
+        buffer_size = states.shape[0]
+        indices = th.randint(buffer_size, size=(batch_size,), requires_grad=False)
+        state = states[indices]
+        action = actions[indices]
+        unmask = unmasks[indices]
+        # logprob = logprobs[indices]
+        advantage = advantages[indices]
+        reward_sum = reward_sums[indices]
+
+        value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
+        obj_critic = (self.criterion(value, reward_sum) * unmask).mean()
+        self.optimizer_backward(self.cri_optimizer, obj_critic)
+
+        new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
+        obj_actor = (advantage * new_logprob).mean()  # obj_actor without policy gradient clip
+        self.optimizer_backward(self.act_optimizer, -obj_actor)
+        return obj_critic.item(), obj_actor.item()
 
 
 class AgentDiscretePPO(AgentPPO):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, "act_class", ActorDiscretePPO)
-        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        super(AgentPPO).__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.if_off_policy = False
 
-    def explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
-        """
-        Collect trajectories through the actor-environment interaction for a **single** environment instance.
+        self.act = ActorPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.cri = CriticPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-        env: RL training environment. env.reset() env.step(). It should be a vector env.
-        horizon_len: collect horizon_len step while exploring to update networks
-        return: `(states, actions, rewards, undones)` for off-policy
-            env_num == 1
-            states.shape == (horizon_len, env_num, state_dim)
-            actions.shape == (horizon_len, env_num, action_dim)
-            logprobs.shape == (horizon_len, env_num, action_dim)
-            rewards.shape == (horizon_len, env_num)
-            undones.shape == (horizon_len, env_num)
-        """
-        states = torch.zeros((horizon_len, self.num_envs, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.num_envs, 1), dtype=torch.int32).to(self.device)  # only different
-        logprobs = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        rewards = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        dones = torch.zeros((horizon_len, self.num_envs), dtype=torch.bool).to(self.device)
+        self.ratio_clip = getattr(args, "ratio_clip", 0.25)  # `ratio.clamp(1 - clip, 1 + clip)`
+        self.lambda_gae_adv = getattr(args, "lambda_gae_adv", 0.95)  # could be 0.80~0.99
+        self.lambda_entropy = getattr(args, "lambda_entropy", 0.01)  # could be 0.00~0.10
+        self.lambda_entropy = th.tensor(self.lambda_entropy, dtype=th.float32, device=self.device)
 
-        state = self.last_state  # shape == (1, state_dim) for a single env.
+        self.if_use_v_trace = getattr(args, 'if_use_v_trace', True)
 
-        get_action = self.act.get_action
-        convert = self.act.convert_action_for_env
-        for t in range(horizon_len):
-            action, logprob = get_action(state)
-            states[t] = state
 
-            int_action = convert(action).item()
-            ary_state, reward, done, _ = env.step(int_action)  # next_state
-            state = torch.as_tensor(env.reset() if done else ary_state,
-                                    dtype=torch.float32, device=self.device).unsqueeze(0)
-            actions[t] = action
-            logprobs[t] = logprob
-            rewards[t] = reward
-            dones[t] = done
+class AgentDiscreteA2C(AgentDiscretePPO):
+    def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
+        super(AgentPPO).__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        self.if_off_policy = False
 
-        self.last_state = state
+        self.act = ActorDiscretePPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.cri = CriticPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-        rewards *= self.reward_scale
-        undones = 1.0 - dones.type(torch.float32)
-        return states, actions, logprobs, rewards, undones
+        self.if_use_v_trace = getattr(args, 'if_use_v_trace', True)
 
-    def explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[Tensor, ...]:
-        """
-        Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
-        env: RL training environment. env.reset() env.step(). It should be a vector env.
-        horizon_len: collect horizon_len step while exploring to update networks
-        return: `(states, actions, rewards, undones)` for off-policy
-            states.shape == (horizon_len, env_num, state_dim)
-            actions.shape == (horizon_len, env_num, action_dim)
-            logprobs.shape == (horizon_len, env_num, action_dim)
-            rewards.shape == (horizon_len, env_num)
-            undones.shape == (horizon_len, env_num)
-        """
-        states = torch.zeros((horizon_len, self.num_envs, self.state_dim), dtype=torch.float32).to(self.device)
-        actions = torch.zeros((horizon_len, self.num_envs, 1), dtype=torch.float32).to(self.device)
-        logprobs = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        rewards = torch.zeros((horizon_len, self.num_envs), dtype=torch.float32).to(self.device)
-        dones = torch.zeros((horizon_len, self.num_envs), dtype=torch.bool).to(self.device)
+'''network'''
 
-        state = self.last_state  # shape == (env_num, state_dim) for a vectorized env.
 
-        get_action = self.act.get_action
-        convert = self.act.convert_action_for_env
-        for t in range(horizon_len):
-            action, logprob = get_action(state)
-            states[t] = state
+class ActorPPO(ActorBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
 
-            state, reward, done, _ = env.step(convert(action))  # next_state
-            actions[t] = action
-            logprobs[t] = logprob
-            rewards[t] = reward
-            dones[t] = done
+        self.action_std_log = nn.Parameter(th.zeros((1, action_dim)), requires_grad=True)  # trainable parameter
+        self.ActionDist = th.distributions.normal.Normal
 
-        self.last_state = state
+    def forward(self, state: TEN) -> TEN:
+        state = self.state_norm(state)
+        action = self.net(state)
+        return self.convert_action_for_env(action)
 
-        actions = actions.unsqueeze(2)
-        rewards *= self.reward_scale
-        undones = 1.0 - dones.type(torch.float32)
-        return states, actions, logprobs, rewards, undones
+    def get_action(self, state: TEN) -> Tuple[TEN, TEN]:  # for exploration
+        state = self.state_norm(state)
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
+
+        dist = self.ActionDist(action_avg, action_std)
+        action = dist.sample()
+        logprob = dist.log_prob(action).sum(1)
+        return action, logprob
+
+    def get_logprob_entropy(self, state: TEN, action: TEN) -> Tuple[TEN, TEN]:
+        state = self.state_norm(state)
+        action_avg = self.net(state)
+        action_std = self.action_std_log.exp()
+
+        dist = self.ActionDist(action_avg, action_std)
+        logprob = dist.log_prob(action).sum(1)
+        entropy = dist.entropy().sum(1)
+        return logprob, entropy
+
+    @staticmethod
+    def convert_action_for_env(action: TEN) -> TEN:
+        return action.tanh()
+
+
+class ActorDiscretePPO(ActorBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
+
+        self.ActionDist = th.distributions.Categorical
+        self.soft_max = nn.Softmax(dim=-1)
+
+    def forward(self, state: TEN) -> TEN:
+        state = self.state_norm(state)
+        a_prob = self.net(state)  # action_prob without softmax
+        return a_prob.argmax(dim=1)  # get the indices of discrete action
+
+    def get_action(self, state: TEN) -> (TEN, TEN):
+        state = self.state_norm(state)
+        a_prob = self.soft_max(self.net(state))
+        a_dist = self.ActionDist(a_prob)
+        action = a_dist.sample()
+        logprob = a_dist.log_prob(action)
+        return action, logprob
+
+    def get_logprob_entropy(self, state: TEN, action: TEN) -> (TEN, TEN):
+        state = self.state_norm(state)
+        a_prob = self.soft_max(self.net(state))  # action.shape == (batch_size, 1), action.dtype = th.int
+        dist = self.ActionDist(a_prob)
+        logprob = dist.log_prob(action.squeeze(1))
+        entropy = dist.entropy()
+        return logprob, entropy
+
+    @staticmethod
+    def convert_action_for_env(action: TEN) -> TEN:
+        return action.long()
+
+
+class CriticPPO(CriticBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *net_dims, 1])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
+
+    def forward(self, state: TEN) -> TEN:
+        state = self.state_norm(state)
+        value = self.net(state)
+        return value  # advantage value

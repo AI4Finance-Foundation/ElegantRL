@@ -48,7 +48,7 @@ class Config:
 
         '''Arguments for device'''
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
-        self.thread_num = int(8)  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
+        self.thread_num = int(8)  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
         self.random_seed = int(0)  # initialize random seed in self.init_before_training()
 
         '''Arguments for evaluate'''
@@ -618,7 +618,7 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
     for episode_steps in range(12345):
         tensor_state = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
         tensor_action = actor(tensor_state)
-        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, terminated, truncated, _ = env.step(action)
         cumulative_returns += reward
 

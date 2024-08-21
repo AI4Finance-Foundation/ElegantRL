@@ -172,7 +172,7 @@ def demo_evaluator_actor_h_term_to_str():
 
     '''evaluate file'''
     # buffer = init_buffer(args, gpu_id)
-    # agent.act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    # agent.act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     # agent.state = env.reset()
     # target_step = args.max_step * 4
     #

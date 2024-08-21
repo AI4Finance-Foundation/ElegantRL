@@ -699,7 +699,7 @@ def demo_load_pendulum_and_render():
     for steps in range(12345):
         s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action)
         returns += reward
         env.render()

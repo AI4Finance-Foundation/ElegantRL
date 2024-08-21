@@ -25,7 +25,7 @@ class Evaluator:
         self.if_over_write = args.if_over_write
 
         self.recorder_path = f'{cwd}/recorder.npy'
-        self.recorder = []  # total_step, r_avg, r_std, obj_c, ...
+        self.recorder = []  # total_step, r_avg, r_std, critic_value, ...
         self.max_r = -np.inf
         print("| Evaluator:"
               "\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
@@ -156,7 +156,7 @@ def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tup
 
     env = build_env(env_class=env_class, env_args=env_args)
     act = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
-    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
 
     r_s_ary = [get_episode_return_and_step(env, act) for _ in range(eval_times)]
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
@@ -176,7 +176,7 @@ def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tup
             if tensor_action.dim() == 1:
                 tensor_action = tensor_action.unsqueeze(0)
             tensor_action = tensor_action.argmax(dim=1)
-        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action)
         returns += reward
 
@@ -333,7 +333,7 @@ def demo_evaluator_actor_pth():
     args = Config(agent_class=agent_class, env_class=env_class, env_args=env_args)
     env = build_env(env_class=args.env_class, env_args=args.env_args)
     act = agent_class(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args).act
-    # act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    # act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
 
     '''evaluate'''
     r_s_ary = [get_cumulative_rewards_and_steps(env, act) for _ in range(eval_times)]
@@ -440,7 +440,7 @@ def demo_load_pendulum_and_render():
     for steps in range(max_step):
         s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action * 2)  # for Pendulum specially
         returns += reward
         env.render()

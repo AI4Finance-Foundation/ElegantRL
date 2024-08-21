@@ -531,7 +531,7 @@ class Arguments:
 
         '''Arguments for device'''
         self.worker_num = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
-        self.thread_num = 8  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
+        self.thread_num = 8  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
         self.random_seed = 0  # initialize random seed in self.init_before_training()
         self.learner_gpus = 0  # `int` means the ID of single GPU, -1 means CPU
 
@@ -642,7 +642,7 @@ def get_episode_return_and_step(env, act) -> (float, int):  # [ElegantRL.2022.01
         a_tensor = act(s_tensor)
         if if_discrete:
             a_tensor = a_tensor.argmax(dim=1)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action)
         episode_return += reward
         if done:

@@ -272,12 +272,12 @@ class StockTradingVecEnv:
         #     # delta_stock.shape == ()
         #     for i in range(self.num_envs):
         #         if stock_actions[i] > 0:  # buy_stock
-        #             delta_stock = torch.div(self.amount[i], close_price, rounding_mode='floor')
-        #             delta_stock = torch.min(delta_stock, stock_actions[0])
+        #             delta_stock = th.div(self.amount[i], close_price, rounding_mode='floor')
+        #             delta_stock = th.min(delta_stock, stock_actions[0])
         #             self.amount[i] -= close_price * delta_stock * (1 + self.cost_pct)
         #             self.shares[i, index] = self.shares[i, index] + delta_stock
         #         elif self.shares[i, index] > 0:  # sell_stock
-        #             delta_stock = torch.min(-stock_actions[i], self.shares[i, index])
+        #             delta_stock = th.min(-stock_actions[i], self.shares[i, index])
         #             self.amount[i] += close_price * delta_stock * (1 - self.cost_pct)
         #             self.shares[i, index] = self.shares[i, index] + delta_stock
 

@@ -3,7 +3,7 @@ import sys
 import time
 import torch
 import numpy as np
-import torch.multiprocessing as mp  # torch.multiprocessing extends multiprocessing of Python
+import torch.multiprocessing as mp  # th.multiprocessing extends multiprocessing of Python
 from copy import deepcopy
 from multiprocessing import Process, Pipe
 

@@ -1,91 +1,33 @@
 import numpy as np
 import numpy.random as rd
-import torch
+import torch as th
 from copy import deepcopy
-from typing import Tuple
-from torch import Tensor
+from typing import Tuple, List
+
+from torch import nn
 
 from elegantrl.train.config import Config
-from elegantrl.train.replay_buffer import ReplayBuffer
-from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import Actor, Critic
+from elegantrl.agents.AgentBase import AgentBase, ActorBase, CriticBase
+from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
+
+TEN = th.Tensor
 
 
 class AgentDDPG(AgentBase):
     """DDPG(Deep Deterministic Policy Gradient)
     “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.”
-
-    net_dims: the middle layer dimension of MLP (MultiLayer Perceptron)
-    state_dim: the dimension of state (the number of state vector)
-    action_dim: the dimension of action (or the number of discrete action)
-    gpu_id: the gpu_id of the training device. Use CPU when cuda is not available.
-    args: the arguments for agent training. `args = Config()`
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, 'act_class', Actor)
-        self.cri_class = getattr(self, 'cri_class', Critic)
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        self.explore_noise_std = getattr(args, 'explore_noise', 0.05)  # set for `self.get_policy_action()`
+
+        self.act = Actor(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.cri = Critic(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
         self.act_target = deepcopy(self.act)
         self.cri_target = deepcopy(self.cri)
-
-        self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
-
-        self.act.explore_noise_std = self.explore_noise_std  # assign explore_noise_std for agent.act.get_action(state)
-
-    def update_net(self, buffer: ReplayBuffer) -> tuple:
-        with torch.no_grad():
-            states, actions, rewards, undones = buffer.add_item
-            self.update_avg_std_for_normalization(
-                states=states.reshape((-1, self.state_dim)),
-                returns=self.get_cumulative_rewards(rewards=rewards, undones=undones).reshape((-1,))
-            )
-
-        '''update network'''
-        obj_critics = 0.0
-        obj_actors = 0.0
-
-        update_times = int(buffer.add_size * self.repeat_times)
-        assert update_times >= 1
-        for update_c in range(update_times):
-            obj_critic, state = self.get_obj_critic(buffer, self.batch_size)
-            obj_critics += obj_critic.item()
-            self.optimizer_update(self.cri_optimizer, obj_critic)
-            self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
-            action_pg = self.act(state)  # policy gradient
-            obj_actor = self.cri_target(state, action_pg).mean()  # use cri_target is more stable than cri
-            obj_actors += obj_actor.item()
-            self.optimizer_update(self.act_optimizer, -obj_actor)
-            self.soft_update(self.act_target, self.act, self.soft_update_tau)
-        return obj_critics / update_times, obj_actors / update_times
-
-    def get_obj_critic_raw(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
-        with torch.no_grad():
-            states, actions, rewards, undones, next_ss = buffer.sample(batch_size)  # next_ss: next states
-            next_as = self.act_target(next_ss)  # next actions
-            next_qs = self.cri_target(next_ss, next_as)  # next q_values
-            q_labels = rewards + undones * self.gamma * next_qs
-
-        q_values = self.cri(states, actions)
-        obj_critic = self.criterion(q_values, q_labels)
-        return obj_critic, states
-
-    def get_obj_critic_per(self, buffer: ReplayBuffer, batch_size: int) -> Tuple[Tensor, Tensor]:
-        with torch.no_grad():
-            states, actions, rewards, undones, next_ss, is_weights, is_indices = buffer.sample_for_per(batch_size)
-            # is_weights, is_indices: important sampling `weights, indices` by Prioritized Experience Replay (PER)
-
-            next_as = self.act_target(next_ss)
-            next_qs = self.cri_target(next_ss, next_as)
-            q_labels = rewards + undones * self.gamma * next_qs
-
-        q_values = self.cri(states, actions)
-        td_errors = self.criterion(q_values, q_labels)
-        obj_critic = (td_errors * is_weights).mean()
-
-        buffer.td_error_update_for_per(is_indices.detach(), td_errors.detach())
-        return obj_critic, states
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
 
 class OrnsteinUhlenbeckNoise:
@@ -119,3 +61,40 @@ class OrnsteinUhlenbeckNoise:
         noise = self.sigma * np.sqrt(self.dt) * rd.normal(size=self.size)
         self.ou_noise -= self.theta * self.ou_noise * self.dt + noise
         return self.ou_noise
+
+
+'''network'''
+
+
+class Actor(ActorBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
+
+        self.explore_noise_std = 0.01  # standard deviation of exploration action noise
+        self.ActionDist = th.distributions.normal.Normal
+
+    def forward(self, state: TEN) -> TEN:
+        state = self.state_norm(state)
+        action = self.net(state)
+        return action.tanh()
+
+    def get_action(self, state: TEN, action_std: float) -> TEN:  # for exploration
+        state = self.state_norm(state)
+        action_avg = self.net(state).tanh()
+        dist = self.ActionDist(action_avg, action_std)
+        action = dist.sample()
+        return action.clip(-1.0, 1.0)
+
+
+class Critic(CriticBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, 1])
+        layer_init_with_orthogonal(self.net[-1], std=0.5)
+
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        state = self.state_norm(state)
+        value = self.net(th.cat((state, action), dim=1))
+        return value
