@@ -186,17 +186,14 @@ class QNetBase(nn.Module):  # nn.Module is a standard PyTorch Network
     def state_norm(self, state: TEN) -> TEN:
         return (state - self.state_avg) / self.state_std
 
-
-class QNetwork(QNetBase):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
-        layer_init_with_orthogonal(self.net[-1], std=0.1)
-
     def forward(self, state):
+        q_value = self.get_q_value(state)
+        return q_value.argmax(dim=1)  # index of max Q values
+
+    def get_q_value(self, state: TEN) -> TEN:
         state = self.state_norm(state)
-        value = self.net(state)  # Q values for multiple actions
-        return value.argmax(dim=1)  # index of max Q values
+        q_value = self.net(state)
+        return q_value
 
     def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
         if explore_rate < th.rand(1):
@@ -206,10 +203,12 @@ class QNetwork(QNetBase):
             action = th.randint(self.action_dim, size=(state.shape[0], 1))
         return action
 
-    def get_q_value(self, state: TEN) -> TEN:
-        state = self.state_norm(state)
-        value = self.net(state)
-        return value  # Q value
+
+class QNetwork(QNetBase):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
 
 
 class QNetDuel(QNetBase):  # Dueling DQN
@@ -230,15 +229,11 @@ class QNetDuel(QNetBase):  # Dueling DQN
         value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
         return value.argmax(dim=1)  # index of max Q values
 
-    def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
-        if explore_rate < th.rand(1):
-            state = self.state_norm(state)
-            s_enc = self.net_state(state)  # encoded state
-            q_val = self.net_val(s_enc)  # q value
-            action = q_val.argmax(dim=1, keepdim=True)
-        else:
-            action = th.randint(self.action_dim, size=(state.shape[0], 1))
-        return action
+    def get_q_value(self, state: TEN) -> TEN:
+        state = self.state_norm(state)
+        s_enc = self.net_state(state)  # encoded state
+        q_value = self.net_val(s_enc)
+        return q_value
 
 
 class QNetTwin(QNetBase):  # Double DQN
@@ -247,16 +242,16 @@ class QNetTwin(QNetBase):  # Double DQN
         self.net_state = build_mlp(dims=[state_dim, *net_dims])
         self.net_val1 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 1
         self.net_val2 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 2
-        self.soft_max = nn.Softmax(dim=1)
+        self.soft_max = nn.Softmax(dim=-1)
 
         layer_init_with_orthogonal(self.net_val1[-1], std=0.1)
         layer_init_with_orthogonal(self.net_val2[-1], std=0.1)
 
-    def forward(self, state):
+    def get_q_value(self, state: TEN) -> TEN:
         state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
-        q_val = self.net_val1(s_enc)  # q value
-        return q_val.argmax(dim=1)  # index of max Q values
+        q_value = self.net_val1(s_enc)  # q value
+        return q_value
 
     def get_q1_q2(self, state):
         state = self.state_norm(state)
@@ -266,21 +261,19 @@ class QNetTwin(QNetBase):  # Double DQN
         return q_val1, q_val2  # two groups of Q values
 
     def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
-        state = self.state_norm(state)
-        s_enc = self.net_state(state)  # encoded state
-        q_val = self.net_val1(s_enc)  # q value
+        q_value = self.get_q_value(state)
         if explore_rate < th.rand(1):
-            action = q_val.argmax(dim=1, keepdim=True)
+            action = q_value.argmax(dim=1, keepdim=True)
         else:
-            q_norm = (q_val - (q_val.mean() + 1)) / (q_val.std() + 1e-5)
-            a_prob = self.soft_max(q_norm)
+            q_norm = (q_value - q_value.mean(dim=-1, keepdim=True)) / (q_value.std(dim=-1, keepdim=True) + 1e-5)
+            a_prob = self.soft_max(q_norm + 1)
             action = th.multinomial(a_prob, num_samples=1)
         return action
 
 
-class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
+class QNetTwinDuel(QNetTwin):  # D3QN: Dueling Double DQN
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        QNetBase.__init__(self, state_dim=state_dim, action_dim=action_dim)
         self.net_state = build_mlp(dims=[state_dim, *net_dims])
         self.net_adv1 = build_mlp(dims=[net_dims[-1], 1])  # advantage value 1
         self.net_val1 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 1
@@ -293,13 +286,13 @@ class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
         layer_init_with_orthogonal(self.net_adv2[-1], std=0.1)
         layer_init_with_orthogonal(self.net_val2[-1], std=0.1)
 
-    def forward(self, state):
+    def get_q_value(self, state):
         state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
         q_adv = self.net_adv1(s_enc)  # advantage value
-        value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # one dueling Q value
-        return value.argmax(dim=1)  # index of max Q values
+        q_value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # one dueling Q value
+        return q_value
 
     def get_q1_q2(self, state):
         state = self.state_norm(state)
@@ -313,14 +306,3 @@ class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
         q_adv2 = self.net_adv2(s_enc)  # advantage value 2
         q_duel2 = q_val2 - q_val2.mean(dim=1, keepdim=True) + q_adv2
         return q_duel1, q_duel2  # two dueling Q values
-
-    def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
-        state = self.state_norm(state)
-        s_enc = self.net_state(state)  # encoded state
-        q_val = self.net_val1(s_enc)  # q value
-        if explore_rate < th.rand(1):
-            action = q_val.argmax(dim=1, keepdim=True)
-        else:
-            a_prob = self.soft_max(q_val)
-            action = th.multinomial(a_prob, num_samples=1)
-        return action

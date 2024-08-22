@@ -167,6 +167,10 @@ class AgentBase:
         objs_critic = []
         objs_actor = []
 
+        if buffer.cur_size < self.batch_size * 8:
+            obj_avg_critic = 0.0
+            obj_avg_actor = 0.0
+            return obj_avg_critic, obj_avg_actor
         th.set_grad_enabled(True)
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
         for update_t in range(update_times):
@@ -279,10 +283,10 @@ class AgentBase:
 
         state_avg = states.mean(dim=0, keepdim=True)
         state_std = states.std(dim=0, keepdim=True)
-        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
-        self.act.state_std[:] = self.cri.state_std * (1 - tau) + state_std * tau + 1e-4
-        self.cri.state_avg[:] = self.act.state_avg
-        self.cri.state_std[:] = self.act.state_std
+        self.act.state_avg.data[:] = self.act.data.state_avg * (1 - tau) + state_avg * tau
+        self.act.state_std.data[:] = self.act.data.state_std * (1 - tau) + state_std * tau + 1e-4
+        self.cri.state_avg.data[:] = self.act.data.state_avg
+        self.cri.state_std.data[:] = self.act.data.state_std
 
     @staticmethod
     def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):

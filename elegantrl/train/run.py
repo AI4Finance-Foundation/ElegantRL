@@ -1,10 +1,11 @@
 import os
 import time
+from copy import deepcopy
 from typing import List
 
 import torch as th
 import numpy as np
-import torch.multiprocessing as mp  # th.multiprocessing extends multiprocessing of Python
+import multiprocessing as mp  # th.multiprocessing extends multiprocessing of Python
 from multiprocessing import Process, Pipe
 
 from elegantrl.train.config import Config, build_env
@@ -153,6 +154,7 @@ class Learner(Process):
 
         '''loop'''
         if_off_policy = args.if_off_policy
+        if_discrete = args.if_discrete
         if_save_buffer = args.if_save_buffer
         num_workers = args.num_workers
         num_envs = args.num_envs
@@ -166,21 +168,26 @@ class Learner(Process):
 
         agent.last_state = th.empty((num_seqs, state_dim), dtype=th.float32, device=agent.device)
 
-        states = th.empty((horizon_len, num_seqs, state_dim), dtype=th.float32, device=agent.device)
-        actions = th.empty((horizon_len, num_seqs, action_dim), dtype=th.float32, device=agent.device)
-        rewards = th.empty((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
-        undones = th.empty((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
+        states = th.zeros((horizon_len, num_seqs, state_dim), dtype=th.float32, device=agent.device)
+        actions = th.zeros((horizon_len, num_seqs, action_dim), dtype=th.float32, device=agent.device) \
+            if not if_discrete else th.zeros((horizon_len, num_seqs, 1), dtype=th.int32).to(agent.device)
+        rewards = th.zeros((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
+        undones = th.zeros((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
+        unmasks = th.zeros((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
         if if_off_policy:
-            buffer_items_tensor = (states, actions, rewards, undones)
+            buffer_items_tensor = (states, actions, rewards, undones, unmasks)
         else:
-            logprobs = th.empty((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
-            buffer_items_tensor = (states, actions, logprobs, rewards, undones)
+            logprobs = th.zeros((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
+            buffer_items_tensor = (states, actions, logprobs, rewards, undones, unmasks)
 
         if_train = True
         while if_train:
+            actor = agent.act
+            actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
             '''Learner send actor to Workers'''
             for send_pipe in self.send_pipes:
-                send_pipe.send(agent.act)
+                send_pipe.send(actor)
+            # agent.act.state_std.data[:] = th.as_tensor(state_std, device=agent.device)
 
             '''Learner receive (buffer_items, last_state) from Workers'''
             for _ in range(num_workers):
@@ -189,8 +196,8 @@ class Learner(Process):
                 buf_i = worker_id * num_envs
                 buf_j = worker_id * num_envs + num_envs
                 for buffer_item, buffer_tensor in zip(buffer_items, buffer_items_tensor):
-                    buffer_tensor[:, buf_i:buf_j] = buffer_item
-                agent.last_state[buf_i:buf_j] = last_state
+                    buffer_tensor[:, buf_i:buf_j] = buffer_item.to(agent.device)
+                agent.last_state[buf_i:buf_j] = last_state.to(agent.device)
 
             '''Learner update training data to (buffer, agent)'''
             if if_off_policy:
@@ -206,7 +213,8 @@ class Learner(Process):
             '''Learner receive training signal from Evaluator'''
             if self.eval_pipe.poll():  # whether there is any data available to be read of this pipe
                 if_train = self.eval_pipe.recv()  # True means evaluator in idle moments.
-                actor = agent.act  # so Leaner send an actor to evaluator for evaluation.
+                # actor = agent.act  # already set in `actor = agent.act` after `while if_train`
+                # actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
             else:
                 actor = None
 
@@ -271,11 +279,15 @@ class Worker(Process):
             actor = self.recv_pipe.recv()
             if actor is None:
                 break
+            agent.act = actor.to(agent.device) if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
 
             '''Worker send the training data to Learner'''
-            agent.act = actor
             buffer_items = agent.explore_env(env, horizon_len)
-            self.send_pipe.send((worker_id, buffer_items, agent.last_state))
+            last_state = agent.last_state
+            if os.name == 'nt':  # WindowsNT_OS can only send cpu_tensor
+                buffer_items = [t.cpu() for t in buffer_items]
+                last_state = deepcopy(last_state).cpu()
+            self.send_pipe.send((worker_id, buffer_items, last_state))
 
         env.close() if hasattr(env, 'close') else None
 
@@ -311,7 +323,7 @@ class EvaluatorProc(Process):
             if actor is None:
                 evaluator.total_step += steps  # update total_step but don't update recorder
             else:
-                actor = actor.to(device)
+                actor = actor.to(device) if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
                 evaluator.evaluate_and_save(actor, steps, exp_r, logging_tuple)
 
             '''Evaluator send the training signal to Learner'''

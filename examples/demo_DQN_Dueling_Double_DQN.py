@@ -21,23 +21,21 @@ def train_dqn_for_cartpole(agent_class):
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
-    args.batch_size = 512
-    args.gamma = 0.98  # discount factor of future rewards
-    args.horizon_len = args.max_step * 2
-    args.buffer_size = int(4e4)
+    args.net_dims = [64, 32]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 128
+    args.gamma = 0.99  # discount factor of future rewards
+    args.horizon_len = args.max_step
+    args.buffer_size = int(1e5)
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** 0
-    args.learning_rate = 1e-4
+    args.learning_rate = 5e-4
 
     args.eval_times = 32
     args.eval_per_step = 1e4
 
     args.gpu_id = GPU_ID
-    args.num_workers = 4
+    args.num_workers = 1
     if_single_process = False
-
-    if_single_process = True  # TODO
     if if_single_process:
         train_agent(args)
     else:
@@ -80,13 +78,13 @@ def train_dqn_for_cartpole_vec_env():
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
+    args.net_dims = [64, 32]  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
     args.gamma = 0.98  # discount factor of future rewards
     args.horizon_len = args.max_step * 2
     args.buffer_size = int(4e4)
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.reward_scale = 2 ** 0
+    args.reward_scale = 2 ** 2
     args.learning_rate = 1e-4
 
     args.eval_times = 32
@@ -95,7 +93,7 @@ def train_dqn_for_cartpole_vec_env():
     args.gpu_id = GPU_ID
     args.random_seed = GPU_ID
     args.num_workers = 2
-    if_single_process = False
+    if_single_process = True
     if if_single_process:
         train_agent(args)
     else:
