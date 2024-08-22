@@ -1,6 +1,6 @@
 import os
 import time
-from typing import List
+from typing import List, Tuple
 
 import torch as th
 import numpy as np
@@ -56,7 +56,7 @@ class Evaluator:
         draw_learning_curve_using_recorder(self.cwd)
 
 
-def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
+def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, int]:
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
     state, info_dict = env.reset()

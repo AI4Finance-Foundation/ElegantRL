@@ -71,11 +71,11 @@ class ReplayBuffer:  # for off-policy
 
     def update(self, items: Tuple[TEN, ...]):
         states, actions, rewards, undones, unmasks = items
-        # assert states.shape[1:] == (env_num, state_dim)
-        # assert actions.shape[1:] == (env_num, action_dim)
-        # assert rewards.shape[1:] == (env_num,)
-        # assert undones.shape[1:] == (env_num,)
-        # assert unmasks.shape[1:] == (env_num,)
+        # assert states.shape[1:] == (num_envs, state_dim)
+        # assert actions.shape[1:] == (num_envs, action_dim)
+        # assert rewards.shape[1:] == (num_envs,)
+        # assert undones.shape[1:] == (num_envs,)
+        # assert unmasks.shape[1:] == (num_envs,)
         self.add_size = rewards.shape[0]
         self.add_states = states  # save for AgentBase.update_avg_std_for_normalization()
 
@@ -250,7 +250,7 @@ class SumTree:
           1     2
          | |   | |
         3  4  5  6    -> storing priority for transitions
-        Array type for storing: [0, 1, 2, 3, 4, 5, 6]
+        ARY type for storing: [0, 1, 2, 3, 4, 5, 6]
         """
         p_id = 0  # the leaf's parent node
 

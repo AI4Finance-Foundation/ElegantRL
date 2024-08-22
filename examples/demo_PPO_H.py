@@ -22,7 +22,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
     if env_name == 'Hopper-v3':
         env_func = GymNormaEnv 
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Hopper-v3',
             'max_step': 1000,
             'state_dim': 11,
@@ -67,7 +67,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
         env_args = {
             'action_dim': 2,
             'env_name': 'Swimmer-v3',
-            'env_num': 1,
+            'num_envs': 1,
             'if_discrete': False,
             'max_step': 1000,
             'state_dim': 8,
@@ -106,7 +106,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
     elif env_name == 'Ant-v3':
         env_func = GymNormaEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Ant-v3',
             'max_step': 1000,
             'state_dim': 111,
@@ -152,7 +152,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
         from rl.envs.CustomGymEnv import HumanoidEnv
         env_func = HumanoidEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Humanoid-v3',
             'max_step': 1000,
             'state_dim': 376,
@@ -193,7 +193,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
     elif env_name == 'HalfCheetah-v3':
         env_func = GymNormaEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'HalfCheetah-v3',
             'max_step': 1000,
             'state_dim': 17,
@@ -234,7 +234,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
     elif env_name == 'Walker2d-v3':
         env_func = GymNormaEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Walker2d-v3',
             'if_discrete': False,
             'max_step': 1000,

@@ -9,6 +9,7 @@ class Config:
         self.agent_class = agent_class  # agent = agent_class(...)
         self.if_off_policy = self.get_if_off_policy()  # whether off-policy or on-policy of DRL algorithm
 
+        '''Argument of environment'''
         self.env_class = env_class  # env = env_class(**env_args)
         self.env_args = env_args  # env = env_class(**env_args)
         if env_args is None:  # dummy env_args

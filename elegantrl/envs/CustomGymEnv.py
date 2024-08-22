@@ -1,51 +1,51 @@
-import gym
+from typing import Tuple
+
+import gymnasium as gym
 import torch
 import numpy as np
 
 '''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
 Array = np.ndarray
-Tensor = torch.Tensor
+TEN = torch.Tensor
 
-InstallGymBox2D = """Install gym[Box2D]
+InstallGymnasiumBox2D = """Install gym[Box2D]
 # LinuxOS (Ubuntu) 
 sudo apt update && sudo apt install swig
 python3 -m pip install --upgrade pip --no-warn-script-location
-pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gym==0.23.1 gym[Box2D]
+pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com --user gymnasium gymnasium[Box2D]
 
-# WindowOS (Windows NT)
+# WindowOS (Win10)
 python -m pip install --upgrade pip
-pip3 install -i http://pypi.douban.com/simple/ --trusted-host pypi.douban.com swig gym==0.23.1 gym[Box2D] 
+pip3 install swig gymnasium gymnasium[Box2D]
 """
+ARY = np.ndarray
 
 
-class PendulumEnv:  # a demo of custom gym env
+class PendulumEnv(gym.Wrapper):  # a demo of custom env
     def __init__(self):
-        gym.logger.set_level(40)  # Block warning
-        assert gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
-        env_name = "Pendulum-v0" if gym.__version__ < '0.18.0' else "Pendulum-v1"
-        self.env = gym.make(env_name)
+        gym_env_name = 'Pendulum-v1'
+        super().__init__(env=gym.make(gym_env_name))
 
         '''the necessary env information when you design a custom env'''
-        self.env_name = env_name  # the name of this env.
-        self.num_envs = 1  # the number of sub env is greater than 1 in vectorized env.
-        self.max_step = getattr(self.env, '_max_episode_steps')  # the max step number of an episode.
-        self.state_dim = self.env.observation_space.shape[0]  # feature number of state
-        self.action_dim = self.env.action_space.shape[0]  # feature number of action
+        self.env_name = gym_env_name  # the name of this env.
+        self.state_dim = self.observation_space.shape[0]  # feature number of state
+        self.action_dim = self.action_space.shape[0]  # feature number of action
         self.if_discrete = False  # discrete action or continuous action
 
-    def reset(self) -> Array:  # reset the agent in env
-        return self.env.reset()
+    def reset(self, **kwargs) -> Tuple[ARY, dict]:  # reset the agent in env
+        state, info_dict = self.env.reset()
+        return state, info_dict
 
-    def step(self, action: Array) -> (Array, float, bool, dict):  # agent interacts in env
+    def step(self, action: ARY) -> Tuple[ARY, float, bool, bool, dict]:  # agent interacts in env
         # OpenAI Pendulum env set its action space as (-2, +2). It is bad.
         # We suggest that adjust action space to (-1, +1) when designing a custom env.
-        state, reward, done, info_dict = self.env.step(action * 2)
-        return state, reward, done, info_dict
+        state, reward, terminated, truncated, info_dict = self.env.step(action * 2)
+        state = state.reshape(self.state_dim)
+        return state, float(reward) * 0.5, terminated, truncated, info_dict
 
-    def render(self):
-        self.env.render()
 
+# TODO
 class GymNormaEnv(gym.Wrapper):
     def __init__(self, env_name: str = 'Hopper-v3'):
         gym.logger.set_level(40)  # Block warning
@@ -214,15 +214,15 @@ class GymNormaEnv(gym.Wrapper):
         self.state_std = torch.clamp(self.state_std, 2 ** -4, 2 ** 4)  # todo
         print(f'\n| {self.__class__.__name__}: We modified MuJoCo Env and do norm for state to make it better.')
 
-    def get_state_norm(self, state: Array) -> Tensor:
+    def get_state_norm(self, state: Array) -> TEN:
         state = torch.tensor(state, dtype=torch.float32)
         return (state - self.state_avg) / self.state_std
 
-    def reset(self) -> Tensor:
-        state = self.env.reset()
+    def reset(self, **kwargs) -> Tuple[TEN, dict]:
+        state = self.env.reset(**kwargs)
         return self.get_state_norm(state)
 
-    def step(self, action: Array) -> (Tensor, float, bool, dict):
+    def step(self, action: Array) -> (TEN, float, bool, dict):
         state, reward, done, info_dict = self.env.step(action)  # state, reward, done, info_dict
         return self.get_state_norm(state), reward, done, info_dict
 
@@ -529,15 +529,15 @@ class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
         print(f'\n| {self.__class__.__name__}: We modified MuJoCo Env and do norm for state to make it better.'
               f'\n| We scale the action space from (-0.4, +0.4), to (-1, +1).')
 
-    def get_state_norm(self, state: Array) -> Tensor:
+    def get_state_norm(self, state: Array) -> TEN:
         state = torch.tensor(state, dtype=torch.float32)
         return (state - self.state_avg) / self.state_std
 
-    def reset(self) -> Tensor:
+    def reset(self) -> TEN:
         state = self.env.reset()
         return self.get_state_norm(state)
 
-    def step(self, action: Array) -> (Tensor, float, bool, dict):
+    def step(self, action: Array) -> (TEN, float, bool, dict):
         # MuJoCo Humanoid Env set its action space as (-0.4, +0.4). It is bad.
         # I suggest to set action space as (-1, +1) when you design your own env.
         # action_space.high = 0.4

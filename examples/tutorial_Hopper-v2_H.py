@@ -19,7 +19,7 @@ def demo_continuous_action_on_policy():
 
     env_func = gym.make
     env_args = {
-        "env_num": 1,
+        "num_envs": 1,
         "env_name": "Hopper-v2",
         "max_step": 1000,
         "state_dim": 11,

@@ -68,6 +68,9 @@ class AgentBase:
         else:
             return self._explore_one_env(env=env, horizon_len=horizon_len)
 
+    def _explore_action(self, state: TEN) -> TEN:
+        return self.act.get_action(state, action_std=self.explore_noise_std)
+
     def _explore_one_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
@@ -91,7 +94,9 @@ class AgentBase:
 
         state = self.last_state
         for t in range(horizon_len):
-            action = self._explore_one_action(state)
+            action = self._explore_action(state)[0]
+            # if_discrete == False  action.shape (1, action_dim) -> (action_dim, )
+            # if_discrete == True   action.shape (1, ) -> ()
 
             states[t] = state
             actions[t] = action
@@ -109,6 +114,7 @@ class AgentBase:
         self.last_state = state  # state.shape == (1, state_dim) for a single env.
         states = states.view((horizon_len, 1, self.state_dim))
         actions = actions.view((horizon_len, 1, self.action_dim if not self.if_discrete else 1))
+        rewards = (rewards * self.reward_scale).view((horizon_len, 1))
         undones = th.logical_not(terminals).view((horizon_len, 1))
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, rewards, undones, unmasks
@@ -136,7 +142,9 @@ class AgentBase:
 
         state = self.last_state  # last_state.shape == (num_envs, state_dim)
         for t in range(horizon_len):
-            action = self._explore_vec_action(state)
+            action = self._explore_action(state)
+            # if_discrete == False  action.shape (num_envs, action_dim)
+            # if_discrete == True   action.shape (num_envs, )
 
             states[t] = state  # state.shape == (num_envs, state_dim)
             actions[t] = action
@@ -148,15 +156,10 @@ class AgentBase:
             truncates[t] = truncate
 
         self.last_state = state
+        rewards *= self.reward_scale
         undones = th.logical_not(terminals)
         unmasks = th.logical_not(truncates)
         return states, actions, rewards, undones, unmasks
-
-    def _explore_one_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state.unsqueeze(0), action_std=self.explore_noise_std)[0]
-
-    def _explore_vec_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state, action_std=self.explore_noise_std)
 
     def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> Tuple[float, ...]:
         self.update_avg_std_for_normalization(states=buffer.add_states.reshape((-1, self.state_dim)))

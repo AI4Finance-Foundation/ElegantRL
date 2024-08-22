@@ -7,7 +7,7 @@ EnvArgsPendulum = {'env_name': 'Pendulum-v1', 'state_dim': 3, 'action_dim': 1, '
 
 def test_get_rewards_and_steps():
     print("\n| test_get_rewards_and_steps()")
-    from elegantrl.train.evaluator import get_cumulative_rewards_and_steps
+    from elegantrl.train.evaluator import get_rewards_and_steps
     from elegantrl.agents.net import Actor
 
     env = PendulumEnv()
@@ -19,14 +19,14 @@ def test_get_rewards_and_steps():
     actor = Actor(dims=[8, 8], state_dim=state_dim, action_dim=action_dim)
 
     if_render = False
-    rewards, steps = get_cumulative_rewards_and_steps(env=env, actor=actor, if_render=if_render)
+    rewards, steps = get_rewards_and_steps(env=env, actor=actor, if_render=if_render)
     assert isinstance(rewards, float)
     assert isinstance(steps, int)
 
     if os.name == 'nt':  # if the operating system is Windows NT
         if_render = True
         print("\"libpng warning: iCCP: cHRM chunk does not match sRGB\" → It doesn't matter to see this warning.")
-        rewards, steps = get_cumulative_rewards_and_steps(env=env, actor=actor, if_render=if_render)
+        rewards, steps = get_rewards_and_steps(env=env, actor=actor, if_render=if_render)
         assert isinstance(rewards, float)
         assert isinstance(steps, int)
 

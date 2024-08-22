@@ -193,7 +193,7 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
     :return: env_args [dict]
 
     env_args = {
-        'env_num': 1,               # [int] the environment number, 'env_num>1' in vectorized env
+        'num_envs': 1,               # [int] the environment number, 'num_envs>1' in vectorized env
         'env_name': env_name,       # [str] the environment name, such as XxxXxx-v0
         'max_step': max_step,       # [int] the steps in an episode. (from env.reset to done).
         'state_dim': state_dim,     # [int] the dimension of state
@@ -203,7 +203,7 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
     """
     import gym
 
-    env_num = getattr(env, 'env_num') if hasattr(env, 'env_num') else 1
+    env_num = getattr(env, 'num_envs') if hasattr(env, 'num_envs') else 1
 
     if {'unwrapped', 'observation_space', 'action_space', 'spec'}.issubset(dir(env)):  # isinstance(env, gym.Env):
         env_name = getattr(env, 'env_name', None)
@@ -239,7 +239,7 @@ def get_gym_env_args(env, if_print) -> dict:  # [ElegantRL.2021.12.12]
         action_dim = env.action_dim
         if_discrete = env.if_discrete
 
-    env_args = {'env_num': env_num,
+    env_args = {'num_envs': env_num,
                 'env_name': env_name,
                 'max_step': max_step,
                 'state_dim': state_dim,
@@ -347,7 +347,7 @@ class AgentPPO:
         self.if_cri_target = getattr(args, "if_cri_target", False)
         # AgentBase.__init__(self, net_dim, state_dim, action_dim, gpu_id, args)
         self.gamma = getattr(args, 'gamma', 0.99)
-        self.env_num = getattr(args, 'env_num', 1)
+        self.env_num = getattr(args, 'num_envs', 1)
         self.batch_size = getattr(args, 'batch_size', 128)
         self.repeat_times = getattr(args, 'repeat_times', 1.)
         self.reward_scale = getattr(args, 'reward_scale', 1.)
@@ -359,7 +359,7 @@ class AgentPPO:
         self.if_act_target = getattr(args, 'if_act_target', False)
         self.if_cri_target = getattr(args, 'if_cri_target', False)
 
-        self.states = None  # assert self.states == (self.env_num, state_dim)
+        self.states = None  # assert self.states == (self.num_envs, state_dim)
         self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
         self.traj_list = [[[] for _ in range(4 if self.if_off_policy else 5)]
                           for _ in range(self.env_num)]  # for `self.explore_vec_env()`
@@ -462,18 +462,18 @@ class AgentPPO:
     def convert_trajectory(self, traj_list, _last_done):  # [ElegantRL.2022.01.01]
         # assert len(buf_items) == step_i
         # assert len(buf_items[0]) in {4, 5}
-        # assert len(buf_items[0][0]) == self.env_num
+        # assert len(buf_items[0][0]) == self.num_envs
         traj_list = [map(list, zip(*traj_list))]  # state, reward, done, action, noise
         # assert len(buf_items) == {4, 5}
         # assert len(buf_items[0]) == step
-        # assert len(buf_items[0][0]) == self.env_num
+        # assert len(buf_items[0][0]) == self.num_envs
 
         '''stack items'''
         traj_list[0] = torch.stack(traj_list[0]).squeeze(1)
         traj_list[1] = (torch.tensor(traj_list[1], dtype=torch.float32) * self.reward_scale).unsqueeze(1)
         traj_list[2] = ((1 - torch.tensor(traj_list[2], dtype=torch.float32)) * self.gamma).unsqueeze(1)
         traj_list[3:] = [torch.stack(item).squeeze(1) for item in traj_list[3:]]
-        # assert all([buf_item.shape[:2] == (step, self.env_num) for buf_item in buf_items])
+        # assert all([buf_item.shape[:2] == (step, self.num_envs) for buf_item in buf_items])
         return traj_list
 
     @staticmethod
@@ -501,7 +501,7 @@ class Arguments:
         self.env_func = env_func  # env = env_func(*env_args)
         self.env_args = env_args  # env = env_func(*env_args)
 
-        self.env_num = self.env_args['env_num']  # env_num = 1. In vector env, env_num > 1.
+        self.env_num = self.env_args['num_envs']  # num_envs = 1. In vector env, num_envs > 1.
         self.max_step = self.env_args['max_step']  # the max step of an episode
         self.env_name = self.env_args['env_name']  # the env name. Be used to set 'cwd'.
         self.state_dim = self.env_args['state_dim']  # vector dimension (feature number) of state
@@ -696,7 +696,7 @@ def evaluate_models_in_directory(dir_path=None):
 
     env_func = StockTradingEnv
     env_args = {
-        'env_num': 1,
+        'num_envs': 1,
         'env_name': 'StockTradingEnv-v2',
         'max_step': 1113,
         'state_dim': 151,

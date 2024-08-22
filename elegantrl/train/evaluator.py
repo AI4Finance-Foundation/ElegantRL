@@ -1,11 +1,12 @@
 import os
 import time
-import torch.nn
 import numpy as np
-from torch import Tensor
+import torch as th
 from typing import Tuple, List
 
 from elegantrl.train.config import Config
+
+TEN = th.Tensor
 
 
 class Evaluator:
@@ -51,7 +52,7 @@ class Evaluator:
         else:
             self.tensorboard = None
 
-    def evaluate_and_save(self, actor: torch.nn, steps: int, exp_r: float, logging_tuple: tuple):
+    def evaluate_and_save(self, actor: th.nn, steps: int, exp_r: float, logging_tuple: tuple):
         self.total_step += steps  # update total training steps
         if self.total_step < self.eval_step_counter + self.eval_per_step:
             return
@@ -112,26 +113,27 @@ class Evaluator:
                 actor_path = f"{self.cwd}/actor__{self.total_step:012}.pt"
 
         if actor_path:
-            torch.save(actor, actor_path)  # save policy network in *.pt
+            th.save(actor, actor_path)  # save policy network in *.pt
 
     def save_or_load_recoder(self, if_save: bool):
         if if_save:
-            np.save(self.recorder_path, self.recorder)
+            recorder_ary = np.array(self.recorder)
+            np.save(self.recorder_path, recorder_ary)
         elif os.path.exists(self.recorder_path):
             recorder = np.load(self.recorder_path)
             self.recorder = [tuple(i) for i in recorder]  # convert numpy to list
             self.total_step = self.recorder[-1][0]
 
-    def get_cumulative_rewards_and_step_single_env(self, actor) -> Tensor:
-        rewards_steps_list = [get_cumulative_rewards_and_steps(self.env, actor) for _ in range(self.eval_times)]
-        rewards_steps_ten = torch.tensor(rewards_steps_list, dtype=torch.float32)
+    def get_cumulative_rewards_and_step_single_env(self, actor) -> TEN:
+        rewards_steps_list = [get_rewards_and_steps(self.env, actor) for _ in range(self.eval_times)]
+        rewards_steps_ten = th.tensor(rewards_steps_list, dtype=th.float32)
         return rewards_steps_ten  # rewards_steps_ten.shape[1] == 2
 
-    def get_cumulative_rewards_and_step_vectorized_env(self, actor) -> Tensor:
+    def get_cumulative_rewards_and_step_vectorized_env(self, actor) -> TEN:
         rewards_step_list = [get_cumulative_rewards_and_step_from_vec_env(self.env, actor)
                              for _ in range(max(1, self.eval_times // self.env.num_envs))]
         rewards_step_list = sum(rewards_step_list, [])
-        rewards_step_ten = torch.tensor(rewards_step_list)
+        rewards_step_ten = th.tensor(rewards_step_list)
         return rewards_step_ten  # rewards_steps_ten.shape[1] == 2
 
     def save_training_curve_jpg(self):
@@ -148,15 +150,15 @@ class Evaluator:
 """util"""
 
 
-def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, int]:
+def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, int]:
     """Usage
     eval_times = 4
     net_dim = 2 ** 7
     actor_path = './LunarLanderContinuous-v2_PPO_1/actor.pt'
 
     env = build_env(env_class=env_class, env_args=env_args)
-    act = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
-    act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
+    actor = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
+    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
 
     r_s_ary = [get_episode_return_and_step(env, act) for _ in range(eval_times)]
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
@@ -166,31 +168,25 @@ def get_cumulative_rewards_and_steps(env, actor, if_render: bool = False) -> Tup
     if_discrete = env.if_discrete
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
-    state = env.reset()
-    steps = None
-    returns = 0.0  # sum of rewards in an episode
-    for steps in range(max_step):
-        tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+    state, info_dict = env.reset()
+    episode_steps = 0
+    cumulative_returns = 0.0  # sum of rewards in an episode
+    for episode_steps in range(max_step):
+        tensor_state = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
         tensor_action = actor(tensor_state)
-        if if_discrete:
-            if tensor_action.dim() == 1:
-                tensor_action = tensor_action.unsqueeze(0)
-            tensor_action = tensor_action.argmax(dim=1)
         action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
-        state, reward, done, _ = env.step(action)
-        returns += reward
+        state, reward, terminated, truncated, _ = env.step(action)
+        cumulative_returns += reward
 
         if if_render:
             env.render()
-            time.sleep(0.02)
-
-        if done:
+        if terminated or truncated:
             break
     else:
         print("| get_rewards_and_step: WARNING. max_step > 12345")
-    returns = getattr(env, 'cumulative_returns', returns)
-    steps += 1
-    return returns, steps
+
+    cumulative_returns = getattr(env.unwrapped, 'cumulative_returns', cumulative_returns)
+    return cumulative_returns, episode_steps + 1
 
 
 def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float, int]]:
@@ -200,19 +196,19 @@ def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float
     if_discrete = env.if_discrete
 
     '''get returns and dones (GPU)'''
-    returns = torch.empty((max_step, env_num), dtype=torch.float32, device=device)
-    dones = torch.empty((max_step, env_num), dtype=torch.bool, device=device)
+    returns = th.empty((max_step, env_num), dtype=th.float32, device=device)
+    dones = th.empty((max_step, env_num), dtype=th.bool, device=device)
 
     state = env.reset()  # must reset in vectorized env
     for t in range(max_step):
         action = actor(state.to(device))
-        # assert action.shape == (env.env_num, env.action_dim)
+        # assert action.shape == (env.num_envs, env.action_dim)
         if if_discrete:
             action = action.argmax(dim=1, keepdim=True)
-        state, reward, done, info_dict = env.step(action)
+        state, reward, terminal, truncate, info_dict = env.step(action)
 
         returns[t] = reward
-        dones[t] = done
+        dones[t] = th.logical_or(terminal, truncate)
 
     '''get cumulative returns and step'''
     if hasattr(env, 'cumulative_returns'):  # GPU
@@ -223,7 +219,7 @@ def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float
 
         returns_step_list = []
         for i in range(env_num):
-            dones_where = torch.where(dones[:, i] == 1)[0] + 1
+            dones_where = th.where(dones[:, i].eq(1))[0] + 1
             episode_num = len(dones_where)
             if episode_num == 0:
                 continue
@@ -315,7 +311,7 @@ def demo_evaluator_actor_pth():
     agent_class = AgentPPO
 
     env_class = gym.make
-    env_args = {'env_num': 1,
+    env_args = {'num_envs': 1,
                 'env_name': 'LunarLanderContinuous-v2',
                 'max_step': 1000,
                 'state_dim': 8,
@@ -336,7 +332,7 @@ def demo_evaluator_actor_pth():
     # act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
 
     '''evaluate'''
-    r_s_ary = [get_cumulative_rewards_and_steps(env, act) for _ in range(eval_times)]
+    r_s_ary = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
     r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 
@@ -353,7 +349,7 @@ def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval
     # net_dim = 2 ** 7
 
     env_class = gym.make
-    # env_args = {'env_num': 1,
+    # env_args = {'num_envs': 1,
     #             'env_name': 'LunarLanderContinuous-v2',
     #             'max_step': 1000,
     #             'state_dim': 8,
@@ -376,8 +372,8 @@ def demo_evaluate_actors(dir_path: str, gpu_id: int, agent, env_args: dict, eval
     for act_name in act_names:
         act_path = f"{dir_path}/{act_name}"
 
-        act.load_state_dict(torch.load(act_path, map_location=lambda storage, loc: storage))
-        r_s_ary = [get_cumulative_rewards_and_steps(env, act) for _ in range(eval_times)]
+        act.load_state_dict(th.load(act_path, map_location=lambda storage, loc: storage))
+        r_s_ary = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
         r_s_ary = np.array(r_s_ary, dtype=np.float32)
         r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 
@@ -403,7 +399,7 @@ def demo_load_pendulum_and_render():
 
     from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv
-    env_args = {'env_num': 1,
+    env_args = {'num_envs': 1,
                 'env_name': 'Pendulum-v1',
                 'state_dim': 3,
                 'action_dim': 1,
@@ -461,7 +457,7 @@ def run():
     gpu_id = [2, 3][flag_id]
     agent = AgentPPO
     env_args = [
-        {'env_num': 1,
+        {'num_envs': 1,
          'env_name': 'LunarLanderContinuous-v2',
          'max_step': 1000,
          'state_dim': 8,
@@ -471,7 +467,7 @@ def run():
          'eval_times': 2 ** 4,
          'id': 'LunarLanderContinuous-v2'},
 
-        {'env_num': 1,
+        {'num_envs': 1,
          'env_name': 'BipedalWalker-v3',
          'max_step': 1600,
          'state_dim': 24,

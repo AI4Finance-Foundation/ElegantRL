@@ -240,7 +240,7 @@ def check_isaac_gym(env_name):
         rewards_ary.append(rewards)
         dones_ary.append(dones)
 
-    rewards_ary = torch.stack(rewards_ary)  # rewards_ary.shape == (env.max_step, env.env_num)
+    rewards_ary = torch.stack(rewards_ary)  # rewards_ary.shape == (env.max_step, env.num_envs)
     dones_ary = torch.stack(dones_ary)
     print(f'\nrewards_ary.shape {rewards_ary.shape}'
           f'\ndones_ary.shape   {dones_ary.shape}')

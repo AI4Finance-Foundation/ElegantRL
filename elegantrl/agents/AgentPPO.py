@@ -39,7 +39,7 @@ class AgentPPO(AgentBase):
         env: RL training environment. env.reset() env.step(). It should be a vector env.
         horizon_len: collect horizon_len step while exploring to update networks
         return: `(states, actions, logprobs, rewards, undones, unmasks)` for on-policy
-            env_num == 1
+            num_envs == 1
             `states.shape == (horizon_len, num_envs, state_dim)`
             `actions.shape == (horizon_len, num_envs, action_dim)`
             `logprobs.shape == (horizon_len, num_envs, action_dim)`
@@ -73,6 +73,7 @@ class AgentPPO(AgentBase):
         self.last_state = state  # state.shape == (1, state_dim) for a single env.
         states = states.view((horizon_len, 1, self.state_dim))
         actions = actions.view((horizon_len, 1, self.action_dim if not self.if_discrete else 1))
+        rewards *= self.reward_scale
         undones = th.logical_not(terminals).view((horizon_len, 1))
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, logprobs, rewards, undones, unmasks
@@ -99,7 +100,7 @@ class AgentPPO(AgentBase):
         terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
         truncates = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
 
-        state = self.last_state  # shape == (env_num, state_dim) for a vectorized env.
+        state = self.last_state  # shape == (num_envs, state_dim) for a vectorized env.
 
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
@@ -116,6 +117,7 @@ class AgentPPO(AgentBase):
             truncates[t] = truncate
 
         self.last_state = state
+        rewards *= self.reward_scale
         undones = th.logical_not(terminals)
         unmasks = th.logical_not(truncates)
         return states, actions, logprobs, rewards, undones, unmasks

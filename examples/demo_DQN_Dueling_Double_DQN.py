@@ -5,14 +5,12 @@ sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
     from elegantrl import train_agent, train_agent_multiprocessing
     from elegantrl import Config, get_gym_env_args
-    from elegantrl.agents import AgentDQN, AgentDuelingDQN
-    from elegantrl.agents import AgentDoubleDQN, AgentD3QN
+    from elegantrl.agents import AgentDQN, AgentDoubleDQN, AgentDuelingDQN, AgentD3QN
 
 
-def train_dqn_for_cartpole():
-    import gym
+def train_dqn_for_cartpole(agent_class):
+    import gymnasium as gym
 
-    agent_class = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {'env_name': 'CartPole-v1',
                 'max_step': 500,
@@ -38,6 +36,8 @@ def train_dqn_for_cartpole():
     args.gpu_id = GPU_ID
     args.num_workers = 4
     if_single_process = False
+
+    if_single_process = True  # TODO
     if if_single_process:
         train_agent(args)
     else:
@@ -60,7 +60,8 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_cartpole_vec_env():
-    import gym
+    import gymnasium as gym
+
     num_envs = 16
 
     agent_class = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
@@ -239,20 +240,21 @@ if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
     Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='1', help='the environment ID for training')
+    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
+    AgentClass = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
     if ENV_ID in {'0', 'cartpole'}:
-        train_dqn_for_cartpole()
+        train_dqn_for_cartpole(agent_class=AgentClass)
     elif ENV_ID in {'1', 'cartpole_vec'}:
-        train_dqn_for_cartpole_vec_env()
+        train_dqn_for_cartpole_vec_env(agent_class=AgentClass)
     elif ENV_ID in {'2', 'lunar_lander'}:
-        train_dqn_for_lunar_lander()
+        train_dqn_for_lunar_lander(agent_class=AgentClass)
     elif ENV_ID in {'3', 'lunar_lander_vec'}:
-        train_dqn_for_lunar_lander_vec_env()
+        train_dqn_for_lunar_lander_vec_env(agent_class=AgentClass)
     else:
         print('ENV_ID not match')

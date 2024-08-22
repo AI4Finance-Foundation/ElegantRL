@@ -1,6 +1,6 @@
 import torch as th
 
-from typing import Tuple
+from typing import Tuple, List
 from copy import deepcopy
 from torch import nn
 
@@ -20,17 +20,18 @@ class AgentDQN(AgentBase):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
 
-        self.act = self.cri = QNetwork(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
-        self.act_target = self.cri_target = deepcopy(self.act)
-        self.act_optimizer = self.cri_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+        self.act = QNetwork(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+
+        self.cri = self.act
+        self.cri_target = self.act_target
+        self.cri_optimizer = self.act_optimizer
 
         self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
         # the probability of choosing action randomly in epsilon-greedy
 
-    def _explore_one_action(self, state: TEN) -> TEN:
-        return self.act.get_action(state.unsqueeze(0), explore_rate=self.explore_rate)[0, 0]
-
-    def _explore_vec_action(self, state: TEN) -> TEN:
+    def _explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state, explore_rate=self.explore_rate)[:, 0]
 
     def _update_objectives_raw(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
@@ -38,7 +39,7 @@ class AgentDQN(AgentBase):
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
-            next_q = self.cri_target(next_state).max(dim=1, keepdim=True)[0].squeeze(1)  # next q_values
+            next_q = self.cri_target(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
         q_value = self.cri(state).gather(1, action.long()).squeeze(1)
@@ -54,7 +55,7 @@ class AgentDQN(AgentBase):
         with th.no_grad():
             state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
 
-            next_q = self.cri_target(next_state).max(dim=1, keepdim=True)[0].squeeze(1)  # next q_values
+            next_q = self.cri_target(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
         q_value = self.cri(state).gather(1, action.long()).squeeze(1)
@@ -86,16 +87,25 @@ class AgentDoubleDQN(AgentDQN):
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, "act_class", QNetTwin)
-        self.cri_class = getattr(self, "cri_class", None)  # means `self.cri = self.act`
-        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        AgentBase.__init__(self, net_dims, state_dim, action_dim, gpu_id=gpu_id, args=args)
+
+        self.act = QNetTwin(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+
+        self.cri = self.act
+        self.cri_target = self.act_target
+        self.cri_optimizer = self.act_optimizer
+
+        self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
+        # the probability of choosing action randomly in epsilon-greedy
 
     def _update_objectives_raw(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
-            next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1, keepdim=True)[0].squeeze(1)
+            next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
             q_label = reward + undone * self.gamma * next_q
 
         q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.act.get_q1_q2(state)]
@@ -111,7 +121,7 @@ class AgentDoubleDQN(AgentDQN):
         with th.no_grad():
             state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
 
-            next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1, keepdim=True)[0].squeeze(1)
+            next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
             q_label = reward + undone * self.gamma * next_q
 
         q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.act.get_q1_q2(state)]
@@ -130,16 +140,34 @@ class AgentDoubleDQN(AgentDQN):
 
 class AgentDuelingDQN(AgentDQN):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, "act_class", QNetDuel)
-        self.cri_class = getattr(self, "cri_class", None)  # means `self.cri = self.act`
-        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        AgentBase.__init__(self, net_dims, state_dim, action_dim, gpu_id=gpu_id, args=args)
+
+        self.act = QNetDuel(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+
+        self.cri = self.act
+        self.cri_target = self.act_target
+        self.cri_optimizer = self.act_optimizer
+
+        self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
+        # the probability of choosing action randomly in epsilon-greedy
 
 
 class AgentD3QN(AgentDoubleDQN):  # Dueling Double Deep Q Network. (D3QN)
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        self.act_class = getattr(self, "act_class", QNetTwinDuel)
-        self.cri_class = getattr(self, "cri_class", None)  # means `self.cri = self.act`
-        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
+        AgentBase.__init__(self, net_dims, state_dim, action_dim, gpu_id=gpu_id, args=args)
+
+        self.act = QNetTwinDuel(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act_target = deepcopy(self.act)
+        self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
+
+        self.cri = self.act
+        self.cri_target = self.act_target
+        self.cri_optimizer = self.act_optimizer
+
+        self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
+        # the probability of choosing action randomly in epsilon-greedy
 
 
 '''network'''
@@ -160,27 +188,32 @@ class QNetBase(nn.Module):  # nn.Module is a standard PyTorch Network
 
 
 class QNetwork(QNetBase):
-    def __init__(self, net_dims: [int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.1)
 
     def forward(self, state):
         state = self.state_norm(state)
-        value = self.net(state)
-        return value  # Q values for multiple actions
+        value = self.net(state)  # Q values for multiple actions
+        return value.argmax(dim=1)  # index of max Q values
 
     def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
-        state = self.state_norm(state)
         if explore_rate < th.rand(1):
+            state = self.state_norm(state)
             action = self.net(state).argmax(dim=1, keepdim=True)
         else:
             action = th.randint(self.action_dim, size=(state.shape[0], 1))
         return action
 
+    def get_q_value(self, state: TEN) -> TEN:
+        state = self.state_norm(state)
+        value = self.net(state)
+        return value  # Q value
+
 
 class QNetDuel(QNetBase):  # Dueling DQN
-    def __init__(self, net_dims: [int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net_state = build_mlp(dims=[state_dim, *net_dims])
         self.net_adv = build_mlp(dims=[net_dims[-1], 1])  # advantage value
@@ -195,11 +228,11 @@ class QNetDuel(QNetBase):  # Dueling DQN
         q_val = self.net_val(s_enc)  # q value
         q_adv = self.net_adv(s_enc)  # advantage value
         value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # dueling Q value
-        return value
+        return value.argmax(dim=1)  # index of max Q values
 
-    def get_action(self, state):
-        state = self.state_norm(state)
-        if self.explore_rate < th.rand(1):
+    def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
+        if explore_rate < th.rand(1):
+            state = self.state_norm(state)
             s_enc = self.net_state(state)  # encoded state
             q_val = self.net_val(s_enc)  # q value
             action = q_val.argmax(dim=1, keepdim=True)
@@ -209,11 +242,11 @@ class QNetDuel(QNetBase):  # Dueling DQN
 
 
 class QNetTwin(QNetBase):  # Double DQN
-    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net_state = build_mlp(dims=[state_dim, *dims])
-        self.net_val1 = build_mlp(dims=[dims[-1], action_dim])  # Q value 1
-        self.net_val2 = build_mlp(dims=[dims[-1], action_dim])  # Q value 2
+        self.net_state = build_mlp(dims=[state_dim, *net_dims])
+        self.net_val1 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 1
+        self.net_val2 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 2
         self.soft_max = nn.Softmax(dim=1)
 
         layer_init_with_orthogonal(self.net_val1[-1], std=0.1)
@@ -223,7 +256,7 @@ class QNetTwin(QNetBase):  # Double DQN
         state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
-        return q_val  # one group of Q values
+        return q_val.argmax(dim=1)  # index of max Q values
 
     def get_q1_q2(self, state):
         state = self.state_norm(state)
@@ -232,26 +265,27 @@ class QNetTwin(QNetBase):  # Double DQN
         q_val2 = self.net_val2(s_enc)  # q value 2
         return q_val1, q_val2  # two groups of Q values
 
-    def get_action(self, state):
+    def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
         state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
-        if self.explore_rate < th.rand(1):
+        if explore_rate < th.rand(1):
             action = q_val.argmax(dim=1, keepdim=True)
         else:
-            a_prob = self.soft_max(q_val)
+            q_norm = (q_val - (q_val.mean() + 1)) / (q_val.std() + 1e-5)
+            a_prob = self.soft_max(q_norm)
             action = th.multinomial(a_prob, num_samples=1)
         return action
 
 
 class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
-    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net_state = build_mlp(dims=[state_dim, *dims])
-        self.net_adv1 = build_mlp(dims=[dims[-1], 1])  # advantage value 1
-        self.net_val1 = build_mlp(dims=[dims[-1], action_dim])  # Q value 1
-        self.net_adv2 = build_mlp(dims=[dims[-1], 1])  # advantage value 2
-        self.net_val2 = build_mlp(dims=[dims[-1], action_dim])  # Q value 2
+        self.net_state = build_mlp(dims=[state_dim, *net_dims])
+        self.net_adv1 = build_mlp(dims=[net_dims[-1], 1])  # advantage value 1
+        self.net_val1 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 1
+        self.net_adv2 = build_mlp(dims=[net_dims[-1], 1])  # advantage value 2
+        self.net_val2 = build_mlp(dims=[net_dims[-1], action_dim])  # Q value 2
         self.soft_max = nn.Softmax(dim=1)
 
         layer_init_with_orthogonal(self.net_adv1[-1], std=0.1)
@@ -265,7 +299,7 @@ class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
         q_val = self.net_val1(s_enc)  # q value
         q_adv = self.net_adv1(s_enc)  # advantage value
         value = q_val - q_val.mean(dim=1, keepdim=True) + q_adv  # one dueling Q value
-        return value
+        return value.argmax(dim=1)  # index of max Q values
 
     def get_q1_q2(self, state):
         state = self.state_norm(state)
@@ -280,11 +314,11 @@ class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
         q_duel2 = q_val2 - q_val2.mean(dim=1, keepdim=True) + q_adv2
         return q_duel1, q_duel2  # two dueling Q values
 
-    def get_action(self, state):
+    def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
         state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
-        if self.explore_rate < th.rand(1):
+        if explore_rate < th.rand(1):
             action = q_val.argmax(dim=1, keepdim=True)
         else:
             a_prob = self.soft_max(q_val)
