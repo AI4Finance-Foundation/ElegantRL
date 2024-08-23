@@ -296,7 +296,6 @@ class AgentBase:
             self.cri_target.state_avg[:] = self.cri.state_avg
             self.cri_target.state_std[:] = self.cri.state_std
 
-
     @staticmethod
     def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):
         """soft update target network via current network
