@@ -116,24 +116,27 @@ def train_dqn_for_cartpole_vec_env(agent_class):
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(1e5)  # break training if 'total_step > break_step'
-    args.net_dims = [64, 64]  # the middle layer dimension of MultiLayer Perceptron
+    args.break_step = int(4e5)  # break training if 'total_step > break_step'
+    args.net_dims = [128, 128]  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
     args.gamma = 0.98  # discount factor of future rewards
     args.horizon_len = args.max_step // 8
-    args.buffer_size = int(4e4)
+    args.buffer_size = int(2e5)
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** 0
-    args.learning_rate = 5e-4
-    args.state_value_tau = 1e-4
-    args.soft_update_tau = 1e-3
+    args.learning_rate = 4e-4
+    args.state_value_tau = 1e-5
+    args.soft_update_tau = 5e-3
+
+    args.explore_rate = 0.05
+    args.if_eval_target = True
 
     args.eval_times = 32
     args.eval_per_step = 2e4
 
     args.gpu_id = GPU_ID
     args.random_seed = GPU_ID
-    args.num_workers = 2
+    args.num_workers = 4
     if_single_process = False
     if if_single_process:
         train_agent(args)
@@ -143,23 +146,34 @@ def train_dqn_for_cartpole_vec_env(agent_class):
 0 < 9 < 400 < 500
 ################################################################################
 ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
-2  4.00e+03      18 |   69.95   22.8     70    23 |    1.00   0.48   6.17
-2  1.40e+04      42 |  178.10   40.3    178    40 |    1.00   0.77  23.37
-2  2.40e+04      68 |  161.90   39.8    162    40 |    1.00   0.76  34.73
-2  3.40e+04      94 |  143.69   44.8    144    45 |    1.00   0.71  40.83
-2  4.40e+04     120 |  235.07   35.1    235    35 |    1.00   0.56  43.29
-2  5.40e+04     146 |  234.13   15.4    234    15 |    1.00   0.53  45.33
-2  6.40e+04     172 |  227.72    6.4    228     6 |    1.00   0.54  47.13
-2  7.40e+04     198 |  500.00    0.0    500     0 |    1.00   0.54  48.35
-2  8.40e+04     224 |  500.00    0.0    500     0 |    1.00   0.42  49.44
-2  9.40e+04     249 |  500.00    0.0    500     0 |    1.00   0.36  50.39
+0  4.96e+02      10 |    9.33    0.7      9     1 |    1.00   0.00   0.00
+0  2.06e+04      19 |    9.37    0.8      9     1 |    1.00   0.02   1.30
+0  4.07e+04      33 |  188.41   67.4    188    67 |    1.00   0.10   5.03
+0  6.08e+04      49 |  229.47   18.9    229    19 |    1.00   0.17  11.70
+0  8.08e+04      68 |  365.56  102.3    366   102 |    1.00   0.47  22.62
+0  1.01e+05      89 |  179.62  114.9    180   115 |    1.00   0.51  32.25
+0  1.21e+05     111 |  244.90   70.8    245    71 |    1.00   0.39  38.29
+0  1.41e+05     136 |  500.00    0.0    500     0 |    1.00   0.33  42.19
+0  1.61e+05     162 |  491.50   48.1    492    48 |    1.00   0.31  44.78
+0  1.81e+05     190 |  500.00    0.0    500     0 |    1.00   0.34  47.38
+0  2.01e+05     221 |  439.24  119.0    439   119 |    1.00   0.32  49.95
+0  2.21e+05     253 |  118.22   80.8    118    81 |    1.00   0.40  50.68
+0  2.42e+05     287 |  500.00    0.0    500     0 |    1.00   0.58  52.59
+0  2.62e+05     323 |   88.53    7.4     89     7 |    1.00   0.67  55.28
+0  2.82e+05     361 |   47.34   33.0     47    33 |    1.00   0.76  57.15
+0  3.02e+05     401 |  118.74    2.8    119     3 |    1.00   0.76  56.01
+0  3.22e+05     443 |  292.28    5.4    292     5 |    1.00   0.67  53.46
+0  3.42e+05     486 |  203.16   33.2    203    33 |    1.00   0.63  51.05
+0  3.62e+05     532 |  500.00    0.0    500     0 |    1.00   0.55  50.00
+0  3.82e+05     579 |  500.00    0.0    500     0 |    1.00   0.50  49.51
+| UsedTime:     622 | SavedDir: ./CartPole-v1_DoubleDQN_0
     """
 
 
-def train_dqn_for_lunar_lander():
-    import gym
+def train_dqn_for_lunar_lander(agent_class):
+    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
-    agent_class = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {'env_name': 'LunarLander-v2',
                 'max_step': 1000,
@@ -170,21 +184,23 @@ def train_dqn_for_lunar_lander():
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(5e5)  # break training if 'total_step > break_step'
-    args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
+    args.break_step = int(8e5)  # break training if 'total_step > break_step'
+    args.net_dims = [256, 128]  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
-    args.gamma = 0.99  # discount factor of future rewards
-    args.horizon_len = args.max_step * 2
-    args.buffer_size = int(2e5)
-    args.repeat_times = 1.0  # GPU 2 repeatedly update network using ReplayBuffer to keep critic's loss small
+    args.gamma = 0.985  # discount factor of future rewards
+    args.horizon_len = args.max_step // 4
+    args.buffer_size = int(4e5)
+    args.repeat_times = 8.0  # GPU 2 repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -1
-    args.learning_rate = 1e-4
+    args.learning_rate = 5e-4
+
+    args.explore_rate = 0.1
 
     args.eval_times = 32
-    args.eval_per_step = 1e4
+    args.eval_per_step = 4e4
 
     args.gpu_id = GPU_ID
-    args.num_workers = 4
+    args.num_workers = 8
     if_single_process = False
     if if_single_process:
         train_agent(args)
@@ -194,23 +210,35 @@ def train_dqn_for_lunar_lander():
 -1500 < -140 < 300 < 340
 ################################################################################
 ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
-2  1.60e+04      51 | -179.07   44.4    549   218 |   -1.16   1.90   0.98
-2  4.00e+04     111 |    5.54   20.0   1000     0 |    0.00   2.78   1.77
-2  5.60e+04     161 |  -72.86   47.4    964   135 |    0.01   2.64   3.94
-2  8.00e+04     217 |  -13.52   17.7   1000     0 |   -0.01   2.40   8.39
-2  1.20e+05     241 |  203.85   26.5    605   104 |    0.03   2.31   8.76
-2  1.36e+05     263 |  197.63   56.9    559   145 |    0.09   2.34   8.50
-2  1.60e+05     278 |  232.98   16.3    437    76 |    0.13   2.19   8.40
-2  1.76e+05     294 |  202.22   97.2    472   182 |    0.13   2.09   8.64
-2  1.92e+05     320 |   28.22  215.9    643   216 |    0.10   1.95   9.03
+0  4.00e+03       6 | -702.29  108.6    112    21 |   -2.79   0.00   0.00
+0  4.40e+04      24 | -385.69  108.2    283   243 |   -0.35   1.26  -2.52
+0  8.40e+04      57 | -136.70   22.9    987    76 |   -0.03   0.89  -1.79
+0  1.24e+05      95 | -126.09   24.2   1000     0 |   -0.03   0.84   1.55
+0  1.64e+05     136 |  -96.64   25.9    756   397 |    0.01   0.81   3.26
+0  2.04e+05     184 |  -97.15   26.6   1000     0 |    0.01   0.63   2.65
+0  2.44e+05     237 |  -75.03   17.0   1000     0 |    0.00   0.70   3.81
+0  2.84e+05     295 |  -52.66   78.9    965    95 |    0.00   0.68   7.26
+0  3.24e+05     352 |  -99.60   73.5    433   156 |   -0.08   0.76   8.93
+0  3.64e+05     421 |   -7.50   25.0   1000     0 |    0.01   0.69   9.77
+0  4.04e+05     494 |   51.89  126.8    793   244 |    0.06   0.67  11.60
+0  4.44e+05     574 |    3.61   62.5    980    61 |    0.10   0.56   8.73
+0  4.84e+05     652 |  184.48   45.6    597   170 |    0.15   0.55   7.31
+0  5.24e+05     738 |  171.02   97.4    555   166 |    0.20   0.57   7.03
+0  5.64e+05     830 |  131.65  122.2    586   218 |    0.14   0.55   7.56
+0  6.04e+05    1000 |  226.24   42.6    453   137 |    0.32   0.55   8.44
+0  6.44e+05    1200 |  197.76   67.4    534   183 |    0.18   0.47   7.97
+0  6.84e+05    1408 |  170.30  117.8    509   279 |    0.31   0.46   9.87
+0  7.24e+05    1624 |  192.84   87.6    372   255 |    0.28   0.46   9.38
+0  7.64e+05    1868 |  208.07   72.1    452   288 |    0.32   0.46  10.61
+0  8.04e+05    2088 |  177.43   97.4    451   284 |    0.17   0.46   9.35
     """
 
 
-def train_dqn_for_lunar_lander_vec_env():
-    import gym
-    num_envs = 16
+def train_dqn_for_lunar_lander_vec_env(agent_class):
+    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
+    num_envs = 8
 
-    agent_class = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'LunarLander-v2',
@@ -225,21 +253,23 @@ def train_dqn_for_lunar_lander_vec_env():
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(2e5)  # break training if 'total_step > break_step'
-    args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
+    args.break_step = int(8e5)  # break training if 'total_step > break_step'
+    args.net_dims = [256, 128]  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
-    args.gamma = 0.99  # discount factor of future rewards
-    args.horizon_len = args.max_step * 1
+    args.gamma = 0.985  # discount factor of future rewards
+    args.horizon_len = args.max_step // 4
     args.buffer_size = int(2e5)
-    args.repeat_times = 1.0  # GPU 2 repeatedly update network using ReplayBuffer to keep critic's loss small
+    args.repeat_times = 4.0  # GPU 2 repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -1
-    args.learning_rate = 1e-4
+    args.learning_rate = 1e-3
+
+    args.explore_rate = 0.1
 
     args.eval_times = 32
-    args.eval_per_step = 1e4
+    args.eval_per_step = 2e4
 
     args.gpu_id = GPU_ID
-    args.num_workers = 2
+    args.num_workers = 4
     args.random_seed = GPU_ID
     if_single_process = True
     if if_single_process:
@@ -248,38 +278,27 @@ def train_dqn_for_lunar_lander_vec_env():
         train_agent_multiprocessing(args)
     """
 -1500 < -140 < 300 < 340
-
 ################################################################################
 ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
-1  4.00e+03      28 | -248.06  108.9    820   164 |   -0.78   1.39   0.32
-1  1.40e+04      55 |  -68.66   21.6   1000     0 |    0.03   1.30   4.16
-1  2.40e+04      86 |  -46.58   40.3    924   212 |   -0.01   1.11   7.00
-1  3.40e+04     116 |  -40.73   45.5    961   157 |   -0.02   1.02   8.21
-1  4.40e+04     147 |  -14.67   20.1   1000     0 |   -0.01   0.96   8.65
-1  5.40e+04     179 |  -13.01   19.8   1000     0 |    0.00   0.83   8.52
-1  6.40e+04     210 |  -14.20   21.6   1000     0 |   -0.00   0.82   8.36
-1  7.40e+04     241 |  -11.80   17.8   1000     0 |    0.03   0.88   8.24
-1  8.40e+04     271 |   -2.28   21.3   1000     0 |    0.06   0.81   7.83
-1  9.40e+04     302 |  -17.59   26.5   1000     0 |   -0.00   0.79   7.37
-1  1.04e+05     332 |   95.49  106.9    775   199 |    0.07   0.81   7.03
-1  1.14e+05     361 |  185.96   29.1    670   108 |    0.09   0.81   6.73
-1  1.24e+05     389 |  199.56   77.0    452    80 |    0.12   0.81   6.64
-1  1.34e+05     418 |  220.45   73.0    419   198 |    0.14   0.78   6.75
-1  1.44e+05     449 |  237.53   64.3    332   108 |    0.14   0.78   6.95
-1  1.54e+05     479 |  239.72   71.2    331   101 |    0.18   0.76   7.57
-1  1.64e+05     509 |  192.97  107.0    260    96 |    0.16   0.71   8.37
-1  1.74e+05     538 |  224.81   84.8    276    93 |    0.16   0.72   9.32
-1  1.84e+05     567 |  177.06  119.4    271    97 |    0.15   0.65  10.48
-1  1.94e+05     598 |  243.42   68.4    287   138 |    0.17   0.59  11.38
-1  2.04e+05     627 |  251.35   65.8    294   178 |    0.14   0.57  12.08
+0  2.50e+02       4 | -131.52   44.3     70    13 |   -0.78   0.00   0.00
+0  2.02e+04      45 | -157.77   47.2    912   157 |   -0.07   0.82   2.40
+0  4.02e+04     126 |   54.89  119.3    855   176 |    0.03   0.52   7.73
+0  6.02e+04     246 |  234.89   39.8    432   115 |    0.34   0.48   8.74
+0  8.02e+04     408 |  237.73   29.0    406   128 |    0.12   0.40   9.13
+0  1.00e+05     611 |  225.22   75.6    403   255 |    0.12   0.35  10.16
+0  1.20e+05     856 |  198.26   87.1    320   194 |    0.30   0.39  11.06
+0  1.40e+05    1141 |  256.00   47.5    374   270 |    0.21   0.42   9.89
+0  1.60e+05    1470 |  262.14   32.1    244   117 |    0.35   0.40  11.03
+0  1.80e+05    1836 |  209.33   87.3    428   350 |    0.25   0.41  11.53
+0  2.00e+05    2246 |  261.16   35.9    264   167 |    0.36   0.41  11.76
     """
 
 
 if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
-    Parser.add_argument('--drl', type=int, default=1, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='1', help='the environment ID for training')
+    Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
+    Parser.add_argument('--env', type=str, default='3', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu

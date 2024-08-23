@@ -1,7 +1,7 @@
 import os
 import torch as th
 import numpy as np
-from typing import List, Tuple
+from typing import Tuple
 from multiprocessing import Pipe, Process
 
 TEN = th.Tensor
@@ -323,11 +323,12 @@ def check_vec_env():
     print(f"| num_envs {num_envs}  state.shape {state.shape}")
 
     for i in range(4):
-        if env.if_discrete:
+        if env.if_discrete:  # state -> action
             action = th.randint(0, env.action_dim, size=(num_envs,), device=device)
         else:
             action = th.zeros(size=(num_envs,), dtype=th.float32, device=device)
         state, reward, terminal, truncate, info_dict = env.step(action)
+
         print(f"| num_envs {num_envs}  {[t.shape for t in (state, reward, terminal, truncate)]}")
     env.close() if hasattr(env, 'close') else None
 

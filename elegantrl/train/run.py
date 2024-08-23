@@ -3,8 +3,8 @@ import time
 from copy import deepcopy
 from typing import List
 
-import torch as th
 import numpy as np
+import torch as th
 import multiprocessing as mp  # th.multiprocessing extends multiprocessing of Python
 from multiprocessing import Process, Pipe
 
@@ -184,6 +184,7 @@ class Learner(Process):
         while if_train:
             actor = agent.act
             actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
+
             '''Learner send actor to Workers'''
             for send_pipe in self.send_pipes:
                 send_pipe.send(actor)
@@ -213,7 +214,7 @@ class Learner(Process):
             '''Learner receive training signal from Evaluator'''
             if self.eval_pipe.poll():  # whether there is any data available to be read of this pipe0
                 if_train = self.eval_pipe.recv()  # True means evaluator in idle moments.
-                # actor = agent.act  # already set in `actor = agent.act` after `while if_train`
+                # actor = agent.act
                 # actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
             else:
                 actor = None
@@ -343,7 +344,10 @@ class EvaluatorProc(Process):
         print("| Evaluator Closing")
         while self.pipe1.poll():  # whether there is any data available to be read of this pipe
             while self.pipe0.poll():
-                self.pipe0.recv()
+                try:
+                    self.pipe0.recv()
+                except RuntimeError:
+                    print("| Evaluator Ignore RuntimeError in self.pipe0.recv()")
                 time.sleep(1)
             time.sleep(1)
 

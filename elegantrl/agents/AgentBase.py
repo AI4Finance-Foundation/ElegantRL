@@ -286,8 +286,16 @@ class AgentBase:
         state_std = states.std(dim=0, keepdim=True)
         self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
         self.act.state_std[:] = self.act.state_std * (1 - tau) + state_std * tau + 1e-4
-        self.cri.state_avg[:] = self.act.state_avg
-        self.cri.state_std[:] = self.act.state_std
+        if self.cri is not self.act:
+            self.cri.state_avg[:] = self.act.state_avg
+            self.cri.state_std[:] = self.act.state_std
+
+        self.act_target.state_avg[:] = self.act.state_avg
+        self.act_target.state_std[:] = self.act.state_std
+        if self.cri is not self.act:
+            self.cri_target.state_avg[:] = self.cri.state_avg
+            self.cri_target.state_std[:] = self.cri.state_std
+
 
     @staticmethod
     def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):

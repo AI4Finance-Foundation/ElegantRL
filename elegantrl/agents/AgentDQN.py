@@ -39,10 +39,10 @@ class AgentDQN(AgentBase):
         with th.no_grad():
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
-            next_q = self.cri_target(next_state).max(dim=1)[0]  # next q_values
+            next_q = self.cri_target.get_q_value(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
-        q_value = self.cri(state).gather(1, action.long()).squeeze(1)
+        q_value = self.cri.get_q_value(state).gather(1, action.long()).squeeze(1)
         obj_critic = (self.criterion(q_value, q_label) * unmask).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
@@ -55,10 +55,10 @@ class AgentDQN(AgentBase):
         with th.no_grad():
             state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
 
-            next_q = self.cri_target(next_state).max(dim=1)[0]  # next q_values
+            next_q = self.cri_target.get_q_value(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
-        q_value = self.cri(state).gather(1, action.long()).squeeze(1)
+        q_value = self.cri.get_q_value(state).gather(1, action.long()).squeeze(1)
         td_error = self.criterion(q_value, q_label) * unmask
         obj_critic = (td_error * is_weight).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
@@ -108,7 +108,7 @@ class AgentDoubleDQN(AgentDQN):
             next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
             q_label = reward + undone * self.gamma * next_q
 
-        q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.act.get_q1_q2(state)]
+        q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.cri.get_q1_q2(state)]
         obj_critic = ((self.criterion(q_value1, q_label) + self.criterion(q_value2, q_label)) * unmask).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
@@ -124,7 +124,7 @@ class AgentDoubleDQN(AgentDQN):
             next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
             q_label = reward + undone * self.gamma * next_q
 
-        q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.act.get_q1_q2(state)]
+        q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.cri.get_q1_q2(state)]
         td_error = (self.criterion(q_value1, q_label) + self.criterion(q_value2, q_label)) * unmask
         obj_critic = (td_error * is_weight).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
@@ -197,8 +197,7 @@ class QNetBase(nn.Module):  # nn.Module is a standard PyTorch Network
 
     def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
         if explore_rate < th.rand(1):
-            state = self.state_norm(state)
-            action = self.net(state).argmax(dim=1, keepdim=True)
+            action = self.get_q_value(state).argmax(dim=1, keepdim=True)
         else:
             action = th.randint(self.action_dim, size=(state.shape[0], 1))
         return action
@@ -259,16 +258,6 @@ class QNetTwin(QNetBase):  # Double DQN
         q_val1 = self.net_val1(s_enc)  # q value 1
         q_val2 = self.net_val2(s_enc)  # q value 2
         return q_val1, q_val2  # two groups of Q values
-
-    def get_action(self, state: TEN, explore_rate: float):  # return the index List[int] of discrete action
-        q_value = self.get_q_value(state)
-        if explore_rate < th.rand(1):
-            action = q_value.argmax(dim=1, keepdim=True)
-        else:
-            q_norm = (q_value - q_value.mean(dim=-1, keepdim=True)) / (q_value.std(dim=-1, keepdim=True) + 1e-5)
-            a_prob = self.soft_max(q_norm + 1)
-            action = th.multinomial(a_prob, num_samples=1)
-        return action
 
 
 class QNetTwinDuel(QNetTwin):  # D3QN: Dueling Double DQN
