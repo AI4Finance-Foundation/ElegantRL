@@ -9,6 +9,7 @@ class Config:
         self.agent_class = agent_class  # agent = agent_class(...)
         self.if_off_policy = self.get_if_off_policy()  # whether off-policy or on-policy of DRL algorithm
 
+        '''Argument of environment'''
         self.env_class = env_class  # env = env_class(**env_args)
         self.env_args = env_args  # env = env_class(**env_args)
         if env_args is None:  # dummy env_args
@@ -39,7 +40,7 @@ class Config:
 
         '''Arguments for device'''
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
-        self.thread_num = int(8)  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
+        self.thread_num = int(8)  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
         self.random_seed = int(0)  # initialize random seed in self.init_before_training()
 
         '''Arguments for evaluate'''

@@ -16,7 +16,7 @@ def demo(task):
 
     if env_name == 'Ant':
         env_args = {
-            'env_num': 2048,
+            'num_envs': 2048,
             'env_name': env_name,
             'max_step': 1000,
             'state_dim': 60,
@@ -43,7 +43,7 @@ def demo(task):
 
     elif env_name == 'Humanoid':
         env_args = {
-            'env_num': 1024,
+            'num_envs': 1024,
             'env_name': env_name,
             'max_step': 1000,
             'state_dim': 108,

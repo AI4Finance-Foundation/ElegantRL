@@ -9,7 +9,7 @@ get_gym_env_args(gym.make("BipedalWalker-v3"), if_print=True)
 
 env_func = gym.make
 env_args = {
-    "env_num": 1,
+    "num_envs": 1,
     "env_name": "BipedalWalker-v3",
     "max_step": 1600,
     "state_dim": 24,

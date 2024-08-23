@@ -17,7 +17,7 @@ class AgentMADDPG(AgentBase):
     :param gamma[float]: learning rate of optimizer
     :param n_agents[int]: number of agents
     :param if_per_or_gae[bool]: PER (off-policy) or GAE (on-policy) for sparse reward
-    :param env_num[int]: the env number of VectorEnv. env_num == 1 means don't use VectorEnv
+    :param num_envs[int]: the env number of VectorEnv. num_envs == 1 means don't use VectorEnv
     :param agent_id[int]: if the visible_gpu is '1,9,3,4', agent_id=1 means (1,9,4,3)[agent_id] == 9
     """
 
@@ -41,7 +41,7 @@ class AgentMADDPG(AgentBase):
         agent_id=0,
     ):
         self.agents = [AgentDDPG() for i in range(n_agents)]
-        self.explore_env = self.explore_one_env
+        self.explore_env = self._explore_one_env
         self.if_off_policy = True
         self.n_agents = n_agents
 
@@ -155,7 +155,7 @@ class AgentMADDPG(AgentBase):
 
         return
 
-    def explore_one_env(self, env, target_step) -> list:
+    def _explore_one_env(self, env, target_step) -> list:
         """
         Exploring the environment for target_step.
         param env: the Environment instance to be explored.

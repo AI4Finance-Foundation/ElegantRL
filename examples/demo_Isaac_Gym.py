@@ -15,7 +15,7 @@ def demo(seed, config):
     gpu_id = 0
 
     env_args = {
-        'env_num': config['env_num'],
+        'num_envs': config['num_envs'],
         'env_name': config['env_name'],
         'max_step': config['max_step'],
         'state_dim': config['state_dim'],
@@ -45,7 +45,7 @@ def demo(seed, config):
     args.eval_gap = 1e6
     args.learner_gpus = gpu_id
     args.random_seed = seed
-    args.cwd = f'./result/{args.env_name}_{args.agent_class.__name__[5:]}_{args.env_num}envs/{args.random_seed}'
+    args.cwd = f'./result/{args.env_name}_{args.agent_class.__name__[5:]}_{args.num_envs}envs/{args.random_seed}'
 
     train_and_evaluate(args)
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     seed = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     config = {
         'env_name': 'Ant',
-        'env_num': 2048,
+        'num_envs': 2048,
         'state_dim': 60,
         'action_dim': 8,
         'max_step': 1000,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     }
     # config = {
     #     'env_name': 'Humanoid',
-    #     'env_num': 2048,
+    #     'num_envs': 2048,
     #     'state_dim': 108,
     #     'action_dim': 21,
     #     'max_step': 1000,
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # }
     # config = {
     #     'env_name': 'ShadowHand',
-    #     'env_num': 16384,
+    #     'num_envs': 16384,
     #     'state_dim': 211,
     #     'action_dim': 20,
     #     'max_step': 600,
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # }
     # config = {
     #     'env_name': 'Anymal',
-    #     'env_num': 4096,
+    #     'num_envs': 4096,
     #     'state_dim': 48,
     #     'action_dim': 12,
     #     'max_step': 2500,
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # }
     # config = {
     #     'env_name': 'Ingenuity',
-    #     'env_num': 4096,
+    #     'num_envs': 4096,
     #     'state_dim': 13,
     #     'action_dim': 6,
     #     'max_step': 2000,
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     # }
     cwd = config['env_name'] + '_PPO_' + str(seed)
     wandb.init(
-        project=config['env_name'] + '_PPO_' + str(config['env_num']),
+        project=config['env_name'] + '_PPO_' + str(config['num_envs']),
         entity=None,
         sync_tensorboard=True,
         config=config,

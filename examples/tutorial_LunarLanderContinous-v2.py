@@ -9,7 +9,7 @@ get_gym_env_args(gym.make("LunarLanderContinuous-v2"), if_print=False)
 
 env_func = gym.make
 env_args = {
-    "env_num": 1,
+    "num_envs": 1,
     "env_name": "LunarLanderContinuous-v2",
     "max_step": 1000,
     "state_dim": 8,

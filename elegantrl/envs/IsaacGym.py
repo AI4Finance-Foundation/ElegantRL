@@ -21,7 +21,7 @@ There are still cuda:0 BUG in Isaac Gym Preview 3:
 
 isaacgym/gymdeps.py", line 21, in _import_deps
 raise ImportError("PyTorch was imported before isaacgym modules.  
-                   Please import torch after isaacgym modules.")             
+                   Please import th after isaacgym modules.")             
 
 run the following code in bash before running.
 export LD_LIBRARY_PATH=/xfs/home/podracer_steven/anaconda3/envs/rlgpu/lib
@@ -240,7 +240,7 @@ def check_isaac_gym(env_name):
         rewards_ary.append(rewards)
         dones_ary.append(dones)
 
-    rewards_ary = torch.stack(rewards_ary)  # rewards_ary.shape == (env.max_step, env.env_num)
+    rewards_ary = torch.stack(rewards_ary)  # rewards_ary.shape == (env.max_step, env.num_envs)
     dones_ary = torch.stack(dones_ary)
     print(f'\nrewards_ary.shape {rewards_ary.shape}'
           f'\ndones_ary.shape   {dones_ary.shape}')

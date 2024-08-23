@@ -1,14 +1,15 @@
 import os
-import torch
+import torch as th
 import numpy as np
-from typing import List
-from torch import Tensor
+from typing import Tuple
 from multiprocessing import Pipe, Process
+
+TEN = th.Tensor
 
 
 class Config:
     def __init__(self, agent_class=None, env_class=None, env_args=None):
-        self.num_envs = None
+        self.num_envs = None  # `num_envs==1` in a single environment. `num_envs > 1` in a vectorized environment.
         self.agent_class = agent_class  # agent = agent_class(...)
         self.if_off_policy = self.get_if_off_policy()  # whether off-policy or on-policy of DRL algorithm
 
@@ -57,7 +58,7 @@ class Config:
         '''Arguments for device'''
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
         self.num_workers = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
-        self.num_threads = 8  # cpu_num for pytorch, `torch.set_num_threads(self.num_threads)`
+        self.num_threads = 8  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
         self.random_seed = 0  # initialize random seed in self.init_before_training()
         self.learner_gpus = 0  # `int` means the ID of single GPU, -1 means CPU
 
@@ -78,9 +79,9 @@ class Config:
 
     def init_before_training(self):
         np.random.seed(self.random_seed)
-        torch.manual_seed(self.random_seed)
-        torch.set_num_threads(self.num_threads)
-        torch.set_default_dtype(torch.float32)
+        th.manual_seed(self.random_seed)
+        th.set_num_threads(self.num_threads)
+        th.set_default_dtype(th.float32)
 
         '''set cwd (current working directory) for saving model'''
         if self.cwd is None:  # set cwd (current working directory) for saving model
@@ -108,15 +109,14 @@ class Config:
 
 
 def build_env(env_class=None, env_args: dict = None, gpu_id: int = -1):
+    import warnings
+    warnings.filterwarnings("ignore", message=".*get variables from other wrappers is deprecated.*")
     env_args['gpu_id'] = gpu_id  # set gpu_id for vectorized env before build it
 
     if env_args.get('if_build_vec_env'):
         num_envs = env_args['num_envs']
         env = VecEnv(env_class=env_class, env_args=env_args, num_envs=num_envs, gpu_id=gpu_id)
-    elif env_class.__module__ == 'gym.envs.registration':
-        import gym
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
-        gym.logger.set_level(40)  # Block warning
+    elif env_class.__module__ == 'gymnasium.envs.registration':
         env = env_class(id=env_args['env_name'])
     else:
         env = env_class(**kwargs_filter(env_class.__init__, env_args.copy()))
@@ -139,10 +139,9 @@ def kwargs_filter(function, kwargs: dict) -> dict:
 
 def get_gym_env_args(env, if_print: bool) -> dict:
     """get a dict about a standard OpenAI gym env information.
-    assert 0.18.0 <= gym.__version__ <= 0.25.3
 
-    env: a standard OpenAI gym env
-    if_print: [bool] print the dict about env information.
+    param env: a standard OpenAI gym env
+    param if_print: [bool] print the dict about env information.
     return: env_args [dict]
 
     env_args = {
@@ -154,12 +153,12 @@ def get_gym_env_args(env, if_print: bool) -> dict:
         'if_discrete': if_discrete, # [bool] action space is discrete or continuous
     }
     """
-    import gym
+    import warnings
+    warnings.filterwarnings("ignore", message=".*get variables from other wrappers is deprecated.*")
 
     if_gym_standard_env = {'unwrapped', 'observation_space', 'action_space', 'spec'}.issubset(dir(env))
 
     if if_gym_standard_env and (not hasattr(env, 'num_envs')):  # isinstance(env, gym.Env):
-        assert '0.18.0' <= gym.__version__ <= '0.25.2'  # pip3 install gym==0.24.0
         env_name = env.unwrapped.spec.id
         num_envs = getattr(env, 'num_envs', 1)
         max_step = getattr(env, '_max_episode_steps', 12345)
@@ -167,10 +166,10 @@ def get_gym_env_args(env, if_print: bool) -> dict:
         state_shape = env.observation_space.shape
         state_dim = state_shape[0] if len(state_shape) == 1 else state_shape  # sometimes state_dim is a list
 
-        if_discrete = isinstance(env.action_space, gym.spaces.Discrete)
+        if_discrete = str(env.action_space).find('Discrete') >= 0
         if if_discrete:  # make sure it is discrete action space
             action_dim = getattr(env.action_space, 'n')
-        elif isinstance(env.action_space, gym.spaces.Box):  # make sure it is continuous action space
+        elif str(env.action_space).find('Box') >= 0:  # make sure it is continuous action space
             action_dim = env.action_space.shape[0]
             if any(env.action_space.high - 1):
                 print('WARNING: env.action_space.high', env.action_space.high)
@@ -215,10 +214,10 @@ class SubEnv(Process):
         self.env_id = env_id
 
     def run(self):
-        torch.set_grad_enabled(False)
+        th.set_grad_enabled(False)
 
         '''build env'''
-        if self.env_class.__module__ == 'gym.envs.registration':  # is standard OpenAI Gym env
+        if self.env_class.__module__ == 'gymnasium.envs.registration':  # is standard OpenAI Gym env
             env = self.env_class(id=self.env_args['env_name'])
         else:
             env = self.env_class(**kwargs_filter(self.env_class.__init__, self.env_args.copy()))
@@ -226,22 +225,24 @@ class SubEnv(Process):
         '''set env random seed'''
         random_seed = self.env_id
         np.random.seed(random_seed)
-        torch.manual_seed(random_seed)
+        th.manual_seed(random_seed)
 
         while True:
             action = self.sub_pipe0.recv()
             if action is None:
-                state = env.reset()
+                state, info_dict = env.reset()
                 self.vec_pipe1.send((self.env_id, state))
             else:
-                state, reward, done, info_dict = env.step(action)
-                state = env.reset() if done else state
-                self.vec_pipe1.send((self.env_id, state, reward, done, info_dict))
+                state, reward, terminal, truncate, info_dict = env.step(action)
+
+                done = terminal or truncate
+                state = env.reset()[0] if done else state
+                self.vec_pipe1.send((self.env_id, state, reward, terminal, truncate))
 
 
 class VecEnv:
     def __init__(self, env_class: object, env_args: dict, num_envs: int, gpu_id: int = -1):
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
         self.num_envs = num_envs  # the number of sub env in vectorized env.
 
         '''the necessary env information when you design a custom env'''
@@ -270,27 +271,28 @@ class VecEnv:
         [setattr(p, 'daemon', True) for p in self.sub_envs]  # set before process start to exit safely
         [p.start() for p in self.sub_envs]
 
-    def reset(self) -> Tensor:  # reset the agent in env
-        torch.set_grad_enabled(False)
+    def reset(self) -> Tuple[TEN, dict]:  # reset the agent in env
+        th.set_grad_enabled(False)
 
         for pipe in self.sub_pipe1s:
             pipe.send(None)
-        states, = self.get_orderly_zip_list_return()
-        states = torch.tensor(np.stack(states), dtype=torch.float32, device=self.device)
-        return states
+        states,  = self.get_orderly_zip_list_return()
+        states = th.tensor(np.stack(states), dtype=th.float32, device=self.device)
+        info_dicts = dict()
+        return states, info_dicts
 
-    def step(self, action: Tensor) -> (Tensor, Tensor, Tensor, List[dict]):  # agent interacts in env
+    def step(self, action: TEN) -> Tuple[TEN, TEN, TEN, TEN, dict]:  # agent interacts in env
         action = action.detach().cpu().numpy()
-        if self.if_discrete:
-            action = action.squeeze(1)
         for pipe, a in zip(self.sub_pipe1s, action):
             pipe.send(a)
 
-        states, rewards, dones, info_dicts = self.get_orderly_zip_list_return()
-        states = torch.tensor(np.stack(states), dtype=torch.float32, device=self.device)
-        rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
-        dones = torch.tensor(dones, dtype=torch.bool, device=self.device)
-        return states, rewards, dones, info_dicts
+        states, rewards, terminal, truncate = self.get_orderly_zip_list_return()
+        states = th.tensor(np.stack(states), dtype=th.float32, device=self.device)
+        rewards = th.tensor(rewards, dtype=th.float32, device=self.device)
+        terminal = th.tensor(terminal, dtype=th.bool, device=self.device)
+        truncate = th.tensor(truncate, dtype=th.bool, device=self.device)
+        info_dicts = dict()
+        return states, rewards, terminal, truncate, info_dicts
 
     def close(self):
         [process.terminate() for process in self.sub_envs]
@@ -300,3 +302,36 @@ class VecEnv:
             res = self.vec_pipe0.recv()
             self.res_list[res[0]] = res[1:]
         return list(zip(*self.res_list))
+
+
+def check_vec_env():
+    import gymnasium as gym
+    num_envs = 3
+    gpu_id = 0
+
+    env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
+    env_args = {'env_name': 'CartPole-v1',
+                'max_step': 500,
+                'state_dim': 4,
+                'action_dim': 2,
+                'if_discrete': True, }
+
+    env = VecEnv(env_class=env_class, env_args=env_args, num_envs=num_envs, gpu_id=gpu_id)
+
+    device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+    state, info_dict = env.reset()
+    print(f"| num_envs {num_envs}  state.shape {state.shape}")
+
+    for i in range(4):
+        if env.if_discrete:  # state -> action
+            action = th.randint(0, env.action_dim, size=(num_envs,), device=device)
+        else:
+            action = th.zeros(size=(num_envs,), dtype=th.float32, device=device)
+        state, reward, terminal, truncate, info_dict = env.step(action)
+
+        print(f"| num_envs {num_envs}  {[t.shape for t in (state, reward, terminal, truncate)]}")
+    env.close() if hasattr(env, 'close') else None
+
+
+if __name__ == '__main__':
+    check_vec_env()

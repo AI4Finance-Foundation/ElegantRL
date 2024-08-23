@@ -683,8 +683,8 @@ def demo_load_pendulum_and_render():
 
     '''evaluate'''
     eval_times = 2 ** 7
-    from elegantrl.train.evaluator import get_cumulative_rewards_and_steps
-    rewards_step_list = [get_cumulative_rewards_and_steps(env, act) for _ in range(eval_times)]
+    from elegantrl.train.evaluator import get_rewards_and_steps
+    rewards_step_list = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
     rewards_step_ten = torch.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
           f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
@@ -699,7 +699,7 @@ def demo_load_pendulum_and_render():
     for steps in range(12345):
         s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
-        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action)
         returns += reward
         env.render()

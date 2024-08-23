@@ -22,7 +22,7 @@ def demo_evaluator_actor_h_term_to_str():
     if env_name == 'Hopper-v3':
         env_func = GymNormaEnv  # gym.make
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Hopper-v3',
             'max_step': 1000,
             'state_dim': 11,
@@ -38,7 +38,7 @@ def demo_evaluator_actor_h_term_to_str():
     elif env_name == 'HalfCheetah-v3':
         env_func = GymNormaEnv  # gym.make
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'HalfCheetah-v3',
             'max_step': 1000,
             'state_dim': 17,
@@ -58,7 +58,7 @@ def demo_evaluator_actor_h_term_to_str():
         env_args = {
             'action_dim': 2,
             'env_name': 'Swimmer-v3',
-            'env_num': 1,
+            'num_envs': 1,
             'if_discrete': False,
             'max_step': 1000,
             'state_dim': 8,
@@ -80,7 +80,7 @@ def demo_evaluator_actor_h_term_to_str():
     elif env_name == 'Walker2d-v3':
         env_func = GymNormaEnv  # gym.make
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Walker2d-v3',
             'if_discrete': False,
             'max_step': 1000,
@@ -104,7 +104,7 @@ def demo_evaluator_actor_h_term_to_str():
     elif env_name == 'Ant-v3':
         env_func = GymNormaEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Ant-v3',
             'max_step': 1000,
             'state_dim': 111,
@@ -122,7 +122,7 @@ def demo_evaluator_actor_h_term_to_str():
         from elegantrl.envs.CustomGymEnv import HumanoidEnv
         env_func = HumanoidEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Humanoid-v3',
             'max_step': 1000,
             'state_dim': 376,
@@ -172,7 +172,7 @@ def demo_evaluator_actor_h_term_to_str():
 
     '''evaluate file'''
     # buffer = init_buffer(args, gpu_id)
-    # agent.act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    # agent.act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     # agent.state = env.reset()
     # target_step = args.max_step * 4
     #

@@ -1,10 +1,11 @@
+from typing import Tuple
+
 import numpy as np
 import numpy.random as rd
-import torch
+import torch as th
 
-
-Array = np.ndarray
-Tensor = torch.Tensor
+ARY = np.ndarray
+TEN = th.Tensor
 
 
 class PointChasingEnv:
@@ -28,7 +29,7 @@ class PointChasingEnv:
         self.max_step = 2 ** 10
         self.if_discrete = False
 
-    def reset(self):
+    def reset(self, **_kwargs) -> Tuple[ARY, dict]:
         self.p0 = rd.normal(0, 1, size=self.dim)
         self.v0 = np.zeros(self.dim)
 
@@ -38,9 +39,10 @@ class PointChasingEnv:
         self.distance = ((self.p0 - self.p1) ** 2).sum() ** 0.5
         self.cur_step = 0
 
-        return self.get_state()
+        state = self.get_state()
+        return state, dict()
 
-    def step(self, action: Array) -> (Array, Array, bool, dict):
+    def step(self, action: ARY) -> Tuple[ARY, ARY, bool, bool, dict]:
         action_l2 = (action ** 2).sum() ** 0.5
         action_l2 = max(action_l2, 1.0)
         action = action / action_l2
@@ -64,14 +66,15 @@ class PointChasingEnv:
         """done"""
         self.cur_step += 1
 
-        done = (distance < self.dim) or (self.cur_step == self.max_step)
-        return next_state, reward, done, None
+        terminal = (distance < self.dim) or (self.cur_step == self.max_step)
+        truncate = False
+        return next_state, reward, terminal, truncate, dict()
 
-    def get_state(self) -> Array:
+    def get_state(self) -> ARY:
         return np.hstack((self.p0, self.v0, self.p1, self.v1))
 
     @staticmethod
-    def get_action(state: Array) -> Array:
+    def get_action(state: ARY) -> ARY:
         states_reshape = state.reshape((4, -1))
         p0 = states_reshape[0]
         p1 = states_reshape[2]
@@ -100,48 +103,39 @@ class PointChasingVecEnv:
         self.max_step = 2 ** 10
         self.if_discrete = False
 
-        self.env_num = env_num
-        self.device = torch.device("cpu" if sim_gpu_id == -1 else f"cuda:{sim_gpu_id}")
+        self.num_envs = env_num
+        self.device = th.device("cpu" if sim_gpu_id == -1 else f"cuda:{sim_gpu_id}")
 
-    def reset(self):
-        self.p0s = torch.zeros(
-            (self.env_num, self.dim), dtype=torch.float32, device=self.device
-        )
-        self.v0s = torch.zeros(
-            (self.env_num, self.dim), dtype=torch.float32, device=self.device
-        )
-        self.p1s = torch.zeros(
-            (self.env_num, self.dim), dtype=torch.float32, device=self.device
-        )
-        self.v1s = torch.zeros(
-            (self.env_num, self.dim), dtype=torch.float32, device=self.device
-        )
+    def reset(self, **_kwargs) -> Tuple[TEN, dict]:
+        self.p0s = th.zeros((self.num_envs, self.dim), dtype=th.float32, device=self.device)
+        self.v0s = th.zeros((self.num_envs, self.dim), dtype=th.float32, device=self.device)
+        self.p1s = th.zeros((self.num_envs, self.dim), dtype=th.float32, device=self.device)
+        self.v1s = th.zeros((self.num_envs, self.dim), dtype=th.float32, device=self.device)
 
-        self.cur_steps = torch.zeros(
-            self.env_num, dtype=torch.float32, device=self.device
-        )
+        self.cur_steps = th.zeros(self.num_envs, dtype=th.float32, device=self.device)
 
-        for env_i in range(self.env_num):
+        for env_i in range(self.num_envs):
             self.reset_env_i(env_i)
 
         self.distances = ((self.p0s - self.p1s) ** 2).sum(dim=1) ** 0.5
 
-        return self.get_state()
+        state = self.get_state()
+        return state, dict()
 
     def reset_env_i(self, i: int):
-        self.p0s[i] = torch.normal(0, 1, size=(self.dim,))
-        self.v0s[i] = torch.zeros((self.dim,))
-        self.p1s[i] = torch.normal(-self.init_distance, 1, size=(self.dim,))
-        self.v1s[i] = torch.zeros((self.dim,))
+        self.p0s[i] = th.normal(0, 1, size=(self.dim,))
+        self.v0s[i] = th.zeros((self.dim,))
+        self.p1s[i] = th.normal(-self.init_distance, 1, size=(self.dim,))
+        self.v1s[i] = th.zeros((self.dim,))
 
         self.cur_steps[i] = 0
 
-    def step(self, actions: Tensor) -> (Tensor, Tensor, Tensor, dict):
+    def step(self, actions: TEN) -> Tuple[TEN, TEN, TEN, TEN, dict]:
         """
-        :param actions: [tensor] actions.shape == (env_num, action_dim)
-        :return: next_states [tensor] next_states.shape == (env_num, state_dim)
-        :return: rewards [tensor] rewards == (env_num, )
-        :return: dones [tensor] dones == (env_num, ), done = 1. if done else 0.
+        :param actions: [tensor] actions.shape == (num_envs, action_dim)
+        :return: next_states [tensor] next_states.shape == (num_envs, state_dim)
+        :return: rewards [tensor] rewards == (num_envs, )
+        :return: terminal [tensor] terminal == (num_envs, ), done = 1. if done else 0.
         :return: None [None or dict]
         """
         # assert actions.get_device() == self.device.index
@@ -154,8 +148,8 @@ class PointChasingVecEnv:
         self.p1s += self.v1s * 0.01
 
         self.v0s *= 0.50
-        self.v0s += torch.rand(
-            size=(self.env_num, self.dim), dtype=torch.float32, device=self.device
+        self.v0s += th.rand(
+            size=(self.num_envs, self.dim), dtype=th.float32, device=self.device
         )
         self.p0s += self.v0s * 0.01
 
@@ -166,25 +160,22 @@ class PointChasingVecEnv:
 
         """done"""
         self.cur_steps += 1  # array
-        dones = (distances < self.dim) | (self.cur_steps == self.max_step)
-        for env_i in range(self.env_num):
-            if dones[env_i]:
+        terminal = (distances < self.dim) | (self.cur_steps == self.max_step)
+        for env_i in range(self.num_envs):
+            if terminal[env_i]:
                 self.reset_env_i(env_i)
-        dones = dones.type(torch.float32)
+        terminal = terminal.type(th.float32)
+        truncate = th.zeros(size=(self.num_envs,), dtype=th.bool, device=self.device)
 
         """next_state"""
         next_states = self.get_state()
+        return next_states, rewards, terminal, truncate, dict()
 
-        # assert next_states.get_device() == self.device.index
-        # assert rewards.get_device() == self.device.index
-        # assert dones.get_device() == self.device.index
-        return next_states, rewards, dones, None
-
-    def get_state(self) -> Tensor:
-        return torch.cat((self.p0s, self.v0s, self.p1s, self.v1s), dim=1)
+    def get_state(self) -> TEN:
+        return th.cat((self.p0s, self.v0s, self.p1s, self.v1s), dim=1)
 
     @staticmethod
-    def get_action(states: Tensor) -> Tensor:
+    def get_action(states: TEN) -> TEN:
         states_reshape = states.reshape((states.shape[0], 4, -1))
         p0s = states_reshape[:, 0]
         p1s = states_reshape[:, 2]
@@ -198,14 +189,14 @@ class PointChasingDiscreteEnv(PointChasingEnv):
         self.action_dim = 3 ** self.dim
         self.if_discrete = True
 
-    def step(self, action: Array) -> (Array, Array, bool, dict):
+    def step(self, action: ARY) -> Tuple[ARY, ARY, bool, bool, dict]:
         action_ary = np.zeros(self.dim, dtype=np.float32)  # continuous_action
         for dim in range(self.dim):
             idx = (action // (3 ** dim)) % 3
             action_ary[dim] = idx - 1  # map `idx` to `value` using {0: -1, 1: 0, 2: +1}
         return PointChasingEnv.step(self, action_ary)
 
-    def get_action(self, state: Array) -> int:
+    def get_action(self, state: ARY) -> int:
         action_ary = PointChasingEnv.get_action(state)
         action_idx = 0
         for dim in range(self.dim):
@@ -228,10 +219,10 @@ def check_chasing_env():
     state = env.reset()
     for _ in range(env.max_step * 4):
         action = env.get_action(state)
-        state, reward, done, _ = env.step(action)
+        state, reward, terminal, truncate, _ = env.step(action)
 
         reward_sum += reward
-        if done:
+        if terminal or truncate:
             print(f"{env.distance:8.4f}    {action.round(2)}")
             reward_sum_list.append(reward_sum)
             reward_sum = 0.0
@@ -247,23 +238,22 @@ def check_chasing_vec_env():
 
     reward_sums = [
                       0.0,
-                  ] * env.env_num  # episode returns
+                  ] * env.num_envs  # episode returns
     reward_sums_list = [
                            [],
-                       ] * env.env_num
+                       ] * env.num_envs
 
     states = env.reset()
     for _ in range(env.max_step * 4):
         actions = env.get_action(states)
-        states, rewards, dones, _ = env.step(actions)
+        states, rewards, terminal, truncate, _ = env.step(actions)
 
-        for env_i in range(env.env_num):
+        dones = th.logical_or(terminal, truncate)
+        for env_i in range(env.num_envs):
             reward_sums[env_i] += rewards[env_i].item()
 
             if dones[env_i]:
-                print(
-                    f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}"
-                )
+                print(f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}")
                 reward_sums_list[env_i].append(reward_sums[env_i])
                 reward_sums[env_i] = 0.0
 

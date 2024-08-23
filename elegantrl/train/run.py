@@ -1,15 +1,16 @@
 import os
-import sys
 import time
-import torch
-import numpy as np
-import torch.multiprocessing as mp  # torch.multiprocessing extends multiprocessing of Python
 from copy import deepcopy
+from typing import List
+
+import numpy as np
+import torch as th
+import multiprocessing as mp  # th.multiprocessing extends multiprocessing of Python
 from multiprocessing import Process, Pipe
 
 from elegantrl.train.config import Config, build_env
 from elegantrl.train.replay_buffer import ReplayBuffer
-from elegantrl.train.evaluator import Evaluator, get_cumulative_rewards_and_steps
+from elegantrl.train.evaluator import Evaluator, get_rewards_and_steps
 
 if os.name == 'nt':  # if is WindowOS (Windows NT)
     """Fix bug about Anaconda in WindowOS
@@ -22,7 +23,7 @@ if os.name == 'nt':  # if is WindowOS (Windows NT)
 
 def train_agent(args: Config):
     args.init_before_training()
-    torch.set_grad_enabled(False)
+    th.set_grad_enabled(False)
 
     '''init environment'''
     env = build_env(args.env_class, args.env_args, args.gpu_id)
@@ -32,17 +33,15 @@ def train_agent(args: Config):
     agent.save_or_load_agent(args.cwd, if_save=False)
 
     '''init agent.last_state'''
-    state = env.reset()
+    state, info_dict = env.reset()
     if args.num_envs == 1:
         assert state.shape == (args.state_dim,)
         assert isinstance(state, np.ndarray)
-        state = torch.tensor(state, dtype=torch.float32, device=agent.device).unsqueeze(0)
+        state = th.tensor(state, dtype=th.float32, device=agent.device).unsqueeze(0)
     else:
-        assert state.shape == (args.num_envs, args.state_dim)
-        assert isinstance(state, torch.Tensor)
         state = state.to(agent.device)
     assert state.shape == (args.num_envs, args.state_dim)
-    assert isinstance(state, torch.Tensor)
+    assert isinstance(state, th.Tensor)
     agent.last_state = state.detach()
 
     '''init buffer'''
@@ -56,8 +55,6 @@ def train_agent(args: Config):
             if_use_per=args.if_use_per,
             args=args,
         )
-        buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
-        buffer.update(buffer_items)  # warm up for ReplayBuffer
     else:
         buffer = []
 
@@ -85,9 +82,9 @@ def train_agent(args: Config):
         else:
             buffer[:] = buffer_items
 
-        torch.set_grad_enabled(True)
+        th.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
-        torch.set_grad_enabled(False)
+        th.set_grad_enabled(False)
 
         evaluator.evaluate_and_save(actor=agent.act, steps=horizon_len, exp_r=exp_r, logging_tuple=logging_tuple)
         if_train = (evaluator.total_step <= break_step) and (not os.path.exists(f"{cwd}/stop"))
@@ -135,7 +132,7 @@ class Learner(Process):
 
     def run(self):
         args = self.args
-        torch.set_grad_enabled(False)
+        th.set_grad_enabled(False)
 
         '''init agent'''
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
@@ -157,6 +154,7 @@ class Learner(Process):
 
         '''loop'''
         if_off_policy = args.if_off_policy
+        if_discrete = args.if_discrete
         if_save_buffer = args.if_save_buffer
         num_workers = args.num_workers
         num_envs = args.num_envs
@@ -168,23 +166,29 @@ class Learner(Process):
         cwd = args.cwd
         del args
 
-        agent.last_state = torch.empty((num_seqs, state_dim), dtype=torch.float32, device=agent.device)
+        agent.last_state = th.empty((num_seqs, state_dim), dtype=th.float32, device=agent.device)
 
-        states = torch.empty((horizon_len, num_seqs, state_dim), dtype=torch.float32, device=agent.device)
-        actions = torch.empty((horizon_len, num_seqs, action_dim), dtype=torch.float32, device=agent.device)
-        rewards = torch.empty((horizon_len, num_seqs), dtype=torch.float32, device=agent.device)
-        undones = torch.empty((horizon_len, num_seqs), dtype=torch.bool, device=agent.device)
+        states = th.zeros((horizon_len, num_seqs, state_dim), dtype=th.float32, device=agent.device)
+        actions = th.zeros((horizon_len, num_seqs, action_dim), dtype=th.float32, device=agent.device) \
+            if not if_discrete else th.zeros((horizon_len, num_seqs, 1), dtype=th.int32).to(agent.device)
+        rewards = th.zeros((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
+        undones = th.zeros((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
+        unmasks = th.zeros((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
         if if_off_policy:
-            buffer_items_tensor = (states, actions, rewards, undones)
+            buffer_items_tensor = (states, actions, rewards, undones, unmasks)
         else:
-            logprobs = torch.empty((horizon_len, num_seqs), dtype=torch.float32, device=agent.device)
-            buffer_items_tensor = (states, actions, logprobs, rewards, undones)
+            logprobs = th.zeros((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
+            buffer_items_tensor = (states, actions, logprobs, rewards, undones, unmasks)
 
         if_train = True
         while if_train:
+            actor = agent.act
+            actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
+
             '''Learner send actor to Workers'''
             for send_pipe in self.send_pipes:
-                send_pipe.send(agent.act)
+                send_pipe.send(actor)
+            # agent.act.state_std.data[:] = th.as_tensor(state_std, device=agent.device)
 
             '''Learner receive (buffer_items, last_state) from Workers'''
             for _ in range(num_workers):
@@ -193,8 +197,8 @@ class Learner(Process):
                 buf_i = worker_id * num_envs
                 buf_j = worker_id * num_envs + num_envs
                 for buffer_item, buffer_tensor in zip(buffer_items, buffer_items_tensor):
-                    buffer_tensor[:, buf_i:buf_j] = buffer_item
-                agent.last_state[buf_i:buf_j] = last_state
+                    buffer_tensor[:, buf_i:buf_j] = buffer_item.to(agent.device)
+                agent.last_state[buf_i:buf_j] = last_state.to(agent.device)
 
             '''Learner update training data to (buffer, agent)'''
             if if_off_policy:
@@ -203,24 +207,28 @@ class Learner(Process):
                 buffer[:] = buffer_items_tensor
 
             '''agent update network using training data'''
-            torch.set_grad_enabled(True)
+            th.set_grad_enabled(True)
             logging_tuple = agent.update_net(buffer)
-            torch.set_grad_enabled(False)
+            th.set_grad_enabled(False)
 
             '''Learner receive training signal from Evaluator'''
-            if self.eval_pipe.poll():  # whether there is any data available to be read of this pipe
+            if self.eval_pipe.poll():  # whether there is any data available to be read of this pipe0
                 if_train = self.eval_pipe.recv()  # True means evaluator in idle moments.
-                actor = agent.act  # so Leaner send an actor to evaluator for evaluation.
+                # actor = agent.act
+                # actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
             else:
                 actor = None
 
             '''Learner send actor and training log to Evaluator'''
-            exp_r = buffer_items_tensor[2].mean().item()  # the average rewards of exploration
-            self.eval_pipe.send((actor, num_steps, exp_r, logging_tuple))
+            if if_train:
+                exp_r = buffer_items_tensor[2].mean().item()  # the average rewards of exploration
+                self.eval_pipe.send((actor, num_steps, exp_r, logging_tuple))
 
         '''Learner send the terminal signal to workers after break the loop'''
+        print("| Learner Close Worker")
         for send_pipe in self.send_pipes:
             send_pipe.send(None)
+            time.sleep(0.1)
 
         '''save'''
         agent.save_or_load_agent(cwd, if_save=True)
@@ -228,6 +236,7 @@ class Learner(Process):
             print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
             buffer.save_or_load_history(cwd, if_save=True)
             print(f"| LearnerPipe.run: ReplayBuffer saved  in {cwd}")
+        print("| Learner Closed")
 
 
 class Worker(Process):
@@ -241,7 +250,7 @@ class Worker(Process):
     def run(self):
         args = self.args
         worker_id = self.worker_id
-        torch.set_grad_enabled(False)
+        th.set_grad_enabled(False)
 
         '''init environment'''
         env = build_env(args.env_class, args.env_args, args.gpu_id)
@@ -251,24 +260,21 @@ class Worker(Process):
         agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init agent.last_state'''
-        state = env.reset()
+        state, info_dict = env.reset()
         if args.num_envs == 1:
             assert state.shape == (args.state_dim,)
             assert isinstance(state, np.ndarray)
-            state = torch.tensor(state, dtype=torch.float32, device=agent.device).unsqueeze(0)
+            state = th.tensor(state, dtype=th.float32, device=agent.device).unsqueeze(0)
         else:
             assert state.shape == (args.num_envs, args.state_dim)
-            assert isinstance(state, torch.Tensor)
+            assert isinstance(state, th.Tensor)
             state = state.to(agent.device)
         assert state.shape == (args.num_envs, args.state_dim)
-        assert isinstance(state, torch.Tensor)
+        assert isinstance(state, th.Tensor)
         agent.last_state = state.detach()
 
         '''init buffer'''
         horizon_len = args.horizon_len
-        if args.if_off_policy:
-            buffer_items = agent.explore_env(env, args.horizon_len, if_random=True)
-            self.send_pipe.send((worker_id, buffer_items, agent.last_state))
 
         '''loop'''
         del args
@@ -278,31 +284,30 @@ class Worker(Process):
             actor = self.recv_pipe.recv()
             if actor is None:
                 break
+            agent.act = actor.to(agent.device) if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
 
             '''Worker send the training data to Learner'''
-            agent.act = actor
             buffer_items = agent.explore_env(env, horizon_len)
-            self.send_pipe.send((worker_id, buffer_items, agent.last_state))
+            last_state = agent.last_state
+            if os.name == 'nt':  # WindowsNT_OS can only send cpu_tensor
+                buffer_items = [t.cpu() for t in buffer_items]
+                last_state = deepcopy(last_state).cpu()
+            self.send_pipe.send((worker_id, buffer_items, last_state))
 
         env.close() if hasattr(env, 'close') else None
+        # print(f"| Worker-{self.worker_id} Closed")
 
 
 class EvaluatorProc(Process):
     def __init__(self, evaluator_pipe: Pipe, args: Config):
         super().__init__()
-        self.pipe = evaluator_pipe[0]
+        self.pipe0 = evaluator_pipe[0]
+        self.pipe1 = evaluator_pipe[1]
         self.args = args
 
     def run(self):
         args = self.args
-        torch.set_grad_enabled(False)
-
-        '''wandb(weights & biases): Track and visualize all the pieces of your machine learning pipeline.'''
-        wandb = None
-        if getattr(args, 'if_use_wandb', False):
-            import wandb
-            wandb_project_name = "train"
-            wandb.init(project=wandb_project_name)
+        th.set_grad_enabled(False)
 
         '''init evaluator'''
         eval_env_class = args.eval_env_class if args.eval_env_class else args.env_class
@@ -313,34 +318,59 @@ class EvaluatorProc(Process):
         '''loop'''
         cwd = args.cwd
         break_step = args.break_step
-        device = torch.device(f"cuda:{args.gpu_id}" if (torch.cuda.is_available() and (args.gpu_id >= 0)) else "cpu")
+        device = th.device(f"cuda:{args.gpu_id}" if (th.cuda.is_available() and (args.gpu_id >= 0)) else "cpu")
         del args
 
         if_train = True
         while if_train:
             '''Evaluator receive training log from Learner'''
-            actor, steps, exp_r, logging_tuple = self.pipe.recv()
-            wandb.log({"obj_cri": logging_tuple[0], "obj_act": logging_tuple[1]}) if wandb else None
+            actor, steps, exp_r, logging_tuple = self.pipe0.recv()
 
             '''Evaluator evaluate the actor and save the training log'''
             if actor is None:
                 evaluator.total_step += steps  # update total_step but don't update recorder
             else:
-                actor = actor.to(device)
+                actor = actor.to(device) if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
                 evaluator.evaluate_and_save(actor, steps, exp_r, logging_tuple)
 
             '''Evaluator send the training signal to Learner'''
             if_train = (evaluator.total_step <= break_step) and (not os.path.exists(f"{cwd}/stop"))
-            self.pipe.send(if_train)
+            self.pipe0.send(if_train)
 
         '''Evaluator save the training log and draw the learning curve'''
         evaluator.save_training_curve_jpg()
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
+        print("| Evaluator Closing")
+        while self.pipe1.poll():  # whether there is any data available to be read of this pipe
+            while self.pipe0.poll():
+                try:
+                    self.pipe0.recv()
+                except RuntimeError:
+                    print("| Evaluator Ignore RuntimeError in self.pipe0.recv()")
+                time.sleep(1)
+            time.sleep(1)
+
         eval_env.close() if hasattr(eval_env, 'close') else None
+        print("| Evaluator Closed")
 
 
 '''render'''
+
+
+def valid_agent(env_class, env_args: dict, net_dims: List[int], agent_class, actor_path: str, render_times: int = 8):
+    env = build_env(env_class, env_args)
+
+    state_dim = env_args['state_dim']
+    action_dim = env_args['action_dim']
+    agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
+    actor = agent.act
+
+    print(f"| render and load actor from: {actor_path}")
+    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
+    for i in range(render_times):
+        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
+        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
 
 
 def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_path: str, render_times: int = 8):
@@ -353,7 +383,7 @@ def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_
     del agent
 
     print(f"| render and load actor from: {actor_path}")
-    actor.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     for i in range(render_times):
-        cumulative_reward, episode_step = get_cumulative_rewards_and_steps(env, actor, if_render=True)
+        cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
         print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")

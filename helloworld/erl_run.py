@@ -1,6 +1,6 @@
 import os
 import time
-from typing import List
+from typing import List, Tuple
 
 import torch as th
 import numpy as np
@@ -56,7 +56,7 @@ class Evaluator:
         draw_learning_curve_using_recorder(self.cwd)
 
 
-def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
+def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, int]:
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
     state, info_dict = env.reset()
@@ -65,7 +65,7 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
     for episode_steps in range(12345):
         tensor_state = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
         tensor_action = actor(tensor_state)
-        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, terminated, truncated, _ = env.step(action)
         cumulative_returns += reward
 

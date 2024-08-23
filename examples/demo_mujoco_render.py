@@ -13,7 +13,7 @@ def get_cumulative_returns_and_step(env, act, if_render=False) -> (float, int):
 
     env = build_env(env_func=env_func, env_args=env_args)
     act = agent(net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id).act
-    act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
 
     r_s_ary = [get_episode_return_and_step(env, act) for _ in range(eval_times)]
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
@@ -29,7 +29,7 @@ def get_cumulative_returns_and_step(env, act, if_render=False) -> (float, int):
     for steps in range(max_step):
         tensor_state = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         tensor_action = act(tensor_state).argmax(dim=1) if if_discrete else act(tensor_state)
-        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using torch.no_grad() outside
+        action = tensor_action.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action)
         returns += reward
 
@@ -58,7 +58,7 @@ def demo_evaluator_actor_pth():
     if env_name == 'Hopper-v3':
         env_func = GymNormaEnv  # gym.make
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Hopper-v3',
             'max_step': 1000,
             'state_dim': 11,
@@ -76,7 +76,7 @@ def demo_evaluator_actor_pth():
     elif env_name == 'HalfCheetah-v3':
         env_func = GymNormaEnv  # gym.make
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'HalfCheetah-v3',
             'max_step': 1000,
             'state_dim': 17,
@@ -96,7 +96,7 @@ def demo_evaluator_actor_pth():
         env_args = {
             'action_dim': 2,
             'env_name': 'Swimmer-v3',
-            'env_num': 1,
+            'num_envs': 1,
             'if_discrete': False,
             'max_step': 1000,
             'state_dim': 8,
@@ -120,7 +120,7 @@ def demo_evaluator_actor_pth():
     elif env_name == 'Walker2d-v3':
         env_func = GymNormaEnv  # gym.make
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Walker2d-v3',
             'if_discrete': False,
             'max_step': 1000,
@@ -145,7 +145,7 @@ def demo_evaluator_actor_pth():
     elif env_name == 'Ant-v3':
         env_func = GymNormaEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Ant-v3',
             'max_step': 1000,
             'state_dim': 111,
@@ -165,7 +165,7 @@ def demo_evaluator_actor_pth():
         from elegantrl.envs.CustomGymEnv import HumanoidEnv
         env_func = HumanoidEnv
         env_args = {
-            'env_num': 1,
+            'num_envs': 1,
             'env_name': 'Humanoid-v3',
             'max_step': 1000,
             'state_dim': 376,
@@ -226,7 +226,7 @@ def demo_evaluator_actor_pth():
     #         continue
     #     actor_path = f"{dir_path}/{name}"
     #
-    #     act.load_state_dict(torch.load(actor_path, map_location=lambda storage, loc: storage))
+    #     act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     #
     #     r_s_ary = [get_cumulative_returns_and_step(env, act, if_render=False) for _ in range(eval_times)]
     #     r_s_ary = np.array(r_s_ary, dtype=np.float32)
