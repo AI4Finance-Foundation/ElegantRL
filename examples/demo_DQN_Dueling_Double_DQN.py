@@ -100,7 +100,7 @@ def train_dqn_for_cartpole_vec_env(agent_class):
     assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
     import gymnasium as gym
-    num_envs = 16
+    num_envs = 8
 
     env_class = gym.make
     env_args = {
@@ -133,7 +133,7 @@ def train_dqn_for_cartpole_vec_env(agent_class):
 
     args.gpu_id = GPU_ID
     args.random_seed = GPU_ID
-    args.num_workers = 1
+    args.num_workers = 2
     if_single_process = False
     if if_single_process:
         train_agent(args)
