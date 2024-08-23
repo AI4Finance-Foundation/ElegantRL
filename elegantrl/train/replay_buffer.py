@@ -72,7 +72,7 @@ class ReplayBuffer:  # for off-policy
     def update(self, items: Tuple[TEN, ...]):
         states, actions, rewards, undones, unmasks = items
         # assert states.shape[1:] == (num_envs, state_dim)
-        # assert actions.shape[1:] == (num_envs, action_dim)
+        # assert actions.shape[1:] == (num_envs, action_dim if if_discrete else 1)
         # assert rewards.shape[1:] == (num_envs,)
         # assert undones.shape[1:] == (num_envs,)
         # assert unmasks.shape[1:] == (num_envs,)

@@ -199,12 +199,10 @@ def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float
     returns = th.empty((max_step, env_num), dtype=th.float32, device=device)
     dones = th.empty((max_step, env_num), dtype=th.bool, device=device)
 
-    state = env.reset()  # must reset in vectorized env
+    state, info_dict = env.reset()  # must reset in vectorized env
     for t in range(max_step):
         action = actor(state.to(device))
-        # assert action.shape == (env.num_envs, env.action_dim)
-        if if_discrete:
-            action = action.argmax(dim=1, keepdim=True)
+        # assert action.shape == (num_envs, ) if if_discrete else (num_envs, action_dim)
         state, reward, terminal, truncate, info_dict = env.step(action)
 
         returns[t] = reward

@@ -211,7 +211,7 @@ class Learner(Process):
             th.set_grad_enabled(False)
 
             '''Learner receive training signal from Evaluator'''
-            if self.eval_pipe.poll():  # whether there is any data available to be read of this pipe
+            if self.eval_pipe.poll():  # whether there is any data available to be read of this pipe0
                 if_train = self.eval_pipe.recv()  # True means evaluator in idle moments.
                 # actor = agent.act  # already set in `actor = agent.act` after `while if_train`
                 # actor = deepcopy(actor).cpu() if os.name == 'nt' else actor  # WindowsNT_OS can only send cpu_tensor
@@ -219,12 +219,15 @@ class Learner(Process):
                 actor = None
 
             '''Learner send actor and training log to Evaluator'''
-            exp_r = buffer_items_tensor[2].mean().item()  # the average rewards of exploration
-            self.eval_pipe.send((actor, num_steps, exp_r, logging_tuple))
+            if if_train:
+                exp_r = buffer_items_tensor[2].mean().item()  # the average rewards of exploration
+                self.eval_pipe.send((actor, num_steps, exp_r, logging_tuple))
 
         '''Learner send the terminal signal to workers after break the loop'''
+        print("| Learner Close Worker")
         for send_pipe in self.send_pipes:
             send_pipe.send(None)
+            time.sleep(0.1)
 
         '''save'''
         agent.save_or_load_agent(cwd, if_save=True)
@@ -232,6 +235,7 @@ class Learner(Process):
             print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
             buffer.save_or_load_history(cwd, if_save=True)
             print(f"| LearnerPipe.run: ReplayBuffer saved  in {cwd}")
+        print("| Learner Closed")
 
 
 class Worker(Process):
@@ -290,12 +294,14 @@ class Worker(Process):
             self.send_pipe.send((worker_id, buffer_items, last_state))
 
         env.close() if hasattr(env, 'close') else None
+        # print(f"| Worker-{self.worker_id} Closed")
 
 
 class EvaluatorProc(Process):
     def __init__(self, evaluator_pipe: Pipe, args: Config):
         super().__init__()
-        self.pipe = evaluator_pipe[0]
+        self.pipe0 = evaluator_pipe[0]
+        self.pipe1 = evaluator_pipe[1]
         self.args = args
 
     def run(self):
@@ -317,7 +323,7 @@ class EvaluatorProc(Process):
         if_train = True
         while if_train:
             '''Evaluator receive training log from Learner'''
-            actor, steps, exp_r, logging_tuple = self.pipe.recv()
+            actor, steps, exp_r, logging_tuple = self.pipe0.recv()
 
             '''Evaluator evaluate the actor and save the training log'''
             if actor is None:
@@ -328,13 +334,21 @@ class EvaluatorProc(Process):
 
             '''Evaluator send the training signal to Learner'''
             if_train = (evaluator.total_step <= break_step) and (not os.path.exists(f"{cwd}/stop"))
-            self.pipe.send(if_train)
+            self.pipe0.send(if_train)
 
         '''Evaluator save the training log and draw the learning curve'''
         evaluator.save_training_curve_jpg()
         print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
 
+        print("| Evaluator Closing")
+        while self.pipe1.poll():  # whether there is any data available to be read of this pipe
+            while self.pipe0.poll():
+                self.pipe0.recv()
+                time.sleep(1)
+            time.sleep(1)
+
         eval_env.close() if hasattr(eval_env, 'close') else None
+        print("| Evaluator Closed")
 
 
 '''render'''

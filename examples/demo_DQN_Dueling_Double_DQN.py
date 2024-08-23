@@ -9,8 +9,9 @@ if True:  # write after `sys.path.append("..")`
 
 
 def train_dqn_for_cartpole(agent_class):
-    import gymnasium as gym
+    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {'env_name': 'CartPole-v1',
                 'max_step': 500,
@@ -20,21 +21,25 @@ def train_dqn_for_cartpole(agent_class):
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(1e5)  # break training if 'total_step > break_step'
-    args.net_dims = [64, 32]  # the middle layer dimension of MultiLayer Perceptron
-    args.batch_size = 128
-    args.gamma = 0.99  # discount factor of future rewards
-    args.horizon_len = args.max_step
-    args.buffer_size = int(1e5)
+    args.break_step = int(6e5)  # break training if 'total_step > break_step'
+    args.net_dims = [64, 64]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 256
+    args.gamma = 0.98  # discount factor of future rewards
+    args.horizon_len = args.max_step // 16
+    args.buffer_size = int(4e5)
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** 0
     args.learning_rate = 5e-4
+    args.state_value_tau = 1e-4
+    args.soft_update_tau = 1e-3
+
+    args.explore_rate = 0.05
 
     args.eval_times = 32
-    args.eval_per_step = 1e4
+    args.eval_per_step = 2e4
 
     args.gpu_id = GPU_ID
-    args.num_workers = 1
+    args.num_workers = 8
     if_single_process = False
     if if_single_process:
         train_agent(args)
@@ -54,15 +59,49 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 1  9.20e+04     139 |  421.78   62.7    422    63 |    1.00   0.49  46.19
 1  1.04e+05     157 |  482.03   70.7    482    71 |    1.00   0.47  47.32
 | TrainingTime:     158 | SavedDir: ./CartPole-v1_D3QN_0
+
+################################################################################
+ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
+0  4.96e+02       1 |    9.25    0.8      9     1 |    1.00   0.00   0.00
+0  2.06e+04       9 |    9.31    0.5      9     1 |    1.00   0.01   0.99
+0  4.07e+04      23 |    9.22    0.7      9     1 |    1.00   0.01   1.63
+0  6.08e+04      43 |    9.34    0.7      9     1 |    1.00   0.02   2.88
+0  8.08e+04      72 |  498.75    7.1    499     7 |    1.00   0.03   4.63
+0  1.01e+05     105 |  500.00    0.0    500     0 |    1.00   0.04   6.89
+0  1.21e+05     135 |  500.00    0.0    500     0 |    1.00   0.05   9.93
+0  1.41e+05     178 |  500.00    0.0    500     0 |    1.00   0.06  13.51
+0  1.61e+05     226 |  498.34    5.6    498     6 |    1.00   0.10  17.56
+0  1.81e+05     272 |  137.75   41.0    138    41 |    1.00   0.08  21.63
+0  2.01e+05     321 |   89.28    2.6     89     3 |    1.00   0.16  26.06
+0  2.21e+05     375 |   92.19    4.5     92     5 |    1.00   0.27  30.10
+0  2.42e+05     433 |   94.44   30.9     94    31 |    1.00   0.30  33.44
+0  2.62e+05     495 |  116.12    8.9    116     9 |    1.00   0.38  36.29
+0  2.82e+05     563 |  215.03  129.8    215   130 |    1.00   0.40  39.06
+0  3.02e+05     633 |   98.81    5.5     99     5 |    1.00   0.44  41.83
+0  3.22e+05     707 |   94.34    1.5     94     1 |    1.00   0.47  44.19
+0  3.42e+05     786 |   95.94    1.6     96     2 |    1.00   0.43  46.33
+0  3.62e+05     871 |  175.06   15.3    175    15 |    1.00   0.52  48.68
+0  3.82e+05     960 |   97.12   12.6     97    13 |    1.00   0.56  50.98
+0  4.02e+05    1051 |   33.19   85.2     33    85 |    1.00   0.73  52.14
+0  4.22e+05    1151 |  178.47    7.7    178     8 |    1.00   0.72  54.49
+0  4.42e+05    1249 |  120.03   71.4    120    71 |    1.00   0.79  56.32
+0  4.63e+05    1349 |   97.38   10.4     97    10 |    1.00   0.74  56.99
+0  4.83e+05    1404 |   15.91    1.6     16     2 |    1.00   0.75  56.51
+0  5.03e+05    1463 |   53.56  117.1     54   117 |    1.00   0.91  54.61
+0  5.23e+05    1529 |  500.00    0.0    500     0 |    1.00   0.75  53.02
+0  5.43e+05    1595 |  500.00    0.0    500     0 |    1.00   0.76  51.91
+0  5.63e+05    1664 |  500.00    0.0    500     0 |    1.00   0.68  51.57
+0  5.83e+05    1760 |  477.69   87.8    478    88 |    1.00   0.66  50.98
+| UsedTime:    1816 | SavedDir: ./CartPole-v1_DoubleDQN_0
     """
 
 
-def train_dqn_for_cartpole_vec_env():
-    import gymnasium as gym
+def train_dqn_for_cartpole_vec_env(agent_class):
+    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
+    import gymnasium as gym
     num_envs = 16
 
-    agent_class = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
     env_class = gym.make
     env_args = {
         'env_name': 'CartPole-v1',
@@ -78,22 +117,24 @@ def train_dqn_for_cartpole_vec_env():
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
-    args.net_dims = [64, 32]  # the middle layer dimension of MultiLayer Perceptron
+    args.net_dims = [64, 64]  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
     args.gamma = 0.98  # discount factor of future rewards
-    args.horizon_len = args.max_step * 2
+    args.horizon_len = args.max_step // 8
     args.buffer_size = int(4e4)
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.reward_scale = 2 ** 2
-    args.learning_rate = 1e-4
+    args.reward_scale = 2 ** 0
+    args.learning_rate = 5e-4
+    args.state_value_tau = 1e-4
+    args.soft_update_tau = 1e-3
 
     args.eval_times = 32
-    args.eval_per_step = 1e4
+    args.eval_per_step = 2e4
 
     args.gpu_id = GPU_ID
     args.random_seed = GPU_ID
-    args.num_workers = 2
-    if_single_process = True
+    args.num_workers = 1
+    if_single_process = False
     if if_single_process:
         train_agent(args)
     else:
@@ -200,7 +241,7 @@ def train_dqn_for_lunar_lander_vec_env():
     args.gpu_id = GPU_ID
     args.num_workers = 2
     args.random_seed = GPU_ID
-    if_single_process = False
+    if_single_process = True
     if if_single_process:
         train_agent(args)
     else:
@@ -237,8 +278,8 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
-    Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
+    Parser.add_argument('--drl', type=int, default=1, help='RL algorithms ID for training')
+    Parser.add_argument('--env', type=str, default='1', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu

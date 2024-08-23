@@ -135,7 +135,7 @@ class AgentBase:
         """
         states = th.zeros((horizon_len, self.num_envs, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.num_envs, self.action_dim), dtype=th.float32).to(self.device) \
-            if not self.if_discrete else th.zeros((horizon_len, self.num_envs,), dtype=th.int32).to(self.device)
+            if not self.if_discrete else th.zeros((horizon_len, self.num_envs), dtype=th.int32).to(self.device)
         rewards = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
         terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
         truncates = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
@@ -156,6 +156,7 @@ class AgentBase:
             truncates[t] = truncate
 
         self.last_state = state
+        actions = actions.view((horizon_len, self.num_envs, 1)) if self.if_discrete else actions
         rewards *= self.reward_scale
         undones = th.logical_not(terminals)
         unmasks = th.logical_not(truncates)
@@ -283,10 +284,10 @@ class AgentBase:
 
         state_avg = states.mean(dim=0, keepdim=True)
         state_std = states.std(dim=0, keepdim=True)
-        self.act.state_avg.data[:] = self.act.data.state_avg * (1 - tau) + state_avg * tau
-        self.act.state_std.data[:] = self.act.data.state_std * (1 - tau) + state_std * tau + 1e-4
-        self.cri.state_avg.data[:] = self.act.data.state_avg
-        self.cri.state_std.data[:] = self.act.data.state_std
+        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
+        self.act.state_std[:] = self.act.state_std * (1 - tau) + state_std * tau + 1e-4
+        self.cri.state_avg[:] = self.act.state_avg
+        self.cri.state_std[:] = self.act.state_std
 
     @staticmethod
     def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):

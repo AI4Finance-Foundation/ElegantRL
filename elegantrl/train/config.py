@@ -236,7 +236,7 @@ class SubEnv(Process):
                 state, reward, terminal, truncate, info_dict = env.step(action)
 
                 done = terminal or truncate
-                state = env.reset() if done else state
+                state = env.reset()[0] if done else state
                 self.vec_pipe1.send((self.env_id, state, reward, terminal, truncate))
 
 
@@ -276,12 +276,12 @@ class VecEnv:
 
         for pipe in self.sub_pipe1s:
             pipe.send(None)
-        states = self.get_orderly_zip_list_return()
+        states,  = self.get_orderly_zip_list_return()
         states = th.tensor(np.stack(states), dtype=th.float32, device=self.device)
         info_dicts = dict()
         return states, info_dicts
 
-    def step(self, action: TEN) -> (TEN, TEN, TEN, TEN, List[dict]):  # agent interacts in env
+    def step(self, action: TEN) -> Tuple[TEN, TEN, TEN, TEN, dict]:  # agent interacts in env
         action = action.detach().cpu().numpy()
         for pipe, a in zip(self.sub_pipe1s, action):
             pipe.send(a)
