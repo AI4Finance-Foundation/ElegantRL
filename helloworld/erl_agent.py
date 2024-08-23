@@ -5,6 +5,7 @@ import torch.distributions.normal
 from copy import deepcopy
 from typing import List, Tuple, Optional
 
+
 from erl_config import Config
 
 ARY = np.ndarray
@@ -606,7 +607,7 @@ class AgentSAC(AgentBase):
 
         self.act = ActorSAC(net_dims, state_dim, action_dim).to(self.device)
         self.cri = CriticEnsemble(net_dims, state_dim, action_dim, num_ensembles=self.num_ensembles).to(self.device)
-        # self.act_target = deepcopy(self.act)
+        # self.act_target = deepcopy(self.act)  # TODO
         self.cri_target = deepcopy(self.cri)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
