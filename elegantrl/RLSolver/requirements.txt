@@ -1,0 +1,8 @@
+# ML framework
+torch
+
+# data handling
+numpy
+
+# plot/simulation
+matplotlib

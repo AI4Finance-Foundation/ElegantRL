@@ -1,0 +1,5 @@
+tensorflow-gpu==1.15.2
+numpy
+scipy
+networkx
+tqdm
