@@ -4,9 +4,9 @@ import sys
 sys.path.append('..')
 from torch_geometric.data import Data
 from L2A.evaluator import EncoderBase64
-from methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
+from elegantrl.RLSolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
 import time
-from methods.L2A.maxcut_local_search import SolverLocalSearch
+from elegantrl.RLSolver.methods.L2A.maxcut_local_search import SolverLocalSearch
 
 """
 pip install torch_geometric
