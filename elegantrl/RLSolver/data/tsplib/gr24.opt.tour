@@ -1,0 +1,8 @@
+NAME : gr24.opt.tour
+COMMENT : Optimal solution for gr24 (1272)
+TYPE : TOUR
+DIMENSION : 24
+TOUR_SECTION
+16 11 3 7 6 24 8 21 5 10 17 22 18 19 15 2 20 14 13 9 23 4 12 1
+-1
+EOF
