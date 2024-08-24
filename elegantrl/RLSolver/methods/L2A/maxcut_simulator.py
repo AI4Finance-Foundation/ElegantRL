@@ -2,10 +2,10 @@ import os
 import sys
 import time
 import torch as th
-
-from graph_utils import load_graph_list, GraphList
-from graph_utils import build_adjacency_bool, build_adjacency_indies, obtain_num_nodes
-from graph_utils import update_xs_by_vs, gpu_info_str, evolutionary_replacement
+sys.path.append('..')
+from elegantrl.RLSolver.methods.L2A.graph_utils import load_graph_list, GraphList
+from elegantrl.RLSolver.methods.L2A.graph_utils import build_adjacency_bool, build_adjacency_indies, obtain_num_nodes
+from elegantrl.RLSolver.methods.L2A.graph_utils import update_xs_by_vs, gpu_info_str, evolutionary_replacement
 
 TEN = th.Tensor
 
