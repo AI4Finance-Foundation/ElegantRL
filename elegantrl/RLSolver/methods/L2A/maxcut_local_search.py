@@ -4,9 +4,9 @@ import time
 import torch as th
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
-from methods.L2A.maxcut_simulator import SimulatorMaxcut
-from methods.L2A.evaluator import X_G14, X_G15, X_G49, X_G50, X_G22, X_G55, X_G70
-from methods.L2A.evaluator import Evaluator, EncoderBase64
+from elegantrl.RLSolver.methods.L2A.maxcut_simulator import SimulatorMaxcut
+from elegantrl.RLSolver.methods.L2A.evaluator import X_G14, X_G15, X_G49, X_G50, X_G22, X_G55, X_G70
+from elegantrl.RLSolver.methods.L2A.evaluator import Evaluator, EncoderBase64
 
 # TODO plan to remove
 

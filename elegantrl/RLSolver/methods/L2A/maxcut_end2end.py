@@ -13,7 +13,7 @@ from graph_utils import load_graph_list
 
 TEN = th.Tensor
 
-from envs.env_l2a_maxcut import MCMC_Maxcut
+from elegantrl.RLSolver.envs.env_l2a_maxcut import MCMC_Maxcut
 
 
 '''run'''
