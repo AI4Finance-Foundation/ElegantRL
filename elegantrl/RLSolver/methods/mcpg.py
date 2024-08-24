@@ -3,7 +3,7 @@ import torch
 import sys
 sys.path.append('..')
 from torch_geometric.data import Data
-from L2A.evaluator import EncoderBase64
+from elegantrl.RLSolver.methods.L2A.evaluator import EncoderBase64
 from elegantrl.RLSolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
 import time
 from elegantrl.RLSolver.methods.L2A.maxcut_local_search import SolverLocalSearch
