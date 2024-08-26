@@ -36,13 +36,14 @@ class AgentTD3(AgentBase):
             state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
 
             next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # deterministic policy
-            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1, keepdim=True)[0]
+            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1)[0]
 
             q_label = reward + undone * self.gamma * next_q
 
         q_values = self.cri.get_q_values(state, action)
-        q_labels = q_label.repeat(1, q_values.shape[1])
-        obj_critic = (self.criterion(q_values, q_labels) * unmask).mean()
+        q_labels = q_label.view((-1, 1)).repeat(1, q_values.shape[1])
+        td_error = self.criterion(q_values, q_labels).mean(dim=1) * unmask
+        obj_critic = td_error.mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
@@ -55,23 +56,31 @@ class AgentTD3(AgentBase):
             obj_actor = th.tensor(th.nan)
         return obj_critic.item(), obj_actor.item()
 
-    def _update_objectives_per(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
-            state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
+            if self.if_use_per:
+                (state, action, reward, undone, unmask, next_state,
+                 is_weight, is_index) = buffer.sample_for_per(self.batch_size)
+            else:
+                state, action, reward, undone, unmask, next_state = buffer.sample(self.batch_size)
+                is_weight, is_index = None, None
 
             next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # deterministic policy
-            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1, keepdim=True)[0]
+            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1)[0]
 
             q_label = reward + undone * self.gamma * next_q
 
         q_values = self.cri.get_q_values(state, action)
-        q_labels = q_label.repeat(1, q_values.shape[1])
-        td_error = self.criterion(q_values, q_labels).mean(dim=-1, keepdim=True) * unmask
-        obj_critic = (td_error * is_weight).mean()
+        q_labels = q_label.view((-1, 1)).repeat(1, q_values.shape[1])
+        td_error = self.criterion(q_values, q_labels).mean(dim=1) * unmask
+        if self.if_use_per:
+            obj_critic = (td_error * is_weight).mean()
+            buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
+        else:
+            obj_critic = td_error.mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-        buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
 
         if update_t % self.update_freq == 0:  # delay update
             action_pg = self.act(state)  # action to policy gradient
@@ -142,16 +151,7 @@ class Actor(ActorBase):
         self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.1)
 
-        self.explore_noise_std = 0.01  # standard deviation of exploration action noise
-        self.ActionDist = th.distributions.normal.Normal
-
-    def forward(self, state: TEN) -> TEN:
-        state = self.state_norm(state)
-        action = self.net(state)
-        return action.tanh()
-
     def get_action(self, state: TEN, action_std: float) -> TEN:  # for exploration
-        state = self.state_norm(state)
         action_avg = self.net(state).tanh()
         dist = self.ActionDist(action_avg, action_std)
         action = dist.sample()
@@ -164,25 +164,9 @@ class Critic(CriticBase):
         self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, 1])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
 
-    def forward(self, state: TEN, action: TEN) -> TEN:
-        state = self.state_norm(state)
-        value = self.net(th.cat((state, action), dim=1))
-        return value
-
 
 class CriticTwin(CriticBase):  # shared parameter
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int, num_ensembles: int = 2):
         super().__init__(state_dim=state_dim, action_dim=action_dim)
         self.net = build_mlp(dims=[state_dim + action_dim, *net_dims, num_ensembles])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
-
-    def forward(self, state: TEN, action: TEN) -> TEN:
-        state = self.state_norm(state)
-        values = self.get_q_values(state=state, action=action)
-        value = values.mean(dim=-1, keepdim=True)
-        return value  # Q value
-
-    def get_q_values(self, state: TEN, action: TEN) -> TEN:
-        state = self.state_norm(state)
-        values = self.net(th.cat((state, action), dim=1))
-        return values  # Q values
