@@ -573,7 +573,7 @@ class Arguments:
 def train_agent(args):
     torch.set_grad_enabled(False)
     args.init_before_training()
-    gpu_id = args.learner_gpus
+    gpu_id = args.learner_gpu_ids
 
     '''init'''
     env = build_env(args.env_func, args.env_args)

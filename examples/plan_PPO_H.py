@@ -280,7 +280,7 @@ def demo_ppo_h_term(gpu_id, drl_id, env_id):
     else:
         raise ValueError('env_name:', env_name)
 
-    args.learner_gpus = gpu_id
+    args.learner_gpu_ids = gpu_id
     args.random_seed += gpu_id + 19431
 
     if_check = 0

@@ -43,7 +43,7 @@ def demo(seed, config):
     args.lambda_entropy = 0.0
 
     args.eval_gap = 1e6
-    args.learner_gpus = gpu_id
+    args.learner_gpu_ids = gpu_id
     args.random_seed = seed
     args.cwd = f'./result/{args.env_name}_{args.agent_class.__name__[5:]}_{args.num_envs}envs/{args.random_seed}'
 

@@ -62,7 +62,7 @@ class Config:
         self.num_workers = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
         self.num_threads = 8  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
         self.random_seed = 0  # initialize random seed in self.init_before_training()
-        self.learner_gpus = 0  # `int` means the ID of single GPU, -1 means CPU
+        self.learner_gpu_ids = ()  # multiple gpu id Tuple[int, ...] for learners. () means single GPU or CPU.
 
         '''Arguments for evaluate'''
         self.cwd = None  # current working directory to save model. None means set automatically
