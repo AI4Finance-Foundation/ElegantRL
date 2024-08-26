@@ -4,7 +4,7 @@ from torch import nn
 from typing import Tuple, List
 
 from elegantrl.train.config import Config
-from elegantrl.agents.AgentBase import AgentBase, ActorBase, CriticBase
+from elegantrl.agents.AgentBase import AgentBase
 from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
 
 TEN = th.Tensor
@@ -58,13 +58,17 @@ class AgentPPO(AgentBase):
         state = self.last_state  # shape == (1, state_dim) for a single env.
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
-            action, logprob = self._explore_one_action(state)
+            action, logprob = [t[0] for t in self.explore_action(state)]
 
             states[t] = state
             actions[t] = action
             logprobs[t] = logprob
 
-            state, reward, terminal, truncate, _ = env.step(convert(action))
+            ary_action = convert(action).detach().cpu().numpy()
+            ary_state, reward, terminal, truncate, _ = env.step(ary_action)
+            if terminal or truncate:
+                ary_state, info_dict = env.reset()
+            state = th.as_tensor(ary_state, dtype=th.float32, device=self.device).unsqueeze(0)
 
             rewards[t] = reward
             terminals[t] = terminal
@@ -73,7 +77,8 @@ class AgentPPO(AgentBase):
         self.last_state = state  # state.shape == (1, state_dim) for a single env.
         states = states.view((horizon_len, 1, self.state_dim))
         actions = actions.view((horizon_len, 1, self.action_dim if not self.if_discrete else 1))
-        rewards *= self.reward_scale
+        logprobs = logprobs.view((horizon_len, 1))
+        rewards = (rewards * self.reward_scale).view((horizon_len, 1))
         undones = th.logical_not(terminals).view((horizon_len, 1))
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, logprobs, rewards, undones, unmasks
@@ -104,7 +109,7 @@ class AgentPPO(AgentBase):
 
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
-            action, logprob = self._explore_vec_action(state)
+            action, logprob = self.explore_action(state)
 
             states[t] = state
             actions[t] = action
@@ -122,30 +127,26 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates)
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def _explore_one_action(self, state: TEN) -> Tuple[TEN, TEN]:
-        actions, logprobs = self.act.get_action(state.unsqueeze(0))
-        return actions[0], logprobs[0]
-
-    def _explore_vec_action(self, state: TEN) -> Tuple[TEN, TEN]:
+    def explore_action(self, state: TEN) -> Tuple[TEN, TEN]:
         actions, logprobs = self.act.get_action(state)
         return actions, logprobs
 
     def update_net(self, buffer) -> Tuple[float, float, float]:
-        states, actions, logprobs, rewards, undones, unmasks = buffer
-        buffer_size = states.shape[0]
+        buffer_size = buffer[0].shape[0]
 
         '''get advantages reward_sums'''
-        bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
-        values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
-        values = th.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
+        with th.no_grad():
+            states, actions, logprobs, rewards, undones, unmasks = buffer
+            bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+            values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
+            values = th.cat(values, dim=0).squeeze(-1)  # values.shape == (buffer_size, )
 
-        advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
-        reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
-        del rewards, undones, values
+            advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
+            reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
+            del rewards, undones, values
 
-        advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
-        assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size,)
-
+            advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
+            assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size, states.shape[1])
         buffer = states, actions, unmasks, logprobs, advantages, reward_sums
 
         '''update network'''
@@ -156,7 +157,7 @@ class AgentPPO(AgentBase):
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
         for update_t in range(update_times):
-            obj_critic, obj_actor = self.update_objectives(buffer, self.batch_size, update_t)
+            obj_critic, obj_actor = self.update_objectives(buffer, update_t)
             obj_critics.append(obj_critic)
             obj_actors.append(obj_actor)
         th.set_grad_enabled(False)
@@ -166,17 +167,21 @@ class AgentPPO(AgentBase):
         a_std_log = getattr(self.act, 'a_std_log', th.zeros(1)).mean()
         return obj_critic_avg, obj_actor_avg, a_std_log.item()
 
-    def update_objectives(self, buffer: Tuple[TEN, ...], batch_size: int, _update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: Tuple[TEN, ...], update_t: int) -> Tuple[float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
-        buffer_size = states.shape[0]
-        indices = th.randint(buffer_size, size=(batch_size,), requires_grad=False)
-        state = states[indices]
-        action = actions[indices]
-        unmask = unmasks[indices]
-        logprob = logprobs[indices]
-        advantage = advantages[indices]
-        reward_sum = reward_sums[indices]
+        sample_len = states.shape[0]
+        num_seqs = states.shape[1]
+        ids = th.randint(sample_len * num_seqs, size=(self.batch_size,), requires_grad=False, device=self.device)
+        ids0 = th.fmod(ids, sample_len)  # ids % sample_len
+        ids1 = th.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
+
+        state = states[ids0, ids1]
+        action = actions[ids0, ids1]
+        unmask = unmasks[ids0, ids1]
+        logprob = logprobs[ids0, ids1]
+        advantage = advantages[ids0, ids1]
+        reward_sum = reward_sums[ids0, ids1]
 
         value = self.cri(state).squeeze(1)  # critic network predicts the reward_sum (Q value) of state
         obj_critic = (self.criterion(value, reward_sum) * unmask).mean()
@@ -186,8 +191,8 @@ class AgentPPO(AgentBase):
         ratio = (new_logprob - logprob.detach()).exp()
         surrogate1 = advantage * ratio
         surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
-        obj_surrogate = th.min(surrogate1, surrogate2).mean()
-        obj_actor = obj_surrogate + obj_entropy.mean() * self.lambda_entropy
+        obj_surrogate = th.min(surrogate1, surrogate2)
+        obj_actor = ((obj_surrogate + obj_entropy) * unmask).mean() * self.lambda_entropy
         self.optimizer_backward(self.act_optimizer, -obj_actor)
         return obj_critic.item(), obj_actor.item()
 
@@ -197,14 +202,14 @@ class AgentPPO(AgentBase):
         # update undones rewards when truncated
         truncated = th.logical_not(unmasks)
         if th.any(truncated):
-            rewards[truncated] += self.cri(states[truncated.squeeze(1)]).detach().squeeze(1)
+            rewards[truncated] += self.cri(states[truncated]).squeeze(1).detach()
             undones[truncated] = False
 
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
 
-        next_state = th.tensor(self.last_state, dtype=th.float32).to(self.device)
-        next_value = self.cri(next_state.unsqueeze(0)).detach().squeeze(1).squeeze(0)
+        next_state = self.last_state.clone()
+        next_value = self.cri(next_state).detach().squeeze(-1)
 
         advantage = th.zeros_like(next_value)  # last advantage value by GAE (Generalized Advantage Estimate)
         if self.if_use_v_trace:  # get advantage value in reverse time series (V-trace)
@@ -218,17 +223,34 @@ class AgentPPO(AgentBase):
                 advantage = values[t] + self.lambda_gae_adv * advantages[t]
         return advantages
 
+    def update_avg_std_for_normalization(self, states: TEN):
+        tau = self.state_value_tau
+        if tau == 0:
+            return
+
+        state_avg = states.mean(dim=0, keepdim=True)
+        state_std = states.std(dim=0, keepdim=True)
+        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
+        self.act.state_std[:] = (self.act.state_std * (1 - tau) + state_std * tau).clamp_min(1e-4)
+        self.cri.state_avg[:] = self.act.state_avg
+        self.cri.state_std[:] = self.act.state_std
+
+        self.act_target.state_avg[:] = self.act.state_avg
+        self.act_target.state_std[:] = self.act.state_std
+        self.cri_target.state_avg[:] = self.cri.state_avg
+        self.cri_target.state_std[:] = self.cri.state_std
+
 
 class AgentA2C(AgentPPO):
     """A2C algorithm.
     “Asynchronous Methods for Deep Reinforcement Learning”. Mnih V. et al.. 2016.
     """
 
-    def update_objectives(self, buffer: Tuple[TEN, ...], batch_size: int, _update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: Tuple[TEN, ...], update_t: int) -> Tuple[float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
         buffer_size = states.shape[0]
-        indices = th.randint(buffer_size, size=(batch_size,), requires_grad=False)
+        indices = th.randint(buffer_size, size=(self.batch_size,), requires_grad=False)
         state = states[indices]
         action = actions[indices]
         unmask = unmasks[indices]
@@ -280,14 +302,20 @@ class AgentDiscreteA2C(AgentDiscretePPO):
 '''network'''
 
 
-class ActorPPO(ActorBase):
+class ActorPPO(th.nn.Module):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        super().__init__()
         self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.1)
 
         self.action_std_log = nn.Parameter(th.zeros((1, action_dim)), requires_grad=True)  # trainable parameter
         self.ActionDist = th.distributions.normal.Normal
+
+        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
+
+    def state_norm(self, state: TEN) -> TEN:
+        return (state - self.state_avg) / (self.state_std + 1e-4)
 
     def forward(self, state: TEN) -> TEN:
         state = self.state_norm(state)
@@ -319,12 +347,9 @@ class ActorPPO(ActorBase):
         return action.tanh()
 
 
-class ActorDiscretePPO(ActorBase):
+class ActorDiscretePPO(ActorPPO):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
-        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
-        layer_init_with_orthogonal(self.net[-1], std=0.1)
-
+        super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim)
         self.ActionDist = th.distributions.Categorical
         self.soft_max = nn.Softmax(dim=-1)
 
@@ -354,13 +379,19 @@ class ActorDiscretePPO(ActorBase):
         return action.long()
 
 
-class CriticPPO(CriticBase):
+class CriticPPO(th.nn.Module):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
-        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        super().__init__()
         self.net = build_mlp(dims=[state_dim, *net_dims, 1])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
+
+        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
 
     def forward(self, state: TEN) -> TEN:
         state = self.state_norm(state)
         value = self.net(state)
         return value  # advantage value
+
+    def state_norm(self, state: TEN) -> TEN:
+        return (state - self.state_avg) / (self.state_std + 1e-4)

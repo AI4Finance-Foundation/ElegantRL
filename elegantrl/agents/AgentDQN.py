@@ -31,39 +31,31 @@ class AgentDQN(AgentBase):
         self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
         # the probability of choosing action randomly in epsilon-greedy
 
-    def _explore_action(self, state: TEN) -> TEN:
+    def explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state, explore_rate=self.explore_rate)[:, 0]
 
-    def _update_objectives_raw(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
-            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
-
-            next_q = self.cri_target.get_q_value(next_state).max(dim=1)[0]  # next q_values
-            q_label = reward + undone * self.gamma * next_q
-
-        q_value = self.cri.get_q_value(state).gather(1, action.long()).squeeze(1)
-        obj_critic = (self.criterion(q_value, q_label) * unmask).mean()
-        self.optimizer_backward(self.cri_optimizer, obj_critic)
-        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
-        obj_actor = q_value.detach().mean()
-        return obj_critic.item(), obj_actor.item()
-
-    def _update_objectives_per(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
-        assert isinstance(update_t, int)
-        with th.no_grad():
-            state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
+            if self.if_use_per:
+                (state, action, reward, undone, unmask, next_state,
+                 is_weight, is_index) = buffer.sample_for_per(self.batch_size)
+            else:
+                state, action, reward, undone, unmask, next_state = buffer.sample(self.batch_size)
+                is_weight, is_index = None, None
 
             next_q = self.cri_target.get_q_value(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
         q_value = self.cri.get_q_value(state).gather(1, action.long()).squeeze(1)
         td_error = self.criterion(q_value, q_label) * unmask
-        obj_critic = (td_error * is_weight).mean()
+        if self.if_use_per:
+            obj_critic = (td_error * is_weight).mean()
+            buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
+        else:
+            obj_critic = td_error.mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-        buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
 
         obj_actor = q_value.detach().mean()
         return obj_critic.item(), obj_actor.item()
@@ -100,36 +92,28 @@ class AgentDoubleDQN(AgentDQN):
         self.explore_rate = getattr(args, "explore_rate", 0.25)  # set for `self.act.get_action()`
         # the probability of choosing action randomly in epsilon-greedy
 
-    def _update_objectives_raw(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
-            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
-
-            next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
-            q_label = reward + undone * self.gamma * next_q
-
-        q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.cri.get_q1_q2(state)]
-        obj_critic = ((self.criterion(q_value1, q_label) + self.criterion(q_value2, q_label)) * unmask).mean()
-        self.optimizer_backward(self.cri_optimizer, obj_critic)
-        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
-        obj_actor = q_value1.detach().mean()
-        return obj_critic.item(), obj_actor.item()
-
-    def _update_objectives_per(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
-        assert isinstance(update_t, int)
-        with th.no_grad():
-            state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
+            if self.if_use_per:
+                (state, action, reward, undone, unmask, next_state,
+                 is_weight, is_index) = buffer.sample_for_per(self.batch_size)
+            else:
+                state, action, reward, undone, unmask, next_state = buffer.sample(self.batch_size)
+                is_weight, is_index = None, None
 
             next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
             q_label = reward + undone * self.gamma * next_q
 
         q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.cri.get_q1_q2(state)]
         td_error = (self.criterion(q_value1, q_label) + self.criterion(q_value2, q_label)) * unmask
-        obj_critic = (td_error * is_weight).mean()
+        if self.if_use_per:
+            obj_critic = (td_error * is_weight).mean()
+            buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
+        else:
+            obj_critic = td_error.mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-        buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
 
         obj_actor = q_value1.detach().mean()
         return obj_critic.item(), obj_actor.item()
@@ -180,18 +164,11 @@ class QNetBase(nn.Module):  # nn.Module is a standard PyTorch Network
         self.state_dim = state_dim
         self.action_dim = action_dim
 
-        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
-        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
-
-    def state_norm(self, state: TEN) -> TEN:
-        return (state - self.state_avg) / self.state_std
-
     def forward(self, state):
         q_value = self.get_q_value(state)
         return q_value.argmax(dim=1)  # index of max Q values
 
     def get_q_value(self, state: TEN) -> TEN:
-        state = self.state_norm(state)
         q_value = self.net(state)
         return q_value
 
@@ -221,7 +198,6 @@ class QNetDuel(QNetBase):  # Dueling DQN
         layer_init_with_orthogonal(self.net_val[-1], std=0.1)
 
     def forward(self, state):
-        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val(s_enc)  # q value
         q_adv = self.net_adv(s_enc)  # advantage value
@@ -229,7 +205,6 @@ class QNetDuel(QNetBase):  # Dueling DQN
         return value.argmax(dim=1)  # index of max Q values
 
     def get_q_value(self, state: TEN) -> TEN:
-        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_value = self.net_val(s_enc)
         return q_value
@@ -247,13 +222,11 @@ class QNetTwin(QNetBase):  # Double DQN
         layer_init_with_orthogonal(self.net_val2[-1], std=0.1)
 
     def get_q_value(self, state: TEN) -> TEN:
-        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_value = self.net_val1(s_enc)  # q value
         return q_value
 
     def get_q1_q2(self, state):
-        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val1 = self.net_val1(s_enc)  # q value 1
         q_val2 = self.net_val2(s_enc)  # q value 2
@@ -276,7 +249,6 @@ class QNetTwinDuel(QNetTwin):  # D3QN: Dueling Double DQN
         layer_init_with_orthogonal(self.net_val2[-1], std=0.1)
 
     def get_q_value(self, state):
-        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
         q_val = self.net_val1(s_enc)  # q value
         q_adv = self.net_adv1(s_enc)  # advantage value
@@ -284,7 +256,6 @@ class QNetTwinDuel(QNetTwin):  # D3QN: Dueling Double DQN
         return q_value
 
     def get_q1_q2(self, state):
-        state = self.state_norm(state)
         s_enc = self.net_state(state)  # encoded state
 
         q_val1 = self.net_val1(s_enc)  # q value 1
