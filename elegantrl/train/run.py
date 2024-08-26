@@ -1,7 +1,7 @@
 import os
 import time
 from copy import deepcopy
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch as th
@@ -98,7 +98,7 @@ def train_agent(args: Config):
         buffer.save_or_load_history(cwd, if_save=True)
 
 
-def train_agent_multiprocessing0(args: Config):
+def train_agent_multiprocessing(args: Config):
     args.init_before_training()
 
     """Don't set method='fork' when send tensor in GPU"""
@@ -122,14 +122,12 @@ def train_agent_multiprocessing0(args: Config):
     [process.join() for process in process_list]
 
 
-def train_agent_multiprocessing(args: Config):
+def train_agent_multiprocessing_multi_gpu(args: Config):
     args.init_before_training()
 
     """Don't set method='fork' when send tensor in GPU"""
     method = 'spawn' if os.name == 'nt' else 'forkserver'  # os.name == 'nt' means Windows NT operating system (WinOS)
     mp.set_start_method(method=method, force=True)
-
-    args.learner_gpu_ids = (0, 1)  # TODO comm
 
     learners_pipe = [Pipe(duplex=True) for _ in args.learner_gpu_ids]
     process_list_list = []
@@ -170,8 +168,8 @@ class Learner(Process):
             learner_pipe: Pipe,
             worker_pipes: List[Pipe],
             evaluator_pipe: Pipe,
-            learners_pipe: List[Pipe],
-            args: Config
+            learners_pipe: Optional[List[Pipe]] = None,
+            args: Config = Config(),
     ):
         super().__init__()
         self.recv_pipe = learner_pipe[0]
@@ -184,22 +182,24 @@ class Learner(Process):
         args = self.args
         th.set_grad_enabled(False)
 
-        # TODO comm
-        learner_id = args.learner_gpu_ids.index(args.gpu_id)
-        # print(';;;;;;;;init', args.learner_gpu_ids, args.gpu_id, learner_id)
+        '''COMMUNICATE between Learners: init'''
+        learner_id = args.learner_gpu_ids.index(args.gpu_id) if len(args.learner_gpu_ids) > 0 else 0
         num_learners = len(args.learner_gpu_ids)
         num_communications = min(num_learners - 1, 1)
-        num_seqs = args.num_envs * args.num_workers * num_learners  # TODO comm
+        if len(args.learner_gpu_ids) >= 1:
+            assert isinstance(self.learners_pipe, list)
+        else:
+            assert self.learners_pipe is None
 
-        '''init agent'''
+        '''Learner init agent'''
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
         agent.save_or_load_agent(args.cwd, if_save=False)
 
-        '''init buffer'''
+        '''Learner init buffer'''
         if args.if_off_policy:
             buffer = ReplayBuffer(
                 gpu_id=args.gpu_id,
-                num_seqs=num_seqs,
+                num_seqs=args.num_envs * args.num_workers * num_learners,
                 max_size=args.buffer_size,
                 state_dim=args.state_dim,
                 action_dim=1 if args.if_discrete else args.action_dim,
@@ -210,16 +210,18 @@ class Learner(Process):
             buffer = []
 
         '''loop'''
-
         if_off_policy = args.if_off_policy
         if_discrete = args.if_discrete
         if_save_buffer = args.if_save_buffer
+
         num_workers = args.num_workers
         num_envs = args.num_envs
+        num_steps = args.horizon_len * args.num_workers
+        num_seqs = args.num_envs * args.num_workers * num_learners
+
         state_dim = args.state_dim
         action_dim = args.action_dim
         horizon_len = args.horizon_len
-        num_steps = args.horizon_len * args.num_workers
         cwd = args.cwd
         del args
 
@@ -254,24 +256,22 @@ class Learner(Process):
                 for buffer_item, buffer_tensor in zip(buffer_items, buffer_items_tensor):
                     buffer_tensor[:, buf_i:buf_j] = buffer_item.to(agent.device)
                 agent.last_state[buf_i:buf_j] = last_state.to(agent.device)
+            del buffer_items, last_state
 
-            # TODO comm
-            other_learners_id = [(learner_id + shift_id) % num_learners for shift_id in range(num_communications)]
-            # print(';;;;;;;num', num_learners, num_communications, ';;;;id', learner_id, other_learners_id)
-            '''Learner send actor to other Learners'''
-            buf_l = num_envs * num_workers
-            _buffer_items_tensor = [t[:, :buf_l].cpu().detach_() for t in buffer_items_tensor]
-            for _ in range(num_communications):
+            '''COMMUNICATE between Learners: Learner send actor to other Learners'''
+            _buffer_len = num_envs * num_workers
+            _buffer_items_tensor = [t[:, :_buffer_len].cpu().detach_() for t in buffer_items_tensor]
+            for shift_id in range(num_communications):
                 _learner_pipe = self.learners_pipe[learner_id][0]
                 _learner_pipe.send(_buffer_items_tensor)
-            '''Learner receive (buffer_items, last_state) from other Learners'''
-            for seq_idx, other_learner_id in enumerate(other_learners_id):
-                _learner_pipe = self.learners_pipe[other_learner_id][1]
+            '''COMMUNICATE between Learners: Learner receive (buffer_items, last_state) from other Learners'''
+            for shift_id in range(num_communications):
+                _learner_id = (learner_id + shift_id) % num_learners  # other_learner_id
+                _learner_pipe = self.learners_pipe[_learner_id][1]
                 _buffer_items_tensor = _learner_pipe.recv()
 
-                _buf_i = num_envs * num_workers * (seq_idx + 1)
-                _buf_j = num_envs * num_workers * (seq_idx + 2)
-                # print(';;;|||', states.shape, num_envs, num_workers, seq_idx, _buf_i, _buf_j, _buffer_items_tensor[0].shape)
+                _buf_i = num_envs * num_workers * (shift_id + 1)
+                _buf_j = num_envs * num_workers * (shift_id + 2)
                 for buffer_item, buffer_tensor in zip(_buffer_items_tensor, buffer_items_tensor):
                     buffer_tensor[:, _buf_i:_buf_j] = buffer_item.to(agent.device)
 
@@ -281,7 +281,7 @@ class Learner(Process):
             else:
                 buffer[:] = buffer_items_tensor
 
-            '''agent update network using training data'''
+            '''Learner update network using training data'''
             th.set_grad_enabled(True)
             logging_tuple = agent.update_net(buffer)
             th.set_grad_enabled(False)
