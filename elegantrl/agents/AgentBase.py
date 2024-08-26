@@ -27,6 +27,7 @@ class AgentBase:
         self.if_discrete: bool = args.if_discrete
         self.if_off_policy: bool = args.if_off_policy
 
+        self.net_dims = net_dims  # the networks dimension of each layer
         self.state_dim = state_dim  # feature number of state
         self.action_dim = action_dim  # feature number of continuous action or number of discrete action
 
@@ -40,6 +41,7 @@ class AgentBase:
         self.clip_grad_norm = args.clip_grad_norm  # clip the gradient after normalization
         self.soft_update_tau = args.soft_update_tau  # the tau of soft target update `net = (1-tau)*net + net1`
         self.state_value_tau = args.state_value_tau  # the tau of normalize for value and state
+        self.buffer_init_size = args.buffer_init_size  # train after samples over buffer_init_size for off-policy
 
         self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
         self.last_state: Optional[TEN] = None  # last state of the trajectory. shape == (num_envs, state_dim)
@@ -68,7 +70,7 @@ class AgentBase:
         else:
             return self._explore_one_env(env=env, horizon_len=horizon_len)
 
-    def _explore_action(self, state: TEN) -> TEN:
+    def explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state, action_std=self.explore_noise_std)
 
     def _explore_one_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
@@ -94,7 +96,7 @@ class AgentBase:
 
         state = self.last_state
         for t in range(horizon_len):
-            action = self._explore_action(state)[0]
+            action = self.explore_action(state)[0]
             # if_discrete == False  action.shape (1, action_dim) -> (action_dim, )
             # if_discrete == True   action.shape (1, ) -> ()
 
@@ -142,7 +144,7 @@ class AgentBase:
 
         state = self.last_state  # last_state.shape == (num_envs, state_dim)
         for t in range(horizon_len):
-            action = self._explore_action(state)
+            action = self.explore_action(state)
             # if_discrete == False  action.shape (num_envs, action_dim)
             # if_discrete == True   action.shape (num_envs, )
 
@@ -163,19 +165,13 @@ class AgentBase:
         return states, actions, rewards, undones, unmasks
 
     def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> Tuple[float, ...]:
-        self.update_avg_std_for_normalization(states=buffer.add_states.reshape((-1, self.state_dim)))
-
         objs_critic = []
         objs_actor = []
 
-        if buffer.cur_size < self.batch_size * 8:
-            obj_avg_critic = 0.0
-            obj_avg_actor = 0.0
-            return obj_avg_critic, obj_avg_actor
         th.set_grad_enabled(True)
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
         for update_t in range(update_times):
-            obj_critic, obj_actor = self._update_objectives(buffer, self.batch_size, update_t)
+            obj_critic, obj_actor = self.update_objectives(buffer=buffer, update_t=update_t)
             objs_critic.append(obj_critic)
             objs_actor.append(obj_actor) if isinstance(obj_actor, float) else None
         th.set_grad_enabled(False)
@@ -184,37 +180,15 @@ class AgentBase:
         obj_avg_actor = np.nanmean(objs_actor) if len(objs_actor) else 0.0
         return obj_avg_critic, obj_avg_actor
 
-    def _update_objectives(self, buffer: ReplayBuffer, batch_size: int, update_t: int):
-        if self.if_use_per:
-            return self._update_objectives_per(buffer=buffer, batch_size=batch_size, update_t=update_t)
-        else:
-            return self._update_objectives_raw(buffer=buffer, batch_size=batch_size, update_t=update_t)
-
-    def _update_objectives_raw(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
-            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
-
-            next_action = self.act(next_state)  # deterministic policy
-            next_q = self.cri_target(next_state, next_action)
-
-            q_label = reward + undone * self.gamma * next_q
-
-        q_value = self.cri(state, action) * unmask
-        obj_critic = (self.criterion(q_value, q_label) * unmask).mean()
-        self.optimizer_backward(self.cri_optimizer, obj_critic)
-        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
-        action_pg = self.act(state)  # action to policy gradient
-        obj_actor = self.cri(state, action_pg).mean()
-        self.optimizer_backward(self.act_optimizer, -obj_actor)
-        self.soft_update(self.act_target, self.act, self.soft_update_tau)
-        return obj_critic.item(), obj_actor.item()
-
-    def _update_objectives_per(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
-        assert isinstance(update_t, int)
-        with th.no_grad():
-            state, action, reward, undone, unmask, next_state, is_weight, is_index = buffer.sample_for_per(batch_size)
+            if self.if_use_per:
+                (state, action, reward, undone, unmask, next_state,
+                 is_weight, is_index) = buffer.sample_for_per(self.batch_size)
+            else:
+                state, action, reward, undone, unmask, next_state = buffer.sample(self.batch_size)
+                is_weight, is_index = None, None
 
             next_action = self.act(next_state)  # deterministic policy
             next_q = self.cri_target(next_state, next_action)
@@ -223,15 +197,22 @@ class AgentBase:
 
         q_value = self.cri(state, action) * unmask
         td_error = self.criterion(q_value, q_label) * unmask
-        obj_critic = (td_error * is_weight).mean()
+        if self.if_use_per:
+            obj_critic = (td_error * is_weight).mean()
+            buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
+        else:
+            obj_critic = td_error.mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-        buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
 
-        action_pg = self.act(state)  # action to policy gradient
-        obj_actor = self.cri(state, action_pg).mean()
-        self.optimizer_backward(self.act_optimizer, -obj_actor)
-        self.soft_update(self.act_target, self.act, self.soft_update_tau)
+        if_update_act = bool(buffer.cur_size >= self.buffer_init_size)
+        if if_update_act:
+            action_pg = self.act(state)  # action to policy gradient
+            obj_actor = self.cri(state, action_pg).mean()
+            self.optimizer_backward(self.act_optimizer, -obj_actor)
+            self.soft_update(self.act_target, self.act, self.soft_update_tau)
+        else:
+            obj_actor = th.tensor(th.nan)
         return obj_critic.item(), obj_actor.item()
 
     def get_cumulative_rewards(self, rewards: TEN, undones: TEN) -> TEN:
@@ -276,26 +257,6 @@ class AgentBase:
         clip_grad_norm_(parameters=optimizer.param_groups[0]["params"], max_norm=self.clip_grad_norm)
         amp_scale.step(optimizer)  # optimizer.step()
         amp_scale.update()  # optimizer.step()
-
-    def update_avg_std_for_normalization(self, states: TEN):
-        tau = self.state_value_tau
-        if tau == 0:
-            return
-
-        state_avg = states.mean(dim=0, keepdim=True)
-        state_std = states.std(dim=0, keepdim=True)
-        self.act.state_avg[:] = self.act.state_avg * (1 - tau) + state_avg * tau
-        self.act.state_std[:] = self.act.state_std * (1 - tau) + state_std * tau + 1e-4
-        if self.cri is not self.act:
-            self.cri.state_avg[:] = self.act.state_avg
-            self.cri.state_std[:] = self.act.state_std
-
-        self.act_target.state_avg[:] = self.act.state_avg
-        self.act_target.state_std[:] = self.act.state_std
-        if self.cri is not self.act:
-            self.cri_target.state_avg[:] = self.cri.state_avg
-            self.cri_target.state_std[:] = self.cri.state_std
-
 
     @staticmethod
     def soft_update(target_net: th.nn.Module, current_net: th.nn.Module, tau: float):
@@ -344,11 +305,9 @@ class ActorBase(nn.Module):
         self.explore_noise_std = None  # standard deviation of exploration action noise
         self.ActionDist = th.distributions.normal.Normal
 
-        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
-        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
-
-    def state_norm(self, state: TEN) -> TEN:
-        return (state - self.state_avg) / self.state_std
+    def forward(self, state: TEN) -> TEN:
+        action = self.net(state)
+        return action.tanh()
 
 
 class CriticBase(nn.Module):
@@ -358,11 +317,14 @@ class CriticBase(nn.Module):
         self.action_dim = action_dim
         self.net = None  # build_mlp(net_dims=[state_dim + action_dim, *net_dims, 1])
 
-        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
-        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
+    def forward(self, state: TEN, action: TEN) -> TEN:
+        values = self.get_q_values(state=state, action=action)
+        value = values.mean(dim=-1, keepdim=True)
+        return value  # Q value
 
-    def state_norm(self, state: TEN) -> TEN:
-        return (state - self.state_avg) / self.state_std
+    def get_q_values(self, state: TEN, action: TEN) -> TEN:
+        values = self.net(th.cat((state, action), dim=1))
+        return values  # Q values
 
 
 """utils"""
@@ -377,7 +339,7 @@ def build_mlp(dims: [int], activation: nn = None, if_raw_out: bool = True) -> nn
     if_remove_out_layer: if remove the activation function of the output layer.
     """
     if activation is None:
-        activation = nn.ReLU
+        activation = nn.GELU
     net_list = []
     for i in range(len(dims) - 1):
         net_list.extend([nn.Linear(dims[i], dims[i + 1]), activation()])

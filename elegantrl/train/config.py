@@ -37,7 +37,7 @@ class Config:
         self.reward_scale = 2 ** 0  # an approximate target reward usually be closed to 256
 
         '''Arguments for training'''
-        self.net_dims = (64, 32)  # the middle layer dimension of MLP (MultiLayer Perceptron)
+        self.net_dims = [128, 128]  # the middle layer dimension of MLP (MultiLayer Perceptron)
         self.learning_rate = 6e-5  # the learning rate for network updating
         self.clip_grad_norm = 3.0  # 0.1 ~ 4.0, clip the gradient after normalization
         self.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
@@ -48,12 +48,14 @@ class Config:
             self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
             self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
             self.if_use_per = False  # use PER (Prioritized Experience Replay) for sparse reward
+            self.buffer_init_size = int(self.batch_size * 8)  # train after samples over buffer_init_size for off-policy
         else:  # on-policy
             self.batch_size = int(128)  # num of transitions sampled from replay buffer.
             self.horizon_len = int(2048)  # collect horizon_len step while exploring, then update network
             self.buffer_size = None  # ReplayBuffer size. Empty the ReplayBuffer for on-policy.
             self.repeat_times = 8.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-            self.if_use_vtrace = False  # use V-trace + GAE (Generalized Advantage Estimation) for sparse reward
+            self.if_use_vtrace = True  # use V-trace + GAE (Generalized Advantage Estimation) for sparse reward
+            self.buffer_init_size = None  # train after samples over buffer_init_size for off-policy
 
         '''Arguments for device'''
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
@@ -335,3 +337,7 @@ def check_vec_env():
 
 if __name__ == '__main__':
     check_vec_env()
+
+"""
+remove state_avg
+"""

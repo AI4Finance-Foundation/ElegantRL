@@ -11,10 +11,10 @@ if True:  # write after `sys.path.append("..")`
 """continuous action"""
 
 
-def train_ppo_a2c_for_pendulum():
-    from elegantrl.envs.CustomGymEnv import PendulumEnv
+def train_ppo_a2c_for_pendulum(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
 
-    agent_class = [AgentPPO, AgentA2C][DRL_ID]  # DRL algorithm name
+    from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -27,7 +27,7 @@ def train_ppo_a2c_for_pendulum():
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
+    args.net_dims = [128, 64]  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
     args.horizon_len = args.max_step * 4
 
@@ -35,9 +35,9 @@ def train_ppo_a2c_for_pendulum():
     args.learning_rate = 2e-4
     args.state_value_tau = 0.1  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
-    if_single_process = True
+    if_single_process = False
     if if_single_process:
         train_agent(args)
     else:
@@ -55,10 +55,11 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_ppo_a2c_for_pendulum_vec_env():
-    from elegantrl.envs.CustomGymEnv import PendulumEnv
+def train_ppo_a2c_for_pendulum_vec_env(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentPPO, AgentA2C][DRL_ID]  # DRL algorithm name
+    from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -67,14 +68,14 @@ def train_ppo_a2c_for_pendulum_vec_env():
         'action_dim': 1,  # the torque applied to free end of the pendulum
         'if_discrete': False,  # continuous action space, symbols → direction, value → force
 
-        'num_envs': 4,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(8e4)
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
+    args.net_dims = [128, 64]  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = 0.97  # discount factor of future rewards
     args.reward_scale = 2 ** -2
 
@@ -83,7 +84,7 @@ def train_ppo_a2c_for_pendulum_vec_env():
     args.learning_rate = 4e-4
     args.state_value_tau = 0.2  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -98,10 +99,10 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_ppo_a2c_for_lunar_lander_continuous():
-    import gym
+def train_ppo_a2c_for_lunar_lander_continuous(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
 
-    agent_class = [AgentPPO, AgentA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {'env_name': 'LunarLanderContinuous-v2',
                 'num_envs': 1,
@@ -127,7 +128,7 @@ def train_ppo_a2c_for_lunar_lander_continuous():
     args.eval_times = 32
     args.eval_per_step = 5e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -146,10 +147,11 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_ppo_a2c_for_lunar_lander_continuous_vec_env():
-    import gym
+def train_ppo_a2c_for_lunar_lander_continuous_vec_env(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentPPO, AgentA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'LunarLanderContinuous-v2',
@@ -158,7 +160,7 @@ def train_ppo_a2c_for_lunar_lander_continuous_vec_env():
         'action_dim': 2,
         'if_discrete': False,
 
-        'num_envs': 4,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
@@ -179,7 +181,7 @@ def train_ppo_a2c_for_lunar_lander_continuous_vec_env():
     args.eval_times = 32
     args.eval_per_step = 2e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -200,10 +202,10 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_ppo_a2c_for_bipedal_walker():
-    import gym
+def train_ppo_a2c_for_bipedal_walker(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
 
-    agent_class = [AgentPPO, AgentA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'BipedalWalker-v3',
@@ -232,7 +234,7 @@ def train_ppo_a2c_for_bipedal_walker():
     args.eval_per_step = 8e4
     args.if_keep_save = False  # keeping save the checkpoint. False means save until stop training.
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.random_seed = GPU_ID
     args.num_workers = 2
     train_agent_multiprocessing(args)  # train_agent(args)
@@ -254,10 +256,11 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_ppo_a2c_for_bipedal_walker_vec_env():
-    import gym
+def train_ppo_a2c_for_bipedal_walker_vec_env(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentPPO, AgentA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'BipedalWalker-v3',
@@ -266,7 +269,7 @@ def train_ppo_a2c_for_bipedal_walker_vec_env():
         'action_dim': 4,
         'if_discrete': False,
 
-        'num_envs': 4,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=gym.make('BipedalWalker-v3'), if_print=True)  # return env_args
@@ -287,7 +290,7 @@ def train_ppo_a2c_for_bipedal_walker_vec_env():
     args.eval_per_step = 5e4
     args.if_keep_save = False  # keeping save the checkpoint. False means save until stop training.
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.random_seed = GPU_ID
     args.num_workers = 2
     train_agent_multiprocessing(args)  # train_agent(args)
@@ -322,7 +325,9 @@ def train_ppo_a2c_for_bipedal_walker_vec_env():
     """
 
 
-def train_ppo_a2c_for_stock_trading():
+def train_ppo_a2c_for_stock_trading(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+
     from elegantrl.envs.StockTradingEnv import StockTradingEnv
     id0 = 0
     id1 = int(1113 * 0.8)
@@ -345,7 +350,7 @@ def train_ppo_a2c_for_stock_trading():
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(2e5)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
+    args.net_dims = [128, 64]  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = gamma  # discount factor of future rewards
     args.horizon_len = args.max_step
 
@@ -366,7 +371,7 @@ def train_ppo_a2c_for_stock_trading():
                           'beg_idx': id1,
                           'end_idx': id2, }
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -387,7 +392,9 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_ppo_a2c_for_stock_trading_vec_env():
+def train_ppo_a2c_for_stock_trading_vec_env(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+
     from elegantrl.envs.StockTradingEnv import StockTradingVecEnv
     id0 = 0
     id1 = int(1113 * 0.8)
@@ -411,7 +418,7 @@ def train_ppo_a2c_for_stock_trading_vec_env():
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
+    args.net_dims = [128, 64]  # the middle layer dimension of MultiLayer Perceptron
     args.gamma = gamma  # discount factor of future rewards
     args.horizon_len = args.max_step
 
@@ -432,7 +439,7 @@ def train_ppo_a2c_for_stock_trading_vec_env():
                           'beg_idx': id1,
                           'end_idx': id2, }
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.random_seed = GPU_ID
     args.num_workers = 2
     train_agent_multiprocessing(args)  # train_agent(args)
@@ -452,10 +459,10 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
 """discrete action"""
 
 
-def train_discrete_ppo_a2c_for_cartpole():
-    import gym
+def train_discrete_ppo_a2c_for_cartpole(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
 
-    agent_class = [AgentDiscretePPO, AgentDiscreteA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'CartPole-v1',
@@ -480,7 +487,7 @@ def train_discrete_ppo_a2c_for_cartpole():
     args.eval_times = 32
     args.eval_per_step = 1e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     # train_agent_multiprocessing(args)
     train_agent(args)
@@ -503,10 +510,11 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_discrete_ppo_a2c_for_cartpole_vec_env():
-    import gym
+def train_discrete_ppo_a2c_for_cartpole_vec_env(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentDiscretePPO, AgentDiscreteA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'CartPole-v1',
@@ -515,7 +523,7 @@ def train_discrete_ppo_a2c_for_cartpole_vec_env():
         'action_dim': 2,
         'if_discrete': True,
 
-        'num_envs': 4,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=gym.make('CartPole-v1'), if_print=True)  # return env_args
@@ -534,7 +542,7 @@ def train_discrete_ppo_a2c_for_cartpole_vec_env():
     args.eval_times = 32
     args.eval_per_step = 1e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -553,10 +561,10 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_discrete_ppo_a2c_for_lunar_lander():
-    import gym
+def train_discrete_ppo_a2c_for_lunar_lander(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
 
-    agent_class = [AgentDiscretePPO, AgentDiscreteA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'LunarLander-v2',
@@ -584,7 +592,7 @@ def train_discrete_ppo_a2c_for_lunar_lander():
     args.eval_times = 32
     args.eval_per_step = 5e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -603,10 +611,11 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
     """
 
 
-def train_discrete_ppo_a2c_for_lunar_lander_vec_env():
-    import gym
+def train_discrete_ppo_a2c_for_lunar_lander_vec_env(agent_class, gpu_id: int):
+    assert agent_class in {AgentPPO, AgentA2C}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentDiscretePPO, AgentDiscreteA2C][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'LunarLander-v2',
@@ -615,7 +624,7 @@ def train_discrete_ppo_a2c_for_lunar_lander_vec_env():
         'action_dim': 2,
         'if_discrete': True,
 
-        'num_envs': 4,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
@@ -637,7 +646,7 @@ def train_discrete_ppo_a2c_for_lunar_lander_vec_env():
     args.eval_times = 32
     args.eval_per_step = 2e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
     train_agent_multiprocessing(args)  # train_agent(args)
     """
@@ -660,10 +669,10 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   etc.
 
 
 def demo_load_pendulum_and_render():
-    import torch
+    import torch as th
 
     gpu_id = 0  # >=0 means GPU ID, -1 means CPU
-    device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+    device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
     from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -679,13 +688,13 @@ def demo_load_pendulum_and_render():
     '''init'''
     from elegantrl.train.config import build_env
     env = build_env(env_class=env_class, env_args=env_args)
-    act = torch.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
+    act = th.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
 
     '''evaluate'''
     eval_times = 2 ** 7
     from elegantrl.train.evaluator import get_rewards_and_steps
     rewards_step_list = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
-    rewards_step_ten = torch.tensor(rewards_step_list)
+    rewards_step_ten = th.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
           f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
 
@@ -697,7 +706,7 @@ def demo_load_pendulum_and_render():
     steps = None
     returns = 0.0  # sum of rewards in an episode
     for steps in range(12345):
-        s_tensor = torch.as_tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        s_tensor = th.as_tensor(state, dtype=th.float32, device=device).unsqueeze(0)
         a_tensor = act(s_tensor).argmax(dim=1) if if_discrete else act(s_tensor)
         action = a_tensor.detach().cpu().numpy()[0]  # not need detach(), because using th.no_grad() outside
         state, reward, done, _ = env.step(action)
@@ -714,10 +723,10 @@ def demo_load_pendulum_and_render():
 
 
 def demo_load_pendulum_vectorized_env():
-    import torch
+    import torch as th
 
     gpu_id = 0  # >=0 means GPU ID, -1 means CPU
-    device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+    device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
     from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -736,7 +745,7 @@ def demo_load_pendulum_vectorized_env():
     '''init'''
     from elegantrl.train.config import build_env
     env = build_env(env_class=env_class, env_args=env_args)
-    act = torch.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
+    act = th.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
 
     '''evaluate'''
     eval_times = 2 ** 7
@@ -744,51 +753,43 @@ def demo_load_pendulum_vectorized_env():
     rewards_step_list = []
     [rewards_step_list.extend(get_cumulative_rewards_and_step_from_vec_env(env, act)) for _ in
      range(eval_times // num_envs)]
-    rewards_step_ten = torch.tensor(rewards_step_list)
+    rewards_step_ten = th.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
           f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
 
 
-def temp_run():
-    train_ppo_a2c_for_pendulum()
-
-
 if __name__ == '__main__':
-    GPU_ID = 0
-    DRL_ID = 0
-    temp_run()
-    exit()  # TODO
-
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
     Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
+    Parser.add_argument('--env', type=str, default='1', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
+    AgentClass = [AgentPPO, AgentA2C][DRL_ID]
     if ENV_ID in {'0', 'pendulum'}:
-        train_ppo_a2c_for_pendulum()
+        train_ppo_a2c_for_pendulum(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'1', 'pendulum_vec'}:
-        train_ppo_a2c_for_pendulum_vec_env()
+        train_ppo_a2c_for_pendulum_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'2', 'lunar_lander_continuous'}:
-        train_ppo_a2c_for_lunar_lander_continuous()
+        train_ppo_a2c_for_lunar_lander_continuous(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'3', 'lunar_lander_continuous_vec'}:
-        train_ppo_a2c_for_lunar_lander_continuous_vec_env()
+        train_ppo_a2c_for_lunar_lander_continuous_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'4', 'bipedal_walker'}:
-        train_ppo_a2c_for_bipedal_walker()
+        train_ppo_a2c_for_bipedal_walker(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'5', 'bipedal_walker_vec'}:
-        train_ppo_a2c_for_bipedal_walker_vec_env()
+        train_ppo_a2c_for_bipedal_walker_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
 
     elif ENV_ID in {'6', 'cartpole'}:
-        train_discrete_ppo_a2c_for_cartpole()
+        train_discrete_ppo_a2c_for_cartpole(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'7', 'cartpole_vec'}:
-        train_discrete_ppo_a2c_for_cartpole_vec_env()
+        train_discrete_ppo_a2c_for_cartpole_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'8', 'lunar_lander'}:
-        train_discrete_ppo_a2c_for_lunar_lander()
+        train_discrete_ppo_a2c_for_lunar_lander(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'9', 'lunar_lander_vec'}:
-        train_discrete_ppo_a2c_for_lunar_lander_vec_env()
+        train_discrete_ppo_a2c_for_lunar_lander_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     else:
         print('ENV_ID not match')

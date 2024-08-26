@@ -60,6 +60,7 @@ class Evaluator:
         self.eval_step_counter = self.total_step
 
         rewards_step_ten = self.get_cumulative_rewards_and_step(actor)
+
         returns = rewards_step_ten[:, 0]  # episodic cumulative returns of an
         steps = rewards_step_ten[:, 1]  # episodic step number
         avg_r = returns.mean().item()
@@ -193,8 +194,6 @@ def get_cumulative_rewards_and_step_from_vec_env(env, actor) -> List[Tuple[float
     device = env.device
     env_num = env.num_envs
     max_step = env.max_step
-    if_discrete = env.if_discrete
-
     '''get returns and dones (GPU)'''
     returns = th.empty((max_step, env_num), dtype=th.float32, device=device)
     dones = th.empty((max_step, env_num), dtype=th.bool, device=device)

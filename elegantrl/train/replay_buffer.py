@@ -53,7 +53,6 @@ class ReplayBuffer:  # for off-policy
         self.rewards = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
         self.undones = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
         self.unmasks = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
-        self.add_states = th.tensor((1, state_dim), dtype=th.float32, device=self.device)
 
         self.if_use_per = if_use_per
         if if_use_per:
@@ -77,7 +76,6 @@ class ReplayBuffer:  # for off-policy
         # assert undones.shape[1:] == (num_envs,)
         # assert unmasks.shape[1:] == (num_envs,)
         self.add_size = rewards.shape[0]
-        self.add_states = states  # save for AgentBase.update_avg_std_for_normalization()
 
         p = self.p + self.add_size  # pointer
         if p > self.max_size:
@@ -115,7 +113,7 @@ class ReplayBuffer:  # for off-policy
     def sample(self, batch_size: int) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         sample_len = self.cur_size - 1
 
-        ids = th.randint(sample_len * self.num_seqs, size=(batch_size,), requires_grad=False)
+        ids = th.randint(sample_len * self.num_seqs, size=(batch_size,), requires_grad=False, device=self.device)
         ids0 = th.fmod(ids, sample_len)  # ids % sample_len
         ids1 = th.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
 

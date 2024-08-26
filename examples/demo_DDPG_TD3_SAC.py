@@ -9,10 +9,10 @@ if True:  # write after `sys.path.append("..")`
     from elegantrl.agents import AgentSAC, AgentModSAC
 
 
-def train_ddpg_td3_sac_for_pendulum():
-    from elegantrl.envs.CustomGymEnv import PendulumEnv
+def train_ddpg_td3_sac_for_pendulum(agent_class):
+    assert agent_class in {AgentDDPG, AgentTD3, AgentSAC, AgentModSAC}  # DRL algorithm name
 
-    agent_class = [AgentDDPG, AgentTD3, AgentSAC, AgentModSAC][DRL_ID]  # DRL algorithm name
+    from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -24,18 +24,19 @@ def train_ddpg_td3_sac_for_pendulum():
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(8e4)  # break training if 'total_step > break_step'
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
+    args.break_step = int(2e5)  # break training if 'total_step > break_step'
+    args.net_dims = [64, 64]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 256
     args.gamma = 0.97  # discount factor of future rewards
-    args.horizon_len = args.max_step * 2
+    args.horizon_len = args.max_step // 2
 
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.learning_rate = 1e-4
-    args.state_value_tau = 0.1  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.learning_rate = 5e-4
+    args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
 
     args.gpu_id = GPU_ID
-    args.num_workers = 4
-    if_single_process = True
+    args.num_workers = 8
+    if_single_process = False
     if if_single_process:
         train_agent(args)
     else:
@@ -55,13 +56,28 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 0  2.04e+04      58 | -207.35  138.9    200     0 |   -0.91   2.25 -45.49
 0  4.04e+04     117 |  -85.54   71.5    200     0 |   -0.95   1.04 -17.13
 | UsedTime:     146 | SavedDir: ./Pendulum_TD3_0
+
+################################################################################
+ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
+0  1.60e+03       2 | -501.07  112.2    200     0 |   -2.87   0.00   0.00
+0  2.16e+04      15 | -650.15   53.9    200     0 |   -3.19   1.53  -1.44
+0  4.16e+04      29 | -825.14    9.0    200     0 |   -4.33   0.06  -7.26
+0  6.16e+04      44 | -747.52    7.9    200     0 |   -3.39   0.03 -15.75
+0  8.16e+04      60 | -538.42    8.0    200     0 |   -2.70   0.02 -26.40
+0  1.02e+05      77 | -198.29    1.7    200     0 |   -1.32   0.03 -35.16
+0  1.22e+05      94 |  -85.85   39.1    200     0 |   -0.00   0.07 -38.01
+0  1.42e+05     114 |  -39.97   68.4    200     0 |   -0.97   0.18 -38.21
+0  1.62e+05     134 |  -81.10   32.1    200     0 |   -0.00   0.27 -35.48
+0  1.82e+05     154 |  -60.41   59.1    200     0 |   -0.75   0.38 -31.22
+| UsedTime:     175 | SavedDir: ./Pendulum_TD3_0
     """
 
 
-def train_ddpg_td3_sac_for_pendulum_vec_env():
-    from elegantrl.envs.CustomGymEnv import PendulumEnv
+def train_ddpg_td3_sac_for_pendulum_vec_env(agent_class):
+    assert agent_class in {AgentDDPG, AgentTD3, AgentSAC, AgentModSAC}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentTD3, AgentSAC, AgentModSAC, AgentDDPG][DRL_ID]  # DRL algorithm name
+    from elegantrl.envs.CustomGymEnv import PendulumEnv
     env_class = PendulumEnv  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'Pendulum',  # Apply torque on the free end to swing a pendulum into an upright position
@@ -70,27 +86,27 @@ def train_ddpg_td3_sac_for_pendulum_vec_env():
         'action_dim': 1,  # the torque applied to free end of the pendulum
         'if_discrete': False,  # continuous action space, symbols → direction, value → force
 
-        'num_envs': 8,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=PendulumEnv(), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.net_dims = (128, 64)  # the middle layer dimension of MultiLayer Perceptron
-    args.batch_size = 512  # vectorized env need a larger batch_size
+    args.net_dims = [128, 64]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 256  # vectorized env need a larger batch_size
     args.gamma = 0.97  # discount factor of future rewards
-    args.horizon_len = args.max_step
+    args.horizon_len = args.max_step // 8
 
     args.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.learning_rate = 2e-4
-    args.state_value_tau = 0.2  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.learning_rate = 4e-4
+    args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
 
-    args.eval_per_step = int(4e3)
-    args.break_step = int(1e4)  # break training if 'total_step > break_step'
+    args.eval_per_step = int(1e4)
+    args.break_step = int(8e4)  # break training if 'total_step > break_step'
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-    if_single_process = True
+    if_single_process = False
     if if_single_process:
         train_agent(args)
     else:
@@ -112,9 +128,10 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
     """
 
 
-def train_ddpg_td3_sac_for_lunar_lander_continuous():
-    import gym
+def train_ddpg_td3_sac_for_lunar_lander_continuous(agent_class):
+    assert agent_class in {AgentDDPG, AgentTD3, AgentSAC, AgentModSAC}  # DRL algorithm name):
 
+    import gymnasium as gym
     agent_class = [AgentTD3, AgentSAC, AgentModSAC][DRL_ID]  # DRL algorithm name
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {'env_name': 'LunarLanderContinuous-v2',
@@ -126,14 +143,14 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous():
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.net_dims = (256, 256, 128)  # the middle layer dimension of MultiLayer Perceptron
-    args.batch_size = 128
+    args.net_dims = [256, 256]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 1024
     args.gamma = 0.99  # discount factor of future rewards
     args.horizon_len = args.max_step // 2
     args.repeat_times = 1  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -1
     args.learning_rate = 1e-4
-    args.state_value_tau = 0.1  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
 
     args.eval_times = 32
     args.eval_per_step = int(4e4)
@@ -141,8 +158,11 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous():
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-
-    train_agent_multiprocessing(args)  # train_agent(args)
+    if_single_process = False
+    if if_single_process:
+        train_agent(args)
+    else:
+        train_agent_multiprocessing(args)  # train_agent(args)
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -161,10 +181,11 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
     """
 
 
-def train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env():
-    import gym
+def train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env(agent_class):
+    assert agent_class in {AgentDDPG, AgentTD3, AgentSAC, AgentModSAC}  # DRL algorithm name
+    num_envs = 8
 
-    agent_class = [AgentTD3, AgentSAC, AgentModSAC][DRL_ID]  # DRL algorithm name
+    import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
     env_args = {
         'env_name': 'LunarLanderContinuous-v2',
@@ -173,28 +194,39 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env():
         'action_dim': 2,
         'if_discrete': False,
 
-        'num_envs': 4,  # the number of sub envs in vectorized env
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
         'if_build_vec_env': True,
     }
     get_gym_env_args(env=gym.make('LunarLanderContinuous-v2'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.net_dims = (256, 256, 128)  # the middle layer dimension of MultiLayer Perceptron
-    args.batch_size = 1024
+    args.net_dims = [256, 128]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 512
     args.gamma = 0.99  # discount factor of future rewards
+
     args.horizon_len = args.max_step // 4
-    args.repeat_times = 1  # repeatedly update network using ReplayBuffer to keep critic's loss small
+    args.buffer_init_size = args.max_step * 2
+    args.repeat_times = 2  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -1
-    args.learning_rate = 2e-4
-    args.state_value_tau = 0.2  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.learning_rate = 1e-4
+    args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.soft_update_tau = 5e-3
+    args.buffer_size = int(2e6)
+    args.break_step = int(5e6)  # break training if 'total_step > break_step'
+
+    args.policy_noise_std = 0.10  # standard deviation of exploration noise
+    args.explore_noise_std = 0.05  # standard deviation of exploration noise
 
     args.eval_times = 32
-    args.eval_per_step = 2e4
-    args.break_step = int(2e5)  # break training if 'total_step > break_step'
+    args.eval_per_step = int(1e5)
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    if_single_process = False
+    if if_single_process:
+        train_agent(args)
+    else:
+        train_agent_multiprocessing(args)  # train_agent(args)
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -216,21 +248,22 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
-    Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
+    Parser.add_argument('--drl', type=int, default=2, help='RL algorithms ID for training')
+    Parser.add_argument('--env', type=str, default='3', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
+    AgentClass = [AgentTD3, AgentSAC, AgentModSAC, AgentDDPG][DRL_ID]  # DRL algorithm name
     if ENV_ID in {'0', 'pendulum'}:
-        train_ddpg_td3_sac_for_pendulum()
+        train_ddpg_td3_sac_for_pendulum(agent_class=AgentClass)
     elif ENV_ID in {'1', 'pendulum_vec'}:
-        train_ddpg_td3_sac_for_pendulum_vec_env()
+        train_ddpg_td3_sac_for_pendulum_vec_env(agent_class=AgentClass)
     elif ENV_ID in {'2', 'lunar_lander_continuous'}:
-        train_ddpg_td3_sac_for_lunar_lander_continuous()
+        train_ddpg_td3_sac_for_lunar_lander_continuous(agent_class=AgentClass)
     elif ENV_ID in {'3', 'lunar_lander_continuous_vec'}:
-        train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env()
+        train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env(agent_class=AgentClass)
     else:
-        print('ENV_ID not match')
+        print(f'ENV_ID not match. type(ENV_ID) is str not {type(ENV_ID)}')
