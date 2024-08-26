@@ -3,7 +3,10 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import train_agent_single_process
+    from elegantrl import train_agent_multiprocessing
+    from elegantrl import train_agent_multiprocessing_multi_gpu
+
     from elegantrl import Config, get_gym_env_args
     from elegantrl.agents import AgentDDPG, AgentTD3
     from elegantrl.agents import AgentSAC, AgentModSAC
@@ -38,9 +41,11 @@ def train_ddpg_td3_sac_for_pendulum(agent_class):
     args.num_workers = 8
     if_single_process = False
     if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)  # train_agent(args)
+        train_agent_single_process(args)
+    elif len(args.learner_gpu_ids) == 0:
+        train_agent_multiprocessing(args)
+    elif len(args.learner_gpu_ids) != 0:
+        train_agent_multiprocessing_multi_gpu(args)
     """
 -2000 < -1200 < -200 < -80
 ################################################################################
@@ -108,9 +113,11 @@ def train_ddpg_td3_sac_for_pendulum_vec_env(agent_class):
     args.num_workers = 4
     if_single_process = False
     if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)  # train_agent(args)
+        train_agent_single_process(args)
+    elif len(args.learner_gpu_ids) == 0:
+        train_agent_multiprocessing(args)
+    elif len(args.learner_gpu_ids) != 0:
+        train_agent_multiprocessing_multi_gpu(args)
     """
 -2000 < -1200 < -200 < -80
 ################################################################################
@@ -160,9 +167,11 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous(agent_class):
     args.num_workers = 4
     if_single_process = False
     if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)  # train_agent(args)
+        train_agent_single_process(args)
+    elif len(args.learner_gpu_ids) == 0:
+        train_agent_multiprocessing(args)
+    elif len(args.learner_gpu_ids) != 0:
+        train_agent_multiprocessing_multi_gpu(args)
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -224,9 +233,11 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env(agent_class):
     args.num_workers = 4
     if_single_process = False
     if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)  # train_agent(args)
+        train_agent_single_process(args)
+    elif len(args.learner_gpu_ids) == 0:
+        train_agent_multiprocessing(args)
+    elif len(args.learner_gpu_ids) != 0:
+        train_agent_multiprocessing_multi_gpu(args)
     """
 -1500 < -200 < 200 < 290
 ################################################################################

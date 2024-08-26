@@ -3,10 +3,9 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import train_agent
     from elegantrl import Config, get_gym_env_args
-    from elegantrl.agents import AgentPPO, AgentDiscretePPO
-    from elegantrl.agents import AgentA2C, AgentDiscreteA2C
+    from elegantrl.agents import AgentPPO, AgentA2C
 
 """continuous action"""
 
@@ -37,11 +36,7 @@ def train_ppo_a2c_for_pendulum(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    if_single_process = False
-    if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
     """
 -2000 < -1200 < -200 < -80
 ################################################################################
@@ -86,7 +81,8 @@ def train_ppo_a2c_for_pendulum_vec_env(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -2000 < -1200 < -200 < -80
 ################################################################################
@@ -130,7 +126,8 @@ def train_ppo_a2c_for_lunar_lander_continuous(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -183,7 +180,8 @@ def train_ppo_a2c_for_lunar_lander_continuous_vec_env(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -237,7 +235,8 @@ def train_ppo_a2c_for_bipedal_walker(agent_class, gpu_id: int):
     args.gpu_id = gpu_id
     args.random_seed = GPU_ID
     args.num_workers = 2
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -200 < -150 < 300 < 330
 ################################################################################
@@ -293,7 +292,8 @@ def train_ppo_a2c_for_bipedal_walker_vec_env(agent_class, gpu_id: int):
     args.gpu_id = gpu_id
     args.random_seed = GPU_ID
     args.num_workers = 2
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
     -200 < -150 < 300 < 330
     ################################################################################
@@ -373,7 +373,8 @@ def train_ppo_a2c_for_stock_trading(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 RewardRange: 0.0 < 1.0 < 1.5 < 2.0
 ################################################################################
@@ -442,7 +443,8 @@ def train_ppo_a2c_for_stock_trading_vec_env(agent_class, gpu_id: int):
     args.gpu_id = gpu_id
     args.random_seed = GPU_ID
     args.num_workers = 2
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 0.0 < 1.0 < 1.5 < 2.0
 ################################################################################
@@ -489,8 +491,8 @@ def train_discrete_ppo_a2c_for_cartpole(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    # train_agent_multiprocessing(args)
-    train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 0 < 5 < 400 < 500
 ################################################################################
@@ -544,7 +546,8 @@ def train_discrete_ppo_a2c_for_cartpole_vec_env(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 0 < 5 < 400 < 500
 ################################################################################
@@ -594,7 +597,8 @@ def train_discrete_ppo_a2c_for_lunar_lander(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -648,7 +652,8 @@ def train_discrete_ppo_a2c_for_lunar_lander_vec_env(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -782,14 +787,5 @@ if __name__ == '__main__':
         train_ppo_a2c_for_bipedal_walker(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'5', 'bipedal_walker_vec'}:
         train_ppo_a2c_for_bipedal_walker_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
-
-    elif ENV_ID in {'6', 'cartpole'}:
-        train_discrete_ppo_a2c_for_cartpole(agent_class=AgentClass, gpu_id=GPU_ID)
-    elif ENV_ID in {'7', 'cartpole_vec'}:
-        train_discrete_ppo_a2c_for_cartpole_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
-    elif ENV_ID in {'8', 'lunar_lander'}:
-        train_discrete_ppo_a2c_for_lunar_lander(agent_class=AgentClass, gpu_id=GPU_ID)
-    elif ENV_ID in {'9', 'lunar_lander_vec'}:
-        train_discrete_ppo_a2c_for_lunar_lander_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     else:
         print('ENV_ID not match')

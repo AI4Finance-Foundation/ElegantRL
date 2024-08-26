@@ -3,12 +3,12 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import train_agent
     from elegantrl import Config, get_gym_env_args
     from elegantrl.agents import AgentDQN, AgentDoubleDQN, AgentDuelingDQN, AgentD3QN
 
 
-def train_dqn_for_cartpole(agent_class):
+def train_dqn_for_cartpole(agent_class, gpu_id: int):
     assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
     import gymnasium as gym
@@ -38,13 +38,10 @@ def train_dqn_for_cartpole(agent_class):
     args.eval_times = 32
     args.eval_per_step = 2e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 8
-    if_single_process = False
-    if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 0 < 9 < 400 < 500
 ################################################################################
@@ -96,7 +93,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
     """
 
 
-def train_dqn_for_cartpole_vec_env(agent_class):
+def train_dqn_for_cartpole_vec_env(agent_class, gpu_id: int):
     assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
     import gymnasium as gym
@@ -134,14 +131,10 @@ def train_dqn_for_cartpole_vec_env(agent_class):
     args.eval_times = 32
     args.eval_per_step = 2e4
 
-    args.gpu_id = GPU_ID
-    args.random_seed = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
-    if_single_process = False
-    if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 0 < 9 < 400 < 500
 ################################################################################
@@ -170,7 +163,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
     """
 
 
-def train_dqn_for_lunar_lander(agent_class):
+def train_dqn_for_lunar_lander(agent_class, gpu_id: int):
     assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
 
     import gymnasium as gym
@@ -199,13 +192,10 @@ def train_dqn_for_lunar_lander(agent_class):
     args.eval_times = 32
     args.eval_per_step = 4e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 8
-    if_single_process = False
-    if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -1500 < -140 < 300 < 340
 ################################################################################
@@ -234,7 +224,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
     """
 
 
-def train_dqn_for_lunar_lander_vec_env(agent_class):
+def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
     assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
     num_envs = 8
 
@@ -268,14 +258,10 @@ def train_dqn_for_lunar_lander_vec_env(agent_class):
     args.eval_times = 32
     args.eval_per_step = 2e4
 
-    args.gpu_id = GPU_ID
+    args.gpu_id = gpu_id
     args.num_workers = 4
-    args.random_seed = GPU_ID
-    if_single_process = True
-    if if_single_process:
-        train_agent(args)
-    else:
-        train_agent_multiprocessing(args)
+    train_agent(args=args, if_single_process=False)
+
     """
 -1500 < -140 < 300 < 340
 ################################################################################
@@ -307,12 +293,12 @@ if __name__ == '__main__':
 
     AgentClass = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
     if ENV_ID in {'0', 'cartpole'}:
-        train_dqn_for_cartpole(agent_class=AgentClass)
+        train_dqn_for_cartpole(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'1', 'cartpole_vec'}:
-        train_dqn_for_cartpole_vec_env(agent_class=AgentClass)
+        train_dqn_for_cartpole_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'2', 'lunar_lander'}:
-        train_dqn_for_lunar_lander(agent_class=AgentClass)
+        train_dqn_for_lunar_lander(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'3', 'lunar_lander_vec'}:
-        train_dqn_for_lunar_lander_vec_env(agent_class=AgentClass)
+        train_dqn_for_lunar_lander_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     else:
         print('ENV_ID not match')

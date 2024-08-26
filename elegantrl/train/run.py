@@ -21,7 +21,18 @@ if os.name == 'nt':  # if is WindowOS (Windows NT)
 '''train'''
 
 
-def train_agent(args: Config):
+def train_agent(args: Config, if_single_process: bool = False):
+    if if_single_process:
+        train_agent_single_process(args)
+    elif len(args.learner_gpu_ids) == 0:
+        train_agent_multiprocessing(args)
+    elif len(args.learner_gpu_ids) != 0:
+        train_agent_multiprocessing_multi_gpu(args)
+    else:
+        ValueError(f"| run.py train_agent: args.learner_gpu_ids = {args.learner_gpu_ids}")
+
+
+def train_agent_single_process(args: Config):
     args.init_before_training()
     th.set_grad_enabled(False)
 
@@ -186,10 +197,12 @@ class Learner(Process):
         learner_id = args.learner_gpu_ids.index(args.gpu_id) if len(args.learner_gpu_ids) > 0 else 0
         num_learners = len(args.learner_gpu_ids)
         num_communications = min(num_learners - 1, 1)
-        if len(args.learner_gpu_ids) >= 1:
+        if len(args.learner_gpu_ids) >= 2:
             assert isinstance(self.learners_pipe, list)
-        else:
+        elif len(args.learner_gpu_ids) == 0:
             assert self.learners_pipe is None
+        elif len(args.learner_gpu_ids) == 1:
+            ValueError("| Learner: suggest to set `args.learner_gpu_ids=()` in default")
 
         '''Learner init agent'''
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)

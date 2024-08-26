@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl import train_agent, train_agent_multiprocessing
+    from elegantrl import train_agent_single_process, train_agent_multiprocessing
     from elegantrl import Config, get_gym_env_args
     from elegantrl.agents import AgentDDPG, AgentTD3
     from elegantrl.agents import AgentSAC, AgentModSAC
@@ -47,7 +47,7 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous():
 
     if_single_process = False
     if if_single_process:
-        train_agent(args)
+        train_agent_single_process(args)
     else:
         train_agent_multiprocessing(args)  # train_agent(args)
 
