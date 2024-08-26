@@ -70,7 +70,7 @@ def demo(task):
 
     args.eval_gap = 1e6
     args.target_step = 3e8
-    args.learner_gpus = 0
+    args.learner_gpu_ids = 0
     args.random_seed = 0
 
     train_and_evaluate(args)

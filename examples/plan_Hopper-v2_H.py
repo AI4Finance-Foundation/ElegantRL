@@ -46,7 +46,7 @@ def demo_continuous_action_on_policy():
     args.if_allow_break = False
     args.break_step = int(8e6)
 
-    args.learner_gpus = gpu_id
+    args.learner_gpu_ids = gpu_id
     args.random_seed += gpu_id
 
     if_check = 0

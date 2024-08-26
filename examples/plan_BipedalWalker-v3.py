@@ -28,16 +28,16 @@ if __name__ == '__main__':
     flag = "SingleProcess"
 
     if flag == "SingleProcess":
-        args.learner_gpus = 0
+        args.learner_gpu_ids = 0
         train_and_evaluate(args)
     elif flag == "MultiProcess":
-        args.learner_gpus = 0
+        args.learner_gpu_ids = 0
         train_and_evaluate_mp(args)
     elif flag == "MultiGPU":
-        args.learner_gpus = [0, 1, 2, 3]
+        args.learner_gpu_ids = [0, 1, 2, 3]
         train_and_evaluate_mp(args)
     elif flag == "Tournament-based":
-        args.learner_gpus = [
+        args.learner_gpu_ids = [
             [i, ] for i in range(4)
         ]  # [[0,], [1, ], [2, ]] or [[0, 1], [2, 3]]
         python_path = "../bin/python3"
