@@ -23,10 +23,13 @@ if os.name == 'nt':  # if is WindowOS (Windows NT)
 
 def train_agent(args: Config, if_single_process: bool = False):
     if if_single_process:
+        print(f"| train_agent_single_process() with GPU_ID {args.gpu_id}")
         train_agent_single_process(args)
     elif len(args.learner_gpu_ids) == 0:
+        print(f"| train_agent_multiprocessing() with GPU_ID {args.gpu_id}")
         train_agent_multiprocessing(args)
     elif len(args.learner_gpu_ids) != 0:
+        print(f"| train_agent_multiprocessing_multi_gpu() with GPU_ID {args.learner_gpu_ids}")
         train_agent_multiprocessing_multi_gpu(args)
     else:
         ValueError(f"| run.py train_agent: args.learner_gpu_ids = {args.learner_gpu_ids}")
@@ -195,7 +198,7 @@ class Learner(Process):
 
         '''COMMUNICATE between Learners: init'''
         learner_id = args.learner_gpu_ids.index(args.gpu_id) if len(args.learner_gpu_ids) > 0 else 0
-        num_learners = len(args.learner_gpu_ids)
+        num_learners = max(1, len(args.learner_gpu_ids))
         num_communications = min(num_learners - 1, 1)
         if len(args.learner_gpu_ids) >= 2:
             assert isinstance(self.learners_pipe, list)

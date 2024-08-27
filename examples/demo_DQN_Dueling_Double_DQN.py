@@ -6,10 +6,14 @@ if True:  # write after `sys.path.append("..")`
     from elegantrl import train_agent
     from elegantrl import Config, get_gym_env_args
     from elegantrl.agents import AgentDQN, AgentDoubleDQN, AgentDuelingDQN, AgentD3QN
+    from elegantrl.agents.AgentEmbedDQN import AgentEmbedDQN, AgentEnsembleDQN
+
+AgentClassList = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN,
+                  AgentEmbedDQN, AgentEnsembleDQN]
 
 
 def train_dqn_for_cartpole(agent_class, gpu_id: int):
-    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
+    assert agent_class in AgentClassList
 
     import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -94,7 +98,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_cartpole_vec_env(agent_class, gpu_id: int):
-    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
+    assert agent_class in AgentClassList
 
     import gymnasium as gym
     num_envs = 8
@@ -164,7 +168,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_lunar_lander(agent_class, gpu_id: int):
-    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
+    assert agent_class in AgentClassList
 
     import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -225,7 +229,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
-    assert agent_class in {AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN}
+    assert agent_class in AgentClassList
     num_envs = 8
 
     import gymnasium as gym
@@ -284,14 +288,15 @@ if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
     Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='3', help='the environment ID for training')
+    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
-    AgentClass = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN][DRL_ID]  # DRL algorithm name
+    AgentClass = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN,
+                  AgentEmbedDQN, AgentEnsembleDQN][DRL_ID]  # DRL algorithm name
     if ENV_ID in {'0', 'cartpole'}:
         train_dqn_for_cartpole(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'1', 'cartpole_vec'}:
