@@ -3,10 +3,10 @@ import torch
 import sys
 sys.path.append('..')
 from torch_geometric.data import Data
-from RLSolver.methods.L2A.evaluator import EncoderBase64
-from RLSolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
+from rlsolver.methods.L2A.evaluator import EncoderBase64
+from rlsolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
 import time
-from RLSolver.methods.L2A.maxcut_local_search import SolverLocalSearch
+from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
 
 """
 pip install torch_geometric

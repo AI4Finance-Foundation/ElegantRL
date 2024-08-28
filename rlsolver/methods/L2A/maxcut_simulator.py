@@ -3,9 +3,9 @@ import sys
 import time
 import torch as th
 
-from RLSolver.methods.L2A.graph_utils import load_graph_list, GraphList
-from RLSolver.methods.L2A.graph_utils import build_adjacency_bool, build_adjacency_indies, obtain_num_nodes
-from RLSolver.methods.L2A.graph_utils import update_xs_by_vs, gpu_info_str, evolutionary_replacement
+from rlsolver.methods.L2A.graph_utils import load_graph_list, GraphList
+from rlsolver.methods.L2A.graph_utils import build_adjacency_bool, build_adjacency_indies, obtain_num_nodes
+from rlsolver.methods.L2A.graph_utils import update_xs_by_vs, gpu_info_str, evolutionary_replacement
 
 TEN = th.Tensor
 
