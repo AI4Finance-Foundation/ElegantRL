@@ -2,18 +2,17 @@ from setuptools import setup, find_packages
 
 setup(
     name="ElegantRL",
-    version="0.3.7",
+    version="0.3.10",
     author="AI4Finance Foundation",
     author_email="contact@ai4finance.org",
     url="https://github.com/AI4Finance-Foundation/ElegantRL",
     license="Apache 2.0",
     packages=find_packages(),
     install_requires=[
-        "th",
+        "torch",
         "numpy",
+        "gymnasium",
         "matplotlib",
-        "gym",
-        "gym[Box2D]",
     ],
     description="Lightweight, Efficient and Stable DRL Implementation Using PyTorch",
     classifiers=[

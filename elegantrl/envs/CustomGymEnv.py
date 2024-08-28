@@ -1,8 +1,7 @@
-from typing import Tuple
-
-import gymnasium as gym
 import torch
 import numpy as np
+import gymnasium as gym
+from typing import Tuple
 
 '''[ElegantRL.2022.12.12](github.com/AI4Fiance-Foundation/ElegantRL)'''
 
@@ -45,7 +44,7 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom env
         return state, float(reward) * 0.5, terminated, truncated, info_dict
 
 
-# TODO
+# PLAN TODO
 class GymNormaEnv(gym.Wrapper):
     def __init__(self, env_name: str = 'Hopper-v3'):
         gym.logger.set_level(40)  # Block warning
@@ -226,7 +225,7 @@ class GymNormaEnv(gym.Wrapper):
         state, reward, done, info_dict = self.env.step(action)  # state, reward, done, info_dict
         return self.get_state_norm(state), reward, done, info_dict
 
-
+# PLAN TODO
 class HumanoidEnv(gym.Wrapper):  # [ElegantRL.2021.11.11]
     def __init__(self, gym_env_id='Humanoid-v3', target_return=8000):
         gym.logger.set_level(40)  # Block warning

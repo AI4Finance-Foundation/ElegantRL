@@ -1,11 +1,10 @@
 import torch as th
-
-from typing import Tuple, List
-from copy import deepcopy
 from torch import nn
+from copy import deepcopy
+from typing import Tuple, List
 
-from elegantrl.agents.AgentBase import AgentBase, layer_init_with_orthogonal
-from elegantrl.agents.AgentBase import build_mlp
+from elegantrl.agents.AgentBase import AgentBase
+from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
 from elegantrl.train.config import Config
 from elegantrl.train.replay_buffer import ReplayBuffer
 

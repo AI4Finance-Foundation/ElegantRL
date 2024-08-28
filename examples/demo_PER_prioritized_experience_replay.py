@@ -3,14 +3,14 @@ from argparse import ArgumentParser
 
 sys.path.append("..")
 if True:  # write after `sys.path.append("..")`
-    from elegantrl import train_agent_single_process, train_agent_multiprocessing
+    from elegantrl import train_agent
     from elegantrl import Config, get_gym_env_args
     from elegantrl.agents import AgentDDPG, AgentTD3
     from elegantrl.agents import AgentSAC, AgentModSAC
 
 
 def train_ddpg_td3_sac_for_lunar_lander_continuous():
-    import gym
+    import gymnasium as gym
 
     agent_class = [AgentTD3, AgentSAC, AgentModSAC, AgentDDPG][DRL_ID]  # DRL algorithm name
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -45,11 +45,7 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous():
     args.buffer_size = int(4e5)  # PER can handle larger buffer_size
     args.repeat_times = 0.5  # PER don't need a large repeat_times
 
-    if_single_process = False
-    if if_single_process:
-        train_agent_single_process(args)
-    else:
-        train_agent_multiprocessing(args)  # train_agent(args)
+    train_agent(args=args, if_single_process=False)
 
     """
 ################################################################################

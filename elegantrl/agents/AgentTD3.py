@@ -3,10 +3,10 @@ import torch as th
 from copy import deepcopy
 from typing import Tuple, List
 
-from elegantrl.train.config import Config
-from elegantrl.train.replay_buffer import ReplayBuffer
 from elegantrl.agents.AgentBase import AgentBase, ActorBase, CriticBase
 from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
+from elegantrl.train.config import Config
+from elegantrl.train.replay_buffer import ReplayBuffer
 
 TEN = th.Tensor
 
