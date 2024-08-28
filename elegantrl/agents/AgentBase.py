@@ -1,9 +1,9 @@
 import os
 import numpy as np
 import torch as th
-from typing import Tuple, Union, Optional
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
+from typing import Tuple, Union, Optional
 
 from elegantrl.train import Config, ReplayBuffer
 

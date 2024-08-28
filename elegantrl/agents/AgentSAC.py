@@ -1,11 +1,10 @@
 import math
-
 import numpy as np
 import torch as th
-from typing import Tuple, List
-from copy import deepcopy
-
 from torch import nn
+from copy import deepcopy
+from typing import Tuple, List
+
 
 from elegantrl.agents.AgentBase import AgentBase, ActorBase, CriticBase
 from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal

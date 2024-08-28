@@ -3,6 +3,7 @@ from elegantrl.agents.AgentBase import AgentBase
 # DQN (off-policy)
 from elegantrl.agents.AgentDQN import AgentDQN, AgentDuelingDQN
 from elegantrl.agents.AgentDQN import AgentDoubleDQN, AgentD3QN
+from elegantrl.agents.AgentEmbedDQN import AgentEmbedDQN, AgentEnsembleDQN
 
 # off-policy
 from elegantrl.agents.AgentTD3 import AgentTD3, AgentDDPG

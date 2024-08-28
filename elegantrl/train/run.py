@@ -1,11 +1,10 @@
 import os
 import time
-from copy import deepcopy
-from typing import List, Optional
-
 import numpy as np
 import torch as th
-import multiprocessing as mp  # th.multiprocessing extends multiprocessing of Python
+import multiprocessing as mp
+from copy import deepcopy
+from typing import List, Optional
 from multiprocessing import Process, Pipe
 
 from elegantrl.train.config import Config, build_env
