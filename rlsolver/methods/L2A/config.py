@@ -1,4 +1,4 @@
-from RLSolver.methods.L2A.graph_utils import GraphList, obtain_num_nodes
+from rlsolver.methods.L2A.graph_utils import GraphList, obtain_num_nodes
 import os
 
 ModelDir = './model'  # FIXME plan to cancel

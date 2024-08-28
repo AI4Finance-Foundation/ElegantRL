@@ -1,9 +1,9 @@
 import torch as th
 import sys
 sys.path.append('..')
-from RLSolver.methods.L2A.graph_utils import  GraphList
-from RLSolver.methods.L2A.maxcut_simulator import SimulatorMaxcut
-from RLSolver.methods.L2A.maxcut_local_search import SolverLocalSearch
+from rlsolver.methods.L2A.graph_utils import  GraphList
+from rlsolver.methods.L2A.maxcut_simulator import SimulatorMaxcut
+from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
 
 TEN = th.Tensor
 
