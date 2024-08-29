@@ -41,6 +41,16 @@ Existing CPU-based environments have two significant disadvantages: 1) The numbe
 
 From the above figures, we used CPU and GPU based environments. We see that the sampling speed is improved by at least 2 orders by using GPU-based massively parallel environments compared with conventional CPUs.
 
+# Improving the Quality of Solutions
+
+<a target="\_blank">
+	<div align="center">
+		<img src=fig/objectives_epochs.png width="80%"/>
+	</div>
+</a> 
+
+GPU-based parallel environments can significantly improve the quality of solutions during training, since RL methods require many high-quality samples from the environments for training. Take graph maxcut as an example. We select G22 in the Gset dataset. The above figure shows the objective values vs. number of epochs with different number of GPU-based parallel environments. We see that, generally, the more parallel environments, the higher objective values, and the faster convergence.
+
 # Two Patterns
 
 <a target="\_blank">
