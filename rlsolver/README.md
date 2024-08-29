@@ -302,7 +302,7 @@ We use the instance-wise version of L2A, i.e., end to end, in the dataset [Gset]
 
 | Graph | Nodes| Edges | BLS | DSDP    | KHLWG     | RUN-CSP| PI-GNN| Gurobi (1 h)  |Gap         | Obj bound |iSCO   | MCPG     | Ours | Improvement |  
 |--- |------|----  |---        |-----    |-----    |--------|-------| ---           | ---        | ----      | ----  | ----     | ---- | ----|
-|    |      |  |       |  |    |                            |Pattern I|         |                |           | Pattern I| Pattern II| Pattern II|   |
+|    |      |  |       |  |    |                            |Pattern I|         |                |           | Pattern II| Pattern II| Pattern II|   |
 |G14 | 800  | 4694 | __3064__  |         | 2922    | 3061   | 2943  |3037           | 4.28\%     |3167       |  3056 |__3064__  | __3064__ | +0\%|
 |G15 | 800  | 4661 | __3050__  | 2938    |__3050__ | 2928   | 2990  |3022           |4.37\%      |3151       |  3046 |__3050__  | __3050__ | +0\% | 
 |G22 | 2000 | 19990|__13359__  | 12960   |__13359__| 13028  | 13181 |13217          | 30.56\%    |17256      |  13289|__13359__ | __13359__ |  +0\% | 
@@ -318,7 +318,7 @@ We use the distribution-wise version of L2A in the synthetic datasets in 3 distr
 Results on the BA distribution.
 |Nodes | Greedy | SDP  | SA       | GA     | Gurobi (1 h)|Obj bound | PI-GNN | iSCO   | MCPG   | Ours  | 
 |----------|-------|------| -------- |--------|--------  | ------   | ------ |------  |--------|------ |
-||||  ||     | | Pattern I |Pattern I  |Pattern II| Pattern II |
+||||  ||     | | Pattern I |Pattern II  |Pattern II| Pattern II |
 |100   |272.1  |272.5 | 272.3  |__284.1__ |__284.1__     | 284.1 | 273.0  |__284.1__|__284.1__| __284.1__|
 |200   |546.9  |552.9 | 560.2    |582.9   |__583.0__     | 583.0 | 560.6  |581.5   |__583.0__| __583.0__ |
 |300   | 833.2 |839.3 | 845.3  |__880.4__   |__880.4__   | 880.4 |  846.3 |877.2   |__880.4__ | __880.4__  |
