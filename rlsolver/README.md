@@ -234,31 +234,19 @@ python methods/L2A/maxcut_end2end.py  # ours
 
 [code](https://github.com/yining043/NeuOpt) 2024 NeurIPS Learning to search feasible and infeasible regions of routing problems with flexible neural k-opt 
 
-[code](https://github.com/zhumingpassional/RLSolver) 2023 NeurIPS Classical Simulation of Quantum Circuits: Parallel Environments and Benchmark
-
-[code](https://github.com/zhumingpassional/RLSolver) 2023 NeurIPS workshop K-Spin Ising Model for Combinatorial Optimizations over Graphs: A Reinforcement Learning Approach
-
-[code](https://github.com/AI4Finance-Foundation/ElegantRL) 2021 NeurIPS workshop ElegantRL-Podracer: Scalable and Elastic Library for Cloud-Native Deep Reinforcement Learning
-
 * RL-based search using massively parallel enironments
 
 [code](https://github.com/instadeepai/jumanji) 2024 ICLR Jumanji: a diverse suite of scalable reinforcement learning environments in jax
 
 [code](https://github.com/sotetsuk/pgx) 2023 NeurIPS Pgx: Hardware-Accelerated Parallel Game Simulators for Reinforcement Learning
 
-[code](https://github.com/flairox/jaxmarl) 2024 AAMAS JaxMARL: Multi-Agent RL Environments and Algorithms in JAX
-
 [code](https://github.com/MichaelTMatthews/Craftax) 2024 ICML Craftax: A Lightning-Fast Benchmark for Open-Ended Reinforcement Learning
-
-[code](https://github.com/waymo-research/waymax) 2024 NeurIPS Waymax: An accelerated, data-driven simulator for large-scale autonomous driving research
 
 * RL/ML-based heuristic
   
 [code](https://github.com/Hanjun-Dai/graph_comb_opt) (greedy) 2017 NeurIPS Learning Combinatorial Optimization Algorithms over Graphs
 
 [code](https://github.com/optsuite/MCPG) (local search) 2023, A Monte Carlo Policy Gradient Method with Local Search for Binary Optimization
-
-[code](https://github.com/JHL-HUST/VSR-LKH) (LKH for TSP) 2021 AAAI Combining reinforcement learning with Lin-Kernighan-Helsgaun algorithm for the traveling salesman problem 
 
 * Variational annealing
 
@@ -285,12 +273,6 @@ python methods/L2A/maxcut_end2end.py  # ours
   - [Simulated annealing](https://github.com/zhumingpassional/RLSolver/blob/master/methods/simulated_annealing.py)
   - [Genetic algorithm](https://github.com/zhumingpassional/RLSolver/blob/master/methods/genetic_algorithm.py)
   - [Random walk](https://github.com/zhumingpassional/RLSolver/blob/master/methods/random_walk.py)
-  - Local search
-  - Beam search
-  - Tabu search
-  - Branch-and-bound
-  - Cutting plane
-
 
 ## Results for Graph Maxcut
 
