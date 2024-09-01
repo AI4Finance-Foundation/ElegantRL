@@ -238,10 +238,6 @@ python methods/L2A/maxcut_end2end.py  # ours
 
 [code](https://github.com/instadeepai/jumanji) 2024 ICLR Jumanji: a diverse suite of scalable reinforcement learning environments in jax
 
-[code](https://github.com/sotetsuk/pgx) 2023 NeurIPS Pgx: Hardware-Accelerated Parallel Game Simulators for Reinforcement Learning
-
-[code](https://github.com/MichaelTMatthews/Craftax) 2024 ICML Craftax: A Lightning-Fast Benchmark for Open-Ended Reinforcement Learning
-
 * RL/ML-based heuristic
   
 [code](https://github.com/Hanjun-Dai/graph_comb_opt) (greedy) 2017 NeurIPS Learning Combinatorial Optimization Algorithms over Graphs
@@ -251,8 +247,6 @@ python methods/L2A/maxcut_end2end.py  # ours
 * Variational annealing
 
 [code](https://github.com/RNN-VCA-CO/RNN-VCA-CO) (VCA_RNN) 2023 Machine_Learning Supplementing recurrent neural networks with annealing to solve combinatorial optimization problems
-
-[code](https://github.com/VectorInstitute/VariationalNeuralAnnealing) (VNA) 2021 Nature Machine_Intelligence Variational neural annealing
 
 * Discrete sampling
 
