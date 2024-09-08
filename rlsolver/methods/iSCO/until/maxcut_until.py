@@ -1,10 +1,10 @@
+from rlsolver.methods.iSCO.config.maxcut_config import *
+import os
 import torch
 import networkx as nx
-from torch.func import vmap,grad
-import os
-from config import *
 
-def get_data(filename):
+
+def load_data(filename):
 
     with open(filename, 'r') as file:
         lines = []
@@ -16,8 +16,6 @@ def get_data(filename):
         # lines = file.readlines()
         lines = [[int(i1) for i1 in i0.split()] for i0 in lines]
     num_nodes, num_edges = lines[0]
-    max_num_nodes = num_nodes
-    max_num_edges = num_edges
     g = nx.Graph()
     nodes = list(range(num_nodes))
     g.add_nodes_from(nodes)
@@ -44,13 +42,9 @@ def get_data(filename):
     return data
 
 
-def parallelization(x2y,y2x):
-        x2y  = vmap(x2y,in_dims=(0,0,0,0,None,None), randomness='different')
-        y2x = vmap(y2x,in_dims=(0,0,0,0,0,0,0,0,None,None), randomness='different')
-        return x2y,y2x
 
 def write_result(data_directory,result,energy,running_duration,max_num_nodes):
-    output_filename = os.path.join(os.path.dirname(data_directory),'result',("result_"+os.path.basename(data_directory)))
+    output_filename = os.path.join(r'..\..\result\maxcut_iSCO',("result_"+os.path.basename(data_directory)))
     counter = 1
     while os.path.exists(output_filename):
         base, extension = os.path.splitext(output_filename)
@@ -58,12 +52,7 @@ def write_result(data_directory,result,energy,running_duration,max_num_nodes):
         counter +=1
     with open(output_filename, 'w', encoding="UTF-8") as file:
         if energy is not None:
-            file.write(f'// obj: {-energy}\n')
+            file.write(f'// obj: {energy}\n')
             file. write(f'//running_duration:{running_duration}\n')
-            # file. write(f'//init_temperature:{init_temperature}\n')
-            # file. write(f'//final_temperature:{final_temperature}\n')    
-            # # file. write(f'//chain_length:{chain_length}\n')
-            # file. write(f'//average_acc:{average_acc}\n')
-            # file. write(f'//average_path_length:{average_path_length}\n')
         for node in range(max_num_nodes):
             file.write(f'{node + 1} {int(result[node] + 1)}\n')

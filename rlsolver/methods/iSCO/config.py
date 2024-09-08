@@ -1,7 +1,0 @@
-
-DATA_ROOT = r"/data/gset/gset_14.txt"
-INIT_TEMPERATURE = 1.0
-FINAL_TEMPERATURE = 0.0
-BATCH_SIZE = 30
-DEVICE = 'cuda:2'
-CHAIN_LENGTH = 50
