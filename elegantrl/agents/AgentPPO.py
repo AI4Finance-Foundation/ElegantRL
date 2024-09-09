@@ -270,10 +270,10 @@ class AgentA2C(AgentPPO):
 
 class AgentDiscretePPO(AgentPPO):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        super(AgentPPO).__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        AgentPPO.__init__(self, net_dims, state_dim, action_dim, gpu_id, args)
         self.if_off_policy = False
 
-        self.act = ActorPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
+        self.act = ActorDiscretePPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
         self.cri = CriticPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
@@ -288,7 +288,7 @@ class AgentDiscretePPO(AgentPPO):
 
 class AgentDiscreteA2C(AgentDiscretePPO):
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
-        super(AgentPPO).__init__(net_dims, state_dim, action_dim, gpu_id, args)
+        AgentDiscretePPO.__init__(self, net_dims, state_dim, action_dim, gpu_id, args)
         self.if_off_policy = False
 
         self.act = ActorDiscretePPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim).to(self.device)
