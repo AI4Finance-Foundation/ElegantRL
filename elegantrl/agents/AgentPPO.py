@@ -243,7 +243,7 @@ class AgentPPO(AgentBase):
 
 class AgentA2C(AgentPPO):
     """A2C algorithm.
-    “Asynchronous Methods for Deep Reinforcement Learning”. Mnih V. et al.. 2016.
+    “Asynchronous Methods for Deep Reinforcement Learning”. 2016.
     """
 
     def update_objectives(self, buffer: Tuple[TEN, ...], update_t: int) -> Tuple[float, float]:
