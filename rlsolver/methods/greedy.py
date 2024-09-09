@@ -389,8 +389,8 @@ def run_greedy_over_multiple_files(alg, alg_name, num_steps, directory_data: str
 if __name__ == '__main__':
     # read data
     print(f'problem: {PROBLEM}')
-    filename = '../data/syn/syn_10_21.txt'
-    graph = read_nxgraph('../data/syn/syn_10_21.txt')
+    filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+    graph = read_nxgraph(filename)
     weightmatrix = transfer_nxgraph_to_weightmatrix(graph)
     # run alg
     alg_name = 'GR'
