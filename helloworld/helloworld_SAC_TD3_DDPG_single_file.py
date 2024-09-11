@@ -626,7 +626,8 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> (float, int):
             env.render()
         if terminated or truncated:
             break
-    cumulative_returns = getattr(env.unwrapped, 'cumulative_returns', cumulative_returns)
+    env_unwrapped = getattr(env, 'unwrapped', env)
+    cumulative_returns = getattr(env_unwrapped, 'cumulative_returns', cumulative_returns)
     return cumulative_returns, episode_steps + 1
 
 

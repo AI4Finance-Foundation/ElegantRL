@@ -186,7 +186,8 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, i
     else:
         print("| get_rewards_and_step: WARNING. max_step > 12345")
 
-    cumulative_returns = getattr(env.unwrapped, 'cumulative_returns', cumulative_returns)
+    env_unwrapped = getattr(env, 'unwrapped', env)
+    cumulative_returns = getattr(env_unwrapped, 'cumulative_returns', cumulative_returns)
     return cumulative_returns, episode_steps + 1
 
 

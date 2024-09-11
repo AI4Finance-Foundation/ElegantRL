@@ -1,16 +1,20 @@
 import os
+from typing import Tuple
+
 import numpy as np
 import numpy.random as rd
 import pandas as pd
 import torch
 from functorch import vmap
 
+ARY = np.ndarray
+
 
 class StockTradingEnv:
     def __init__(self, initial_amount=1e6, max_stock=1e2, cost_pct=1e-3, gamma=0.99,
                  beg_idx=0, end_idx=1113):
-        self.df_pwd = './elegantrl/envs/China_A_shares.pandas.dataframe'
-        self.npz_pwd = './elegantrl/envs/China_A_shares.numpy.npz'
+        self.df_pwd = './China_A_shares.pandas.dataframe'
+        self.npz_pwd = './China_A_shares.numpy.npz'
 
         self.close_ary, self.tech_ary = self.load_data_from_disk()
         self.close_ary = self.close_ary[beg_idx:end_idx]
@@ -44,7 +48,7 @@ class StockTradingEnv:
         self.max_step = self.close_ary.shape[0] - 1
         self.target_return = +np.inf
 
-    def reset(self):
+    def reset(self) -> Tuple[ARY, dict]:
         self.day = 0
         if self.if_random_reset:
             self.amount = self.initial_amount * rd.uniform(0.9, 1.1)
@@ -55,16 +59,16 @@ class StockTradingEnv:
 
         self.rewards = []
         self.total_asset = (self.close_ary[self.day] * self.shares).sum() + self.amount
-        return self.get_state()
+        return self.get_state(), {}
 
-    def get_state(self):
+    def get_state(self) -> ARY:
         state = np.hstack((np.tanh(np.array(self.amount * 2 ** -16)),
                            self.shares * 2 ** -9,
                            self.close_ary[self.day] * 2 ** -7,
                            self.tech_ary[self.day] * 2 ** -6,))
         return state
 
-    def step(self, action):
+    def step(self, action) -> Tuple[ARY, float, bool, bool, dict]:
         self.day += 1
 
         action = action.copy()
@@ -90,15 +94,16 @@ class StockTradingEnv:
         self.rewards.append(reward)
         self.total_asset = total_asset
 
-        done = self.day == self.max_step
-        if done:
+        terminal = self.day == self.max_step
+        if terminal:
             reward += 1 / (1 - self.gamma) * np.mean(self.rewards)
             self.cumulative_returns = total_asset / self.initial_amount * 100  # todo
 
         state = self.get_state()
-        return state, reward, done, {}
+        truncated = False
+        return state, reward, terminal, truncated, {}
 
-    def load_data_from_disk(self, tech_id_list=None):
+    def load_data_from_disk(self, tech_id_list=None) -> Tuple[ARY, ARY]:
         tech_id_list = [
             "macd", "boll_ub", "boll_lb", "rsi_30", "cci_30", "dx_30", "close_30_sma", "close_60_sma",
         ] if tech_id_list is None else tech_id_list
@@ -343,3 +348,39 @@ class StockTradingVecEnv:
                         f"\n  https://github.com/Yonv1943/Python/blob/master/scow/China_A_shares.pandas.dataframe"
             raise FileNotFoundError(error_str)
         return close_ary, tech_ary
+
+
+def check_stock_trading_env():
+    env = StockTradingEnv(beg_idx=834, end_idx=1113)
+    env.if_random_reset = False
+    evaluate_time = 4
+
+    print()
+    policy_name = 'random action (if_random_reset = False)'
+    state, info_dict = env.reset()
+    for _ in range(env.max_step * evaluate_time):
+        action = rd.uniform(-1, +1, env.action_dim)
+        state, reward, terminal, truncated, info_dict = env.step(action)
+        done = terminal or truncated
+        if done:
+            print(f'cumulative_returns of {policy_name}: {env.cumulative_returns:9.2f}')
+            state, info_dict = env.reset()
+    print(state.shape)
+
+    print()
+    policy_name = 'buy all share (if_random_reset = True)'
+    env.if_random_reset = True
+    state, info_dict = env.reset()
+    for _ in range(env.max_step * evaluate_time):
+        action = np.ones(env.action_dim, dtype=np.float32)
+        state, reward, terminal, truncated, info_dict = env.step(action)
+        done = terminal or truncated
+        if done:
+            print(f'cumulative_returns of {policy_name}: {env.cumulative_returns:9.2f}')
+            state, info_dict = env.reset()
+    print(state.shape)
+    print()
+
+
+if __name__ == '__main__':
+    check_stock_trading_env()
