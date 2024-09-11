@@ -68,11 +68,11 @@ def read_opt_tour_file(file_path):
 
 def write_result(data_directory,result, energy, running_duration,max_num_nodes):
 
-    data_directory = os.path.dirname(DATA_PATH)
-
-# 获取文件名，不带扩展名
-    file_name_without_ext = os.path.splitext(os.path.basename(DATA_PATH))[0]
-    output_filename = os.path.join(r'..\..\result\tsp_iSCO',"result_" + file_name_without_ext + '.txt')
+    output_filename = '../../result/tsp_iSCO'+'/result_' + os.path.basename(data_directory)
+    output_filename = os.path.splitext(output_filename)[0]+'.txt'
+    directory = os.path.dirname(output_filename)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
     counter = 1
     while os.path.exists(output_filename):
         base, extension = os.path.splitext(output_filename)

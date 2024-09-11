@@ -1,14 +1,14 @@
 from absl import app
 from rlsolver.envs.env_isco_tsp import iSCO
 from rlsolver.methods.iSCO.config.tsp_config import *
-from rlsolver.methods.iSCO.until import tsp_until
+from rlsolver.methods.iSCO.util import tsp_util
 import torch
 import time
 import tqdm
 
 #The results are written in this directory: 'rlsolver/result/tsp_iSCO'
 def main(_):
-    params_dict = tsp_until.load_data(DATA_PATH,SOL_PATH )
+    params_dict = tsp_util.load_data(DATA_PATH,SOL_PATH )
     sampler = iSCO(params_dict)
     sample = sampler.random_gen_init_sample(params_dict)
     mu = 10.0
@@ -29,7 +29,7 @@ def main(_):
     result = torch.cat((sample[zero_index:zero_index+1], torch.cat((sample[zero_index+1:], sample[:zero_index]))))
     end_time = time.time()
     running_duration = end_time - start_time
-    tsp_until.write_result(DATA_PATH,result,distance,running_duration,params_dict['num_nodes'])
+    tsp_util.write_result(DATA_PATH,result,distance,running_duration,params_dict['num_nodes'])
 
 
 

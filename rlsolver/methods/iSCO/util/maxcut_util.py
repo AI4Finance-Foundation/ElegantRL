@@ -13,7 +13,6 @@ def load_data(filename):
             if '//' not in line:
                 lines.append(line)
             line = file.readline()  # 读取下一行
-        # lines = file.readlines()
         lines = [[int(i1) for i1 in i0.split()] for i0 in lines]
     num_nodes, num_edges = lines[0]
     g = nx.Graph()
@@ -44,7 +43,12 @@ def load_data(filename):
 
 
 def write_result(data_directory,result,energy,running_duration,max_num_nodes):
-    output_filename = os.path.join(r'..\..\result\maxcut_iSCO',("result_"+os.path.basename(data_directory)))
+    data_directory = os.path.basename(data_directory)
+    output_filename = '../../result/maxcut_iSCO'+'/result_' + os.path.basename(DATAPATH)
+    output_filename = os.path.splitext(output_filename)[0] + '.txt'
+    directory = os.path.dirname(output_filename)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
     counter = 1
     while os.path.exists(output_filename):
         base, extension = os.path.splitext(output_filename)

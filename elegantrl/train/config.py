@@ -69,7 +69,7 @@ class Config:
         self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = np.inf  # break training if 'total_step > break_step'
         self.break_score = np.inf  # break training if `cumulative_rewards > break_score`
-        self.if_keep_save = True  # keeping save the checkpoint. False means save until stop training.
+        self.if_keep_save = True  # keeping save the checkpoint. False means save util stop training.
         self.if_over_write = False  # overwrite the best policy network. `self.cwd/actor.pth`
         self.if_save_buffer = False  # if save the replay buffer for continuous training after stop training
 

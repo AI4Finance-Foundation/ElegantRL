@@ -230,7 +230,7 @@ def train_ppo_a2c_for_bipedal_walker(agent_class, gpu_id: int):
 
     args.eval_times = 16
     args.eval_per_step = 8e4
-    args.if_keep_save = False  # keeping save the checkpoint. False means save until stop training.
+    args.if_keep_save = False  # keeping save the checkpoint. False means save util stop training.
 
     args.gpu_id = gpu_id
     args.random_seed = GPU_ID
@@ -287,7 +287,7 @@ def train_ppo_a2c_for_bipedal_walker_vec_env(agent_class, gpu_id: int):
 
     args.eval_times = 16
     args.eval_per_step = 5e4
-    args.if_keep_save = False  # keeping save the checkpoint. False means save until stop training.
+    args.if_keep_save = False  # keeping save the checkpoint. False means save util stop training.
 
     args.gpu_id = gpu_id
     args.random_seed = GPU_ID
