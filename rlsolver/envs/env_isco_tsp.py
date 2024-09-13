@@ -1,7 +1,7 @@
 import torch
 from  rlsolver.methods.iSCO.config.tsp_config import *
 from torch.func import vmap
-from  rlsolver.methods.iSCO.until import math_until
+from  rlsolver.methods.iSCO.util import math_util
 import torch.nn.functional as F
 
 
@@ -109,7 +109,7 @@ class iSCO:
 
     
     def select_sample(self,log_acc, x, y):
-        y, accepted = math_until.mh_step(log_acc, x, y )
+        y, accepted = math_util.mh_step(log_acc, x, y )
         return y,accepted
     
     def apply_weight_function_logscale(self,logratio):

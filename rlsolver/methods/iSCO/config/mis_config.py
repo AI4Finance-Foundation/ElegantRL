@@ -1,0 +1,7 @@
+INIT_TEMPERATURE = 1.0
+FINAL_TEMPERATURE = 0
+CHAIN_LENGTH = 50
+BATCH_SIZE=2
+LAMADA = 1.001
+DEVICE  = "cuda"
+DATAPATH = "../../../rlsolver/data/mis/ER_700_800_0.15_0.gpickle"

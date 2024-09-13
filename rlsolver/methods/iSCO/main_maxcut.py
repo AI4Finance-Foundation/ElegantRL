@@ -1,14 +1,16 @@
 from absl import app
 from rlsolver.envs.env_isco_maxcut import iSCO
 from rlsolver.methods.iSCO.config.maxcut_config import *
-from rlsolver.methods.iSCO.until import  maxcut_until
+from rlsolver.methods.iSCO.util import maxcut_util
 import torch
 import time
 import tqdm
+from rlsolver.methods.util_result import write_result
+import os
 
 #The results are written in this directory: 'rlsolver/result/maxcut_iSCO'
 def main(_):
-    params_dict = maxcut_until.load_data(DATAPATH)
+    params_dict = maxcut_util.load_data(DATAPATH)
     sampler = iSCO(params_dict)
     sample = sampler.random_gen_init_sample(params_dict)
     mu = 10.0
@@ -27,7 +29,13 @@ def main(_):
 
     end_time = time.time()
     running_duration = end_time - start_time
-    maxcut_until.write_result(DATAPATH,result,obj,running_duration,params_dict['num_nodes'])
+    # maxcut_util.write_result(DATAPATH,result,obj,running_duration,params_dict['num_nodes'])
+    output_filename = '../../result/maxcut_iSCO'+'/result_' + os.path.basename(DATAPATH)
+    output_filename = os.path.splitext(output_filename)[0] + '.txt'
+    directory = os.path.dirname(output_filename)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+    write_result(result,output_filename,obj,running_duration)
 
 
 if __name__ == '__main__':
