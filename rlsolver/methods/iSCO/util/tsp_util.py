@@ -5,6 +5,7 @@ import numpy as np
 
 def load_data(tsp_file_path,optimal_tour):
 
+    DEVICE = torch.device(f'cuda:{GPU_ID}'if torch.cuda.is_available() and GPU_ID >= 0 else 'cpu')
     # 通过相对路径获取 a.txt 的路径
     if tsp_file_path.endswith('.npy'):
         data = torch.tensor(np.load(tsp_file_path), dtype = torch.float32, device = DEVICE)[0]
@@ -65,24 +66,3 @@ def read_opt_tour_file(file_path):
     return tour
 
 
-
-def write_result(data_directory,result, energy, running_duration,max_num_nodes):
-
-    output_filename = '../../result/tsp_iSCO'+'/result_' + os.path.basename(data_directory)
-    output_filename = os.path.splitext(output_filename)[0]+'.txt'
-    directory = os.path.dirname(output_filename)
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-    counter = 1
-    while os.path.exists(output_filename):
-        base, extension = os.path.splitext(output_filename)
-        output_filename = f"{base}_{counter}{extension}"
-        counter += 1
-        
-    with open(output_filename, 'w') as file:
-        if energy is not None:
-            file.write(f'// obj: {energy}\n')
-            file.write(f'//running_duration: {running_duration}\n')
-                              
-        for node in range(max_num_nodes):
-            file.write(f'{result[node] + 1}\n')

@@ -7,7 +7,7 @@ from rlsolver.methods.iSCO.util import math_util
 class iSCO:
     def __init__(self,params_dict):
         self.batch_size = BATCH_SIZE
-        self.device = torch.device(DEVICE)
+        self.device = torch.device(f'cuda:{GPU_ID}'if torch.cuda.is_available() and GPU_ID >= 0 else 'cpu')
         self.chain_length = CHAIN_LENGTH
         self.init_temperature = torch.tensor(INIT_TEMPERATURE,device=self.device)
         self.final_temperature = torch.tensor(FINAL_TEMPERATURE,device=self.device)
@@ -17,7 +17,7 @@ class iSCO:
         self.edge_to = params_dict['edge_to']
 
     def random_gen_init_sample(self,params_dict):
-        sample = torch.bernoulli(torch.full((BATCH_SIZE,self.max_num_nodes,), 0.5, device=DEVICE))
+        sample = torch.bernoulli(torch.full((BATCH_SIZE,self.max_num_nodes,), 0.5, device=self.device))
         return sample
     
 

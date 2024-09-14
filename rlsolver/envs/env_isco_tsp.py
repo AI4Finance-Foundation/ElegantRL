@@ -8,7 +8,7 @@ import torch.nn.functional as F
 class iSCO:
     def __init__(self,params_dict):
         self.batch_size = BATCH_SIZE
-        self.device = DEVICE
+        self.device = torch.device(f'cuda:{GPU_ID}'if torch.cuda.is_available() and GPU_ID >= 0 else 'cpu')
         self.chain_length = CHAIN_LENGTH
         self.init_temperature = torch.tensor(INIT_TEMPERATURE,device=self.device)
         self.final_temperature = torch.tensor(FINAL_TEMPERATURE,device=self.device)
@@ -63,7 +63,7 @@ class iSCO:
     def get_local_dist(self,sample,temperature):
         #log_prob是每点采样的权重，logratio是delta_yx
         x = sample.detach()
-        mask = torch.arange(0,self.num_nodes,dtype=torch.long,device=DEVICE)
+        mask = torch.arange(0,self.num_nodes,dtype=torch.long,device=self.device)
         logratio,indices = self.opt_2(x,mask,temperature)
         logits = self.apply_weight_function_logscale(logratio)
         log_prob = torch.nn.functional.log_softmax(logits, dim=-1)
