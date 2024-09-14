@@ -1,7 +1,7 @@
 import torch as th
 INIT_TEMPERATURE = 1.0
 FINAL_TEMPERATURE = 0
-CHAIN_LENGTH = 50
+CHAIN_LENGTH = 20000
 BATCH_SIZE=2
 LAMADA = 1.001
 DATAPATH = "../../../rlsolver/data/syn_BA/barabasi_albert_100_ID0.txt"
