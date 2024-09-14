@@ -27,7 +27,7 @@ from util_read_data import (read_nxgraph,
                             )
 from util_obj import (obj_maxcut,
                         )
-from util_result import (write_result3,
+from util_result import (write_graph_result,
                          )
 
 
@@ -208,7 +208,7 @@ def genetic_maxcut(graph: nx.Graph(), filename):
     running_duration = time.time() - start_time
     num_nodes = graph.number_of_nodes()
     alg_name = "genetic algorithm"
-    write_result3(obj, running_duration, num_nodes, alg_name, best_solution, filename)
+    write_graph_result(obj, running_duration, num_nodes, alg_name, best_solution, filename)
 
     print("Genetic Search Complete")
 

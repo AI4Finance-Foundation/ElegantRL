@@ -5,7 +5,7 @@ from rlsolver.methods.iSCO.util import maxcut_util
 import torch
 import time
 import tqdm
-from rlsolver.methods.util_result import write_result3
+from rlsolver.methods.util_result import write_graph_result
 
 # The results are written in this directory: 'rlsolver/result/maxcut_iSCO'
 def main(_):
@@ -31,7 +31,7 @@ def main(_):
     running_duration = end_time - start_time
     # maxcut_util.write_result(DATAPATH,result,obj,running_duration,params_dict['num_nodes'])
     alg_name = "iSCO"
-    write_result3(obj, running_duration, params_dict["num_nodes"], alg_name, result, DATAPATH)
+    write_graph_result(obj, running_duration, params_dict["num_nodes"], alg_name, result, DATAPATH)
 
 if __name__ == '__main__':
     app.run(main)
