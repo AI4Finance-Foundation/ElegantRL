@@ -12,7 +12,8 @@ from rlsolver.methods.util import plot_fig
 
 import sys
 sys.path.append('../')
-def random_walk(init_solution: Union[List[int], np.array], num_steps: int, graph: nx.Graph) -> (int, Union[List[int], np.array], List[int]):
+
+def random_walk_maxcut(init_solution: Union[List[int], np.array], num_steps: int, graph: nx.Graph) -> (int, Union[List[int], np.array], List[int]):
     print('random_walk')
     start_time = time.time()
     curr_solution = copy.deepcopy(init_solution)
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     # run alg
     # init_solution = [1, 0, 1, 0, 1]
     init_solution = list(np.random.randint(0, 2, graph.number_of_nodes()))
-    rw_score, rw_solution, rw_scores = random_walk(init_solution=init_solution, num_steps=1000, graph=graph)
+    rw_score, rw_solution, rw_scores = random_walk_maxcut(init_solution=init_solution, num_steps=1000, graph=graph)
     running_duration = time.time() - start_time
     num_nodes = graph.number_of_nodes
     alg_name = "random_walk"
