@@ -4,5 +4,5 @@ CHAIN_LENGTH =10
 BATCH_SIZE=1
 DEVICE  = "cuda"
 K = 20
-DATA_PATH = '../../../rlsolver/data/tsplib/a280.tsp'
+DATAPATH = '../../../rlsolver/data/tsplib/a280.tsp'
 SOL_PATH = '../../../rlsolver/data/tsplib/a280.opt.tour'
