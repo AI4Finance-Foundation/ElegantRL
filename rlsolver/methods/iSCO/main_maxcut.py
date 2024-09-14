@@ -5,7 +5,7 @@ from rlsolver.methods.iSCO.util import maxcut_util
 import torch
 import time
 import tqdm
-from rlsolver.methods.util_result import write_result
+from rlsolver.methods.util_result import write_result3
 import os
 
 #The results are written in this directory: 'rlsolver/result/maxcut_iSCO'
@@ -25,17 +25,11 @@ def main(_):
     
     obj, obj_index = torch.max(new_energy, dim=0)
     obj = obj.item()
-    result = sample[obj_index]
-
+    result = sample[obj_index].to(torch.int)
     end_time = time.time()
     running_duration = end_time - start_time
-    # maxcut_util.write_result(DATAPATH,result,obj,running_duration,params_dict['num_nodes'])
-    output_filename = '../../result/maxcut_iSCO'+'/result_' + os.path.basename(DATAPATH)
-    output_filename = os.path.splitext(output_filename)[0] + '.txt'
-    directory = os.path.dirname(output_filename)
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-    write_result(result,output_filename,obj,running_duration)
+
+    write_result3(obj,running_duration,result.shape[0],'iSCO',result,DATAPATH,)
 
 
 if __name__ == '__main__':

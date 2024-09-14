@@ -1,7 +1,7 @@
 from absl import app
 from rlsolver.envs.env_isco_mis import iSCO_local_search
 from rlsolver.methods.iSCO.config.mis_config import *
-from rlsolver.methods.util_result import write_result
+from rlsolver.methods.util_result import write_result3
 from rlsolver.methods.iSCO.util.mis_util import load_data
 import torch
 import time
@@ -32,15 +32,10 @@ def main(_):
 
     obj, obj_index = torch.min(new_energy, dim=0)
     obj = obj.item()
-    result = sample[obj_index].squeeze()
+    result = sample[obj_index].squeeze().to(torch.int)
     end_time = time.time()
     running_duration = end_time - start_time
-    output_filename = '../../result/mis_iSCO'+'/result_' + os.path.basename(DATAPATH)
-    output_filename = os.path.splitext(output_filename)[0] + '.txt'
-    directory = os.path.dirname(output_filename)
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-    write_result(result,output_filename,obj,running_duration)
+    write_result3(obj,running_duration,result.shape[0],'iSCO',result,DATAPATH,)
 
 if __name__ == '__main__':
     app.run(main)

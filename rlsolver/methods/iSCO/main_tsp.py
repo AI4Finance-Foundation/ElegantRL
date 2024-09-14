@@ -32,13 +32,7 @@ def main(_):
     result = torch.cat((sample[zero_index:zero_index+1], torch.cat((sample[zero_index+1:], sample[:zero_index]))))
     end_time = time.time()
     running_duration = end_time - start_time
-
-    output_filename = '../../result/maxcut_iSCO'+'/result_' + os.path.basename(DATAPATH)
-    output_filename = os.path.splitext(output_filename)[0] + '.txt'
-    directory = os.path.dirname(output_filename)
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-    write_result3(distance,running_duration,params_dict['num_nodes'],'iSCO',result,output_filename)
+    write_result3(distance,running_duration,params_dict['num_nodes'],'iSCO',result,DATAPATH)
 
 
 if __name__ == '__main__':
