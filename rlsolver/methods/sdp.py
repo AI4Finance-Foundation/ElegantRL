@@ -13,8 +13,8 @@ from rlsolver.methods.util_obj import obj_maxcut
 from rlsolver.methods.util_read_data import read_nxgraph
 from rlsolver.methods.util import (calc_txt_files_with_prefix,
                   )
-from rlsolver.methods.util_result import (write_result3,
-                         )
+from rlsolver.methods.util_result import (write_graph_result,
+                                          )
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 # approx ratio 1/0.87
@@ -73,7 +73,7 @@ def run_sdp_over_multiple_files(alg, alg_name, directory_data: str, prefixes: Li
             running_duration = time.time() - start_time
             graph = read_nxgraph(filename)
             num_nodes = int(graph.number_of_nodes())
-            write_result3(score, running_duration, num_nodes, alg_name, solution, filename)
+            write_graph_result(score, running_duration, num_nodes, alg_name, solution, filename)
     return scores
 
 
