@@ -11,7 +11,7 @@ import os
 
 #The results are written in this directory: 'rlsolver/result/tsp_iSCO'
 def main(_):
-    params_dict = tsp_util.load_data(DATAPATH,SOL_PATH )
+    params_dict = tsp_util.load_data(DATAPATH )
     sampler = iSCO(params_dict)
     sample = sampler.random_gen_init_sample(params_dict)
     mu = 10.0
