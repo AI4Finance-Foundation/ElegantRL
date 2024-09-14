@@ -6,7 +6,7 @@ from typing import List, Union
 import random
 from rlsolver.methods.util_read_data import read_nxgraph
 from rlsolver.methods.util_obj import obj_maxcut
-from rlsolver.methods.util_result import write_result3
+from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.util import plot_fig
 
 import sys
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     num_nodes = graph.number_of_nodes
     alg_name = "random_walk"
     # write result
-    write_result3(rw_score, running_duration, num_nodes, alg_name, rw_solution, filename)
+    write_graph_result(rw_score, running_duration, num_nodes, alg_name, rw_solution, filename)
     # write_result(rw_solution, '../result/result.txt')
     obj = obj_maxcut(rw_solution, graph)
     print('obj: ', obj)
