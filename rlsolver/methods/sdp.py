@@ -17,17 +17,7 @@ from rlsolver.methods.util_result import (write_result3,
                          )
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-def draw_graph(G, colors, pos):
-    default_axes = plt.axes(frameon=True)
-    nx.draw_networkx(G, node_color=colors, node_size=400, alpha=0.8, ax=default_axes, pos=pos)
-    edge_labels = nx.get_edge_attributes(G, "weight")
-    nx.draw_networkx_edge_labels(G, pos=pos, edge_labels=edge_labels)
-    plt.show()
-
-
-
-
-# approx ratio 0.87
+# approx ratio 1/0.87
 # goemans_williamson alg
 def sdp_maxcut(filename: str):
     graph = read_nxgraph(filename)
