@@ -22,8 +22,8 @@ from rlsolver.methods.util_obj import (cover_all_edges,
                   obj_set_cover_ratio,
                   obj_set_cover,
                   obj_graph_coloring,)
-from rlsolver.methods.util_result import (write_result3,
-                         )
+from rlsolver.methods.util_result import (write_graph_result,
+                                          )
 from rlsolver.methods.config import *
 
 # init_solution is useless
@@ -70,7 +70,7 @@ def greedy_maxcut(num_steps: Optional[int], graph: nx.Graph, filename) -> (int, 
     running_duration = time.time() - start_time
     print('running_duration: ', running_duration)
     alg_name = "greedy"
-    write_result3(score, running_duration, num_nodes, alg_name, curr_solution, filename)
+    write_graph_result(score, running_duration, num_nodes, alg_name, curr_solution, filename)
     return curr_score, curr_solution, scores
 
 def greedy_graph_partitioning(num_steps:Optional[int], graph: nx.Graph) -> (int, Union[List[int], np.array], List[int]):
