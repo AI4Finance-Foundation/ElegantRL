@@ -8,13 +8,11 @@ import random
 import networkx as nx
 
 from rlsolver.methods.util import (calc_txt_files_with_prefix,
-                  calc_result_file_name,
                   plot_fig
                  )
 from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_set_cover_data, )
 from rlsolver.methods.util_result import (write_result3,
-                         write_result,
                          write_result_set_cover
                          )
 from rlsolver.methods.util_obj import (
