@@ -12,9 +12,9 @@ from rlsolver.methods.util import (calc_txt_files_with_prefix,
                  )
 from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_set_cover_data, )
-from rlsolver.methods.util_result import (write_result3,
-                         write_result_set_cover
-                         )
+from rlsolver.methods.util_result import (write_graph_result,
+                                          write_result_set_cover
+                                          )
 from rlsolver.methods.util_obj import (
                   obj_maxcut,
                   obj_graph_partitioning,
@@ -262,7 +262,7 @@ def run_simulated_annealing_over_multiple_files(alg, alg_name, init_temperature,
                 scoress.append(scores)
                 running_duration = time.time() - start_time
                 num_nodes = int(graph.number_of_nodes())
-                write_result3(score, running_duration, num_nodes, alg_name, solution, filename)
+                write_graph_result(score, running_duration, num_nodes, alg_name, solution, filename)
     return scoress
 
 
@@ -287,7 +287,7 @@ if __name__ == '__main__':
             sa_score, sa_solution, sa_scores = simulated_annealing(init_temperature, num_steps, graph, filename)
             # write result
             running_duration = time.time() - start_time
-            write_result3(sa_score, running_duration, num_nodes, alg_name, sa_solution, filename)
+            write_graph_result(sa_score, running_duration, num_nodes, alg_name, sa_solution, filename)
             # write_result(sa_solution, '../result/result.txt')
             # plot fig
             alg_name = 'SA'
