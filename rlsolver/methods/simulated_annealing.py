@@ -7,17 +7,17 @@ import numpy as np
 import random
 import networkx as nx
 
-from util import (calc_txt_files_with_prefix,
+from rlsolver.methods.util import (calc_txt_files_with_prefix,
                   calc_result_file_name,
                   plot_fig
                  )
-from util_read_data import (read_nxgraph,
+from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_set_cover_data, )
-from util_result import (write_result3,
+from rlsolver.methods.util_result import (write_result3,
                          write_result,
                          write_result_set_cover
                          )
-from util_obj import (
+from rlsolver.methods.util_obj import (
                   obj_maxcut,
                   obj_graph_partitioning,
                     cover_all_edges,
@@ -26,7 +26,7 @@ from util_obj import (
                   obj_set_cover,
                   obj_graph_coloring,
                       )
-from greedy import (greedy_maxcut,
+from rlsolver.methods.greedy import (greedy_maxcut,
                     greedy_graph_partitioning,
                     greedy_minimum_vertex_cover,
                     greedy_maximum_independent_set,
@@ -34,7 +34,7 @@ from greedy import (greedy_maxcut,
                     greedy_graph_coloring,
                     )
 # from util import run_simulated_annealing_over_multiple_files
-from methods.config import *
+from rlsolver.methods.config import *
 
 
 def simulated_annealing_set_cover(init_temperature: int,
@@ -274,18 +274,23 @@ if __name__ == '__main__':
     # run alg
     # init_solution = list(np.random.randint(0, 2, graph.number_of_nodes()))
 
-    if_run_one_case = False
+    if_run_one_case = True
     if if_run_one_case:
-        if_run_graph_based_problems = False
+        if_run_graph_based_problems = True
         if if_run_graph_based_problems:
             # read data
-            filename = '../data/syn/syn_50_176.txt'
-            graph = read_nxgraph('../data/syn/syn_50_176.txt')
+            start_time = time.time()
+            filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+            graph = read_nxgraph(filename)
+            num_nodes = graph.number_of_nodes
+            alg_name = "SA"
             init_temperature = 4
             num_steps = None
             sa_score, sa_solution, sa_scores = simulated_annealing(init_temperature, num_steps, graph, filename)
             # write result
-            write_result(sa_solution, '../result/result.txt')
+            running_duration = time.time() - start_time
+            write_result3(sa_score, running_duration, num_nodes, alg_name, sa_solution, filename)
+            # write_result(sa_solution, '../result/result.txt')
             # plot fig
             alg_name = 'SA'
             plot_fig(sa_scores, alg_name)

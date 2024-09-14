@@ -5,10 +5,10 @@ import networkx as nx
 import numpy as np
 from typing import List, Union
 import random
-from util_read_data import read_nxgraph
-from util_obj import obj_maxcut
-from util_result import write_result
-from util import plot_fig
+from rlsolver.methods.util_read_data import read_nxgraph
+from rlsolver.methods.util_obj import obj_maxcut
+from rlsolver.methods.util_result import write_result3
+from rlsolver.methods.util import plot_fig
 
 import sys
 sys.path.append('../')
@@ -37,20 +37,27 @@ def random_walk(init_solution: Union[List[int], np.array], num_steps: int, graph
 if __name__ == '__main__':
     # read data
     # graph1 = read_as_networkx_graph('data/gset_14.txt')
-    graph = read_nxgraph('../data/syn/syn_50_176.txt')
+    start_time = time.time()
+    filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+    graph = read_nxgraph(filename)
 
     # run alg
     # init_solution = [1, 0, 1, 0, 1]
     init_solution = list(np.random.randint(0, 2, graph.number_of_nodes()))
     rw_score, rw_solution, rw_scores = random_walk(init_solution=init_solution, num_steps=1000, graph=graph)
-
+    running_duration = time.time() - start_time
+    num_nodes = graph.number_of_nodes
+    alg_name = "random_walk"
     # write result
-    write_result(rw_solution, '../result/result.txt')
+    write_result3(rw_score, running_duration, num_nodes, alg_name, rw_solution, filename)
+    # write_result(rw_solution, '../result/result.txt')
     obj = obj_maxcut(rw_solution, graph)
     print('obj: ', obj)
     alg_name = 'RW'
 
     # plot fig
-    plot_fig(rw_scores, alg_name)
+    if_plot = False
+    if if_plot:
+        plot_fig(rw_scores, alg_name)
 
 

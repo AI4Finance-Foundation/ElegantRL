@@ -7,22 +7,21 @@ import time
 import sys
 import matplotlib.pyplot as plt
 
-from util_read_data import (read_nxgraph,
+from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_tsp,
                             read_knapsack_data,
                             read_set_cover_data)
 
 
-from util import (transfer_float_to_binary,
+from rlsolver.methods.util import (transfer_float_to_binary,
                   calc_txt_files_with_prefix,
                   calc_result_file_name,
                   calc_avg_std_of_objs,
                   plot_fig,
                   fetch_node,
-                  transfer_float_to_binary,
                   transfer_nxgraph_to_adjacencymatrix)
 # from util import fetch_indices
-from config import *
+from rlsolver.methods.config import *
 from itertools import combinations
 
 # 定义回调函数，每隔一段时间将当前找到的最佳可行解输出到当前目录下以 solution 开头

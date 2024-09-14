@@ -9,7 +9,7 @@ from typing import Union, Tuple, List
 import networkx as nx
 from torch import Tensor
 import torch as th
-from config import *
+from rlsolver.methods.config import *
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
@@ -20,7 +20,7 @@ INT = th.IntTensor
 TEN = th.Tensor
 GraphList = List[Tuple[int, int, int]]
 IndexList = List[List[int]]
-from config import GSET_DIR
+from rlsolver.methods.config import GSET_DIR
 DataDir = GSET_DIR
 
 

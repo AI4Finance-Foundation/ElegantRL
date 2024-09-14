@@ -7,14 +7,14 @@ from typing import Union, Optional
 import numpy as np
 import multiprocessing as mp
 import networkx as nx
-from util import (plot_fig,
+from rlsolver.methods.util import (plot_fig,
                   plot_nxgraph,
                   transfer_nxgraph_to_weightmatrix,
                   calc_txt_files_with_prefix,
                 )
-from util_read_data import (read_nxgraph,
+from rlsolver.methods.util_read_data import (read_nxgraph,
                             )
-from util_obj import (cover_all_edges,
+from rlsolver.methods.util_obj import (cover_all_edges,
                   obj_maxcut,
                   obj_graph_partitioning,
                   obj_minimum_vertex_cover,
@@ -22,9 +22,9 @@ from util_obj import (cover_all_edges,
                   obj_set_cover_ratio,
                   obj_set_cover,
                   obj_graph_coloring,)
-from util_result import (write_result3,
+from rlsolver.methods.util_result import (write_result3,
                          )
-from config import *
+from rlsolver.methods.config import *
 
 def split_list(my_list: List[int], chunk_size: int):
     res = []

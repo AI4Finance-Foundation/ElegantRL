@@ -17,10 +17,10 @@ import math
 from enum import Enum
 import tqdm
 import re
-from util import (calc_result_file_name,
-calc_txt_files_with_prefix
-                  )
-from config import (NUM_IDS,
+from rlsolver.methods.util import (calc_result_file_name,
+                            calc_txt_files_with_prefix
+                                              )
+from rlsolver.methods.config import (NUM_IDS,
                     RUNNING_DURATIONS,
                     )
 # from methods.simulated_annealing import simulated_annealing_set_cover, simulated_annealing
@@ -29,7 +29,7 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
-from util import (plot_fig_over_durations,
+from rlsolver.methods.util import (plot_fig_over_durations,
                   )
 
 
@@ -217,7 +217,25 @@ def read_result_comments_multifiles(dir: str, prefixes: str, running_durations: 
         print(f"objs: {objs}, running_duration: {running_durations}, label: {label}")
         plot_fig_over_durations(objs, running_durations, label)
 
+def check_maxcut_x(x_str, filename):
+    from rlsolver.methods.util_read_data import read_nxgraph
+    from rlsolver.methods.L2A.evaluator import EncoderBase64
+    from rlsolver.methods.util_obj import obj_maxcut
+    graph = read_nxgraph(filename)
+    num_nodes = graph.number_of_nodes()
+    encoder = EncoderBase64(encode_len=num_nodes)
+    x = encoder.str_to_bool(x_str)
+    obj = obj_maxcut(x, graph)
+    print("obj: ", obj)
+
+
 if __name__ == '__main__':
+    test_x = True
+    if test_x:
+        x_str = "XjDpnlr4liYqLVjhPyjCGC55A_GLOW43UifOZ64Es7Bf28t5bs"
+        filename = "../data/syn_BA/barabasi_albert_300_ID0.txt"
+        check_maxcut_x(x_str, filename)
+
     # result = Tensor([0, 1, 0, 1, 0, 1, 1])
     # write_result(result)
     # result = [0, 1, 0, 1, 0, 1, 1]
@@ -235,7 +253,7 @@ if __name__ == '__main__':
     max_ID = 9
     objs, obj_bounds, running_durations, avg_objs, avg_obj_bounds, avg_running_durations, std_objs, std_obj_bounds, std_running_durations = read_result_comments_multifiles2(dir, prefixes, max_ID)
 
-    if_plot = True
+    if_plot = False
     if if_plot:
         dir = '../result/syn_PL_gurobi'
         prefixes = 'powerlaw_200_'
