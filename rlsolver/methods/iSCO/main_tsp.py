@@ -5,7 +5,7 @@ from rlsolver.methods.iSCO.util import tsp_util
 import torch
 import time
 import tqdm
-from rlsolver.methods.util_result import write_result3
+from rlsolver.methods.util_result import write_graph_result
 import os
 
 
@@ -34,7 +34,7 @@ def main(_):
     end_time = time.time()
     running_duration = end_time - start_time
 
-    write_result3(distance, running_duration, params_dict['num_nodes'], 'iSCO', result, DATAPATH)
+    write_graph_result(distance, running_duration, params_dict['num_nodes'], 'iSCO', result, DATAPATH)
 
 
 if __name__ == '__main__':
