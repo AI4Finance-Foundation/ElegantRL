@@ -9,11 +9,11 @@ import os
 import time
 from typing import List
 
-from util_obj import obj_maxcut
-from util_read_data import read_nxgraph
-from util import (calc_txt_files_with_prefix,
+from rlsolver.methods.util_obj import obj_maxcut
+from rlsolver.methods.util_read_data import read_nxgraph
+from rlsolver.methods.util import (calc_txt_files_with_prefix,
                   )
-from util_result import (write_result3,
+from rlsolver.methods.util_result import (write_result3,
                          )
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     # graph = read_nxgraph('../data/syn/syn_50_176.txt')
     # filename = '../data/gset/gset_14.txt'
-    filename = '../data/syn/syn_50_176.txt'
+    filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
     sdp_maxcut(filename)
 
     alg = sdp_maxcut
