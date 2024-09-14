@@ -1,7 +1,7 @@
 from absl import app
 from rlsolver.envs.env_isco_mis import iSCO_local_search
 from rlsolver.methods.iSCO.config.mis_config import *
-from rlsolver.methods.util_result import write_result3
+from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.iSCO.util.mis_util import load_data
 import torch
 import time
@@ -44,7 +44,7 @@ def main(_):
         os.mkdir(directory)
     num_nodes = data["num_nodes"]
     alg_name = "iSCO"
-    write_result3(obj, running_duration, num_nodes, alg_name, result, DATAPATH)
+    write_graph_result(obj, running_duration, num_nodes, alg_name, result, DATAPATH)
     # write_result(result, output_filename, obj, running_duration)
 
 
