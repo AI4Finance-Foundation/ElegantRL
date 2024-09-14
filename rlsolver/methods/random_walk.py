@@ -1,4 +1,3 @@
-# compared methods for maxcut: random walk, greedy, epsilon greedy, simulated annealing
 import copy
 import time
 import networkx as nx
