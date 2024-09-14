@@ -6,7 +6,7 @@ from torch.func import vmap
 class iSCO:
     def __init__(self, params_dict):
         self.batch_size = BATCH_SIZE
-        self.device = torch.device(DEVICE)
+        self.device = DEVICE
         self.chain_length = CHAIN_LENGTH
         self.lam = LAMADA
         self.init_temperature = torch.tensor(INIT_TEMPERATURE, device=self.device)
@@ -29,7 +29,7 @@ class iSCO:
         return energy, grad
 
     def random_gen_init_sample(self):
-        sample = torch.bernoulli(torch.full((BATCH_SIZE, self.max_num_nodes,), 0.5, device=DEVICE))
+        sample = torch.bernoulli(torch.full((BATCH_SIZE, self.max_num_nodes,), 0.5, device=self.device))
         return sample
 
 class iSCO_local_search(iSCO):

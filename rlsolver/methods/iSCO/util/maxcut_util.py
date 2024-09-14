@@ -1,11 +1,8 @@
 from rlsolver.methods.iSCO.config.maxcut_config import *
-import os
 import torch
 import networkx as nx
 
-
 def load_data(filename):
-
     with open(filename, 'r') as file:
         lines = []
         line = file.readline()  # 读取第一行
@@ -37,26 +34,5 @@ def load_data(filename):
         'edge_from': edge_from,
         'edge_to': edge_to,
     }
-
     return data
 
-
-
-def write_result(data_directory,result,energy,running_duration,max_num_nodes):
-    data_directory = os.path.basename(data_directory)
-    output_filename = '../../result/maxcut_iSCO'+'/result_' + os.path.basename(DATAPATH)
-    output_filename = os.path.splitext(output_filename)[0] + '.txt'
-    directory = os.path.dirname(output_filename)
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-    counter = 1
-    while os.path.exists(output_filename):
-        base, extension = os.path.splitext(output_filename)
-        output_filename = f"{base}_{counter}{extension}"
-        counter +=1
-    with open(output_filename, 'w', encoding="UTF-8") as file:
-        if energy is not None:
-            file.write(f'// obj: {energy}\n')
-            file. write(f'//running_duration:{running_duration}\n')
-        for node in range(max_num_nodes):
-            file.write(f'{node + 1} {int(result[node] + 1)}\n')
