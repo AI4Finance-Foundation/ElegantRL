@@ -26,41 +26,6 @@ from rlsolver.methods.util_result import (write_result3,
                          )
 from rlsolver.methods.config import *
 
-def split_list(my_list: List[int], chunk_size: int):
-    res = []
-    for i in range(0, len(my_list), chunk_size):
-        res.append(my_list[i: i + chunk_size])
-    return res
-
-# the len of result may not be mp.cpu_count()
-def split_list_equally_by_cpus(my_list: List[int]):
-    res = []
-    num_cpus = mp.cpu_count()
-    chunk_size = int(np.ceil(len(my_list) / num_cpus))
-    for i in range(0, len(my_list), chunk_size):
-        res.append(my_list[i: i + chunk_size])
-    return res
-
-def split_list_equally(my_list: List[int], chunk_size: int):
-    res = []
-    for i in range(0, len(my_list), chunk_size):
-        res.append(my_list[i: i + chunk_size])
-    return res
-
-def traverse_in_greedy_maxcut(curr_solution, selected_nodes, graph):
-    traversal_scores = []
-    traversal_solutions = []
-    # calc the new solution when moving to a new node. Then store the scores and solutions.
-    for node in selected_nodes:
-        new_solution = copy.deepcopy(curr_solution)
-        # search a new solution and calc obj
-        new_solution[node] = (new_solution[node] + 1) % 2
-        new_score = obj_maxcut(new_solution, graph)
-        traversal_scores.append(new_score)
-        traversal_solutions.append(new_solution)
-    return traversal_scores, traversal_solutions
-
-
 # init_solution is useless
 def greedy_maxcut(num_steps: Optional[int], graph: nx.Graph, filename) -> (int, Union[List[int], np.array], List[int]):
     print('greedy')
@@ -83,28 +48,13 @@ def greedy_maxcut(num_steps: Optional[int], graph: nx.Graph, filename) -> (int, 
         traversal_scores = []
         traversal_solutions = []
         # calc the new solution when moving to a new node. Then store the scores and solutions.
-        use_multiprocessing = False
-        if use_multiprocessing:
-            pass
-            split_nodess = split_list_equally_by_cpus(nodes)
-            pool = mp.Pool(len(split_nodess))
-            # print(f'len split_nodess: {len(split_nodess)}')
-            results = []
-            for split_nodes in split_nodess:
-                results.append(pool.apply_async(traverse_in_greedy_maxcut, (curr_solution, split_nodes, graph)))
-            for result in results:
-                tmp_traversal_scores, tmp_traversal_solutions = result.get()
-                # print(f'tmp_traversal_scores: {tmp_traversal_scores}, tmp_traversal_solutions: {tmp_traversal_solutions}')
-                traversal_scores.extend(tmp_traversal_scores)
-                traversal_solutions.extend(tmp_traversal_solutions)
-        else:
-            for node in nodes:
-                new_solution = copy.deepcopy(curr_solution)
-                # search a new solution and calc obj
-                new_solution[node] = (new_solution[node] + 1) % 2
-                new_score = obj_maxcut(new_solution, graph)
-                traversal_scores.append(new_score)
-                traversal_solutions.append(new_solution)
+        for node in nodes:
+            new_solution = copy.deepcopy(curr_solution)
+            # search a new solution and calc obj
+            new_solution[node] = (new_solution[node] + 1) % 2
+            new_score = obj_maxcut(new_solution, graph)
+            traversal_scores.append(new_score)
+            traversal_solutions.append(new_solution)
         best_score = max(traversal_scores)
         index = traversal_scores.index(best_score)
         best_solution = traversal_solutions[index]
