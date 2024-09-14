@@ -16,7 +16,6 @@ class iSCO:
         self.distance = params_dict['distance']
         self.nearest_indices = params_dict['nearest_indices']
         self.farthest_indices = params_dict['farthest_indices']
-        self.sols = params_dict['sols']
 
     def random_gen_init_sample(self,params_dict):
 
@@ -63,7 +62,7 @@ class iSCO:
     def get_local_dist(self,sample,temperature):
         #log_prob是每点采样的权重，logratio是delta_yx
         x = sample.detach()
-        mask = torch.arange(0,self.num_nodes,dtype=torch.long,device=DEVICE)
+        mask = torch.arange(0,self.num_nodes,dtype=torch.long,device=self.device)
         logratio,indices = self.opt_2(x,mask,temperature)
         logits = self.apply_weight_function_logscale(logratio)
         log_prob = torch.nn.functional.log_softmax(logits, dim=-1)
