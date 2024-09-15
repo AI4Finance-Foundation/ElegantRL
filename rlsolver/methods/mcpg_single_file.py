@@ -12,13 +12,16 @@ from typing import List, Tuple, Union
 # from graph_max_cut_local_search import SolverLocalSearch
 import networkx as nx
 import numpy as np
-seed = 100
-random.seed(seed)
-os.environ['PYTHONHASHSEED'] = str(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
+
+fix_seed = False
+if fix_seed:
+    seed = 100
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 """
