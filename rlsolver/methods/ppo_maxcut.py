@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import tyro
 from torch.distributions.categorical import Categorical
-from env_ppo_maxcut import load_graph_list, SimulatorGraphMaxCut
+from rlsolver.envs.env_ppo_maxcut import load_graph_list, SimulatorGraphMaxCut
 
 
 @dataclass
