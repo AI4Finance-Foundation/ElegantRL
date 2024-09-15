@@ -10,12 +10,12 @@ import networkx as nx
 from torch import Tensor
 import torch as th
 
-from util import (transfer_weightmatrix_to_nxgraph,
+from .util import (transfer_weightmatrix_to_nxgraph,
 load_graph_from_txt,
 build_adjacency_matrix,
 save_graph_info_to_txt,
                   )
-from config import *
+from .config import *
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ INT = th.IntTensor
 TEN = th.Tensor
 GraphList = List[Tuple[int, int, int]]
 IndexList = List[List[int]]
-from config import GSET_DIR
+from .config import GSET_DIR
 DataDir = GSET_DIR
 
 def generate_graph(num_nodes: int, g_type: str):
@@ -192,6 +192,15 @@ def generate_graph_for_validation():
         for i in range(num_valid):
             txt_path = f"{data_dir}/graph_{g_type}_{num_nodes}_ID{i:03}.txt"
 
+            graph, num_nodes, num_edges = generate_graph(num_nodes=num_nodes, g_type=g_type)
+            save_graph_info_to_txt(txt_path, graph, num_nodes, num_edges)
+
+    '''fix the above generate'''
+    for num_nodes in num_nodes_list:
+        for seed_num in range(num_valid):
+            txt_path = f"{data_dir}/graph_{g_type}_{num_nodes}_ID{i:03}.txt"
+
+            random.seed(seed_num)  # must write in the for loop
             graph, num_nodes, num_edges = generate_graph(num_nodes=num_nodes, g_type=g_type)
             save_graph_info_to_txt(txt_path, graph, num_nodes, num_edges)
 
