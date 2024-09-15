@@ -20,7 +20,7 @@ try:
 except ImportError:
     plt = None
 
-def write_graph_result(obj, running_duration, num_nodes, alg_name, solution, filename: str):
+def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes: int, alg_name: str, solution: Union[Tensor, List[int], np.array], filename: str):
     add_tail = '_' if running_duration is None else '_' + str(int(running_duration)) if 'data' in filename else None
     new_filename = calc_result_file_name(filename, add_tail)
     print("result filename: ", new_filename)
@@ -33,7 +33,7 @@ def write_graph_result(obj, running_duration, num_nodes, alg_name, solution, fil
         for i in range(len(solution)):
             new_file.write(f"{i + 1} {solution[i] + 1}\n")
 
-def write_result_set_cover(obj, running_duration, num_items: int, num_sets: int, alg_name, filename: str):
+def write_result_set_cover(obj: Union[float, int], running_duration: int, num_items: int, num_sets: int, alg_name, filename: str):
     add_tail = '_' + str(int(running_duration)) if 'data' in filename else None
     new_filename = calc_result_file_name(filename, add_tail)
     with open(new_filename, 'w', encoding="UTF-8") as new_file:
@@ -135,11 +135,12 @@ def obtain_first_number(s: str):
     value = int(float(res))
     return value
 
-def calc_obj_maxcut_xstr(x_str, filename):
+def calc_obj_maxcut_xstr(x_str: str, filename: str):
     graph = read_nxgraph(filename)
     num_nodes = graph.number_of_nodes()
     encoder = EncoderBase64(encode_len=num_nodes)
-    x = encoder.str_to_bool(x_str)
+    x = encoder.str_to_bool(x_str).long()
+    # print("x: ", x)
     obj = obj_maxcut(x, graph)
     return obj
 
@@ -167,6 +168,3 @@ if __name__ == '__main__':
         max_ID = 29
         objs, obj_bounds, running_durations, avg_objs, avg_obj_bounds, avg_running_durations, std_objs, std_obj_bounds, std_running_durations = read_graph_result_comments_multifiles2(dir, prefixes, max_ID)
 
-
-    print(avg_objs)
-    print(obj_bounds)
