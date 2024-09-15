@@ -3,16 +3,12 @@ sys.path.append('../')
 from gurobipy import *
 import copy
 import networkx as nx
-import time
 import sys
-import matplotlib.pyplot as plt
 
 from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_tsp,
                             read_knapsack_data,
                             read_set_cover_data)
-
-
 from rlsolver.methods.util import (transfer_float_to_binary,
                   calc_txt_files_with_prefix,
                   calc_result_file_name,
@@ -223,8 +219,6 @@ def write_result_gurobi(model, filename: str = './result/result', running_durati
         model.write(f"{new_filename}.mps")
         model.write(f"{new_filename}.sol")
 
-
-
 def run_using_gurobi(filename: str, init_x = None, time_limit: int = None, plot_fig_: bool = False):
     model = Model("maxcut")
 
@@ -237,19 +231,16 @@ def run_using_gurobi(filename: str, init_x = None, time_limit: int = None, plot_
     else:
         graph = read_nxgraph(filename)
 
-
     if PROBLEM not in [Problem.knapsack,Problem.set_cover]:
         edges = list(graph.edges)
         subax1 = plt.subplot(111)
         nx.draw_networkx(graph, with_labels=True)
         if plot_fig_:
             plt.show()
-
         adjacency_matrix = transfer_nxgraph_to_adjacencymatrix(graph)
         num_nodes = nx.number_of_nodes(graph)
         nodes = list(range(num_nodes))
         num_subsets = len(adjacency_matrix[0])
-
 
     if PROBLEM == Problem.maxcut:
         y_lb = adjacency_matrix.min()
@@ -432,15 +423,12 @@ def run_using_gurobi(filename: str, init_x = None, time_limit: int = None, plot_
                         for m in range(total_subsets):
                             model.addConstr(y[u, m] <= x[i], name=f"cover_{u}_{i}_{m}")
 
-
-
     if time_limit is not None:
         model.setParam('TimeLimit', time_limit)
 
     # reportFile = open('../result/', 'w')
 
     result_filename = calc_result_file_name(filename)
-
     model._startTime = time.time()
     # model._reportFile = open(result_filename, 'w')
     model._interval = GUROBI_INTERVAL  # 每隔一段时间输出当前可行解，单位秒
@@ -574,33 +562,26 @@ if __name__ == '__main__':
         prefixes = ['syn_10_']
         avg_std = calc_avg_std_of_objs(directory, prefixes, time_limits)
     else:
-        if_use_syn = True
+        run_syndistr = True
         # time_limits = GUROBI_TIME_LIMITS
         # time_limits = [10 * 60, 20 * 60, 30 * 60, 40 * 60, 50 * 60, 60 * 60]
-        if if_use_syn:
+        if run_syndistr:
             # prefixes = ['syn_10_', 'syn_50_', 'syn_100_', 'syn_300_', 'syn_500_', 'syn_700_', 'syn_900_', 'syn_1000_', 'syn_3000_', 'syn_5000_', 'syn_7000_', 'syn_9000_', 'syn_10000_']
             directory_data = '../data/syn_BA'
             prefixes = ['barabasi_albert_100_']
 
-        if_use_syndistri = False
-        if if_use_syndistri:
-            directory_data = '../data/syn_BA'
-            prefixes = ['barabasi_albert_100_']
-            # prefixes = ['syn_100_']
-            # directory_data = '../data/syn'
-
-        if_use_tsp = False
-        if if_use_tsp:
+        run_tsp = False
+        if run_tsp:
             directory_data = '../data/tsp'
             prefixes = ['tsp_']
 
-        if_use_knapsack = False
-        if if_use_knapsack:
+        run_knapsack = False
+        if run_knapsack:
             directory_data = '../data/knapsack'
             prefixes = ['kp_']
 
-        if_use_set_cover = False
-        if if_use_set_cover:
+        run_set_cover = False
+        if run_set_cover:
             directory_data = '../data/set_cover'
             prefixes = ['set_cover_']
 
