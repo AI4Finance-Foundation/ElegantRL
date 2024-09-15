@@ -70,7 +70,7 @@ class ConfigPolicy:
         # from network import PolicyRNN
         # net = PolicyRNN(inp_dim=self.inp_dim, mid_dim=self.mid_dim, out_dim=self.out_dim,
         #                 embed_dim=self.embed_dim, num_heads=self.num_heads, num_layers=self.num_layers).to(device)
-        from methods.L2A.network import PolicyTRS
+        from rlsolver.methods.L2A.network import PolicyTRS
         net = PolicyTRS(inp_dim=self.inp_dim, mid_dim=self.mid_dim, out_dim=self.out_dim,
                         embed_dim=self.embed_dim, num_heads=self.num_heads, num_layers=self.num_layers).to(device)
         if if_valid:
