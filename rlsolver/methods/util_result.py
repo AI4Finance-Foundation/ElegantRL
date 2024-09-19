@@ -12,7 +12,7 @@ from rlsolver.methods.util_read_data import read_nxgraph
 from rlsolver.methods.L2A.evaluator import EncoderBase64
 from rlsolver.methods.util_obj import obj_maxcut
 from rlsolver.methods.util import (calc_result_file_name,
-                            calc_txt_files_with_prefix
+                            calc_txt_files_with_prefixes
                                               )
 try:
     import matplotlib as mpl
@@ -68,12 +68,12 @@ def read_graph_result_comments(filename: str):
             line = file.readline()
     return num_nodes, ID, running_duration, obj, obj_bound
 
-def read_graph_result_comments_multifiles2(dir: str, prefixes: str, max_ID: int):
+def read_graph_result_comments_multifiles2(dir: str, prefixes: List[str], max_ID: int):
     objs = {}
     running_durations = {}
     obj_bounds = {}
     # for prefix in prefixes:
-    files = calc_txt_files_with_prefix(dir, prefixes)
+    files = calc_txt_files_with_prefixes(dir, prefixes)
     for i in range(len(files)):
         file = files[i]
         num_nodes, ID, running_duration, obj, obj_bound = read_graph_result_comments(file)
@@ -160,14 +160,14 @@ if __name__ == '__main__':
     test_frist_10 = False
     if test_frist_10:
         dir = '../result'
-        prefixes = 'barabasi_albert_'
+        prefixes = ['barabasi_albert_']
         max_ID = 9
         objs, obj_bounds, running_durations, avg_objs, avg_obj_bounds, avg_running_durations, std_objs, std_obj_bounds, std_running_durations = read_graph_result_comments_multifiles2(dir, prefixes, max_ID)
 
     test_frist_30 = False
     if test_frist_30:
         dir = '../result'
-        prefixes = 'barabasi_albert_'
+        prefixes = ['barabasi_albert_']
         max_ID = 29
         objs, obj_bounds, running_durations, avg_objs, avg_obj_bounds, avg_running_durations, std_objs, std_obj_bounds, std_running_durations = read_graph_result_comments_multifiles2(dir, prefixes, max_ID)
 
