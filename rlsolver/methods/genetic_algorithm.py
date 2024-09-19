@@ -19,15 +19,14 @@ try:
 except ImportError:
     plt = None
 
-from util import (calc_txt_files_with_prefix,
-                  )
-from util_read_data import (read_nxgraph,
-                            )
-from util_obj import (obj_maxcut,
-                        )
-from util_result import (write_graph_result,
-                         )
-
+from rlsolver.methods.util import (calc_txt_files_with_prefixes,
+                                    )
+from rlsolver.methods.util_read_data import (read_nxgraph,
+                                            )
+from rlsolver.methods.util_obj import (obj_maxcut,
+                                        )
+from rlsolver.methods.util_result import (write_graph_result,
+                                         )
 
 # constants for tabuSearch
 P_iter = 100
@@ -234,15 +233,14 @@ def genetic_maxcut(graph: nx.Graph(), filename):
 def run_genetic_over_multiple_files(directory_data: str, prefixes: List[str])-> List[List[float]]:
     assert PROBLEM == Problem.maxcut
     scoress = []
-    for prefix in prefixes:
-        files = calc_txt_files_with_prefix(directory_data, prefix)
-        files.sort()
-        for i in range(len(files)):
-            filename = files[i]
-            print(f'The {i}-th file: {filename}')
-            graph = read_nxgraph(filename)
-            print("Genetic Search Start")
-            genetic_maxcut(graph, filename)
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    files.sort()
+    for i in range(len(files)):
+        filename = files[i]
+        print(f'The {i}-th file: {filename}')
+        graph = read_nxgraph(filename)
+        print("Genetic Search Start")
+        genetic_maxcut(graph, filename)
     return scoress
 
 
