@@ -108,14 +108,11 @@ def plot_fig_over_durations(objs: List[int], durations: List[int], label: str):
     plt.savefig('./result/' + label + '.png')
     plt.show()
 
-
-
-
 def calc_txt_files_with_prefix(directory: str, prefix: str):
     res = []
     files = os.listdir(directory)
     for file in files:
-        if prefix in file and ('.txt' in file or '.msc' in file):
+        if file.startswith(prefix):
             res.append(directory + '/' + file)
     return res
 
