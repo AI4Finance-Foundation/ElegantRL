@@ -18,10 +18,7 @@ def read_tsp_file(filename: str):
             if 'EOF' in line:
                 break
             parts = line.split(' ')
-            new_parts = []
-            for part in parts:
-                if part != '':
-                    new_parts.append(part)
+            new_parts = [i for i in parts if len(i) > 0]
             if len(new_parts) == 3 and isnumeric(new_parts[0]):
                 index_str, x_str, y_str = new_parts
                 index = int(index_str)
