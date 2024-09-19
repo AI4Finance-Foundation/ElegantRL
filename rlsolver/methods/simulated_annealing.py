@@ -11,7 +11,7 @@ import numpy as np
 import random
 import networkx as nx
 
-from rlsolver.methods.util import (calc_txt_files_with_prefix,
+from rlsolver.methods.util import (calc_txt_files_with_prefixes,
                   plot_fig
                  )
 from rlsolver.methods.util_read_data import (read_nxgraph,
@@ -243,30 +243,29 @@ def simulated_annealing(init_temperature: int, num_steps: Optional[int], graph: 
 
 def run_simulated_annealing_over_multiple_files(alg, alg_name, init_temperature, num_steps, directory_data: str, prefixes: List[str])-> List[List[float]]:
     scoress = []
-    for prefix in prefixes:
-        files = calc_txt_files_with_prefix(directory_data, prefix)
-        files.sort()
-        for i in range(len(files)):
-            start_time = time.time()
-            filename = files[i]
-            print(f'The {i}-th file: {filename}')
-            if PROBLEM == Problem.set_cover:
-                num_items, num_sets, item_matrix = read_set_cover_data(filename)
-                init_temperature = 4
-                num_steps = int(50 * num_sets)
-                score, solution, scores = simulated_annealing_set_cover(init_temperature, num_steps,
-                                                                        num_items, num_sets, item_matrix)
-                scoress.append(scores)
-                running_duration = time.time() - start_time
-                alg_name = 'greedy'
-                write_result_set_cover(score, running_duration, num_items, num_sets, alg_name, filename)
-            else:
-                graph = read_nxgraph(filename)
-                score, solution, scores = alg(init_temperature, num_steps, graph, filename)
-                scoress.append(scores)
-                running_duration = time.time() - start_time
-                num_nodes = int(graph.number_of_nodes())
-                write_graph_result(score, running_duration, num_nodes, alg_name, solution, filename)
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    files.sort()
+    for i in range(len(files)):
+        start_time = time.time()
+        filename = files[i]
+        print(f'The {i}-th file: {filename}')
+        if PROBLEM == Problem.set_cover:
+            num_items, num_sets, item_matrix = read_set_cover_data(filename)
+            init_temperature = 4
+            num_steps = int(50 * num_sets)
+            score, solution, scores = simulated_annealing_set_cover(init_temperature, num_steps,
+                                                                    num_items, num_sets, item_matrix)
+            scoress.append(scores)
+            running_duration = time.time() - start_time
+            alg_name = 'greedy'
+            write_result_set_cover(score, running_duration, num_items, num_sets, alg_name, filename)
+        else:
+            graph = read_nxgraph(filename)
+            score, solution, scores = alg(init_temperature, num_steps, graph, filename)
+            scoress.append(scores)
+            running_duration = time.time() - start_time
+            num_nodes = int(graph.number_of_nodes())
+            write_graph_result(score, running_duration, num_nodes, alg_name, solution, filename)
     return scoress
 
 
@@ -276,8 +275,8 @@ if __name__ == '__main__':
     # run alg
     # init_solution = list(np.random.randint(0, 2, graph.number_of_nodes()))
 
-    if_run_one_case = True
-    if if_run_one_case:
+    run_one_file = False
+    if run_one_file:
         if_run_graph_based_problems = True
         if if_run_graph_based_problems:
             # read data
@@ -306,16 +305,16 @@ if __name__ == '__main__':
             num_steps = int(100 * num_sets)
             curr_score, curr_solution, scores = simulated_annealing_set_cover(init_temperature, num_steps, num_items, num_sets, item_matrix)
 
-    else:
-        pass
+    run_multi_files = True
+    if run_multi_files:
         alg = simulated_annealing
         alg_name = 'simulated_annealing'
         if_run_graph_based_problems = True
         if if_run_graph_based_problems:
             init_temperature = 0.2
             num_steps = None
-            directory_data = '../data/syn_ER'
-            prefixes = ['erdos_renyi_100_']
+            directory_data = '../data/syn_BA'
+            prefixes = ['barabasi_albert_100_']
         else:
             init_temperature = 4
             num_steps = None

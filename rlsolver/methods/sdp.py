@@ -15,7 +15,7 @@ from typing import List
 
 from rlsolver.methods.util_obj import obj_maxcut
 from rlsolver.methods.util_read_data import read_nxgraph
-from rlsolver.methods.util import (calc_txt_files_with_prefix,
+from rlsolver.methods.util import (calc_txt_files_with_prefixes,
                   )
 from rlsolver.methods.util_result import (write_graph_result,
                                           )
@@ -64,20 +64,19 @@ def sdp_maxcut(filename: str):
 
 def run_sdp_over_multiple_files(alg, alg_name, directory_data: str, prefixes: List[str])-> List[List[float]]:
     scores = []
-    for prefix in prefixes:
-        files = calc_txt_files_with_prefix(directory_data, prefix)
-        files.sort()
-        for i in range(len(files)):
-            start_time = time.time()
-            filename = files[i]
-            print(f'The {i}-th file: {filename}')
-            score, solution = alg(filename)
-            scores.append(score)
-            print(f"score: {score}")
-            running_duration = time.time() - start_time
-            graph = read_nxgraph(filename)
-            num_nodes = int(graph.number_of_nodes())
-            write_graph_result(score, running_duration, num_nodes, alg_name, solution, filename)
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    files.sort()
+    for i in range(len(files)):
+        start_time = time.time()
+        filename = files[i]
+        print(f'The {i}-th file: {filename}')
+        score, solution = alg(filename)
+        scores.append(score)
+        print(f"score: {score}")
+        running_duration = time.time() - start_time
+        graph = read_nxgraph(filename)
+        num_nodes = int(graph.number_of_nodes())
+        write_graph_result(score, running_duration, num_nodes, alg_name, solution, filename)
     return scores
 
 
@@ -93,12 +92,12 @@ if __name__ == '__main__':
 
     # graph = read_nxgraph('../data/syn/syn_50_176.txt')
     # filename = '../data/gset/gset_14.txt'
-    run_single_file = True
+    run_single_file = False
     if run_single_file:
         filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
         sdp_maxcut(filename)
 
-    run_multi_files = False
+    run_multi_files = True
     if run_multi_files:
         alg = sdp_maxcut
         alg_name = 'sdp'
