@@ -104,7 +104,7 @@ def main():
     run_multi_files = True
     if run_multi_files:
         dir = '../../data/tsplib'
-        prefixes = ['b']
+        prefixes = ['a']
         run_multi_instances(dir, prefixes)
 
     pass
