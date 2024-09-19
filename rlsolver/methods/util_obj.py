@@ -1,35 +1,24 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-import copy
-from torch.autograd import Variable
-import functools
-import time
 import numpy as np
 from typing import Union, Tuple, List
 import networkx as nx
 from torch import Tensor
-import torch as th
 from config import *
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
-TEN = th.Tensor
-INT = th.IntTensor
-TEN = th.Tensor
-GraphList = List[Tuple[int, int, int]]
-IndexList = List[List[int]]
-from config import GSET_DIR
-DataDir = GSET_DIR
 
-from util import (transfer_nxgraph_to_adjacencymatrix,
+
+from rlsolver.methods.util import (transfer_nxgraph_to_adjacencymatrix,
                   )
 
-from util_read_data import (read_nxgraph,
+from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_set_cover_data
                             )
-from util_generate import generate_write_adjacencymatrix_and_nxgraph
+from rlsolver.methods.util_generate import generate_write_adjacencymatrix_and_nxgraph
 # max total cuts
 def obj_maxcut(result: Union[Tensor, List[int], np.array], graph: nx.Graph):
     num_nodes = len(result)

@@ -1,6 +1,5 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-import os
 import numpy as np
 from typing import List, Union, Tuple, Optional
 from torch import Tensor
@@ -10,17 +9,13 @@ from rlsolver.methods.util_obj import obj_maxcut
 from rlsolver.methods.util import (calc_result_file_name,
                             calc_txt_files_with_prefix
                                               )
-from rlsolver.methods.config import (NUM_IDS,
-                    RUNNING_DURATIONS,
-                    )
-# from methods.simulated_annealing import simulated_annealing_set_cover, simulated_annealing
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
 
-def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes: int, alg_name: str, solution: Union[Tensor, List[int], np.array], filename: str):
+def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes: int, alg_name: str, solution: Union[Tensor, List[int], np.array], filename: str, plus1=True):
     add_tail = '_' if running_duration is None else '_' + str(int(running_duration)) if 'data' in filename else None
     new_filename = calc_result_file_name(filename, add_tail)
     print("result filename: ", new_filename)
@@ -31,7 +26,10 @@ def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes:
         new_file.write(f"// num_nodes: {num_nodes}\n")
         new_file.write(f"{prefix}alg_name: {alg_name}\n")
         for i in range(len(solution)):
-            new_file.write(f"{i + 1} {solution[i] + 1}\n")
+            if plus1:
+                new_file.write(f"{i + 1} {solution[i] + 1}\n")
+            else:
+                new_file.write(f"{i + 1} {solution[i]}\n")
 
 def write_result_set_cover(obj: Union[float, int], running_duration: int, num_items: int, num_sets: int, alg_name, filename: str):
     add_tail = '_' + str(int(running_duration)) if 'data' in filename else None

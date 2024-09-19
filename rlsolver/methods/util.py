@@ -15,14 +15,8 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
-TEN = th.Tensor
-INT = th.IntTensor
-TEN = th.Tensor
 GraphList = List[Tuple[int, int, int]]
 IndexList = List[List[int]]
-from rlsolver.methods.config import GSET_DIR
-DataDir = GSET_DIR
-
 
 
 def plot_nxgraph(g: nx.Graph(), fig_filename='.result/fig.png'):

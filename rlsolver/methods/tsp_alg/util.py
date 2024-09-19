@@ -173,7 +173,7 @@ def plot_tour(coordinates, city_tour = [], view = 'browser', size = 10):
                            opacity    = 1
                        )
     fig.update_traces(textfont_size = 10, textfont_color = 'rgb(255, 255, 255)')
-    fig.write_image('result/result.jpg')
+    fig.write_image('./result.jpg')
     fig.show()
     return
 

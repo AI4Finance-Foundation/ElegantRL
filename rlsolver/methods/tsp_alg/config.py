@@ -16,8 +16,8 @@ class Alg(Enum):
     lkh = 'lkh'
 
 
-ALG = Alg.christofides_algorithm
-FILE_NAME = '../../data/tsplib/d657.tsp'
+ALG = Alg.local_search_2_opt
+FILE_NAME = '../../data/tsplib/att48.tsp'
 
 # Parameters
 if ALG == Alg.local_search_2_opt:

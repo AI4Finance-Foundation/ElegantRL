@@ -1,27 +1,12 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-import copy
-from torch.autograd import Variable
-import functools
-import time
 import numpy as np
-from typing import Union, Tuple, List
 import networkx as nx
-from torch import Tensor
-import torch as th
-from config import *
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
-TEN = th.Tensor
-INT = th.IntTensor
-TEN = th.Tensor
-GraphList = List[Tuple[int, int, int]]
-IndexList = List[List[int]]
-from config import GSET_DIR
-DataDir = GSET_DIR
 
 # read graph file, e.g., gset_14.txt, as networkx.Graph
 # The nodes in file start from 1, but the nodes start from 0 in our codes.
