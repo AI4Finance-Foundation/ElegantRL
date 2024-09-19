@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 import util
 from config import *
@@ -13,6 +15,7 @@ from opt_2 import local_search_2_opt
 from opt_3 import local_search_3_opt
 from s_tabu import tabu_search
 from sa import simulated_annealing_tsp
+from rlsolver.methods.util_result import write_graph_result
 def run():
 
     # Loading Coordinates # Berlin 52 (Minimum Distance = 7544.3659)
@@ -25,7 +28,7 @@ def run():
     # Obtaining the Distance Matrix
     distance_matrix = util.build_distance_matrix(coordinates)
 
-
+    start_time = time.time()
     if ALG == Alg.cheapest_insertion:
         route, distance = cheapest_insertion(distance_matrix, **PARAMETERS)
     elif ALG == Alg.christofides_algorithm:
@@ -59,10 +62,18 @@ def run():
         seed = util.seed_function(distance_matrix)
         route, distance = tabu_search(distance_matrix, seed, **PARAMETERS)
 
-    if ALG != Alg.lkh:
+
+    if_plot = False
+    if if_plot and ALG != Alg.lkh:
         # Plot Locations and Tour
         print('Total Distance: ', round(distance, 2))
         plot_tour(coordinates, city_tour=route, view='notebook', size=10)
+
+    running_duration = time.time() - start_time
+    print("running_duration: ", running_duration)
+    write_graph_result(obj=distance, running_duration=running_duration, num_nodes=len(route)-1, alg_name=ALG, solution=route, filename=FILE_NAME, plus1=False)
+
+    aaa = 1
 
 
 def main():
