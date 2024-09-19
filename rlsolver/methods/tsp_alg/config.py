@@ -17,7 +17,6 @@ class Alg(Enum):
 
 
 ALG = Alg.local_search_2_opt
-FILE_NAME = '../../data/tsplib/att48.tsp'
 
 # Parameters
 if ALG == Alg.local_search_2_opt:
