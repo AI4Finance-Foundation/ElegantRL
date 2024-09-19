@@ -9,6 +9,7 @@ from numpy.core.defchararray import isnumeric
 
 def read_tsp_file(filename: str):
     coordinates = np.array([])
+    prev_index = None
     with open(filename, 'r') as file:
         count = 0
         while True:
@@ -17,14 +18,24 @@ def read_tsp_file(filename: str):
             if 'EOF' in line:
                 break
             parts = line.split(' ')
-            if len(parts) == 3 and isnumeric(parts[0]):
-                index_str, x_str, y_str = line.split(" ")
-                x = float(x_str)
-                y = float(y_str)
-                if len(coordinates) == 0:
-                    coordinates = np.array([[x, y]])
-                else:
-                    coordinates = np.append(coordinates, [[x, y]], axis=0)
+            new_parts = []
+            for part in parts:
+                if part != '':
+                    new_parts.append(part)
+            if len(new_parts) == 3 and isnumeric(new_parts[0]):
+                index_str, x_str, y_str = new_parts
+                index = int(index_str)
+                if (prev_index is None and index == 1) or (prev_index is not None and index == prev_index + 1):
+                    if (prev_index is None and index == 1) and len(coordinates) > 0:
+                        coordinates = np.array([])
+                        continue
+                    x = float(x_str)
+                    y = float(y_str)
+                    if len(coordinates) == 0:
+                        coordinates = np.array([[x, y]])
+                    else:
+                        coordinates = np.append(coordinates, [[x, y]], axis=0)
+                    prev_index = index
     return coordinates
 
 # Function: Tour Distance
