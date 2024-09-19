@@ -23,8 +23,17 @@ from opt_3 import local_search_3_opt
 from s_tabu import tabu_search
 from sa import simulated_annealing_tsp
 from rlsolver.methods.util_result import write_graph_result
-def run():
+from rlsolver.methods.util import (transfer_float_to_binary,
+                  calc_txt_files_with_prefix,
+                                   )
+def run_multi_instances(dir: str, prefixes: str):
+    files = calc_txt_files_with_prefix(dir, prefixes)
+    for i in range(len(files)):
+        file = files[i]
+        run_one_instance(file)
 
+
+def run_one_instance(FILE_NAME):
     # Loading Coordinates # Berlin 52 (Minimum Distance = 7544.3659)
     if 'Coordinates' in FILE_NAME:
         coordinates = pd.read_csv(FILE_NAME, sep='\t')
@@ -84,7 +93,18 @@ def run():
 
 
 def main():
-    run()
+
+    run_one_file = False
+    if run_one_file:
+        file_name = FILE_NAME
+        run_one_instance(file_name)
+
+    run_multi_files = True
+    if run_multi_files:
+        dir = '../../data/tsplib'
+        prefixes = 'a'
+        run_multi_instances(dir, prefixes)
+
     pass
 
 if __name__ == '__main__':
