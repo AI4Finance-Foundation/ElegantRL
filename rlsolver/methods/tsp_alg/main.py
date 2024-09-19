@@ -23,23 +23,22 @@ from opt_3 import local_search_3_opt
 from s_tabu import tabu_search
 from sa import simulated_annealing_tsp
 from rlsolver.methods.util_result import write_graph_result
-from rlsolver.methods.util import (transfer_float_to_binary,
-                  calc_txt_files_with_prefixes,
+from rlsolver.methods.util import (calc_txt_files_with_prefixes,
                                    )
+
 def run_multi_instances(dir: str, prefixes: List[str]):
     files = calc_txt_files_with_prefixes(dir, prefixes)
     for i in range(len(files)):
         file = files[i]
         run_one_instance(file)
 
-
-def run_one_instance(FILE_NAME):
+def run_one_instance(file_name):
     # Loading Coordinates # Berlin 52 (Minimum Distance = 7544.3659)
-    if 'Coordinates' in FILE_NAME:
-        coordinates = pd.read_csv(FILE_NAME, sep='\t')
+    if 'Coordinates' in file_name:
+        coordinates = pd.read_csv(file_name, sep='\t')
         coordinates = coordinates.values
-    elif 'tsp' in FILE_NAME:
-        coordinates = read_tsp_file(FILE_NAME)
+    elif 'tsp' in file_name:
+        coordinates = read_tsp_file(file_name)
 
     # Obtaining the Distance Matrix
     distance_matrix = util.build_distance_matrix(coordinates)
@@ -87,7 +86,7 @@ def run_one_instance(FILE_NAME):
 
     running_duration = time.time() - start_time
     print("running_duration: ", running_duration)
-    write_graph_result(obj=distance, running_duration=running_duration, num_nodes=len(route)-1, alg_name=ALG, solution=route, filename=FILE_NAME, plus1=False)
+    write_graph_result(obj=distance, running_duration=running_duration, num_nodes=len(route)-1, alg_name=ALG, solution=route, filename=file_name, plus1=False)
 
     aaa = 1
 
@@ -96,7 +95,7 @@ def main():
 
     run_one_file = False
     if run_one_file:
-        file_name = FILE_NAME
+        file_name = '../../data/tsplib/att48.tsp'
         run_one_instance(file_name)
 
     run_multi_files = True
