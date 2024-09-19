@@ -1,5 +1,9 @@
 import sys
-sys.path.append('../')
+import os
+cur_path = os.path.dirname(os.path.abspath(__file__))
+rlsolver_path = os.path.join(cur_path, '../../rlsolver')
+sys.path.append(os.path.dirname(rlsolver_path))
+
 import cvxpy as cp
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -89,13 +93,17 @@ if __name__ == '__main__':
 
     # graph = read_nxgraph('../data/syn/syn_50_176.txt')
     # filename = '../data/gset/gset_14.txt'
-    filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
-    sdp_maxcut(filename)
+    run_single_file = True
+    if run_single_file:
+        filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+        sdp_maxcut(filename)
 
-    alg = sdp_maxcut
-    alg_name = 'sdp'
-    directory_data = '../data/syn_BA'
-    prefixes = ['barabasi_albert_100']
-    scores = run_sdp_over_multiple_files(alg, alg_name, directory_data, prefixes)
-    print(f"scores: {scores}")
+    run_multi_files = False
+    if run_multi_files:
+        alg = sdp_maxcut
+        alg_name = 'sdp'
+        directory_data = '../data/syn_BA'
+        prefixes = ['barabasi_albert_100']
+        scores = run_sdp_over_multiple_files(alg, alg_name, directory_data, prefixes)
+        print(f"scores: {scores}")
 
