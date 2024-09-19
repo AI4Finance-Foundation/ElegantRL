@@ -1,20 +1,18 @@
-import copy
-import time
-import networkx as nx
-import numpy as np
+import sys
+import os
+cur_path = os.path.dirname(os.path.abspath(__file__))
+rlsolver_path = os.path.join(cur_path, '../../rlsolver')
+sys.path.append(os.path.dirname(rlsolver_path))
+
 import random
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import copy
-from torch.autograd import Variable
-import functools
 import time
 import numpy as np
-from typing import Union, Tuple, List
 import networkx as nx
-from torch import Tensor
-import torch as th
-from config import *
+from rlsolver.methods.config import *
+
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
