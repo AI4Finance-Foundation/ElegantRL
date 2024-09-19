@@ -347,8 +347,8 @@ if __name__ == '__main__':
     # run alg
     alg_name = 'GR'
 
-    if_run_one_case = False
-    if if_run_one_case:
+    run_one_file = False
+    if run_one_file:
         # maxcut
         if PROBLEM == Problem.maxcut:
             num_steps = None
@@ -388,7 +388,8 @@ if __name__ == '__main__':
             fig_filename = '../result/fig.png'
             plot_nxgraph(graph, fig_filename)
 
-    else:
+    run_multi_files = True
+    if run_multi_files:
         if PROBLEM == Problem.maxcut:
             alg = greedy_maxcut
         elif PROBLEM == Problem.graph_partitioning:
