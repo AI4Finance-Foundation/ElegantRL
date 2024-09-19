@@ -1,34 +1,22 @@
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import copy
-from torch.autograd import Variable
-import functools
-import time
 import numpy as np
 from typing import Union, Tuple, List
 import networkx as nx
-from torch import Tensor
 import torch as th
 
-from util import (transfer_weightmatrix_to_nxgraph,
-load_graph_from_txt,
-build_adjacency_matrix,
-save_graph_info_to_txt,
-                  )
-from config import *
+from rlsolver.methods.util import (transfer_weightmatrix_to_nxgraph,
+                                                      )
+from rlsolver.methods.config import GraphDistriType
+
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
-TEN = th.Tensor
-INT = th.IntTensor
-TEN = th.Tensor
-GraphList = List[Tuple[int, int, int]]
-IndexList = List[List[int]]
-from config import GSET_DIR
-DataDir = GSET_DIR
 
+from rlsolver.methods.config import GRAPH_DISTRI_TYPES
 def generate_graph(num_nodes: int, g_type: str):
     graph_types = GRAPH_DISTRI_TYPES
     assert g_type in graph_types
@@ -176,33 +164,6 @@ def write_nxgraph(g: nx.Graph(), filename: str):
                 if weight != 0:
                     file.write(f'{i + 1} {j + 1} {weight}\n')
 
-
-def generate_graph_for_validation():
-    import random
-    num_nodes_list = [20, 50, 100, 200, 300]
-    g_type = GRAPH_DISTRI_TYPE
-    num_valid = 6
-    seed_num = 0
-    data_dir = DATA_DIR
-    os.makedirs(data_dir, exist_ok=True)
-
-    '''generate'''
-    for num_nodes in num_nodes_list:
-        random.seed(seed_num)  # must write in the for loop
-        for i in range(num_valid):
-            txt_path = f"{data_dir}/graph_{g_type}_{num_nodes}_ID{i:03}.txt"
-
-            graph, num_nodes, num_edges = generate_graph(num_nodes=num_nodes, g_type=g_type)
-            save_graph_info_to_txt(txt_path, graph, num_nodes, num_edges)
-
-    '''load'''
-    for num_nodes in num_nodes_list:
-        for i in range(num_valid):
-            txt_path = f"{data_dir}/graph_{g_type}_{num_nodes}_ID{i:03}.txt"
-
-            graph, num_nodes, num_edges = load_graph_from_txt(txt_path)
-            adjacency_matrix = build_adjacency_matrix(graph, num_nodes)
-            print(adjacency_matrix.shape)
 
 
 if __name__ == '__main__':
