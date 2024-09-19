@@ -15,7 +15,7 @@ from rlsolver.methods.util_read_data import (read_nxgraph,
                             read_knapsack_data,
                             read_set_cover_data)
 from rlsolver.methods.util import (transfer_float_to_binary,
-                  calc_txt_files_with_prefix,
+                  calc_txt_files_with_prefixes,
                   calc_result_file_name,
                   calc_avg_std_of_objs,
                   plot_fig,
@@ -531,13 +531,12 @@ def run_using_gurobi(filename: str, init_x = None, time_limit: int = None, plot_
     return x_values
 
 def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str = 'data', directory_result: str = 'result'):
-    for prefix in prefixes:
-        files = calc_txt_files_with_prefix(directory_data, prefix)
-        files.sort()
-        for i in range(len(files)):
-            print(f'The {i}-th file: {files[i]}')
-            for j in range(len(time_limits)):
-                run_using_gurobi(files[i], None, time_limits[j])
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    files.sort()
+    for i in range(len(files)):
+        print(f'The {i}-th file: {files[i]}')
+        for j in range(len(time_limits)):
+            run_using_gurobi(files[i], None, time_limits[j])
     avg_std = calc_avg_std_of_objs(directory_result, prefixes, time_limits)
 
 if __name__ == '__main__':
