@@ -10,7 +10,7 @@ import time
 from typing import List
 import networkx as nx
 from util_read_data import read_nxgraph
-from util import calc_txt_files_with_prefix
+from util import calc_txt_files_with_prefixes
 from util import calc_result_file_name
 from util import calc_avg_std_of_objs
 from util import plot_fig
@@ -117,12 +117,11 @@ def run_using_scip(filename: str, time_limit: int = None, plot_fig_: bool = Fals
     print()
 
 def run_scip_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str = 'data', directory_result: str = './result'):
-    for prefix in prefixes:
-        files = calc_txt_files_with_prefix(directory_data, prefix)
-        for i in range(len(files)):
-            print(f'The {i}-th file: {files[i]}')
-            for j in range(len(time_limits)):
-                run_using_scip(files[i], time_limits[j])
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    for i in range(len(files)):
+        print(f'The {i}-th file: {files[i]}')
+        for j in range(len(time_limits)):
+            run_using_scip(files[i], time_limits[j])
     directory = '../result'
     calc_avg_std_of_objs(directory, prefixes, time_limits)
 if __name__ == '__main__':

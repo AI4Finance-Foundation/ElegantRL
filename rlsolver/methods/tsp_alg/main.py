@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(rlsolver_path))
 
 
 import time
-
+from typing import Union, Tuple, List
 import pandas as pd
 import util
 from config import *
@@ -24,10 +24,10 @@ from s_tabu import tabu_search
 from sa import simulated_annealing_tsp
 from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.util import (transfer_float_to_binary,
-                  calc_txt_files_with_prefix,
+                  calc_txt_files_with_prefixes,
                                    )
-def run_multi_instances(dir: str, prefixes: str):
-    files = calc_txt_files_with_prefix(dir, prefixes)
+def run_multi_instances(dir: str, prefixes: List[str]):
+    files = calc_txt_files_with_prefixes(dir, prefixes)
     for i in range(len(files)):
         file = files[i]
         run_one_instance(file)
@@ -102,7 +102,7 @@ def main():
     run_multi_files = True
     if run_multi_files:
         dir = '../../data/tsplib'
-        prefixes = 'a'
+        prefixes = ['a']
         run_multi_instances(dir, prefixes)
 
     pass
