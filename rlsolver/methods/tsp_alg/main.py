@@ -35,7 +35,7 @@ def run_multi_instances(dir: str, prefixes: List[str]):
         run_one_instance(file)
 
 def run_one_instance(file_name):
-    print("file_name: ", file_name)
+    print("file_name: ", )
     # Loading Coordinates # Berlin 52 (Minimum Distance = 7544.3659)
     if 'Coordinates' in file_name:
         coordinates = pd.read_csv(file_name, sep='\t')
