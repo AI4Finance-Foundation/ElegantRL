@@ -14,7 +14,7 @@ import networkx as nx
 from rlsolver.methods.util import (plot_fig,
                   plot_nxgraph,
                   transfer_nxgraph_to_weightmatrix,
-                  calc_txt_files_with_prefix,
+                  calc_txt_files_with_prefixes,
                 )
 from rlsolver.methods.util_read_data import (read_nxgraph,
                             )
@@ -319,25 +319,23 @@ def run_greedy_over_multiple_files(alg, alg_name, num_steps, directory_data: str
     from util_read_data import (read_set_cover_data, read_nxgraph)
     from util_result import write_result_set_cover
     scoress = []
-    for prefix in prefixes:
-        files = calc_txt_files_with_prefix(directory_data, prefix)
-        files.sort()
-        for i in range(len(files)):
-            start_time = time.time()
-            filename = files[i]
-            print(f'The {i}-th file: {filename}')
-            if PROBLEM == Problem.set_cover:
-                from greedy import greedy_set_cover
-                num_items, num_sets, item_matrix = read_set_cover_data(filename)
-                score, solution, scores = greedy_set_cover(num_items, num_sets, item_matrix)
-                scoress.append(scores)
-                running_duration = time.time() - start_time
-                alg_name = 'greedy'
-                write_result_set_cover(score, running_duration, num_items, num_sets, alg_name, filename)
-            else:
-                graph = read_nxgraph(filename)
-                score, solution, scores = alg(num_steps, graph, filename)
-                scoress.append(scores)
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    files.sort()
+    for i in range(len(files)):
+        start_time = time.time()
+        filename = files[i]
+        print(f'The {i}-th file: {filename}')
+        if PROBLEM == Problem.set_cover:
+            from greedy import greedy_set_cover
+            num_items, num_sets, item_matrix = read_set_cover_data(filename)
+            score, solution, scores = greedy_set_cover(num_items, num_sets, item_matrix)
+            scoress.append(scores)
+            running_duration = time.time() - start_time
+            write_result_set_cover(score, running_duration, num_items, num_sets, alg_name, filename)
+        else:
+            graph = read_nxgraph(filename)
+            score, solution, scores = alg(num_steps, graph, filename)
+            scoress.append(scores)
     return scoress
 
 if __name__ == '__main__':
