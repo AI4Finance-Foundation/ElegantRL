@@ -151,8 +151,8 @@ def calc_obj_maxcut_xstr(x_str: str, filename: str):
 if __name__ == '__main__':
     test_x = True
     if test_x:
-        x_str = "YRBr0EfnOylAI0VppsZuK8$oA9I1h1utf71604ydUKpbZcRx_a"
-        filename = "../data/syn_BA/barabasi_albert_300_ID1.txt"
+        x_str = "4uBV2lGAiHqFxIenn"
+        filename = "../data/syn_PL/powerlaw_100_ID0.txt"
         obj = calc_obj_maxcut_xstr(x_str, filename)
         print("obj: ", obj)
 
