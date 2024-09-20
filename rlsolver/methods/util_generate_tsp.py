@@ -9,7 +9,7 @@ class ConfigTsp:
     random_mode = 'uniform'  #'uniform','gaussian'
     assert random_mode in ['uniform','gaussian']
     filename = f"tsp{num_nodes}_batch{batch_size}_{random_mode}"
-    data_path = "../tsp_data/generation/" + filename + '.tsp'
+    data_path = "../data/" + filename + '.tsp'
 
 def generate_tsp_data(batch=10, nodes_num=10, low=0, high=1, random_mode="uniform"):
     if random_mode == "uniform":
