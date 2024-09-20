@@ -32,7 +32,7 @@ def generate_tsp_file(node_coords: np.ndarray, filename):
             _generate_tsp_file(node_coords, filename)
         else:
             for i in range(shape[0]):
-                _filename = filename + '-' + str(i)
+                _filename = filename.replace('.tsp', '') + '_ID' + str(i) + '.tsp'
                 _generate_tsp_file(node_coords[i], _filename)
     else:
         assert node_coords.ndim == 2
