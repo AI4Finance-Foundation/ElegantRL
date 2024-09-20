@@ -9,7 +9,7 @@ class ConfigTsp:
     random_mode = 'uniform'  #'uniform','gaussian'
     assert random_mode in ['uniform','gaussian']
     filename = f"tsp{num_nodes}_batch{batch_size}_{random_mode}"
-    data_path = "../tsp_data/generation/" + filename + '.tsp'
+    data_path = "../data/" + filename + '.tsp'
 
 def generate_tsp_data(batch=10, nodes_num=10, low=0, high=1, random_mode="uniform"):
     if random_mode == "uniform":
@@ -32,7 +32,7 @@ def generate_tsp_file(node_coords: np.ndarray, filename):
             _generate_tsp_file(node_coords, filename)
         else:
             for i in range(shape[0]):
-                _filename = filename + '-' + str(i)
+                _filename = filename.replace('.tsp', '') + '_ID' + str(i) + '.tsp'
                 _generate_tsp_file(node_coords[i], _filename)
     else:
         assert node_coords.ndim == 2
