@@ -37,11 +37,6 @@ def main(_):
     result = sample[obj_index].squeeze()
     end_time = time.time()
     running_duration = end_time - start_time
-    output_filename = '../../result/mis_iSCO' + '/result_' + os.path.basename(DATAPATH)
-    output_filename = os.path.splitext(output_filename)[0] + '.txt'
-    directory = os.path.dirname(output_filename)
-    if not os.path.exists(directory):
-        os.mkdir(directory)
     num_nodes = data["num_nodes"]
     alg_name = "iSCO"
     write_graph_result(obj, running_duration, num_nodes, alg_name, result, DATAPATH)
