@@ -247,7 +247,7 @@ def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
     get_gym_env_args(env=gym.make('LunarLander-v2'), if_print=True)  # return env_args
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
-    args.break_step = int(8e5)  # break training if 'total_step > break_step'
+    args.break_step = int(4e5)  # break training if 'total_step > break_step'
     args.net_dims = [256, 128]  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
     args.gamma = 0.985  # discount factor of future rewards
@@ -256,6 +256,7 @@ def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
     args.repeat_times = 4.0  # GPU 2 repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -1
     args.learning_rate = 1e-3
+    args.lambda_fit_cum_r = 0.1
 
     args.explore_rate = 0.1
 
@@ -263,7 +264,7 @@ def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
     args.eval_per_step = 2e4
 
     args.gpu_id = gpu_id
-    args.num_workers = 4
+    args.num_workers = 2
     train_agent(args=args, if_single_process=False)
 
     """
@@ -281,14 +282,29 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 0  1.60e+05    1470 |  262.14   32.1    244   117 |    0.35   0.40  11.03
 0  1.80e+05    1836 |  209.33   87.3    428   350 |    0.25   0.41  11.53
 0  2.00e+05    2246 |  261.16   35.9    264   167 |    0.36   0.41  11.76
+
+lambda_fit_cum_r = 0.1
+################################################################################
+ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
+0  1.00e+03      13 | -815.41  554.0    119    53 |   -3.04  14.41  -0.53
+0  2.10e+04      34 |  -82.07   24.2   1000     0 |   -0.04   2.41  -2.00
+0  4.10e+04      73 | -102.24   38.1    592   394 |   -0.05   1.42  -1.59
+0  6.10e+04     124 |  127.47  128.0    457   232 |    0.12   1.00  -1.16
+0  8.10e+04     186 |  -25.05   61.2    916   197 |   -0.01   1.45   6.39
+0  1.01e+05     261 |  146.39  122.0    557   318 |    0.07   1.04   4.53
+0  1.21e+05     348 |   58.56  135.3    642   390 |   -0.04   0.85   3.50
+0  1.41e+05     445 |  179.57  113.3    468   361 |    0.33   0.56   1.89
+0  1.61e+05     553 |  253.64   40.7    282   143 |    0.32   0.54   2.73
+0  1.81e+05     674 |  239.29   52.9    313   233 |    0.33   0.48   3.11
+0  2.01e+05     804 |  239.34   64.5    301   214 |    0.05   0.44   3.35
     """
 
 
 if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
-    Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
+    Parser.add_argument('--drl', type=int, default=5, help='RL algorithms ID for training')
+    Parser.add_argument('--env', type=str, default='3', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu

@@ -76,7 +76,7 @@ class AgentMADDPG(AgentBase):
         :param dones: done list of the sampled buffer
         :param actions: action list of the sampled buffer
         :param observations: observation list of the sampled buffer
-        :param next_obs: next_observation list of the sample buffer
+        :param next_obs: next_observation list of the sampled buffer
         :param index: ID of the agent
         """
         curr_agent = self.agents[index]

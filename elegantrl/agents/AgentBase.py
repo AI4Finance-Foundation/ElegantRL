@@ -32,6 +32,7 @@ class AgentBase:
         self.action_dim = action_dim  # feature number of continuous action or number of discrete action
 
         self.gamma = args.gamma  # discount factor of future rewards
+        self.max_step = args.max_step  # limits the maximum number of steps an agent can take in a trajectory.
         self.num_envs = args.num_envs  # the number of sub envs in vectorized env. `num_envs=1` in single env.
         self.batch_size = args.batch_size  # num of transitions sampled from replay buffer.
         self.repeat_times = args.repeat_times  # repeatedly update network using ReplayBuffer
@@ -60,6 +61,7 @@ class AgentBase:
         self.criterion = th.nn.SmoothL1Loss(reduction="none")
         self.if_vec_env = self.num_envs > 1  # use vectorized environment (vectorized simulator)
         self.if_use_per = getattr(args, 'if_use_per', None)  # use PER (Prioritized Experience Replay)
+        self.lambda_fit_cum_r = getattr(args, 'lambda_fit_cum_r', 0.0)  # critic fits cumulative returns
 
         """save and load"""
         self.save_attr_names = {'act', 'act_target', 'act_optimizer', 'cri', 'cri_target', 'cri_optimizer'}
@@ -168,6 +170,9 @@ class AgentBase:
         objs_critic = []
         objs_actor = []
 
+        if self.lambda_fit_cum_r != 0:
+            buffer.update_cum_rewards(get_cumulative_rewards=self.get_cumulative_rewards)
+
         th.set_grad_enabled(True)
         update_times = int(buffer.cur_size * self.repeat_times / self.batch_size)
         for update_t in range(update_times):
@@ -216,7 +221,7 @@ class AgentBase:
         return obj_critic.item(), obj_actor.item()
 
     def get_cumulative_rewards(self, rewards: TEN, undones: TEN) -> TEN:
-        returns = th.empty_like(rewards)
+        cum_rewards = th.empty_like(rewards)
 
         masks = undones * self.gamma
         horizon_len = rewards.shape[0]
@@ -225,8 +230,8 @@ class AgentBase:
         next_action = self.act_target(last_state)
         next_value = self.cri_target(last_state, next_action).detach()
         for t in range(horizon_len - 1, -1, -1):
-            returns[t] = next_value = rewards[t] + masks[t] * next_value
-        return returns
+            cum_rewards[t] = next_value = rewards[t] + masks[t] * next_value
+        return cum_rewards
 
     def optimizer_backward(self, optimizer: th.optim, objective: TEN):
         """minimize the optimization objective via update the network parameters
