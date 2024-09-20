@@ -1,3 +1,9 @@
+import sys
+import os
+cur_path = os.path.dirname(os.path.abspath(__file__))
+rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
+sys.path.append(os.path.dirname(rlsolver_path))
+
 from absl import app
 from rlsolver.envs.env_isco_maxcut import iSCO
 from rlsolver.methods.iSCO.config.maxcut_config import *
