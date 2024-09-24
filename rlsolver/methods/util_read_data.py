@@ -36,24 +36,6 @@ def read_nxgraph(filename: str) -> nx.Graph():
             line = file.readline()
     return graph
 
-# read tsp file,latitude and longitude, horizontal and vertical coordinates
-def read_tsp(filename:str) -> nx.Graph():
-
-    graph = nx.Graph()
-
-    with open(filename,'r') as file:
-        num_nodes = int(file.readline().strip())
-        positions = np.array([list(map(float,line.split(" "))) for line in file if line.strip()])
-
-    for node_id,pos in enumerate(positions):
-        graph.add_node(node_id,pos=tuple(pos))
-
-    for i in range(num_nodes):
-        dists = np.sqrt(np.sum((positions[i] - positions[i+1:num_nodes]) ** 2,axis=1))
-        for j,dist in enumerate(dists,start=i + 1):
-            graph.add_edge(i,j,weight = dist)
-
-    return graph
 
 # def read_set_cover(filename: str):
 #     with open(filename, 'r') as file:
