@@ -3,7 +3,7 @@ import plotly.io as pio
 import plotly.graph_objects as go
 import numpy  as np
 import random
-
+import networkx as nx
 from numpy.core.defchararray import isnumeric
 
 
@@ -29,12 +29,22 @@ def read_tsp_file(filename: str):
                     x = float(x_str)
                     y = float(y_str)
                     if len(coordinates) == 0:
-                        coordinates = np.array([[x, y]])
+                        coordinates = np.array([(x, y)])
                     else:
-                        coordinates = np.append(coordinates, [[x, y]], axis=0)
+                        coordinates = np.append(coordinates, [(x, y)], axis=0)
                     prev_index = index
     assert index == len(coordinates)
-    return coordinates
+    num_nodes = len(coordinates)
+    nodes = list(range(num_nodes))
+    graph = nx.Graph()
+    graph.add_nodes_from(nodes)
+    for i in range(num_nodes):
+        for j in range(i + 1, num_nodes):
+            xi, yi = coordinates[i]
+            xj, yj = coordinates[j]
+            dist = np.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
+            graph.add_edge(i, j, weight=dist)
+    return graph, coordinates
 
 # Function: Tour Distance
 def distance_calc(distance_matrix, city_tour):
