@@ -24,8 +24,9 @@ from s_tabu import tabu_search
 from sa import simulated_annealing_tsp
 from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.util import (calc_txt_files_with_prefixes,
-
+                                    transfer_nxgraph_to_adjacencymatrix
                                    )
+
 from rlsolver.methods.tsp_alg.util import build_distance_matrix
 
 def run_multi_instances(dir: str, prefixes: List[str]):
@@ -37,14 +38,14 @@ def run_multi_instances(dir: str, prefixes: List[str]):
 def run_one_instance(file_name):
     print("file_name: ", )
     # Loading Coordinates # Berlin 52 (Minimum Distance = 7544.3659)
-    if 'Coordinates' in file_name:
-        coordinates = pd.read_csv(file_name, sep='\t')
-        coordinates = coordinates.values
-    elif 'tsp' in file_name:
-        coordinates = read_tsp_file(file_name)
+    # if 'Coordinates' in file_name:
+    #     coordinates = pd.read_csv(file_name, sep='\t')
+    #     coordinates = coordinates.values
 
+    graph, coordinates = read_tsp_file(file_name)
+    distance_matrix = transfer_nxgraph_to_adjacencymatrix(graph)
     # Obtaining the Distance Matrix
-    distance_matrix = build_distance_matrix(coordinates)
+    # distance_matrix = build_distance_matrix(coordinates)
 
     start_time = time.time()
     if ALG == Alg.cheapest_insertion:
@@ -104,7 +105,7 @@ def main():
     run_multi_files = True
     if run_multi_files:
         dir = '../../data/tsplib'
-        prefixes = ['a']
+        prefixes = ['att48']
         run_multi_instances(dir, prefixes)
 
     pass
