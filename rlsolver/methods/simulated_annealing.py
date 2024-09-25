@@ -281,7 +281,7 @@ if __name__ == '__main__':
         if if_run_graph_based_problems:
             # read data
             start_time = time.time()
-            filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+            filename = '../data/syn_BA/BA_100_ID0.txt'
             graph = read_nxgraph(filename)
             num_nodes = graph.number_of_nodes
             alg_name = "SA"
