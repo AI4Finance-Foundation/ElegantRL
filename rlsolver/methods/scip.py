@@ -127,7 +127,7 @@ def run_scip_over_multiple_files(prefixes: List[str], time_limits: List[int], di
 if __name__ == '__main__':
     run_one_file = False
     if run_one_file:
-        filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+        filename = '../data/syn_BA/BA_100_ID0.txt'
         time_limits = [0.5 * 3600]
         run_using_scip(filename, time_limit=time_limits[0], plot_fig_=True)
         directory = '../result'
