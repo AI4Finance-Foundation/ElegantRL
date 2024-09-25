@@ -125,16 +125,17 @@ def run_scip_over_multiple_files(prefixes: List[str], time_limits: List[int], di
     directory = '../result'
     calc_avg_std_of_objs(directory, prefixes, time_limits)
 if __name__ == '__main__':
-    select_single_file = True
-    if select_single_file:
-        filename = '../data/syn/syn_50_176.txt'
+    run_one_file = False
+    if run_one_file:
+        filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
         time_limits = [0.5 * 3600]
         run_using_scip(filename, time_limit=time_limits[0], plot_fig_=True)
         directory = '../result'
-        prefixes = ['syn_50_']
+        prefixes = ['barabasi_albert_']
         avg_std = calc_avg_std_of_objs(directory, prefixes, time_limits)
 
-    else:
+    run_multi_files = True
+    if run_multi_files:
         directory_data = '../data/syn'
         prefixes = ['syn_10_', 'syn_50_', 'syn_100_', 'syn_300_', 'syn_500_', 'syn_700_', 'syn_900_', 'syn_1000_', 'syn_3000_', 'syn_5000_', 'syn_7000_', 'syn_9000_', 'syn_10000_']
         # prefixes = ['syn_10_']
