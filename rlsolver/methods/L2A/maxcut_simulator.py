@@ -121,10 +121,6 @@ def find_best_num_sims():
     # num_sims = 2 ** 13
     # num_iter = 2 ** 9
 
-    if os.name == 'nt':
-        graph_name = 'powerlaw_64'
-        num_sims = 2 ** 4
-        num_iter = 2 ** 3
 
     graph = load_graph_list(graph_name=graph_name)
     device = th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
