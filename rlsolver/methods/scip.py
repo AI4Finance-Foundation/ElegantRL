@@ -138,7 +138,6 @@ if __name__ == '__main__':
     if run_multi_files:
         directory_data = '../data/syn_BA'
         prefixes = ['BA_100_']
-        # prefixes = ['syn_10_']
         # time_limits = [0.5 * 3600, 1 * 3600]
         time_limits = [0.5 * 3600]
         directory_result = '../result'
