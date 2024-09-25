@@ -606,7 +606,7 @@ def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], 
 if __name__ == '__main__':
     run_one_file = False
     if run_one_file:
-        filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+        filename = '../data/syn_BA/BA_100_ID0.txt'
         time_limits = GUROBI_TIME_LIMITS
 
         from L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
@@ -627,7 +627,7 @@ if __name__ == '__main__':
 
         run_using_gurobi(filename, x, time_limit=time_limits[0], plot_fig_=True)
         directory = '../result'
-        prefixes = ['syn_10_']
+        prefixes = ['syn_BA_']
         avg_std = calc_avg_std_of_objs(directory, prefixes, time_limits)
 
     run_multi_files = True
