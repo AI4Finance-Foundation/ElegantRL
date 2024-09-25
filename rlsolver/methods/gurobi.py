@@ -208,6 +208,7 @@ def write_result_gurobi(model, filename: str = './result/result', running_durati
                 new_file.write(f"// num_nodes: {model._attribute['num_nodes']}\n")
             for i in range(len(tour)):
                 new_file.write(f"{i + 1} {tour[i]}\n")
+            new_file.write(f"{len(tour) + 1} {tour[0]}\n")
         return
 
     for var in vars:
