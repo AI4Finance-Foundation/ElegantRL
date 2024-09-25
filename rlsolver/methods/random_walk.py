@@ -44,7 +44,7 @@ if __name__ == '__main__':
     # read data
     # graph1 = read_as_networkx_graph('data/gset_14.txt')
     start_time = time.time()
-    filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+    filename = '../data/syn_BA/BA_100_ID0.txt'
     graph = read_nxgraph(filename)
 
     # run alg
