@@ -210,25 +210,6 @@ def genetic_maxcut(graph: nx.Graph(), filename):
     print("Genetic Search Complete")
 
 
-# Binary Vector:  [1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0]
-# Score of Cut:  239.0
-#
-# if __name__ == '__main__':
-#     # Constants
-#     num_parents = 5
-#     c_itMax = 5
-#     # read data
-#     # graph = read_nxgraph('../data/syn/powerlaw_100_ID270.txt')
-#     # print("Genetic Search Start")
-#
-#     filename = '../data/syn/powerlaw_100_ID270.txt'
-#     graph = read_nxgraph(filename)
-#     genetic_maxcut(graph, filename)
-#
-#     # Cut checker
-#     # vector = [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]
-#     # print(obj_maxcut(vector,graph))
-#     print("")
 
 def run_genetic_over_multiple_files(directory_data: str, prefixes: List[str])-> List[List[float]]:
     assert PROBLEM == Problem.maxcut
@@ -252,7 +233,7 @@ if __name__ == '__main__':
     if_run_one_case = False
     if if_run_one_case:
         # read data
-        filename = '../data/syn_PL/powerlaw_100_ID0.txt'
+        filename = '../data/syn_BA/BA_100_ID0.txt'
         graph = read_nxgraph(filename)
         print("Genetic Search Start")
         genetic_maxcut(graph, filename)
@@ -261,7 +242,7 @@ if __name__ == '__main__':
         directory_data = '../data/syn_BA'
         # directory_data = '../data/syn_ER'
         # directory_data = '../data/syn'
-        prefixes = ['barabasi_albert_100_']
+        prefixes = ['BA_100_']
         run_genetic_over_multiple_files(directory_data, prefixes)
 
     # Cut checker
