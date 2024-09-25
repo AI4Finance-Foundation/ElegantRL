@@ -206,8 +206,9 @@ def write_result_gurobi(model, filename: str = './result/result', running_durati
             write_statistics(model, new_file, True)
             if 'num_nodes' in model._attribute:
                 new_file.write(f"// num_nodes: {model._attribute['num_nodes']}\n")
-            for i in tour:
-                new_file.write(f"{i}\n")
+            for i in range(len(tour)):
+                new_file.write(f"{i + 1} {tour[i] + 1}\n")
+            new_file.write(f"{len(tour) + 1} {tour[0] + 1}\n")
         return
 
     for var in vars:
@@ -585,15 +586,21 @@ def run_using_gurobi(filename: str, init_x=None, time_limit: int = None, plot_fi
     return x_values
 
 
-def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str = 'data',
-                                   directory_result: str = 'result'):
+def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str):
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
     files.sort()
     for i in range(len(files)):
         print(f'The {i}-th file: {files[i]}')
         for j in range(len(time_limits)):
             run_using_gurobi(files[i], None, time_limits[j])
-    avg_std = calc_avg_std_of_objs(directory_result, prefixes, time_limits)
+    assert 'data' in directory_data
+    directory_data2 = copy.deepcopy(directory_data)
+    directory_result3 = directory_data2.replace('data', 'result')
+    index = directory_result3.find('result')
+    directory_result4 = directory_result3[:index] + 'result'
+    # directory_result4 = directory_result3.split('/')
+    # directory_result = directory_result3.replace('/' + directory_result4[-1], '')
+    avg_std = calc_avg_std_of_objs(directory_result4, prefixes, time_limits)
 
 
 if __name__ == '__main__':
@@ -649,10 +656,10 @@ if __name__ == '__main__':
             # prefixes = ['p']
             # prefixes = ['r']
             # prefixes = ['s', 't', 'u']
-            prefixes = ['berlin52']
+            prefixes = ['a5']
 
         directory_result = '../result'
-        run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data, directory_result)
+        run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data)
         avg_std = calc_avg_std_of_objs(directory_result, prefixes, GUROBI_TIME_LIMITS)
 
         run_knapsack = False

@@ -152,7 +152,7 @@ if __name__ == '__main__':
     test_x = True
     if test_x:
         x_str = "4uBV2lGAiHqFxIenn"
-        filename = "../data/syn_PL/powerlaw_100_ID0.txt"
+        filename = "../data/syn_PL/PL_100_ID0.txt"
         obj = calc_obj_maxcut_xstr(x_str, filename)
         print("obj: ", obj)
 
