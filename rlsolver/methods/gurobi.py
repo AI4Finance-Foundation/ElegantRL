@@ -597,7 +597,7 @@ def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], 
     directory_data2 = copy.deepcopy(directory_data)
     directory_result3 = directory_data2.replace('data', 'result')
     directory_result4 = directory_result3.split('/')
-    directory_result = directory_result3.replace('/' + directory_result3[-1], '')
+    directory_result = directory_result3.replace('/' + directory_result4[-1], '')
     avg_std = calc_avg_std_of_objs(directory_result, prefixes, time_limits)
 
 
