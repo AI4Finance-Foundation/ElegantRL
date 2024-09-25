@@ -187,8 +187,7 @@ def write_statistics_in_mycallback(model, new_file, add_slash=False):
     new_file.write(f"{prefix}time_limit: {time_limit}\n")
 
 
-# if filename = '../result/barabasi_albert_100_ID0.txt', running_duration = 100,
-#
+# if filename = '../result/BA_100_ID0.txt', running_duration = 100,
 def write_result_gurobi(model, filename: str = './result/result', running_duration: int = None):
     directory = filename.split('/')[0]
     if not os.path.exists(directory):
@@ -606,7 +605,7 @@ def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], 
 if __name__ == '__main__':
     run_one_file = False
     if run_one_file:
-        filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+        filename = '../data/syn_BA/BA_100_ID0.txt'
         time_limits = GUROBI_TIME_LIMITS
 
         from L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
@@ -627,7 +626,7 @@ if __name__ == '__main__':
 
         run_using_gurobi(filename, x, time_limit=time_limits[0], plot_fig_=True)
         directory = '../result'
-        prefixes = ['syn_10_']
+        prefixes = ['syn_BA_']
         avg_std = calc_avg_std_of_objs(directory, prefixes, time_limits)
 
     run_multi_files = True
@@ -636,9 +635,8 @@ if __name__ == '__main__':
         # time_limits = GUROBI_TIME_LIMITS
         # time_limits = [10 * 60, 20 * 60, 30 * 60, 40 * 60, 50 * 60, 60 * 60]
         if run_syndistr:
-            # prefixes = ['syn_10_', 'syn_50_', 'syn_100_', 'syn_300_', 'syn_500_', 'syn_700_', 'syn_900_', 'syn_1000_', 'syn_3000_', 'syn_5000_', 'syn_7000_', 'syn_9000_', 'syn_10000_']
             directory_data = '../data/syn_BA'
-            prefixes = ['barabasi_albert_100_']
+            prefixes = ['BA_100_']
 
         if PROBLEM == Problem.tsp:
             directory_data = '../data/tsplib'
@@ -658,8 +656,9 @@ if __name__ == '__main__':
             # prefixes = ['s', 't', 'u']
             prefixes = ['a5']
 
-        directory_result = '../result'
         run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data)
+
+        directory_result = '../result'
         avg_std = calc_avg_std_of_objs(directory_result, prefixes, GUROBI_TIME_LIMITS)
 
         run_knapsack = False

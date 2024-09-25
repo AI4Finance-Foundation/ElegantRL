@@ -83,4 +83,4 @@ if __name__ == '__main__':
     read_txt = True
     if read_txt:
         graph1 = read_nxgraph('../data/gset/gset_14.txt')
-        graph2 = read_nxgraph('../data/syn_5_5.txt')
+        graph2 = read_nxgraph('../data/syn_BA/BA_100_ID0.txt')

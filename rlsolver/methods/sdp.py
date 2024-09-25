@@ -90,7 +90,6 @@ if __name__ == '__main__':
     # graph.add_edges_from(edges)
 
 
-    # graph = read_nxgraph('../data/syn/syn_50_176.txt')
     # filename = '../data/gset/gset_14.txt'
     run_single_file = False
     if run_single_file:
