@@ -637,7 +637,7 @@ if __name__ == '__main__':
         # time_limits = [10 * 60, 20 * 60, 30 * 60, 40 * 60, 50 * 60, 60 * 60]
         if run_syndistr:
             directory_data = '../data/syn_BA'
-            prefixes = ['barabasi_albert_100_']
+            prefixes = ['BA_100_']
 
         if PROBLEM == Problem.tsp:
             directory_data = '../data/tsplib'
