@@ -68,6 +68,7 @@ def read_graph_result_comments(filename: str):
             line = file.readline()
     return num_nodes, ID, running_duration, obj, obj_bound
 
+# max_ID: exclusive
 def read_graph_result_comments_multifiles2(dir: str, prefixes: List[str], max_ID: int):
     objs = {}
     running_durations = {}
@@ -77,7 +78,7 @@ def read_graph_result_comments_multifiles2(dir: str, prefixes: List[str], max_ID
     for i in range(len(files)):
         file = files[i]
         num_nodes, ID, running_duration, obj, obj_bound = read_graph_result_comments(file)
-        if ID >= max_ID + 1:
+        if ID >= max_ID:
             continue
         if str(num_nodes) not in objs.keys():
             objs[str(num_nodes)] = [obj]
@@ -160,14 +161,14 @@ if __name__ == '__main__':
     test_frist_10 = False
     if test_frist_10:
         dir = '../result'
-        prefixes = ['barabasi_albert_']
-        max_ID = 9
+        prefixes = ['BA_']
+        max_ID = 10  # exclusive
         objs, obj_bounds, running_durations, avg_objs, avg_obj_bounds, avg_running_durations, std_objs, std_obj_bounds, std_running_durations = read_graph_result_comments_multifiles2(dir, prefixes, max_ID)
 
     test_frist_30 = False
     if test_frist_30:
         dir = '../result'
-        prefixes = ['barabasi_albert_']
-        max_ID = 29
+        prefixes = ['BA_']
+        max_ID = 30 # exclusive
         objs, obj_bounds, running_durations, avg_objs, avg_obj_bounds, avg_running_durations, std_objs, std_obj_bounds, std_running_durations = read_graph_result_comments_multifiles2(dir, prefixes, max_ID)
 
