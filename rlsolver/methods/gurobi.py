@@ -187,8 +187,7 @@ def write_statistics_in_mycallback(model, new_file, add_slash=False):
     new_file.write(f"{prefix}time_limit: {time_limit}\n")
 
 
-# if filename = '../result/barabasi_albert_100_ID0.txt', running_duration = 100,
-#
+# if filename = '../result/BA_100_ID0.txt', running_duration = 100,
 def write_result_gurobi(model, filename: str = './result/result', running_duration: int = None):
     directory = filename.split('/')[0]
     if not os.path.exists(directory):
