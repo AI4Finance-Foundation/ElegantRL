@@ -413,8 +413,7 @@ if __name__ == '__main__':
     if_calc_avg_std = False
     if if_calc_avg_std:
         directory_result = 'result'
-        # prefixes = ['syn_10_', 'syn_50_', 'syn_100_', 'syn_300_', 'syn_500_', 'syn_700_', 'syn_900_', 'syn_1000_', 'syn_3000_', 'syn_5000_', 'syn_7000_', 'syn_9000_', 'syn_10000_']
-        prefixes = ['syn_10_', 'syn_50_', 'syn_100_']
+        prefixes = ['BA_100_', 'BA_200_']
         time_limits = GUROBI_TIME_LIMITS
         avgs_stds = calc_avg_std_of_objs(directory_result, prefixes, time_limits)
 
