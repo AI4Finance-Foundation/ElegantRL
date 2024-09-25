@@ -206,8 +206,9 @@ def write_result_gurobi(model, filename: str = './result/result', running_durati
             write_statistics(model, new_file, True)
             if 'num_nodes' in model._attribute:
                 new_file.write(f"// num_nodes: {model._attribute['num_nodes']}\n")
-            for i in tour:
-                new_file.write(f"{i}\n")
+            for i in range(len(tour)):
+                new_file.write(f"{i + 1} {tour[i]}\n")
+            new_file.write(f"{len(tour) + 1} {tour[0]}\n")
         return
 
     for var in vars:
@@ -649,7 +650,7 @@ if __name__ == '__main__':
             # prefixes = ['p']
             # prefixes = ['r']
             # prefixes = ['s', 't', 'u']
-            prefixes = ['berlin52']
+            prefixes = ['a5']
 
         directory_result = '../result'
         run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data, directory_result)
