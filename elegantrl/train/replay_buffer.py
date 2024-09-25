@@ -54,6 +54,10 @@ class ReplayBuffer:  # for off-policy
         self.undones = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
         self.unmasks = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
 
+        self.cum_rewards = th.empty_like(self.rewards)
+        self.ids0 = th.tensor((), dtype=th.long, device=self.device)
+        self.ids1 = th.tensor((), dtype=th.long, device=self.device)
+
         self.if_use_per = if_use_per
         if if_use_per:
             self.sum_trees = [SumTree(buf_len=max_size) for _ in range(num_seqs)]
@@ -114,8 +118,8 @@ class ReplayBuffer:  # for off-policy
         sample_len = self.cur_size - 1
 
         ids = th.randint(sample_len * self.num_seqs, size=(batch_size,), requires_grad=False, device=self.device)
-        ids0 = th.fmod(ids, sample_len)  # ids % sample_len
-        ids1 = th.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
+        self.ids0 = ids0 = th.fmod(ids, sample_len)  # ids % sample_len
+        self.ids1 = ids1 = th.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
 
         return (
             self.states[ids0, ids1],
@@ -145,8 +149,8 @@ class ReplayBuffer:  # for off-policy
         is_indices: TEN = th.hstack(is_indices).to(self.device)
         is_weights: TEN = th.hstack(is_weights).to(self.device)
 
-        ids0 = th.fmod(is_indices, self.cur_size)  # is_indices % sample_len
-        ids1 = th.div(is_indices, self.cur_size, rounding_mode='floor')  # is_indices // sample_len
+        self.ids0 = ids0 = th.fmod(is_indices, self.cur_size)  # is_indices % sample_len
+        self.ids1 = ids1 = th.div(is_indices, self.cur_size, rounding_mode='floor')  # is_indices // sample_len
         return (
             self.states[ids0, ids1],
             self.actions[ids0, ids1],
@@ -202,6 +206,18 @@ class ReplayBuffer:  # for off-policy
             assert all([max_size == max_sizes[0] for max_size in max_sizes])
             self.cur_size = self.p = max_sizes[0]
             self.if_full = self.cur_size == self.max_size
+
+    def update_cum_rewards(self, get_cumulative_rewards):
+        if self.p >= self.add_size:
+            p1 = self.p
+            p0 = self.p - self.add_size
+
+        else:
+            p1 = self.max_size
+            p0 = p1 - self.add_size
+        cum_rewards = get_cumulative_rewards(rewards=self.rewards[p0:p1, :],
+                                             undones=self.undones[p0:p1, :])
+        self.cum_rewards[p0:p1, :] = cum_rewards
 
 
 class SumTree:

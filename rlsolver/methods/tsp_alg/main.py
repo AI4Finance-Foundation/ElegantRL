@@ -99,13 +99,26 @@ def main():
 
     run_one_file = False
     if run_one_file:
-        file_name = '../../data/tsplib/att48.tsp'
+        file_name = '../../data/tsplib/berlin52.tsp'
         run_one_instance(file_name)
 
     run_multi_files = True
     if run_multi_files:
         dir = '../../data/tsplib'
-        prefixes = ['att48']
+      
+        #prefixes = ['l', 'p', 'r', 's', 't', 'u']
+        #prefixes = ['a', 'b', 'c', 'd', 'e', 'g', 'k']
+
+        #prefixes = ['a', 'b', 'c']
+        #prefixes = ['d']
+        #prefixes = ['e']
+        #prefixes = ['g', 'k']
+        #prefixes = ['l']
+        #prefixes = ['p']
+        #prefixes = ['r']
+        #prefixes = ['s', 't', 'u']
+        #prefixes = ['berlin52']
+      
         run_multi_instances(dir, prefixes)
 
     pass

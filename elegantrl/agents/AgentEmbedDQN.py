@@ -41,6 +41,7 @@ class AgentEmbedDQN(AgentBase):
 
     def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
+
         with th.no_grad():
             if self.if_use_per:
                 (state, action, reward, undone, unmask, next_state,
@@ -60,6 +61,9 @@ class AgentEmbedDQN(AgentBase):
             buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
         else:
             obj_critic = td_error.mean()
+        if self.lambda_fit_cum_r != 0:
+            cum_reward_mean = buffer.cum_rewards[buffer.ids0, buffer.ids1].detach_().mean().repeat(q_values.shape[1])
+            obj_critic += self.criterion(cum_reward_mean, q_values.mean(dim=0)).mean() * self.lambda_fit_cum_r
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 
@@ -73,7 +77,7 @@ class AgentEmbedDQN(AgentBase):
         horizon_len = rewards.shape[0]
 
         last_state = self.last_state
-        next_value = self.act_target(last_state).argmax(dim=1).detach()  # actor is Q Network in DQN style
+        next_value = self.act_target.get_q_value(last_state).max(dim=1)[0].detach()  # next q_values
         for t in range(horizon_len - 1, -1, -1):
             returns[t] = next_value = rewards[t] + masks[t] * next_value
         return returns

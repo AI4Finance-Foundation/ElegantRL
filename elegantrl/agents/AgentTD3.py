@@ -30,32 +30,6 @@ class AgentTD3(AgentBase):
         self.act_optimizer = th.optim.Adam(self.act.parameters(), self.learning_rate)
         self.cri_optimizer = th.optim.Adam(self.cri.parameters(), self.learning_rate)
 
-    def _update_objectives_raw(self, buffer: ReplayBuffer, batch_size: int, update_t: int) -> Tuple[float, float]:
-        assert isinstance(update_t, int)
-        with th.no_grad():
-            state, action, reward, undone, unmask, next_state = buffer.sample(batch_size)
-
-            next_action = self.act.get_action(next_state, action_std=self.policy_noise_std)  # deterministic policy
-            next_q = self.cri_target.get_q_values(next_state, next_action).min(dim=1)[0]
-
-            q_label = reward + undone * self.gamma * next_q
-
-        q_values = self.cri.get_q_values(state, action)
-        q_labels = q_label.view((-1, 1)).repeat(1, q_values.shape[1])
-        td_error = self.criterion(q_values, q_labels).mean(dim=1) * unmask
-        obj_critic = td_error.mean()
-        self.optimizer_backward(self.cri_optimizer, obj_critic)
-        self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
-
-        if update_t % self.update_freq == 0:  # delay update
-            action_pg = self.act(state)  # action to policy gradient
-            obj_actor = self.cri(state, action_pg).mean()
-            self.optimizer_backward(self.act_optimizer, -obj_actor)
-            self.soft_update(self.act_target, self.act, self.soft_update_tau)
-        else:
-            obj_actor = th.tensor(th.nan)
-        return obj_critic.item(), obj_actor.item()
-
     def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
@@ -79,6 +53,9 @@ class AgentTD3(AgentBase):
             buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
         else:
             obj_critic = td_error.mean()
+        if self.lambda_fit_cum_r != 0:
+            cum_reward_mean = buffer.cum_rewards[buffer.ids0, buffer.ids1].detach_().mean().repeat(q_values.shape[1])
+            obj_critic += self.criterion(cum_reward_mean, q_values.mean(dim=0)).mean() * self.lambda_fit_cum_r
         self.optimizer_backward(self.cri_optimizer, obj_critic)
         self.soft_update(self.cri_target, self.cri, self.soft_update_tau)
 

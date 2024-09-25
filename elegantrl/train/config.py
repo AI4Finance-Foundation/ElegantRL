@@ -48,6 +48,7 @@ class Config:
             self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
             self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
             self.if_use_per = False  # use PER (Prioritized Experience Replay) for sparse reward
+            self.lambda_fit_cum_r = 0.0  # critic fits the mean of a batch cumulative rewards
             self.buffer_init_size = int(self.batch_size * 8)  # train after samples over buffer_init_size for off-policy
         else:  # on-policy
             self.batch_size = int(128)  # num of transitions sampled from replay buffer.
