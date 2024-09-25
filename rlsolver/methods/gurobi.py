@@ -586,14 +586,17 @@ def run_using_gurobi(filename: str, init_x=None, time_limit: int = None, plot_fi
     return x_values
 
 
-def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str = 'data',
-                                   directory_result: str = 'result'):
+def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str):
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
     files.sort()
     for i in range(len(files)):
         print(f'The {i}-th file: {files[i]}')
         for j in range(len(time_limits)):
             run_using_gurobi(files[i], None, time_limits[j])
+    assert 'data' in directory_data
+    directory_data2 = copy.deepcopy(directory_data)
+    directory_result3 = directory_data2.replace('data', 'result')
+    directory_result = directory_result3.replace('/tsplib', '')
     avg_std = calc_avg_std_of_objs(directory_result, prefixes, time_limits)
 
 
@@ -653,7 +656,7 @@ if __name__ == '__main__':
             prefixes = ['a5']
 
         directory_result = '../result'
-        run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data, directory_result)
+        run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data)
         avg_std = calc_avg_std_of_objs(directory_result, prefixes, GUROBI_TIME_LIMITS)
 
         run_knapsack = False
