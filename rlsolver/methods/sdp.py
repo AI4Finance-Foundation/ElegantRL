@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # filename = '../data/gset/gset_14.txt'
     run_single_file = False
     if run_single_file:
-        filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+        filename = '../data/syn_BA/BA_100_ID0.txt'
         sdp_maxcut(filename)
 
     run_multi_files = True
