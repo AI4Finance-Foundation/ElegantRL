@@ -658,8 +658,9 @@ if __name__ == '__main__':
             # prefixes = ['s', 't', 'u']
             prefixes = ['a5']
 
-        directory_result = '../result'
         run_gurobi_over_multiple_files(prefixes, GUROBI_TIME_LIMITS, directory_data)
+
+        directory_result = '../result'
         avg_std = calc_avg_std_of_objs(directory_result, prefixes, GUROBI_TIME_LIMITS)
 
         run_knapsack = False
