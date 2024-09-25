@@ -105,7 +105,20 @@ def main():
     run_multi_files = True
     if run_multi_files:
         dir = '../../data/tsplib'
-        prefixes = ['berlin52']
+      
+        #prefixes = ['l', 'p', 'r', 's', 't', 'u']
+        #prefixes = ['a', 'b', 'c', 'd', 'e', 'g', 'k']
+
+        #prefixes = ['a', 'b', 'c']
+        #prefixes = ['d']
+        #prefixes = ['e']
+        #prefixes = ['g', 'k']
+        #prefixes = ['l']
+        #prefixes = ['p']
+        #prefixes = ['r']
+        #prefixes = ['s', 't', 'u']
+        #prefixes = ['berlin52']
+      
         run_multi_instances(dir, prefixes)
 
     pass
