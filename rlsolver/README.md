@@ -205,7 +205,7 @@ Take methods/greedy.py as an example:
 
 ```
  directory_data = '../data/syn_BA' # the directory of datasets
- prefixes = ['barabasi_albert_100_'] # select the graphs with 100 nodes
+ prefixes = ['BA_100_'] # select the graphs with 100 nodes
 ```
 
 - 3: run method

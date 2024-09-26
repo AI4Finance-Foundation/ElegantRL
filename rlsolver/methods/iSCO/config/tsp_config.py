@@ -6,7 +6,7 @@ CHAIN_LENGTH = 10000
 BATCH_SIZE = 1
 GPU_ID = 0
 K = 20
-DATAPATH = '../../../rlsolver/data/tsplib/att48.tsp'
+DATAPATH = '../../../rlsolver/data/tsplib/berlin52.tsp'
 GPU_ID = 0
 
 

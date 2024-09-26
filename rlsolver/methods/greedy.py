@@ -341,7 +341,7 @@ def run_greedy_over_multiple_files(alg, alg_name, num_steps, directory_data: str
 if __name__ == '__main__':
     # read data
     print(f'problem: {PROBLEM}')
-    filename = '../data/syn_BA/barabasi_albert_100_ID0.txt'
+    filename = '../data/syn_BA/BA_100_ID0.txt'
     graph = read_nxgraph(filename)
     weightmatrix = transfer_nxgraph_to_weightmatrix(graph)
     # run alg
@@ -407,10 +407,8 @@ if __name__ == '__main__':
         num_steps = None
         directory_data = '../data/syn_BA'
         # directory_data = '../data/syn_ER'
-        # directory_data = '../data/syn'
-        prefixes = ['barabasi_albert_100_']
-        # prefixes = ['erdos_renyi_100_']
-        # prefixes = ['syn_10_']
+        prefixes = ['BA_100_']
+        # prefixes = ['ER_100_']
 
         if_run_set_cover = False
         if if_run_set_cover:
