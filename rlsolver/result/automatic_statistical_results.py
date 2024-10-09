@@ -1,3 +1,4 @@
+import copy
 import os
 import shutil
 import pandas as pd
@@ -118,13 +119,36 @@ def process_folder(result_folder_path, total_result_folder):
                 df = df[existing_columns]
                 df.to_excel(os.path.join(output_folder, f'{category}_Nodes_{node_count}_summary.xlsx'))
 
+def rename_files_with_prefix(old_prefix: str, new_prefix: str, directory: str):
+    file_names = os.listdir(directory)
+    for file_name in file_names:
+        if file_name.startswith(old_prefix):
+            new_file_name = copy.deepcopy(file_name)
+            new_file_name = new_file_name.replace(old_prefix, new_prefix)
+            file = directory + '/' + file_name
+            new_file = directory + '/' + new_file_name
+            os.rename(file, new_file)
 
 if __name__ == "__main__":
-    result_folder_path = r'D:\cs\RLSolver_data_result\result_maxcut'  # 替换为实际路径
-    total_result_folder = r'./output'  # 替换为要存放结果的路径
 
-    if os.path.exists(total_result_folder):
-        shutil.rmtree(total_result_folder)  # 如果存在旧的结果文件夹，先删除
-    os.makedirs(total_result_folder)
+    exe_rename = True
+    if exe_rename:
+        # old_prefix = 'barabasi_albert'
+        # new_prefix = 'BA'
+        old_prefix = 'erdos_renyi'
+        new_prefix = 'ER'
+        # old_prefix = 'powerlaw'
+        # new_prefix = 'PL'
+        directory = r'D:/cs/RLSolver_data_result/result_maxcut/syn_ER_gurobi_QUBO'
+        rename_files_with_prefix(old_prefix, new_prefix, directory)
 
-    process_folder(result_folder_path, total_result_folder)
+    exe_stat = True
+    if exe_stat:
+        result_folder_path = r'D:/cs/RLSolver_data_result/result_maxcut'  # 替换为实际路径
+        total_result_folder = r'./output'  # 替换为要存放结果的路径
+
+        if os.path.exists(total_result_folder):
+            shutil.rmtree(total_result_folder)  # 如果存在旧的结果文件夹，先删除
+        os.makedirs(total_result_folder)
+
+        process_folder(result_folder_path, total_result_folder)
