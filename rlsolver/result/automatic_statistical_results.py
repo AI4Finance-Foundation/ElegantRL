@@ -24,7 +24,6 @@ def extract_data_from_file(file_path):
 def process_folder(result_folder_path, total_result_folder):
     all_dirs = os.listdir(result_folder_path)
 
-    # 分类处理不同类型的文件夹
     categories = {
         'gset': [d for d in all_dirs if d.startswith('gset')],
         'BA': [d for d in all_dirs if 'BA' in d.upper()],
@@ -40,6 +39,8 @@ def process_folder(result_folder_path, total_result_folder):
             method_name = dir_name.split('_')[-1].upper()
 
             for file_name in os.listdir(dir_path):
+                if file_name.startswith('.'):
+                    continue
                 if file_name.endswith('.txt'):
                     parts = file_name.split('_')
 
@@ -57,8 +58,8 @@ def process_folder(result_folder_path, total_result_folder):
                             summary_data[graph_id][method_name] = data['obj']
 
                     else:
-                        node_count = int(parts[2]) if category != 'PL' else int(parts[1])
-                        id_number = int(parts[3][2:]) if category != 'PL' else int(parts[2][2:])
+                        node_count = int(parts[1])
+                        id_number = int(parts[2][2:])
 
                         if node_count not in summary_data:
                             summary_data[node_count] = {f'ID_{i}': {} for i in range(30)}
@@ -76,7 +77,6 @@ def process_folder(result_folder_path, total_result_folder):
                         else:
                             summary_data[node_count][f'ID_{id_number}'][method_name] = data['obj']
 
-        # 为每个类型生成对应的结果文件夹和CSV文件
         output_folder = os.path.join(total_result_folder, f'{category}_results')
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
@@ -85,16 +85,42 @@ def process_folder(result_folder_path, total_result_folder):
             df = pd.DataFrame.from_dict(summary_data, orient='index')
             df.index.name = 'Graph'
             df = df.sort_index()
-            df.to_csv(os.path.join(output_folder, 'gset_summary.csv'))
+            bound_values = df['Bound']
+            df.drop(columns=['Bound'], inplace=True)
+
+            # 计算每一行的最大值，忽略 'Bound' 列
+            df['BEST'] = df.max(axis=1)
+
+            # 将 'Bound' 列添加回 DataFrame
+            df['Bound'] = bound_values
+            # 定义排序顺序
+            sort_order = ['GA', 'GREEDY', 'SA', 'SDP', 'GUROBI', 'Gap', 'Bound', 'BEST']
+            existing_columns = [col for col in sort_order if col in df.columns]  # 按排序顺序对DataFrame进行排序
+            df = df[existing_columns]
+            df.to_excel(os.path.join(output_folder, 'gset_summary.xlsx'))
         else:
             for node_count, id_data in summary_data.items():
                 df = pd.DataFrame.from_dict(id_data, orient='index')
                 df.index.name = 'ID'
-                df.to_csv(os.path.join(output_folder, f'{category}_Nodes_{node_count}_summary.csv'))
+                df.sort_index()
+                bound_values = df['Bound']
+                df.drop(columns=['Bound'], inplace=True)
+
+                # 计算每一行的最大值，忽略 'Bound' 列
+                df['BEST'] = df.max(axis=1)
+
+                # 将 'Bound' 列添加回 DataFrame
+                df['Bound'] = bound_values
+                # 定义排序顺序
+                sort_order = ['GA', 'GREEDY', 'SA', 'SDP', 'GUROBI', 'Gap', 'Bound', 'BEST']
+                existing_columns = [col for col in sort_order if col in df.columns]
+                # 按排序顺序对DataFrame进行排序
+                df = df[existing_columns]
+                df.to_excel(os.path.join(output_folder, f'{category}_Nodes_{node_count}_summary.xlsx'))
 
 
 if __name__ == "__main__":
-    result_folder_path = r'./result'  # 替换为实际路径
+    result_folder_path = r'D:\cs\RLSolver_data_result\result_maxcut'  # 替换为实际路径
     total_result_folder = r'./output'  # 替换为要存放结果的路径
 
     if os.path.exists(total_result_folder):
