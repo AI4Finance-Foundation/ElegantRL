@@ -1,8 +1,9 @@
-from elegantrl.train.run import train_agent
-from elegantrl.train.run import train_agent_single_process
-from elegantrl.train.run import train_agent_multiprocessing
-from elegantrl.train.run import train_agent_multiprocessing_multi_gpu
+from .run import train_agent
+from .run import train_agent_single_process
+from .run import train_agent_multiprocessing
+from .run import train_agent_multiprocessing_multi_gpu
 
-from elegantrl.train.config import Config, build_env, get_gym_env_args
-from elegantrl.train.evaluator import Evaluator
-from elegantrl.train.replay_buffer import ReplayBuffer
+from .config import build_env, get_gym_env_args
+from .config import Config
+from .evaluator import Evaluator
+from .replay_buffer import ReplayBuffer

@@ -4,7 +4,7 @@ import numpy as np
 import torch as th
 from typing import Tuple, List
 
-from elegantrl.train.config import Config
+from .config import Config
 
 TEN = th.Tensor
 
@@ -166,7 +166,6 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, i
     r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
     """
     max_step = env.max_step
-    if_discrete = env.if_discrete
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
     state, info_dict = env.reset()

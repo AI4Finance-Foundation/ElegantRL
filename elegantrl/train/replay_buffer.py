@@ -3,7 +3,7 @@ import math
 import torch as th
 from typing import Tuple
 
-from elegantrl.train.config import Config
+from .config import Config
 
 TEN = th.Tensor
 
@@ -222,7 +222,7 @@ class ReplayBuffer:  # for off-policy
 
 class SumTree:
     """ BinarySearchTree for PER (SumTree)
-    Contributor: GitHub GyChou, GitHub mississippiu
+    Contributor: GitHub GyChou, GitHub MissIsSipPiu
     Reference: https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
     Reference: https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
     """

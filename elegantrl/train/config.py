@@ -27,7 +27,7 @@ class Config:
         env_args.setdefault('max_step', 12345)  # `max_step=12345` in default, which is a large enough value.
         self.env_name = env_args['env_name']  # the name of environment. Be used to set 'cwd'.
         self.num_envs = env_args['num_envs']  # the number of sub envs in vectorized env. `num_envs=1` in single env.
-        self.max_step = env_args['max_step']  # the max step number of an episode. 'set as 12345 in default.
+        self.max_step = env_args['max_step']  # the max step number of an episode. set as 12345 in default.
         self.state_dim = env_args['state_dim']  # vector dimension (feature number) of state
         self.action_dim = env_args['action_dim']  # vector dimension (feature number) of action
         self.if_discrete = env_args['if_discrete']  # discrete or continuous action space
@@ -281,7 +281,7 @@ class VecEnv:
 
         for pipe in self.sub_pipe1s:
             pipe.send(None)
-        states,  = self.get_orderly_zip_list_return()
+        states, = self.get_orderly_zip_list_return()
         states = th.tensor(np.stack(states), dtype=th.float32, device=self.device)
         info_dicts = dict()
         return states, info_dicts
@@ -340,7 +340,3 @@ def check_vec_env():
 
 if __name__ == '__main__':
     check_vec_env()
-
-"""
-remove state_avg
-"""

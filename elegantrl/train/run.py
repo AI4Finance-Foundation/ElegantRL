@@ -7,13 +7,15 @@ from copy import deepcopy
 from typing import List, Optional
 from multiprocessing import Process, Pipe
 
-from elegantrl.train.config import Config, build_env
-from elegantrl.train.replay_buffer import ReplayBuffer
-from elegantrl.train.evaluator import Evaluator, get_rewards_and_steps
+from .config import Config
+from .config import build_env
+from .replay_buffer import ReplayBuffer
+from .evaluator import Evaluator
+from .evaluator import get_rewards_and_steps
 
 if os.name == 'nt':  # if is WindowOS (Windows NT)
     """Fix bug about Anaconda in WindowOS
-    OMP: Error #15: Initializing libiomp5md.dll, but found libiomp5md.dll already initialized.
+    OMP: Error #15: Initializing libIOmp5md.dll, but found libIOmp5md.dll already initialized.
     """
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 

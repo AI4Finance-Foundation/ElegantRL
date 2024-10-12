@@ -2,7 +2,6 @@ import os
 import time
 import numpy as np
 import torch as th
-import pandas as pd
 import gymnasium as gym
 import torch.nn as nn
 import torch.distributions.normal
@@ -120,6 +119,7 @@ class StockTradingEnv:
             close_ary = ary_dict['close_ary']
             tech_ary = ary_dict['tech_ary']
         elif os.path.exists(self.df_pwd):  # convert pandas.DataFrame to numpy.array
+            import pandas as pd
             df = pd.read_pickle(self.df_pwd)
 
             tech_ary = []
@@ -415,7 +415,7 @@ class AgentPPO:
 
         self.criterion = th.nn.SmoothL1Loss(reduction='none')
 
-    def explore_env(self, env, horizon_len: int, **kwargs) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
+    def explore_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         states = th.zeros((horizon_len, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.action_dim), dtype=th.float32).to(self.device)
         logprobs = th.zeros(horizon_len, dtype=th.float32).to(self.device)
@@ -476,7 +476,7 @@ class AgentPPO:
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
         for update_t in range(update_times):
-            obj_critic, obj_actor = self.update_objectives(buffer, self.batch_size, update_t)
+            obj_critic, obj_actor = self.update_objectives(buffer, update_t)
             obj_critics.append(obj_critic)
             obj_actors.append(obj_actor)
         th.set_grad_enabled(False)
@@ -486,7 +486,7 @@ class AgentPPO:
         a_std_log = getattr(self.act, 'a_std_log', th.zeros(1)).mean()
         return obj_critic_avg, obj_actor_avg, a_std_log.item()
 
-    def update_objectives(self, buffer: Tuple[TEN, ...], batch_size: int, _update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: Tuple[TEN, ...], _update_t: int) -> Tuple[float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
         buffer_size = states.shape[0]

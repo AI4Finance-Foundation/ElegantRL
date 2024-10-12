@@ -3,9 +3,9 @@ import torch as th
 from torch import nn
 from typing import Tuple, List
 
-from elegantrl.train.config import Config
-from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
+from .AgentBase import AgentBase
+from .AgentBase import build_mlp, layer_init_with_orthogonal
+from ..train import Config
 
 TEN = th.Tensor
 
@@ -382,6 +382,7 @@ class ActorDiscretePPO(ActorPPO):
 class CriticPPO(th.nn.Module):
     def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__()
+        assert isinstance(action_dim, int)
         self.net = build_mlp(dims=[state_dim, *net_dims, 1])
         layer_init_with_orthogonal(self.net[-1], std=0.5)
 

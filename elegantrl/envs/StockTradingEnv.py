@@ -1,11 +1,8 @@
 import os
-from typing import Tuple
-
+import torch as th
 import numpy as np
 import numpy.random as rd
-import pandas as pd
-import torch
-from functorch import vmap
+from typing import Tuple
 
 ARY = np.ndarray
 
@@ -97,7 +94,7 @@ class StockTradingEnv:
         terminal = self.day == self.max_step
         if terminal:
             reward += 1 / (1 - self.gamma) * np.mean(self.rewards)
-            self.cumulative_returns = total_asset / self.initial_amount * 100  # todo
+            self.cumulative_returns = total_asset / self.initial_amount * 100
 
         state = self.get_state()
         truncated = False
@@ -113,6 +110,8 @@ class StockTradingEnv:
             close_ary = ary_dict['close_ary']
             tech_ary = ary_dict['tech_ary']
         elif os.path.exists(self.df_pwd):  # convert pandas.DataFrame to numpy.array
+            import pandas as pd
+
             df = pd.read_pickle(self.df_pwd)
 
             tech_ary = []
@@ -144,17 +143,17 @@ class StockTradingEnv:
 
 
 def _inplace_amount_shares_when_buy(amount, shares, stock_action, close, cost_pct):
-    stock_delta = torch.min(stock_action, torch.div(amount, close, rounding_mode='floor'))
+    stock_delta = th.min(stock_action, th.div(amount, close, rounding_mode='floor'))
     amount -= close * stock_delta * (1 + cost_pct)
     shares += stock_delta
-    return torch.zeros(1)
+    return th.zeros(1)
 
 
 def _inplace_amount_shares_when_sell(amount, shares, stock_action, close, cost_rate):
-    stock_delta = torch.min(-stock_action, shares)
+    stock_delta = th.min(-stock_action, shares)
     amount += close * stock_delta * (1 - cost_rate)
     shares -= stock_delta
-    return torch.zeros(1)
+    return th.zeros(1)
 
 
 class StockTradingVecEnv:
@@ -162,14 +161,14 @@ class StockTradingVecEnv:
                  beg_idx=0, end_idx=1113, num_envs=4, gpu_id=0):
         self.df_pwd = './elegantrl/envs/China_A_shares.pandas.dataframe'
         self.npz_pwd = './elegantrl/envs/China_A_shares.numpy.npz'
-        self.device = torch.device(f"cuda:{gpu_id}" if (torch.cuda.is_available() and (gpu_id >= 0)) else "cpu")
+        self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         '''load data'''
         close_ary, tech_ary = self.load_data_from_disk()
         close_ary = close_ary[beg_idx:end_idx]
         tech_ary = tech_ary[beg_idx:end_idx]
-        self.close_price = torch.tensor(close_ary, dtype=torch.float32, device=self.device)
-        self.tech_factor = torch.tensor(tech_ary, dtype=torch.float32, device=self.device)
+        self.close_price = th.tensor(close_ary, dtype=th.float32, device=self.device)
+        self.tech_factor = th.tensor(tech_ary, dtype=th.float32, device=self.device)
         # print(f"| StockTradingEnv: close_ary.shape {close_ary.shape}")
         # print(f"| StockTradingEnv: tech_ary.shape {tech_ary.shape}")
 
@@ -202,33 +201,33 @@ class StockTradingVecEnv:
         self.if_discrete = False
 
         '''vmap function'''
-        self.vmap_get_state = vmap(
-            func=lambda amount, shares, close, techs: torch.cat((amount, shares, close, techs)),
+        self.vmap_get_state = th.vmap(
+            func=lambda amount, shares, close, techs: th.cat((amount, shares, close, techs)),
             in_dims=(0, 0, None, None), out_dims=0)
 
-        self.vmap_get_total_asset = vmap(
+        self.vmap_get_total_asset = th.vmap(
             func=lambda close, shares, amount: (close * shares).sum() + amount,
             in_dims=(None, 0, 0), out_dims=0)
 
-        self.vmap_inplace_amount_shares_when_buy = vmap(
+        self.vmap_inplace_amount_shares_when_buy = th.vmap(
             func=_inplace_amount_shares_when_buy, in_dims=(0, 0, 0, None, None), out_dims=0)
 
-        self.vmap_inplace_amount_shares_when_sell = vmap(
+        self.vmap_inplace_amount_shares_when_sell = th.vmap(
             func=_inplace_amount_shares_when_sell, in_dims=(0, 0, 0, None, None), out_dims=0)
 
     def reset(self):
         self.day = 0
 
-        self.amount = torch.zeros((self.num_envs, 1), dtype=torch.float32, device=self.device) + self.initial_amount
-        self.shares = torch.zeros((self.num_envs, self.num_shares), dtype=torch.float32, device=self.device)
+        self.amount = th.zeros((self.num_envs, 1), dtype=th.float32, device=self.device) + self.initial_amount
+        self.shares = th.zeros((self.num_envs, self.num_shares), dtype=th.float32, device=self.device)
 
         if self.if_random_reset:
-            rand_amount = torch.rand((self.num_envs, 1), dtype=torch.float32, device=self.device) * 0.5 + 0.75
+            rand_amount = th.rand((self.num_envs, 1), dtype=th.float32, device=self.device) * 0.5 + 0.75
             self.amount = self.amount * rand_amount
 
-            rand_shares = torch.randn((self.num_envs, self.num_shares), dtype=torch.float32, device=self.device)
+            rand_shares = th.randn((self.num_envs, self.num_shares), dtype=th.float32, device=self.device)
             rand_shares = rand_shares.clip(-2, +2) * 2 ** 7
-            self.shares = self.shares + torch.abs(rand_shares).type(torch.int32)
+            self.shares = self.shares + th.abs(rand_shares).type(th.int32)
 
         self.rewards = list()
         self.total_asset = self.vmap_get_total_asset(self.close_price[self.day], self.shares, self.amount)
@@ -246,14 +245,14 @@ class StockTradingVecEnv:
             self.cumulative_returns = 0.
 
         # action = action.clone()
-        action = torch.ones_like(action)
+        action = th.ones_like(action)
         action[(-0.1 < action) & (action < 0.1)] = 0
-        action_int = (action * self.max_stock).to(torch.int32)
+        action_int = (action * self.max_stock).to(th.int32)
         # actions initially is scaled between -1 and 1
         # convert `action` into integer as `stock_action`, because we can't buy fraction of shares
 
         for i in range(self.num_shares):
-            buy_idx = torch.where(action_int[:, i] > 0)[0]
+            buy_idx = th.where(action_int[:, i] > 0)[0]
             if buy_idx.shape[0] > 0:
                 part_amount = self.amount[buy_idx]
                 part_shares = self.shares[buy_idx, i]
@@ -262,7 +261,7 @@ class StockTradingVecEnv:
                 self.amount[buy_idx] = part_amount
                 self.shares[buy_idx, i] = part_shares
 
-            sell_idx = torch.where((action_int < 0) & (self.shares > 0))[0]
+            sell_idx = th.where((action_int < 0) & (self.shares > 0))[0]
             if sell_idx.shape[0] > 0:
                 part_amount = self.amount[sell_idx]
                 part_shares = self.shares[sell_idx, i]
@@ -305,12 +304,12 @@ class StockTradingVecEnv:
         '''get done and state'''
         done = self.day == self.max_step
         if done:
-            reward += torch.stack(self.rewards).mean(dim=0) * (1. / (1. - self.gamma))
-            self.cumulative_returns = (total_asset / self.initial_amount) * 100  # todo
+            reward += th.stack(self.rewards).mean(dim=0) * (1. / (1. - self.gamma))
+            self.cumulative_returns = (total_asset / self.initial_amount) * 100
             self.cumulative_returns = self.cumulative_returns.squeeze(1).cpu().data.tolist()
 
         state = self.reset() if done else self.get_state()  # automatically reset in vectorized env
-        done = torch.tensor(done, dtype=torch.bool, device=self.device).expand(self.num_envs)
+        done = th.tensor(done, dtype=th.bool, device=self.device).expand(self.num_envs)
         return state, reward, done, ()
 
     def load_data_from_disk(self, tech_id_list=None):
@@ -323,6 +322,8 @@ class StockTradingVecEnv:
             close_ary = ary_dict['close_ary']
             tech_ary = ary_dict['tech_ary']
         elif os.path.exists(self.df_pwd):  # convert pandas.DataFrame to numpy.array
+            import pandas as pd
+
             df = pd.read_pickle(self.df_pwd)
 
             tech_ary = []

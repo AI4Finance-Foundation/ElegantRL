@@ -1,12 +1,17 @@
 import sys
 from argparse import ArgumentParser
 
-sys.path.append("..")
-if True:  # write after `sys.path.append("..")`
+try:
+    from ..elegantrl import Config
+    from ..elegantrl import train_agent
+    from ..elegantrl import get_gym_env_args
+    from ..elegantrl.agents import AgentDQN, AgentDoubleDQN, AgentDuelingDQN, AgentD3QN
+except ImportError or ModuleNotFoundError:
+    sys.path.append("..")
+    from elegantrl import Config
     from elegantrl import train_agent
-    from elegantrl import Config, get_gym_env_args
+    from elegantrl import get_gym_env_args
     from elegantrl.agents import AgentDQN, AgentDoubleDQN, AgentDuelingDQN, AgentD3QN
-    from elegantrl.agents.AgentEmbedDQN import AgentEmbedDQN, AgentEnsembleDQN
 
 
 def train_dqn_for_cartpole(agent_class, gpu_id: int):

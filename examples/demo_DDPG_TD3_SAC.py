@@ -1,13 +1,17 @@
 import sys
 from argparse import ArgumentParser
 
-sys.path.append("..")
-if True:  # write after `sys.path.append("..")`
-    from elegantrl import train_agent_single_process
-    from elegantrl import train_agent_multiprocessing
-    from elegantrl import train_agent_multiprocessing_multi_gpu
-
-    from elegantrl import Config, get_gym_env_args
+try:
+    from ..elegantrl import Config
+    from ..elegantrl import train_agent
+    from ..elegantrl import get_gym_env_args
+    from ..elegantrl.agents import AgentDDPG, AgentTD3
+    from ..elegantrl.agents import AgentSAC, AgentModSAC
+except ImportError or ModuleNotFoundError:
+    sys.path.append('..')
+    from elegantrl import Config
+    from elegantrl import train_agent
+    from elegantrl import get_gym_env_args
     from elegantrl.agents import AgentDDPG, AgentTD3
     from elegantrl.agents import AgentSAC, AgentModSAC
 
@@ -39,13 +43,7 @@ def train_ddpg_td3_sac_for_pendulum(agent_class):
 
     args.gpu_id = GPU_ID
     args.num_workers = 8
-    if_single_process = False
-    if if_single_process:
-        train_agent_single_process(args)
-    elif len(args.learner_gpu_ids) == 0:
-        train_agent_multiprocessing(args)
-    elif len(args.learner_gpu_ids) != 0:
-        train_agent_multiprocessing_multi_gpu(args)
+    train_agent(args=args, if_single_process=False)
     """
 -2000 < -1200 < -200 < -80
 ################################################################################
@@ -111,13 +109,7 @@ def train_ddpg_td3_sac_for_pendulum_vec_env(agent_class):
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-    if_single_process = False
-    if if_single_process:
-        train_agent_single_process(args)
-    elif len(args.learner_gpu_ids) == 0:
-        train_agent_multiprocessing(args)
-    elif len(args.learner_gpu_ids) != 0:
-        train_agent_multiprocessing_multi_gpu(args)
+    train_agent(args=args, if_single_process=False)
     """
 -2000 < -1200 < -200 < -80
 ################################################################################
@@ -165,13 +157,7 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous(agent_class):
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-    if_single_process = False
-    if if_single_process:
-        train_agent_single_process(args)
-    elif len(args.learner_gpu_ids) == 0:
-        train_agent_multiprocessing(args)
-    elif len(args.learner_gpu_ids) != 0:
-        train_agent_multiprocessing_multi_gpu(args)
+    train_agent(args=args, if_single_process=False)
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -231,13 +217,7 @@ def train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env(agent_class):
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
-    if_single_process = False
-    if if_single_process:
-        train_agent_single_process(args)
-    elif len(args.learner_gpu_ids) == 0:
-        train_agent_multiprocessing(args)
-    elif len(args.learner_gpu_ids) != 0:
-        train_agent_multiprocessing_multi_gpu(args)
+    train_agent(args=args, if_single_process=False)
     """
 -1500 < -200 < 200 < 290
 ################################################################################
@@ -256,6 +236,97 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
     """
 
 
+def train_ddpg_td3_sac_for_bipedal_walker_env(agent_class):
+    assert agent_class in {AgentDDPG, AgentTD3, AgentSAC, AgentModSAC}  # DRL algorithm name
+
+    import gymnasium as gym
+    env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
+    env_args = {
+        'env_name': 'BipedalWalker-v3',
+        'num_envs': 1,
+        'max_step': 1600,
+        'state_dim': 24,
+        'action_dim': 4,
+        'if_discrete': False,
+    }
+    get_gym_env_args(env=gym.make('BipedalWalker-v3'), if_print=True)  # return env_args
+
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
+    args.net_dims = [256, 128]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 512
+    args.gamma = 0.99  # discount factor of future rewards
+
+    args.horizon_len = args.max_step // 32
+    args.buffer_init_size = args.max_step // 32
+    args.repeat_times = 0.5  # repeatedly update network using ReplayBuffer to keep critic's loss small
+    args.reward_scale = 2 ** -1
+    args.learning_rate = 1e-4
+    args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.soft_update_tau = 5e-3
+    args.buffer_size = int(2e6)
+    args.break_step = int(5e6)  # break training if 'total_step > break_step'
+
+    args.policy_noise_std = 0.10  # standard deviation of exploration noise
+    args.explore_noise_std = 0.05  # standard deviation of exploration noise
+
+    args.eval_times = 32
+    args.eval_per_step = int(1e5)
+
+    args.gpu_id = GPU_ID
+    args.num_workers = 4
+    train_agent(args=args, if_single_process=False)
+    """
+-200 < -100 < 300 < 320
+    """
+
+
+def train_ddpg_td3_sac_for_bipedal_walker_vec_env(agent_class):
+    assert agent_class in {AgentDDPG, AgentTD3, AgentSAC, AgentModSAC}  # DRL algorithm name
+    num_envs = 8
+
+    import gymnasium as gym
+    env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
+    env_args = {
+        'env_name': 'BipedalWalker-v3',
+        'max_step': 1600,
+        'state_dim': 24,
+        'action_dim': 4,
+        'if_discrete': False,
+
+        'num_envs': num_envs,  # the number of sub envs in vectorized env
+        'if_build_vec_env': True,
+    }
+    get_gym_env_args(env=gym.make('BipedalWalker-v3'), if_print=True)  # return env_args
+
+    args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
+    args.net_dims = [256, 128]  # the middle layer dimension of MultiLayer Perceptron
+    args.batch_size = 512
+    args.gamma = 0.99  # discount factor of future rewards
+
+    args.horizon_len = args.max_step // 32
+    args.buffer_init_size = args.max_step // 32
+    args.repeat_times = 0.5  # repeatedly update network using ReplayBuffer to keep critic's loss small
+    args.reward_scale = 2 ** -1
+    args.learning_rate = 1e-4
+    args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.soft_update_tau = 5e-3
+    args.buffer_size = int(2e6)
+    args.break_step = int(5e6)  # break training if 'total_step > break_step'
+
+    args.policy_noise_std = 0.10  # standard deviation of exploration noise
+    args.explore_noise_std = 0.05  # standard deviation of exploration noise
+
+    args.eval_times = 32
+    args.eval_per_step = int(1e5)
+
+    args.gpu_id = GPU_ID
+    args.num_workers = 4
+    train_agent(args=args, if_single_process=False)
+    """
+-200 < -100 < 300 < 320
+    """
+
+
 if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
@@ -267,7 +338,8 @@ if __name__ == '__main__':
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
-    AgentClass = [AgentTD3, AgentSAC, AgentModSAC, AgentDDPG][DRL_ID]  # DRL algorithm name
+    AgentClassList = [AgentTD3, AgentSAC, AgentModSAC, AgentDDPG]
+    AgentClass = AgentClassList[DRL_ID]  # DRL algorithm name
     if ENV_ID in {'0', 'pendulum'}:
         train_ddpg_td3_sac_for_pendulum(agent_class=AgentClass)
     elif ENV_ID in {'1', 'pendulum_vec'}:
@@ -276,5 +348,9 @@ if __name__ == '__main__':
         train_ddpg_td3_sac_for_lunar_lander_continuous(agent_class=AgentClass)
     elif ENV_ID in {'3', 'lunar_lander_continuous_vec'}:
         train_ddpg_td3_sac_for_lunar_lander_continuous_vec_env(agent_class=AgentClass)
+    elif ENV_ID in {'4', 'lunar_lander_continuous'}:
+        train_ddpg_td3_sac_for_bipedal_walker_env(agent_class=AgentClass)
+    elif ENV_ID in {'5', 'lunar_lander_continuous_vec'}:
+        train_ddpg_td3_sac_for_bipedal_walker_vec_env(agent_class=AgentClass)
     else:
         print(f'ENV_ID not match. type(ENV_ID) is str not {type(ENV_ID)}')

@@ -1,10 +1,16 @@
 import sys
 from argparse import ArgumentParser
 
-sys.path.append("..")
-if True:  # write after `sys.path.append("..")`
+try:
+    from ..elegantrl import Config
+    from ..elegantrl import train_agent
+    from ..elegantrl import get_gym_env_args
+    from ..elegantrl.agents import AgentDiscretePPO, AgentDiscreteA2C
+except ImportError or ModuleNotFoundError:
+    sys.path.append("..")
+    from elegantrl import Config
     from elegantrl import train_agent
-    from elegantrl import Config, get_gym_env_args
+    from elegantrl import get_gym_env_args
     from elegantrl.agents import AgentDiscretePPO, AgentDiscreteA2C
 
 
@@ -228,7 +234,8 @@ if __name__ == '__main__':
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
-    AgentClass = [AgentDiscretePPO, AgentDiscreteA2C][DRL_ID]
+    AgentClassList = [AgentDiscretePPO, AgentDiscreteA2C]
+    AgentClass = AgentClassList[DRL_ID]  # DRL algorithm name
     if ENV_ID in {'0', 'cartpole'}:
         train_discrete_ppo_a2c_for_cartpole(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'1', 'cartpole_vec'}:

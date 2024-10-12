@@ -5,7 +5,8 @@ from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from typing import Tuple, Union, Optional
 
-from elegantrl.train import Config, ReplayBuffer
+from ..train import Config
+from ..train import ReplayBuffer
 
 TEN = th.Tensor
 

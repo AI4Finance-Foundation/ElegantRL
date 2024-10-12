@@ -113,5 +113,5 @@ class iSCO:
     
     def apply_weight_function_logscale(self,logratio):
         logits = logratio/2
-        # logits = torch.nn.functional.logsigmoid(logratio)
+        # logits = th.nn.functional.logsigmoid(logratio)
         return logits
