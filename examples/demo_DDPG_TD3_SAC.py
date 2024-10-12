@@ -259,7 +259,7 @@ def train_ddpg_td3_sac_for_bipedal_walker_env(agent_class):
     args.horizon_len = args.max_step // 32
     args.buffer_init_size = args.max_step // 32
     args.repeat_times = 0.5  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.reward_scale = 2 ** -1
+    args.reward_scale = 2 ** 0
     args.learning_rate = 1e-4
     args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
     args.soft_update_tau = 5e-3
@@ -269,8 +269,8 @@ def train_ddpg_td3_sac_for_bipedal_walker_env(agent_class):
     args.policy_noise_std = 0.10  # standard deviation of exploration noise
     args.explore_noise_std = 0.05  # standard deviation of exploration noise
 
-    args.eval_times = 32
-    args.eval_per_step = int(1e5)
+    args.eval_times = 8
+    args.eval_per_step = int(1e4)
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
@@ -306,7 +306,7 @@ def train_ddpg_td3_sac_for_bipedal_walker_vec_env(agent_class):
     args.horizon_len = args.max_step // 32
     args.buffer_init_size = args.max_step // 32
     args.repeat_times = 0.5  # repeatedly update network using ReplayBuffer to keep critic's loss small
-    args.reward_scale = 2 ** -1
+    args.reward_scale = 2 ** 0
     args.learning_rate = 1e-4
     args.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
     args.soft_update_tau = 5e-3
@@ -316,8 +316,8 @@ def train_ddpg_td3_sac_for_bipedal_walker_vec_env(agent_class):
     args.policy_noise_std = 0.10  # standard deviation of exploration noise
     args.explore_noise_std = 0.05  # standard deviation of exploration noise
 
-    args.eval_times = 32
-    args.eval_per_step = int(1e5)
+    args.eval_times = 8
+    args.eval_per_step = int(1e4)
 
     args.gpu_id = GPU_ID
     args.num_workers = 4
