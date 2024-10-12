@@ -8,9 +8,6 @@ if True:  # write after `sys.path.append("..")`
     from elegantrl.agents import AgentDQN, AgentDoubleDQN, AgentDuelingDQN, AgentD3QN
     from elegantrl.agents.AgentEmbedDQN import AgentEmbedDQN, AgentEnsembleDQN
 
-AgentClassList = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN,
-                  AgentEmbedDQN, AgentEnsembleDQN]
-
 
 def train_dqn_for_cartpole(agent_class, gpu_id: int):
     assert agent_class in AgentClassList
@@ -256,7 +253,14 @@ def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
     args.repeat_times = 4.0  # GPU 2 repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -1
     args.learning_rate = 1e-3
-    args.lambda_fit_cum_r = 0.1
+    if gpu_id == 4:
+        args.lambda_fit_cum_r = 0.
+    if gpu_id == 5:
+        args.lambda_fit_cum_r = 0.1
+    if gpu_id == 6:
+        args.lambda_fit_cum_r = 0.5
+    if gpu_id == 7:
+        args.lambda_fit_cum_r = 1.0
 
     args.explore_rate = 0.1
 
@@ -303,16 +307,17 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 if __name__ == '__main__':
     Parser = ArgumentParser(description='ArgumentParser for ElegantRL')
     Parser.add_argument('--gpu', type=int, default=0, help='GPU device ID for training')
-    Parser.add_argument('--drl', type=int, default=5, help='RL algorithms ID for training')
-    Parser.add_argument('--env', type=str, default='3', help='the environment ID for training')
+    Parser.add_argument('--drl', type=int, default=0, help='RL algorithms ID for training')
+    Parser.add_argument('--env', type=str, default='0', help='the environment ID for training')
 
     Args = Parser.parse_args()
     GPU_ID = Args.gpu
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
-    AgentClass = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN,
-                  AgentEmbedDQN, AgentEnsembleDQN][DRL_ID]  # DRL algorithm name
+    AgentClassList = [AgentD3QN, AgentDoubleDQN, AgentDuelingDQN, AgentDQN]
+    AgentClass = AgentClassList[DRL_ID]  # DRL algorithm name
+
     if ENV_ID in {'0', 'cartpole'}:
         train_dqn_for_cartpole(agent_class=AgentClass, gpu_id=GPU_ID)
     elif ENV_ID in {'1', 'cartpole_vec'}:

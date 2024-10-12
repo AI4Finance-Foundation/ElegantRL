@@ -62,7 +62,7 @@ class Config:
         self.gpu_id = int(0)  # `int` means the ID of single GPU, -1 means CPU
         self.num_workers = 2  # rollout workers number pre GPU (adjust it to get high GPU usage)
         self.num_threads = 8  # cpu_num for pytorch, `th.set_num_threads(self.num_threads)`
-        self.random_seed = 0  # initialize random seed in self.init_before_training()
+        self.random_seed = None  # initialize random seed in self.init_before_training(), None means set GPU_ID as seed
         self.learner_gpu_ids = ()  # multiple gpu id Tuple[int, ...] for learners. () means single GPU or CPU.
 
         '''Arguments for evaluate'''
@@ -81,6 +81,8 @@ class Config:
         self.eval_env_args = None  # eval_env = eval_env_class(*eval_env_args)
 
     def init_before_training(self):
+        if self.random_seed is None:
+            self.random_seed = max(0, self.gpu_id)
         np.random.seed(self.random_seed)
         th.manual_seed(self.random_seed)
         th.set_num_threads(self.num_threads)
