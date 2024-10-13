@@ -1,4 +1,3 @@
-import sys
 from argparse import ArgumentParser
 
 try:
@@ -7,7 +6,6 @@ try:
     from ..elegantrl import get_gym_env_args
     from ..elegantrl.agents import AgentEmbedDQN, AgentEnsembleDQN
 except ImportError or ModuleNotFoundError:
-    sys.path.append("..")
     from elegantrl import Config
     from elegantrl import train_agent
     from elegantrl import get_gym_env_args
@@ -15,7 +13,7 @@ except ImportError or ModuleNotFoundError:
 
 
 def train_dqn_for_cartpole(agent_class, gpu_id: int):
-    assert agent_class in AgentClassList
+    assert agent_class in {AgentEnsembleDQN, AgentEmbedDQN}
 
     import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -100,7 +98,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_cartpole_vec_env(agent_class, gpu_id: int):
-    assert agent_class in AgentClassList
+    assert agent_class in {AgentEnsembleDQN, AgentEmbedDQN}
 
     import gymnasium as gym
     num_envs = 8
@@ -170,7 +168,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_lunar_lander(agent_class, gpu_id: int):
-    assert agent_class in AgentClassList
+    assert agent_class in {AgentEnsembleDQN, AgentEmbedDQN}
 
     import gymnasium as gym
     env_class = gym.make  # run a custom env: PendulumEnv, which based on OpenAI pendulum
@@ -231,7 +229,7 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 
 
 def train_dqn_for_lunar_lander_vec_env(agent_class, gpu_id: int):
-    assert agent_class in AgentClassList
+    assert agent_class in {AgentEnsembleDQN, AgentEmbedDQN}
     num_envs = 8
 
     import gymnasium as gym

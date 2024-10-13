@@ -1,4 +1,3 @@
-import sys
 from argparse import ArgumentParser
 
 try:
@@ -8,7 +7,6 @@ try:
     from ..elegantrl.agents import AgentDDPG, AgentTD3
     from ..elegantrl.agents import AgentSAC, AgentModSAC
 except ImportError or ModuleNotFoundError:
-    sys.path.append("..")
     from elegantrl import Config
     from elegantrl import train_agent
     from elegantrl import get_gym_env_args
