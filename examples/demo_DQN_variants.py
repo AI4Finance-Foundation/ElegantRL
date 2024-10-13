@@ -330,4 +330,4 @@ if __name__ == '__main__':
     elif ENV_ID in {'3', 'lunar_lander_vec'}:
         train_dqn_for_lunar_lander_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     else:
-        print('ENV_ID not match')
+        print('ENV_ID not match', flush=True)

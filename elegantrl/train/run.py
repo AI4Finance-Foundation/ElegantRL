@@ -24,13 +24,13 @@ if os.name == 'nt':  # if is WindowOS (Windows NT)
 
 def train_agent(args: Config, if_single_process: bool = False):
     if if_single_process:
-        print(f"| train_agent_single_process() with GPU_ID {args.gpu_id}")
+        print(f"| train_agent_single_process() with GPU_ID {args.gpu_id}", flush=True)
         train_agent_single_process(args)
     elif len(args.learner_gpu_ids) == 0:
-        print(f"| train_agent_multiprocessing() with GPU_ID {args.gpu_id}")
+        print(f"| train_agent_multiprocessing() with GPU_ID {args.gpu_id}", flush=True)
         train_agent_multiprocessing(args)
     elif len(args.learner_gpu_ids) != 0:
-        print(f"| train_agent_multiprocessing_multi_gpu() with GPU_ID {args.learner_gpu_ids}")
+        print(f"| train_agent_multiprocessing_multi_gpu() with GPU_ID {args.learner_gpu_ids}", flush=True)
         train_agent_multiprocessing_multi_gpu(args)
     else:
         ValueError(f"| run.py train_agent: args.learner_gpu_ids = {args.learner_gpu_ids}")
@@ -104,7 +104,7 @@ def train_agent_single_process(args: Config):
         evaluator.evaluate_and_save(actor=agent.act, steps=horizon_len, exp_r=exp_r, logging_tuple=logging_tuple)
         if_train = (evaluator.total_step <= break_step) and (not os.path.exists(f"{cwd}/stop"))
 
-    print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+    print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}', flush=True)
 
     env.close() if hasattr(env, 'close') else None
     evaluator.save_training_curve_jpg()
@@ -317,7 +317,7 @@ class Learner(Process):
                 self.eval_pipe.send((actor, num_steps, exp_r, logging_tuple))
 
         '''Learner send the terminal signal to workers after break the loop'''
-        print("| Learner Close Worker")
+        print("| Learner Close Worker", flush=True)
         for send_pipe in self.send_pipes:
             send_pipe.send(None)
             time.sleep(0.1)
@@ -325,10 +325,10 @@ class Learner(Process):
         '''save'''
         agent.save_or_load_agent(cwd, if_save=True)
         if if_save_buffer and hasattr(buffer, 'save_or_load_history'):
-            print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}")
+            print(f"| LearnerPipe.run: ReplayBuffer saving in {cwd}", flush=True)
             buffer.save_or_load_history(cwd, if_save=True)
-            print(f"| LearnerPipe.run: ReplayBuffer saved  in {cwd}")
-        print("| Learner Closed")
+            print(f"| LearnerPipe.run: ReplayBuffer saved  in {cwd}", flush=True)
+        print("| Learner Closed", flush=True)
 
 
 class Worker(Process):
@@ -387,7 +387,7 @@ class Worker(Process):
             self.send_pipe.send((worker_id, buffer_items, last_state))
 
         env.close() if hasattr(env, 'close') else None
-        # print(f"| Worker-{self.worker_id} Closed")
+        print(f"| Worker-{self.worker_id} Closed", flush=True)
 
 
 class EvaluatorProc(Process):
@@ -431,20 +431,20 @@ class EvaluatorProc(Process):
 
         '''Evaluator save the training log and draw the learning curve'''
         evaluator.save_training_curve_jpg()
-        print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}')
+        print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}', flush=True)
 
-        print("| Evaluator Closing")
+        print("| Evaluator Closing", flush=True)
         while self.pipe1.poll():  # whether there is any data available to be read of this pipe
             while self.pipe0.poll():
                 try:
                     self.pipe0.recv()
                 except RuntimeError:
-                    print("| Evaluator Ignore RuntimeError in self.pipe0.recv()")
+                    print("| Evaluator Ignore RuntimeError in self.pipe0.recv()", flush=True)
                 time.sleep(1)
             time.sleep(1)
 
         eval_env.close() if hasattr(eval_env, 'close') else None
-        print("| Evaluator Closed")
+        print("| Evaluator Closed", flush=True)
 
 
 '''render'''
@@ -458,11 +458,11 @@ def valid_agent(env_class, env_args: dict, net_dims: List[int], agent_class, act
     agent = agent_class(net_dims, state_dim, action_dim, gpu_id=-1)
     actor = agent.act
 
-    print(f"| render and load actor from: {actor_path}")
+    print(f"| render and load actor from: {actor_path}", flush=True)
     actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     for i in range(render_times):
         cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
-        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
+        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}", flush=True)
 
 
 def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_path: str, render_times: int = 8):
@@ -474,8 +474,8 @@ def render_agent(env_class, env_args: dict, net_dims: [int], agent_class, actor_
     actor = agent.act
     del agent
 
-    print(f"| render and load actor from: {actor_path}")
+    print(f"| render and load actor from: {actor_path}", flush=True)
     actor.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     for i in range(render_times):
         cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=True)
-        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
+        print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}", flush=True)

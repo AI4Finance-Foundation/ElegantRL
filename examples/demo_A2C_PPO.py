@@ -493,7 +493,7 @@ def demo_load_pendulum_and_render():
     rewards_step_list = [get_rewards_and_steps(env, act) for _ in range(eval_times)]
     rewards_step_ten = th.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
-          f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
+          f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}", flush=True)
 
     '''render'''
     if_discrete = env.if_discrete
@@ -516,7 +516,7 @@ def demo_load_pendulum_and_render():
     steps += 1
 
     print(f"\n| cumulative_returns {returns}"
-          f"\n|      episode steps {steps}")
+          f"\n|      episode steps {steps}", flush=True)
 
 
 def demo_load_pendulum_vectorized_env():
@@ -552,7 +552,7 @@ def demo_load_pendulum_vectorized_env():
      range(eval_times // num_envs)]
     rewards_step_ten = th.tensor(rewards_step_list)
     print(f"\n| average cumulative_returns {rewards_step_ten[:, 0].mean().item():9.3f}"
-          f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}")
+          f"\n| average      episode steps {rewards_step_ten[:, 1].mean().item():9.3f}", flush=True)
 
 
 if __name__ == '__main__':
@@ -582,4 +582,4 @@ if __name__ == '__main__':
     elif ENV_ID in {'5', 'bipedal_walker_vec'}:
         train_ppo_a2c_for_bipedal_walker_vec_env(agent_class=AgentClass, gpu_id=GPU_ID)
     else:
-        print('ENV_ID not match')
+        print('ENV_ID not match', flush=True)

@@ -98,9 +98,9 @@ class Config:
         if self.if_remove:
             import shutil
             shutil.rmtree(self.cwd, ignore_errors=True)
-            print(f"| Arguments Remove cwd: {self.cwd}")
+            print(f"| Arguments Remove cwd: {self.cwd}", flush=True)
         else:
-            print(f"| Arguments Keep cwd: {self.cwd}")
+            print(f"| Arguments Keep cwd: {self.cwd}", flush=True)
         os.makedirs(self.cwd, exist_ok=True)
 
     def get_if_off_policy(self) -> bool:
@@ -108,9 +108,9 @@ class Config:
         on_policy_names = ('SARSA', 'VPG', 'A2C', 'A3C', 'TRPO', 'PPO', 'MPO')
         return all([agent_name.find(s) == -1 for s in on_policy_names])
 
-    def print(self):
+    def print_config(self):
         from pprint import pprint
-        pprint(vars(self))  # prints out args in a neat, readable format
+        print(pprint(vars(self)), flush=True)  # prints out args in a neat, readable format
 
 
 def build_env(env_class=None, env_args: dict = None, gpu_id: int = -1):
@@ -177,9 +177,9 @@ def get_gym_env_args(env, if_print: bool) -> dict:
         elif str(env.action_space).find('Box') >= 0:  # make sure it is continuous action space
             action_dim = env.action_space.shape[0]
             if any(env.action_space.high - 1):
-                print('WARNING: env.action_space.high', env.action_space.high)
+                print(f'| WARNING: env.action_space.high {env.action_space.high}', flush=True)
             if any(env.action_space.low + 1):
-                print('WARNING: env.action_space.low', env.action_space.low)
+                print(f'| WARNING: env.action_space.low {env.action_space.low}', flush=True)
         else:
             raise RuntimeError('\n| Error in get_gym_env_info(). Please set these value manually:'
                                '\n  `state_dim=int; action_dim=int; if_discrete=bool;`'
@@ -200,7 +200,7 @@ def get_gym_env_args(env, if_print: bool) -> dict:
                 'if_discrete': if_discrete, }
     if if_print:
         env_args_str = repr(env_args).replace(',', f",\n{'':11}")
-        print(f"env_args = {env_args_str}")
+        print(f"env_args = {env_args_str}", flush=True)
     return env_args
 
 
@@ -325,7 +325,7 @@ def check_vec_env():
 
     device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
     state, info_dict = env.reset()
-    print(f"| num_envs {num_envs}  state.shape {state.shape}")
+    print(f"| num_envs {num_envs}  state.shape {state.shape}", flush=True)
 
     for i in range(4):
         if env.if_discrete:  # state -> action
@@ -334,7 +334,7 @@ def check_vec_env():
             action = th.zeros(size=(num_envs,), dtype=th.float32, device=device)
         state, reward, terminal, truncate, info_dict = env.step(action)
 
-        print(f"| num_envs {num_envs}  {[t.shape for t in (state, reward, terminal, truncate)]}")
+        print(f"| num_envs {num_envs}  {[t.shape for t in (state, reward, terminal, truncate)]}", flush=True)
     env.close() if hasattr(env, 'close') else None
 
 

@@ -351,4 +351,4 @@ if __name__ == '__main__':
     elif ENV_ID in {'5', 'lunar_lander_continuous_vec'}:
         train_ddpg_td3_sac_for_bipedal_walker_vec_env(agent_class=AgentClass)
     else:
-        print(f'ENV_ID not match. type(ENV_ID) is str not {type(ENV_ID)}')
+        print(f'ENV_ID not match. type(ENV_ID) is str not {type(ENV_ID)}', flush=True)
