@@ -286,7 +286,7 @@ class AgentBase:
         for attr_name in self.save_attr_names:
             file_path = f"{cwd}/{attr_name}.pth"
             if if_save:
-                th.save(getattr(self, attr_name), file_path)
+                th.save(getattr(self, attr_name).state_dict(), file_path)
             elif os.path.isfile(file_path):
                 setattr(self, attr_name, th.load(file_path, map_location=self.device))
 
