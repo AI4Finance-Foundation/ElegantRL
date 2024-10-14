@@ -114,7 +114,7 @@ class Evaluator:
                 actor_path = f"{self.cwd}/actor__{self.total_step:012}.pt"
 
         if actor_path:
-            th.save(actor, actor_path)  # save policy network in *.pt
+            th.save(actor.state_dict(), actor_path)  # save policy network in *.pt
 
     def save_or_load_recoder(self, if_save: bool):
         if if_save:
