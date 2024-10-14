@@ -485,7 +485,11 @@ def demo_load_pendulum_and_render():
     '''init'''
     from elegantrl.train.config import build_env
     env = build_env(env_class=env_class, env_args=env_args)
-    act = th.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
+
+    agent = AgentPPO(net_dims=[128, 64], state_dim=env_args['state_dim'], action_dim=env_args['action_dim'], gpu_id=gpu_id)
+    act = agent.act
+    act.load_state_dict(th.load(f"./Pendulum_PPO_0/act.pt", map_location=lambda storage, loc: storage, weights_only=True))
+    # act = th.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
 
     '''evaluate'''
     eval_times = 2 ** 7
@@ -542,7 +546,11 @@ def demo_load_pendulum_vectorized_env():
     '''init'''
     from elegantrl.train.config import build_env
     env = build_env(env_class=env_class, env_args=env_args)
-    act = th.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
+
+    agent = AgentPPO(net_dims=[128, 64], state_dim=env_args['state_dim'], action_dim=env_args['action_dim'], gpu_id=gpu_id)
+    act = agent.act
+    act.load_state_dict(th.load(f"./Pendulum_PPO_0/act.pt", map_location=lambda storage, loc: storage, weights_only=True))
+    # act = th.load(f"./Pendulum_PPO_0/act.pt", map_location=device)
 
     '''evaluate'''
     eval_times = 2 ** 7
