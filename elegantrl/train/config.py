@@ -79,6 +79,7 @@ class Config:
         self.eval_per_step = int(2e4)  # evaluate the agent per training steps
         self.eval_env_class = None  # eval_env = eval_env_class(*eval_env_args)
         self.eval_env_args = None  # eval_env = eval_env_class(*eval_env_args)
+        self.eval_record_step = 0  # evaluator start recording after the exploration reaches this step.
 
     def init_before_training(self):
         if self.random_seed is None:

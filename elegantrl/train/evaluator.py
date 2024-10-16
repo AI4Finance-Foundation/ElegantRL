@@ -27,6 +27,7 @@ class Evaluator:
 
         self.recorder_path = f'{cwd}/recorder.npy'
         self.recorder = []  # total_step, r_avg, r_std, critic_value, ...
+        self.recorder_step = args.eval_record_step  # start recording after the exploration reaches this step.
         self.max_r = -np.inf
         print("| Evaluator:"
               "\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
@@ -54,6 +55,9 @@ class Evaluator:
 
     def evaluate_and_save(self, actor: th.nn, steps: int, exp_r: float, logging_tuple: tuple):
         self.total_step += steps  # update total training steps
+
+        if self.total_step < self.recorder_step:
+            return
         if self.total_step < self.eval_step_counter + self.eval_per_step:
             return
 
