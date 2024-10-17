@@ -119,7 +119,8 @@ def run_using_scip(filename: str, time_limit: int = None, plot_fig_: bool = Fals
 def run_scip_over_multiple_files(prefixes: List[str], time_limits: List[int], directory_data: str = 'data', directory_result: str = './result'):
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
     for i in range(len(files)):
-        print(f'The {i}-th file: {files[i]}')
+        filename = files[i]
+        print(f'Start the {i}-th file: {filename}')
         for j in range(len(time_limits)):
             run_using_scip(files[i], time_limits[j])
     directory = '../result'
