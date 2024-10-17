@@ -37,10 +37,10 @@ In this HelloWorld, we focus on DQN, SAC, and PPO, which are the most representa
 
 For a complete list of DRL algorithms, please go to `here <https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl/agents>`_.
 
-env.py
+erl_env.py
 ------
 
-`env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/env.py>`_ contains a wrapper class that preprocesses the Gym-styled environment (env).
+`erl_env.py <https://github.com/AI4Finance-Foundation/ElegantRL/blob/master/helloworld/erl_env.py>`_ contains a wrapper class that preprocesses the Gym-styled environment (env).
 
 Refer to `OpenAI's explanation <https://github.com/openai/gym/blob/master/gym/core.py>`_ to better understand the how a Gym-styled environment is formulated.
 
