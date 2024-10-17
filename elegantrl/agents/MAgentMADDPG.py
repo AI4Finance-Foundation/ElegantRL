@@ -1,8 +1,9 @@
 import torch
 
-from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.net import Actor, Critic
-from elegantrl.agents.AgentDDPG import AgentDDPG
+from .AgentBase import AgentBase
+from .AgentTD3 import AgentDDPG
+from .AgentTD3 import Actor, Critic
+
 
 class AgentMADDPG(AgentBase):
     """
@@ -29,16 +30,16 @@ class AgentMADDPG(AgentBase):
         self.if_use_act_target = True
 
     def init(
-        self,
-        net_dim,
-        state_dim,
-        action_dim,
-        learning_rate=1e-4,
-        gamma=0.95,
-        n_agents=1,
-        if_use_per=False,
-        env_num=1,
-        agent_id=0,
+            self,
+            net_dim,
+            state_dim,
+            action_dim,
+            learning_rate=1e-4,
+            gamma=0.95,
+            n_agents=1,
+            if_use_per=False,
+            env_num=1,
+            agent_id=0,
     ):
         self.agents = [AgentDDPG() for i in range(n_agents)]
         self.explore_env = self._explore_one_env

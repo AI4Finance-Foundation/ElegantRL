@@ -3,17 +3,17 @@ from torch import nn
 from copy import deepcopy
 from typing import Tuple, List
 
-from elegantrl.agents.AgentBase import AgentBase
-from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
-from elegantrl.train.config import Config
-from elegantrl.train.replay_buffer import ReplayBuffer
+from .AgentBase import AgentBase
+from .AgentBase import build_mlp, layer_init_with_orthogonal
+from ..train import Config
+from ..train import ReplayBuffer
 
 TEN = th.Tensor
 
 
 class AgentDQN(AgentBase):
     """Deep Q-Network algorithm.
-    “Human-Level Control Through Deep Reinforcement Learning”. Mnih V. et al.. 2015.
+    “Human-Level Control Through Deep Reinforcement Learning”. 2015.
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
@@ -77,7 +77,7 @@ class AgentDQN(AgentBase):
 
 class AgentDoubleDQN(AgentDQN):
     """
-    Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. H. V. Hasselt et al.. 2015.
+    Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. 2015.
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
@@ -114,7 +114,7 @@ class AgentDoubleDQN(AgentDQN):
             buffer.td_error_update_for_per(is_index.detach(), td_error.detach())
         else:
             obj_critic = td_error.mean()
-        if self.if_fit_cum_r:
+        if self.lambda_fit_cum_r != 0:
             cum_reward_mean = buffer.cum_rewards[buffer.ids0, buffer.ids1].detach_().mean()
             obj_critic += (self.criterion(cum_reward_mean, q_value1.mean()) +
                            self.criterion(cum_reward_mean, q_value2.mean()))

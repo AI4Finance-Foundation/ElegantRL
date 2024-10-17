@@ -4,7 +4,7 @@ import numpy as np
 import torch as th
 from typing import Tuple, List
 
-from elegantrl.train.config import Config
+from .config import Config
 
 TEN = th.Tensor
 
@@ -27,6 +27,7 @@ class Evaluator:
 
         self.recorder_path = f'{cwd}/recorder.npy'
         self.recorder = []  # total_step, r_avg, r_std, critic_value, ...
+        self.recorder_step = args.eval_record_step  # start recording after the exploration reaches this step.
         self.max_r = -np.inf
         print("| Evaluator:"
               "\n| `step`: Number of samples, or total training steps, or running times of `env.step()`."
@@ -39,7 +40,7 @@ class Evaluator:
               f"\n{'#' * 80}\n"
               f"{'ID':<3}{'Step':>8}{'Time':>8} |"
               f"{'avgR':>8}{'stdR':>7}{'avgS':>7}{'stdS':>6} |"
-              f"{'expR':>8}{'objC':>7}{'objA':>7}{'etc.':>7}")
+              f"{'expR':>8}{'objC':>7}{'objA':>7}{'etc.':>7}", flush=True)
 
         if getattr(env, 'num_envs', 1) == 1:  # get attribute
             self.get_cumulative_rewards_and_step = self.get_cumulative_rewards_and_step_single_env
@@ -54,6 +55,9 @@ class Evaluator:
 
     def evaluate_and_save(self, actor: th.nn, steps: int, exp_r: float, logging_tuple: tuple):
         self.total_step += steps  # update total training steps
+
+        if self.total_step < self.recorder_step:
+            return
         if self.total_step < self.eval_step_counter + self.eval_per_step:
             return
 
@@ -90,7 +94,7 @@ class Evaluator:
         self.max_r = max(self.max_r, avg_r)  # update max average cumulative rewards
         print(f"{self.agent_id:<3}{self.total_step:8.2e}{train_time:8.0f} |"
               f"{avg_r:8.2f}{std_r:7.1f}{avg_s:7.0f}{std_s:6.0f} |"
-              f"{exp_r:8.2f}{''.join(f'{n:7.2f}' for n in logging_tuple)}")
+              f"{exp_r:8.2f}{''.join(f'{n:7.2f}' for n in logging_tuple)}", flush=True)
 
         if_save = avg_r > prev_max_r
         if if_save:
@@ -114,7 +118,7 @@ class Evaluator:
                 actor_path = f"{self.cwd}/actor__{self.total_step:012}.pt"
 
         if actor_path:
-            th.save(actor, actor_path)  # save policy network in *.pt
+            th.save(actor.state_dict(), actor_path)  # save policy network in *.pt
 
     def save_or_load_recoder(self, if_save: bool):
         if if_save:
@@ -166,7 +170,6 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, i
     r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
     """
     max_step = env.max_step
-    if_discrete = env.if_discrete
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
 
     state, info_dict = env.reset()
@@ -184,7 +187,7 @@ def get_rewards_and_steps(env, actor, if_render: bool = False) -> Tuple[float, i
         if terminated or truncated:
             break
     else:
-        print("| get_rewards_and_step: WARNING. max_step > 12345")
+        print("| get_rewards_and_step: WARNING. max_step > 12345", flush=True)
 
     env_unwrapped = getattr(env, 'unwrapped', env)
     cumulative_returns = getattr(env_unwrapped, 'cumulative_returns', cumulative_returns)
@@ -334,7 +337,7 @@ def demo_evaluator_actor_pth():
     r_s_ary = np.array(r_s_ary, dtype=np.float32)
     r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
 
-    print('r_avg, s_avg', r_avg, s_avg)
+    print(f'|r_avg {r_avg}  s_avg {s_avg}', flush=True)
     return r_avg, s_avg
 
 
@@ -421,7 +424,7 @@ def demo_load_pendulum_and_render():
     # r_s_ary = np.array(r_s_ary, dtype=np.float32)
     # r_avg, s_avg = r_s_ary.mean(axis=0)  # average of episode return and episode step
     #
-    # print('r_avg, s_avg', r_avg, s_avg)
+    # print(f'|r_avg {r_avg}  s_avg {s_avg}', flush=True)
 
     '''render'''
     max_step = env.max_step
@@ -445,7 +448,7 @@ def demo_load_pendulum_and_render():
     steps += 1
 
     print(f"\n| cumulative_returns {returns}"
-          f"\n|      episode steps {steps}")
+          f"\n|      episode steps {steps}", flush=True)
 
 
 def run():
@@ -477,8 +480,8 @@ def run():
     ][flag_id]
     env_name = env_args['env_name']
 
-    print('gpu_id', gpu_id)
-    print('env_name', env_name)
+    print('gpu_id', gpu_id, flush=True)
+    print('env_name', env_name, flush=True)
 
     '''save step_epi_r_s_ary'''
     # cwd_path = '.'
@@ -501,7 +504,7 @@ def run():
         step_epi_r_s_ary.append(ary)
     step_epi_r_s_ary = np.vstack(step_epi_r_s_ary)
     step_epi_r_s_ary = step_epi_r_s_ary[step_epi_r_s_ary[:, 0].argsort()]
-    print('step_epi_r_s_ary.shape', step_epi_r_s_ary.shape)
+    print('step_epi_r_s_ary.shape', step_epi_r_s_ary.shape, flush=True)
 
     '''plot'''
     import matplotlib.pyplot as plt
@@ -551,7 +554,7 @@ def run():
         ax_twin.tick_params(axis='y', labelcolor=color1)
         ax_twin.set_ylim(0, np.max(plot_y_step) * 2)
 
-    print('title', title)
+    print('title', title, flush=True)
     plt.title(title)
     plt.show()
 

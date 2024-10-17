@@ -3,7 +3,7 @@ import math
 import torch as th
 from typing import Tuple
 
-from elegantrl.train.config import Config
+from .config import Config
 
 TEN = th.Tensor
 
@@ -190,14 +190,14 @@ class ReplayBuffer:  # for off-policy
                 else:
                     buf_item = th.vstack((item[self.p:self.cur_size], item[0:self.p]))
                 file_path = f"{cwd}/replay_buffer_{name}.pth"
-                print(f"| buffer.save_or_load_history(): Save {file_path}")
+                print(f"| buffer.save_or_load_history(): Save {file_path}", flush=True)
                 th.save(buf_item, file_path)
 
         elif all([os.path.isfile(f"{cwd}/replay_buffer_{name}.pth") for item, name in item_names]):
             max_sizes = []
             for item, name in item_names:
                 file_path = f"{cwd}/replay_buffer_{name}.pth"
-                print(f"| buffer.save_or_load_history(): Load {file_path}")
+                print(f"| buffer.save_or_load_history(): Load {file_path}", flush=True)
                 buf_item = th.load(file_path)
 
                 max_size = buf_item.shape[0]
@@ -222,7 +222,7 @@ class ReplayBuffer:  # for off-policy
 
 class SumTree:
     """ BinarySearchTree for PER (SumTree)
-    Contributor: GitHub GyChou, GitHub mississippiu
+    Contributor: GitHub GyChou, GitHub MissIsSipPiu
     Reference: https://github.com/kaixindelele/DRLib/tree/main/algos/pytorch/td3_sp
     Reference: https://github.com/jaromiru/AI-blog/blob/master/SumTree.py
     """

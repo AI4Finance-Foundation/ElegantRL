@@ -38,8 +38,8 @@ For some reason I cannot get `torch` and `torch_geometric` run on Python 3.10, s
 
 ```bash
 # For Pytorch
-pip3 install torch torchvision torchaudio
-# This is for PyG, note that torch==1.12.0 is not officialy supported yet.
+pip3 install th torchvision torchaudio
+# This is for PyG, note that th==1.12.0 is not officialy supported yet.
 # Use at your own risk.
-pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-1.12.0+cpu.html
+pip install th-scatter th-sparse th-cluster th-spline-conv th-geometric -f https://data.pyg.org/whl/torch-1.12.0+cpu.html
 ```

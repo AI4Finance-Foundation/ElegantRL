@@ -3,10 +3,11 @@ import torch as th
 from copy import deepcopy
 from typing import Tuple, List
 
-from elegantrl.agents.AgentBase import AgentBase, ActorBase, CriticBase
-from elegantrl.agents.AgentBase import build_mlp, layer_init_with_orthogonal
-from elegantrl.train.config import Config
-from elegantrl.train.replay_buffer import ReplayBuffer
+from .AgentBase import AgentBase
+from .AgentBase import ActorBase, CriticBase
+from .AgentBase import build_mlp, layer_init_with_orthogonal
+from ..train import Config
+from ..train import ReplayBuffer
 
 TEN = th.Tensor
 
@@ -71,7 +72,7 @@ class AgentTD3(AgentBase):
 
 class AgentDDPG(AgentBase):
     """DDPG(Deep Deterministic Policy Gradient)
-    “Continuous control with deep reinforcement learning”. T. Lillicrap et al.. 2015.”
+    Continuous control with deep reinforcement learning. 2015.
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
@@ -93,10 +94,10 @@ class OrnsteinUhlenbeckNoise:
 
         Source: https://github.com/slowbull/DDPG/blob/master/src/explorationnoise.py
         It makes Zero-mean Gaussian Noise more stable.
-        It helps agent explore better in a inertial system.
-        Don't abuse OU Process. OU process has too much hyper-parameters and over fine-tuning make no sense.
+        It helps agent explore better in an inertial system.
+        Don't abuse OU Process. OU process has too many hyperparameters and over fine-tuning make no sense.
 
-        int size: the size of noise, noise.shape==(-1, action_dim)
+        int size: the size of noise, shape = (-1, action_dim)
         float theta: related to the not independent of OU-noise
         float sigma: related to action noise std
         float ou_noise: initialize OU-noise
