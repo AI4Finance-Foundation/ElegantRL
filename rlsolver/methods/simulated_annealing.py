@@ -248,7 +248,7 @@ def run_simulated_annealing_over_multiple_files(alg, alg_name, init_temperature,
     for i in range(len(files)):
         start_time = time.time()
         filename = files[i]
-        print(f'The {i}-th file: {filename}')
+        print(f'Start the {i}-th file: {filename}')
         if PROBLEM == Problem.set_cover:
             num_items, num_sets, item_matrix = read_set_cover_data(filename)
             init_temperature = 4
