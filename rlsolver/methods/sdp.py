@@ -69,7 +69,7 @@ def run_sdp_over_multiple_files(alg, alg_name, directory_data: str, prefixes: Li
     for i in range(len(files)):
         start_time = time.time()
         filename = files[i]
-        print(f'The {i}-th file: {filename}')
+        print(f'Start the {i}-th file: {filename}')
         score, solution = alg(filename)
         scores.append(score)
         print(f"score: {score}")
