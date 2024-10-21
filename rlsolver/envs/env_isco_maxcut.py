@@ -31,7 +31,7 @@ class iSCO:
         ll_x2y = trajectory['ll_x2y']
         ll_y, ll_y2x = self.ll_y2x(
         I_N, trajectory, y, temperature)
-        log_acc = ll_y + ll_y2x - ll_x - ll_x2y
+        log_acc = torch.clamp(ll_y + ll_y2x - ll_x - ll_x2y,max=0.0)
         y = self.select_sample(log_acc, x, y )
         return y,ll_y*temperature,log_acc.exp()
     

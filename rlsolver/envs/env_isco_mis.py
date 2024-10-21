@@ -1,6 +1,7 @@
 import torch
 from rlsolver.methods.iSCO.config.mis_config import *
 from torch.func import vmap
+from rlsolver.methods.iSCO.util import math_util
 
 
 class iSCO:
@@ -8,89 +9,82 @@ class iSCO:
         self.batch_size = BATCH_SIZE
         self.device = DEVICE
         self.chain_length = CHAIN_LENGTH
-        self.lam = LAMADA
         self.init_temperature = torch.tensor(INIT_TEMPERATURE, device=self.device)
         self.final_temperature = torch.tensor(FINAL_TEMPERATURE, device=self.device)
         self.max_num_nodes = params_dict['num_nodes']
         self.num_edges = params_dict['num_edges']
         self.edge_from = params_dict['edge_from']
         self.edge_to = params_dict['edge_to']
+        self.lam = LAMADA
 
-    def model(self, x):
-        gather2src = torch.gather(x, -1, self.edge_from)
-        gather2dst = torch.gather(x, -1, self.edge_to)
-        penalty = self.lam * torch.sum(gather2src*gather2dst,dim=-1)
-        energy = torch.sum(x,dim=-1) - penalty
-        grad = torch.autograd.grad(outputs=energy, inputs=x, grad_outputs=torch.ones_like(energy), create_graph=False,
-                                   retain_graph=False)[0]
-        with torch.no_grad():
-            grad = grad.detach()
-            energy = energy.detach()
-        return energy, grad
 
-    def random_gen_init_sample(self):
+    def random_gen_init_sample(self, params_dict):
         sample = torch.bernoulli(torch.full((BATCH_SIZE, self.max_num_nodes,), 0.5, device=self.device))
+
         return sample
 
-class iSCO_local_search(iSCO):
-    def __init__(self, data):
-        super().__init__(data)
+    def step(self, x, path_length, temperature):
+        ll_x, y, trajectory = self.proposal(x, path_length, temperature)
+        ll_x2y = trajectory['ll_x2y']
+        ll_y, ll_y2x = self.ll_y2x(
+            trajectory, y, temperature)
+        log_acc = torch.clamp(ll_y + ll_y2x - ll_x - ll_x2y,max=0.0)
+        y = self.select_sample(log_acc, x, y)
 
-    def model(self, x):
-        gather2src = torch.gather(x, -1, self.edge_from)
-        gather2dst = torch.gather(x, -1, self.edge_to)
-        penalty = self.lam * torch.sum(gather2src*gather2dst)
-        energy = torch.sum(x) - penalty
+        return y, ll_y * temperature, log_acc.exp()
 
-        return energy
+    def proposal(self, x, path_length, temperature):
+        ll_x, log_prob = self.get_local_dist(x, temperature)
+        selected_idx, ll_selected = math_util.multinomial(log_prob, path_length)
+        mask = selected_idx['selected_mask']
+        new_val = 1 - x
+        y = x * (1 - mask) + mask * new_val
+        trajectory = {
+            'll_x2y': torch.sum(ll_selected, dim=-1),
+            'selected_idx': selected_idx,
+        }
 
-    def flip(self, x, i_n):
-        return x * (1 - 2 * i_n) + i_n
+        return ll_x, y, trajectory
 
-    def x2y(self, x, idx_list, traj, I_N, path_length, temperature):
-        cur_x = x.clone()
-        energy_x = self.model(x)
-        energy_cur_x = energy_x
-
-        for step in range(path_length):
-            neighbor_x = vmap(self.flip, in_dims=(None, 0))(cur_x, I_N)
-            neighbor_x_energy = vmap(self.model, in_dims=0)(neighbor_x).squeeze()
-            score_change_x = (neighbor_x_energy - energy_cur_x) / (2 * temperature)
-            prob_x_local = torch.log_softmax(score_change_x, dim=-1)
-            traj[:, step] = torch.log_softmax(-score_change_x, dim=-1)
-            index = torch.multinomial(prob_x_local.exp(), 1).view(-1)
-            idx_list[step] = index
-            cur_x[index] = 1.0 - cur_x[index]
-            energy_cur_x = neighbor_x_energy[index]
-
-        return cur_x, idx_list, traj, energy_x, energy_cur_x
-
-    def y2x(self, x, energy_x, y, energy_y, idx_list, traj, I_N, path_length, temperature):
+    def get_local_dist(self, sample, temperature):
+        x = sample.clone().detach().requires_grad_(True)
+        energy_x = vmap(self.model, in_dims=(0, None))(x, temperature)
+        grad_x = torch.autograd.grad(energy_x, x, grad_outputs=torch.ones_like(energy_x), retain_graph=False,
+                                     create_graph=False)[0]
+        # grad_x = 0.5*torch.ones_like(x)
+        grad_x = grad_x.detach()
+        energy_x = energy_x.detach()
         with torch.no_grad():
-            r_idx = torch.arange(path_length, device=self.device).view(1, -1)
-            neighbor_y = vmap(self.flip, in_dims=(None, 0))(y, I_N)
-            neighbor_y_energy = vmap(self.model, in_dims=0)(neighbor_y).squeeze()
-            score_change_y = -(neighbor_y_energy - energy_y) / (2 * temperature)
-            prob_y_local = torch.log_softmax(score_change_y, dim=-1)
-            traj[:, path_length] = torch.log_softmax(-score_change_y, dim=-1)
+            score_change_x = ((1 - x * 2) * grad_x) / 2
+            prob_x_local = torch.log_softmax(score_change_x, dim=-1)
 
-            log_fwd = torch.sum(traj[:, :-1][idx_list, r_idx], dim=-1) + energy_x.view(-1)
-            log_backwd = torch.sum(traj[:, 1:][idx_list, r_idx], dim=-1) + energy_y.view(-1)
+        return energy_x, prob_x_local
 
-            log_acc = log_backwd - log_fwd
-            accs = torch.clamp(log_acc.exp(), max=1)
-            mask = accs >= torch.rand_like(accs)
-            new_x = torch.where(mask, y, x)
-            energy = torch.where(mask, energy_y, energy_x)
+    def ll_y2x(self, forward_trajectory, y, temperature):
+        ll_y, log_prob = self.get_local_dist(
+            y, temperature)
+        selected_mask = forward_trajectory['selected_idx']['selected_mask']
+        order_info = forward_trajectory['selected_idx']['perturbed_ll']
+        backwd_idx = torch.argsort(order_info, dim=-1)
+        log_prob = torch.where(selected_mask.bool(), log_prob, torch.tensor(-1e18))
+        backwd_ll = torch.gather(log_prob, dim=-1, index=backwd_idx)
+        backwd_mask = torch.gather(selected_mask, dim=-1, index=backwd_idx)
+        ll_backwd = math_util.noreplacement_sampling_renormalize(backwd_ll)
+        ll_y2x = torch.sum(torch.where(backwd_mask.bool(), ll_backwd, torch.tensor(0.0)), dim=-1)
 
-        return new_x, energy, accs
+        return ll_y, ll_y2x
 
-    def step(self, path_length, temperature, sample):
-        x = sample.clone()
-        idx_list = torch.empty(self.batch_size, path_length, device=self.device, dtype=torch.int)
-        traj = torch.empty(self.batch_size, self.max_num_nodes, path_length + 1, device=self.device)
-        I_N = torch.eye(self.max_num_nodes, device=self.device)
-        y, idx_list, traj, energy_x, energy_y = self.x2y(x, idx_list, traj, I_N, path_length, temperature)
-        new_x, energy, accs = self.y2x(x, energy_x, y, energy_y, idx_list, traj, I_N, path_length, temperature)
-        accs = torch.mean(accs)
-        return new_x, energy, accs
+    def model(self, x, temperature):
+        # gather2src = x[self.edge_from]
+        # gather2dst = x[self.edge_to]
+        gather2src2 = torch.gather(x, -1, self.edge_from)
+        gather2dst = torch.gather(x, -1, self.edge_to)
+        penalty = self.lam * torch.sum(gather2src2*gather2dst,dim=-1)
+        energy = torch.sum(x,dim=-1) - penalty
+
+        return energy / temperature
+
+    def select_sample(self, log_acc, x, y):
+        y, acc = math_util.mh_step(log_acc, x, y)
+
+        return y

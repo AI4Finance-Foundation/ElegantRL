@@ -18,24 +18,25 @@ def main(_):
     params_dict = maxcut_util.load_data(DATAPATH)
     sampler = iSCO(params_dict)
     sample = sampler.random_gen_init_sample(params_dict)
-    mu = 10.0
+    mu = torch.ones(BATCH_SIZE,device=DEVICE,dtype=torch.float)*10
     start_time = time.time()
+    energy = torch.tensor(0,device=DEVICE,dtype=torch.float)
     for step in tqdm.tqdm(range(0, sampler.chain_length)):
-        poisson_sample = torch.poisson(torch.tensor([mu]))
-        path_length = max(1, int(poisson_sample.item()))
+        path_length = 10*torch.ones(BATCH_SIZE,device=DEVICE,dtype=torch.long)
         temperature = sampler.init_temperature - step / sampler.chain_length * (
                     sampler.init_temperature - sampler.final_temperature)
         sample, new_energy, acc = sampler.step(sample, path_length, temperature)
-        acc = acc.item()
-        mu = min(float(sampler.max_num_nodes), max(1.0, (mu + 0.01 * (acc - 0.574))))
-
+        mu = torch.clamp((mu + 0.01 * (acc - 0.574)),min = 1.0,max = float(sampler.max_num_nodes))
+        energy = torch.max(energy,torch.max(new_energy, dim=0)[0])
     obj, obj_index = torch.max(new_energy, dim=0)
+    print(energy)
+
+
     obj = obj.item()
     result = sample[obj_index]
 
     end_time = time.time()
     running_duration = end_time - start_time
-    # maxcut_util.write_result(DATAPATH,result,obj,running_duration,params_dict['num_nodes'])
     alg_name = "iSCO"
     write_graph_result(obj, running_duration, params_dict["num_nodes"], alg_name, result, DATAPATH)
 
