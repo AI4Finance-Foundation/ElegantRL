@@ -60,7 +60,7 @@ def run(save_loc="BA_200spin/eco"):
     # Pre-generated test graphs
     ####
 
-    graph_save_loc = "BA_200"
+    graph_save_loc = "../../data/syn_BA/BA_200"
     graphs_test = load_graph_set_from_txt(graph_save_loc)
     n_tests = len(graphs_test)
 
@@ -100,7 +100,7 @@ def run(save_loc="BA_200spin/eco"):
     # SET UP AGENT
     ####################################################
 
-    nb_steps = 10000
+    nb_steps = NB_STEPS
 
     network_fn = lambda: MPNN(n_obs_in=train_envs[0].observation_space.shape[1],
                               n_layers=3,
