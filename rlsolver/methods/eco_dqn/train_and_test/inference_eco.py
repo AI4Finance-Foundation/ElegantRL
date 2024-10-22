@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import torch
 
 import rlsolver.methods.eco_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_dqn.utils import test_network, load_graph_set
+from rlsolver.methods.eco_dqn.utils import test_network, load_graph_set,load_graph_set_from_txt
 from rlsolver.methods.eco_dqn.src.envs.utils import (SingleGraphGenerator,
                             RewardSignal, ExtraAction,
                             OptimisationTarget, SpinBasis,
@@ -74,7 +74,7 @@ def run(save_loc="BA_40spin/eco",
     # LOAD VALIDATION GRAPHS
     ####################################################
 
-    graphs_test = load_graph_set(graph_save_loc)
+    graphs_test = load_graph_set_from_txt(graph_save_loc)
 
     ####################################################
     # SETUP NETWORK TO TEST

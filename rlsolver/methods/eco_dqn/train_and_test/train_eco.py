@@ -60,7 +60,7 @@ def run(save_loc="BA_200spin/eco"):
     # Pre-generated test graphs
     ####
 
-    graph_save_loc = "../../data/syn_BA/BA_200"
+    graph_save_loc = "../../data/syn_BA"
     graphs_test = load_graph_set_from_txt(graph_save_loc)
     n_tests = len(graphs_test)
 
