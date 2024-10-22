@@ -589,7 +589,8 @@ def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], 
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
     files.sort()
     for i in range(len(files)):
-        print(f'The {i}-th file: {files[i]}')
+        filename = files[i]
+        print(f'Start the {i}-th file: {filename}')
         for j in range(len(time_limits)):
             run_using_gurobi(files[i], None, time_limits[j])
     assert 'data' in directory_data

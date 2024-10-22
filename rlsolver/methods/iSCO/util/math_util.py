@@ -1,7 +1,7 @@
 import torch
 
 def gumbel(loc):
-    uniform_sample = torch.rand_like(loc)  # 生成与 loc 相同形状的均匀分布样本
+    uniform_sample = torch.rand(loc.shape,device=loc.device)  # 生成与 loc 相同形状的均匀分布样本
     return loc - torch.log(-torch.log(uniform_sample))  # 计算 Gumbel 分布样本
 
 def log1mexp(x):
@@ -22,9 +22,10 @@ def multinomial(log_prob,path_length):
     # 将每个点采样的权重升序排列
     sorted_ll, _ = torch.sort(perturbed_ll)
     # 提取排序后的权重的倒数 num_classes - num_samples 列，shape=(batchsize, 1)
-    threshold = sorted_ll[..., num_classes - path_length].unsqueeze(-1)
+    threshold = torch.gather(sorted_ll,1,(num_classes - path_length).unsqueeze(1))
+    # threshold = sorted_ll[..., num_classes - path_length].unsqueeze(-1)
     # 在权重最大的 num_samples 个点处为 1，其余为 0
-    selected_mask = (perturbed_ll >= threshold).int()
+    selected_mask = (perturbed_ll >= threshold.expand_as(perturbed_ll)).int()
     selected = {
         'selected_mask': selected_mask,
         'perturbed_ll': perturbed_ll,

@@ -218,7 +218,7 @@ def run_genetic_over_multiple_files(directory_data: str, prefixes: List[str])-> 
     files.sort()
     for i in range(len(files)):
         filename = files[i]
-        print(f'The {i}-th file: {filename}')
+        print(f'Start the {i}-th file: {filename}')
         graph = read_nxgraph(filename)
         print("Genetic Search Start")
         genetic_maxcut(graph, filename)
