@@ -59,7 +59,7 @@ class AgentBase:
         self.act_optimizer: Optional[th.optim] = None
         self.cri_optimizer: Optional[th.optim] = None
 
-        self.criterion = th.nn.SmoothL1Loss(reduction="none")
+        self.criterion = getattr(args, 'criterion', th.nn.MSELoss(reduction="none"))
         self.if_vec_env = self.num_envs > 1  # use vectorized environment (vectorized simulator)
         self.if_use_per = getattr(args, 'if_use_per', None)  # use PER (Prioritized Experience Replay)
         self.lambda_fit_cum_r = getattr(args, 'lambda_fit_cum_r', 0.0)  # critic fits cumulative returns
