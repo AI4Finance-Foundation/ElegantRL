@@ -2,11 +2,14 @@ import torch as th
 from torch.cuda import graph
 
 GPU_ID = 0
-NODES = 200
+NODES = 100
 GRAPH_TYPE = 'BA'
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
+JUSTTEST = True
+NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_60spin.pth'
+GRAPHSAVELOC = "../../data/syn_BA"
 
 DEVICE = calc_device(GPU_ID)
 if GRAPH_TYPE == 'BA':

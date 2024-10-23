@@ -3,13 +3,14 @@ import os
 import matplotlib.pyplot as plt
 import torch
 
-import rlsolver.methods.eco_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_dqn.utils import test_network, load_graph_set,load_graph_set_from_txt
-from rlsolver.methods.eco_dqn.src.envs.utils import (SingleGraphGenerator,
+import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
+from rlsolver.methods.eco_and_s2v_dqn.experiments.utils import test_network, load_graph_set, mk_dir
+from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerator,
                             RewardSignal, ExtraAction,
                             OptimisationTarget, SpinBasis,
                             DEFAULT_OBSERVABLES)
-from rlsolver.methods.eco_dqn.src.networks.mpnn import MPNN
+from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
+from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
 
 try:
     import seaborn as sns
@@ -17,27 +18,23 @@ try:
 except ImportError:
     pass
 
-def run(save_loc="BA_40spin/eco",
-        graph_save_loc="../../../_graphs/validation/BA_40spin_m4_100graphs.pkl",
+def run(save_loc="pretrained_agent/eco",
+        network_save_loc="experiments_new/pretrained_agent/networks/eco/network_best_ER_200spin.pth",
+        graph_save_loc="../../../_graphs/validation/ER_200spin_p15_100graphs.pkl",
         batched=True,
-        max_batch_size=None):
+        max_batch_size=None,
+        step_factor=None,
+        n_attemps=50):
 
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
     ####################################################
-    # NETWORK LOCATION
+    # FOLDER LOCATIONS
     ####################################################
 
-    data_folder = os.path.join(save_loc, 'data')
-    network_folder = os.path.join(save_loc, 'network')
-
-    print("data folder :", data_folder)
-    print("network folder :", network_folder)
-
-    test_save_path = os.path.join(network_folder, 'test_scores.pkl')
-    network_save_path = os.path.join(network_folder, 'network_best.pth')
-
-    print("network params :", network_save_path)
+    print("save location :", save_loc)
+    print("network params :", network_save_loc)
+    mk_dir(save_loc)
 
     ####################################################
     # NETWORK SETUP
@@ -55,8 +52,8 @@ def run(save_loc="BA_40spin/eco",
     # SET UP ENVIRONMENTAL AND VARIABLES
     ####################################################
 
-    gamma = 0.95
-    step_factor = 2
+    if step_factor is None:
+        step_factor = 2
 
     env_args = {'observables': DEFAULT_OBSERVABLES,
                 'reward_signal': RewardSignal.BLS,
@@ -67,14 +64,14 @@ def run(save_loc="BA_40spin/eco",
                 'memory_length': None,
                 'horizon_length': None,
                 'stag_punishment': None,
-                'basin_reward': 1. / 40,
+                'basin_reward': None,
                 'reversible_spins': True}
 
     ####################################################
     # LOAD VALIDATION GRAPHS
     ####################################################
 
-    graphs_test = load_graph_set_from_txt(graph_save_loc)
+    graphs_test = load_graph_set(graph_save_loc)
 
     ####################################################
     # SETUP NETWORK TO TEST
@@ -82,17 +79,17 @@ def run(save_loc="BA_40spin/eco",
 
     test_env = ising_env.make("SpinSystem",
                               SingleGraphGenerator(graphs_test[0]),
-                              graphs_test[0].shape[0]*step_factor,
+                              graphs_test[0].shape[0] * step_factor,
                               **env_args)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = DEVICE
     torch.device(device)
     print("Set torch default device to {}.".format(device))
 
     network = network_fn(n_obs_in=test_env.observation_space.shape[1],
                          **network_args).to(device)
 
-    network.load_state_dict(torch.load(network_save_path,map_location=device))
+    network.load_state_dict(torch.load(network_save_loc, map_location=device))
     for param in network.parameters():
         param.requires_grad = False
     network.eval()
@@ -104,7 +101,7 @@ def run(save_loc="BA_40spin/eco",
     ####################################################
 
     results, results_raw, history = test_network(network, env_args, graphs_test, device, step_factor,
-                                                 return_raw=True, return_history=True,
+                                                 return_raw=True, return_history=True, n_attempts=n_attemps,
                                                  batched=batched, max_batch_size=max_batch_size)
 
     results_fname = "results_" + os.path.splitext(os.path.split(graph_save_loc)[-1])[0] + ".pkl"
@@ -114,7 +111,7 @@ def run(save_loc="BA_40spin/eco",
     for res, fname, label in zip([results, results_raw, history],
                                  [results_fname, results_raw_fname, history_fname],
                                  ["results", "results_raw", "history"]):
-        save_path = os.path.join(data_folder, fname)
+        save_path = os.path.join(save_loc, fname)
         res.to_pickle(save_path)
         print("{} saved to {}".format(label, save_path))
 
