@@ -10,9 +10,11 @@ import torch
 from collections import namedtuple
 from copy import deepcopy
 
-import rlsolver.methods.eco_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_dqn.src.envs.utils import (SingleGraphGenerator, SpinBasis)
-from rlsolver.methods.eco_dqn.src.agents.solver import Network, Greedy
+import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
+from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerator, SpinBasis)
+from rlsolver.methods.eco_and_s2v_dqn.src.agents.solver import Network, Greedy
+from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
+
 
 ####################################################
 # TESTING ON GRAPHS
@@ -459,8 +461,32 @@ def load_graph_set_from_txt(graph_save_folder):
     graphs_test = []
 
     # 遍历文件夹中的所有txt文件
+
+    g = load_graph_from_txt(graph_save_folder)
+    graphs_test.append(g)
+
+    # 将图转换为数组形式
+    def graph_to_array(g):
+        if isinstance(g, nx.Graph):
+            g = nx.to_numpy_array(g)
+        elif isinstance(g, sp.sparse.csr_matrix):
+            g = g.toarray()
+        return g
+
+    graphs_test = [graph_to_array(g) for g in graphs_test]
+    print('{} target graphs loaded from {}'.format(len(graphs_test), graph_save_folder))
+
+    return graphs_test
+
+def load_graph_set_from_folder(graph_save_folder):
+    """
+    从指定文件夹中读取所有txt文件并转换为图对象集合
+    """
+    graphs_test = []
+
+    # 遍历文件夹中的所有txt文件
     for file_name in os.listdir(graph_save_folder):
-        if file_name.endswith('.txt'):
+        if file_name.endswith('.txt') and  str(NODES) in file_name.split("_"):
             file_path = os.path.join(graph_save_folder, file_name)
             g = load_graph_from_txt(file_path)
             graphs_test.append(g)
@@ -477,6 +503,7 @@ def load_graph_set_from_txt(graph_save_folder):
     print('{} target graphs loaded from {}'.format(len(graphs_test), graph_save_folder))
 
     return graphs_test
+
 
 ####################################################
 # FILE UTILS

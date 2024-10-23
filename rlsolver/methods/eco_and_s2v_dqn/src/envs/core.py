@@ -1,4 +1,4 @@
-from rlsolver.methods.eco_dqn.src.envs.spinsystem import SpinSystemFactory
+from rlsolver.methods.eco_and_s2v_dqn.src.envs.spinsystem import SpinSystemFactory
 
 def make(id, *args, **kwargs):
 
