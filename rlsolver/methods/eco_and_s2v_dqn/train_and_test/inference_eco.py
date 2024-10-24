@@ -12,6 +12,8 @@ from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerato
 from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
 from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
 from rlsolver.methods.util_result import write_graph_result
+from rlsolver.methods.util import calc_txt_files_with_prefixes
+import time
 
 
 try:
@@ -81,8 +83,9 @@ def run(save_loc="BA_40spin/eco",
     # LOAD VALIDATION GRAPHS
     ####################################################
     file_names = os.listdir(graph_save_loc)
-    for graph_name in file_names:
-        graph_dict = os.path.join(graph_save_loc, graph_name).replace("\\", "/")
+    graph_list = calc_txt_files_with_prefixes(graph_save_loc,TESTGRAPH)
+    for graph_dict in graph_list:
+        # graph_dict = os.path.join(graph_save_loc, graph_name).replace("\\", "/")
         graphs_test = load_graph_set_from_txt(graph_dict)
 
         ####################################################
@@ -111,11 +114,11 @@ def run(save_loc="BA_40spin/eco",
         ####################################################
         # TEST NETWORK ON VALIDATION GRAPHS
         ####################################################
-
+        start_time = time.time()
         results, results_raw, history = test_network(network, env_args, graphs_test, device, step_factor,
                                                      return_raw=True, return_history=True,
                                                      batched=batched, max_batch_size=max_batch_size)
-
+        run_duration = time.time() - start_time
         results_fname = "results_" + os.path.splitext(os.path.split(graph_save_loc)[-1])[0] + ".pkl"
         results_raw_fname = "results_" + os.path.splitext(os.path.split(graph_save_loc)[-1])[0] + "_raw.pkl"
         history_fname = "results_" + os.path.splitext(os.path.split(graph_save_loc)[-1])[0] + "_history.pkl"
@@ -124,14 +127,14 @@ def run(save_loc="BA_40spin/eco",
                                      [results_fname, results_raw_fname, history_fname],
                                      ["results", "results_raw", "history"]):
             if label == "results":
-                result = res['sol'][0]
+                result = ((res['sol'][0]+1)/2).astype(int)
                 obj = res['cut'][0]
                 # print(sol)
                 num_nodes = len(result)
-                write_graph_result(obj, None, num_nodes, 'eco-dqn', result, graph_dict)
+                write_graph_result(obj, run_duration, num_nodes, 'eco-dqn', result, graph_dict, plus1=False)
 
-        # save_path = os.path.join(data_folder, fname)
-        # res.to_pickle(save_path)
+                # save_path = os.path.join(data_folder, fname)
+                # res.to_pickle(save_path)
 
         # print("{} saved to {}".format(label, save_path))
 
