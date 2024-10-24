@@ -12,6 +12,7 @@ from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerato
 from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
 from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
 from rlsolver.methods.util_result import write_graph_result
+from rlsolver.methods.util import calc_txt_files_with_prefixes
 import time
 
 
@@ -82,8 +83,9 @@ def run(save_loc="BA_40spin/eco",
     # LOAD VALIDATION GRAPHS
     ####################################################
     file_names = os.listdir(graph_save_loc)
-    for graph_name in file_names:
-        graph_dict = os.path.join(graph_save_loc, graph_name).replace("\\", "/")
+    graph_list = calc_txt_files_with_prefixes(graph_save_loc,TESTGRAPH)
+    for graph_dict in graph_list:
+        # graph_dict = os.path.join(graph_save_loc, graph_name).replace("\\", "/")
         graphs_test = load_graph_set_from_txt(graph_dict)
 
         ####################################################
