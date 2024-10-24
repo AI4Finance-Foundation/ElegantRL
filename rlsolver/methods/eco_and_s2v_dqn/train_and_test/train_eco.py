@@ -4,17 +4,17 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 
-import rlsolver.methods.eco_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_dqn.utils import load_graph_set, mk_dir,load_graph_set_from_txt
-from rlsolver.methods.eco_dqn.src.agents.dqn.dqn import DQN
-from rlsolver.methods.eco_dqn.src.agents.dqn.utils import TestMetric
-from rlsolver.methods.eco_dqn.src.envs.utils import (SetGraphGenerator,
+import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
+from rlsolver.methods.eco_and_s2v_dqn.utils import load_graph_set, mk_dir,load_graph_set_from_folder
+from rlsolver.methods.eco_and_s2v_dqn.src.agents.dqn.dqn import DQN
+from rlsolver.methods.eco_and_s2v_dqn.src.agents.dqn.utils import TestMetric
+from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SetGraphGenerator,
                             RandomBarabasiAlbertGraphGenerator,
                             EdgeType, RewardSignal, ExtraAction,
                             OptimisationTarget, SpinBasis,
                             DEFAULT_OBSERVABLES)
-from rlsolver.methods.eco_dqn.src.networks.mpnn import MPNN
-from rlsolver.methods.eco_dqn.config.eco_config import *
+from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
+from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
 
 try:
     import seaborn as sns
@@ -24,7 +24,7 @@ except ImportError:
 
 import time
 
-def run(save_loc="BA_200spin/eco"):
+def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
 
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
@@ -60,8 +60,8 @@ def run(save_loc="BA_200spin/eco"):
     # Pre-generated test graphs
     ####
 
-    graph_save_loc = "../../data/syn_BA"
-    graphs_test = load_graph_set_from_txt(graph_save_loc)
+    # graph_save_loc = "../../data/syn_BA/BA_100_ID0.txt"
+    graphs_test = load_graph_set_from_folder(graph_save_loc)
     n_tests = len(graphs_test)
 
     test_graph_generator = SetGraphGenerator(graphs_test, ordered=True)
@@ -100,7 +100,7 @@ def run(save_loc="BA_200spin/eco"):
     # SET UP AGENT
     ####################################################
 
-    nb_steps = NB_STEPS
+    nb_steps = 10000
 
     network_fn = lambda: MPNN(n_obs_in=train_envs[0].observation_space.shape[1],
                               n_layers=3,

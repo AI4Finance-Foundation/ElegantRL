@@ -6,7 +6,7 @@ import numpy as np
 import torch.multiprocessing as mp
 from numba import jit, float64, int64
 
-from rlsolver.methods.eco_dqn.src.envs.utils import (EdgeType,
+from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (EdgeType,
                             RewardSignal,
                             ExtraAction,
                             OptimisationTarget,
