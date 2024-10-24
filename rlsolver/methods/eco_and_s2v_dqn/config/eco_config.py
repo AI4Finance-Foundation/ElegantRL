@@ -8,7 +8,7 @@ def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
 JUSTTEST = True
-NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_60spin.pth'
+NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
 GRAPHSAVELOC = "../../data/syn_BA"
 
 DEVICE = calc_device(GPU_ID)

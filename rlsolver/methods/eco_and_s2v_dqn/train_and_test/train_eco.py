@@ -100,7 +100,7 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     # SET UP AGENT
     ####################################################
 
-    nb_steps = 10000
+    nb_steps = NB_STEPS
 
     network_fn = lambda: MPNN(n_obs_in=train_envs[0].observation_space.shape[1],
                               n_layers=3,
