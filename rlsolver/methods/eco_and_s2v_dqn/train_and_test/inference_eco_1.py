@@ -2,7 +2,6 @@ import os
 import time
 import torch
 from concurrent.futures import ProcessPoolExecutor
-from typing import List
 
 import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
 from rlsolver.methods.eco_and_s2v_dqn.utils import test_network, load_graph_set_from_txt
@@ -13,7 +12,6 @@ from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerato
 from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
 from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
-from rlsolver.methods.util import calc_txt_files_with_prefixes
 
 
 def process_graph(graph_name, graph_save_loc, data_folder, network_save_path, device, network_fn, network_args,
@@ -75,8 +73,7 @@ def run(save_loc="BA_40spin/eco",
         batched=True,
         max_batch_size=None,
         just_test=True,
-        max_parallel_jobs=4,
-        prefixes=None):
+        max_parallel_jobs=4):  # 添加 max_parallel_jobs 参数
 
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
@@ -112,18 +109,7 @@ def run(save_loc="BA_40spin/eco",
                 'basin_reward': 1. / 40,
                 'reversible_spins': True}
 
-    if prefixes:
-        file_names = calc_txt_files_with_prefixes(graph_save_loc, prefixes)
-        # 对文件列表进行排序
-        sorted_file_names = prefixes
-        for prefix in prefixes:
-            for file in file_names:
-                if file.startswith(prefix) and file not in sorted_file_names:
-                    sorted_file_names.append(file)
-        file_names = sorted_file_names
-    else:
-        file_names = os.listdir(graph_save_loc)
-
+    file_names = os.listdir(graph_save_loc)
     device = str(DEVICE)
 
     # 使用并行处理，设置最大并行进程数
@@ -139,7 +125,5 @@ def run(save_loc="BA_40spin/eco",
             future.result()
 
 
-
 if __name__ == "__main__":
-    prefixes = PREFIXES
-    run(max_parallel_jobs=4, prefixes=prefixes)
+    run(max_parallel_jobs=4)  # 可以在这里设置并行数量

@@ -1,16 +1,16 @@
 import torch as th
 from torch.cuda import graph
 
-GPU_ID = 0
+GPU_ID = -1
 NODES = 100
 GRAPH_TYPE = 'BA'
+PREFIXES = ["BA_900", "BA_1000", "BA_1100", "BA_1200", "BA_2000", "BA_5000"]  # Replace with your desired prefixes
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
 JUSTTEST = True
-NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_ER_20spin.pth'
+NETWORKSAVEPATH = "pretrained_agent/eco/network_best_BA_40spin.pth"
 GRAPHSAVELOC = "../../data/syn_BA"
-TESTGRAPH=["BA_100"]
 
 DEVICE = calc_device(GPU_ID)
 if GRAPH_TYPE == 'BA':
