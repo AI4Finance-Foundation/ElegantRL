@@ -11,7 +11,9 @@ from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
 
 just_test = JUSTTEST
 #这也是test中保存结果的地方
-save_loc=f"../../result/{GRAPH_TYPE}_{NODES}spin_eco"
+# save_loc=f"../../result/{GRAPH_TYPE}_{NODES}spin_eco"
+save_loc=f"../../result"
+
 
 
 if not just_test:
