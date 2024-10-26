@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
 
+
 class SpinSolver(ABC):
     """Abstract base class for agents solving SpinSystem Ising problems."""
 
@@ -72,6 +73,7 @@ class SpinSolver(ABC):
 
         raise NotImplementedError()
 
+
 class Greedy(SpinSolver):
     """A greedy solver for a SpinSystem."""
 
@@ -117,6 +119,7 @@ class Greedy(SpinSolver):
 
         return reward, done
 
+
 class Random(SpinSolver):
     """A random solver for a SpinSystem."""
 
@@ -131,6 +134,7 @@ class Random(SpinSolver):
 
         observation, reward, done, _ = self.env.step(self.env.action_space.sample())
         return reward, done
+
 
 class Network(SpinSolver):
     """A network-only solver for a SpinSystem."""
