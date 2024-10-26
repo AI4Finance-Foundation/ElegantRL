@@ -6,19 +6,20 @@ import numpy as np
 import torch.multiprocessing as mp
 from numba import jit, float64, int64
 
-from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (EdgeType,
-                            RewardSignal,
-                            ExtraAction,
-                            OptimisationTarget,
-                            Observable,
-                            SpinBasis,
-                            DEFAULT_OBSERVABLES,
-                            GraphGenerator,
-                            RandomGraphGenerator,
-                            HistoryBuffer)
+from rlsolver.methods.eco_s2v.src.envs.utils import (EdgeType,
+                                                             RewardSignal,
+                                                             ExtraAction,
+                                                             OptimisationTarget,
+                                                             Observable,
+                                                             SpinBasis,
+                                                             DEFAULT_OBSERVABLES,
+                                                             GraphGenerator,
+                                                             RandomGraphGenerator,
+                                                             HistoryBuffer)
 
 # A container for get_result function below. Works just like tuple, but prettier.
-ActionResult = namedtuple("action_result", ("snapshot","observation","reward","is_done","info"))
+ActionResult = namedtuple("action_result", ("snapshot", "observation", "reward", "is_done", "info"))
+
 
 class SpinSystemFactory(object):
     '''
@@ -28,32 +29,33 @@ class SpinSystemFactory(object):
     @staticmethod
     def get(graph_generator=None,
             max_steps=20,
-            observables = DEFAULT_OBSERVABLES,
-            reward_signal = RewardSignal.DENSE,
-            extra_action = ExtraAction.PASS,
-            optimisation_target = OptimisationTarget.ENERGY,
-            spin_basis = SpinBasis.SIGNED,
+            observables=DEFAULT_OBSERVABLES,
+            reward_signal=RewardSignal.DENSE,
+            extra_action=ExtraAction.PASS,
+            optimisation_target=OptimisationTarget.ENERGY,
+            spin_basis=SpinBasis.SIGNED,
             norm_rewards=False,
             memory_length=None,  # None means an infinite memory.
-            horizon_length=None, # None means an infinite horizon.
-            stag_punishment=None, # None means no punishment for re-visiting states.
-            basin_reward=None, # None means no reward for reaching a local minima.
-            reversible_spins=True, # Whether the spins can be flipped more than once (i.e. True-->Georgian MDP).
+            horizon_length=None,  # None means an infinite horizon.
+            stag_punishment=None,  # None means no punishment for re-visiting states.
+            basin_reward=None,  # None means no reward for reaching a local minima.
+            reversible_spins=True,  # Whether the spins can be flipped more than once (i.e. True-->Georgian MDP).
             init_snap=None,
             seed=None):
 
         if graph_generator.biased:
-            return SpinSystemBiased(graph_generator,max_steps,
-                                    observables,reward_signal,extra_action,optimisation_target,spin_basis,
-                                    norm_rewards,memory_length,horizon_length,stag_punishment,basin_reward,
+            return SpinSystemBiased(graph_generator, max_steps,
+                                    observables, reward_signal, extra_action, optimisation_target, spin_basis,
+                                    norm_rewards, memory_length, horizon_length, stag_punishment, basin_reward,
                                     reversible_spins,
-                                    init_snap,seed)
+                                    init_snap, seed)
         else:
-            return SpinSystemUnbiased(graph_generator,max_steps,
-                                      observables,reward_signal,extra_action,optimisation_target,spin_basis,
-                                      norm_rewards,memory_length,horizon_length,stag_punishment,basin_reward,
+            return SpinSystemUnbiased(graph_generator, max_steps,
+                                      observables, reward_signal, extra_action, optimisation_target, spin_basis,
+                                      norm_rewards, memory_length, horizon_length, stag_punishment, basin_reward,
                                       reversible_spins,
-                                      init_snap,seed)
+                                      init_snap, seed)
+
 
 class SpinSystemBase(ABC):
     '''
@@ -81,8 +83,8 @@ class SpinSystemBase(ABC):
                  graph_generator=None,
                  max_steps=20,
                  observables=DEFAULT_OBSERVABLES,
-                 reward_signal = RewardSignal.DENSE,
-                 extra_action = ExtraAction.PASS,
+                 reward_signal=RewardSignal.DENSE,
+                 extra_action=ExtraAction.PASS,
                  optimisation_target=OptimisationTarget.ENERGY,
                  spin_basis=SpinBasis.SIGNED,
                  norm_rewards=False,
@@ -117,15 +119,16 @@ class SpinSystemBase(ABC):
 
         self.extra_action = extra_action
 
-        if graph_generator!=None:
-            assert isinstance(graph_generator,GraphGenerator), "graph_generator must be a GraphGenerator implementation."
+        if graph_generator != None:
+            assert isinstance(graph_generator,
+                              GraphGenerator), "graph_generator must be a GraphGenerator implementation."
             self.gg = graph_generator
         else:
             # provide a default graph generator if one is not passed
             self.gg = RandomGraphGenerator(n_spins=20,
                                            edge_type=EdgeType.DISCRETE,
                                            biased=False,
-                                           extra_action=(extra_action!=extra_action.NONE))
+                                           extra_action=(extra_action != extra_action.NONE))
 
         self.n_spins = self.gg.n_spins  # Total number of spins in episode
         self.max_steps = max_steps  # Number of actions before reset
@@ -135,7 +138,7 @@ class SpinSystemBase(ABC):
 
         self.n_actions = self.n_spins
         if extra_action != ExtraAction.NONE:
-            self.n_actions+=1
+            self.n_actions += 1
 
         self.action_space = self.action_space(self.n_actions)
         self.observation_space = self.observation_space(self.n_spins, len(self.observables))
@@ -164,7 +167,7 @@ class SpinSystemBase(ABC):
             self.init_score = self.score
 
         self.best_score = self.score
-        self.best_spins = self.state[0,:]
+        self.best_spins = self.state[0, :]
 
         if init_snap != None:
             self.load_snapshot(init_snap)
@@ -219,7 +222,7 @@ class SpinSystemBase(ABC):
         if self.extra_action != self.extra_action.NONE:
             # Pad adjacency matrix for disconnected extra-action spins of value 0.
             self.matrix_obs = np.zeros((self.matrix.shape[0] + 1, self.matrix.shape[0] + 1))
-            self.matrix_obs [:-1, :-1] = self.matrix
+            self.matrix_obs[:-1, :-1] = self.matrix
         else:
             self.matrix_obs = self.matrix
 
@@ -249,9 +252,10 @@ class SpinSystemBase(ABC):
         # If any observables other than "immediate energy available" require setting to values other than
         # 0 at this stage, we should use a 'for k,v in enumerate(self.observables)' loop.
         for idx, obs in self.observables:
-            if obs==Observable.IMMEDIATE_REWARD_AVAILABLE:
-                state[idx, :self.n_spins] = self.get_immeditate_rewards_avaialable(spins=state[0, :self.n_spins]) / self.max_local_reward_available
-            elif obs==Observable.NUMBER_OF_GREEDY_ACTIONS_AVAILABLE:
+            if obs == Observable.IMMEDIATE_REWARD_AVAILABLE:
+                state[idx, :self.n_spins] = self.get_immeditate_rewards_avaialable(
+                    spins=state[0, :self.n_spins]) / self.max_local_reward_available
+            elif obs == Observable.NUMBER_OF_GREEDY_ACTIONS_AVAILABLE:
                 immeditate_rewards_avaialable = self.get_immeditate_rewards_avaialable(spins=state[0, :self.n_spins])
                 state[idx, :self.n_spins] = 1 - np.sum(immeditate_rewards_avaialable <= 0) / self.n_spins
 
@@ -328,7 +332,7 @@ class SpinSystemBase(ABC):
     def step(self, action):
         done = False
 
-        rew = 0 # Default reward to zero.
+        rew = 0  # Default reward to zero.
         randomised_spins = False
         self.current_step += 1
 
@@ -342,7 +346,7 @@ class SpinSystemBase(ABC):
         # 1. Performs the action and calculates the score change. #
         ############################################################
 
-        if action==self.n_spins:
+        if action == self.n_spins:
             if self.extra_action == ExtraAction.PASS:
                 delta_score = 0
             if self.extra_action == ExtraAction.RANDOMISE:
@@ -355,11 +359,11 @@ class SpinSystemBase(ABC):
                 self.score = new_score
         else:
             # Perform the action and calculate the score change.
-            new_state[0,action] = -self.state[0,action]
+            new_state[0, action] = -self.state[0, action]
             if self.gg.biased:
-                delta_score = self._calculate_score_change(new_state[0,:self.n_spins], self.matrix, self.bias, action)
+                delta_score = self._calculate_score_change(new_state[0, :self.n_spins], self.matrix, self.bias, action)
             else:
-                delta_score = self._calculate_score_change(new_state[0,:self.n_spins], self.matrix, action)
+                delta_score = self._calculate_score_change(new_state[0, :self.n_spins], self.matrix, action)
             self.score += delta_score
 
         #############################################################################################
@@ -432,10 +436,10 @@ class SpinSystemBase(ABC):
         for idx, observable in self.observables:
 
             ### Local observables ###
-            if observable==Observable.IMMEDIATE_REWARD_AVAILABLE:
+            if observable == Observable.IMMEDIATE_REWARD_AVAILABLE:
                 self.state[idx, :self.n_spins] = immeditate_rewards_avaialable / self.max_local_reward_available
 
-            elif observable==Observable.TIME_SINCE_FLIP:
+            elif observable == Observable.TIME_SINCE_FLIP:
                 self.state[idx, :] += (1. / self.max_steps)
                 if randomised_spins:
                     self.state[idx, :] = self.state[idx, :] * (random_actions > 0)
@@ -443,21 +447,22 @@ class SpinSystemBase(ABC):
                     self.state[idx, action] = 0
 
             ### Global observables ###
-            elif observable==Observable.EPISODE_TIME:
+            elif observable == Observable.EPISODE_TIME:
                 self.state[idx, :] += (1. / self.max_steps)
 
-            elif observable==Observable.TERMINATION_IMMANENCY:
+            elif observable == Observable.TERMINATION_IMMANENCY:
                 # Update 'Immanency of episode termination'
                 self.state[idx, :] = max(0, ((self.current_step - self.max_steps) / self.horizon_length) + 1)
 
-            elif observable==Observable.NUMBER_OF_GREEDY_ACTIONS_AVAILABLE:
+            elif observable == Observable.NUMBER_OF_GREEDY_ACTIONS_AVAILABLE:
                 self.state[idx, :] = 1 - np.sum(immeditate_rewards_avaialable <= 0) / self.n_spins
 
-            elif observable==Observable.DISTANCE_FROM_BEST_SCORE:
+            elif observable == Observable.DISTANCE_FROM_BEST_SCORE:
                 self.state[idx, :] = np.abs(self.score - self.best_obs_score) / self.max_local_reward_available
 
-            elif observable==Observable.DISTANCE_FROM_BEST_STATE:
-                self.state[idx, :self.n_spins] = np.count_nonzero(self.best_obs_spins[:self.n_spins] - self.state[0, :self.n_spins])
+            elif observable == Observable.DISTANCE_FROM_BEST_STATE:
+                self.state[idx, :self.n_spins] = np.count_nonzero(
+                    self.best_obs_spins[:self.n_spins] - self.state[0, :self.n_spins])
 
         #############################################################################################
         # 4. Check termination criteria.                                                            #
@@ -479,7 +484,7 @@ class SpinSystemBase(ABC):
         state = self.state.copy()
         if self.spin_basis == SpinBasis.BINARY:
             # convert {1,-1} --> {0,1}
-            state[0,:] = (1-state[0,:])/2
+            state[0, :] = (1 - state[0, :]) / 2
 
         if self.gg.biased:
             return np.vstack((state, self.matrix_obs, self.bias_obs))
@@ -490,9 +495,9 @@ class SpinSystemBase(ABC):
         if spins is None:
             spins = self._get_spins()
 
-        if self.optimisation_target==OptimisationTarget.ENERGY:
-            immediate_reward_function = lambda *args: -1*self._get_immeditate_energies_avaialable_jit(*args)
-        elif self.optimisation_target==OptimisationTarget.CUT:
+        if self.optimisation_target == OptimisationTarget.ENERGY:
+            immediate_reward_function = lambda *args: -1 * self._get_immeditate_energies_avaialable_jit(*args)
+        elif self.optimisation_target == OptimisationTarget.CUT:
             immediate_reward_function = self._get_immeditate_cuts_avaialable_jit
         else:
             raise NotImplementedError("Optimisation target {} not recognised.".format(self.optimisation_ta))
@@ -502,35 +507,35 @@ class SpinSystemBase(ABC):
 
         if self.gg.biased:
             bias = self.bias.astype('float64')
-            return immediate_reward_function(spins,matrix,bias)
+            return immediate_reward_function(spins, matrix, bias)
         else:
-            return immediate_reward_function(spins,matrix)
+            return immediate_reward_function(spins, matrix)
 
     def get_allowed_action_states(self):
         if self.reversible_spins:
             # If MDP is reversible, both actions are allowed.
             if self.spin_basis == SpinBasis.BINARY:
-                return (0,1)
+                return (0, 1)
             elif self.spin_basis == SpinBasis.SIGNED:
-                return (1,-1)
+                return (1, -1)
         else:
             # If MDP is irreversible, only return the state of spins that haven't been flipped.
-            if self.spin_basis==SpinBasis.BINARY:
+            if self.spin_basis == SpinBasis.BINARY:
                 return 0
-            if self.spin_basis==SpinBasis.SIGNED:
+            if self.spin_basis == SpinBasis.SIGNED:
                 return 1
 
     def calculate_score(self, spins=None):
-        if self.optimisation_target==OptimisationTarget.CUT:
+        if self.optimisation_target == OptimisationTarget.CUT:
             score = self.calculate_cut(spins)
-        elif self.optimisation_target==OptimisationTarget.ENERGY:
-            score = -1.*self.calculate_energy(spins)
+        elif self.optimisation_target == OptimisationTarget.ENERGY:
+            score = -1. * self.calculate_energy(spins)
         else:
             raise NotImplementedError
         return score
 
     def _calculate_score_change(self, new_spins, matrix, action):
-        if self.optimisation_target==OptimisationTarget.CUT:
+        if self.optimisation_target == OptimisationTarget.CUT:
             delta_score = self._calculate_cut_change(new_spins, matrix, action)
         elif self.optimisation_target == OptimisationTarget.ENERGY:
             delta_score = -1. * self._calculate_energy_change(new_spins, matrix, action)
@@ -573,6 +578,7 @@ class SpinSystemBase(ABC):
     def _calculate_cut_change(self, new_spins, matrix, action):
         raise NotImplementedError
 
+
 ##########
 # Classes for implementing the calculation methods with/without biases.
 ##########
@@ -595,10 +601,10 @@ class SpinSystemUnbiased(SpinSystemBase):
         else:
             spins = self._format_spins_to_signed(spins)
 
-        return (1/4) * np.sum( np.multiply( self.matrix, 1 - np.outer(spins, spins) ) )
+        return (1 / 4) * np.sum(np.multiply(self.matrix, 1 - np.outer(spins, spins)))
 
     def get_best_cut(self):
-        if self.optimisation_target==OptimisationTarget.CUT:
+        if self.optimisation_target == OptimisationTarget.CUT:
             return self.best_score
         else:
             raise NotImplementedError("Can't return best cut when optimisation target is set to energy.")
@@ -612,17 +618,17 @@ class SpinSystemUnbiased(SpinSystemBase):
         return self.__calc_over_range_jit(list_spins, matrix)
 
     @staticmethod
-    @jit(float64(float64[:],float64[:,:],int64), nopython=True)
+    @jit(float64(float64[:], float64[:, :], int64), nopython=True)
     def _calculate_energy_change(new_spins, matrix, action):
         return -2 * new_spins[action] * matmul(new_spins.T, matrix[:, action])
 
     @staticmethod
-    @jit(float64(float64[:],float64[:,:],int64), nopython=True)
+    @jit(float64(float64[:], float64[:, :], int64), nopython=True)
     def _calculate_cut_change(new_spins, matrix, action):
         return -1 * new_spins[action] * matmul(new_spins.T, matrix[:, action])
 
     @staticmethod
-    @jit(float64(float64[:],float64[:,:]), nopython=True)
+    @jit(float64(float64[:], float64[:, :]), nopython=True)
     def _calculate_energy_jit(spins, matrix):
         return - matmul(spins.T, matmul(matrix, spins)) / 2
 
@@ -642,14 +648,15 @@ class SpinSystemUnbiased(SpinSystemBase):
         return energy, best_spins
 
     @staticmethod
-    @jit(float64[:](float64[:],float64[:,:]), nopython=True)
+    @jit(float64[:](float64[:], float64[:, :]), nopython=True)
     def _get_immeditate_energies_avaialable_jit(spins, matrix):
         return 2 * spins * matmul(matrix, spins)
 
     @staticmethod
-    @jit(float64[:](float64[:],float64[:,:]), nopython=True)
+    @jit(float64[:](float64[:], float64[:, :]), nopython=True)
     def _get_immeditate_cuts_avaialable_jit(spins, matrix):
         return spins * matmul(matrix, spins)
+
 
 class SpinSystemBiased(SpinSystemBase):
 
@@ -691,7 +698,7 @@ class SpinSystemBiased(SpinSystemBase):
     @staticmethod
     @jit(nopython=True)
     def _calculate_energy_jit(spins, matrix, bias):
-        return matmul(spins.T, matmul(matrix, spins))/2 + matmul(spins.T, bias)
+        return matmul(spins.T, matmul(matrix, spins)) / 2 + matmul(spins.T, bias)
 
     @staticmethod
     @jit(parallel=True)
@@ -702,7 +709,7 @@ class SpinSystemBiased(SpinSystemBase):
         for spins in list_spins:
             spins = spins.astype('float64')
             # This is self._calculate_energy_jit without calling to the class or self so jit can do its thing.
-            current_energy = -( matmul(spins.T, matmul(matrix, spins))/2 + matmul(spins.T, bias))
+            current_energy = -(matmul(spins.T, matmul(matrix, spins)) / 2 + matmul(spins.T, bias))
             if current_energy < energy:
                 energy = current_energy
                 best_spins = spins
