@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import List
 
 import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_and_s2v_dqn.utils import test_network, load_graph_set_from_txt
+from rlsolver.methods.eco_and_s2v_dqn.util import test_network, load_graph_set_from_txt
 from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerator,
                                                              RewardSignal, ExtraAction,
                                                              OptimisationTarget, SpinBasis,
