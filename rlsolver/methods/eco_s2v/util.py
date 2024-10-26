@@ -10,10 +10,10 @@ import torch
 from collections import namedtuple
 from copy import deepcopy
 
-import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerator, SpinBasis)
-from rlsolver.methods.eco_and_s2v_dqn.src.agents.solver import Network, Greedy
-from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
+import rlsolver.methods.eco_s2v.src.envs.core as ising_env
+from rlsolver.methods.eco_s2v.src.envs.utils import (SingleGraphGenerator, SpinBasis)
+from rlsolver.methods.eco_s2v.src.agents.solver import Network, Greedy
+from rlsolver.methods.eco_s2v.config.eco_config import *
 
 
 ####################################################
