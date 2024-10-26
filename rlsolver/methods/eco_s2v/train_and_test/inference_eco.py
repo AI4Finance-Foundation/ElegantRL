@@ -4,15 +4,15 @@ import torch
 from concurrent.futures import ProcessPoolExecutor
 from typing import List
 
-import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_and_s2v_dqn.util import test_network, load_graph_set_from_txt
-from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SingleGraphGenerator,
+import rlsolver.methods.eco_s2v.src.envs.core as ising_env
+from rlsolver.methods.eco_s2v.util import test_network, load_graph_set_from_txt
+from rlsolver.methods.eco_s2v.src.envs.utils import (SingleGraphGenerator,
                                                              RewardSignal, ExtraAction,
                                                              OptimisationTarget, SpinBasis,
                                                              DEFAULT_OBSERVABLES)
-from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
+from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.util_result import write_graph_result
-from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
+from rlsolver.methods.eco_s2v.config.eco_config import *
 from rlsolver.methods.util import calc_txt_files_with_prefixes
 
 
