@@ -13,9 +13,9 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rlsolver.methods.eco_and_s2v_dqn.src.agents.dqn.utils import ReplayBuffer, Logger, TestMetric, set_global_seed
-from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import ExtraAction
-from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
+from rlsolver.methods.eco_s2v.src.agents.dqn.utils import ReplayBuffer, Logger, TestMetric, set_global_seed
+from rlsolver.methods.eco_s2v.src.envs.utils import ExtraAction
+from rlsolver.methods.eco_s2v.config.eco_config import *
 
 
 class DQN:
