@@ -4,17 +4,17 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 
-import rlsolver.methods.eco_and_s2v_dqn.src.envs.core as ising_env
-from rlsolver.methods.eco_and_s2v_dqn.util import load_graph_set, mk_dir, load_graph_set_from_folder
-from rlsolver.methods.eco_and_s2v_dqn.src.agents.dqn.dqn import DQN
-from rlsolver.methods.eco_and_s2v_dqn.src.agents.dqn.utils import TestMetric
-from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import (SetGraphGenerator,
+import rlsolver.methods.eco_s2v.src.envs.core as ising_env
+from rlsolver.methods.eco_s2v.util import load_graph_set, mk_dir, load_graph_set_from_folder
+from rlsolver.methods.eco_s2v.src.agents.dqn.dqn import DQN
+from rlsolver.methods.eco_s2v.src.agents.dqn.utils import TestMetric
+from rlsolver.methods.eco_s2v.src.envs.utils import (SetGraphGenerator,
                                                              RandomBarabasiAlbertGraphGenerator,
                                                              EdgeType, RewardSignal, ExtraAction,
                                                              OptimisationTarget, SpinBasis,
                                                              DEFAULT_OBSERVABLES)
-from rlsolver.methods.eco_and_s2v_dqn.src.networks.mpnn import MPNN
-from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
+from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
+from rlsolver.methods.eco_s2v.config.eco_config import *
 
 try:
     import seaborn as sns
