@@ -5,10 +5,12 @@ GPU_ID = -1
 NODES = 100
 GRAPH_TYPE = 'BA'
 PREFIXES = ["BA_900", "BA_1000", "BA_1100", "BA_1200", "BA_2000", "BA_5000"]  # Replace with your desired prefixes
+
+
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
-JUSTTEST = True
+
 NETWORKSAVEPATH = "pretrained_agent/eco/network_best_BA_40spin.pth"
 GRAPHSAVELOC = "../../data/syn_BA"
 
@@ -42,7 +44,7 @@ if GRAPH_TYPE == 'BA':
         SAVE_NETWORK_FREQUENCY = 200000
         TEST_FREQUENCY = 20000
     elif NODES == 100:
-        N_SPINS_TRAIN =100
+        N_SPINS_TRAIN = 100
         NB_STEPS = 8000000
         REPLAY_START_SIZE = 1500
         REPLAY_BUFFER_SIZE = 10000
@@ -105,4 +107,3 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
-
