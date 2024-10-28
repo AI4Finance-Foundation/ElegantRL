@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import torch
-from rlsolver.methods.eco_s2v.config.eco_config import *
+from rlsolver.methods.eco_s2v.config.config import *
 
 
 class SpinSolver(ABC):

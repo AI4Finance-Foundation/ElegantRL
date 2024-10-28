@@ -3,52 +3,50 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numba.cuda.cudadrv.nvrtc import NVRTC
 
 import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import load_graph_set, mk_dir, load_graph_set_from_folder
 from rlsolver.methods.eco_s2v.src.agents.dqn.dqn import DQN
 from rlsolver.methods.eco_s2v.src.agents.dqn.utils import TestMetric
 from rlsolver.methods.eco_s2v.src.envs.utils import (SetGraphGenerator,
-                                                             RandomBarabasiAlbertGraphGenerator,RandomErdosRenyiGraphGenerator,
-                                                             EdgeType, RewardSignal, ExtraAction,
-                                                             OptimisationTarget, SpinBasis,
-                                                             DEFAULT_OBSERVABLES)
+                            RandomErdosRenyiGraphGenerator,RandomBarabasiAlbertGraphGenerator,
+                            EdgeType, RewardSignal, ExtraAction,
+                            OptimisationTarget, SpinBasis,
+                            Observable)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.eco_s2v.config.config import *
 
+
 try:
     import seaborn as sns
-
     plt.style.use('seaborn')
 except ImportError:
     pass
 
 import time
 
+def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
 
-def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
     ####################################################
     # SET UP ENVIRONMENTAL AND VARIABLES
     ####################################################
 
-    gamma = 0.95
-    step_fact = 2
+    gamma=1
+    step_fact = 1
 
-    env_args = {'observables': DEFAULT_OBSERVABLES,
-                'reward_signal': RewardSignal.BLS,
-                'extra_action': ExtraAction.NONE,
-                'optimisation_target': OptimisationTarget.CUT,
-                'spin_basis': SpinBasis.BINARY,
-                'norm_rewards': True,
-                'memory_length': None,
-                'horizon_length': None,
-                'stag_punishment': None,
-                # 'basin_reward':1./200,
-                'basin_reward': 1. / NODES,
-                'reversible_spins': True}
+    env_args = {'observables':[Observable.SPIN_STATE],
+                'reward_signal':RewardSignal.DENSE,
+                'extra_action':ExtraAction.NONE,
+                'optimisation_target':OptimisationTarget.CUT,
+                'spin_basis':SpinBasis.BINARY,
+                'norm_rewards':True,
+                'memory_length':None,
+                'horizon_length':None,
+                'stag_punishment':None,
+                'basin_reward':None,
+                'reversible_spins':False}
 
     ####################################################
     # SET UP TRAINING AND TEST GRAPHS
@@ -76,27 +74,28 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
 
     train_envs = [ising_env.make("SpinSystem",
                                  train_graph_generator,
-                                 int(n_spins_train * step_fact),
+                                 int(n_spins_train*step_fact),
                                  **env_args)]
+
 
     n_spins_test = train_graph_generator.get().shape[0]
     test_envs = [ising_env.make("SpinSystem",
                                 test_graph_generator,
-                                int(n_spins_test * step_fact),
+                                int(n_spins_test*step_fact),
                                 **env_args)]
 
     ####################################################
     # SET UP FOLDERS FOR SAVING DATA
     ####################################################
 
-    data_folder = os.path.join(save_loc, 'data')
+    data_folder = os.path.join(save_loc,'data')
     network_folder = os.path.join(save_loc, 'network')
 
     mk_dir(data_folder)
     mk_dir(network_folder)
     # print(data_folder)
-    network_save_path = os.path.join(network_folder, 'network.pth')
-    test_save_path = os.path.join(network_folder, 'test_scores.pkl')
+    network_save_path = os.path.join(network_folder,'network.pth')
+    test_save_path = os.path.join(network_folder,'test_scores.pkl')
     loss_save_path = os.path.join(network_folder, 'losses.pkl')
 
     ####################################################
@@ -119,7 +118,7 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
                 init_weight_std=0.01,
 
                 double_dqn=True,
-                clip_Q_targets=False,
+                clip_Q_targets=True,
 
                 replay_start_size=REPLAY_START_SIZE,
                 replay_buffer_size=REPLAY_BUFFER_SIZE,  # 20000
@@ -147,14 +146,12 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
                 logging=False,
                 loss="mse",
 
-                # save_network_frequency=400000,
                 save_network_frequency=SAVE_NETWORK_FREQUENCY,
                 network_save_path=network_save_path,
 
                 evaluate=True,
                 test_envs=test_envs,
                 test_episodes=n_tests,
-                # test_frequency=50000,  # 10000
                 test_frequency=10000,  # 10000
                 test_save_path=test_save_path,
                 test_metric=TestMetric.MAX_CUT,
@@ -169,51 +166,49 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     #############
     start = time.time()
     agent.learn(timesteps=nb_steps, verbose=True)
-    # 训完之后会输出时间
     print(time.time() - start)
 
     agent.save()
 
+
     ############
     # PLOT - learning curve
     ############
-    data = pickle.load(open(test_save_path, 'rb'))
+    data = pickle.load(open(test_save_path,'rb'))
     data = np.array(data)
 
-    fig_fname = os.path.join(network_folder, "training_curve")
+    fig_fname = os.path.join(network_folder,"training_curve")
 
-    plt.plot(data[:, 0], data[:, 1])
-    plt.xlabel("Timestep")
+    plt.plot(data[:,0],data[:,1])
+    plt.xlabel("Training run")
     plt.ylabel("Mean reward")
-    if agent.test_metric == TestMetric.ENERGY_ERROR:
-        plt.ylabel("Energy Error")
-    elif agent.test_metric == TestMetric.BEST_ENERGY:
-        plt.ylabel("Best Energy")
-    elif agent.test_metric == TestMetric.CUMULATIVE_REWARD:
-        plt.ylabel("Cumulative Reward")
-    elif agent.test_metric == TestMetric.MAX_CUT:
-        plt.ylabel("Max Cut")
-    elif agent.test_metric == TestMetric.FINAL_CUT:
-        plt.ylabel("Final Cut")
+    if agent.test_metric==TestMetric.ENERGY_ERROR:
+      plt.ylabel("Energy Error")
+    elif agent.test_metric==TestMetric.BEST_ENERGY:
+      plt.ylabel("Best Energy")
+    elif agent.test_metric==TestMetric.CUMULATIVE_REWARD:
+      plt.ylabel("Cumulative Reward")
+    elif agent.test_metric==TestMetric.MAX_CUT:
+      plt.ylabel("Max Cut")
+    elif agent.test_metric==TestMetric.FINAL_CUT:
+      plt.ylabel("Final Cut")
 
     plt.savefig(fig_fname + ".png", bbox_inches='tight')
     plt.savefig(fig_fname + ".pdf", bbox_inches='tight')
 
-    plt.clf()
-
     ############
     # PLOT - losses
     ############
-    data = pickle.load(open(loss_save_path, 'rb'))
+    data = pickle.load(open(loss_save_path,'rb'))
     data = np.array(data)
 
-    fig_fname = os.path.join(network_folder, "loss")
+    fig_fname = os.path.join(network_folder,"loss")
 
-    N = 50
-    data_x = np.convolve(data[:, 0], np.ones((N,)) / N, mode='valid')
-    data_y = np.convolve(data[:, 1], np.ones((N,)) / N, mode='valid')
+    N=50
+    data_x = np.convolve(data[:,0], np.ones((N,))/N, mode='valid')
+    data_y = np.convolve(data[:,1], np.ones((N,))/N, mode='valid')
 
-    plt.plot(data_x, data_y)
+    plt.plot(data_x,data_y)
     plt.xlabel("Timestep")
     plt.ylabel("Loss")
 
@@ -222,7 +217,6 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
 
     plt.savefig(fig_fname + ".png", bbox_inches='tight')
     plt.savefig(fig_fname + ".pdf", bbox_inches='tight')
-
 
 if __name__ == "__main__":
     run()

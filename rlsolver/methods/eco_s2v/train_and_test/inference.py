@@ -9,10 +9,10 @@ from rlsolver.methods.eco_s2v.util import test_network, load_graph_set_from_txt
 from rlsolver.methods.eco_s2v.src.envs.utils import (SingleGraphGenerator,
                                                              RewardSignal, ExtraAction,
                                                              OptimisationTarget, SpinBasis,
-                                                             DEFAULT_OBSERVABLES)
+                                                             DEFAULT_OBSERVABLES,Observable)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.util_result import write_graph_result
-from rlsolver.methods.eco_s2v.config.eco_config import *
+from rlsolver.methods.eco_s2v.config.config import *
 from rlsolver.methods.util import calc_txt_files_with_prefixes
 
 
@@ -47,7 +47,7 @@ def process_graph(graph_name, graph_save_loc, data_folder, network_save_path, de
     # TEST NETWORK ON VALIDATION GRAPHS
     ####################################################
     start_time = time.time()
-    results, results_raw, history = test_network(network, env_args, graphs_test, device, 1, n_attempts=100,
+    results, results_raw, history = test_network(network, env_args, graphs_test, device, 1, n_attempts=50,
                                                  # step_factor is 1
                                                  return_raw=True, return_history=True,
                                                  batched=batched, max_batch_size=max_batch_size)
@@ -66,7 +66,7 @@ def process_graph(graph_name, graph_save_loc, data_folder, network_save_path, de
             write_graph_result(obj, run_duration, num_nodes, 'eco-dqn', result, graph_dict, plus1=False)
 
         save_path = os.path.join(data_folder, fname).replace("\\", "/")
-        res.to_pickle(save_path)
+        # res.to_pickle(save_path)
 
 
 def run(save_loc="BA_40spin/eco",
@@ -76,7 +76,7 @@ def run(save_loc="BA_40spin/eco",
         max_batch_size=None,
         just_test=True,
         max_parallel_jobs=4,
-        prefixes=None):
+        prefixes=PREFIXES):
 
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
@@ -100,31 +100,45 @@ def run(save_loc="BA_40spin/eco",
     # SET UP ENVIRONMENTAL AND VARIABLES
     ####################################################
 
-    env_args = {'observables': DEFAULT_OBSERVABLES,
-                'reward_signal': RewardSignal.BLS,
-                'extra_action': ExtraAction.NONE,
-                'optimisation_target': OptimisationTarget.CUT,
-                'spin_basis': SpinBasis.BINARY,
-                'norm_rewards': True,
-                'memory_length': None,
-                'horizon_length': None,
-                'stag_punishment': None,
-                'basin_reward': 1. / 40,
-                'reversible_spins': True}
+    if ALGNAME == 'eco':
+        env_args = {'observables': DEFAULT_OBSERVABLES,
+                    'reward_signal': RewardSignal.BLS,
+                    'extra_action': ExtraAction.NONE,
+                    'optimisation_target': OptimisationTarget.CUT,
+                    'spin_basis': SpinBasis.BINARY,
+                    'norm_rewards': True,
+                    'memory_length': None,
+                    'horizon_length': None,
+                    'stag_punishment': None,
+                    'basin_reward': 1. / NODES,
+                    'reversible_spins': True}
+    if ALGNAME == 's2v':
+        env_args = {'observables': [Observable.SPIN_STATE],
+                    'reward_signal': RewardSignal.DENSE,
+                    'extra_action': ExtraAction.NONE,
+                    'optimisation_target': OptimisationTarget.CUT,
+                    'spin_basis': SpinBasis.BINARY,
+                    'norm_rewards': True,
+                    'memory_length': None,
+                    'horizon_length': None,
+                    'stag_punishment': None,
+                    'basin_reward': None,
+                    'reversible_spins': False}
 
     if prefixes:
         file_names = calc_txt_files_with_prefixes(graph_save_loc, prefixes)
         # 对文件列表进行排序
-        sorted_file_names = prefixes
+        sorted_file_names = []
         for prefix in prefixes:
             for file in file_names:
-                if file.startswith(prefix) and file not in sorted_file_names:
+                graph_name = os.path.basename(file)
+                if graph_name.startswith(prefix) and file not in sorted_file_names:
                     sorted_file_names.append(file)
         file_names = sorted_file_names
     else:
         file_names = os.listdir(graph_save_loc)
 
-    device = str(DEVICE)
+    device = str(TESTDEVICE)
 
     # 使用并行处理，设置最大并行进程数
     with ProcessPoolExecutor(max_workers=max_parallel_jobs) as executor:
@@ -142,4 +156,4 @@ def run(save_loc="BA_40spin/eco",
 
 if __name__ == "__main__":
     prefixes = PREFIXES
-    run(max_parallel_jobs=4, prefixes=prefixes)
+    run(max_parallel_jobs=3, prefixes=prefixes)
