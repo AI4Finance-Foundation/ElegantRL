@@ -6,8 +6,7 @@ NODES = 100
 GRAPH_TYPE = 'BA'
 PREFIXES = ["BA_100_", "BA_200_", "BA_300_", "BA_400_", "BA_500_", "BA_600_", "BA_700_", "BA_800_", "BA_900_",
             "BA_1000_", "BA_1100_", "BA_1200_", "BA_2000_", "BA_3000_", "BA_4000_",
-            "BA_5000_"]
-
+            "BA_5000_"]  # Replace with your desired prefixes
 
 
 def calc_device(gpu_id: int):
