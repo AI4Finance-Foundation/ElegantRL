@@ -74,7 +74,6 @@ def run(save_loc="BA_40spin/eco",
         network_save_path=None,
         batched=True,
         max_batch_size=None,
-        just_test=True,
         max_parallel_jobs=4,
         prefixes=INFERENCE_PREFIXES):
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
@@ -109,7 +108,7 @@ def run(save_loc="BA_40spin/eco",
                     'memory_length': None,
                     'horizon_length': None,
                     'stag_punishment': None,
-                    'basin_reward': 1. / NODES,
+                    'basin_reward': 1. / TRAIN_NODES,
                     'reversible_spins': True}
     if ALGNAME == 's2v':
         env_args = {'observables': [Observable.SPIN_STATE],
@@ -137,7 +136,7 @@ def run(save_loc="BA_40spin/eco",
     else:
         file_names = os.listdir(graph_save_loc)
 
-    device = str(TESTDEVICE)
+    device = str(TEST_DEVICE)
 
     # 使用并行处理，设置最大并行进程数
     with ProcessPoolExecutor(max_workers=max_parallel_jobs) as executor:

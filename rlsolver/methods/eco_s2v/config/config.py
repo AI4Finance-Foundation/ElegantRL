@@ -2,8 +2,10 @@ import torch as th
 from torch.cuda import graph
 
 GPU_ID = 0
-NODES = 100
+
+TRAIN_NODES = 100
 GRAPH_TYPE = 'BA'
+
 INFERENCE_NODES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 2000, 3000, 4000, 5000]
 INFERENCE_PREFIXES = [GRAPH_TYPE + "_" + str(i) + "_" for i in INFERENCE_NODES]
 # PREFIXES = ["BA_100_", "BA_200_", "BA_300_", "BA_400_", "BA_500_", "BA_600_", "BA_700_", "BA_800_", "BA_900_",
@@ -21,9 +23,9 @@ NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
 GRAPHSAVELOC = "../../data/syn_BA"
 
 DEVICE = calc_device(GPU_ID)
-TESTDEVICE = calc_device(-1)
+TEST_DEVICE = calc_device(-1)
 if GRAPH_TYPE == 'BA':
-    if NODES == 20:
+    if TRAIN_NODES == 20:
         N_SPINS_TRAIN = 20
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -32,7 +34,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 150000
         SAVE_NETWORK_FREQUENCY = 100000
         TEST_FREQUENCY = 10000
-    elif NODES == 40:
+    elif TRAIN_NODES == 40:
         N_SPINS_TRAIN = 40
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -41,7 +43,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 150000
         SAVE_NETWORK_FREQUENCY = 100000
         TEST_FREQUENCY = 10000
-    elif NODES == 60:
+    elif TRAIN_NODES == 60:
         N_SPINS_TRAIN = 60
         NB_STEPS = 5000000
         REPLAY_START_SIZE = 500
@@ -50,7 +52,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 300000
         SAVE_NETWORK_FREQUENCY = 200000
         TEST_FREQUENCY = 20000
-    elif NODES == 100:
+    elif TRAIN_NODES == 100:
         N_SPINS_TRAIN = 100
         NB_STEPS = 8000000
         REPLAY_START_SIZE = 1500
@@ -59,7 +61,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
-    elif NODES == 200:
+    elif TRAIN_NODES == 200:
         N_SPINS_TRAIN = 200
         NB_STEPS = 8000000
         REPLAY_START_SIZE = 3000
@@ -71,7 +73,7 @@ if GRAPH_TYPE == 'BA':
     else:
         raise ValueError("parameters are not set")
 elif GRAPH_TYPE == 'ER':
-    if NODES == 20:
+    if TRAIN_NODES == 20:
         N_SPINS_TRAIN = 20
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -80,7 +82,7 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 150000
         SAVE_NETWORK_FREQUENCY = 100000
         TEST_FREQUENCY = 10000
-    elif NODES == 40:
+    elif TRAIN_NODES == 40:
         N_SPINS_TRAIN = 40
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -89,7 +91,7 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 150000
         SAVE_NETWORK_FREQUENCY = 100000
         TEST_FREQUENCY = 10000
-    elif NODES == 60:
+    elif TRAIN_NODES == 60:
         N_SPINS_TRAIN = 60
         NB_STEPS = 5000000
         REPLAY_START_SIZE = 500
@@ -98,7 +100,7 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 300000
         SAVE_NETWORK_FREQUENCY = 200000
         TEST_FREQUENCY = 20000
-    elif NODES == 100:
+    elif TRAIN_NODES == 100:
         N_SPINS_TRAIN = 100
         NB_STEPS = 8000000
         REPLAY_START_SIZE = 1500
@@ -107,7 +109,7 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
-    elif NODES == 200:
+    elif TRAIN_NODES == 200:
         N_SPINS_TRAIN = 200
         NB_STEPS = 10000000
         REPLAY_START_SIZE = 3000
