@@ -22,9 +22,9 @@ only_train = False
 only_inference = True
 
 if only_train:
-    train.run(save_loc, graph_save_loc=GRAPHSAVELOC)
+    train.run(save_loc, graph_save_loc=GRAPH_SAVE_LOC)
 
 if only_inference:
-    inference.run(save_loc, network_save_path=NETWORKSAVEPATH,
-                  graph_save_loc=GRAPHSAVELOC, batched=True, max_batch_size=None)
+    inference.run(save_loc, network_save_path=NETWORK_SAVE_PATH,
+                  graph_save_loc=GRAPH_SAVE_LOC, batched=True, max_batch_size=None)
 
