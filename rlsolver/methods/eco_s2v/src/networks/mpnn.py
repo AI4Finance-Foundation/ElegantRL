@@ -96,8 +96,9 @@ class EdgeAndNodeEmbeddingLayer(nn.Module):
 
         edge_features *= (adj.unsqueeze(-1) != 0).float()
 
-        edge_features_unrolled = torch.reshape(edge_features, (
-        edge_features.shape[0], edge_features.shape[1] * edge_features.shape[1], edge_features.shape[-1]))
+        edge_features_unrolled = torch.reshape(edge_features, (edge_features.shape[0],
+                                                               edge_features.shape[1] * edge_features.shape[1],
+                                                               edge_features.shape[-1]))
         embedded_edges_unrolled = F.relu(self.edge_embedding_NN(edge_features_unrolled))
         embedded_edges_rolled = torch.reshape(embedded_edges_unrolled,
                                               (adj.shape[0], adj.shape[1], adj.shape[1], self.n_features - 1))

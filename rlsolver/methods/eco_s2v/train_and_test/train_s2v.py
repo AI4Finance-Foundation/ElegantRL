@@ -8,45 +8,45 @@ import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import load_graph_set, mk_dir, load_graph_set_from_folder
 from rlsolver.methods.eco_s2v.src.agents.dqn.dqn import DQN
 from rlsolver.methods.eco_s2v.src.agents.dqn.utils import TestMetric
-from rlsolver.methods.eco_s2v.src.envs.utils import (SetGraphGenerator,
-                            RandomErdosRenyiGraphGenerator,RandomBarabasiAlbertGraphGenerator,
-                            EdgeType, RewardSignal, ExtraAction,
-                            OptimisationTarget, SpinBasis,
-                            Observable)
+from rlsolver.methods.eco_s2v.src.envs.util import (SetGraphGenerator,
+                                                    RandomErdosRenyiGraphGenerator, RandomBarabasiAlbertGraphGenerator,
+                                                    EdgeType, RewardSignal, ExtraAction,
+                                                    OptimisationTarget, SpinBasis,
+                                                    Observable)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.eco_s2v.config.config import *
 
-
 try:
     import seaborn as sns
+
     plt.style.use('seaborn')
 except ImportError:
     pass
 
 import time
 
-def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
 
+def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
     ####################################################
     # SET UP ENVIRONMENTAL AND VARIABLES
     ####################################################
 
-    gamma=1
+    gamma = 1
     step_fact = 1
 
-    env_args = {'observables':[Observable.SPIN_STATE],
-                'reward_signal':RewardSignal.DENSE,
-                'extra_action':ExtraAction.NONE,
-                'optimisation_target':OptimisationTarget.CUT,
-                'spin_basis':SpinBasis.BINARY,
-                'norm_rewards':True,
-                'memory_length':None,
-                'horizon_length':None,
-                'stag_punishment':None,
-                'basin_reward':None,
-                'reversible_spins':False}
+    env_args = {'observables': [Observable.SPIN_STATE],
+                'reward_signal': RewardSignal.DENSE,
+                'extra_action': ExtraAction.NONE,
+                'optimisation_target': OptimisationTarget.CUT,
+                'spin_basis': SpinBasis.BINARY,
+                'norm_rewards': True,
+                'memory_length': None,
+                'horizon_length': None,
+                'stag_punishment': None,
+                'basin_reward': None,
+                'reversible_spins': False}
 
     ####################################################
     # SET UP TRAINING AND TEST GRAPHS
@@ -55,7 +55,8 @@ def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
     n_spins_train = N_SPINS_TRAIN
 
     if GRAPH_TYPE == 'ER':
-        train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train,p_connection=0.15,edge_type=EdgeType.DISCRETE)
+        train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
+                                                               edge_type=EdgeType.DISCRETE)
     if GRAPH_TYPE == 'BA':
         train_graph_generator = RandomBarabasiAlbertGraphGenerator(n_spins=n_spins_train, m_insertion_edges=4,
                                                                    edge_type=EdgeType.DISCRETE)
@@ -74,28 +75,27 @@ def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
 
     train_envs = [ising_env.make("SpinSystem",
                                  train_graph_generator,
-                                 int(n_spins_train*step_fact),
+                                 int(n_spins_train * step_fact),
                                  **env_args)]
-
 
     n_spins_test = train_graph_generator.get().shape[0]
     test_envs = [ising_env.make("SpinSystem",
                                 test_graph_generator,
-                                int(n_spins_test*step_fact),
+                                int(n_spins_test * step_fact),
                                 **env_args)]
 
     ####################################################
     # SET UP FOLDERS FOR SAVING DATA
     ####################################################
 
-    data_folder = os.path.join(save_loc,'data')
+    data_folder = os.path.join(save_loc, 'data')
     network_folder = os.path.join(save_loc, 'network')
 
     mk_dir(data_folder)
     mk_dir(network_folder)
     # print(data_folder)
-    network_save_path = os.path.join(network_folder,'network.pth')
-    test_save_path = os.path.join(network_folder,'test_scores.pkl')
+    network_save_path = os.path.join(network_folder, 'network.pth')
+    test_save_path = os.path.join(network_folder, 'test_scores.pkl')
     loss_save_path = os.path.join(network_folder, 'losses.pkl')
 
     ####################################################
@@ -170,28 +170,27 @@ def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
 
     agent.save()
 
-
     ############
     # PLOT - learning curve
     ############
-    data = pickle.load(open(test_save_path,'rb'))
+    data = pickle.load(open(test_save_path, 'rb'))
     data = np.array(data)
 
-    fig_fname = os.path.join(network_folder,"training_curve")
+    fig_fname = os.path.join(network_folder, "training_curve")
 
-    plt.plot(data[:,0],data[:,1])
+    plt.plot(data[:, 0], data[:, 1])
     plt.xlabel("Training run")
     plt.ylabel("Mean reward")
-    if agent.test_metric==TestMetric.ENERGY_ERROR:
-      plt.ylabel("Energy Error")
-    elif agent.test_metric==TestMetric.BEST_ENERGY:
-      plt.ylabel("Best Energy")
-    elif agent.test_metric==TestMetric.CUMULATIVE_REWARD:
-      plt.ylabel("Cumulative Reward")
-    elif agent.test_metric==TestMetric.MAX_CUT:
-      plt.ylabel("Max Cut")
-    elif agent.test_metric==TestMetric.FINAL_CUT:
-      plt.ylabel("Final Cut")
+    if agent.test_metric == TestMetric.ENERGY_ERROR:
+        plt.ylabel("Energy Error")
+    elif agent.test_metric == TestMetric.BEST_ENERGY:
+        plt.ylabel("Best Energy")
+    elif agent.test_metric == TestMetric.CUMULATIVE_REWARD:
+        plt.ylabel("Cumulative Reward")
+    elif agent.test_metric == TestMetric.MAX_CUT:
+        plt.ylabel("Max Cut")
+    elif agent.test_metric == TestMetric.FINAL_CUT:
+        plt.ylabel("Final Cut")
 
     plt.savefig(fig_fname + ".png", bbox_inches='tight')
     plt.savefig(fig_fname + ".pdf", bbox_inches='tight')
@@ -199,16 +198,16 @@ def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
     ############
     # PLOT - losses
     ############
-    data = pickle.load(open(loss_save_path,'rb'))
+    data = pickle.load(open(loss_save_path, 'rb'))
     data = np.array(data)
 
-    fig_fname = os.path.join(network_folder,"loss")
+    fig_fname = os.path.join(network_folder, "loss")
 
-    N=50
-    data_x = np.convolve(data[:,0], np.ones((N,))/N, mode='valid')
-    data_y = np.convolve(data[:,1], np.ones((N,))/N, mode='valid')
+    N = 50
+    data_x = np.convolve(data[:, 0], np.ones((N,)) / N, mode='valid')
+    data_y = np.convolve(data[:, 1], np.ones((N,)) / N, mode='valid')
 
-    plt.plot(data_x,data_y)
+    plt.plot(data_x, data_y)
     plt.xlabel("Timestep")
     plt.ylabel("Loss")
 
@@ -217,6 +216,7 @@ def run(save_loc="ER_20spin/s2v", graph_save_loc="../../data/syn_BA"):
 
     plt.savefig(fig_fname + ".png", bbox_inches='tight')
     plt.savefig(fig_fname + ".pdf", bbox_inches='tight')
+
 
 if __name__ == "__main__":
     run()

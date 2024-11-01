@@ -6,10 +6,10 @@ from typing import List
 
 import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import test_network, load_graph_set_from_txt
-from rlsolver.methods.eco_s2v.src.envs.utils import (SingleGraphGenerator,
-                                                             RewardSignal, ExtraAction,
-                                                             OptimisationTarget, SpinBasis,
-                                                             DEFAULT_OBSERVABLES,Observable)
+from rlsolver.methods.eco_s2v.src.envs.util import (SingleGraphGenerator,
+                                                    RewardSignal, ExtraAction,
+                                                    OptimisationTarget, SpinBasis,
+                                                    DEFAULT_OBSERVABLES, Observable)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.eco_s2v.config.config import *
@@ -74,10 +74,8 @@ def run(save_loc="BA_40spin/eco",
         network_save_path=None,
         batched=True,
         max_batch_size=None,
-        just_test=True,
         max_parallel_jobs=4,
-        prefixes=PREFIXES):
-
+        prefixes=INFERENCE_PREFIXES):
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
     data_folder = os.path.join(save_loc)
@@ -110,7 +108,7 @@ def run(save_loc="BA_40spin/eco",
                     'memory_length': None,
                     'horizon_length': None,
                     'stag_punishment': None,
-                    'basin_reward': 1. / NODES,
+                    'basin_reward': 1. / TRAIN_NODES,
                     'reversible_spins': True}
     if ALGNAME == 's2v':
         env_args = {'observables': [Observable.SPIN_STATE],
@@ -138,7 +136,7 @@ def run(save_loc="BA_40spin/eco",
     else:
         file_names = os.listdir(graph_save_loc)
 
-    device = str(TESTDEVICE)
+    device = str(TEST_DEVICE)
 
     # 使用并行处理，设置最大并行进程数
     with ProcessPoolExecutor(max_workers=max_parallel_jobs) as executor:
@@ -153,7 +151,6 @@ def run(save_loc="BA_40spin/eco",
             future.result()
 
 
-
 if __name__ == "__main__":
-    prefixes = PREFIXES
+    prefixes = INFERENCE_PREFIXES
     run(max_parallel_jobs=3, prefixes=prefixes)

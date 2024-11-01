@@ -6,16 +6,16 @@ import numpy as np
 import torch.multiprocessing as mp
 from numba import jit, float64, int64
 
-from rlsolver.methods.eco_s2v.src.envs.utils import (EdgeType,
-                                                             RewardSignal,
-                                                             ExtraAction,
-                                                             OptimisationTarget,
-                                                             Observable,
-                                                             SpinBasis,
-                                                             DEFAULT_OBSERVABLES,
-                                                             GraphGenerator,
-                                                             RandomGraphGenerator,
-                                                             HistoryBuffer)
+from rlsolver.methods.eco_s2v.src.envs.util import (EdgeType,
+                                                    RewardSignal,
+                                                    ExtraAction,
+                                                    OptimisationTarget,
+                                                    Observable,
+                                                    SpinBasis,
+                                                    DEFAULT_OBSERVABLES,
+                                                    GraphGenerator,
+                                                    RandomGraphGenerator,
+                                                    HistoryBuffer)
 
 # A container for get_result function below. Works just like tuple, but prettier.
 ActionResult = namedtuple("action_result", ("snapshot", "observation", "reward", "is_done", "info"))

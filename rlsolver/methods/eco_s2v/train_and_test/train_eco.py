@@ -3,17 +3,17 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numba.cuda.cudadrv.nvrtc import NVRTC
+# from numba.cuda.cudadrv.nvrtc import NVRTC
 
 import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import load_graph_set, mk_dir, load_graph_set_from_folder
 from rlsolver.methods.eco_s2v.src.agents.dqn.dqn import DQN
 from rlsolver.methods.eco_s2v.src.agents.dqn.utils import TestMetric
-from rlsolver.methods.eco_s2v.src.envs.utils import (SetGraphGenerator,
-                                                             RandomBarabasiAlbertGraphGenerator,RandomErdosRenyiGraphGenerator,
-                                                             EdgeType, RewardSignal, ExtraAction,
-                                                             OptimisationTarget, SpinBasis,
-                                                             DEFAULT_OBSERVABLES)
+from rlsolver.methods.eco_s2v.src.envs.util import (SetGraphGenerator,
+                                                    RandomBarabasiAlbertGraphGenerator, RandomErdosRenyiGraphGenerator,
+                                                    EdgeType, RewardSignal, ExtraAction,
+                                                    OptimisationTarget, SpinBasis,
+                                                    DEFAULT_OBSERVABLES)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.eco_s2v.config.config import *
 
@@ -47,7 +47,7 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
                 'horizon_length': None,
                 'stag_punishment': None,
                 # 'basin_reward':1./200,
-                'basin_reward': 1. / NODES,
+                'basin_reward': 1. / TRAIN_NODES,
                 'reversible_spins': True}
 
     ####################################################
@@ -57,7 +57,8 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     n_spins_train = N_SPINS_TRAIN
 
     if GRAPH_TYPE == 'ER':
-        train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train,p_connection=0.15,edge_type=EdgeType.DISCRETE)
+        train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
+                                                               edge_type=EdgeType.DISCRETE)
     if GRAPH_TYPE == 'BA':
         train_graph_generator = RandomBarabasiAlbertGraphGenerator(n_spins=n_spins_train, m_insertion_edges=4,
                                                                    edge_type=EdgeType.DISCRETE)

@@ -1,22 +1,31 @@
 import torch as th
 from torch.cuda import graph
 
-GPU_ID = -1
-NODES = 100
+GPU_ID = 0
+
+TRAIN_NODES = 100
 GRAPH_TYPE = 'BA'
-PREFIXES = ["BA_100","BA_900", "BA_1000", "BA_1100", "BA_1200", "BA_2000", "BA_5000"]  # Replace with your desired prefixes
+
+INFERENCE_NODES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 2000, 3000, 4000, 5000]
+INFERENCE_PREFIXES = [GRAPH_TYPE + "_" + str(i) + "_" for i in INFERENCE_NODES]
+# PREFIXES = ["BA_100_", "BA_200_", "BA_300_", "BA_400_", "BA_500_", "BA_600_", "BA_700_", "BA_800_", "BA_900_",
+#             "BA_1000_", "BA_1100_", "BA_1200_", "BA_2000_", "BA_3000_", "BA_4000_",
+#             "BA_5000_"]  # Replace with your desired prefixes
+
+
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
+
 ALGNAME = 'eco'
-JUSTTEST = True
-NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
-GRAPHSAVELOC = "../../data/syn_BA"
+
+NETWORK_SAVE_PATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
+GRAPH_SAVE_LOC = "../../data/syn_BA"
 
 DEVICE = calc_device(GPU_ID)
-TESTDEVICE = calc_device(-1)
+TEST_DEVICE = calc_device(-1)
 if GRAPH_TYPE == 'BA':
-    if NODES == 20:
+    if TRAIN_NODES == 20:
         N_SPINS_TRAIN = 20
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -25,7 +34,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 150000
         SAVE_NETWORK_FREQUENCY = 100000
         TEST_FREQUENCY = 10000
-    elif NODES == 40:
+    elif TRAIN_NODES == 40:
         N_SPINS_TRAIN = 40
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -34,7 +43,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 150000
         SAVE_NETWORK_FREQUENCY = 100000
         TEST_FREQUENCY = 10000
-    elif NODES == 60:
+    elif TRAIN_NODES == 60:
         N_SPINS_TRAIN = 60
         NB_STEPS = 5000000
         REPLAY_START_SIZE = 500
@@ -43,53 +52,7 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 300000
         SAVE_NETWORK_FREQUENCY = 200000
         TEST_FREQUENCY = 20000
-    elif NODES == 100:
-        N_SPINS_TRAIN =100
-        NB_STEPS = 8000000
-        REPLAY_START_SIZE = 1500
-        REPLAY_BUFFER_SIZE = 10000
-        UPDATE_TARGET_FREQUENCY = 2500
-        FINAL_EXPLORATION_STEP = 800000
-        SAVE_NETWORK_FREQUENCY = 400000
-        TEST_FREQUENCY = 50000
-    elif NODES == 200:
-        N_SPINS_TRAIN = 200
-        NB_STEPS = 8000000
-        REPLAY_START_SIZE = 3000
-        REPLAY_BUFFER_SIZE = 15000
-        UPDATE_TARGET_FREQUENCY = 4000
-        FINAL_EXPLORATION_STEP = 800000
-        SAVE_NETWORK_FREQUENCY = 80000
-        TEST_FREQUENCY = 10000
-elif GRAPH_TYPE == 'ER':
-    if NODES == 20:
-        N_SPINS_TRAIN = 20
-        NB_STEPS = 2500000
-        REPLAY_START_SIZE = 500
-        REPLAY_BUFFER_SIZE = 5000
-        UPDATE_TARGET_FREQUENCY = 1000
-        FINAL_EXPLORATION_STEP = 150000
-        SAVE_NETWORK_FREQUENCY = 100000
-        TEST_FREQUENCY = 10000
-    elif NODES == 40:
-        N_SPINS_TRAIN = 40
-        NB_STEPS = 2500000
-        REPLAY_START_SIZE = 500
-        REPLAY_BUFFER_SIZE = 5000
-        UPDATE_TARGET_FREQUENCY = 1000
-        FINAL_EXPLORATION_STEP = 150000
-        SAVE_NETWORK_FREQUENCY = 100000
-        TEST_FREQUENCY = 10000
-    elif NODES == 60:
-        N_SPINS_TRAIN = 60
-        NB_STEPS = 5000000
-        REPLAY_START_SIZE = 500
-        REPLAY_BUFFER_SIZE = 5000
-        UPDATE_TARGET_FREQUENCY = 1000
-        FINAL_EXPLORATION_STEP = 300000
-        SAVE_NETWORK_FREQUENCY = 200000
-        TEST_FREQUENCY = 20000
-    elif NODES == 100:
+    elif TRAIN_NODES == 100:
         N_SPINS_TRAIN = 100
         NB_STEPS = 8000000
         REPLAY_START_SIZE = 1500
@@ -98,7 +61,55 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
-    elif NODES == 200:
+    elif TRAIN_NODES == 200:
+        N_SPINS_TRAIN = 200
+        NB_STEPS = 8000000
+        REPLAY_START_SIZE = 3000
+        REPLAY_BUFFER_SIZE = 15000
+        UPDATE_TARGET_FREQUENCY = 4000
+        FINAL_EXPLORATION_STEP = 800000
+        SAVE_NETWORK_FREQUENCY = 80000
+        TEST_FREQUENCY = 10000
+    else:
+        raise ValueError("parameters are not set")
+elif GRAPH_TYPE == 'ER':
+    if TRAIN_NODES == 20:
+        N_SPINS_TRAIN = 20
+        NB_STEPS = 2500000
+        REPLAY_START_SIZE = 500
+        REPLAY_BUFFER_SIZE = 5000
+        UPDATE_TARGET_FREQUENCY = 1000
+        FINAL_EXPLORATION_STEP = 150000
+        SAVE_NETWORK_FREQUENCY = 100000
+        TEST_FREQUENCY = 10000
+    elif TRAIN_NODES == 40:
+        N_SPINS_TRAIN = 40
+        NB_STEPS = 2500000
+        REPLAY_START_SIZE = 500
+        REPLAY_BUFFER_SIZE = 5000
+        UPDATE_TARGET_FREQUENCY = 1000
+        FINAL_EXPLORATION_STEP = 150000
+        SAVE_NETWORK_FREQUENCY = 100000
+        TEST_FREQUENCY = 10000
+    elif TRAIN_NODES == 60:
+        N_SPINS_TRAIN = 60
+        NB_STEPS = 5000000
+        REPLAY_START_SIZE = 500
+        REPLAY_BUFFER_SIZE = 5000
+        UPDATE_TARGET_FREQUENCY = 1000
+        FINAL_EXPLORATION_STEP = 300000
+        SAVE_NETWORK_FREQUENCY = 200000
+        TEST_FREQUENCY = 20000
+    elif TRAIN_NODES == 100:
+        N_SPINS_TRAIN = 100
+        NB_STEPS = 8000000
+        REPLAY_START_SIZE = 1500
+        REPLAY_BUFFER_SIZE = 10000
+        UPDATE_TARGET_FREQUENCY = 2500
+        FINAL_EXPLORATION_STEP = 800000
+        SAVE_NETWORK_FREQUENCY = 400000
+        TEST_FREQUENCY = 50000
+    elif TRAIN_NODES == 200:
         N_SPINS_TRAIN = 200
         NB_STEPS = 10000000
         REPLAY_START_SIZE = 3000
@@ -107,4 +118,5 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
-
+    else:
+        raise ValueError("parameters are not set")
