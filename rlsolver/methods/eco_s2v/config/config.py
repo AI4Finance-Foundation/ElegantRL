@@ -68,6 +68,8 @@ if GRAPH_TYPE == 'BA':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 80000
         TEST_FREQUENCY = 10000
+    else:
+        raise ValueError("parameters are not set")
 elif GRAPH_TYPE == 'ER':
     if NODES == 20:
         N_SPINS_TRAIN = 20
@@ -114,3 +116,5 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
+    else:
+        raise ValueError("parameters are not set")
