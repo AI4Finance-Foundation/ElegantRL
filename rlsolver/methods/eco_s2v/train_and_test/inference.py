@@ -7,9 +7,9 @@ from typing import List
 import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import test_network, load_graph_set_from_txt
 from rlsolver.methods.eco_s2v.src.envs.utils import (SingleGraphGenerator,
-                                                             RewardSignal, ExtraAction,
-                                                             OptimisationTarget, SpinBasis,
-                                                             DEFAULT_OBSERVABLES,Observable)
+                                                     RewardSignal, ExtraAction,
+                                                     OptimisationTarget, SpinBasis,
+                                                     DEFAULT_OBSERVABLES, Observable)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.util_result import write_graph_result
 from rlsolver.methods.eco_s2v.config.config import *
@@ -77,7 +77,6 @@ def run(save_loc="BA_40spin/eco",
         just_test=True,
         max_parallel_jobs=4,
         prefixes=INFERENCE_PREFIXES):
-
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
     data_folder = os.path.join(save_loc)
@@ -151,7 +150,6 @@ def run(save_loc="BA_40spin/eco",
         # 等待所有任务完成
         for future in futures:
             future.result()
-
 
 
 if __name__ == "__main__":
