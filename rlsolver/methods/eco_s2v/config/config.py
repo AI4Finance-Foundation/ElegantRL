@@ -5,7 +5,7 @@ GPU_ID = 0
 NODES = 100
 GRAPH_TYPE = 'BA'
 INFERENCE_NODES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 2000, 3000, 4000, 5000]
-INFERENCE_PREFIXES = [GRAPH_TYPE + str(i) + "_" for i in INFERENCE_NODES]
+INFERENCE_PREFIXES = [GRAPH_TYPE + "_" + str(i) + "_" for i in INFERENCE_NODES]
 # PREFIXES = ["BA_100_", "BA_200_", "BA_300_", "BA_400_", "BA_500_", "BA_600_", "BA_700_", "BA_800_", "BA_900_",
 #             "BA_1000_", "BA_1100_", "BA_1200_", "BA_2000_", "BA_3000_", "BA_4000_",
 #             "BA_5000_"]  # Replace with your desired prefixes
