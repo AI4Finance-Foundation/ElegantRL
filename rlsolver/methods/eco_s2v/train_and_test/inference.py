@@ -76,7 +76,7 @@ def run(save_loc="BA_40spin/eco",
         max_batch_size=None,
         just_test=True,
         max_parallel_jobs=4,
-        prefixes=PREFIXES):
+        prefixes=INFERENCE_PREFIXES):
 
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
@@ -155,5 +155,5 @@ def run(save_loc="BA_40spin/eco",
 
 
 if __name__ == "__main__":
-    prefixes = PREFIXES
+    prefixes = INFERENCE_PREFIXES
     run(max_parallel_jobs=3, prefixes=prefixes)
