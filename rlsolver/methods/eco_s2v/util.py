@@ -11,7 +11,7 @@ from collections import namedtuple
 from copy import deepcopy
 
 import rlsolver.methods.eco_s2v.src.envs.core as ising_env
-from rlsolver.methods.eco_s2v.src.envs.utils import (SingleGraphGenerator, SpinBasis)
+from rlsolver.methods.eco_s2v.src.envs.util import (SingleGraphGenerator, SpinBasis)
 from rlsolver.methods.eco_s2v.src.agents.solver import Network, Greedy
 from rlsolver.methods.eco_s2v.config.config import *
 
