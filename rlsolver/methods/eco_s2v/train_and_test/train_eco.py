@@ -9,11 +9,11 @@ import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import load_graph_set, mk_dir, load_graph_set_from_folder
 from rlsolver.methods.eco_s2v.src.agents.dqn.dqn import DQN
 from rlsolver.methods.eco_s2v.src.agents.dqn.utils import TestMetric
-from rlsolver.methods.eco_s2v.src.envs.utils import (SetGraphGenerator,
-                                                     RandomBarabasiAlbertGraphGenerator, RandomErdosRenyiGraphGenerator,
-                                                     EdgeType, RewardSignal, ExtraAction,
-                                                     OptimisationTarget, SpinBasis,
-                                                     DEFAULT_OBSERVABLES)
+from rlsolver.methods.eco_s2v.src.envs.util import (SetGraphGenerator,
+                                                    RandomBarabasiAlbertGraphGenerator, RandomErdosRenyiGraphGenerator,
+                                                    EdgeType, RewardSignal, ExtraAction,
+                                                    OptimisationTarget, SpinBasis,
+                                                    DEFAULT_OBSERVABLES)
 from rlsolver.methods.eco_s2v.src.networks.mpnn import MPNN
 from rlsolver.methods.eco_s2v.config.config import *
 
