@@ -19,8 +19,8 @@ def calc_device(gpu_id: int):
 
 ALGNAME = 'eco'
 
-NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
-GRAPHSAVELOC = "../../data/syn_BA"
+NETWORK_SAVE_PATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
+GRAPH_SAVE_LOC = "../../data/syn_BA"
 
 DEVICE = calc_device(GPU_ID)
 TEST_DEVICE = calc_device(-1)
