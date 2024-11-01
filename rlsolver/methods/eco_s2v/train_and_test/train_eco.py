@@ -3,7 +3,7 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numba.cuda.cudadrv.nvrtc import NVRTC
+# from numba.cuda.cudadrv.nvrtc import NVRTC
 
 import rlsolver.methods.eco_s2v.src.envs.core as ising_env
 from rlsolver.methods.eco_s2v.util import load_graph_set, mk_dir, load_graph_set_from_folder
