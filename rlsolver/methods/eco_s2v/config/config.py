@@ -1,15 +1,21 @@
 import torch as th
 from torch.cuda import graph
 
-GPU_ID = -1
+GPU_ID = 0
 NODES = 100
 GRAPH_TYPE = 'BA'
-PREFIXES = ["BA_100","BA_900", "BA_1000", "BA_1100", "BA_1200", "BA_2000", "BA_5000"]  # Replace with your desired prefixes
+PREFIXES = ["BA_100_", "BA_200_", "BA_300_", "BA_400_", "BA_500_", "BA_600_", "BA_700_", "BA_800_", "BA_900_",
+            "BA_1000_", "BA_1100_", "BA_1200_", "BA_2000_", "BA_3000_", "BA_4000_",
+            "BA_5000_"]
+
+
+
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
+
 ALGNAME = 'eco'
-JUSTTEST = True
+
 NETWORKSAVEPATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
 GRAPHSAVELOC = "../../data/syn_BA"
 
@@ -44,7 +50,7 @@ if GRAPH_TYPE == 'BA':
         SAVE_NETWORK_FREQUENCY = 200000
         TEST_FREQUENCY = 20000
     elif NODES == 100:
-        N_SPINS_TRAIN =100
+        N_SPINS_TRAIN = 100
         NB_STEPS = 8000000
         REPLAY_START_SIZE = 1500
         REPLAY_BUFFER_SIZE = 10000
@@ -107,4 +113,3 @@ elif GRAPH_TYPE == 'ER':
         FINAL_EXPLORATION_STEP = 800000
         SAVE_NETWORK_FREQUENCY = 400000
         TEST_FREQUENCY = 50000
-
