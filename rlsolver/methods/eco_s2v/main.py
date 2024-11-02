@@ -18,8 +18,8 @@ else:
 # save_loc=f"../../result/{GRAPH_TYPE}_{NODES}spin_eco"
 save_loc = f"../../result"
 
-only_train = False
-only_inference = True
+only_train = True
+only_inference = False
 
 if only_train:
     train.run(save_loc, graph_save_loc=GRAPH_SAVE_LOC)

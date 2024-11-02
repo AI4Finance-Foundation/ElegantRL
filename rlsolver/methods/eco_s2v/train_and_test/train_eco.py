@@ -27,7 +27,7 @@ except ImportError:
 import time
 
 
-def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
+def run(save_loc, graph_save_loc):
     print("\n----- Running {} -----\n".format(os.path.basename(__file__)))
 
     ####################################################
@@ -90,15 +90,16 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     # SET UP FOLDERS FOR SAVING DATA
     ####################################################
 
-    data_folder = os.path.join(save_loc, 'data')
-    network_folder = os.path.join(save_loc, 'network')
+    # data_folder = os.path.join(save_loc, 'data')
+    # network_folder = os.path.join(save_loc, 'network')
 
-    mk_dir(data_folder)
-    mk_dir(network_folder)
+    # mk_dir(data_folder)
+    # mk_dir(network_folder)
     # print(data_folder)
-    network_save_path = os.path.join(network_folder, 'network.pth')
-    test_save_path = os.path.join(network_folder, 'test_scores.pkl')
-    loss_save_path = os.path.join(network_folder, 'losses.pkl')
+    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(TRAIN_NODES) + "_"
+    network_save_path = pre_fix + "network.pth"
+    test_save_path = pre_fix + "test_scores.pkl"
+    loss_save_path = pre_fix + "losses.pkl"
 
     ####################################################
     # SET UP AGENT
@@ -181,7 +182,7 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     data = pickle.load(open(test_save_path, 'rb'))
     data = np.array(data)
 
-    fig_fname = os.path.join(network_folder, "training_curve")
+    fig_fname = pre_fix + "training_curve"
 
     plt.plot(data[:, 0], data[:, 1])
     plt.xlabel("Timestep")
@@ -208,7 +209,7 @@ def run(save_loc="BA_200spin/eco", graph_save_loc="../../data/syn_BA"):
     data = pickle.load(open(loss_save_path, 'rb'))
     data = np.array(data)
 
-    fig_fname = os.path.join(network_folder, "loss")
+    fig_fname = pre_fix + "loss"
 
     N = 50
     data_x = np.convolve(data[:, 0], np.ones((N,)) / N, mode='valid')
