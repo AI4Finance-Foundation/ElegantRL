@@ -12,13 +12,14 @@ Transition = namedtuple(
     'Transition', ('state', 'action', 'reward', 'state_next', 'done')
 )
 
-class TestMetric(Enum):
 
+class TestMetric(Enum):
     CUMULATIVE_REWARD = 1
     BEST_ENERGY = 2
     ENERGY_ERROR = 3
     MAX_CUT = 4
     FINAL_CUT = 5
+
 
 def set_global_seed(seed, env):
     torch.manual_seed(seed)
@@ -26,15 +27,16 @@ def set_global_seed(seed, env):
     np.random.seed(seed)
     random.seed(seed)
 
+
 class ReplayBuffer:
     def __init__(self, capacity):
         self._capacity = capacity
         self._memory = {}
         self._position = 0
 
-        self.next_batch_process=None
-        self.next_batch_size=None
-        self.next_batch_device=None
+        self.next_batch_process = None
+        self.next_batch_size = None
+        self.next_batch_device = None
         self.next_batch = None
 
     def add(self, *args):
@@ -72,7 +74,7 @@ class ReplayBuffer:
             self.launch_sample(batch_size, device)
             self.sample(batch_size, device)
 
-        if self.next_batch_size==batch_size and self.next_batch_device==device:
+        if self.next_batch_size == batch_size and self.next_batch_device == device:
             next_batch = self.next_batch
             self.launch_sample(batch_size, device)
             return next_batch
@@ -229,7 +231,7 @@ class PrioritisedReplayBuffer:
         return partitions, probabilities
 
     def update_priorities(self, buffer_positions, td_error):
-        for buf_id, td_err in  zip(buffer_positions, td_error):
+        for buf_id, td_err in zip(buffer_positions, td_error):
             heap_id = self.buffer2heap[buf_id]
             [id, _, trans] = self.priority_heap[heap_id]
             self.priority_heap[heap_id] = [id, td_err, trans]
@@ -255,7 +257,8 @@ class PrioritisedReplayBuffer:
         # t1 = time.time()
 
         batch_ranks = [np.random.randint(low, high) for low, high in self.partitions]
-        batch_buffer_positions, batch_td_errors, batch_transitions = zip(*[self.priority_heap[rank] for rank in batch_ranks])
+        batch_buffer_positions, batch_td_errors, batch_transitions = zip(
+            *[self.priority_heap[rank] for rank in batch_ranks])
         batch = [torch.stack(tensors).to(device) for tensors in zip(*batch_transitions)]
 
         # print("\tbatch sampled in :", time.time() - t1)
@@ -277,6 +280,7 @@ class PrioritisedReplayBuffer:
 
     def __len__(self):
         return len(self.priority_heap)
+
 
 class Logger:
     def __init__(self):

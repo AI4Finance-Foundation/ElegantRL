@@ -13,9 +13,10 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rlsolver.methods.eco_and_s2v_dqn.src.agents.dqn.utils import ReplayBuffer, Logger, TestMetric, set_global_seed
-from rlsolver.methods.eco_and_s2v_dqn.src.envs.utils import ExtraAction
-from rlsolver.methods.eco_and_s2v_dqn.config.eco_config import *
+from rlsolver.methods.eco_s2v.src.agents.dqn.utils import ReplayBuffer, Logger, TestMetric, set_global_seed
+from rlsolver.methods.eco_s2v.src.envs.util import ExtraAction
+from rlsolver.methods.eco_s2v.config.config import *
+
 
 class DQN:
     """
@@ -77,64 +78,65 @@ class DQN:
     logging : Whether to log.
     seed : The global seed to set.  None means randomly selected.
     """
+
     def __init__(
-        self,
-        envs,
-        network,
+            self,
+            envs,
+            network,
 
-        # Initial network parameters.
-        init_network_params = None,
-        init_weight_std = None,
+            # Initial network parameters.
+            init_network_params=None,
+            init_weight_std=None,
 
-        # DQN parameters
-        double_dqn = True,
-        update_target_frequency=10000,
-        gamma=0.99,
-        clip_Q_targets=False,
+            # DQN parameters
+            double_dqn=True,
+            update_target_frequency=10000,
+            gamma=0.99,
+            clip_Q_targets=False,
 
-        # Replay buffer.
-        replay_start_size=50000,
-        replay_buffer_size=1000000,
-        minibatch_size=32,
-        update_frequency=1,
+            # Replay buffer.
+            replay_start_size=50000,
+            replay_buffer_size=1000000,
+            minibatch_size=32,
+            update_frequency=1,
 
-        # Learning rate
-        update_learning_rate = True,
-        initial_learning_rate = 0,
-        peak_learning_rate = 1e-3,
-        peak_learning_rate_step = 10000,
-        final_learning_rate = 5e-5,
-        final_learning_rate_step = 200000,
+            # Learning rate
+            update_learning_rate=True,
+            initial_learning_rate=0,
+            peak_learning_rate=1e-3,
+            peak_learning_rate_step=10000,
+            final_learning_rate=5e-5,
+            final_learning_rate_step=200000,
 
-        # Optional regularization.
-        max_grad_norm=None,
-        weight_decay=0,
+            # Optional regularization.
+            max_grad_norm=None,
+            weight_decay=0,
 
-        # Exploration
-        update_exploration=True,
-        initial_exploration_rate=1,
-        final_exploration_rate=0.1,
-        final_exploration_step=1000000,
+            # Exploration
+            update_exploration=True,
+            initial_exploration_rate=1,
+            final_exploration_rate=0.1,
+            final_exploration_step=1000000,
 
-        # Loss function
-        adam_epsilon=1e-8,
-        loss="mse",
+            # Loss function
+            adam_epsilon=1e-8,
+            loss="mse",
 
-        # Saving the agent
-        save_network_frequency=10000,
-        network_save_path='network',
+            # Saving the agent
+            save_network_frequency=10000,
+            network_save_path='network',
 
-        # Testing the agent
-        evaluate=True,
-        test_envs=None,
-        test_episodes=20,
-        test_frequency=10000,
-        test_save_path='test_scores',
-        test_metric=TestMetric.ENERGY_ERROR,
+            # Testing the agent
+            evaluate=True,
+            test_envs=None,
+            test_episodes=20,
+            test_frequency=10000,
+            test_save_path='test_scores',
+            test_metric=TestMetric.ENERGY_ERROR,
 
-        # Other
-        logging=True,
-        seed=None
+            # Other
+            logging=True,
+            seed=None
     ):
 
         self.device = DEVICE
@@ -156,7 +158,7 @@ class DQN:
         self.final_learning_rate_step = final_learning_rate_step
 
         self.max_grad_norm = max_grad_norm
-        self.weight_decay=weight_decay
+        self.weight_decay = weight_decay
         self.update_frequency = update_frequency
         self.update_exploration = update_exploration,
         self.initial_exploration_rate = initial_exploration_rate
@@ -173,10 +175,10 @@ class DQN:
             except KeyError:
                 raise ValueError("loss must be 'huber', 'mse' or a callable")
 
-        if type(envs)!=list:
+        if type(envs) != list:
             envs = [envs]
         self.envs = envs
-        self.env, self.acting_in_reversible_spin_env  = self.get_random_env()
+        self.env, self.acting_in_reversible_spin_env = self.get_random_env()
 
         self.replay_buffers = {}
         for n_spins in set([env.action_space.n for env in self.envs]):
@@ -201,6 +203,7 @@ class DQN:
                     if type(m) == torch.nn.Linear:
                         print("Setting weights for", m)
                         m.weight.normal_(0, init_weight_std)
+
                 with torch.no_grad():
                     self.network.apply(init_weights)
 
@@ -213,7 +216,7 @@ class DQN:
                                     weight_decay=self.weight_decay)
 
         self.evaluate = evaluate
-        if test_envs in [None,[None]]:
+        if test_envs in [None, [None]]:
             # By default, test on the same environment(s) as are trained on.
             self.test_envs = self.envs
         else:
@@ -229,9 +232,9 @@ class DQN:
 
         if not self.acting_in_reversible_spin_env:
             for env in self.envs:
-                assert env.extra_action==ExtraAction.NONE, "For deterministic MDP, no extra action is allowed."
+                assert env.extra_action == ExtraAction.NONE, "For deterministic MDP, no extra action is allowed."
             for env in self.test_envs:
-                assert env.extra_action==ExtraAction.NONE, "For deterministic MDP, no extra action is allowed."
+                assert env.extra_action == ExtraAction.NONE, "For deterministic MDP, no extra action is allowed."
 
         self.allowed_action_state = self.env.get_allowed_action_states()
 
@@ -278,10 +281,10 @@ class DQN:
         for timestep in range(timesteps):
 
             if not is_training_ready:
-                if all([len(rb)>=self.replay_start_size for rb in self.replay_buffers.values()]):
+                if all([len(rb) >= self.replay_start_size for rb in self.replay_buffers.values()]):
                     print('\nAll buffers have {} transitions stored - training is starting!\n'.format(
                         self.replay_start_size))
-                    is_training_ready=True
+                    is_training_ready = True
 
             # Choose action
             action = self.act(state.to(self.device).float(), is_training_ready=is_training_ready)
@@ -313,11 +316,11 @@ class DQN:
                 if verbose:
                     loss_str = "{:.2e}".format(np.mean(losses_eps)) if is_training_ready else "N/A"
                     print("timestep : {}, episode time: {}, score : {}, mean loss: {}, time : {} s".format(
-                        (timestep+1),
-                         self.env.current_step,
-                         np.round(score,3),
-                         loss_str,
-                         round(time.time() - t1, 3)))
+                        (timestep + 1),
+                        self.env.current_step,
+                        np.round(score, 3),
+                        loss_str,
+                        round(time.time() - t1, 3)))
 
                 if self.logging:
                     logger.add_scalar('Episode_score', score, timestep)
@@ -341,7 +344,7 @@ class DQN:
 
                     # Train on selected batch
                     loss = self.train_step(transitions)
-                    losses.append([timestep,loss])
+                    losses.append([timestep, loss])
                     losses_eps.append(loss)
 
                     if self.logging:
@@ -351,12 +354,12 @@ class DQN:
                 if timestep % self.update_target_frequency == 0:
                     self.target_network.load_state_dict(self.network.state_dict())
 
-            if (timestep+1) % self.test_frequency == 0 and self.evaluate and is_training_ready:
+            if (timestep + 1) % self.test_frequency == 0 and self.evaluate and is_training_ready:
                 test_score = self.evaluate_agent()
-                print('\nTest score: {}\n'.format(np.round(test_score,3)))
+                print('\nTest score: {}\n'.format(np.round(test_score, 3)))
 
-                if self.test_metric in [TestMetric.FINAL_CUT,TestMetric.MAX_CUT,TestMetric.CUMULATIVE_REWARD]:
-                    best_network = all([test_score > score for t,score in test_scores])
+                if self.test_metric in [TestMetric.FINAL_CUT, TestMetric.MAX_CUT, TestMetric.CUMULATIVE_REWARD]:
+                    best_network = all([test_score > score for t, score in test_scores])
                 elif self.test_metric in [TestMetric.ENERGY_ERROR, TestMetric.BEST_ENERGY]:
                     best_network = all([test_score < score for t, score in test_scores])
                 else:
@@ -370,15 +373,15 @@ class DQN:
                         path_ext += '.pth'
                     self.save(path_main + path_ext)
 
-                test_scores.append([timestep+1,test_score])
+                test_scores.append([timestep + 1, test_score])
 
             if (timestep + 1) % self.save_network_frequency == 0 and is_training_ready:
                 path = self.network_save_path
                 path_main, path_ext = os.path.splitext(path)
-                path_main += str(timestep+1)
+                path_main += str(timestep + 1)
                 if path_ext == '':
                     path_ext += '.pth'
-                self.save(path_main+path_ext)
+                self.save(path_main + path_ext)
 
         if self.logging:
             logger.save()
@@ -396,7 +399,6 @@ class DQN:
             pickle.dump(np.array(losses), output, pickle.HIGHEST_PROTOCOL)
             if verbose:
                 print('losses saved to {}'.format(self.losses_save_path))
-
 
     @torch.no_grad()
     def __only_bad_actions_allowed(self, state, network):
@@ -425,11 +427,11 @@ class DQN:
                 if self.double_dqn:
                     network_preds = self.network(states_next.float())
                     # Set the Q-value of disallowed actions to a large negative number (-10000) so they are not selected.
-                    network_preds_allowed = network_preds.masked_fill(disallowed_actions_mask,-10000)
+                    network_preds_allowed = network_preds.masked_fill(disallowed_actions_mask, -10000)
                     greedy_actions = network_preds_allowed.argmax(1, True)
                     q_value_target = target_preds.gather(1, greedy_actions)
                 else:
-                    q_value_target = target_preds.masked_fill(disallowed_actions_mask,-10000).max(1, True)[0]
+                    q_value_target = target_preds.masked_fill(disallowed_actions_mask, -10000).max(1, True)[0]
 
         if self.clip_Q_targets:
             q_value_target[q_value_target < 0] = 0
@@ -447,7 +449,7 @@ class DQN:
         self.optimizer.zero_grad()
         loss.backward()
 
-        if self.max_grad_norm is not None: #Optional gradient clipping
+        if self.max_grad_norm is not None:  # Optional gradient clipping
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), self.max_grad_norm)
 
         self.optimizer.step()
@@ -470,7 +472,7 @@ class DQN:
 
     def update_epsilon(self, timestep):
         eps = self.initial_exploration_rate - (self.initial_exploration_rate - self.final_exploration_rate) * (
-            timestep / self.final_exploration_step
+                timestep / self.final_exploration_step
         )
         self.epsilon = max(eps, self.final_exploration_rate)
 
@@ -478,18 +480,18 @@ class DQN:
         if timestep <= self.peak_learning_rate_step:
             lr = self.initial_learning_rate - (self.initial_learning_rate - self.peak_learning_rate) * (
                     timestep / self.peak_learning_rate_step
-                )
+            )
         elif timestep <= self.final_learning_rate_step:
             lr = self.peak_learning_rate - (self.peak_learning_rate - self.final_learning_rate) * (
-                    (timestep - self.peak_learning_rate_step) / (self.final_learning_rate_step - self.peak_learning_rate_step)
-                )
+                    (timestep - self.peak_learning_rate_step) / (
+                        self.final_learning_rate_step - self.peak_learning_rate_step)
+            )
         else:
             lr = None
 
         if lr is not None:
             for g in self.optimizer.param_groups:
                 g['lr'] = lr
-
 
     @torch.no_grad()
     def predict(self, states, acting_in_reversible_spin_env=None):
@@ -527,9 +529,9 @@ class DQN:
         i_test = 0
         i_comp = 0
         test_scores = []
-        batch_scores = [0]*batch_size
+        batch_scores = [0] * batch_size
 
-        test_envs = np.array([None]*batch_size)
+        test_envs = np.array([None] * batch_size)
         obs_batch = []
 
         while i_comp < self.test_episodes:
@@ -582,14 +584,15 @@ class DQN:
                 i += 1
 
         if self.test_metric == TestMetric.ENERGY_ERROR:
-            print("\n{}/{} graphs solved optimally".format(np.count_nonzero(np.array(test_scores)==0),self.test_episodes), end="")
+            print("\n{}/{} graphs solved optimally".format(np.count_nonzero(np.array(test_scores) == 0),
+                                                           self.test_episodes), end="")
 
         return np.mean(test_scores)
 
     def save(self, path='../../result/network.pth'):
-        if os.path.splitext(path)[-1]=='':
+        if os.path.splitext(path)[-1] == '':
             path + '.pth'
         torch.save(self.network.state_dict(), path)
 
-    def load(self,path):
-        self.network.load_state_dict(torch.load(path,map_location=self.device))
+    def load(self, path):
+        self.network.load_state_dict(torch.load(path, map_location=self.device))
