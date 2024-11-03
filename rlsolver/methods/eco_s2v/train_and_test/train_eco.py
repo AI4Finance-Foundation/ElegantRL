@@ -96,7 +96,7 @@ def run(save_loc, graph_save_loc):
     # mk_dir(data_folder)
     # mk_dir(network_folder)
     # print(data_folder)
-    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
+    pre_fix = save_loc + "/" + ALG_NAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
     network_save_path = pre_fix + "network.pth"
     test_save_path = pre_fix + "test_scores.pkl"
     loss_save_path = pre_fix + "losses.pkl"
