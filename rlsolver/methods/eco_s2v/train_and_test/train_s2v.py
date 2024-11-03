@@ -98,7 +98,7 @@ def run(save_loc, graph_save_loc):
     # test_save_path = os.path.join(network_folder, 'test_scores.pkl')
     # loss_save_path = os.path.join(network_folder, 'losses.pkl')
 
-    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
+    pre_fix = save_loc + "/" + ALG_NAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
     network_save_path = pre_fix + "network.pth"
     test_save_path = pre_fix + "test_scores.pkl"
     loss_save_path = pre_fix + "losses.pkl"
