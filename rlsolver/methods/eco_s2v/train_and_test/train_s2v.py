@@ -54,10 +54,10 @@ def run(save_loc, graph_save_loc):
 
     n_spins_train = NUM_TRAIN_NODES
 
-    if GRAPH_TYPE == 'ER':
+    if GRAPH_TYPE == GraphType.ER:
         train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
                                                                edge_type=EdgeType.DISCRETE)
-    if GRAPH_TYPE == 'BA':
+    if GRAPH_TYPE == GraphType.BA:
         train_graph_generator = RandomBarabasiAlbertGraphGenerator(n_spins=n_spins_train, m_insertion_edges=4,
                                                                    edge_type=EdgeType.DISCRETE)
 
