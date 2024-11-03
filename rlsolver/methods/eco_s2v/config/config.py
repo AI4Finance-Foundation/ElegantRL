@@ -33,7 +33,7 @@ GRAPH_SAVE_LOC = "../../data/syn_" + GRAPH_TYPE.value
 
 DEVICE = calc_device(GPU_ID)
 TEST_DEVICE = calc_device(-1)
-if GRAPH_TYPE.value == 'BA':
+if GRAPH_TYPE == GraphType.BA:
     if NUM_TRAIN_NODES == 20:
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -76,7 +76,7 @@ if GRAPH_TYPE.value == 'BA':
         TEST_FREQUENCY = 10000
     else:
         raise ValueError("parameters are not set")
-elif GRAPH_TYPE.value == 'ER':
+elif GRAPH_TYPE.value == GraphType.ER:
     if NUM_TRAIN_NODES == 20:
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
