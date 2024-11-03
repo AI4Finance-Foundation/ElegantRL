@@ -7,9 +7,9 @@ sys.path.append(os.path.dirname(rlsolver_path))
 from rlsolver.methods.eco_s2v.config.config import *
 from rlsolver.methods.eco_s2v.train_and_test import inference
 
-if ALGNAME == 'eco':
+if ALG_NAME == 'eco':
     import rlsolver.methods.eco_s2v.train_and_test.train_eco as train
-elif ALGNAME == 's2v':
+elif ALG_NAME == 's2v':
     import rlsolver.methods.eco_s2v.train_and_test.train_s2v as train
 else:
     raise ValueError('Algorithm not recognized')
