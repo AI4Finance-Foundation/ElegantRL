@@ -459,7 +459,7 @@ def load_graph_set_from_folder(graph_save_folder):
 
     # 遍历文件夹中的所有txt文件
     for file_name in os.listdir(graph_save_folder):
-        if file_name.endswith('.txt') and str(TRAIN_NODES) in file_name.split("_"):
+        if file_name.endswith('.txt') and str(NUM_TRAIN_NODES) in file_name.split("_"):
             file_path = os.path.join(graph_save_folder, file_name)
             g = load_graph_from_txt(file_path)
             graphs_test.append(g)

@@ -108,7 +108,7 @@ def run(save_loc="BA_40spin/eco",
                     'memory_length': None,
                     'horizon_length': None,
                     'stag_punishment': None,
-                    'basin_reward': 1. / TRAIN_NODES,
+                    'basin_reward': 1. / NUM_TRAIN_NODES,
                     'reversible_spins': True}
     if ALGNAME == 's2v':
         env_args = {'observables': [Observable.SPIN_STATE],

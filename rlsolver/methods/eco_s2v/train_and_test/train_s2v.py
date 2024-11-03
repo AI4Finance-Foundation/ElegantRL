@@ -52,7 +52,7 @@ def run(save_loc, graph_save_loc):
     # SET UP TRAINING AND TEST GRAPHS
     ####################################################
 
-    n_spins_train = N_SPINS_TRAIN
+    n_spins_train = NUM_TRAIN_NODES
 
     if GRAPH_TYPE == 'ER':
         train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
@@ -98,7 +98,7 @@ def run(save_loc, graph_save_loc):
     # test_save_path = os.path.join(network_folder, 'test_scores.pkl')
     # loss_save_path = os.path.join(network_folder, 'losses.pkl')
 
-    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(TRAIN_NODES) + "_"
+    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
     network_save_path = pre_fix + "network.pth"
     test_save_path = pre_fix + "test_scores.pkl"
     loss_save_path = pre_fix + "losses.pkl"

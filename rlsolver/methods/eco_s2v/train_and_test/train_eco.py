@@ -47,14 +47,14 @@ def run(save_loc, graph_save_loc):
                 'horizon_length': None,
                 'stag_punishment': None,
                 # 'basin_reward':1./200,
-                'basin_reward': 1. / TRAIN_NODES,
+                'basin_reward': 1. / NUM_TRAIN_NODES,
                 'reversible_spins': True}
 
     ####################################################
     # SET UP TRAINING AND TEST GRAPHS
     ####################################################
 
-    n_spins_train = N_SPINS_TRAIN
+    n_spins_train = NUM_TRAIN_NODES
 
     if GRAPH_TYPE == 'ER':
         train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
@@ -96,7 +96,7 @@ def run(save_loc, graph_save_loc):
     # mk_dir(data_folder)
     # mk_dir(network_folder)
     # print(data_folder)
-    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(TRAIN_NODES) + "_"
+    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
     network_save_path = pre_fix + "network.pth"
     test_save_path = pre_fix + "test_scores.pkl"
     loss_save_path = pre_fix + "losses.pkl"
