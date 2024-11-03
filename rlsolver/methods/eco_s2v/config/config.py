@@ -26,7 +26,7 @@ ALG_NAME = "eco"
 assert ALG_NAME in ["eco", "s2v"]
 
 # NETWORK_SAVE_PATH = "pretrained_agent/eco/network_best_BA_20spin.pth"
-NETWORK_SAVE_PATH = "pretrained_agent/" + ALG_NAME + "/network_best_" + GRAPH_TYPE.value + "_" + str(NUM_INFERENCE_NODES) + "spin.pth"
+NETWORK_SAVE_PATH = "pretrained_agent/" + ALG_NAME + "/network_best_" + GRAPH_TYPE.value + "_" + str(NUM_TRAINED_NODES) + "spin.pth"
 
 # GRAPH_SAVE_LOC = "../../data/syn_BA"
 GRAPH_SAVE_LOC = "../../data/syn_" + GRAPH_TYPE.value
