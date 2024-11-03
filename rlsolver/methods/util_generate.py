@@ -21,9 +21,9 @@ try:
 except ImportError:
     plt = None
 
-from rlsolver.methods.config import GRAPH_DISTRI_TYPES
+from rlsolver.methods.config import GRAPH_TYPES
 def generate_graph(num_nodes: int, g_type: str):
-    graph_types = GRAPH_DISTRI_TYPES
+    graph_types = GRAPH_TYPES
     assert g_type in graph_types
 
     if g_type == GraphDistriType.erdos_renyi:
