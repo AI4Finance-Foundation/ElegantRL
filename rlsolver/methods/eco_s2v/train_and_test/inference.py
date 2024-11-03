@@ -98,7 +98,7 @@ def run(save_loc="BA_40spin/eco",
     # SET UP ENVIRONMENTAL AND VARIABLES
     ####################################################
 
-    if ALGNAME == 'eco':
+    if ALG_NAME == 'eco':
         env_args = {'observables': DEFAULT_OBSERVABLES,
                     'reward_signal': RewardSignal.BLS,
                     'extra_action': ExtraAction.NONE,
@@ -110,7 +110,7 @@ def run(save_loc="BA_40spin/eco",
                     'stag_punishment': None,
                     'basin_reward': 1. / NUM_TRAIN_NODES,
                     'reversible_spins': True}
-    if ALGNAME == 's2v':
+    if ALG_NAME == 's2v':
         env_args = {'observables': [Observable.SPIN_STATE],
                     'reward_signal': RewardSignal.DENSE,
                     'extra_action': ExtraAction.NONE,
