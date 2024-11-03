@@ -20,9 +20,9 @@ PROBLEM = Problem.maxcut
 
 @unique
 class GraphDistriType(Enum):
-    erdos_renyi: str = 'erdos_renyi'
-    powerlaw: str = 'powerlaw'
-    barabasi_albert: str = 'barabasi_albert'
+    erdos_renyi: str = "ER"  # 'erdos_renyi'
+    powerlaw: str = "PL"  # 'powerlaw'
+    barabasi_albert: str = "ER"  # 'barabasi_albert'
 
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
@@ -31,8 +31,8 @@ GPU_ID: int = 0  # -1: cpu, >=0: gpu
 DEVICE: th.device = calc_device(GPU_ID)
 DATA_DIR: str = '../data'
 GSET_DIR: str = '../data/gset'
-GRAPH_DISTRI_TYPE = GraphDistriType.powerlaw
-GRAPH_DISTRI_TYPES: List[GraphDistriType] = [GraphDistriType.erdos_renyi, GraphDistriType.powerlaw, GraphDistriType.barabasi_albert]
+GRAPH_TYPE = GraphDistriType.powerlaw
+GRAPH_TYPES: List[GraphDistriType] = [GraphDistriType.erdos_renyi, GraphDistriType.powerlaw, GraphDistriType.barabasi_albert]
     # graph_types = ['erdos_renyi', 'powerlaw', 'barabasi_albert']
 NUM_IDS = 30  # ID0, ..., ID29
 
