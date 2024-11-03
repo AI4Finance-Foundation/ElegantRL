@@ -26,11 +26,11 @@ def generate_graph(num_nodes: int, g_type: str):
     graph_types = GRAPH_TYPES
     assert g_type in graph_types
 
-    if g_type == GraphType.erdos_renyi:
+    if g_type == GraphType.ER:
         g = nx.erdos_renyi_graph(n=num_nodes, p=0.15)
-    elif g_type == GraphType.powerlaw:
+    elif g_type == GraphType.PL:
         g = nx.powerlaw_cluster_graph(n=num_nodes, m=4, p=0.05)
-    elif g_type == GraphType.barabasi_albert:
+    elif g_type == GraphType.BA:
         g = nx.barabasi_albert_graph(n=num_nodes, m=4)
     else:
         raise ValueError(f"g_type {g_type} should in {graph_types}")
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         # num_nodess = [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000]
         # num_nodess = [20]
         num_graphs = 30
-        graph_type = GraphType.barabasi_albert
+        graph_type = GraphType.BA
         dir = '../data/syn_BA'
         generate_write_distribution(num_nodess, num_graphs, graph_type, dir)
 
