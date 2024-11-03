@@ -20,9 +20,9 @@ PROBLEM = Problem.maxcut
 
 @unique
 class GraphType(Enum):
-    barabasi_albert: str = "ER"  # 'barabasi_albert'
-    erdos_renyi: str = "ER"  # 'erdos_renyi'
-    powerlaw: str = "PL"  # 'powerlaw'
+    BA: str = "BA"  # 'barabasi_albert'
+    ER: str = "ER"  # 'erdos_renyi'
+    PL: str = "PL"  # 'powerlaw'
 
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
@@ -30,8 +30,8 @@ def calc_device(gpu_id: int):
 GPU_ID: int = 0  # -1: cpu, >=0: gpu
 DEVICE: th.device = calc_device(GPU_ID)
 
-GRAPH_TYPE = GraphType.powerlaw
-GRAPH_TYPES: List[GraphType] = [GraphType.erdos_renyi, GraphType.powerlaw, GraphType.barabasi_albert]
+GRAPH_TYPE = GraphType.PL
+GRAPH_TYPES: List[GraphType] = [GraphType.ER, GraphType.PL, GraphType.BA]
     # graph_types = ['erdos_renyi', 'powerlaw', 'barabasi_albert']
 NUM_IDS = 30  # ID0, ..., ID29
 
@@ -52,7 +52,5 @@ GUROBI_VAR_CONTINUOUS = False  # True: relax it to LP, and return x values. Fals
 GUROBI_MILP_QUBO = 1  # 0: MILP, 1: QUBO. default: QUBO, since using QUBO is generally better than MILP.
 assert GUROBI_MILP_QUBO in [0, 1]
 
-
-ModelDir = './model'  # FIXME plan to cancel
 
 
