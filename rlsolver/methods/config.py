@@ -29,8 +29,7 @@ def calc_device(gpu_id: int):
 
 GPU_ID: int = 0  # -1: cpu, >=0: gpu
 DEVICE: th.device = calc_device(GPU_ID)
-DATA_DIR: str = '../data'
-GSET_DIR: str = '../data/gset'
+
 GRAPH_TYPE = GraphType.powerlaw
 GRAPH_TYPES: List[GraphType] = [GraphType.erdos_renyi, GraphType.powerlaw, GraphType.barabasi_albert]
     # graph_types = ['erdos_renyi', 'powerlaw', 'barabasi_albert']
@@ -50,7 +49,7 @@ GUROBI_TIME_LIMITS = [1 * 3600]  # seconds
 # GUROBI_TIME_LIMITS = [600, 1200, 1800, 2400, 3000, 3600]  # seconds
 # GUROBI_TIME_LIMITS2 = list(range(10 * 60, 1 * 3600 + 1, 10 * 60))  # seconds
 GUROBI_VAR_CONTINUOUS = False  # True: relax it to LP, and return x values. False: sovle the primal MILP problem
-GUROBI_MILP_QUBO = 1  # 0: MILP, 1: QUBO
+GUROBI_MILP_QUBO = 1  # 0: MILP, 1: QUBO. default: QUBO, since using QUBO is generally better than MILP.
 assert GUROBI_MILP_QUBO in [0, 1]
 
 
