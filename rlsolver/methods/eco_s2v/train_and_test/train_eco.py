@@ -56,10 +56,10 @@ def run(save_loc, graph_save_loc):
 
     n_spins_train = NUM_TRAIN_NODES
 
-    if GRAPH_TYPE == 'ER':
+    if GRAPH_TYPE == GraphType.ER:
         train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
                                                                edge_type=EdgeType.DISCRETE)
-    if GRAPH_TYPE == 'BA':
+    if GRAPH_TYPE == GraphType.BA:
         train_graph_generator = RandomBarabasiAlbertGraphGenerator(n_spins=n_spins_train, m_insertion_edges=4,
                                                                    edge_type=EdgeType.DISCRETE)
 
@@ -96,7 +96,7 @@ def run(save_loc, graph_save_loc):
     # mk_dir(data_folder)
     # mk_dir(network_folder)
     # print(data_folder)
-    pre_fix = save_loc + "/" + ALGNAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
+    pre_fix = save_loc + "/" + ALG_NAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_"
     network_save_path = pre_fix + "network.pth"
     test_save_path = pre_fix + "test_scores.pkl"
     loss_save_path = pre_fix + "losses.pkl"

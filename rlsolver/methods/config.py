@@ -19,20 +19,19 @@ class Problem(Enum):
 PROBLEM = Problem.maxcut
 
 @unique
-class GraphDistriType(Enum):
-    erdos_renyi: str = 'erdos_renyi'
-    powerlaw: str = 'powerlaw'
-    barabasi_albert: str = 'barabasi_albert'
+class GraphType(Enum):
+    BA: str = "BA"  # 'barabasi_albert'
+    ER: str = "ER"  # 'erdos_renyi'
+    PL: str = "PL"  # 'powerlaw'
 
 def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
 GPU_ID: int = 0  # -1: cpu, >=0: gpu
 DEVICE: th.device = calc_device(GPU_ID)
-DATA_DIR: str = '../data'
-GSET_DIR: str = '../data/gset'
-GRAPH_DISTRI_TYPE = GraphDistriType.powerlaw
-GRAPH_DISTRI_TYPES: List[GraphDistriType] = [GraphDistriType.erdos_renyi, GraphDistriType.powerlaw, GraphDistriType.barabasi_albert]
+
+GRAPH_TYPE = GraphType.PL
+GRAPH_TYPES: List[GraphType] = [GraphType.ER, GraphType.PL, GraphType.BA]
     # graph_types = ['erdos_renyi', 'powerlaw', 'barabasi_albert']
 NUM_IDS = 30  # ID0, ..., ID29
 
@@ -50,10 +49,8 @@ GUROBI_TIME_LIMITS = [1 * 3600]  # seconds
 # GUROBI_TIME_LIMITS = [600, 1200, 1800, 2400, 3000, 3600]  # seconds
 # GUROBI_TIME_LIMITS2 = list(range(10 * 60, 1 * 3600 + 1, 10 * 60))  # seconds
 GUROBI_VAR_CONTINUOUS = False  # True: relax it to LP, and return x values. False: sovle the primal MILP problem
-GUROBI_MILP_QUBO = 1  # 0: MILP, 1: QUBO
+GUROBI_MILP_QUBO = 1  # 0: MILP, 1: QUBO. default: QUBO, since using QUBO is generally better than MILP.
 assert GUROBI_MILP_QUBO in [0, 1]
 
-
-ModelDir = './model'  # FIXME plan to cancel
 
 

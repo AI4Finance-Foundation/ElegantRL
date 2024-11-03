@@ -13,7 +13,7 @@ import torch as th
 
 from rlsolver.methods.util import (transfer_weightmatrix_to_nxgraph,
                                                       )
-from rlsolver.methods.config import GraphDistriType
+from rlsolver.methods.config import GraphType
 
 try:
     import matplotlib as mpl
@@ -21,16 +21,16 @@ try:
 except ImportError:
     plt = None
 
-from rlsolver.methods.config import GRAPH_DISTRI_TYPES
+from rlsolver.methods.config import GRAPH_TYPES
 def generate_graph(num_nodes: int, g_type: str):
-    graph_types = GRAPH_DISTRI_TYPES
+    graph_types = GRAPH_TYPES
     assert g_type in graph_types
 
-    if g_type == GraphDistriType.erdos_renyi:
+    if g_type == GraphType.ER:
         g = nx.erdos_renyi_graph(n=num_nodes, p=0.15)
-    elif g_type == GraphDistriType.powerlaw:
+    elif g_type == GraphType.PL:
         g = nx.powerlaw_cluster_graph(n=num_nodes, m=4, p=0.05)
-    elif g_type == GraphDistriType.barabasi_albert:
+    elif g_type == GraphType.BA:
         g = nx.barabasi_albert_graph(n=num_nodes, m=4)
     else:
         raise ValueError(f"g_type {g_type} should in {graph_types}")
@@ -148,7 +148,7 @@ def generate_write_adjacencymatrix_and_nxgraph(num_nodes: int,
                     file.write(f'{i + 1} {j + 1} {weight}\n')
     return adjacency_matrix, graph
 
-def generate_write_distribution(num_nodess: List[int], num_graphs: int, graph_type: GraphDistriType, dir: str):
+def generate_write_distribution(num_nodess: List[int], num_graphs: int, graph_type: GraphType, dir: str):
     for num_nodes in num_nodess:
         for i in range(num_graphs):
             weightmatrix, num_nodes, num_edges = generate_graph(num_nodes, graph_type)
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         # num_nodess = [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000]
         # num_nodess = [20]
         num_graphs = 30
-        graph_type = GraphDistriType.barabasi_albert
+        graph_type = GraphType.BA
         dir = '../data/syn_BA'
         generate_write_distribution(num_nodess, num_graphs, graph_type, dir)
 
