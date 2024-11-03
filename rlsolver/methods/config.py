@@ -19,7 +19,7 @@ class Problem(Enum):
 PROBLEM = Problem.maxcut
 
 @unique
-class GraphDistriType(Enum):
+class GraphType(Enum):
     barabasi_albert: str = "ER"  # 'barabasi_albert'
     erdos_renyi: str = "ER"  # 'erdos_renyi'
     powerlaw: str = "PL"  # 'powerlaw'
@@ -31,8 +31,8 @@ GPU_ID: int = 0  # -1: cpu, >=0: gpu
 DEVICE: th.device = calc_device(GPU_ID)
 DATA_DIR: str = '../data'
 GSET_DIR: str = '../data/gset'
-GRAPH_TYPE = GraphDistriType.powerlaw
-GRAPH_TYPES: List[GraphDistriType] = [GraphDistriType.erdos_renyi, GraphDistriType.powerlaw, GraphDistriType.barabasi_albert]
+GRAPH_TYPE = GraphType.powerlaw
+GRAPH_TYPES: List[GraphType] = [GraphType.erdos_renyi, GraphType.powerlaw, GraphType.barabasi_albert]
     # graph_types = ['erdos_renyi', 'powerlaw', 'barabasi_albert']
 NUM_IDS = 30  # ID0, ..., ID29
 
