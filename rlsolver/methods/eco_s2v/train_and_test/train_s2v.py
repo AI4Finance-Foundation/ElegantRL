@@ -52,7 +52,7 @@ def run(save_loc, graph_save_loc):
     # SET UP TRAINING AND TEST GRAPHS
     ####################################################
 
-    n_spins_train = N_SPINS_TRAIN
+    n_spins_train = TRAIN_NODES
 
     if GRAPH_TYPE == 'ER':
         train_graph_generator = RandomErdosRenyiGraphGenerator(n_spins=n_spins_train, p_connection=0.15,
