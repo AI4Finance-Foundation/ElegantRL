@@ -4,10 +4,13 @@ from torch.cuda import graph
 GPU_ID = 0
 
 NUM_TRAIN_NODES = 100
-GRAPH_TYPE = 'BA'
+
+from rlsolver.methods.config import GraphType
+# GRAPH_TYPE = 'BA'
+GRAPH_TYPE = GraphType.BA
 
 NUM_INFERENCE_NODES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 2000, 3000, 4000, 5000]
-INFERENCE_PREFIXES = [GRAPH_TYPE + "_" + str(i) + "_" for i in NUM_INFERENCE_NODES]
+INFERENCE_PREFIXES = [GRAPH_TYPE.value + "_" + str(i) + "_" for i in NUM_INFERENCE_NODES]
 # PREFIXES = ["BA_100_", "BA_200_", "BA_300_", "BA_400_", "BA_500_", "BA_600_", "BA_700_", "BA_800_", "BA_900_",
 #             "BA_1000_", "BA_1100_", "BA_1200_", "BA_2000_", "BA_3000_", "BA_4000_",
 #             "BA_5000_"]  # Replace with your desired prefixes
@@ -17,14 +20,15 @@ def calc_device(gpu_id: int):
     return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
 
 
-ALGNAME = 'eco'
+ALG_NAME = 'eco'
+assert ALG_NAME in ["eco", "s2v"]
 
 NETWORK_SAVE_PATH = 'pretrained_agent/eco/network_best_BA_20spin.pth'
 GRAPH_SAVE_LOC = "../../data/syn_BA"
 
 DEVICE = calc_device(GPU_ID)
 TEST_DEVICE = calc_device(-1)
-if GRAPH_TYPE == 'BA':
+if GRAPH_TYPE.value == 'BA':
     if NUM_TRAIN_NODES == 20:
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
@@ -67,7 +71,7 @@ if GRAPH_TYPE == 'BA':
         TEST_FREQUENCY = 10000
     else:
         raise ValueError("parameters are not set")
-elif GRAPH_TYPE == 'ER':
+elif GRAPH_TYPE.value == 'ER':
     if NUM_TRAIN_NODES == 20:
         NB_STEPS = 2500000
         REPLAY_START_SIZE = 500
