@@ -24,7 +24,7 @@ from rlsolver.methods.util import (transfer_float_to_binary,
                                    transfer_nxgraph_to_adjacencymatrix)
 # from util import fetch_indices
 from rlsolver.methods.config import *
-from rlsolver.methods.tsp_alg.util import read_tsp_file
+from rlsolver.methods.tsp_algs.util import read_tsp_file
 from itertools import combinations
 
 

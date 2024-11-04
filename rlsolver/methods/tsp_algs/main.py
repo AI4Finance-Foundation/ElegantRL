@@ -27,7 +27,7 @@ from rlsolver.methods.util import (calc_txt_files_with_prefixes,
                                     transfer_nxgraph_to_adjacencymatrix
                                    )
 
-from rlsolver.methods.tsp_alg.util import build_distance_matrix
+from rlsolver.methods.tsp_algs.util import build_distance_matrix
 
 def run_multi_instances(dir: str, prefixes: List[str]):
     files = calc_txt_files_with_prefixes(dir, prefixes)
