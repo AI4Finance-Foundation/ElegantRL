@@ -23,6 +23,7 @@ except ImportError:
 GraphList = List[Tuple[int, int, int]]
 IndexList = List[List[int]]
 
+TEN = th.Tensor
 
 def plot_nxgraph(g: nx.Graph(), fig_filename='.result/fig.png'):
     import matplotlib.pyplot as plt
@@ -65,10 +66,28 @@ def transfer_weightmatrix_to_nxgraph(weightmatrix: List[List[int]], num_nodes: i
 
 
 
-
 def calc_file_name(front: str, id2: int, val: int, end: str):
     return front + "_" + str(id2) + "_" + str(val) + end + "pkl"
 
+def gpu_info_str(device) -> str:
+    if not th.cuda.is_available():
+        return 'th.cuda.is_available() == False'
+
+    total_memory = th.cuda.get_device_properties(device).total_memory / (1024 ** 3)  # GB
+    max_allocated = th.cuda.max_memory_allocated(device) / (1024 ** 3)  # GB
+    memory_allocated = th.cuda.memory_allocated(device) / (1024 ** 3)  # GB
+
+    return (f"RAM(GB) {memory_allocated:.2f} < {max_allocated:.2f} < {total_memory:.2f}  "
+            f"Rate {(max_allocated / total_memory):5.2f}")
+
+def evolutionary_replacement(xs: TEN, vs: TEN, low_k: int, if_maximize: bool):
+    num_sims = xs.shape[0]
+
+    ids = vs.argsort()
+    top_ids, low_ids = (ids[:-low_k], ids[-low_k:]) if if_maximize else (ids[:low_k], ids[low_k:])
+    replace_ids = top_ids[th.randperm(num_sims - low_k, device=xs.device)[:low_k]]
+    xs[replace_ids] = xs[low_ids]
+    vs[replace_ids] = vs[low_ids]
 
 def detach_var(v, device):
     var = Variable(v.data, requires_grad=True).to(device)
@@ -393,6 +412,7 @@ def read_solution(filename: str):
                 break
             line = file.readline()
     return solution
+
 
 
 if __name__ == '__main__':

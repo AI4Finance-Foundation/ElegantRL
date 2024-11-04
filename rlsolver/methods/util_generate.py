@@ -22,18 +22,18 @@ except ImportError:
     plt = None
 
 from rlsolver.methods.config import GRAPH_TYPES
-def generate_graph(num_nodes: int, g_type: str):
+def generate_graph(num_nodes: int, graph_type: GraphType):
     graph_types = GRAPH_TYPES
-    assert g_type in graph_types
+    assert graph_type in graph_types
 
-    if g_type == GraphType.ER:
+    if graph_type == GraphType.ER:
         g = nx.erdos_renyi_graph(n=num_nodes, p=0.15)
-    elif g_type == GraphType.PL:
+    elif graph_type == GraphType.PL:
         g = nx.powerlaw_cluster_graph(n=num_nodes, m=4, p=0.05)
-    elif g_type == GraphType.BA:
+    elif graph_type == GraphType.BA:
         g = nx.barabasi_albert_graph(n=num_nodes, m=4)
     else:
-        raise ValueError(f"g_type {g_type} should in {graph_types}")
+        raise ValueError(f"g_type {graph_type} should in {graph_types}")
 
     graph = []
     for node0, node1 in g.edges:
@@ -148,13 +148,17 @@ def generate_write_adjacencymatrix_and_nxgraph(num_nodes: int,
                     file.write(f'{i + 1} {j + 1} {weight}\n')
     return adjacency_matrix, graph
 
-def generate_write_distribution(num_nodess: List[int], num_graphs: int, graph_type: GraphType, dir: str):
+def generate_write_distribution(num_nodess: List[int], num_graphs: int, graph_type: GraphType, directory: str, need_write=True):
+    nxgraphs = []
     for num_nodes in num_nodess:
         for i in range(num_graphs):
             weightmatrix, num_nodes, num_edges = generate_graph(num_nodes, graph_type)
-            graph = transfer_weightmatrix_to_nxgraph(weightmatrix, num_nodes)
-            filename = dir + '/' + graph_type.value + '_' + str(num_nodes) + '_ID' + str(i) + '.txt'
-            write_nxgraph(graph, filename)
+            nxgraph = transfer_weightmatrix_to_nxgraph(weightmatrix, num_nodes)
+            nxgraphs.append(nxgraph)
+            filename = directory + '/' + graph_type.value + '_' + str(num_nodes) + '_ID' + str(i) + '.txt'
+            if need_write:
+                write_nxgraph(nxgraph, filename)
+    return nxgraphs
 
 def write_nxgraph(g: nx.Graph(), filename: str):
     num_nodes = nx.number_of_nodes(g)
@@ -180,8 +184,8 @@ if __name__ == '__main__':
         # num_nodess = [20]
         num_graphs = 30
         graph_type = GraphType.BA
-        dir = '../data/syn_BA'
-        generate_write_distribution(num_nodess, num_graphs, graph_type, dir)
+        directory = '../data/syn_BA'
+        generate_write_distribution(num_nodess, num_graphs, graph_type, directory)
 
     # generate synthetic data
     generate_data = False
