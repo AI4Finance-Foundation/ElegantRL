@@ -1,0 +1,12 @@
+alg_name: impact_heuristic
+running_duration: 0.13262271881103516
+dist: 202
+dists: [49, 41, 38, 36, 38]
+demands: [40, 50, 30, 20, 10]
+durations: [936, 644, 730, 835, 1021]
+paths:
+['0-orig', '10', '2', '11-dest']
+['0-orig', '7', '8', '9', '11-dest']
+['0-orig', '5', '6', '11-dest']
+['0-orig', '3', '4', '11-dest']
+['0-orig', '1', '11-dest']
