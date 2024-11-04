@@ -102,10 +102,11 @@ def load_graph_list(graph_name: str):
         num_nodes = int(graph_name.split('_')[-1])
         graph_list = generate_graph_list(num_nodes=num_nodes, graph_type=graph_type)
     elif graph_type and graph_name.find('ID') >= 0:
-        num_nodes, valid_i = graph_name.split('_')[-2:]
+        num_nodes, ID = graph_name.split('_')[-2:]
         num_nodes = int(num_nodes)
-        valid_i = int(valid_i[len('ID'):])
-        random.seed(valid_i)
+        ID = int(ID[len('ID'):])
+        seed = ID
+        random.seed(seed)
         graph_list = generate_graph_list(num_nodes=num_nodes, graph_type=graph_type)
         random.seed()
 

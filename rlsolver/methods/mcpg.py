@@ -13,19 +13,66 @@ from rlsolver.methods.L2A.evaluator import EncoderBase64
 from rlsolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
 import time
 from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
-
+from rlsolver.methods.util_read_data import (read_nxgraph, read_graphlist
+                            )
 """
 pip install torch_geometric
 """
+from config import (GPU_ID, 
+                    calc_device)
 
-GPU_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+class Config:
+    show_gap = 2 ** 4
+
+    max_epoch_num = 2 ** 13
+    sample_epoch_num = 8
+    repeat_times = 128
+
+    num_ls = 8
+    reset_epoch_num = 128
+    total_mcmc_num = 512
+
+    # num_ls = 6
+    # reset_epoch_num = 192
+    # total_mcmc_num = 224
+    # path = 'data/gset_22.txt'
+
+    # num_ls = 8
+    # reset_epoch_num = 128
+    # total_mcmc_num = 256
+    # path = 'data/gset_55.txt'
+
+    # num_ls = 8
+    # reset_epoch_num = 256
+    # total_mcmc_num = 192
+    # path = 'data/gset_70.txt'
+
+    # num_ls = 8
+    # reset_epoch_num = 256
+    # repeat_times = 512
+    # total_mcmc_num = 2048
+    # path = 'data/gset_22.txt'  # GPU RAM 40GB
+
+    # num_ls = 8
+    # reset_epoch_num = 192
+    # repeat_times = 448
+    # total_mcmc_num = 1024
+    # path = 'data/gset_55.txt'  # GPU RAM 40GB
+
+    # num_ls = 8
+    # reset_epoch_num = 320
+    # repeat_times = 288
+    # total_mcmc_num = 768
+    # path = 'data/gset_70.txt'  # GPU RAM 40GB
+
+
 
 
 def metro_sampling(probs, start_status, max_transfer_time, device=None):
     # Metropolis-Hastings sampling
     torch.set_grad_enabled(False)
     if device is None:
-        device = torch.device(f'cuda:{GPU_ID}' if torch.cuda.is_available() else 'cpu')
+        device = calc_device(GPU_ID)
 
     num_node = len(probs)
     num_chain = start_status.shape[1]
@@ -55,7 +102,7 @@ def metro_sampling(probs, start_status, max_transfer_time, device=None):
 
 def sampler_func(data, xs_sample,
                  num_ls, total_mcmc_num, repeat_times,
-                 device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.is_available() else 'cpu')):
+                 device=calc_device(GPU_ID)):
     torch.set_grad_enabled(False)
     k = 1 / 4
 
@@ -111,7 +158,7 @@ class Simpler(torch.nn.Module):
     def reset_parameters(self):
         self.lin.reset_parameters()
 
-    def forward(self, device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.is_available() else 'cpu')):
+    def forward(self, device=calc_device(GPU_ID)):
         x = torch.ones(1).to(device)
         x = self.lin(x)
         x = self.sigmoid(x)
@@ -120,7 +167,7 @@ class Simpler(torch.nn.Module):
         return x
 
 
-def maxcut_dataloader(path, device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.is_available() else 'cpu')):
+def maxcut_dataloader(path, device=calc_device(GPU_ID)):
     with open(path) as f:
         fline = f.readline()
         fline = fline.split()
@@ -145,19 +192,15 @@ def maxcut_dataloader(path, device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.i
         tensor_abs_weighted_degree = []
         for i0 in range(data.num_nodes):
             data.single_degree.append(len(data.neighbors[i0]))
-            data.weighted_degree.append(
-                float(torch.sum(data.neighbor_edges[i0])))
-            tensor_abs_weighted_degree.append(
-                float(torch.sum(torch.abs(data.neighbor_edges[i0]))))
+            data.weighted_degree.append(float(torch.sum(data.neighbor_edges[i0])))
+            tensor_abs_weighted_degree.append(float(torch.sum(torch.abs(data.neighbor_edges[i0]))))
         tensor_abs_weighted_degree = torch.tensor(tensor_abs_weighted_degree)
-        data.sorted_degree_nodes = torch.argsort(
-            tensor_abs_weighted_degree, descending=True)
+        data.sorted_degree_nodes = torch.argsort(tensor_abs_weighted_degree, descending=True)
 
         edge_degree = []
         add = torch.zeros(3, num_edges).to(device)
         for i0 in range(num_edges):
-            edge_degree.append(
-                tensor_abs_weighted_degree[edge_index[0][i0]] + tensor_abs_weighted_degree[edge_index[1][i0]])
+            edge_degree.append(tensor_abs_weighted_degree[edge_index[0][i0]] + tensor_abs_weighted_degree[edge_index[1][i0]])
             node_r = edge_index[0][i0]
             node_c = edge_index[1][i0]
             add[0][i0] = 1 - data.weighted_degree[node_r] / 2 - 0.05
@@ -168,12 +211,11 @@ def maxcut_dataloader(path, device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.i
             data.neighbor_edges[i0] = data.neighbor_edges[i0].unsqueeze(0)
         data.add_items = add
         edge_degree = torch.tensor(edge_degree)
-        data.sorted_degree_edges = torch.argsort(
-            edge_degree, descending=True)
+        data.sorted_degree_edges = torch.argsort(edge_degree, descending=True)
         return data, num_nodes
 
 
-def append_neighbors(data, device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.is_available() else 'cpu')):
+def append_neighbors(data, device=calc_device(GPU_ID)):
     data.neighbors = []
     data.neighbor_edges = []
     # num_nodes = data.encode_len
@@ -225,8 +267,7 @@ def append_neighbors(data, device=torch.device(f'cuda:{GPU_ID}' if torch.cuda.is
 
     for i in range(num_nodes):
         data.neighbors[i] = torch.LongTensor(data.neighbors[i]).to(device)
-        data.neighbor_edges[i] = torch.tensor(
-            data.neighbor_edges[i]).to(device)
+        data.neighbor_edges[i] = torch.tensor(data.neighbor_edges[i]).to(device)
 
     return data
 
@@ -269,71 +310,13 @@ def print_gpu_memory(device):
           f"Rate {(max_allocated / total_memory) * 100:.2f}%")
 
 
-def run():
-    max_epoch_num = 2 ** 13
-    sample_epoch_num = 8
-    repeat_times = 128
-
-    num_ls = 8
-    reset_epoch_num = 128
-    total_mcmc_num = 512
-    # path = 'data/gset_14.txt'
-    # path = 'data/gset_15.txt'
-    # path = 'data/gset_49.txt'
-    # path = 'data/gset_50.txt'
-    graph_type = ['ErdosRenyi', 'BarabasiAlbert', 'PowerLaw'][2]
-    num_nodes = 300
-    graph_id = 0
-    graph_name = f"{graph_type}_{num_nodes}_ID{graph_id}"
-    path = f'temp_{graph_name}.txt'
-    save_graph_list_to_txt(graph_list=load_graph_list(graph_name=graph_name), txt_path=path)
-
-    # num_ls = 6
-    # reset_epoch_num = 192
-    # total_mcmc_num = 224
-    # path = 'data/gset_22.txt'
-
-    # num_ls = 8
-    # reset_epoch_num = 128
-    # total_mcmc_num = 256
-    # path = 'data/gset_55.txt'
-
-    # num_ls = 8
-    # reset_epoch_num = 256
-    # total_mcmc_num = 192
-    # path = 'data/gset_70.txt'
-
-    # num_ls = 8
-    # reset_epoch_num = 256
-    # repeat_times = 512
-    # total_mcmc_num = 2048
-    # path = 'data/gset_22.txt'  # GPU RAM 40GB
-
-    # num_ls = 8
-    # reset_epoch_num = 192
-    # repeat_times = 448
-    # total_mcmc_num = 1024
-    # path = 'data/gset_55.txt'  # GPU RAM 40GB
-
-    # num_ls = 8
-    # reset_epoch_num = 320
-    # repeat_times = 288
-    # total_mcmc_num = 768
-    # path = 'data/gset_70.txt'  # GPU RAM 40GB
-
-    show_gap = 2 ** 4
-
-    if os.name == 'nt':
-        max_epoch_num = 2 ** 4
-        repeat_times = 1
-        reset_epoch_num = 32
-        total_mcmc_num = 10
-        show_gap = 2 ** 0
+def mcpg(filename: str):
+    print(f"filename: {filename}")
 
     '''init'''
-    sim_name = path  # os.path.splitext(os.path.basename(path))[0]
-    data, num_nodes = maxcut_dataloader(path)
-    device = torch.device(f'cuda:{GPU_ID}' if torch.cuda.is_available() else 'cpu')
+    sim_name = filename  # os.path.splitext(os.path.basename(path))[0]
+    data, num_nodes = maxcut_dataloader(filename)
+    device = calc_device(GPU_ID)
 
     change_times = int(num_nodes / 10)  # transition times for metropolis sampling
 
@@ -342,37 +325,38 @@ def run():
     optimizer = torch.optim.Adam(net.parameters(), lr=8e-2)
 
     '''addition'''
+    from rlsolver.envs.env_mcpg_maxcut import SimulatorMaxcut, LocalSearch
     # from graph_max_cut_simulator import SimulatorGraphMaxCut
     # from graph_max_cut_local_search import SolverLocalSearch
     sim = SimulatorMaxcut(sim_name=sim_name, device=device)
-    solver = SolverLocalSearch(simulator=sim, num_nodes=num_nodes)
+    local_search = LocalSearch(simulator=sim, num_nodes=num_nodes)
 
-    xs = sim.generate_xs_randomly(num_sims=total_mcmc_num)
-    solver.reset(xs.bool())
+    xs = sim.generate_xs_randomly(num_sims=Config.total_mcmc_num)
+    local_search.reset(xs.bool())
     for _ in range(16):
-        solver.random_search(num_iters=repeat_times // 16)
-    now_max_info = solver.good_xs.t()
-    now_max_res = solver.good_vs
+        local_search.random_search(num_iters=Config.repeat_times // 16)
+    now_max_info = local_search.good_xs.t()
+    now_max_res = local_search.good_vs
     del sim
-    del solver
+    del local_search
 
     '''loop'''
     net.train()
     xs_prob = (torch.zeros(num_nodes) + 0.5).to(device)
-    xs_bool = now_max_info.repeat(1, repeat_times)
+    xs_bool = now_max_info.repeat(1, Config.repeat_times)
 
     print('start loop')
     sys.stdout.flush()  # add for slurm stdout
-    for epoch in range(1, max_epoch_num + 1):
+    for epoch in range(1, Config.max_epoch_num + 1):
         net.to(device).reset_parameters()
-        for j1 in range(reset_epoch_num // sample_epoch_num):
+        for j1 in range(Config.reset_epoch_num // Config.sample_epoch_num):
             start_time = time.time()
             xs_sample = metro_sampling(xs_prob, xs_bool.clone(), change_times)
 
             temp_max, temp_max_info, value = sampler_func(
-                data, xs_sample, num_ls, total_mcmc_num, repeat_times, device)
+                data, xs_sample, Config.num_ls, Config.total_mcmc_num, Config.repeat_times, device)
             # update now_max
-            for i0 in range(total_mcmc_num):
+            for i0 in range(Config.total_mcmc_num):
                 if temp_max[i0] > now_max_res[i0]:
                     now_max_res[i0] = temp_max[i0]
                     now_max_info[:, i0] = temp_max_info[:, i0]
@@ -387,7 +371,7 @@ def run():
 
             # select best samples
             xs_bool = temp_max_info.clone()
-            xs_bool = xs_bool.repeat(1, repeat_times)
+            xs_bool = xs_bool.repeat(1, Config.repeat_times)
             # construct the start point for next iteration
             start_samples = xs_sample.t()
 
@@ -404,7 +388,7 @@ def run():
             num_samples_per_second = num_samples / running_duration
             print("num_samples_per_second: ", num_samples_per_second)
 
-            for _ in range(sample_epoch_num):
+            for _ in range(Config.sample_epoch_num):
                 xs_prob = net()
                 ret_loss_ls = get_return(xs_prob, start_samples, value, total_mcmc_num, repeat_times)
 
@@ -414,7 +398,7 @@ def run():
                 optimizer.step()
             torch.cuda.empty_cache()
 
-            if j1 % show_gap == 0:
+            if j1 % Config.show_gap == 0:
                 total_max = now_max_res
                 best_sort = torch.argsort(now_max_res, descending=True)
                 total_best_info = torch.squeeze(now_max_info[:, best_sort[0]])
@@ -440,4 +424,7 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    filename = '../data/syn_BA/BA_100_ID0.txt'
+    mcpg(filename)
+
+

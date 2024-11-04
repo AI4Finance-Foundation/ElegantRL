@@ -6,33 +6,38 @@ import os
 
 @unique
 class Problem(Enum):
-    maxcut = 'maxcut'
-    graph_partitioning = 'graph_partitioning'
-    minimum_vertex_cover = 'minimum_vertex_cover'
-    number_partitioning = 'number_partitioning'
-    bilp = 'bilp'
-    maximum_independent_set = 'maximum_independent_set'
-    knapsack = 'knapsack'
-    set_cover = 'set_cover'
-    graph_coloring = 'graph_coloring'
-    tsp = 'tsp'
+    maxcut = "maxcut"
+    graph_partitioning = "graph_partitioning"
+    minimum_vertex_cover = "minimum_vertex_cover"
+    number_partitioning = "number_partitioning"
+    bilp = "bilp"
+    maximum_independent_set = "maximum_independent_set"
+    knapsack = "knapsack"
+    set_cover = "set_cover"
+    graph_coloring = "graph_coloring"
+    tsp = "tsp"
 PROBLEM = Problem.maxcut
 
 @unique
 class GraphType(Enum):
-    BA: str = "BA"  # 'barabasi_albert'
-    ER: str = "ER"  # 'erdos_renyi'
-    PL: str = "PL"  # 'powerlaw'
+    BA: str = "BA"  # "barabasi_albert"
+    ER: str = "ER"  # "erdos_renyi"
+    PL: str = "PL"  # "powerlaw"
 
 def calc_device(gpu_id: int):
-    return th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
+    return th.device(f"cuda:{gpu_id}" if th.cuda.is_available() and gpu_id >= 0 else "cpu")
 
 GPU_ID: int = 0  # -1: cpu, >=0: gpu
+
+DATA_FILENAME = "../data/syn_BA/BA_100_ID0.txt"  # one instance
+DIRECTORY_DATA = "../data/syn_BA"  # used in multi instances
+PREFIXES = ["BA_100_ID0"]  # used in multi instances
+
 DEVICE: th.device = calc_device(GPU_ID)
 
 GRAPH_TYPE = GraphType.PL
 GRAPH_TYPES: List[GraphType] = [GraphType.ER, GraphType.PL, GraphType.BA]
-    # graph_types = ['erdos_renyi', 'powerlaw', 'barabasi_albert']
+    # graph_types = ["erdos_renyi", "powerlaw", "barabasi_albert"]
 NUM_IDS = 30  # ID0, ..., ID29
 
 
