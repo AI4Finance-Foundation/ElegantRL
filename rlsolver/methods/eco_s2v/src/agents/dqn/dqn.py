@@ -228,7 +228,8 @@ class DQN:
         self.test_save_path = test_save_path
         self.test_metric = test_metric
 
-        self.losses_save_path = os.path.join(os.path.split(self.test_save_path)[0], "losses.pkl")
+        save_loc = f"../../result"
+        self.losses_save_path = save_loc + "/" + ALG_NAME + "_" + GRAPH_TYPE + "_" + str(NUM_TRAIN_NODES) + "_" + "losses.pkl"
 
         if not self.acting_in_reversible_spin_env:
             for env in self.envs:
