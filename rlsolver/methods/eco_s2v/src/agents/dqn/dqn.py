@@ -139,7 +139,7 @@ class DQN:
             seed=None
     ):
 
-        self.device = DEVICE
+        self.device = TRAIN_DEVICE
 
         self.double_dqn = double_dqn
 
@@ -228,8 +228,7 @@ class DQN:
         self.test_save_path = test_save_path
         self.test_metric = test_metric
 
-        save_loc = f"../../result"
-        self.losses_save_path = save_loc + "/" + ALG_NAME + "_" + GRAPH_TYPE.value + "_" + str(NUM_TRAIN_NODES) + "_" + "losses.pkl"
+        self.losses_save_path = RESULT_DIR + "/" + ALG_NAME + "_" + GRAPH_TYPE.value + "_" + str(NUM_TRAIN_NODES) + "_" + "losses.pkl"
 
         if not self.acting_in_reversible_spin_env:
             for env in self.envs:

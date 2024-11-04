@@ -153,7 +153,7 @@ class Network(SpinSolver):
         """
 
         super().__init__(*args, **kwargs)
-        self.device = DEVICE
+        self.device = TRAIN_DEVICE
         self.network = network.to(self.device)
         self.network.eval()
         self.current_observation = self.env.get_observation()

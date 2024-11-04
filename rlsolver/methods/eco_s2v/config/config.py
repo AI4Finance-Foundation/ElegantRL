@@ -29,10 +29,11 @@ assert ALG_NAME in ["eco", "s2v"]
 NETWORK_SAVE_PATH = "pretrained_agent/" + ALG_NAME + "/network_best_" + GRAPH_TYPE.value + "_" + str(NUM_TRAINED_NODES_IN_INFERENCE) + "spin.pth"
 
 # GRAPH_SAVE_LOC = "../../data/syn_BA"
-GRAPH_SAVE_LOC = "../../data/syn_" + GRAPH_TYPE.value
+DATA_DIR = "../../data/syn_" + GRAPH_TYPE.value
+RESULT_DIR = "../../result"
 
-DEVICE = calc_device(GPU_ID)
-TEST_DEVICE = calc_device(-1)
+TRAIN_DEVICE = calc_device(GPU_ID)
+INFERENCE_DEVICE = calc_device(-1)
 if GRAPH_TYPE == GraphType.BA:
     if NUM_TRAIN_NODES == 20:
         NB_STEPS = 2500000

@@ -136,7 +136,7 @@ def run(save_loc="BA_40spin/eco",
     else:
         file_names = os.listdir(graph_save_loc)
 
-    device = str(TEST_DEVICE)
+    device = str(INFERENCE_DEVICE)
 
     # 使用并行处理，设置最大并行进程数
     with ProcessPoolExecutor(max_workers=max_parallel_jobs) as executor:
