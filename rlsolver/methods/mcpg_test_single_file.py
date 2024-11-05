@@ -1,31 +1,18 @@
-import sys
 import os
+import sys
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
-from typing import List, Tuple
-import os
-import torch
 import sys
 sys.path.append('..')
-from torch_geometric.data import Data
-from rlsolver.methods.L2A.evaluator import EncoderBase64
-from rlsolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
-from rlsolver.methods.util import calc_txt_files_with_prefixes
-import time
-from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
-from rlsolver.methods.util_read_data import (read_nxgraph, read_graphlist
-                            )
-from rlsolver.methods.util_result import write_graph_result
+
 """
 pip install torch_geometric
 """
 from config import (GPU_ID,
-                    calc_device,
-                    DATA_FILENAME,
-                    DIRECTORY_DATA,
-                    PREFIXES)
+                    calc_device)
 import os, random
 import torch
 import sys
@@ -50,10 +37,6 @@ if fix_seed:
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-"""
-pip install torch_geometric
-"""
-
 class Config:
     test_sampling_speed = False
     
@@ -71,8 +54,9 @@ class Config:
 
     total_running_duration = 2000
 
-    # path = '../data/syn_BA/BA_100_ID0.txt'
     path = '../data/gset/gset_22.txt'
+    DataDir = '../data/gset'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
+    # path = '../data/syn_BA/BA_100_ID0.txt'
     # num_ls = 6
     # reset_epoch_num = 192
     # total_mcmc_num = 224
@@ -112,9 +96,6 @@ ARY = np.ndarray
 
 GraphList = List[Tuple[int, int, int]]  # 每条边两端点的索引以及边的权重 List[Tuple[Node0ID, Node1ID, WeightEdge]]
 IndexList = List[List[int]]  # 按索引顺序记录每个点的所有邻居节点 IndexList[Node0ID] = [Node1ID, ...]
-# DataDir = '../data/syn_BA'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
-DataDir = '../data/gset'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
-
 
 
 
@@ -455,8 +436,8 @@ def load_graph_list(graph_name: str):
     graph_types = ['ErdosRenyi', 'PowerLaw', 'BarabasiAlbert']
     graph_type = next((graph_type for graph_type in graph_types if graph_type in graph_name), None)  # 匹配 graph_type
 
-    if os.path.exists(f"{DataDir}/{graph_name}.txt"):
-        txt_path = f"{DataDir}/{graph_name}.txt"
+    if os.path.exists(f"{Config.DataDir}/{graph_name}.txt"):
+        txt_path = f"{Config.DataDir}/{graph_name}.txt"
         graph_list = load_graph_list_from_txt(txt_path=txt_path)
     elif os.path.isfile(graph_name) and os.path.splitext(graph_name)[-1] == '.txt':
         txt_path = graph_name
@@ -474,7 +455,7 @@ def load_graph_list(graph_name: str):
         random.seed()
 
     else:
-        raise ValueError(f"DataDir {DataDir} | graph_name {graph_name} txt_path {DataDir}/{graph_name}.txt")
+        raise ValueError(f"Config.DataDir {Config.DataDir} | graph_name {graph_name} txt_path {Config.DataDir}/{graph_name}.txt")
     return graph_list
 
 
