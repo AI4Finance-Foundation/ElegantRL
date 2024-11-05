@@ -69,8 +69,8 @@ class Config:
 
     total_running_duration = 2000
 
-    path = '../data/syn_BA/BA_100_ID0.txt'
-    # path = '../data/gset/gset_22.txt'
+    # path = '../data/syn_BA/BA_100_ID0.txt'
+    path = '../data/gset/gset_22.txt'
     # num_ls = 6
     # reset_epoch_num = 192
     # total_mcmc_num = 224
