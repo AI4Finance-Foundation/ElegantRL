@@ -23,13 +23,14 @@ pip install torch_geometric
 """
 from config import (GPU_ID, 
                     calc_device,
+                    DATA_FILENAME,
                     DIRECTORY_DATA,
                     PREFIXES)
 
 class Config:
     show_gap = 2 ** 4
 
-    max_epoch_num = 2 ** 7
+    max_epoch_num = 30
     sample_epoch_num = 8
     repeat_times = 128
 
@@ -460,7 +461,7 @@ def mcpg_multifiles(directory_data: str, prefixes: List[str]):
 if __name__ == '__main__':
     run_one_file = False
     if run_one_file:
-        filename = '../data/syn_BA/BA_100_ID0.txt'
+        filename = DATA_FILENAME
         mcpg(filename)
 
     run_multifiles = True
