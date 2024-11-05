@@ -29,7 +29,7 @@ from config import (GPU_ID,
 class Config:
     show_gap = 2 ** 4
 
-    max_epoch_num = 2 ** 13
+    max_epoch_num = 2 ** 7
     sample_epoch_num = 8
     repeat_times = 128
 
