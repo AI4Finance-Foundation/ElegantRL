@@ -336,6 +336,8 @@ def run_greedy_over_multiple_files(alg, alg_name, num_steps, directory_data: str
             graph = read_nxgraph(filename)
             score, solution, scores = alg(num_steps, graph, filename)
             scoress.append(scores)
+            running_duration = time.time() - start_time
+            write_graph_result(score, running_duration, graph.number_of_nodes(), alg_name, solution, filename)
     return scoress
 
 if __name__ == '__main__':
