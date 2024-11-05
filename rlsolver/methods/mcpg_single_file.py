@@ -3,13 +3,10 @@ import os, random
 import torch
 import sys
 from torch_geometric.data import Data
-# from evaluator import EncoderBase64
-# from graph_max_cut_simulator import SimulatorGraphMaxCut, load_graph_list
+
 import time
 import torch as th
 from typing import List, Tuple, Union
-# from graph_max_cut_simulator import SimulatorGraphMaxCut
-# from graph_max_cut_local_search import SolverLocalSearch
 import networkx as nx
 import numpy as np
 

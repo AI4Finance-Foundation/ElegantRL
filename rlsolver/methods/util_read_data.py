@@ -5,10 +5,8 @@ rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
 from typing import List, Tuple, Union
-from config import GRAPH_TYPE
-from util_evaluator import *
+from rlsolver.methods.config import GRAPH_TYPE
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-import numpy as np
 import networkx as nx
 try:
     import matplotlib as mpl

@@ -1,31 +1,18 @@
-import sys
 import os
+import sys
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
-from typing import List, Tuple
-import os
-import torch
 import sys
 sys.path.append('..')
-from torch_geometric.data import Data
-from rlsolver.methods.L2A.evaluator import EncoderBase64
-from rlsolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
-from rlsolver.methods.util import calc_txt_files_with_prefixes
-import time
-from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
-from rlsolver.methods.util_read_data import (read_nxgraph, read_graphlist
-                            )
-from rlsolver.methods.util_result import write_graph_result
+
 """
 pip install torch_geometric
 """
 from config import (GPU_ID,
-                    calc_device,
-                    DATA_FILENAME,
-                    DIRECTORY_DATA,
-                    PREFIXES)
+                    calc_device)
 import os, random
 import torch
 import sys
@@ -50,61 +37,60 @@ if fix_seed:
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-"""
-pip install torch_geometric
-"""
+# class Config:
+test_sampling_speed = False
 
-class Config:
-    test_sampling_speed = False
-    
-    GPU_ID = 0
-    total_mcmc_num = 512
+GPU_ID = 0
+device = calc_device(GPU_ID)
+total_mcmc_num = 512
 
-    max_epoch_num = 30
-    sample_epoch_num = 8
-    repeat_times = 1
+max_epoch_num = 30
+sample_epoch_num = 8
+repeat_times = 1
 
-    show_gap = 2 ** 4
+show_gap = 2 ** 4
 
-    num_ls = 6
-    reset_epoch_num = 192
+num_ls = 6
+reset_epoch_num = 192
 
-    total_running_duration = 2000
+total_running_duration = 2000
 
-    # path = '../data/syn_BA/BA_100_ID0.txt'
-    path = '../data/gset/gset_22.txt'
-    # num_ls = 6
-    # reset_epoch_num = 192
-    # total_mcmc_num = 224
-    # path = 'data/gset_22.txt'
 
-    # num_ls = 8
-    # reset_epoch_num = 128
-    # total_mcmc_num = 256
-    # path = 'data/gset_55.txt'
+DataDir = '../data/gset'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
+path = '../data/gset/gset_22.txt'
+# path = '../data/syn_BA/BA_100_ID0.txt'
+# num_ls = 6
+# reset_epoch_num = 192
+# total_mcmc_num = 224
+# path = 'data/gset_22.txt'
 
-    # num_ls = 8
-    # reset_epoch_num = 256
-    # total_mcmc_num = 192
-    # path = 'data/gset_70.txt'
+# num_ls = 8
+# reset_epoch_num = 128
+# total_mcmc_num = 256
+# path = 'data/gset_55.txt'
 
-    # num_ls = 8
-    # reset_epoch_num = 256
-    # repeat_times = 512
-    # total_mcmc_num = 2048
-    # path = 'data/gset_22.txt'  # GPU RAM 40GB
+# num_ls = 8
+# reset_epoch_num = 256
+# total_mcmc_num = 192
+# path = 'data/gset_70.txt'
 
-    # num_ls = 8
-    # reset_epoch_num = 192
-    # repeat_times = 448
-    # total_mcmc_num = 1024
-    # path = 'data/gset_55.txt'  # GPU RAM 40GB
+# num_ls = 8
+# reset_epoch_num = 256
+# repeat_times = 512
+# total_mcmc_num = 2048
+# path = 'data/gset_22.txt'  # GPU RAM 40GB
 
-    # num_ls = 8
-    # reset_epoch_num = 320
-    # repeat_times = 288
-    # total_mcmc_num = 768
-    # path = 'data/gset_70.txt'  # GPU RAM 40GB
+# num_ls = 8
+# reset_epoch_num = 192
+# repeat_times = 448
+# total_mcmc_num = 1024
+# path = 'data/gset_55.txt'  # GPU RAM 40GB
+
+# num_ls = 8
+# reset_epoch_num = 320
+# repeat_times = 288
+# total_mcmc_num = 768
+# path = 'data/gset_70.txt'  # GPU RAM 40GB
     
 
 TEN = th.Tensor
@@ -112,9 +98,6 @@ ARY = np.ndarray
 
 GraphList = List[Tuple[int, int, int]]  # 每条边两端点的索引以及边的权重 List[Tuple[Node0ID, Node1ID, WeightEdge]]
 IndexList = List[List[int]]  # 按索引顺序记录每个点的所有邻居节点 IndexList[Node0ID] = [Node1ID, ...]
-# DataDir = '../data/syn_BA'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
-DataDir = '../data/gset'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
-
 
 
 
@@ -182,7 +165,7 @@ class SolverLocalSearch:
         return vs
 
     def reset_search(self, num_sims):
-        xs = th.empty((num_sims, self.num_nodes), dtype=th.bool, device=self.simulator.device)
+        xs = th.empty((num_sims, self.num_nodes), dtype=th.bool, device=device)
         for sim_id in range(num_sims):
             _xs = self.simulator.generate_xs_randomly(num_sims=num_sims)
             _vs = self.simulator.calculate_obj_values(_xs)
@@ -319,7 +302,7 @@ def update_xs_by_vs(xs0, vs0, xs1, vs1, if_maximize: bool = True):
 
 class SimulatorGraphMaxCut:
     def __init__(self, sim_name: str = 'max_cut', graph_list: GraphList = (),
-                 device=th.device('cpu'), if_bidirectional: bool = False):
+                 device=device, if_bidirectional: bool = False):
         self.device = device
         self.sim_name = sim_name
         self.int_type = int_type = th.long
@@ -482,7 +465,7 @@ def metro_sampling(probs, start_status, max_transfer_time, device=None):
     # Metropolis-Hastings sampling
     torch.set_grad_enabled(False)
     if device is None:
-        device = torch.device(f'cuda:{Config.GPU_ID}' if torch.cuda.is_available() and Config.GPU_ID >= 0 else 'cpu')
+        device = calc_device(GPU_ID)
 
     num_node = len(probs)
     num_chain = start_status.shape[1]
@@ -512,7 +495,7 @@ def metro_sampling(probs, start_status, max_transfer_time, device=None):
 
 def sampler_func(data, xs_sample,
                  num_ls, total_mcmc_num, repeat_times,
-                 device=torch.device(f'cuda:{Config.GPU_ID}' if torch.cuda.is_available() and Config.GPU_ID >= 0 else 'cpu')):
+                 device=device):
     torch.set_grad_enabled(False)
     k = 1 / 4
 
@@ -568,7 +551,7 @@ class Simpler(torch.nn.Module):
     def reset_parameters(self):
         self.lin.reset_parameters()
 
-    def forward(self, device=torch.device(f'cuda:{Config.GPU_ID}' if torch.cuda.is_available() and Config.GPU_ID >= 0 else 'cpu')):
+    def forward(self, device=device):
         x = torch.ones(1).to(device)
         x = self.lin(x)
         x = self.sigmoid(x)
@@ -578,7 +561,7 @@ class Simpler(torch.nn.Module):
 
 
 def maxcut_dataloader(path,
-                      device=torch.device(f'cuda:{Config.GPU_ID}' if torch.cuda.is_available() and Config.GPU_ID >= 0 else 'cpu')):
+                      device=device):
     with open(path) as f:
         fline = f.readline()
         fline = fline.split()
@@ -632,7 +615,7 @@ def maxcut_dataloader(path,
 
 
 def append_neighbors(data,
-                     device=torch.device(f'cuda:{Config.GPU_ID}' if torch.cuda.is_available() and Config.GPU_ID >= 0 else 'cpu')):
+                     device=device):
     data.neighbors = []
     data.neighbor_edges = []
     # num_nodes = data.encode_len
@@ -741,7 +724,7 @@ def run():
     # path = f'temp_{graph_name}.txt'
     # graph_name = "barabasi_albert_1000_ID0"
     # graph_name = "gset_55"
-    # save_graph_list_to_txt(graph_list=load_graph_list(graph_name=graph_name), txt_path=Config.path)
+    # save_graph_list_to_txt(graph_list=load_graph_list(graph_name=graph_name), txt_path=path)
 
     # num_ls = 6
     # reset_epoch_num = 192
@@ -777,10 +760,10 @@ def run():
     # path = 'data/gset_70.txt'  # GPU RAM 40GB
 
     '''init'''
-    sim_name = Config.path  # os.path.splitext(os.path.basename(path))[0]
+    sim_name = path  # os.path.splitext(os.path.basename(path))[0]
     data, num_nodes = maxcut_dataloader(sim_name)
     device = calc_device(GPU_ID)
-    print("Config.GPU_ID:", Config.GPU_ID, "cuda available:", torch.cuda.is_available())
+    print("GPU_ID:", GPU_ID, "cuda available:", torch.cuda.is_available())
     print("device: ", device)
     change_times = int(num_nodes / 10)  # transition times for metropolis sampling
 
@@ -793,10 +776,10 @@ def run():
     sim = SimulatorGraphMaxCut(sim_name=sim_name, device=device)
     solver = SolverLocalSearch(simulator=sim, num_nodes=num_nodes)
 
-    xs = sim.generate_xs_randomly(num_sims=Config.total_mcmc_num)
+    xs = sim.generate_xs_randomly(num_sims=total_mcmc_num)
     solver.reset(xs.bool())
     for _ in range(16):
-        solver.random_search(num_iters=Config.repeat_times // 16)
+        solver.random_search(num_iters=repeat_times // 16)
     now_max_info = solver.good_xs.t()
     now_max_res = solver.good_vs
     del sim
@@ -805,7 +788,7 @@ def run():
     '''loop'''
     net.train()
     xs_prob = (torch.zeros(num_nodes) + 0.5).to(device)
-    xs_bool = now_max_info.repeat(1, Config.repeat_times)
+    xs_bool = now_max_info.repeat(1, repeat_times)
 
     print('start loop')
     rewardss = []
@@ -814,21 +797,21 @@ def run():
     objs_of_epochs = []
     sum_samples_per_second = []
     start_time = time.time()
-    for epoch in range(1, Config.max_epoch_num + 1):
+    for epoch in range(1, max_epoch_num + 1):
         #start_time = time.time()
         y_dict = {}
         rewards = []
         net.to(device).reset_parameters()
-        for j1 in range(Config.reset_epoch_num // Config.sample_epoch_num):
-            if Config.test_sampling_speed == True:
+        for j1 in range(reset_epoch_num // sample_epoch_num):
+            if test_sampling_speed == True:
                 start_time = time.time()
             xs_sample = metro_sampling(xs_prob, xs_bool.clone(), change_times)
 
             temp_max, temp_max_info, value = sampler_func(
-                data, xs_sample, Config.num_ls, Config.total_mcmc_num, Config.repeat_times, device)
-            if not Config.test_sampling_speed:
+                data, xs_sample, num_ls, total_mcmc_num, repeat_times, device)
+            if not test_sampling_speed:
                 # update now_max
-                for i0 in range(Config.total_mcmc_num):
+                for i0 in range(total_mcmc_num):
                     if temp_max[i0] > now_max_res[i0]:
                         now_max_res[i0] = temp_max[i0]
                         now_max_info[:, i0] = temp_max_info[:, i0]
@@ -845,7 +828,7 @@ def run():
 
                 # select best samples
                 xs_bool = temp_max_info.clone()
-                xs_bool = xs_bool.repeat(1, Config.repeat_times)
+                xs_bool = xs_bool.repeat(1, repeat_times)
                 # construct the start point for next iteration
                 start_samples = xs_sample.t()
 
@@ -860,10 +843,10 @@ def run():
                 y_dict[round(run_time, 2)] = max_value
                 sys.stdout.flush()  # add for slurm stdout
 
-                if run_time > Config.total_running_duration:
+                if run_time > total_running_duration:
                     break
 
-            if Config.test_sampling_speed:
+            if test_sampling_speed:
                 running_duration = time.time() - start_time
                 # num_samples = xs_sample.shape[1]
                 num_samples = temp_max.shape[0]
@@ -871,17 +854,17 @@ def run():
                 print("num_samples_per_second: ", num_samples_per_second)
                 sum_samples_per_second.append(num_samples_per_second)
 
-            if not Config.test_sampling_speed:
-                for _ in range(Config.sample_epoch_num):
+            if not test_sampling_speed:
+                for _ in range(sample_epoch_num):
                     xs_prob = net()
-                    ret_loss_ls = get_return(xs_prob, start_samples, value, Config.total_mcmc_num, Config.repeat_times)
+                    ret_loss_ls = get_return(xs_prob, start_samples, value, total_mcmc_num, repeat_times)
 
                     optimizer.zero_grad()
                     ret_loss_ls.backward()
                     torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                     optimizer.step()
 
-            if j1 % Config.show_gap == 0:
+            if j1 % show_gap == 0:
                 total_max = now_max_res
                 best_sort = torch.argsort(now_max_res, descending=True)
                 total_best_info = torch.squeeze(now_max_info[:, best_sort[0]])
@@ -900,19 +883,19 @@ def run():
         objs_of_epochs.append(objective_value.item())
         # filename = 'mcpg_speed.txt'
         # num_samples_per_second = sum(sum_samples_per_second)/len(sum_samples_per_second)
-        filename = os.path.basename(Config.path)  # 提取文件名 gset_22.txt
+        filename = os.path.basename(path)  # 提取文件名 gset_22.txt
         graph_name = os.path.splitext(filename)[0]
-        filename = f'mcpg_{graph_name}_seed{seed}_{Config.total_mcmc_num}.txt'
+        filename = f'mcpg_{graph_name}_seed{seed}_{total_mcmc_num}.txt'
         # 将 a 和 b 写入到 txt 文件
-        if Config.test_sampling_speed:
+        if test_sampling_speed:
             filename = f'mcpg_speed_{graph_name}.txt'
             num_samples_per_second = sum(sum_samples_per_second) / len(sum_samples_per_second)
             with open(filename, 'a') as file:
-                file.write(f"seed:{seed}\ny2_{Config.total_mcmc_num} = {num_samples_per_second}\n")
-        if not Config.test_sampling_speed:
+                file.write(f"seed:{seed}\ny2_{total_mcmc_num} = {num_samples_per_second}\n")
+        if not test_sampling_speed:
             running_duration = time.time() - start_time
             with open(filename, 'a') as file:  # 使用 'a' 模式打开文件以附加内容
-                file.write(f"seed:{seed}\ny_{Config.total_mcmc_num}_{epoch} = {y_dict}\nx_{Config.total_mcmc_num} = {running_duration}\n")
+                file.write(f"seed:{seed}\ny_{total_mcmc_num}_{epoch} = {y_dict}\nx_{total_mcmc_num} = {running_duration}\n")
 
         # print("rewards", rewards)
         #rewards_numpy = rewards.numpy()
@@ -924,7 +907,7 @@ def run():
 
         print()
 
-    print("total_mcmc_num", Config.total_mcmc_num)
+    print("total_mcmc_num", total_mcmc_num)
     print(f"objs_of_epochs: {objs_of_epochs}")
     print("rewardss: ", rewardss)
     if os.path.exists('./stop'):
