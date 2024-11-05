@@ -55,6 +55,8 @@ pip install torch_geometric
 """
 
 class Config:
+    test_sampling_speed = False
+    
     GPU_ID = 0
     total_mcmc_num = 512
 
@@ -113,7 +115,7 @@ IndexList = List[List[int]]  # 按索引顺序记录每个点的所有邻居节�
 # DataDir = '../data/syn_BA'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
 DataDir = '../data/gset'  # 保存图最大割的txt文件的目录，txt数据以稀疏的方式记录了GraphList，可以重建图的邻接矩阵
 
-test_sampling_speed = False
+
 
 
 class EncoderBase64:
@@ -818,13 +820,13 @@ def run():
         rewards = []
         net.to(device).reset_parameters()
         for j1 in range(Config.reset_epoch_num // Config.sample_epoch_num):
-            if test_sampling_speed == True:
+            if Config.test_sampling_speed == True:
                 start_time = time.time()
             xs_sample = metro_sampling(xs_prob, xs_bool.clone(), change_times)
 
             temp_max, temp_max_info, value = sampler_func(
                 data, xs_sample, Config.num_ls, Config.total_mcmc_num, Config.repeat_times, device)
-            if not test_sampling_speed:
+            if not Config.test_sampling_speed:
                 # update now_max
                 for i0 in range(Config.total_mcmc_num):
                     if temp_max[i0] > now_max_res[i0]:
@@ -861,7 +863,7 @@ def run():
                 if run_time > Config.total_running_duration:
                     break
 
-            if test_sampling_speed:
+            if Config.test_sampling_speed:
                 running_duration = time.time() - start_time
                 # num_samples = xs_sample.shape[1]
                 num_samples = temp_max.shape[0]
@@ -869,7 +871,7 @@ def run():
                 print("num_samples_per_second: ", num_samples_per_second)
                 sum_samples_per_second.append(num_samples_per_second)
 
-            if not test_sampling_speed:
+            if not Config.test_sampling_speed:
                 for _ in range(Config.sample_epoch_num):
                     xs_prob = net()
                     ret_loss_ls = get_return(xs_prob, start_samples, value, Config.total_mcmc_num, Config.repeat_times)
@@ -902,12 +904,12 @@ def run():
         graph_name = os.path.splitext(filename)[0]
         filename = f'mcpg_{graph_name}_seed{seed}_{Config.total_mcmc_num}.txt'
         # 将 a 和 b 写入到 txt 文件
-        if test_sampling_speed:
+        if Config.test_sampling_speed:
             filename = f'mcpg_speed_{graph_name}.txt'
             num_samples_per_second = sum(sum_samples_per_second) / len(sum_samples_per_second)
             with open(filename, 'a') as file:
                 file.write(f"seed:{seed}\ny2_{Config.total_mcmc_num} = {num_samples_per_second}\n")
-        if not test_sampling_speed:
+        if not Config.test_sampling_speed:
             running_duration = time.time() - start_time
             with open(filename, 'a') as file:  # 使用 'a' 模式打开文件以附加内容
                 file.write(f"seed:{seed}\ny_{Config.total_mcmc_num}_{epoch} = {y_dict}\nx_{Config.total_mcmc_num} = {running_duration}\n")
