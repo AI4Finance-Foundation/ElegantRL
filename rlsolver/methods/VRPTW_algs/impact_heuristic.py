@@ -133,7 +133,7 @@ def calc_vehicle_with_min_impact(cust: Customer, vehicles: List[Vehicle], nonrou
 def filter_vehicles_by_path_length(vehicles: List[Vehicle]) -> List[Vehicle]:
     res = []
     for vehicle in vehicles:
-        if len(vehicle.path_denoted_by_customers) >= 3:
+        if len(vehicle.path_denoted_by_customers) >= 2:
             res.append(vehicle)
     return res
 

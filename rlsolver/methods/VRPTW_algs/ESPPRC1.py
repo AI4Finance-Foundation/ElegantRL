@@ -100,7 +100,7 @@ def ESPPRC_unidirectional(orig_name: str, customers: List[Customer], graph: nx.D
         for k in range(len(label.path_denoted_by_names)):
             this_name = label.path_denoted_by_names[k]
             path.append(this_name)
-        if len(path) >= 3:
+        if len(path) >= 2:
             paths.append(path)
     dists = calc_dists_of_paths(paths, graph)
     return paths, dists
@@ -187,7 +187,7 @@ def demo():
 
 
 def main():
-    assert Config.CONNECT_ORIG_DEST is False
+    # assert Config.CONNECT_ORIG_DEST is False
     start_time = time.time()
     graph, customers = read_data_as_nxdigraph(Config.INSTANCE_FILENAME, Config.NUM_PURE_CUSTOMERS)
     orig_name = Config.ORIG_NAME

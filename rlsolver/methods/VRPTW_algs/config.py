@@ -33,7 +33,7 @@ class Config:
     assert USE_ESPPRC_IMPACT_IN_CG in [0, 1]
 
     INSTANCE_NAME = 'c101'
-    NUM_PURE_CUSTOMERS = 10  # excluding orig or dest. it <= 100 if selecting instance 'c101'
+    NUM_PURE_CUSTOMERS = 100  # excluding orig or dest. it <= 100 if selecting instance 'c101'
     NUM_CUSTOMERS = NUM_PURE_CUSTOMERS + 2 if ADD_DEST_AS_SAME_ORIG else NUM_PURE_CUSTOMERS + 1
 
     ORIG_ID = 0

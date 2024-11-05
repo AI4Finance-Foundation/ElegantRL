@@ -198,7 +198,7 @@ def obtain_paths_based_on_vehicles(vehicles: List[Vehicle]):
     paths = []
     for vehicle in vehicles:
         path = [i.name for i in vehicle.path_denoted_by_customers]
-        if len(path) >= 3:
+        if len(path) >= 2:
             paths.append(path)
     return paths
 
