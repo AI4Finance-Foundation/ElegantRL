@@ -17,11 +17,14 @@ import time
 from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
 from rlsolver.methods.util_read_data import (read_nxgraph, read_graphlist
                             )
+from rlsolver.methods.util_result import write_graph_result
 """
 pip install torch_geometric
 """
 from config import (GPU_ID, 
-                    calc_device)
+                    calc_device,
+                    DIRECTORY_DATA,
+                    PREFIXES)
 
 class Config:
     show_gap = 2 ** 4
@@ -350,8 +353,12 @@ def mcpg(filename: str):
 
     print('start loop')
     sys.stdout.flush()  # add for slurm stdout
+    objs_epochs = []
+    xs_epochs = []
     for epoch in range(1, Config.max_epoch_num + 1):
         net.to(device).reset_parameters()
+        objs_each_epoch = []
+        xs_each_epoch = []
         for j1 in range(Config.reset_epoch_num // Config.sample_epoch_num):
             start_time = time.time()
             xs_sample = metro_sampling(xs_prob, xs_bool.clone(), change_times)
@@ -368,6 +375,10 @@ def mcpg(filename: str):
             now_max = max(now_max_res).item()
             now_max_index = torch.argmax(now_max_res)
             now_min_index = torch.argmin(now_max_res)
+            objs_each_epoch.append(now_max)
+
+            x = now_max_info[:, now_max_index]
+            xs_each_epoch.append(x)
             now_max_res[now_min_index] = now_max
             now_max_info[:, now_min_index] = now_max_info[:, now_max_index]
             temp_max_info[:, now_min_index] = now_max_info[:, now_max_index]
@@ -382,9 +393,8 @@ def mcpg(filename: str):
             _probs = 1 - probs
             entropy = -(probs * probs.log2() + _probs * _probs.log2()).mean(dim=1)
             obj_entropy = entropy.mean()
-
-            print(f"value {max(now_max_res).item():9.2f}  entropy {obj_entropy:9.3f}")
-            sys.stdout.flush()  # add for slurm stdout
+            print(f"value {now_max: 9.2f}  entropy {obj_entropy: 9.3f}")
+            # sys.stdout.flush()  # add for slurm stdout
 
             running_duration = time.time() - start_time
             num_samples = temp_max.shape[0]
@@ -420,10 +430,16 @@ def mcpg(filename: str):
         if os.path.exists('./stop'):
             break
 
+        objs_epochs.extend(objs_each_epoch)
+        xs_epochs.extend(xs_each_epoch)
         print()
     if os.path.exists('./stop'):
         print(f"break: os.path.exists('./stop') {os.path.exists('./stop')}")
         sys.stdout.flush()  # add for slurm stdout
+    best_obj = max(objs_epochs)
+    best_index = objs_epochs.index(best_obj)
+    best_x = xs_epochs[best_index]
+    return best_obj, best_x
 
 def mcpg_multifiles(directory_data: str, prefixes: List[str]):
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
@@ -432,14 +448,28 @@ def mcpg_multifiles(directory_data: str, prefixes: List[str]):
         start_time = time.time()
         filename = files[i]
         print(f'Start the {i}-th file: {filename}')
-
-
-
+        best_obj, best_x = mcpg(filename)
+        running_duration = time.time() - start_time
+        alg_name = "mcpg"
+        solution = best_x
+        num_nodes = len(solution)
+        write_graph_result(best_obj, running_duration, num_nodes, alg_name, solution, filename)
 
 
 
 if __name__ == '__main__':
-    filename = '../data/syn_BA/BA_100_ID0.txt'
-    mcpg(filename)
+    run_one_file = False
+    if run_one_file:
+        filename = '../data/syn_BA/BA_100_ID0.txt'
+        mcpg(filename)
+
+    run_multifiles = True
+    if run_multifiles:
+        directory_data = DIRECTORY_DATA
+        prefixes = PREFIXES
+        mcpg_multifiles(directory_data, prefixes)
+
+
+
 
 
