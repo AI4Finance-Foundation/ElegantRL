@@ -4,6 +4,7 @@ cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
+from typing import List, Tuple
 import os
 import torch
 import sys
@@ -11,6 +12,7 @@ sys.path.append('..')
 from torch_geometric.data import Data
 from rlsolver.methods.L2A.evaluator import EncoderBase64
 from rlsolver.methods.L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
+from rlsolver.methods.util import calc_txt_files_with_prefixes
 import time
 from rlsolver.methods.L2A.maxcut_local_search import SolverLocalSearch
 from rlsolver.methods.util_read_data import (read_nxgraph, read_graphlist
@@ -325,7 +327,8 @@ def mcpg(filename: str):
     optimizer = torch.optim.Adam(net.parameters(), lr=8e-2)
 
     '''addition'''
-    from rlsolver.envs.env_mcpg_maxcut import SimulatorMaxcut, LocalSearch
+    from rlsolver.envs.env_mcpg_maxcut import SimulatorMaxcut
+    from rlsolver.envs.LocalSearch import LocalSearch
     # from graph_max_cut_simulator import SimulatorGraphMaxCut
     # from graph_max_cut_local_search import SolverLocalSearch
     sim = SimulatorMaxcut(sim_name=sim_name, device=device)
@@ -390,7 +393,7 @@ def mcpg(filename: str):
 
             for _ in range(Config.sample_epoch_num):
                 xs_prob = net()
-                ret_loss_ls = get_return(xs_prob, start_samples, value, total_mcmc_num, repeat_times)
+                ret_loss_ls = get_return(xs_prob, start_samples, value, Config.total_mcmc_num, Config.repeat_times)
 
                 optimizer.zero_grad()
                 ret_loss_ls.backward()
@@ -421,6 +424,18 @@ def mcpg(filename: str):
     if os.path.exists('./stop'):
         print(f"break: os.path.exists('./stop') {os.path.exists('./stop')}")
         sys.stdout.flush()  # add for slurm stdout
+
+def mcpg_multifiles(directory_data: str, prefixes: List[str]):
+    files = calc_txt_files_with_prefixes(directory_data, prefixes)
+    files.sort()
+    for i in range(len(files)):
+        start_time = time.time()
+        filename = files[i]
+        print(f'Start the {i}-th file: {filename}')
+
+
+
+
 
 
 if __name__ == '__main__':
