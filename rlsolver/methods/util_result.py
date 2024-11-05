@@ -21,6 +21,14 @@ except ImportError:
     plt = None
 
 def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes: int, alg_name: str, solution: Union[Tensor, List[int], np.array], filename: str, plus1=True):
+    if False in solution:
+        sol = []
+        for i in solution:
+            if i is False:
+                sol.append(0)
+            else:
+                sol.append(1)
+        solution = sol
     add_tail = '_' if running_duration is None else '_' + str(int(running_duration)) if 'data' in filename else None
     new_filename = calc_result_file_name(filename, add_tail)
     print("result filename: ", new_filename)
