@@ -21,7 +21,7 @@ except ImportError:
     plt = None
 
 def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes: int, alg_name: str, solution: Union[Tensor, List[int], np.array], filename: str, plus1=True):
-    if False in solution:
+    if False in solution or True in solution:
         sol = []
         for i in solution:
             if i is False:
