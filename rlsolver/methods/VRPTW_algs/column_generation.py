@@ -268,7 +268,7 @@ def run_column_generation():
         filtered_paths, filtered_dists = obtain_selected_paths_dists_from_model(model, paths, dists)
         dist = sum(filtered_dists)
         dists_of_iterations.append(dist)
-        print(f"dists_of_iterations: {dists_of_iterations}")
+        # print(f"dists_of_iterations: {dists_of_iterations}")
         if Config.USE_CHECK_WIDTH_IN_CG:
             min_dist, max_dist = obtain_min_max(dists_of_iterations, Config.CHECK_WIDTH_IN_CG)
             if max_dist - min_dist <= Config.CHECK_DIFF_THRESHOLD_IN_CG:
