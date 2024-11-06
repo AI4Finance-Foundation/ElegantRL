@@ -452,7 +452,7 @@ def mcpg_multifiles(directory_data: str, prefixes: List[str]):
         best_obj, best_x = mcpg(filename)
         running_duration = time.time() - start_time
         alg_name = "mcpg"
-        solution = best_x
+        solution = best_x.tolist()
         num_nodes = len(solution)
         write_graph_result(best_obj, running_duration, num_nodes, alg_name, solution, filename)
 

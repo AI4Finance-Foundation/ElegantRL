@@ -49,7 +49,7 @@ def check(customers):
 # An exact algorithm for the elementary shortest path problem with resource constraints: Application to some vehicle routing problems
 # return paths, each path is a list of customers' names
 # paths are sorted by label's cumulative_travel_cost
-def ESPPRC_unidirectional(orig_name: str, customers: List[Customer], graph: nx.DiGraph()) -> List[List[str]]:
+def ESPPRC1_unidirectional(orig_name: str, customers: List[Customer], graph: nx.DiGraph()) -> List[List[str]]:
     orig = Customer.obtain_by_name(orig_name, customers)
     orig_label: Label = Label.create_label_for_orig()
     orig.labels = [orig_label]
@@ -100,7 +100,7 @@ def ESPPRC_unidirectional(orig_name: str, customers: List[Customer], graph: nx.D
         for k in range(len(label.path_denoted_by_names)):
             this_name = label.path_denoted_by_names[k]
             path.append(this_name)
-        if len(path) >= 3:
+        if len(path) >= 2:
             paths.append(path)
     dists = calc_dists_of_paths(paths, graph)
     return paths, dists
@@ -169,7 +169,7 @@ def demo():
     Config.ORIG_NAME = "s"
     Config.DEST_NAME = "t"
     name_of_orig = Config.ORIG_NAME
-    ESPPRC_unidirectional(name_of_orig, customers, graph)
+    ESPPRC1_unidirectional(name_of_orig, customers, graph)
     vehicles = generate_vehicles_and_assign_paths(len(customers), customers)
     filtered_vehicles = vehicles[:Config.NUM_VEHICLES]
     running_duration = time.time() - start_time
@@ -187,11 +187,11 @@ def demo():
 
 
 def main():
-    assert Config.CONNECT_ORIG_DEST is False
+    # assert Config.CONNECT_ORIG_DEST is False
     start_time = time.time()
     graph, customers = read_data_as_nxdigraph(Config.INSTANCE_FILENAME, Config.NUM_PURE_CUSTOMERS)
     orig_name = Config.ORIG_NAME
-    ESPPRC_unidirectional(orig_name, customers, graph)
+    ESPPRC1_unidirectional(orig_name, customers, graph)
     vehicles = generate_vehicles_and_assign_paths(len(customers), customers)
     filtered_vehicles = vehicles[:Config.NUM_VEHICLES]
     running_duration = time.time() - start_time

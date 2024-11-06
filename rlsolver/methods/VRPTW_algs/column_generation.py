@@ -28,7 +28,7 @@ from rlsolver.methods.VRPTW_algs.util import (read_data,
                   calc_durations_of_paths,
                   obtain_paths_based_on_vehicles,
                   )
-from rlsolver.methods.VRPTW_algs.ESPPRC1 import ESPPRC_unidirectional
+from rlsolver.methods.VRPTW_algs.ESPPRC1 import ESPPRC1_unidirectional
 from rlsolver.methods.VRPTW_algs.config import Config
 
 # each vehicle only serves one customer, and then return to the depot
@@ -268,7 +268,7 @@ def run_column_generation():
         filtered_paths, filtered_dists = obtain_selected_paths_dists_from_model(model, paths, dists)
         dist = sum(filtered_dists)
         dists_of_iterations.append(dist)
-        print(f"dists_of_iterations: {dists_of_iterations}")
+        # print(f"dists_of_iterations: {dists_of_iterations}")
         if Config.USE_CHECK_WIDTH_IN_CG:
             min_dist, max_dist = obtain_min_max(dists_of_iterations, Config.CHECK_WIDTH_IN_CG)
             if max_dist - min_dist <= Config.CHECK_DIFF_THRESHOLD_IN_CG:
@@ -296,7 +296,7 @@ def run_column_generation():
 
         start = time.time()
         if Config.USE_ESPPRC_IMPACT_IN_CG == 0:
-            new_paths, new_dists = ESPPRC_unidirectional(orig_name, customers, graph)
+            new_paths, new_dists = ESPPRC1_unidirectional(orig_name, customers, graph)
         elif Config.USE_ESPPRC_IMPACT_IN_CG == 1:
             for customer in customers:
                 customer.is_path_planned = False

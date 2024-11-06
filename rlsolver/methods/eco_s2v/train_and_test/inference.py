@@ -61,6 +61,8 @@ def process_graph(graph_name, graph_save_loc, data_folder, network_save_path, de
                                  ["results", "results_raw", "history"]):
         if label == "results":
             result = (res['sol'][0] + 1) / 2
+            for i in range(len(result)):
+                result[i] = round(result[i])  # set the value as int
             obj = res['cut'][0]
             num_nodes = len(result)
             write_graph_result(obj, run_duration, num_nodes, 'eco-dqn', result, graph_dict, plus1=False)

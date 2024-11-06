@@ -14,8 +14,8 @@ from rlsolver.methods.eco_s2v.train_and_test import (train_eco,
 # save_loc = f"../../result"
 save_loc = RESULT_DIR
 
-train_network = True
-inference_network = False
+train_network = False
+inference_network = True
 
 if train_network:
     if ALG_NAME == "eco":
