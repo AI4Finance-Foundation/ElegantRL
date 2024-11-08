@@ -23,6 +23,7 @@ class Label:
         self.id = Label.count
         Label.count += 1
         self.name = str(self.id)
+        self.forward = True
         self.cumulative_travel_cost = cumulative_travel_cost
         self.cumulative_duration = departure_time_list[-1]  # arrival time, consumed time
         self.cumulative_demand = cumulative_demand
@@ -36,6 +37,8 @@ class Label:
     def __init__(self, ):
         self.id = Label.count
         Label.count += 1
+        self.name = str(self.id)
+        self.forward = True
         self.cumulative_travel_cost = 0
         self.cumulative_duration = 0  # arrival time, consumed time
         self.cumulative_demand = 0
@@ -49,10 +52,11 @@ class Label:
         return self.path_denoted_by_names == another.path_denoted_by_names
 
     @staticmethod
-    def create_label_for_orig():
+    def create_label_for_orig(forward: bool):
         label = Label()
         label.id = Label.count
         label.name = Config.ORIG_NAME
+        label.forward = forward
         Label.count += 1
         label.cumulative_travel_cost = 0
         label.cumulative_duration = 0
@@ -63,6 +67,26 @@ class Label:
         label.path_denoted_by_names = [Config.ORIG_NAME]
         label.arrival_time_list = [0]
         label.departure_time_list = [0]
+        # label.ids_of_successors = copy.deepcopy(Config.IDS_OF_CUSTOMERS)
+        # label.ids_of_successors.remove(Config.ID_OF_ORIG)
+        return label
+
+    @staticmethod
+    def create_label_for_dest(forward: bool):
+        label = Label()
+        label.id = Label.count
+        label.name = Config.DEST_NAME
+        label.forward = forward
+        Label.count += 1
+        label.cumulative_travel_cost = 0
+        label.cumulative_duration = 0
+        label.cumulative_demand = 0
+        label.num_visited_nodes = 0
+        label.visitation_vector = [False] * Config.NUM_CUSTOMERS
+        label.visitation_vector[-1] = True
+        label.path_denoted_by_names = [Config.DEST_NAME]
+        label.arrival_time_list = [Config.TIME_WINDOW_END]
+        label.departure_time_list = [Config.TIME_WINDOW_END_OF_DEPOT]
         # label.ids_of_successors = copy.deepcopy(Config.IDS_OF_CUSTOMERS)
         # label.ids_of_successors.remove(Config.ID_OF_ORIG)
         return label
@@ -131,10 +155,6 @@ class Label:
         for i in range(len(labels)):
             if i not in indices_will_remove:
                 filtered_labels.append(labels[i])
-        if len(filtered_labels) <= 1:
-            aaa = 1
-        if len(tuple(filtered_labels)) != len(filtered_labels):
-            aaa = 1
         # res = Label.make_unique(filtered_labels)
         return filtered_labels
 
