@@ -48,8 +48,8 @@ def check(customers):
 def forward_loop(forward_customers_will_be_treated: List[Customer], customers: List[Customer], graph: nx.DiGraph):
     while len(forward_customers_will_be_treated) > 0:
         customer_i = forward_customers_will_be_treated.pop()
-        for id_j in graph.successors(customer_i.name):
-            customer_j = Customer.obtain_by_name(id_j, customers)
+        for name_j in graph.successors(customer_i.name):
+            customer_j = Customer.obtain_by_name(name_j, customers)
             labels_i_to_j = []  # labels extended from i to j
             for i in range(len(customer_i.forward_labels)):
                 label = customer_i.forward_labels[i]
@@ -66,7 +66,7 @@ def forward_loop(forward_customers_will_be_treated: List[Customer], customers: L
                     labels_i_to_j.append(label_i_to_j)
             labels_j = copy.deepcopy(customer_j.forward_labels)
             labels_j.extend(labels_i_to_j)
-            filtered_labels_j = Label.EFF(labels_j)
+            filtered_labels_j = Label.EFF(labels_j, True)
             change = Label.change(filtered_labels_j, customer_j.forward_labels)
             if change:
                 customer_j.forward_labels = copy.deepcopy(filtered_labels_j)
@@ -88,18 +88,54 @@ def backward_loop(backward_customers_will_be_treated: List[Customer], customers:
                         break
                 if exist:
                     continue
-                label_i_to_j = Customer.extend_backward(customer_j2, customer_i, label, graph)
+                label_i_to_j = Customer.extend_backward(customer_i, customer_j2, label, customers, graph)
                 # if customer_i can reach customer_j, label_i_to_j is not None
                 if label_i_to_j is not None:
                     labels_j_to_i.append(label_i_to_j)
             labels_i = copy.deepcopy(customer_i.backward_labels)
             labels_i.extend(labels_j_to_i)
-            filtered_labels_i = Label.EFF(labels_i)
+            filtered_labels_i = Label.EFF(labels_i, False)
             change = Label.change(filtered_labels_i, customer_i.forward_labels)
             if change:
                 customer_i.backward_labels = copy.deepcopy(filtered_labels_i)
                 if customer_i not in backward_customers_will_be_treated:
                     backward_customers_will_be_treated.append(customer_i)
+
+def obtain_forward_paths(dest: Customer, graph: nx.DiGraph):
+    # calc forward paths from orig to dest
+    # dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
+    if dest is None:
+        return [], []
+    forward_paths = []
+    if Config.SORT_BY_CUMULATIVE_TRAVEL_COST:
+        dest.forward_labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
+    for i in range(len(dest.forward_labels)):
+        label = dest.forward_labels[i]
+        path = []
+        for k in range(len(label.path_denoted_by_names)):
+            this_name = label.path_denoted_by_names[k]
+            path.append(this_name)
+        if len(path) >= 2:
+            forward_paths.append(path)
+    forward_dists = calc_dists_of_paths(forward_paths, graph)
+    return forward_paths, forward_dists
+
+def obtain_backward_paths(orig: Customer, graph: nx.DiGraph):
+    if orig is None:
+        return [], []
+    backward_paths = []
+    if Config.SORT_BY_CUMULATIVE_TRAVEL_COST:
+        orig.backward_labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
+    for i in range(len(orig.backward_labels)):
+        label = orig.backward_labels[i]
+        path = []
+        for k in range(len(label.path_denoted_by_names)):
+            this_name = label.path_denoted_by_names[k]
+            path.append(this_name)
+        if len(path) >= 2:
+            backward_paths.append(path)
+    backward_dists = calc_dists_of_paths(backward_paths, graph)
+    return backward_paths, backward_dists
 
 # vehicle_capacity: int, result_filename: str
 # An exact algorithm for the elementary shortest path problem with resource constraints: Application to some vehicle routing problems
@@ -115,34 +151,27 @@ def ESPPRC2_bidirectional(orig_name: str, dest_name: str, customers: List[Custom
     dest.backward_labels = [dest_label]
 
     for customer in customers:
-        if customer != orig or customer != dest:
+        if customer != orig:
             customer.forward_labels = []
+        if customer != dest:
+            customer.backward_labels = []
     forward_customers_will_be_treated = [orig]
     backward_customers_will_be_treated = [dest]
 
     # forward
     forward_loop(forward_customers_will_be_treated, customers, graph)
+    dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
+    forward_paths, forward_dists = obtain_forward_paths(dest, graph)
 
     # backward
-    backward_loop(forward_customers_will_be_treated, customers, graph)
+    backward_loop(backward_customers_will_be_treated, customers, graph)
+    orig = Customer.obtain_by_name(Config.ORIG_NAME, customers)
+    backward_paths, backward_dists = obtain_backward_paths(orig, graph)
 
-    # calc paths from orig to dest
-    dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
-    if dest is None:
-        return []
+    # join forward_paths and backward_paths
     paths = []
+    dists = []
 
-    if Config.SORT_BY_CUMULATIVE_TRAVEL_COST:
-        dest.forward_labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
-    for i in range(len(dest.forward_labels)):
-        label = dest.forward_labels[i]
-        path = []
-        for k in range(len(label.path_denoted_by_names)):
-            this_name = label.path_denoted_by_names[k]
-            path.append(this_name)
-        if len(path) >= 2:
-            paths.append(path)
-    dists = calc_dists_of_paths(paths, graph)
     return paths, dists
 
 
@@ -231,7 +260,8 @@ def main():
     start_time = time.time()
     graph, customers = read_data_as_nxdigraph(Config.INSTANCE_FILENAME, Config.NUM_PURE_CUSTOMERS)
     orig_name = Config.ORIG_NAME
-    ESPPRC1_unidirectional(orig_name, customers, graph)
+    dest_name = Config.DEST_NAME
+    ESPPRC2_bidirectional(orig_name, dest_name, customers, graph)
     vehicles = generate_vehicles_and_assign_paths(len(customers), customers)
     filtered_vehicles = vehicles[:Config.NUM_VEHICLES]
     running_duration = time.time() - start_time

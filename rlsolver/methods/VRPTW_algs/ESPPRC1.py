@@ -31,7 +31,7 @@ from Label import Label
 from util import (read_data_as_nxdigraph,
                   write_result,
                   calc_dists_of_paths)
-
+from ESPPRC2 import forward_loop, obtain_forward_paths
 
 def check(customers):
     for cust in customers:
@@ -58,53 +58,59 @@ def ESPPRC1_unidirectional(orig_name: str, customers: List[Customer], graph: nx.
         if customer != orig:
             customer.forward_labels = []
     customers_will_be_treated = [orig]
-    while len(customers_will_be_treated) > 0:
-        customer_i = customers_will_be_treated.pop()
-        for id_j in graph.successors(customer_i.name):
-            customer_j = Customer.obtain_by_name(id_j, customers)
-            labels_i_to_j = []  # labels extended from i to j
-            for i in range(len(customer_i.forward_labels)):
-                label = customer_i.forward_labels[i]
-                exist = False
-                for lj in customer_j.forward_labels:
-                    if len(lj.path_denoted_by_names) >= 2 and lj.path_denoted_by_names[-2] == customer_i.id:
-                        exist = True
-                        break
-                if exist:
-                    continue
-                label_i_to_j = Customer.extend_forward(customer_i, customer_j, label, graph)
-                # if customer_i can reach customer_j, label_i_to_j is not None
-                if label_i_to_j is not None:
-                    labels_i_to_j.append(label_i_to_j)
-            # Label.check(labels_i_to_j)
-            labels_j = copy.deepcopy(customer_j.forward_labels)
-            # Label.check(labels_j)
-            labels_j.extend(labels_i_to_j)
-            # Label.check(labels_j)
-            filtered_labels_j = Label.EFF(labels_j)
-            change = Label.change(filtered_labels_j, customer_j.forward_labels)
-            if change:
-                customer_j.forward_labels = copy.deepcopy(filtered_labels_j)
-                if customer_j not in customers_will_be_treated:
-                    customers_will_be_treated.append(customer_j)
+    # forward
+    forward_loop(customers_will_be_treated, customers, graph)
     # calc paths from orig to dest
     dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
-    if dest is None:
-        return []
-    paths = []
-
-    if Config.SORT_BY_CUMULATIVE_TRAVEL_COST:
-        dest.forward_labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
-    for i in range(len(dest.forward_labels)):
-        label = dest.forward_labels[i]
-        path = []
-        for k in range(len(label.path_denoted_by_names)):
-            this_name = label.path_denoted_by_names[k]
-            path.append(this_name)
-        if len(path) >= 2:
-            paths.append(path)
-    dists = calc_dists_of_paths(paths, graph)
-    return paths, dists
+    forward_paths, forward_dists = obtain_forward_paths(dest, graph)
+    return forward_paths, forward_dists
+    # while len(customers_will_be_treated) > 0:
+    #     customer_i = customers_will_be_treated.pop()
+    #     for id_j in graph.successors(customer_i.name):
+    #         customer_j = Customer.obtain_by_name(id_j, customers)
+    #         labels_i_to_j = []  # labels extended from i to j
+    #         for i in range(len(customer_i.forward_labels)):
+    #             label = customer_i.forward_labels[i]
+    #             exist = False
+    #             for lj in customer_j.forward_labels:
+    #                 if len(lj.path_denoted_by_names) >= 2 and lj.path_denoted_by_names[-2] == customer_i.id:
+    #                     exist = True
+    #                     break
+    #             if exist:
+    #                 continue
+    #             label_i_to_j = Customer.extend_forward(customer_i, customer_j, label, graph)
+    #             # if customer_i can reach customer_j, label_i_to_j is not None
+    #             if label_i_to_j is not None:
+    #                 labels_i_to_j.append(label_i_to_j)
+    #         # Label.check(labels_i_to_j)
+    #         labels_j = copy.deepcopy(customer_j.forward_labels)
+    #         # Label.check(labels_j)
+    #         labels_j.extend(labels_i_to_j)
+    #         # Label.check(labels_j)
+    #         filtered_labels_j = Label.EFF(labels_j, True)
+    #         change = Label.change(filtered_labels_j, customer_j.forward_labels)
+    #         if change:
+    #             customer_j.forward_labels = copy.deepcopy(filtered_labels_j)
+    #             if customer_j not in customers_will_be_treated:
+    #                 customers_will_be_treated.append(customer_j)
+    # calc paths from orig to dest
+    # dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
+    # if dest is None:
+    #     return []
+    # paths = []
+    #
+    # if Config.SORT_BY_CUMULATIVE_TRAVEL_COST:
+    #     dest.forward_labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
+    # for i in range(len(dest.forward_labels)):
+    #     label = dest.forward_labels[i]
+    #     path = []
+    #     for k in range(len(label.path_denoted_by_names)):
+    #         this_name = label.path_denoted_by_names[k]
+    #         path.append(this_name)
+    #     if len(path) >= 2:
+    #         paths.append(path)
+    # dists = calc_dists_of_paths(paths, graph)
+    # return paths, dists
 
 
 def check_nxgraph():

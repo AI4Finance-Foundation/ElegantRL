@@ -83,7 +83,7 @@ def read_data_as_nxdigraph2(filename, num_pure_customers) -> nx.DiGraph:
         graph.add_edge(key[0], key[1], duration=duration, dist=dist)
     return graph
 
-
+# the weight of edge is duration
 def read_data_as_nxdigraph(filename, num_pure_customers) -> (List[Customer], nx.DiGraph):
     num_vehicles, vehicle_capacity, x, y, demands, time_window_start, time_window_end, service_time = read_data(filename, num_pure_customers)
     update_config(num_vehicles, vehicle_capacity, x, y, demands, time_window_start, time_window_end, service_time)
@@ -132,7 +132,7 @@ def read_data_as_nxdigraph(filename, num_pure_customers) -> (List[Customer], nx.
         dest.id = Config.DEST_ID
         # dest.name = str(dest.id)
         dest.name = Config.DEST_NAME
-        dest.is_depot = False
+        dest.is_depot = True
         dest.is_forward_path_planned = True
         dest.is_backward_path_planned = True
         dest.is_orig = False
@@ -158,10 +158,10 @@ def read_data_as_nxdigraph(filename, num_pure_customers) -> (List[Customer], nx.
     for name_i in nodes.keys():
         # info = Customer.obtain_by_id(i, customers)
         for name_j in nodes.keys():
-            if name_i == Config.ORIG_NAME and name_j == Config.DEST_NAME:
+            if (name_i == Config.ORIG_NAME and name_j == Config.DEST_NAME) or (name_i == Config.DEST_NAME and name_j == Config.ORIG_NAME):
                 if not Config.CONNECT_ORIG_DEST:
                     continue
-            if name_i == name_j or name_i == Config.DEST_NAME:
+            if name_i == name_j or name_i == Config.DEST_NAME or name_j == Config.ORIG_NAME:
                 continue
             i = Config.NAMES_OF_CUSTOMERS.index(name_i)
             j = Config.NAMES_OF_CUSTOMERS.index(name_j)
