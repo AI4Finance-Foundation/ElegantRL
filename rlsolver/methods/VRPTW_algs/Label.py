@@ -91,10 +91,12 @@ class Label:
         # label.ids_of_successors.remove(Config.ID_OF_ORIG)
         return label
 
-    def dominate(self, another):
+    def dominate(self, another, forward: bool):
+        if forward and self.path_denoted_by_names[-1] != another.path_denoted_by_names[-1]:
+            return False
+        if not forward and self.path_denoted_by_names[0] != another.path_denoted_by_names[0]:
+            return False
         if Config.ADD_NUM_VISITED_NODES_FOR_DOMINATE_IN_CG:
-            if self.path_denoted_by_names[-1] != another.path_denoted_by_names[-1]:
-                return False
             if self.cumulative_duration <= another.cumulative_duration \
                     and self.cumulative_travel_cost <= another.cumulative_travel_cost \
                     and self.cumulative_demand <= another.cumulative_demand \
@@ -109,8 +111,6 @@ class Label:
             else:
                 return False
         else:
-            if self.path_denoted_by_names[-1] != another.path_denoted_by_names[-1]:
-                return False
             if self.cumulative_duration <= another.cumulative_duration \
                     and self.cumulative_travel_cost <= another.cumulative_travel_cost \
                     and self.cumulative_demand <= another.cumulative_demand \
@@ -126,11 +126,10 @@ class Label:
                 return False
 
     @staticmethod
-    def EFF(labels2: List) -> List:
+    def EFF(labels2: List, forward: bool) -> List:
         labels = Label.make_unique(labels2)
         if len(labels) <= 1:
             return labels
-
         indices_will_remove = set()
         while True:
             new_indices_will_remove = copy.deepcopy(indices_will_remove)
@@ -142,10 +141,10 @@ class Label:
                     if j in new_indices_will_remove:
                         continue
                     labelj = labels[j]
-                    if labeli.dominate(labelj):
+                    if labeli.dominate(labelj, forward):
                         new_indices_will_remove.add(j)
                         # print(f"compare: {labeli.path_denoted_by_id} better than {labelj.path_denoted_by_id}")
-                    elif labelj.dominate(labeli):
+                    elif labelj.dominate(labeli, forward):
                         new_indices_will_remove.add(i)
                         # print(f"compare: {labelj.path_denoted_by_id} better than {labeli.path_denoted_by_id}")
             if len(new_indices_will_remove) == len(indices_will_remove):
