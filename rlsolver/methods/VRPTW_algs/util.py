@@ -17,24 +17,6 @@ from rlsolver.methods.VRPTW_algs.config import (Config, update_config)
 from rlsolver.methods.VRPTW_algs.Vehicle import Vehicle
 from rlsolver.methods.VRPTW_algs.Customer import Customer
 
-# def readInstanceN():
-#     # Take in input instance name
-#     print("Instance name: [r|c|rc][NNN]")
-#
-#     # Take in input customers number
-#     print("Select number of costumers (1-100):")
-#     n = None
-#     try:
-#         n = int(input())
-#     except Exception as e:
-#         print("Invalid number of costumers. Exit."); exit(1)
-#     if not n or n < 1 or n > 100:
-#         print("Invalid number of costumers. Exit."); exit(1)
-#     return INSTANCE_NAME, INSTANCE_FILENAME, n
-
-
-
-
 def read_data(filename, num_pure_customers):
     with open(filename, "r") as file:
         stream = file.readlines()
@@ -118,10 +100,12 @@ def read_data_as_nxdigraph(filename, num_pure_customers) -> (List[Customer], nx.
     # orig.name = str(orig.id)
     orig.name = Config.ORIG_NAME
     orig.is_depot = True
-    orig.is_path_planned = True
+    orig.is_forward_path_planned = True
+    orig.is_backward_path_planned = True
     orig.is_orig = True
     orig.is_dest = False
-    orig.is_visited = True
+    orig.is_visited_in_forward_path = True
+    orig.is_visited_in_backward_path = False
     customers.append(orig)
     nodes[orig.name] = orig
     for i in range(orig.id + 1, Config.NUM_PURE_CUSTOMERS + 1):
@@ -149,10 +133,12 @@ def read_data_as_nxdigraph(filename, num_pure_customers) -> (List[Customer], nx.
         # dest.name = str(dest.id)
         dest.name = Config.DEST_NAME
         dest.is_depot = False
-        dest.is_path_planned = True
+        dest.is_forward_path_planned = True
+        dest.is_backward_path_planned = True
         dest.is_orig = False
         dest.is_dest = True
-        dest.is_visited = False
+        dest.is_visited_in_forward_path = False
+        dest.is_visited_in_backward_path = True
         customers.append(dest)
         nodes[dest.name] = dest
     else:
@@ -160,10 +146,12 @@ def read_data_as_nxdigraph(filename, num_pure_customers) -> (List[Customer], nx.
         dest = customers[j]
         dest.name = Config.DEST_NAME
         dest.is_depot = False
-        dest.is_path_planned = True
+        dest.is_forward_path_planned = True
+        dest.is_backward_path_planned = True
         dest.is_orig = False
         dest.is_dest = True
-        dest.is_visited = False
+        dest.is_visited_in_forward_path = False
+        dest.is_visited_in_backward_path = True
         nodes[dest.name] = dest
         del nodes[str(Config.DEST_ID)]
 
@@ -252,10 +240,12 @@ def generate_customers_including_orig_dest():
     orig.id = Config.ORIG_ID
     orig.name = Config.ORIG_NAME
     orig.is_depot = True
-    orig.is_path_planned = True
+    orig.is_forward_path_planned = True
+    orig.is_backward_path_planned = True
     orig.is_orig = True
     orig.is_dest = False
-    orig.is_visited = True
+    orig.is_visited_in_forward_path = True
+    orig.is_visited_in_backward_path = False
     customers.append(orig)
     for i in range(1, Config.NUM_PURE_CUSTOMERS + 1):
         customer: Customer = Customer(demand=Config.DEMANDS[i],
@@ -280,18 +270,22 @@ def generate_customers_including_orig_dest():
         dest.id = Config.DEST_ID
         dest.name = Config.DEST_NAME
         dest.is_depot = False
-        dest.is_path_planned = True
+        dest.is_forward_path_planned = True
+        dest.is_backward_path_planned = True
         dest.is_orig = False
         dest.is_dest = True
-        dest.is_visited = False
+        dest.is_visited_in_forward_path = False
+        dest.is_visited_in_backward_path = True
         customers.append(dest)
     else:
         dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
         dest.is_depot = False
-        dest.is_path_planned = True
+        dest.is_forward_path_planned = True
+        dest.is_backward_path_planned = True
         dest.is_orig = False
         dest.is_dest = True
-        dest.is_visited = False
+        dest.is_visited_in_forward_path = False
+        dest.is_visited_in_backward_path = True
 
     return customers
 
@@ -355,10 +349,10 @@ def generate_vehicles_and_assign_paths(num_vehicles, customers: List[Customer]):
     dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
     if dest is None:
         return []
-    dest.labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
-    num = min(len(dest.labels), len(vehicles))
+    dest.forward_labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
+    num = min(len(dest.forward_labels), len(vehicles))
     for i in range(num):
-        label = dest.labels[i]
+        label = dest.forward_labels[i]
         vehicle = vehicles[i]
         path_denoted_by_names = label.path_denoted_by_names
         vehicle.departure_time_list = label.departure_time_list
@@ -381,7 +375,7 @@ def filter_vehicles_based_on_paths(vehicles2: List[Vehicle], paths: List[str], c
     num = min(len(vehicles2), len(paths))
     vehicles = copy.deepcopy(vehicles2)[:num]
     orig: Customer = Customer.obtain_by_name(Config.ORIG_NAME, customers)
-    orig_arrival = orig.time_window[0]
+    orig_arrival = orig.forward_time_window[0]
     orig_departure = orig_arrival + orig.service_duration
     for vehicle in vehicles:
         vehicle.arrival_time_dict[orig.name] = orig_arrival

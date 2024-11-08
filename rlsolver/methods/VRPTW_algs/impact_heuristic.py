@@ -36,7 +36,7 @@ def calc_own_impact_IS(cust: Customer, vehicle: Vehicle) -> List[float]:
     IS = []
     for i in range(len(vehicle.paths_denoted_by_customers_if_insert)):
         if cust.name in vehicle.arrival_time_list_if_insert[i].keys():
-            Is = vehicle.arrival_time_list_if_insert[i][cust.name] - cust.time_window[0]
+            Is = vehicle.arrival_time_list_if_insert[i][cust.name] - cust.forward_time_window[0]
             IS.append(Is)
     return IS
 
@@ -47,7 +47,7 @@ def calc_external_impact_IU(cust: Customer, nonrouted_customers: List[Customer],
     for customer in nonrouted_customers:
         if cust.name != customer.name:
             edge = (cust.name, customer.name)
-            Iu = max(customer.time_window[1] - cust.time_window[0] - graph.edges[edge]["duration"], cust.time_window[1] - customer.time_window[0] - graph.edges[edge]["duration"])
+            Iu = max(customer.forward_time_window[1] - cust.forward_time_window[0] - graph.edges[edge]["duration"], cust.forward_time_window[1] - customer.forward_time_window[0] - graph.edges[edge]["duration"])
             sum_Iu += Iu
     IU = sum_Iu / (num_nonrouted_customers - 1 + 1e-8)
     return IU
@@ -74,9 +74,9 @@ def calc_local_disturbance_LD(this_cust: Customer, vehicle: Vehicle, graph: nx.D
                 # in paper, c1 uses dist.
                 # c1: use cost, or dist???
                 c1 = graph.edges[edge_i_this]["cost"] + graph.edges[edge_this_j]["cost"] - graph.edges[edge_i_j]["cost"]
-                c2 = (customer_j.time_window[1] - (vehicle.arrival_time_list_if_insert[m][name_i] + customer_i.service_duration + graph.edges[edge_i_j]["duration"])) \
-                     - (customer_j.time_window[1] - (vehicle.arrival_time_list_if_insert[m][this_name] + this_cust.service_duration + graph.edges[edge_this_j]["duration"]))
-                c3 = this_cust.time_window[1] - (vehicle.arrival_time_list_if_insert[m][name_i] + customer_i.service_duration + graph.edges[edge_i_this]["duration"])
+                c2 = (customer_j.forward_time_window[1] - (vehicle.arrival_time_list_if_insert[m][name_i] + customer_i.service_duration + graph.edges[edge_i_j]["duration"])) \
+                     - (customer_j.forward_time_window[1] - (vehicle.arrival_time_list_if_insert[m][this_name] + this_cust.service_duration + graph.edges[edge_this_j]["duration"]))
+                c3 = this_cust.forward_time_window[1] - (vehicle.arrival_time_list_if_insert[m][name_i] + customer_i.service_duration + graph.edges[edge_i_this]["duration"])
 
                 Ld = Config.B1 * c1 + Config.B2 * c2 + Config.B3 * c3
                 LD.append(Ld)
@@ -143,7 +143,7 @@ def impact_heuristic(num_vehicles: int, customers: List[Customer], graph: nx.DiG
     # calc nonrouted_customers
     nonrouted_customers = []
     for customer in customers:
-        if not customer.is_path_planned:
+        if not customer.is_forward_path_planned:
             nonrouted_customers.append(customer)
 
     max_dist_from_depot = 0
@@ -160,8 +160,8 @@ def impact_heuristic(num_vehicles: int, customers: List[Customer], graph: nx.DiG
     for vehicle in vehicles:
         succeed = vehicle.succeed_insert_customer(1, seed_customer, graph)
         if succeed:
-            seed_customer.is_path_planned = True
-            seed_customer.is_visited = True
+            seed_customer.is_forward_path_planned = True
+            seed_customer.is_visited_in_forward_path = True
             vehicle.update_use_if_insert3()
             vehicle.clear_if_insert6()
             nonrouted_customers.remove(seed_customer)
@@ -187,8 +187,8 @@ def impact_heuristic(num_vehicles: int, customers: List[Customer], graph: nx.DiG
             LD = calc_local_disturbance_LD(selected_customer, selected_vehicle, graph)
             min_LD = min(LD)
             index = LD.index(min_LD)
-            selected_customer.is_path_planned = True
-            selected_customer.is_visited = True
+            selected_customer.is_forward_path_planned = True
+            selected_customer.is_visited_in_forward_path = True
             selected_vehicle.path_denoted_by_customers = selected_vehicle.paths_denoted_by_customers_if_insert[index]
             selected_vehicle.arrival_time_dict = selected_vehicle.arrival_time_list_if_insert[index]
             selected_vehicle.departure_time_dict = selected_vehicle.departure_time_list_if_insert[index]

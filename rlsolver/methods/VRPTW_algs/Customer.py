@@ -1,5 +1,6 @@
 import sys
 import os
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
@@ -18,17 +19,23 @@ import sys
 
 class Customer:
     count = 0
-    def __init__(self, demand, time_window_start, time_window_end, service_duration):
+
+    def __init__(self, demand: float, time_window_start: float, time_window_end: float, service_duration: float):
         # self.id: int = Customer.count
         self.id = Customer.count
         Customer.count += 1
         self.name = str(self.id)
-        self.demand: int = demand
-        self.time_window = (time_window_start, time_window_end)
+        self.demand: float = demand
         self.service_duration: float = service_duration
-        self.is_path_planned: bool = False
-        self.labels: List[Label] = []
-        self.is_visited = False
+        self.forward_time_window = (time_window_start, time_window_end)  # forward by default
+        self.backward_time_window = (time_window_start + service_duration, time_window_end + service_duration)  # backward. feasible departure time
+        self.is_forward_path_planned: bool = False
+        self.is_backward_path_planned: bool = False
+        self.forward_labels: List[Label] = []  # forward labels by default. The last node in a forward label is this customer.
+        self.backward_labels: List[Label] = []  # backward labels. The first node in a backward label is this customer.
+
+        self.is_visited_in_forward_path = False
+        self.is_visited_in_backward_path = False
         # self.ids_of_successors: List[int] = self.calc_ids_of_successors()
         self.is_depot: bool = False
         self.is_orig: bool = False
@@ -38,7 +45,7 @@ class Customer:
         return self.name == other.name
 
     @staticmethod
-    def obtain_by_name(name_of_cust, customers):
+    def obtain_by_name(name_of_cust: str, customers):
         if name_of_cust.isdigit() and int(name_of_cust) < len(customers):
             cust = customers[int(name_of_cust)]
             if cust.name == name_of_cust:
@@ -51,7 +58,7 @@ class Customer:
         return res
 
     @staticmethod
-    def obtain_index_by_id(id_of_cust, customers):
+    def obtain_index_by_id(id_of_cust: int, customers):
         res = None
         for i in range(len(customers)):
             cust = customers[i]
@@ -62,33 +69,31 @@ class Customer:
 
     @staticmethod
     def calc_arrival_departure_time(prev_departure, prev, this, graph: nx.DiGraph) -> (bool, float, float):
-        if  (prev.name, this.name) not in graph.edges or "duration" not in graph.edges[(prev.name, this.name)]:
+        if (prev.name, this.name) not in graph.edges or "duration" not in graph.edges[(prev.name, this.name)]:
             aaa = 1
         arrival = prev_departure + graph.edges[(prev.name, this.name)]["duration"]
-        if arrival <= this.time_window[1]:
+        if arrival <= this.forward_time_window[1]:
             feasible = True
-            start_service = max(arrival, this.time_window[0])
+            start_service = max(arrival, this.forward_time_window[0])
             departure = start_service + this.service_duration
             return feasible, arrival, departure
         else:
             feasible = False
             return feasible, -1, -1
 
-
-
     # if customer_i can reach customer_j, the return is not None
     @staticmethod
-    def extend(this_customer, another_customer, this_label: Label, graph: nx.DiGraph) -> Optional[Label]:
+    def extend_forward(this_customer, another_customer, this_label: Label, graph: nx.DiGraph) -> Optional[Label]:
         if this_label.path_denoted_by_names[-1] != this_customer.name or another_customer.name in this_label.path_denoted_by_names:
             return None
         cumulative_demand = this_label.cumulative_demand + another_customer.demand
         arrival_time = this_label.departure_time_list[-1] + graph.edges[(this_customer.name, another_customer.name)]["duration"]
-        if arrival_time <= another_customer.time_window[1] and cumulative_demand < Config.VEHICLE_CAPACITY:
+        if arrival_time <= another_customer.forward_time_window[1] and cumulative_demand < Config.VEHICLE_CAPACITY:
             label = copy.deepcopy(this_label)
             label.id = Label.count
             label.name = str(label.id)
             Label.count += 1
-            departure_time = max(arrival_time, another_customer.time_window[0]) + another_customer.service_duration
+            departure_time = max(arrival_time, another_customer.forward_time_window[0]) + another_customer.service_duration
             label.cumulative_travel_cost += graph.edges[(this_customer.name, another_customer.name)]["cost"]
             label.cumulative_duration = departure_time
             label.cumulative_demand = cumulative_demand
@@ -100,16 +105,36 @@ class Customer:
         else:
             return None
 
+    # if customer_i can reach customer_j, the return is not None
+    @staticmethod
+    def extend_backward(this_customer, another_customer, this_label: Label, graph: nx.DiGraph) -> Optional[Label]:
+        if this_label.path_denoted_by_names[0] != this_customer.name or another_customer.name in this_label.path_denoted_by_names:
+            return None
+        cumulative_demand = this_label.cumulative_demand + another_customer.demand
+        arrival_time = this_label.departure_time_list[-1] + graph.edges[(this_customer.name, another_customer.name)]["duration"]
+        if arrival_time <= another_customer.forward_time_window[1] and cumulative_demand < Config.VEHICLE_CAPACITY:
+            label = copy.deepcopy(this_label)
+            label.id = Label.count
+            label.name = str(label.id)
+            Label.count += 1
+            departure_time = max(arrival_time, another_customer.forward_time_window[0]) + another_customer.service_duration
+            label.cumulative_travel_cost += graph.edges[(this_customer.name, another_customer.name)]["cost"]
+            label.cumulative_duration = departure_time
+            label.cumulative_demand = cumulative_demand
+            label.visitation_vector[another_customer.id] = True
+            label.path_denoted_by_names.append(another_customer.name)
+            label.arrival_time_list.append(arrival_time)
+            label.departure_time_list.append(departure_time)
+            return label
+        else:
+            return None
 
-
-    def calc_labels_extend_to_another(self, another_customer) -> List[Label]:
+    def calc_labels_forward_extend_to_another(self, another_customer) -> List[Label]:
         labels = []
-        for label in self.labels:
+        for label in self.forward_labels:
             if len(label.path_denoted_by_names) >= 2 and label.path_denoted_by_names[-2] == self.id and label.path_denoted_by_names[-1] == another_customer.id:
                 labels.append(label)
         return labels
-
-
 
     # # used in impact_heuristic
     # def calc_own_impact_IS(self, vehicle: Vehicle) -> List[float]:
@@ -199,14 +224,3 @@ class Customer:
     #             min_impact = impact
     #             selected_vehicle = vehicle
     #     return selected_vehicle, min_impact
-
-
-
-
-
-
-
-
-
-
-

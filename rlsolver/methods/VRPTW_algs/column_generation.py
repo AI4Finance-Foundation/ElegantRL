@@ -1,5 +1,6 @@
 import sys
 import os
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
@@ -14,22 +15,23 @@ from Vehicle import Vehicle
 from rlsolver.methods.VRPTW_algs.impact_heuristic import impact_heuristic, run_impact_heuristic
 from typing import Dict, List
 from rlsolver.methods.VRPTW_algs.Customer import (Customer,
-                      )
+                                                  )
 
 from rlsolver.methods.VRPTW_algs.util import (read_data,
-                  write_result,
-                  generate_vehicles,
-                  generate_customers_including_orig_dest,
-                  read_data_as_nxdigraph,
-                  calc_dist_of_path,
-                  calc_dists_of_paths,
-                  filter_vehicles_based_on_paths,
-                  calc_demands_of_paths,
-                  calc_durations_of_paths,
-                  obtain_paths_based_on_vehicles,
-                  )
+                                              write_result,
+                                              generate_vehicles,
+                                              generate_customers_including_orig_dest,
+                                              read_data_as_nxdigraph,
+                                              calc_dist_of_path,
+                                              calc_dists_of_paths,
+                                              filter_vehicles_based_on_paths,
+                                              calc_demands_of_paths,
+                                              calc_durations_of_paths,
+                                              obtain_paths_based_on_vehicles,
+                                              )
 from rlsolver.methods.VRPTW_algs.ESPPRC1 import ESPPRC1_unidirectional
 from rlsolver.methods.VRPTW_algs.config import Config
+
 
 # each vehicle only serves one customer, and then return to the depot
 def calc_init_paths(customers: List[Customer]):
@@ -43,6 +45,7 @@ def calc_init_paths(customers: List[Customer]):
             paths.append(path)
     return paths
 
+
 def calc_reduced_cost(path: List[int], duals: Dict[str, float], graph: nx.DiGraph):
     reduced_cost = 0
     for i in range(len(path) - 1):
@@ -50,12 +53,14 @@ def calc_reduced_cost(path: List[int], duals: Dict[str, float], graph: nx.DiGrap
         reduced_cost += graph.edges[edge]["dist"] - duals[path[i]]
     return reduced_cost
 
+
 def calc_reduced_costs(paths: List[List[int]], duals: Dict[str, float], graph: nx.DiGraph):
     reduced_costs = []
     for i in range(len(paths)):
         rc = calc_reduced_cost(paths[i], duals, graph)
         reduced_costs.append(rc)
     return reduced_costs
+
 
 def calc_best_reduced_cost_and_path(routes: List[List[int]], duals: List[List[float]]) -> (float, List[int]):
     best_reduced_cost = None
@@ -67,16 +72,6 @@ def calc_best_reduced_cost_and_path(routes: List[List[int]], duals: List[List[fl
             best_route = routes[i]
     return best_reduced_cost, best_route
 
-
-# def does_route_visit_customer_except_depot(route: List[int], customer_id: int) -> bool:
-#     assert customer_id is not 0
-#     visit = False
-#     for j in range(len(route) - 1):
-#         k = j + 1
-#         if route[j] == customer_id or route[k] == customer_id:
-#             visit = True
-#             break
-#     return visit
 
 # the depot is excluded, i.e., the visit[0] == 0
 def calc_if_path_visits_pure_customers(path: List[str]) -> List[int]:
@@ -92,6 +87,7 @@ def calc_if_path_visits_pure_customers(path: List[str]) -> List[int]:
                 visit[name] = 0
     return visit
 
+
 def calc_reduced_cost_of_path(path: List[str], dual: float, graph: nx.DiGraph) -> float:
     reduced_cost = 0
     for i in range(len(path) - 1):
@@ -100,12 +96,14 @@ def calc_reduced_cost_of_path(path: List[str], dual: float, graph: nx.DiGraph) -
         reduced_cost += rc
     return reduced_cost
 
+
 def calc_if_paths_visit_pure_customers(paths: List[List[int]]) -> List[List[int]]:
     visit = []
     for path in paths:
         row = calc_if_path_visits_pure_customers(path)
         visit.append(row)
     return visit
+
 
 def create_restricted_master_problem(paths: List[List[int]], dists: List[int], set_variables_int):
     model = Model("restricted_master_problem")
@@ -137,10 +135,6 @@ def create_restricted_master_problem(paths: List[List[int]], dists: List[int], s
 
     return model
 
-# def greedy_best_reduced_cost(duals: List[float]) -> List[int]:
-#     route = [0]
-#     while True:
-#         for i in range(len(1, Config.NUM_CUSTOMERS)):
 
 def check_paths_cover_all_customers(paths):
     uncover_names = []
@@ -166,6 +160,7 @@ def calc_num_duplicates(paths: List[str]):
                 num_duplicates += 1
     return num_duplicates
 
+
 def transfer_list_to_tuple_store_in_set(paths: List[List[str]]):
     res = set()
     for path in paths:
@@ -173,12 +168,14 @@ def transfer_list_to_tuple_store_in_set(paths: List[List[str]]):
         res.add(path2)
     return res
 
+
 def obtain_dict_from_paths_dists(paths: List[List[str]], dists: List[float]):
     dic = {}
     for i in range(len(paths)):
         path2 = tuple(paths[i])
         dic[path2] = dists[i]
     return dic
+
 
 def extract_paths_dists_from_dict(path_dist_dict: Dict) -> (List[List[str]], List[float]):
     paths = []
@@ -188,6 +185,7 @@ def extract_paths_dists_from_dict(path_dist_dict: Dict) -> (List[List[str]], Lis
         paths.append(path)
         dists.append(dist)
     return paths, dists
+
 
 # inpu paths, dists are all paths, dists. model select some of them.
 def obtain_selected_paths_dists_from_model(model, paths, dists):
@@ -200,6 +198,7 @@ def obtain_selected_paths_dists_from_model(model, paths, dists):
             selected_paths.append(paths[i])
             selected_dists.append(dists[i])
     return selected_paths, selected_dists
+
 
 def obtain_min_max(dists_of_iterations: List[float], width: int) -> (float, float):
     length = len(dists_of_iterations)
@@ -216,6 +215,7 @@ def obtain_min_max(dists_of_iterations: List[float], width: int) -> (float, floa
             max_dist = dist
     return min_dist, max_dist
 
+
 def obtai_var_vals(model, var_name: str):
     theta_vals = []
     num_vars = model.NumVars
@@ -224,6 +224,7 @@ def obtai_var_vals(model, var_name: str):
         theta_val = round(var.x, 2)
         theta_vals.append(theta_val)
     return theta_vals
+
 
 def run_column_generation():
     start_time = time.time()
@@ -295,11 +296,11 @@ def run_column_generation():
             graph.edges[(i, j)]["cost"] = graph.edges[(i, j)]["dist"] - duals[i]
 
         start = time.time()
-        if Config.USE_ESPPRC_IMPACT_IN_CG == 0:
+        if Config.USE_ESPPRC_IMPACT_AS_INIT_IN_CG == 0:
             new_paths, new_dists = ESPPRC1_unidirectional(orig_name, customers, graph)
-        elif Config.USE_ESPPRC_IMPACT_IN_CG == 1:
+        elif Config.USE_ESPPRC_IMPACT_AS_INIT_IN_CG == 1:
             for customer in customers:
-                customer.is_path_planned = False
+                customer.is_forward_path_planned = False
             filtered_vehicles, updated_customers = impact_heuristic(num_vehicles, original_customers, graph)
             new_paths = obtain_paths_based_on_vehicles(filtered_vehicles)
             new_dists = calc_dists_of_paths(paths, graph)
@@ -362,12 +363,7 @@ def run_column_generation():
 
     print()
 
-
-
-
     pass
-
-
 
 
 if __name__ == '__main__':

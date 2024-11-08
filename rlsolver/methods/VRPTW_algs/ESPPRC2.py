@@ -1,6 +1,5 @@
 import sys
 import os
-
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
@@ -13,24 +12,25 @@ from Customer import Customer
 from Vehicle import Vehicle
 from typing import List, Tuple, Union, Dict
 from rlsolver.methods.VRPTW_algs.config import (Config,
-                                                )
+                    )
 from typing import Dict, List
 from rlsolver.methods.VRPTW_algs.Customer import (Customer,
-                                                  )
+                      )
 from rlsolver.methods.VRPTW_algs.Vehicle import Vehicle
 from rlsolver.methods.VRPTW_algs.util import (read_data,
-                                              generate_vehicles,
-                                              generate_customers_including_orig_dest,
-                                              generate_vehicles_and_assign_paths,
-                                              write_result_based_on_vehicles,
-                                              calc_dist_of_path,
-                                              obtain_paths_based_on_vehicles,
-                                              calc_demands_of_paths,
-                                              calc_durations_of_paths, )
+                  generate_vehicles,
+                  generate_customers_including_orig_dest,
+                  generate_vehicles_and_assign_paths,
+                  write_result_based_on_vehicles,
+                  calc_dist_of_path,
+                  obtain_paths_based_on_vehicles,
+                  calc_demands_of_paths,
+                  calc_durations_of_paths, )
 from Label import Label
 from util import (read_data_as_nxdigraph,
                   write_result,
                   calc_dists_of_paths)
+
 
 
 def check(customers):
@@ -45,21 +45,9 @@ def check(customers):
                 if li == lj:
                     aaa = 1
 
-
-# vehicle_capacity: int, result_filename: str
-# An exact algorithm for the elementary shortest path problem with resource constraints: Application to some vehicle routing problems
-# return paths, each path is a list of customers' names
-# paths are sorted by label's cumulative_travel_cost
-def ESPPRC1_unidirectional(orig_name: str, customers: List[Customer], graph: nx.DiGraph()) -> List[List[str]]:
-    orig = Customer.obtain_by_name(orig_name, customers)
-    orig_label: Label = Label.create_label_for_orig(True)
-    orig.forward_labels = [orig_label]
-    for customer in customers:
-        if customer != orig:
-            customer.forward_labels = []
-    customers_will_be_treated = [orig]
-    while len(customers_will_be_treated) > 0:
-        customer_i = customers_will_be_treated.pop()
+def forward_loop(forward_customers_will_be_treated: List[Customer], customers: List[Customer], graph: nx.DiGraph):
+    while len(forward_customers_will_be_treated) > 0:
+        customer_i = forward_customers_will_be_treated.pop()
         for id_j in graph.successors(customer_i.name):
             customer_j = Customer.obtain_by_name(id_j, customers)
             labels_i_to_j = []  # labels extended from i to j
@@ -76,17 +64,68 @@ def ESPPRC1_unidirectional(orig_name: str, customers: List[Customer], graph: nx.
                 # if customer_i can reach customer_j, label_i_to_j is not None
                 if label_i_to_j is not None:
                     labels_i_to_j.append(label_i_to_j)
-            # Label.check(labels_i_to_j)
             labels_j = copy.deepcopy(customer_j.forward_labels)
-            # Label.check(labels_j)
             labels_j.extend(labels_i_to_j)
-            # Label.check(labels_j)
             filtered_labels_j = Label.EFF(labels_j)
             change = Label.change(filtered_labels_j, customer_j.forward_labels)
             if change:
                 customer_j.forward_labels = copy.deepcopy(filtered_labels_j)
-                if customer_j not in customers_will_be_treated:
-                    customers_will_be_treated.append(customer_j)
+                if customer_j not in forward_customers_will_be_treated:
+                    forward_customers_will_be_treated.append(customer_j)
+
+def backward_loop(backward_customers_will_be_treated: List[Customer], customers: List[Customer], graph: nx.DiGraph):
+    while len(backward_customers_will_be_treated) > 0:
+        customer_j2 = backward_customers_will_be_treated.pop()
+        for name_i in graph.predecessors(customer_j2.name):
+            customer_i: Customer = Customer.obtain_by_name(name_i, customers)
+            labels_j_to_i = []  # labels extended from j to i
+            for j in range(len(customer_j2.backward_labels)):
+                label = customer_j2.backward_labels[j]
+                exist = False
+                for li in customer_i.backward_labels:
+                    if len(li.path_denoted_by_names) >= 2 and li.path_denoted_by_names[1] == customer_j2.name:
+                        exist = True
+                        break
+                if exist:
+                    continue
+                label_i_to_j = Customer.extend_backward(customer_j2, customer_i, label, graph)
+                # if customer_i can reach customer_j, label_i_to_j is not None
+                if label_i_to_j is not None:
+                    labels_j_to_i.append(label_i_to_j)
+            labels_i = copy.deepcopy(customer_i.backward_labels)
+            labels_i.extend(labels_j_to_i)
+            filtered_labels_i = Label.EFF(labels_i)
+            change = Label.change(filtered_labels_i, customer_i.forward_labels)
+            if change:
+                customer_i.backward_labels = copy.deepcopy(filtered_labels_i)
+                if customer_i not in backward_customers_will_be_treated:
+                    backward_customers_will_be_treated.append(customer_i)
+
+# vehicle_capacity: int, result_filename: str
+# An exact algorithm for the elementary shortest path problem with resource constraints: Application to some vehicle routing problems
+# return paths, each path is a list of customers' names
+# paths are sorted by label's cumulative_travel_cost
+def ESPPRC2_bidirectional(orig_name: str, dest_name: str, customers: List[Customer], graph: nx.DiGraph()) -> List[List[str]]:
+    orig = Customer.obtain_by_name(orig_name, customers)
+    orig_label: Label = Label.create_label_for_orig(True)
+    orig.forward_labels = [orig_label]
+
+    dest = Customer.obtain_by_name(dest_name, customers)
+    dest_label: Label = Label.create_label_for_dest(False)
+    dest.backward_labels = [dest_label]
+
+    for customer in customers:
+        if customer != orig or customer != dest:
+            customer.forward_labels = []
+    forward_customers_will_be_treated = [orig]
+    backward_customers_will_be_treated = [dest]
+
+    # forward
+    forward_loop(forward_customers_will_be_treated, customers, graph)
+
+    # backward
+    backward_loop(forward_customers_will_be_treated, customers, graph)
+
     # calc paths from orig to dest
     dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
     if dest is None:
@@ -216,3 +255,4 @@ if __name__ == '__main__':
     run_demo = False
     if run_demo:
         demo()
+
