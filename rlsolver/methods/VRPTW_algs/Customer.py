@@ -107,24 +107,30 @@ class Customer:
 
     # if customer_i can reach customer_j, the return is not None
     @staticmethod
-    def extend_backward(this_customer, another_customer, this_label: Label, graph: nx.DiGraph) -> Optional[Label]:
+    def extend_backward(this_customer, another_customer, this_label: Label, customers: List, graph: nx.DiGraph) -> Optional[Label]:
         if this_label.path_denoted_by_names[0] != this_customer.name or another_customer.name in this_label.path_denoted_by_names:
             return None
         cumulative_demand = this_label.cumulative_demand + another_customer.demand
-        arrival_time = this_label.departure_time_list[-1] + graph.edges[(this_customer.name, another_customer.name)]["duration"]
-        if arrival_time <= another_customer.forward_time_window[1] and cumulative_demand < Config.VEHICLE_CAPACITY:
+        duration_between_this_another = graph.edges[(this_customer.name, another_customer.name)]["duration"]
+        dest: Customer = Customer.obtain_by_name(Config.DEST_NAME)
+        this_consumed_duration = dest.forward_time_window[1] - this_label.departure_time_list[0]
+        another_consumed_duration = max(this_consumed_duration + another_customer.service_duration + duration_between_this_another, dest.forward_time_window[1] - another_customer.backward_time_window[1])
+        another_departure = dest.forward_time_window[1] - another_consumed_duration
+        this_arrival = another_departure + duration_between_this_another
+        # arrival_time = this_label.departure_time_list[-1] + graph.edges[(this_customer.name, another_customer.name)]["duration"]
+        if another_consumed_duration <= dest.forward_time_window[1] - another_customer.backward_time_window[0] and cumulative_demand < Config.VEHICLE_CAPACITY:
             label = copy.deepcopy(this_label)
             label.id = Label.count
-            label.name = str(label.id)
             Label.count += 1
-            departure_time = max(arrival_time, another_customer.forward_time_window[0]) + another_customer.service_duration
+            label.name = str(label.id)
             label.cumulative_travel_cost += graph.edges[(this_customer.name, another_customer.name)]["cost"]
-            label.cumulative_duration = departure_time
+            label.cumulative_duration = another_consumed_duration
             label.cumulative_demand = cumulative_demand
             label.visitation_vector[another_customer.id] = True
-            label.path_denoted_by_names.append(another_customer.name)
-            label.arrival_time_list.append(arrival_time)
-            label.departure_time_list.append(departure_time)
+            label.path_denoted_by_names.insert(0, another_customer.name)
+            # arrival time for this_customer, not another_customer. This is different with extend_forward
+            label.arrival_time_list.insert(0, this_arrival)
+            label.departure_time_list.insert(0, another_departure)
             return label
         else:
             return None
