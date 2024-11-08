@@ -28,9 +28,9 @@ class Config:
     USE_CHECK_WIDTH_IN_CG = False
     CHECK_WIDTH_IN_CG = 12
     CHECK_DIFF_THRESHOLD_IN_CG = 0
-    USE_ESPPRC_IMPACT_IN_CG = 0  # default: 0
+    USE_ESPPRC_IMPACT_AS_INIT_IN_CG = 0  # default: 0
     ADD_NUM_VISITED_NODES_FOR_DOMINATE_IN_CG = True   # the performance in True and False is almost the same
-    assert USE_ESPPRC_IMPACT_IN_CG in [0, 1]
+    assert USE_ESPPRC_IMPACT_AS_INIT_IN_CG in [0, 1]
 
     INSTANCE_NAME = 'c101'
     NUM_PURE_CUSTOMERS = 10  # excluding orig or dest. it <= 100 if selecting instance 'c101'
