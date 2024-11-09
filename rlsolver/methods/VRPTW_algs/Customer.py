@@ -111,8 +111,8 @@ class Customer:
         if this_label.path_denoted_by_names[0] != this_customer.name or another_customer.name in this_label.path_denoted_by_names:
             return None
         cumulative_demand = this_label.cumulative_demand + another_customer.demand
-        duration_between_this_another = graph.edges[(this_customer.name, another_customer.name)]["duration"]
-        dest: Customer = Customer.obtain_by_name(Config.DEST_NAME)
+        duration_between_this_another = graph.edges[(another_customer.name, this_customer.name)]["duration"]
+        dest: Customer = Customer.obtain_by_name(Config.DEST_NAME, customers)
         this_consumed_duration = dest.forward_time_window[1] - this_label.departure_time_list[0]
         another_consumed_duration = max(this_consumed_duration + another_customer.service_duration + duration_between_this_another, dest.forward_time_window[1] - another_customer.backward_time_window[1])
         another_departure = dest.forward_time_window[1] - another_consumed_duration
@@ -123,7 +123,7 @@ class Customer:
             label.id = Label.count
             Label.count += 1
             label.name = str(label.id)
-            label.cumulative_travel_cost += graph.edges[(this_customer.name, another_customer.name)]["cost"]
+            label.cumulative_travel_cost += graph.edges[(another_customer.name, this_customer.name)]["cost"]
             label.cumulative_duration = another_consumed_duration
             label.cumulative_demand = cumulative_demand
             label.visitation_vector[another_customer.id] = True
