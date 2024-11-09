@@ -65,8 +65,8 @@ class Label:
         label.visitation_vector = [False] * Config.NUM_CUSTOMERS
         label.visitation_vector[0] = True
         label.path_denoted_by_names = [Config.ORIG_NAME]
-        label.arrival_time_list = [0]
-        label.departure_time_list = [0]
+        label.arrival_time_list = [Config.TIME_WINDOW_START_OF_DEPOT]
+        label.departure_time_list = [Config.TIME_WINDOW_START_OF_DEPOT]
         # label.ids_of_successors = copy.deepcopy(Config.IDS_OF_CUSTOMERS)
         # label.ids_of_successors.remove(Config.ID_OF_ORIG)
         return label
@@ -85,7 +85,7 @@ class Label:
         label.visitation_vector = [False] * Config.NUM_CUSTOMERS
         label.visitation_vector[-1] = True
         label.path_denoted_by_names = [Config.DEST_NAME]
-        label.arrival_time_list = [Config.TIME_WINDOW_END]
+        label.arrival_time_list = [Config.TIME_WINDOW_END_OF_DEPOT]
         label.departure_time_list = [Config.TIME_WINDOW_END_OF_DEPOT]
         # label.ids_of_successors = copy.deepcopy(Config.IDS_OF_CUSTOMERS)
         # label.ids_of_successors.remove(Config.ID_OF_ORIG)

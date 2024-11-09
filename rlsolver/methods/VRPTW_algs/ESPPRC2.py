@@ -88,7 +88,7 @@ def backward_loop(backward_customers_will_be_treated: List[Customer], customers:
                         break
                 if exist:
                     continue
-                label_i_to_j = Customer.extend_backward(customer_i, customer_j2, label, customers, graph)
+                label_i_to_j = Customer.extend_backward(customer_j2, customer_i, label, customers, graph)
                 # if customer_i can reach customer_j, label_i_to_j is not None
                 if label_i_to_j is not None:
                     labels_j_to_i.append(label_i_to_j)
