@@ -1,15 +1,17 @@
 import os
 import numpy as np
 
+
 class ConfigTsp:
     batch_size = 1
     num_nodes = 10
     low = 0
     high = 100
-    random_mode = 'uniform'  #'uniform','gaussian'
-    assert random_mode in ['uniform','gaussian']
+    random_mode = 'uniform'  # 'uniform','gaussian'
+    assert random_mode in ['uniform', 'gaussian']
     filename = f"tsp{num_nodes}_batch{batch_size}_{random_mode}"
     data_path = "../data/" + filename + '.tsp'
+
 
 def generate_tsp_data(batch=10, nodes_num=10, low=0, high=1, random_mode="uniform"):
     if random_mode == "uniform":
@@ -38,6 +40,7 @@ def generate_tsp_file(node_coords: np.ndarray, filename):
         assert node_coords.ndim == 2
         _generate_tsp_file(node_coords, filename)
 
+
 def _generate_tsp_file(node_coords: np.ndarray, filename):
     num_points = node_coords.shape[0]
     file_basename = os.path.basename(filename)
@@ -52,13 +55,8 @@ def _generate_tsp_file(node_coords: np.ndarray, filename):
             f.write(f"{i + 1} {x} {y}\n")
         f.write("EOF\n")
 
+
 if __name__ == "__main__":
     # tab_printer(args)
     node_coords = generate_tsp_data(ConfigTsp.batch_size, ConfigTsp.num_nodes, ConfigTsp.low, ConfigTsp.high, ConfigTsp.random_mode)
     generate_tsp_file(node_coords, ConfigTsp.data_path)
-
-
-        
-
-
-

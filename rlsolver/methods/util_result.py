@@ -24,6 +24,7 @@ def write_graph_result(obj: Union[float, int], running_duration: int, num_nodes:
     if False in solution or True in solution:
         sol = []
         for i in solution:
+            assert i in [False, True]
             if i is False:
                 sol.append(0)
             else:
