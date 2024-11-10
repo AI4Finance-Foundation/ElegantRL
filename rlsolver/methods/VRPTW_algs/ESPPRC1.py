@@ -175,8 +175,8 @@ def demo():
     Config.NUM_VEHICLES = len(nodes)
     Config.ORIG_NAME = "s"
     Config.DEST_NAME = "t"
-    name_of_orig = Config.ORIG_NAME
-    ESPPRC1_unidirectional(name_of_orig, customers, graph)
+    orig_name = Config.ORIG_NAME
+    ESPPRC1_unidirectional(orig_name, customers, graph)
     vehicles = generate_vehicles_and_assign_paths(len(customers), customers)
     filtered_vehicles = vehicles[:Config.NUM_VEHICLES]
     running_duration = time.time() - start_time

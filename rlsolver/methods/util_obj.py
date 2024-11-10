@@ -1,29 +1,32 @@
 import sys
 import os
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import numpy as np
 from typing import Union, Tuple, List
 import networkx as nx
 from torch import Tensor
 from config import *
+
 try:
     import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
 
-
 from rlsolver.methods.util import (transfer_nxgraph_to_adjacencymatrix,
-                  )
+                                   )
 
 from rlsolver.methods.util_read_data import (read_nxgraph,
-                            read_set_cover_data
-                            )
+                                             read_set_cover_data
+                                             )
 from rlsolver.methods.util_generate import generate_write_adjacencymatrix_and_nxgraph
+
+
 # max total cuts
 def obj_maxcut(result: Union[Tensor, List[int], np.array], graph: nx.Graph):
     num_nodes = len(result)
@@ -34,6 +37,7 @@ def obj_maxcut(result: Union[Tensor, List[int], np.array], graph: nx.Graph):
             if result[i] != result[j]:
                 obj += adj_matrix[(i, j)]
     return obj
+
 
 # min total cuts
 def obj_graph_partitioning(solution: Union[Tensor, List[int], np.array], graph: nx.Graph):
@@ -51,6 +55,7 @@ def obj_graph_partitioning(solution: Union[Tensor, List[int], np.array], graph: 
         return -INF
     return obj
 
+
 def cover_all_edges(solution: List[int], graph: nx.Graph):
     if graph.number_of_nodes() == 0:
         return False
@@ -61,7 +66,9 @@ def cover_all_edges(solution: List[int], graph: nx.Graph):
             break
     return cover_all
 
-def obj_minimum_vertex_cover(solution: Union[Tensor, List[int], np.array], graph: nx.Graph, need_check_cover_all_edges=True):
+
+def obj_minimum_vertex_cover(solution: Union[Tensor, List[int], np.array], graph: nx.Graph,
+                             need_check_cover_all_edges=True):
     num_nodes = len(solution)
     obj = 0
     for i in range(num_nodes):
@@ -69,8 +76,9 @@ def obj_minimum_vertex_cover(solution: Union[Tensor, List[int], np.array], graph
             obj -= 1
     if need_check_cover_all_edges:
         if not cover_all_edges(solution, graph):
-                return -INF
+            return -INF
     return obj
+
 
 # make sure solution[i] = 0 or 1
 def obj_maximum_independent_set(solution: Union[Tensor, List[int], np.array], graph: nx.Graph):
@@ -92,6 +100,7 @@ def obj_maximum_independent_set(solution: Union[Tensor, List[int], np.array], gr
             obj += 1
     return obj
 
+
 # the returned score, the higher, the better
 def obj_maximum_independent_set_SA(node: int, solution: Union[Tensor, List[int], np.array], graph: nx.Graph):
     def adjacent_to_selected_nodes(node: int, solution: Union[Tensor, List[int], np.array]):
@@ -102,6 +111,7 @@ def obj_maximum_independent_set_SA(node: int, solution: Union[Tensor, List[int],
                 if (min_node, max_node) in graph.edges():
                     return True
         return False
+
     num_edges = graph.number_of_edges()
     if solution[node] == 0:  # 0 -> 1
         if adjacent_to_selected_nodes(node, solution):
@@ -111,6 +121,7 @@ def obj_maximum_independent_set_SA(node: int, solution: Union[Tensor, List[int],
     else:  # 1 -> 0
         score = 1 + graph.degree(node) / num_edges
     return score
+
 
 # the ratio of items that covered. 1.0 is the max returned value.
 def obj_set_cover_ratio(solution: Union[Tensor, List[int], np.array], num_items: int, item_matrix: List[List[int]]):
@@ -128,6 +139,7 @@ def obj_set_cover_ratio(solution: Union[Tensor, List[int], np.array], num_items:
             num_covered += 1
     obj = float(num_covered) / float(num_items)
     return obj
+
 
 # return negative value. the smaller abs of obj, the better.
 def obj_set_cover(solution: Union[Tensor, List[int], np.array], num_items: int, item_matrix: List[List[int]]):
@@ -151,6 +163,7 @@ def obj_set_cover(solution: Union[Tensor, List[int], np.array], num_items: int, 
         obj = -INF
     return obj
 
+
 def obj_graph_coloring(solution: Union[Tensor, List[int], np.array], graph: nx.Graph) -> int:
     assert None not in solution
     assert len(solution) == graph.number_of_nodes()
@@ -163,6 +176,7 @@ def obj_graph_coloring(solution: Union[Tensor, List[int], np.array], graph: nx.G
         colors.add(color)
     num_colors = len(colors)
     return -num_colors
+
 
 if __name__ == '__main__':
     generate_read = False

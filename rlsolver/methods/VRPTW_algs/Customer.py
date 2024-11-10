@@ -45,14 +45,16 @@ class Customer:
         return self.name == other.name
 
     @staticmethod
-    def obtain_by_name(name_of_cust: str, customers):
-        if name_of_cust.isdigit() and int(name_of_cust) < len(customers):
-            cust = customers[int(name_of_cust)]
-            if cust.name == name_of_cust:
+    def obtain_by_name(cust_name: str, customers):
+        if "dest" in cust_name:
+            aaa = 1
+        if cust_name.isdigit() and int(cust_name) < len(customers):
+            cust = customers[int(cust_name)]
+            if cust.name == cust_name:
                 return cust
         res = None
         for cust in customers:
-            if cust.name == name_of_cust:
+            if cust.name == cust_name:
                 res = cust
                 break
         return res
