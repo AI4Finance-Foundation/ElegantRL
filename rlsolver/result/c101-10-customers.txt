@@ -1,8 +1,8 @@
-alg_name: column_generation
-running_duration: 0.6616678237915039
-dist: 59
-dists: [59]
-demands: [150]
-durations: [1026]
+alg_name: ESPPRC1
+running_duration: 119.70917797088623
+dist: 0
+dists: [0]
+demands: [0]
+durations: [0]
 paths:
-('0-orig', '5', '3', '7', '8', '10', '9', '6', '4', '2', '1', '11-dest')
+['0-orig', '11-dest']
