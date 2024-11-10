@@ -89,7 +89,7 @@ ElegantRL supports the following simulators:
 	<img align="center" src=figs/File_structure.png width="800">
 </div>
 
-For beginners, we maintain [ElegantRL-Helloworld](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
+For beginners, we maintain [Elegantrl_Helloworld](./helloworld) as a tutorial. Its goal is to get hands-on experience with ELegantRL.
 
 - Run the [tutorial code and learn about RL algorithms in this order: DQN -> DDPG -> PPO](https://github.com/AI4Finance-Foundation/ElegantRL/tree/master/elegantrl_helloworld)
 - Write the [suggestion for Eleagant_HelloWorld in github issue](https://github.com/AI4Finance-Foundation/ElegantRL/issues/135).
