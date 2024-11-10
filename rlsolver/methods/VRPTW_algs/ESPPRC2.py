@@ -48,7 +48,10 @@ def check(customers):
 def forward_loop(forward_customers_will_be_treated: List[Customer], customers: List[Customer], graph: nx.DiGraph):
     while len(forward_customers_will_be_treated) > 0:
         customer_i = forward_customers_will_be_treated.pop()
-        for name_j in graph.successors(customer_i.name):
+        successors = list(graph.successors(customer_i.name))
+        if len(successors) == 0:
+            aaa = 1
+        for name_j in successors:
             customer_j = Customer.obtain_by_name(name_j, customers)
             labels_i_to_j = []  # labels extended from i to j
             for i in range(len(customer_i.forward_labels)):
@@ -74,9 +77,15 @@ def forward_loop(forward_customers_will_be_treated: List[Customer], customers: L
                     forward_customers_will_be_treated.append(customer_j)
 
 def backward_loop(backward_customers_will_be_treated: List[Customer], customers: List[Customer], graph: nx.DiGraph):
+    iter = 0
     while len(backward_customers_will_be_treated) > 0:
+        iter += 1
+        print(f"iter: {iter}")
         customer_j2 = backward_customers_will_be_treated.pop()
-        for name_i in graph.predecessors(customer_j2.name):
+        predecessors = list(graph.predecessors(customer_j2.name))
+        if len(predecessors) == 0:
+            aaa = 1
+        for name_i in predecessors:
             customer_i: Customer = Customer.obtain_by_name(name_i, customers)
             labels_j_to_i = []  # labels extended from j to i
             for j in range(len(customer_j2.backward_labels)):
@@ -88,10 +97,10 @@ def backward_loop(backward_customers_will_be_treated: List[Customer], customers:
                         break
                 if exist:
                     continue
-                label_i_to_j = Customer.extend_backward(customer_j2, customer_i, label, customers, graph)
+                label_j_to_i = Customer.extend_backward(customer_j2, customer_i, label, customers, graph)
                 # if customer_i can reach customer_j, label_i_to_j is not None
-                if label_i_to_j is not None:
-                    labels_j_to_i.append(label_i_to_j)
+                if label_j_to_i is not None:
+                    labels_j_to_i.append(label_j_to_i)
             labels_i = copy.deepcopy(customer_i.backward_labels)
             labels_i.extend(labels_j_to_i)
             filtered_labels_i = Label.EFF(labels_i, False)
@@ -237,8 +246,9 @@ def demo():
     Config.NUM_VEHICLES = len(nodes)
     Config.ORIG_NAME = "s"
     Config.DEST_NAME = "t"
-    name_of_orig = Config.ORIG_NAME
-    ESPPRC1_unidirectional(name_of_orig, customers, graph)
+    orig_name = Config.ORIG_NAME
+    dest_name = Config.DEST_NAME
+    ESPPRC2_bidirectional(orig_name, dest_name, customers, graph)
     vehicles = generate_vehicles_and_assign_paths(len(customers), customers)
     filtered_vehicles = vehicles[:Config.NUM_VEHICLES]
     running_duration = time.time() - start_time
