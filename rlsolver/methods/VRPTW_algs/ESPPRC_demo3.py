@@ -4,7 +4,6 @@ cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
-import numpy as np
 import networkx as nx
 import copy
 from typing import List, Tuple, Union, Dict

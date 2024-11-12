@@ -1,6 +1,7 @@
 # The impact heuristic is implemented based on the paper "A greedy look-ahead heuristic for the vehicle routing problem with time windows"
 import sys
 import os
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
@@ -12,19 +13,19 @@ import numpy as np
 import networkx as nx
 
 from rlsolver.methods.VRPTW_algs.Customer import (Customer,
-                      )
+                                                  )
 from rlsolver.methods.VRPTW_algs.Vehicle import Vehicle
 from rlsolver.methods.VRPTW_algs.util import (read_data,
-                  read_data_as_nxdigraph,
-                  generate_vehicles,
-                  generate_vehicles_and_assign_paths,
-                  obtain_paths_based_on_vehicles,
-                  calc_demands_of_paths,
-                  calc_durations_of_paths,
-                  calc_dists_of_paths,
-                  write_result,
-                  write_result_based_on_vehicles,
-                  )
+                                              read_data_as_nxdigraph,
+                                              generate_vehicles,
+                                              generate_vehicles_and_assign_paths,
+                                              obtain_paths_based_on_vehicles,
+                                              calc_demands_of_paths,
+                                              calc_durations_of_paths,
+                                              calc_dists_of_paths,
+                                              write_result,
+                                              write_result_based_on_vehicles,
+                                              )
 
 from rlsolver.methods.VRPTW_algs.config import Config
 

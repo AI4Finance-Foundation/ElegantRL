@@ -423,7 +423,7 @@ def filter_vehicles_based_on_paths(vehicles2: List[Vehicle], paths: List[str], c
     #     res.append(vehicle)
     # return res
 
-def obtai_var_vals(model, var_name: str):
+def obtain_var_vals(model, var_name: str):
     theta_vals = []
     num_vars = model.NumVars
     for i in range(num_vars):
