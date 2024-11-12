@@ -567,8 +567,7 @@ def run_using_gurobi(filename: str, init_x=None, time_limit: int = None, plot_fi
     if model.getAttr('SolCount') == 0:  # model.getAttr(GRB.Attr.SolCount)
         print("No solution.")
     print("SolCount: ", model.getAttr('SolCount'))
-    # except Exception as e:
-    #     print("Exception!")
+
 
     scores = [model.getObjective().getValue()]
     alg_name = 'Gurobi'
@@ -598,8 +597,6 @@ def run_gurobi_over_multiple_files(prefixes: List[str], time_limits: List[int], 
     directory_result3 = directory_data2.replace('data', 'result')
     index = directory_result3.find('result')
     directory_result4 = directory_result3[:index] + 'result'
-    # directory_result4 = directory_result3.split('/')
-    # directory_result = directory_result3.replace('/' + directory_result4[-1], '')
     avg_std = calc_avg_std_of_objs(directory_result4, prefixes, time_limits)
 
 
@@ -609,26 +606,6 @@ if __name__ == '__main__':
         filename = '../data/syn_BA/BA_100_ID0.txt'
         time_limits = GUROBI_TIME_LIMITS
 
-        from L2A.maxcut_simulator import SimulatorMaxcut, load_graph_list
-        from L2A.evaluator import *
-
-        graph_name = 'gset_14'
-
-        graph = load_graph_list(graph_name=graph_name)
-        simulator = SimulatorMaxcut(sim_name=graph_name, graph_list=graph)
-
-        x_str = X_G14
-        num_nodes = simulator.num_nodes
-        encoder = EncoderBase64(encode_len=num_nodes)
-
-        x = encoder.str_to_bool(x_str)
-        vs = simulator.obj(xs=x[None, :])
-        print(f"objective value  {vs[0].item():8.2f}  solution {x_str}")
-
-        run_using_gurobi(filename, x, time_limit=time_limits[0], plot_fig_=True)
-        directory = '../result'
-        prefixes = ['syn_BA_']
-        avg_std = calc_avg_std_of_objs(directory, prefixes, time_limits)
 
     run_multi_files = True
     if run_multi_files:
