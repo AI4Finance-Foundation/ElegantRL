@@ -23,6 +23,7 @@ class Config:
     SORT_BY_CUMULATIVE_TRAVEL_COST = False
 
     # params in CG
+    USE_PATHS_SET_IN_CG = True  # default by true. It will be a little faster if True.
     ADD_ONE_PATH_EACH_ITERATION_IN_CG = False
     MAX_NUM_ITERATIONS_IN_CG = INF
     USE_CHECK_WIDTH_IN_CG = False
@@ -32,7 +33,7 @@ class Config:
     ADD_NUM_VISITED_NODES_FOR_DOMINATE_IN_CG = True   # the performance in True and False is almost the same
     assert USE_ESPPRC_IMPACT_AS_INIT_IN_CG in [0, 1]
 
-    INSTANCE_NAME = 'c101'
+    INSTANCE_NAME = "c101"
     NUM_PURE_CUSTOMERS = 10  # excluding orig or dest. it <= 100 if selecting instance 'c101'
     NUM_CUSTOMERS = NUM_PURE_CUSTOMERS + 2 if ADD_DEST_AS_SAME_ORIG else NUM_PURE_CUSTOMERS + 1
 
