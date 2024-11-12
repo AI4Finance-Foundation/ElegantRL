@@ -199,8 +199,8 @@ class AgentPPO(AgentBase):
         surrogate = advantage * ratio * th.where(advantage.gt(0), 1 - self.ratio_clip, 1 + self.ratio_clip)
 
         obj_surrogate = (surrogate * unmask).mean()  # major actor objective
-        obj_entropy = (entropy * unmask).mean() * self.lambda_entropy  # minor actor objective
-        obj_actor_full = obj_surrogate + obj_entropy
+        obj_entropy = (entropy * unmask).mean()  # minor actor objective
+        obj_actor_full = obj_surrogate + obj_entropy * self.lambda_entropy
         self.optimizer_backward(self.act_optimizer, -obj_actor_full)
         return obj_critic.item(), obj_surrogate.item(), obj_entropy.item()
 
