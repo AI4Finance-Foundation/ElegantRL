@@ -126,6 +126,7 @@ class Label:
                 return False
 
     @staticmethod
+    # keep non-dominated labels
     def EFF(labels2: List, forward: bool) -> List:
         labels = Label.make_unique(labels2)
         if len(labels) <= 1:
