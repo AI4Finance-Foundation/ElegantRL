@@ -27,7 +27,7 @@ from rlsolver.methods.VRPTW_algs.util import (read_data,
                                               calc_dist_of_path,
                                               obtain_paths_based_on_vehicles,
                                               calc_demands_of_paths,
-                                              obtai_var_vals,
+                                              obtain_var_vals,
                                               calc_durations_of_paths, )
 from Label import Label
 from util import (read_data_as_nxdigraph,
@@ -198,7 +198,7 @@ def opt_arc_bounding_model(duration_lowerbound_dict: dict, duration_to_depot: fl
     obj = model.ObjVal if feasible else None
 
     var_name: str = "y"
-    y_vals = obtai_var_vals(model, var_name) if feasible else None
+    y_vals = obtain_var_vals(model, var_name) if feasible else None
     return y_vals, obj, feasible
 
 
