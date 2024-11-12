@@ -46,8 +46,8 @@ class Vehicle:
     def update_arrival_departure_time_by_path(self, graph: nx.DiGraph):
         for j in range(1, len(self.path_denoted_by_customers)):
             i = j - 1
-            prev = self.path_denoted_by_customers[i]
-            this = self.path_denoted_by_customers[j]
+            prev: Customer = self.path_denoted_by_customers[i]
+            this: Customer = self.path_denoted_by_customers[j]
             prev_name = prev.name
             this_name = this.name
             prev_departure = self.departure_time_dict[prev_name]
@@ -59,6 +59,9 @@ class Vehicle:
             else:
                 assert (arrival == self.arrival_time_dict[this_name])
                 assert (departure == self.departure_time_dict[this_name])
+                start_service = max(arrival, this.forward_time_window[0])
+                departure2 = start_service + this.service_duration
+                assert departure2 == departure
 
     def update_use_if_insert3(self):
         self.arrival_time_dict = self.arrival_time_dict_if_insert

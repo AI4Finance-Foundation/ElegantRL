@@ -73,6 +73,8 @@ class Customer:
     def calc_arrival_departure_time(prev_departure, prev, this, graph: nx.DiGraph) -> (bool, float, float):
         if (prev.name, this.name) not in graph.edges or "duration" not in graph.edges[(prev.name, this.name)]:
             aaa = 1
+        departure_time_windows = (prev.forward_time_window[0] + prev.service_duration, prev.forward_time_window[1] + prev.service_duration)
+        assert departure_time_windows[0] <= prev_departure <= departure_time_windows[1]
         arrival = prev_departure + graph.edges[(prev.name, this.name)]["duration"]
         if arrival <= this.forward_time_window[1]:
             feasible = True
@@ -93,8 +95,9 @@ class Customer:
         if arrival_time <= another_customer.forward_time_window[1] and cumulative_demand < Config.VEHICLE_CAPACITY:
             label = copy.deepcopy(this_label)
             label.id = Label.count
-            label.name = str(label.id)
             Label.count += 1
+            label.name = str(label.id)
+            label.num_visited_nodes += 1
             departure_time = max(arrival_time, another_customer.forward_time_window[0]) + another_customer.service_duration
             label.cumulative_travel_cost += graph.edges[(this_customer.name, another_customer.name)]["cost"]
             label.cumulative_duration = departure_time
@@ -125,6 +128,7 @@ class Customer:
             label.id = Label.count
             Label.count += 1
             label.name = str(label.id)
+            label.num_visited_nodes += 1
             label.cumulative_travel_cost += graph.edges[(another_customer.name, this_customer.name)]["cost"]
             label.cumulative_duration = another_consumed_duration
             label.cumulative_demand = cumulative_demand

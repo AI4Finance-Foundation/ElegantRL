@@ -28,6 +28,7 @@ from rlsolver.methods.VRPTW_algs.util import (read_data,
                                               calc_demands_of_paths,
                                               calc_durations_of_paths,
                                               obtain_paths_based_on_vehicles,
+                                              obtai_var_vals,
                                               )
 from rlsolver.methods.VRPTW_algs.ESPPRC1 import ESPPRC1_unidirectional
 from rlsolver.methods.VRPTW_algs.config import Config
@@ -216,14 +217,7 @@ def obtain_min_max(dists_of_iterations: List[float], width: int) -> (float, floa
     return min_dist, max_dist
 
 
-def obtai_var_vals(model, var_name: str):
-    theta_vals = []
-    num_vars = model.NumVars
-    for i in range(num_vars):
-        var = model.getVarByName(f"{var_name}[{str(i)}]")
-        theta_val = round(var.x, 2)
-        theta_vals.append(theta_val)
-    return theta_vals
+
 
 
 def run_column_generation():
@@ -252,7 +246,7 @@ def run_column_generation():
         raise ValueError
 
     num_iterations = 0
-    dists_of_iterations = []
+    dists_upperbound_of_iterations = []
     running_duration_in_ESPPRC = 0
     theta_valss = []
     while True:
@@ -261,17 +255,17 @@ def run_column_generation():
         num_iterations += 1
         print(f"iteration: {num_iterations}")
         paths, dists = extract_paths_dists_from_dict(path_dist_dict)
-        model = create_restricted_master_problem(paths, dists, False)
+        model = create_restricted_master_problem(paths=paths, dists=dists, set_variables_int=False)
         model.optimize()
 
         print(f"Optimal objective: {model.ObjVal}")
 
         filtered_paths, filtered_dists = obtain_selected_paths_dists_from_model(model, paths, dists)
-        dist = sum(filtered_dists)
-        dists_of_iterations.append(dist)
+        dist_upperbound = sum(filtered_dists)
+        dists_upperbound_of_iterations.append(dist_upperbound)
         # print(f"dists_of_iterations: {dists_of_iterations}")
         if Config.USE_CHECK_WIDTH_IN_CG:
-            min_dist, max_dist = obtain_min_max(dists_of_iterations, Config.CHECK_WIDTH_IN_CG)
+            min_dist, max_dist = obtain_min_max(dists_upperbound_of_iterations, Config.CHECK_WIDTH_IN_CG)
             if max_dist - min_dist <= Config.CHECK_DIFF_THRESHOLD_IN_CG:
                 break
 
@@ -329,7 +323,7 @@ def run_column_generation():
     print(f"num_iterations: {num_iterations}")
     # print(f"theta_vals: {theta_valss}")
 
-    model2 = create_restricted_master_problem(filtered_paths, filtered_dists, True)
+    model2 = create_restricted_master_problem(paths=filtered_paths, dists=filtered_dists, set_variables_int=True)
     model2.optimize()
     if model2.Status == GRB.OPTIMAL:
         print(f"Optimal objective: {model.ObjVal}")
@@ -357,7 +351,7 @@ def run_column_generation():
     num_duplicates = calc_num_duplicates(paths)
     print(f"num_duplicates: {num_duplicates}")
     print(f"paths: {filtered_paths2}")
-    print(f"dists_of_iterations: {dists_of_iterations}")
+    print(f"dists_upperbound_of_iterations: {dists_upperbound_of_iterations}")
     print(f"running_duration_in_ESPPRC: {running_duration_in_ESPPRC}")
     print(f"running_duration: {running_duration}")
 
