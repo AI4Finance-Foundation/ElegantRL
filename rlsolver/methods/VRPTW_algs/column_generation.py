@@ -28,7 +28,7 @@ from rlsolver.methods.VRPTW_algs.util import (read_data,
                                               calc_demands_of_paths,
                                               calc_durations_of_paths,
                                               obtain_paths_based_on_vehicles,
-                                              obtai_var_vals,
+                                              obtain_var_vals,
                                               )
 from rlsolver.methods.VRPTW_algs.ESPPRC1 import ESPPRC1_unidirectional
 from rlsolver.methods.VRPTW_algs.config import Config
@@ -269,7 +269,7 @@ def run_column_generation():
             if max_dist - min_dist <= Config.CHECK_DIFF_THRESHOLD_IN_CG:
                 break
 
-        theta_vals_this_iteration = obtai_var_vals(model, "theta")
+        theta_vals_this_iteration = obtain_var_vals(model, "theta")
         theta_valss.append(theta_vals_this_iteration)
         print(f"theta_vals_this_iteration: {theta_vals_this_iteration}")
 
@@ -330,7 +330,7 @@ def run_column_generation():
     else:
         raise ValueError
 
-    theta_vals = obtai_var_vals(model, "theta")
+    theta_vals = obtain_var_vals(model, "theta")
     theta_vals_in_set = set(theta_vals)
     print(f"theta_vals: {theta_vals}")
     print(f"theta_vals_in_set: {theta_vals_in_set}")
