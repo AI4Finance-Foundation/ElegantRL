@@ -36,7 +36,7 @@ def train_discrete_ppo_a2c_for_cartpole(agent_class, gpu_id: int):
     args.reward_scale = 2 ** -2
     args.learning_rate = 2e-5
     args.state_value_tau = 0.1  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
-    args.lambda_gae_adv = 0.90
+    args.lambda_gae_adv = 0.75
     args.lambda_entropy = 0.0001
 
     args.eval_times = 32
