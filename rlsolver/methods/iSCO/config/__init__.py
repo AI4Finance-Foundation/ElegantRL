@@ -1,2 +1,0 @@
-NUM_IDS = None
-RUNNING_DURATIONS = None
