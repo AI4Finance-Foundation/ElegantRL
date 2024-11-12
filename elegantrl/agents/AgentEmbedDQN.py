@@ -53,7 +53,7 @@ class AgentEmbedDQN(AgentBase):
             next_q = self.cri_target.get_q_value(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
-        q_values = self.cri.get_q_values(state, action_int=action.long().squeeze(1))
+        q_values = self.cri.get_q_values(state, action_int=action.long())
         q_labels = q_label.view((-1, 1)).repeat(1, q_values.shape[1])
         td_error = self.criterion(q_values, q_labels).mean(dim=1) * unmask
         if self.if_use_per:

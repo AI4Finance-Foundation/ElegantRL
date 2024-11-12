@@ -46,7 +46,7 @@ class AgentDQN(AgentBase):
             next_q = self.cri_target.get_q_value(next_state).max(dim=1)[0]  # next q_values
             q_label = reward + undone * self.gamma * next_q
 
-        q_value = self.cri.get_q_value(state).gather(1, action.long()).squeeze(1)
+        q_value = self.cri.get_q_value(state).squeeze(-1).gather(dim=1, index=action.long())
         td_error = self.criterion(q_value, q_label) * unmask
         if self.if_use_per:
             obj_critic = (td_error * is_weight).mean()
@@ -107,7 +107,7 @@ class AgentDoubleDQN(AgentDQN):
             next_q = th.min(*self.cri_target.get_q1_q2(next_state)).max(dim=1)[0]
             q_label = reward + undone * self.gamma * next_q
 
-        q_value1, q_value2 = [qs.gather(1, action.long()).squeeze(1) for qs in self.cri.get_q1_q2(state)]
+        q_value1, q_value2 = [qs.squeeze(1).gather(dim=1, index=action.long()) for qs in self.cri.get_q1_q2(state)]
         td_error = (self.criterion(q_value1, q_label) + self.criterion(q_value2, q_label)) * unmask
         if self.if_use_per:
             obj_critic = (td_error * is_weight).mean()

@@ -3,7 +3,7 @@ import numpy as np
 import torch as th
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
-from typing import Tuple, Union, Optional
+from typing import Union, Optional
 
 from ..train import Config
 from ..train import ReplayBuffer
@@ -67,7 +67,7 @@ class AgentBase:
         """save and load"""
         self.save_attr_names = {'act', 'act_target', 'act_optimizer', 'cri', 'cri_target', 'cri_optimizer'}
 
-    def explore_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
+    def explore_env(self, env, horizon_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN]:
         if self.if_vec_env:
             return self._explore_vec_env(env=env, horizon_len=horizon_len)
         else:
@@ -76,7 +76,7 @@ class AgentBase:
     def explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state, action_std=self.explore_noise_std)
 
-    def _explore_one_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
+    def _explore_one_env(self, env, horizon_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
@@ -117,14 +117,17 @@ class AgentBase:
             truncates[t] = truncate
 
         self.last_state = state  # state.shape == (1, state_dim) for a single env.
+        '''add dim1=1 below for workers buffer_items concat'''
         states = states.view((horizon_len, 1, self.state_dim))
         actions = actions.view((horizon_len, 1, self.action_dim if not self.if_discrete else 1))
+        actions = actions.view((horizon_len, 1, self.action_dim)) \
+            if not self.if_discrete else actions.view((horizon_len, 1))
         rewards = (rewards * self.reward_scale).view((horizon_len, 1))
         undones = th.logical_not(terminals).view((horizon_len, 1))
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, rewards, undones, unmasks
 
-    def _explore_vec_env(self, env, horizon_len: int) -> Tuple[TEN, TEN, TEN, TEN, TEN]:
+    def _explore_vec_env(self, env, horizon_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
@@ -161,13 +164,12 @@ class AgentBase:
             truncates[t] = truncate
 
         self.last_state = state
-        actions = actions.view((horizon_len, self.num_envs, 1)) if self.if_discrete else actions
         rewards *= self.reward_scale
         undones = th.logical_not(terminals)
         unmasks = th.logical_not(truncates)
         return states, actions, rewards, undones, unmasks
 
-    def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> Tuple[float, ...]:
+    def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> tuple[float, ...]:
         objs_critic = []
         objs_actor = []
 
@@ -186,7 +188,7 @@ class AgentBase:
         obj_avg_actor = np.nanmean(objs_actor) if len(objs_actor) else 0.0
         return obj_avg_critic, obj_avg_actor
 
-    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> tuple[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
             if self.if_use_per:
@@ -281,10 +283,14 @@ class AgentBase:
         cwd: Current Working Directory. ElegantRL save training files in CWD.
         if_save: True: save files. False: load files.
         """
-        assert self.save_attr_names.issuperset({'act', 'act_target', 'act_optimizer'})
+        assert self.save_attr_names.issuperset({'act', 'act_optimizer'})
 
         for attr_name in self.save_attr_names:
             file_path = f"{cwd}/{attr_name}.pth"
+
+            if getattr(self, attr_name) is None:
+                continue
+
             if if_save:
                 th.save(getattr(self, attr_name).state_dict(), file_path)
             elif os.path.isfile(file_path):

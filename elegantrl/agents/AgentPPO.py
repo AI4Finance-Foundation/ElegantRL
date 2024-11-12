@@ -1,7 +1,6 @@
 import numpy as np
 import torch as th
 from torch import nn
-from typing import Tuple, List
 
 from .AgentBase import AgentBase
 from .AgentBase import build_mlp, layer_init_with_orthogonal
@@ -27,12 +26,12 @@ class AgentPPO(AgentBase):
 
         self.ratio_clip = getattr(args, "ratio_clip", 0.25)  # `ratio.clamp(1 - clip, 1 + clip)`
         self.lambda_gae_adv = getattr(args, "lambda_gae_adv", 0.95)  # could be 0.80~0.99
-        self.lambda_entropy = getattr(args, "lambda_entropy", 0.01)  # could be 0.00~0.10
+        self.lambda_entropy = getattr(args, "lambda_entropy", 0.001)  # could be 0.00~0.10
         self.lambda_entropy = th.tensor(self.lambda_entropy, dtype=th.float32, device=self.device)
 
         self.if_use_v_trace = getattr(args, 'if_use_v_trace', True)
 
-    def _explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
+    def _explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
@@ -75,15 +74,17 @@ class AgentPPO(AgentBase):
             truncates[t] = truncate
 
         self.last_state = state  # state.shape == (1, state_dim) for a single env.
+        '''add dim1=1 below for workers buffer_items concat'''
         states = states.view((horizon_len, 1, self.state_dim))
-        actions = actions.view((horizon_len, 1, self.action_dim if not self.if_discrete else 1))
+        actions = actions.view((horizon_len, 1, self.action_dim)) \
+            if not self.if_discrete else actions.view((horizon_len, 1))
         logprobs = logprobs.view((horizon_len, 1))
         rewards = (rewards * self.reward_scale).view((horizon_len, 1))
         undones = th.logical_not(terminals).view((horizon_len, 1))
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def _explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> Tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
+    def _explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
@@ -99,7 +100,7 @@ class AgentPPO(AgentBase):
         """
         states = th.zeros((horizon_len, self.num_envs, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.num_envs, self.action_dim), dtype=th.float32).to(self.device) \
-            if not self.if_discrete else th.zeros((horizon_len, self.num_envs,), dtype=th.int32).to(self.device)
+            if not self.if_discrete else th.zeros((horizon_len, self.num_envs), dtype=th.int32).to(self.device)
         logprobs = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
         rewards = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
         terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
@@ -127,17 +128,17 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates)
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def explore_action(self, state: TEN) -> Tuple[TEN, TEN]:
+    def explore_action(self, state: TEN) -> tuple[TEN, TEN]:
         actions, logprobs = self.act.get_action(state)
         return actions, logprobs
 
-    def update_net(self, buffer) -> Tuple[float, float, float]:
+    def update_net(self, buffer) -> tuple[float, float, float]:
         buffer_size = buffer[0].shape[0]
 
         '''get advantages reward_sums'''
         with th.no_grad():
             states, actions, logprobs, rewards, undones, unmasks = buffer
-            bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+            bs = max(1, 2 ** 10 // self.num_envs)  # set a smaller 'batch_size' to avoid CUDA OOM
             values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
             values = th.cat(values, dim=0).squeeze(-1)  # values.shape == (buffer_size, )
 
@@ -145,11 +146,12 @@ class AgentPPO(AgentBase):
             reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
             del rewards, undones, values
 
-            advantages = (advantages - advantages.mean()) / (advantages.std(dim=0) + 1e-5)
+            advantages = (advantages - advantages.mean()) / (advantages[::4, ::4].std() + 1e-5)  # avoid CUDA OOM
             assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size, states.shape[1])
         buffer = states, actions, unmasks, logprobs, advantages, reward_sums
 
         '''update network'''
+        obj_entropies = []
         obj_critics = []
         obj_actors = []
 
@@ -157,17 +159,18 @@ class AgentPPO(AgentBase):
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
         for update_t in range(update_times):
-            obj_critic, obj_actor = self.update_objectives(buffer, update_t)
+            obj_critic, obj_actor, obj_entropy = self.update_objectives(buffer, update_t)
+            obj_entropies.append(obj_entropy)
             obj_critics.append(obj_critic)
             obj_actors.append(obj_actor)
         th.set_grad_enabled(False)
 
+        obj_entropy_avg = np.array(obj_entropies).mean() if len(obj_entropies) else 0.0
         obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
         obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
-        a_std_log = getattr(self.act, 'a_std_log', th.zeros(1)).mean()
-        return obj_critic_avg, obj_actor_avg, a_std_log.item()
+        return obj_critic_avg, obj_actor_avg, obj_entropy_avg
 
-    def update_objectives(self, buffer: Tuple[TEN, ...], update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: tuple[TEN, ...], update_t: int) -> tuple[float, float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
         sample_len = states.shape[0]
@@ -187,14 +190,19 @@ class AgentPPO(AgentBase):
         obj_critic = (self.criterion(value, reward_sum) * unmask).mean()
         self.optimizer_backward(self.cri_optimizer, obj_critic)
 
-        new_logprob, obj_entropy = self.act.get_logprob_entropy(state, action)
+        new_logprob, entropy = self.act.get_logprob_entropy(state, action)
         ratio = (new_logprob - logprob.detach()).exp()
-        surrogate1 = advantage * ratio
-        surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
-        obj_surrogate = th.min(surrogate1, surrogate2)
-        obj_actor = ((obj_surrogate + obj_entropy) * unmask).mean() * self.lambda_entropy
-        self.optimizer_backward(self.act_optimizer, -obj_actor)
-        return obj_critic.item(), obj_actor.item()
+
+        # surrogate1 = advantage * ratio
+        # surrogate2 = advantage * ratio.clamp(1 - self.ratio_clip, 1 + self.ratio_clip)
+        # surrogate = th.min(surrogate1, surrogate2)  # save as below
+        surrogate = advantage * ratio * th.where(advantage.gt(0), 1 - self.ratio_clip, 1 + self.ratio_clip)
+
+        obj_surrogate = (surrogate * unmask).mean()  # major actor objective
+        obj_entropy = (entropy * unmask).mean() * self.lambda_entropy  # minor actor objective
+        obj_actor_full = obj_surrogate + obj_entropy
+        self.optimizer_backward(self.act_optimizer, -obj_actor_full)
+        return obj_critic.item(), obj_surrogate.item(), obj_entropy.item()
 
     def get_advantages(self, states: TEN, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
         advantages = th.empty_like(values)  # advantage value
@@ -246,7 +254,7 @@ class AgentA2C(AgentPPO):
     “Asynchronous Methods for Deep Reinforcement Learning”. 2016.
     """
 
-    def update_objectives(self, buffer: Tuple[TEN, ...], update_t: int) -> Tuple[float, float]:
+    def update_objectives(self, buffer: tuple[TEN, ...], update_t: int) -> tuple[float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
         buffer_size = states.shape[0]
@@ -303,7 +311,7 @@ class AgentDiscreteA2C(AgentDiscretePPO):
 
 
 class ActorPPO(th.nn.Module):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
         super().__init__()
         self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.1)
@@ -322,7 +330,7 @@ class ActorPPO(th.nn.Module):
         action = self.net(state)
         return self.convert_action_for_env(action)
 
-    def get_action(self, state: TEN) -> Tuple[TEN, TEN]:  # for exploration
+    def get_action(self, state: TEN) -> tuple[TEN, TEN]:  # for exploration
         state = self.state_norm(state)
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()
@@ -332,7 +340,7 @@ class ActorPPO(th.nn.Module):
         logprob = dist.log_prob(action).sum(1)
         return action, logprob
 
-    def get_logprob_entropy(self, state: TEN, action: TEN) -> Tuple[TEN, TEN]:
+    def get_logprob_entropy(self, state: TEN, action: TEN) -> tuple[TEN, TEN]:
         state = self.state_norm(state)
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()
@@ -348,7 +356,7 @@ class ActorPPO(th.nn.Module):
 
 
 class ActorDiscretePPO(ActorPPO):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim)
         self.ActionDist = th.distributions.Categorical
         self.soft_max = nn.Softmax(dim=-1)
@@ -370,7 +378,7 @@ class ActorDiscretePPO(ActorPPO):
         state = self.state_norm(state)
         a_prob = self.soft_max(self.net(state))  # action.shape == (batch_size, 1), action.dtype = th.int
         dist = self.ActionDist(a_prob)
-        logprob = dist.log_prob(action.squeeze(1))
+        logprob = dist.log_prob(action)
         entropy = dist.entropy()
         return logprob, entropy
 
@@ -380,7 +388,7 @@ class ActorDiscretePPO(ActorPPO):
 
 
 class CriticPPO(th.nn.Module):
-    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
         super().__init__()
         assert isinstance(action_dim, int)
         self.net = build_mlp(dims=[state_dim, *net_dims, 1])

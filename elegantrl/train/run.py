@@ -68,6 +68,7 @@ def train_agent_single_process(args: Config):
             state_dim=args.state_dim,
             action_dim=1 if args.if_discrete else args.action_dim,
             if_use_per=args.if_use_per,
+            if_discrete=args.if_discrete,
             args=args,
         )
     else:
@@ -90,6 +91,14 @@ def train_agent_single_process(args: Config):
     if_train = True
     while if_train:
         buffer_items = agent.explore_env(env, horizon_len)
+        """buffer_items
+        buffer_items = (states, actions,           rewards, undones, unmasks)  # off-policy
+        buffer_items = (states, actions, logprobs, rewards, undones, unmasks)  # on-policy
+        
+        item.shape == (horizon_len, num_workers * num_envs, ...)
+        actions.shape == (horizon_len, num_workers * num_envs, action_dim)  # if_discrete=False
+        actions.shape == (horizon_len, num_workers * num_envs)              # if_discrete=True
+        """
 
         exp_r = buffer_items[2].mean().item()
         if if_off_policy:

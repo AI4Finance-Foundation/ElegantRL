@@ -16,6 +16,7 @@ class ReplayBuffer:  # for off-policy
                  gpu_id: int = 0,
                  num_seqs: int = 1,
                  if_use_per: bool = False,
+                 if_discrete: bool = False,
                  args: Config = Config()):
         self.p = 0  # pointer
         self.if_full = False
@@ -48,8 +49,10 @@ class ReplayBuffer:  # for off-policy
         sequence of transition: s-a-r-d, s-a-r-d, s-a-r-D  s-a-r-d, s-a-r-d, s-a-r-d, s-a-r-d, s-a-r-D  s-a-r-d, ...
                                 <------trajectory------->  <----------trajectory--------------------->  <-----------
         """
+        assert (action_dim < 256) or (not if_discrete)  # if_discrete==True, then action_dim < 256
         self.states = th.empty((max_size, num_seqs, state_dim), dtype=th.float32, device=self.device)
-        self.actions = th.empty((max_size, num_seqs, action_dim), dtype=th.float32, device=self.device)
+        self.actions = th.empty((max_size, num_seqs, action_dim), dtype=th.float32, device=self.device) \
+            if not if_discrete else th.empty((max_size, num_seqs), dtype=th.uint8, device=self.device)
         self.rewards = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
         self.undones = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)
         self.unmasks = th.empty((max_size, num_seqs), dtype=th.float32, device=self.device)

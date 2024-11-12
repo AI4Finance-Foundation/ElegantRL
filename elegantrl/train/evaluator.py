@@ -118,7 +118,7 @@ class Evaluator:
                 actor_path = f"{self.cwd}/actor__{self.total_step:012}.pt"
 
         if actor_path:
-            th.save(actor.state_dict(), actor_path)  # save policy network in *.pt
+            th.save(actor, actor_path)  # save policy network in *.pt
             self.save_training_curve_jpg()
 
     def save_or_load_recoder(self, if_save: bool):

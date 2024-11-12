@@ -30,19 +30,21 @@ def train_discrete_ppo_a2c_for_cartpole(agent_class, gpu_id: int):
     args.break_step = int(1e5)  # break training if 'total_step > break_step'
     args.net_dims = (256, 128)  # the middle layer dimension of MultiLayer Perceptron
     args.batch_size = 512
-    args.gamma = 0.99  # discount factor of future rewards
+    args.gamma = 0.97  # discount factor of future rewards
     args.horizon_len = args.max_step * 2
     args.repeat_times = 16  # repeatedly update network using ReplayBuffer to keep critic's loss small
     args.reward_scale = 2 ** -2
     args.learning_rate = 2e-5
     args.state_value_tau = 0.1  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
+    args.lambda_gae_adv = 0.90
+    args.lambda_entropy = 0.0001
 
     args.eval_times = 32
     args.eval_per_step = 1e4
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent(args=args, if_single_process=False)
+    train_agent(args=args, if_single_process=True)
 
     """
 0 < 5 < 400 < 500
