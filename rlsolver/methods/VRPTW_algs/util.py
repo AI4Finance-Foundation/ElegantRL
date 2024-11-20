@@ -398,6 +398,30 @@ def filter_vehicles_based_on_paths(vehicles2: List[Vehicle], paths: List[str], c
             vehicle.path_denoted_by_customers.append(this)
     return vehicles
 
+    # vehicles = generate_vehicles(num_vehicles, customers)
+    # res = []
+    # dest = Customer.obtain_by_name(Config.DEST_NAME, customers)
+    # if dest is None:
+    #     return []
+    # dest.labels.sort(key=operator.attrgetter('cumulative_travel_cost'))
+    # num = min(len(dest.labels), len(vehicles))
+    # for i in range(num):
+    #     label = dest.labels[i]
+    #     vehicle = vehicles[i]
+    #     vehicle.path_denoted_by_names = label.path_denoted_by_names
+    #     vehicle.departure_time_list = label.departure_time_list
+    #     vehicle.arrival_time_list = label.arrival_time_list
+    #     vehicle.departure_time_dict = {}
+    #     vehicle.arrival_time_dict = {}
+    #     vehicle.path_denoted_by_customers = []
+    #     for k in range(len(vehicle.path_denoted_by_names)):
+    #         this_name = vehicle.path_denoted_by_names[k]
+    #         customer = Customer.obtain_by_name(this_name, customers)
+    #         vehicle.path_denoted_by_customers.append(customer)
+    #         vehicle.departure_time_dict[this_name] = vehicle.departure_time_list[k]
+    #         vehicle.arrival_time_dict[this_name] = vehicle.arrival_time_list[k]
+    #     res.append(vehicle)
+    # return res
 
 def obtain_var_vals(model, var_name: str):
     theta_vals = []

@@ -4,12 +4,10 @@ from time import *
 import copy
 from typing import List, Tuple, Set, Dict
 
-
 class Label:
     path = []
     travel_time = 0
     dist = 0
-
 
 # dominance rule
 def dominate(labels: List[Label], path_dict: Dict[int, Label]):
@@ -35,6 +33,8 @@ def dominate(labels: List[Label], path_dict: Dict[int, Label]):
                 print("dominated path (P) : ", path_dict_copy[key_1].path)
 
     return labels, path_dict
+
+
 
 
 # labeling algorithm
@@ -135,6 +135,6 @@ def main():
     print('optimal path : ', opt_path[1].path)
     print('optimal path (dist): ', opt_path[1].dist)
 
-
 if __name__ == '__main__':
     main()
+

@@ -4,7 +4,6 @@ from time import *
 import copy
 from typing import List, Tuple, Set, Dict
 
-
 class Label:
     path = []
     duration = 0
@@ -43,7 +42,6 @@ class Label:
                 res.append(labels[i])
         return res
 
-
 # dominance rule
 def EFF(labels2: List[Label]):
     labels = Label.make_unique(labels2)
@@ -75,6 +73,8 @@ def EFF(labels2: List[Label]):
         if i not in indices_will_remove:
             filtered_labels.append(labels[i])
     return filtered_labels
+
+
 
 
 # labeling algorithm
@@ -175,6 +175,6 @@ def main():
         print(f'The {i + 1}-th optimal path (time): {opt_label.duration}')
     print()
 
-
 if __name__ == '__main__':
     main()
+
