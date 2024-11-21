@@ -86,6 +86,16 @@ def train_agent_single_process(args: Config):
     horizon_len = args.horizon_len
     if_off_policy = args.if_off_policy
     if_save_buffer = args.if_save_buffer
+
+    if_discrete = env.if_discrete
+    show_weight = 1000 / horizon_len / args.num_envs / args.num_workers
+
+    def action_to_str(_action_ary):  # TODO PLAN to be elegant
+        _show_dict = dict(zip(*np.unique(_action_ary, return_counts=True)))
+        _show_str = np.array([int(_show_dict.get(action_key, 0) * show_weight)
+                              for action_key in range(env.action_dim)])
+        return _show_str
+
     del args
 
     if_train = True
@@ -99,15 +109,20 @@ def train_agent_single_process(args: Config):
         actions.shape == (horizon_len, num_workers * num_envs, action_dim)  # if_discrete=False
         actions.shape == (horizon_len, num_workers * num_envs)              # if_discrete=True
         """
-
-        exp_r = buffer_items[2].mean().item()
         if if_off_policy:
             buffer.update(buffer_items)
         else:
             buffer[:] = buffer_items
 
+        if if_discrete:
+            show_str = action_to_str(_action_ary=buffer_items[1].data.cpu())
+        else:  # TODO PLAN add action_dist
+            show_str = ''
+        exp_r = buffer_items[2].mean().item()
+
         th.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
+        logging_tuple = (*logging_tuple, agent.explore_rate, show_str)
         th.set_grad_enabled(False)
 
         evaluator.evaluate_and_save(actor=agent.act, steps=horizon_len, exp_r=exp_r, logging_tuple=logging_tuple)

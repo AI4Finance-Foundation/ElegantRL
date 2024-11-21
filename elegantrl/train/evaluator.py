@@ -73,18 +73,20 @@ class Evaluator:
         std_s = steps.std().item()
 
         train_time = int(time.time() - self.start_time)
+        value_tuple = [v for v in logging_tuple if isinstance(v, (int, float))]
+        logging_str = logging_tuple[-1]
 
         '''record the training information'''
-        self.recorder.append((self.total_step, avg_r, std_r, exp_r, *logging_tuple))  # update recorder
+        self.recorder.append((self.total_step, avg_r, std_r, exp_r, *value_tuple))  # update recorder
         if self.tensorboard:
-            self.tensorboard.add_scalar("info/critic_loss_sample", logging_tuple[0], self.total_step)
-            self.tensorboard.add_scalar("info/actor_obj_sample", -1 * logging_tuple[1], self.total_step)
+            self.tensorboard.add_scalar("info/critic_loss_sample", value_tuple[0], self.total_step)
+            self.tensorboard.add_scalar("info/actor_obj_sample", -1 * value_tuple[1], self.total_step)
             self.tensorboard.add_scalar("reward/avg_reward_sample", avg_r, self.total_step)
             self.tensorboard.add_scalar("reward/std_reward_sample", std_r, self.total_step)
             self.tensorboard.add_scalar("reward/exp_reward_sample", exp_r, self.total_step)
 
-            self.tensorboard.add_scalar("info/critic_loss_time", logging_tuple[0], train_time)
-            self.tensorboard.add_scalar("info/actor_obj_time", -1 * logging_tuple[1], train_time)
+            self.tensorboard.add_scalar("info/critic_loss_time", value_tuple[0], train_time)
+            self.tensorboard.add_scalar("info/actor_obj_time", -1 * value_tuple[1], train_time)
             self.tensorboard.add_scalar("reward/avg_reward_time", avg_r, train_time)
             self.tensorboard.add_scalar("reward/std_reward_time", std_r, train_time)
             self.tensorboard.add_scalar("reward/exp_reward_time", exp_r, train_time)
@@ -94,7 +96,7 @@ class Evaluator:
         self.max_r = max(self.max_r, avg_r)  # update max average cumulative rewards
         print(f"{self.agent_id:<3}{self.total_step:8.2e}{train_time:8.0f} |"
               f"{avg_r:8.2f}{std_r:7.1f}{avg_s:7.0f}{std_s:6.0f} |"
-              f"{exp_r:8.2f}{''.join(f'{n:7.2f}' for n in logging_tuple)}", flush=True)
+              f"{exp_r:8.2f}{''.join(f'{n:7.2f}' for n in value_tuple)} {logging_str}", flush=True)
 
         if_save = avg_r > prev_max_r
         if if_save:
