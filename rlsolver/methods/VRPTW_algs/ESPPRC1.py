@@ -180,7 +180,7 @@ def demo():
     vehicles = generate_vehicles_and_assign_paths(len(customers), customers)
     filtered_vehicles = vehicles[:Config.NUM_VEHICLES]
     running_duration = time.time() - start_time
-    result_filename = "./result/demo.txt"
+    result_filename = "../../result/demo.txt"
     alg_name = "ESPPRC1"
     paths = obtain_paths_based_on_vehicles(vehicles)
     dists = calc_dists_of_paths(paths, graph)
