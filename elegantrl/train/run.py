@@ -224,7 +224,7 @@ class Learner(Process):
         '''COMMUNICATE between Learners: init'''
         learner_id = args.learner_gpu_ids.index(args.gpu_id) if len(args.learner_gpu_ids) > 0 else 0
         num_learners = max(1, len(args.learner_gpu_ids))
-        num_communications = min(num_learners - 1, 1)
+        num_communications = num_learners - 1
         if len(args.learner_gpu_ids) >= 2:
             assert isinstance(self.learners_pipe, list)
         elif len(args.learner_gpu_ids) == 0:
@@ -307,7 +307,7 @@ class Learner(Process):
                 _learner_pipe.send(_buffer_items_tensor)
             '''COMMUNICATE between Learners: Learner receive (buffer_items, last_state) from other Learners'''
             for shift_id in range(num_communications):
-                _learner_id = (learner_id + shift_id) % num_learners  # other_learner_id
+                _learner_id = (learner_id + shift_id + 1) % num_learners  # other_learner_id
                 _learner_pipe = self.learners_pipe[_learner_id][1]
                 _buffer_items_tensor = _learner_pipe.recv()
 
