@@ -223,6 +223,7 @@ def process_folder(result_folder_path, total_result_folder, include_time=False, 
 
 
 class Config():
+    # result_folder_path中，文件夹的名称按照 datasetName_AlgName的方式写，只有一个下划线，否则报错。正确的写法，比如，synBA_GA，表示synBA数据集，GA算法。
     # result_folder_path = r'./result'# 替换为实际路径
     result_folder_path = r'D:\cs\RLSolver_data_result\result_maxcut'  # 替换为实际路径
     total_result_folder = r'./output'  # 替换为要存放结果的路径
