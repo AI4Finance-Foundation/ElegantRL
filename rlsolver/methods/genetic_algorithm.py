@@ -1,14 +1,12 @@
 import sys
 import os
-
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
 
 import random
 import os
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import copy
 import time
 import numpy as np
@@ -22,13 +20,13 @@ except ImportError:
     plt = None
 
 from rlsolver.methods.util import (calc_txt_files_with_prefixes,
-                                   )
+                                    )
 from rlsolver.methods.util_read_data import (read_nxgraph,
-                                             )
+                                            )
 from rlsolver.methods.util_obj import (obj_maxcut,
-                                       )
+                                        )
 from rlsolver.methods.util_result import (write_graph_result,
-                                          )
+                                         )
 
 # constants for tabuSearch
 P_iter = 100
@@ -163,6 +161,7 @@ def tabu_search(initial_solution, graph):
     return best_solution, best_score
 
 
+
 def cross_over(population, graph):
     selected_parents = random.sample(population, num_parents)
 
@@ -211,11 +210,11 @@ def genetic_maxcut(graph: nx.Graph(), filename):
     print("Genetic Search Complete")
 
 
-def run_genetic_over_multiple_files(directory_data: str, prefixes: List[str]) -> List[List[float]]:
+
+def run_genetic_over_multiple_files(directory_data: str, prefixes: List[str])-> List[List[float]]:
     assert PROBLEM == Problem.maxcut
     scoress = []
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
-    files.sort()
     for i in range(len(files)):
         filename = files[i]
         print(f'Start the {i}-th file: {filename}')
@@ -240,5 +239,11 @@ if __name__ == '__main__':
 
     else:
         directory_data = '../data/syn_BA'
+        # directory_data = '../data/syn_ER'
+        # directory_data = '../data/syn'
         prefixes = ['BA_100_']
         run_genetic_over_multiple_files(directory_data, prefixes)
+
+    # Cut checker
+    # vector = [1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]
+    # print(obj_maxcut(vector,graph))
