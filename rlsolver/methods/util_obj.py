@@ -10,7 +10,7 @@ import numpy as np
 from typing import Union, Tuple, List
 import networkx as nx
 from torch import Tensor
-from config import *
+from rlsolver.methods.config import *
 
 try:
     import matplotlib as mpl

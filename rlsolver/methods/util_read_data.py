@@ -19,6 +19,9 @@ IndexList = List[List[int]]  # 按索引顺序记录每个点的所有邻居节�
 
 GraphTypes = ['BarabasiAlbert', 'ErdosRenyi', 'PowerLaw']
 TEN = th.Tensor
+
+from rlsolver.methods.util import calc_txt_files_with_prefixes
+
 # read graph file, e.g., gset_14.txt, as networkx.Graph
 # The nodes in file start from 1, but the nodes start from 0 in our codes.
 def read_nxgraph(filename: str) -> nx.Graph():
@@ -42,6 +45,14 @@ def read_nxgraph(filename: str) -> nx.Graph():
             line = file.readline()
     return graph
 
+def read_nxgraphs(directory: str, prefixes: List[str]) -> List[nx.Graph]:
+    graphs = []
+    files = calc_txt_files_with_prefixes(directory, prefixes)
+    for i in range(len(files)):
+        filename = files[i]
+        graph = read_nxgraph(filename)
+        graphs.append(graph)
+    return graphs
 
 def read_graphlist(filename: str) -> GraphList:
     with open(filename, 'r') as file:
@@ -248,6 +259,20 @@ def update_xs_by_vs(xs0: TEN, vs0: TEN, xs1: TEN, vs1: TEN, if_maximize: bool) -
     xs0[good_is] = xs1[good_is]
     vs0[good_is] = vs1[good_is]
     return good_is.shape[0]
+
+def pick_xs_by_vs(xs: TEN, vs: TEN, num_repeats: int, if_maximize: bool) -> (TEN, TEN):
+    # update good_xs: use .view() instead of .reshape() for saving GPU memory
+    num_nodes = xs.shape[1]
+    num_sims = xs.shape[0] // num_repeats
+
+    xs_view = xs.view(num_repeats, num_sims, num_nodes)
+    vs_view = vs.view(num_repeats, num_sims)
+    ids = vs_view.argmax(dim=0) if if_maximize else vs_view.argmin(dim=0)
+
+    sim_ids = th.arange(num_sims, device=xs.device)
+    good_xs = xs_view[ids, sim_ids]
+    good_vs = vs_view[ids, sim_ids]
+    return good_xs, good_vs
 
 # def read_set_cover(filename: str):
 #     with open(filename, 'r') as file:

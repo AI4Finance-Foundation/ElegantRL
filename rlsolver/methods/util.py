@@ -89,6 +89,53 @@ def evolutionary_replacement(xs: TEN, vs: TEN, low_k: int, if_maximize: bool):
     xs[replace_ids] = xs[low_ids]
     vs[replace_ids] = vs[low_ids]
 
+def get_hot_image_of_graph(adj_bool, hot_type):
+    if hot_type == 'avg':
+        adj_matrix = adj_bool.float() / adj_bool.shape[0]
+    elif hot_type == 'sum':
+        adj_matrix = adj_bool.float()
+        adj_matrix /= adj_matrix.sum(dim=1, keepdim=True).clip(1, None)
+        adj_matrix /= adj_matrix.sum(dim=0, keepdim=True).clip(1, None)
+        adj_matrix = adj_matrix * 0.25
+    else:
+        raise ValueError(f"| get_hot_image_of_graph() hot_type {hot_type} should in ['avg', 'sum']")
+
+    num_nodes = adj_matrix.size(0)
+    num_iters = int(th.tensor(num_nodes).log().item() + 1) * 2
+    device = adj_matrix.device
+    break_thresh = 2 ** -10
+
+    log_matrix = None
+
+    hot_matrix = adj_matrix.clone()
+    adjust_eye = th.eye(num_nodes, device=device)
+    prev_diff = 0
+    for i in range(num_iters):
+        hot_matrix = th.matmul(hot_matrix + adjust_eye, adj_matrix)
+        hot_matrix = hot_matrix + hot_matrix.t()
+
+        log_matrix = th.log(hot_matrix.clip(1e-12, 1e+12))
+
+        curr_diff = log_matrix.std()
+        if abs(prev_diff - curr_diff) < (prev_diff + curr_diff) * break_thresh:
+            break
+        # print(f'{num_iters:6} {i:6}  {curr_diff:9.3e}')
+        prev_diff = curr_diff
+
+    returns = (log_matrix - log_matrix.mean()) / (log_matrix.std() * 3)
+    return returns
+
+def get_adjacency_distance_matrix(adj_bool_ary):
+    graph = nx.from_numpy_array(adj_bool_ary)
+    # '''graph_list -> graph'''
+    # graph = nx.Graph()
+    # for n0, n1, distance in graph_list:
+    #     graph.add_edge(n0, n1, weight=distance)
+
+    dist_matrix = nx.floyd_warshall_numpy(graph)
+    dist_matrix[dist_matrix == 0] = 0.5
+    return 1.0 / dist_matrix
+
 def detach_var(v, device):
     var = Variable(v.data, requires_grad=True).to(device)
     var.retain_grad()
@@ -130,8 +177,8 @@ def plot_fig_over_durations(objs: List[int], durations: List[int], label: str):
 def calc_txt_files_with_prefixes(directory: str, prefixes: List[str]):
     res = []
     files = os.listdir(directory)
-    for file in files:
-        for prefix in prefixes:
+    for prefix in prefixes:
+        for file in files:
             if file.startswith(prefix):
                 res.append(directory + '/' + file)
     return res

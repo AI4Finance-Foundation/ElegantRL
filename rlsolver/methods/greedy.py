@@ -315,15 +315,15 @@ def greedy_graph_coloring(num_steps: Optional[int], graph: nx.Graph) -> (int, Un
     return curr_score, curr_solution, scores
 
 # def run_greedy_over_multiple_files(alg, alg_name, num_steps, set_init_0: Optional[bool], directory_data: str, prefixes: List[str])-> List[List[float]]:
-def run_greedy_multifiles(alg, alg_name, num_steps, directory_data: str, prefixes: List[str])-> List[List[float]]:
+def run_greedy_over_multiple_files(alg, alg_name, num_steps, directory_data: str, prefixes: List[str])-> List[List[float]]:
     from util_read_data import (read_set_cover_data, read_nxgraph)
     from util_result import write_result_set_cover
     scoress = []
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
-    files.sort()
     for i in range(len(files)):
         start_time = time.time()
         filename = files[i]
+        print(f'Start the {i}-th file: {filename}')
         if PROBLEM == Problem.set_cover:
             from greedy import greedy_set_cover
             num_items, num_sets, item_matrix = read_set_cover_data(filename)
@@ -416,7 +416,7 @@ if __name__ == '__main__':
             directory_data = '../data/set_cover'
             prefixes = ['frb30-15-1']
 
-        scoress = run_greedy_multifiles(alg, alg_name, num_steps, directory_data, prefixes)
+        scoress = run_greedy_over_multiple_files(alg, alg_name, num_steps, directory_data, prefixes)
         print(f"scoress: {scoress}")
 
         # plot fig
