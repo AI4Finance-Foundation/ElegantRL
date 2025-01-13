@@ -244,7 +244,6 @@ def simulated_annealing(init_temperature: int, num_steps: Optional[int], graph: 
 def run_simulated_annealing_over_multiple_files(alg, alg_name, init_temperature, num_steps, directory_data: str, prefixes: List[str])-> List[List[float]]:
     scoress = []
     files = calc_txt_files_with_prefixes(directory_data, prefixes)
-    files.sort()
     for i in range(len(files)):
         start_time = time.time()
         filename = files[i]
