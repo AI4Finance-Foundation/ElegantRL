@@ -254,6 +254,41 @@ class AgentA2C(AgentPPO):
     “Asynchronous Methods for Deep Reinforcement Learning”. 2016.
     """
 
+    def update_net(self, buffer) -> tuple[float, float, float]:
+        buffer_size = buffer[0].shape[0]
+
+        '''get advantages reward_sums'''
+        with th.no_grad():
+            states, actions, logprobs, rewards, undones, unmasks = buffer
+            bs = max(1, 2 ** 10 // self.num_envs)  # set a smaller 'batch_size' to avoid CUDA OOM
+            values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
+            values = th.cat(values, dim=0).squeeze(-1)  # values.shape == (buffer_size, )
+
+            advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
+            reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
+            del rewards, undones, values
+
+            advantages = (advantages - advantages.mean()) / (advantages[::4, ::4].std() + 1e-5)  # avoid CUDA OOM
+            assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size, states.shape[1])
+        buffer = states, actions, unmasks, logprobs, advantages, reward_sums
+
+        '''update network'''
+        obj_critics = []
+        obj_actors = []
+
+        th.set_grad_enabled(True)
+        update_times = int(buffer_size * self.repeat_times / self.batch_size)
+        assert update_times >= 1
+        for update_t in range(update_times):
+            obj_critic, obj_actor = self.update_objectives(buffer, update_t)
+            obj_critics.append(obj_critic)
+            obj_actors.append(obj_actor)
+        th.set_grad_enabled(False)
+
+        obj_critic_avg = np.array(obj_critics).mean() if len(obj_critics) else 0.0
+        obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
+        return obj_critic_avg, obj_actor_avg, 0
+
     def update_objectives(self, buffer: tuple[TEN, ...], update_t: int) -> tuple[float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
