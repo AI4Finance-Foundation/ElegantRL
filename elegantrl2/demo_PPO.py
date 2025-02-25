@@ -42,7 +42,7 @@ def train_ppo_for_pendulum(agent_class, gpu_id: int):
 
     args.gpu_id = gpu_id
     args.num_workers = 4
-    train_agent(args=args, if_single_process=False)
+    train_agent(args=args)
 
     """
 -2000 < -1200 < -200 < -80
@@ -251,7 +251,7 @@ if __name__ == '__main__':
     DRL_ID = Args.drl
     ENV_ID = Args.env
 
-    AgentClassList = [AgentPPO, AgentA2C]
+    AgentClassList = [AgentPPO]
     AgentClass = AgentClassList[DRL_ID]  # DRL algorithm name
 
     if ENV_ID in {'0', 'pendulum'}:

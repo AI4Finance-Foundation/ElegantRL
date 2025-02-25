@@ -3,9 +3,7 @@ import torch as th
 
 from .traj_config import Config
 
-
 TEN = th.Tensor
-
 
 
 class TrajBuffer:  # for off-policy
@@ -15,6 +13,7 @@ class TrajBuffer:  # for off-policy
                  action_dim: int,
                  gpu_id: int = 0,
                  num_seqs: int = 1,
+                 if_logprob: bool = False,
                  if_discrete: bool = False,
                  args: Config = Config()):
         self.p = 0  # pointer
@@ -35,13 +34,9 @@ class TrajBuffer:  # for off-policy
                                                                           <-----max_size----->
                                                                           <-cur_size->
                                                                                      ↑ pointer
-                            sequence of sub_env0.1  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
-                            sequence of sub_env0.2  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
                             sequence of sub_env0.3  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
         worker1 for env1:   sequence of sub_env1.0  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
                             sequence of sub_env1.1  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
-                            sequence of sub_env1.2  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
-                            sequence of sub_env1.3  s, s, ..., s    a, a, ..., a    r, r, ..., r    d, d, ..., d
 
         D: done=True
         d: done=False
@@ -50,33 +45,29 @@ class TrajBuffer:  # for off-policy
         """
         assert (action_dim < 256) or (not if_discrete)  # if_discrete==True, then action_dim < 256
 
-        action_save_dim = 1 if if_discrete else action_dim
-        self.observ_i, self.observ_j = (0, state_dim)
-        self.reward_i = state_dim
-        self.undone_i = state_dim + 1
-        self.unmask_i = state_dim + 2
-        self.action_i, self.action_j = state_dim + 3, state_dim + 3 + action_save_dim
+        self.observ_i = 0
+        self.observ_j = self.reward_i = self.observ_i + state_dim
+        self.reward_j = self.undone_i = self.observ_j + 1
+        self.undone_j = self.unmask_i = self.reward_j + 1
+        self.unmask_j = self.action_i = self.undone_j + 1
+        self.action_j = self.logprob_i = self.unmask_j + (1 if if_discrete else action_dim)
+        self.logprob_j = self.action_j + (action_dim if if_logprob else 0)
 
-        self.buffer_dim = state_dim + 3 + action_save_dim
+        self.buffer_dim = self.logprob_j
         self.seqs = th.empty((max_size, num_seqs, self.buffer_dim), dtype=th.float32, device=self.device)
 
-        self.ids0 = th.tensor((), dtype=th.long, device=self.device)
-        self.ids1 = th.tensor((), dtype=th.long, device=self.device)
+        self.if_logprob = if_logprob
+        self.t_int = th.int32
+        self.ids0 = th.tensor((), dtype=self.t_int, device=self.device)
+        self.ids1 = th.tensor((), dtype=self.t_int, device=self.device)
 
-    def update(self, items: tuple[TEN, ...]):
-        observ, action, reward, undone, unmask = items
+    def update_seqs(self, seqs: TEN):
+        # observ, reward, undone, unmask, action = items
         # assert observ.shape[1:] == (num_envs, state_dim)
-        # assert action.shape[1:] == (num_envs, action_dim if if_discrete else 1)
         # assert reward.shape[1:] == (num_envs,)
         # assert undone.shape[1:] == (num_envs,)
         # assert unmask.shape[1:] == (num_envs,)
-        self.add_size = reward.shape[0]
-        seqs = th.empty((self.add_size, self.num_seqs, self.buffer_dim), dtype=th.float32, device=self.device)
-        seqs[:, :, self.observ_i:self.observ_j] = observ
-        seqs[:, :, self.action_i:self.action_j] = action
-        seqs[:, :, self.reward_i] = reward
-        seqs[:, :, self.undone_i] = undone
-        seqs[:, :, self.unmask_i] = unmask
+        # assert action.shape[1:] == (num_envs, action_dim if if_discrete else 1)
 
         p = self.p + self.add_size  # pointer
         if p > self.max_size:
@@ -93,23 +84,17 @@ class TrajBuffer:  # for off-policy
         self.p = p
         self.cur_size = self.max_size if self.if_full else self.p
 
-    def sample_seqs(self, batch_size: int, seq_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN, TEN]:  # TODO
+    def sample_seqs(self, batch_size: int, seq_len: int) -> TEN:  # TODO
         seq_len = min((self.cur_size - 1) // 2, seq_len)
         sample_len = self.cur_size - 1 - seq_len
         assert sample_len > 0
 
-        # ids = th.randint(sample_len * self.num_seqs, size=(batch_size,), requires_grad=False, device=self.device)
-        # self.ids0 = ids0 = th.fmod(ids, sample_len)  # ids % sample_len
-        # self.ids1 = ids1 = th.div(ids, sample_len, rounding_mode='floor')  # ids // sample_len
-        #
-        # return (
-        #     self.states[ids0, ids1],
-        #     self.actions[ids0, ids1],
-        #     self.rewards[ids0, ids1],
-        #     self.undones[ids0, ids1],
-        #     self.unmasks[ids0, ids1],
-        #     self.states[ids0 + 1, ids1],  # next_state
-        # )
+        ids = th.randint(sample_len * self.num_seqs, size=(batch_size,), dtype=self.t_int, device=self.device)
+        self.ids0 = ids0 = th.fmod(ids, sample_len)[:, None].repeat(1, seq_len)  # ids % sample_len
+        self.ids1 = ids1 = (th.div(ids, sample_len, rounding_mode='floor')[:, None] +
+                            th.arange(seq_len, dtype=self.t_int, device=self.device)[None, :])  # ids // sample_len
+        return self.seqs[ids0, ids1]
+
 
     def save_or_load_history(self, cwd: str, if_save: bool):
         file_path = f"{cwd}/replay_buffer.pth"

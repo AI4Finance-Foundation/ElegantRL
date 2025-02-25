@@ -6,6 +6,7 @@ from torch import nn
 from torch.nn.utils import clip_grad_norm_
 
 from .traj_config import Config
+from .traj_buffer import TrajBuffer
 
 TEN = th.Tensor
 
@@ -117,24 +118,22 @@ class AgentPPO(AgentBase):
 
         self.if_use_v_trace = getattr(args, 'if_use_v_trace', True)
 
-    def explore_env(self, env, horizon_len: int, if_random: bool = False) -> tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
+    def explore_env(self, env, horizon_len: int, if_random: bool = False) -> tuple[TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
         env: RL training environment. env.reset() env.step(). It should be a vector env.
         horizon_len: collect horizon_len step while exploring to update networks
-        return: `(states, actions, logprobs, rewards, undones, unmasks)` for on-policy
+        return: `(states, rewards, undones, unmasks, actions)`
             `states.shape == (horizon_len, num_envs, state_dim)`
-            `actions.shape == (horizon_len, num_envs, action_dim)`
-            `logprobs.shape == (horizon_len, num_envs, action_dim)`
             `rewards.shape == (horizon_len, num_envs)`
             `undones.shape == (horizon_len, num_envs)`
             `unmasks.shape == (horizon_len, num_envs)`
+            `actions.shape == (horizon_len, num_envs, action_dim)`
         """
         states = th.zeros((horizon_len, self.num_envs, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.num_envs, self.action_dim), dtype=th.float32).to(self.device) \
             if not self.if_discrete else th.zeros((horizon_len, self.num_envs), dtype=th.int32).to(self.device)
-        logprobs = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
         rewards = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
         terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
         truncates = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
@@ -143,11 +142,10 @@ class AgentPPO(AgentBase):
 
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
-            action, logprob = self.explore_action(state)
+            action = self.explore_action(state)
 
             states[t] = state
             actions[t] = action
-            logprobs[t] = logprob
 
             state, reward, terminal, truncate, _ = env.step(convert(action))  # next_state
 
@@ -159,13 +157,13 @@ class AgentPPO(AgentBase):
         rewards *= self.reward_scale
         undones = th.logical_not(terminals)
         unmasks = th.logical_not(truncates)
-        return states, actions, logprobs, rewards, undones, unmasks
+        return states, rewards, undones, unmasks, actions
 
-    def explore_action(self, state: TEN) -> tuple[TEN, TEN]:
+    def explore_action(self, state: TEN) -> TEN:
         actions, logprobs = self.act.get_action(state)
-        return actions, logprobs
+        return actions
 
-    def update_net(self, buffer) -> tuple[float, float, float]:
+    def update_net(self, buffer: TrajBuffer) -> tuple[float, float, float]:
         buffer_size = buffer[0].shape[0]
 
         '''get advantages reward_sums'''
