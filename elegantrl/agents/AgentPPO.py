@@ -200,7 +200,7 @@ class AgentPPO(AgentBase):
 
         obj_surrogate = (surrogate * unmask).mean()  # major actor objective
         obj_entropy = (entropy * unmask).mean()  # minor actor objective
-        obj_actor_full = obj_surrogate + obj_entropy * self.lambda_entropy
+        obj_actor_full = obj_surrogate - obj_entropy * self.lambda_entropy
         self.optimizer_backward(self.act_optimizer, -obj_actor_full)
         return obj_critic.item(), obj_surrogate.item(), obj_entropy.item()
 
