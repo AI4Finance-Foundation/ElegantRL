@@ -1,4 +1,4 @@
-from ..utils import TupleAlias
+from ..manage_python import TupleAlias
 import os
 import numpy as np
 import torch as th
