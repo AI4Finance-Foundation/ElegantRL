@@ -1,3 +1,4 @@
+from ..utils import TupleAlias
 import numpy as np
 import torch as th
 from torch import nn
@@ -31,7 +32,7 @@ class AgentPPO(AgentBase):
 
         self.if_use_v_trace = getattr(args, 'if_use_v_trace', True)
 
-    def _explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
+    def _explore_one_env(self, env, horizon_len: int, if_random: bool = False) -> TupleAlias[TEN, TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
@@ -84,7 +85,7 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def _explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> tuple[TEN, TEN, TEN, TEN, TEN, TEN]:
+    def _explore_vec_env(self, env, horizon_len: int, if_random: bool = False) -> TupleAlias[TEN, TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
@@ -128,11 +129,11 @@ class AgentPPO(AgentBase):
         unmasks = th.logical_not(truncates)
         return states, actions, logprobs, rewards, undones, unmasks
 
-    def explore_action(self, state: TEN) -> tuple[TEN, TEN]:
+    def explore_action(self, state: TEN) -> TupleAlias[TEN, TEN]:
         actions, logprobs = self.act.get_action(state)
         return actions, logprobs
 
-    def update_net(self, buffer) -> tuple[float, float, float]:
+    def update_net(self, buffer) -> TupleAlias[float, float, float]:
         buffer_size = buffer[0].shape[0]
 
         '''get advantages reward_sums'''
@@ -170,7 +171,7 @@ class AgentPPO(AgentBase):
         obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
         return obj_critic_avg, obj_actor_avg, obj_entropy_avg
 
-    def update_objectives(self, buffer: tuple[TEN, ...], update_t: int) -> tuple[float, float, float]:
+    def update_objectives(self, buffer: TupleAlias[TEN, ...], update_t: int) -> TupleAlias[float, float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
         sample_len = states.shape[0]
@@ -254,7 +255,7 @@ class AgentA2C(AgentPPO):
     “Asynchronous Methods for Deep Reinforcement Learning”. 2016.
     """
 
-    def update_net(self, buffer) -> tuple[float, float, float]:
+    def update_net(self, buffer) -> TupleAlias[float, float, float]:
         buffer_size = buffer[0].shape[0]
 
         '''get advantages reward_sums'''
@@ -289,7 +290,7 @@ class AgentA2C(AgentPPO):
         obj_actor_avg = np.array(obj_actors).mean() if len(obj_actors) else 0.0
         return obj_critic_avg, obj_actor_avg, 0
 
-    def update_objectives(self, buffer: tuple[TEN, ...], update_t: int) -> tuple[float, float]:
+    def update_objectives(self, buffer: TupleAlias[TEN, ...], update_t: int) -> TupleAlias[float, float]:
         states, actions, unmasks, logprobs, advantages, reward_sums = buffer
 
         buffer_size = states.shape[0]
@@ -365,7 +366,7 @@ class ActorPPO(th.nn.Module):
         action = self.net(state)
         return self.convert_action_for_env(action)
 
-    def get_action(self, state: TEN) -> tuple[TEN, TEN]:  # for exploration
+    def get_action(self, state: TEN) -> TupleAlias[TEN, TEN]:  # for exploration
         state = self.state_norm(state)
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()
@@ -375,7 +376,7 @@ class ActorPPO(th.nn.Module):
         logprob = dist.log_prob(action).sum(1)
         return action, logprob
 
-    def get_logprob_entropy(self, state: TEN, action: TEN) -> tuple[TEN, TEN]:
+    def get_logprob_entropy(self, state: TEN, action: TEN) -> TupleAlias[TEN, TEN]:
         state = self.state_norm(state)
         action_avg = self.net(state)
         action_std = self.action_std_log.exp()

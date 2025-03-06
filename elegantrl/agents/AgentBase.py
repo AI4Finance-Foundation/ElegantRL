@@ -1,3 +1,4 @@
+from ..utils import TupleAlias
 import os
 import numpy as np
 import torch as th
@@ -67,7 +68,7 @@ class AgentBase:
         """save and load"""
         self.save_attr_names = {'act', 'act_target', 'act_optimizer', 'cri', 'cri_target', 'cri_optimizer'}
 
-    def explore_env(self, env, horizon_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN]:
+    def explore_env(self, env, horizon_len: int) -> TupleAlias[TEN, TEN, TEN, TEN, TEN]:
         if self.if_vec_env:
             return self._explore_vec_env(env=env, horizon_len=horizon_len)
         else:
@@ -76,7 +77,7 @@ class AgentBase:
     def explore_action(self, state: TEN) -> TEN:
         return self.act.get_action(state, action_std=self.explore_noise_std)
 
-    def _explore_one_env(self, env, horizon_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN]:
+    def _explore_one_env(self, env, horizon_len: int) -> TupleAlias[TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **single** environment instance.
 
@@ -127,7 +128,7 @@ class AgentBase:
         unmasks = th.logical_not(truncates).view((horizon_len, 1))
         return states, actions, rewards, undones, unmasks
 
-    def _explore_vec_env(self, env, horizon_len: int) -> tuple[TEN, TEN, TEN, TEN, TEN]:
+    def _explore_vec_env(self, env, horizon_len: int) -> TupleAlias[TEN, TEN, TEN, TEN, TEN]:
         """
         Collect trajectories through the actor-environment interaction for a **vectorized** environment instance.
 
@@ -169,7 +170,7 @@ class AgentBase:
         unmasks = th.logical_not(truncates)
         return states, actions, rewards, undones, unmasks
 
-    def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> tuple[float, ...]:
+    def update_net(self, buffer: Union[ReplayBuffer, tuple]) -> TupleAlias[float, ...]:
         objs_critic = []
         objs_actor = []
 
@@ -188,7 +189,7 @@ class AgentBase:
         obj_avg_actor = np.nanmean(objs_actor) if len(objs_actor) else 0.0
         return obj_avg_critic, obj_avg_actor
 
-    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> tuple[float, float]:
+    def update_objectives(self, buffer: ReplayBuffer, update_t: int) -> TupleAlias[float, float]:
         assert isinstance(update_t, int)
         with th.no_grad():
             if self.if_use_per:
