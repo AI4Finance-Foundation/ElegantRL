@@ -1,3 +1,4 @@
+from typing import List
 from ..manage_python import TupleAlias
 import numpy as np
 import torch as th
@@ -347,7 +348,7 @@ class AgentDiscreteA2C(AgentDiscretePPO):
 
 
 class ActorPPO(th.nn.Module):
-    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__()
         self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
         layer_init_with_orthogonal(self.net[-1], std=0.1)
@@ -392,7 +393,7 @@ class ActorPPO(th.nn.Module):
 
 
 class ActorDiscretePPO(ActorPPO):
-    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim)
         self.ActionDist = th.distributions.Categorical
         self.soft_max = nn.Softmax(dim=-1)
@@ -424,7 +425,7 @@ class ActorDiscretePPO(ActorPPO):
 
 
 class CriticPPO(th.nn.Module):
-    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: List[int], state_dim: int, action_dim: int):
         super().__init__()
         assert isinstance(action_dim, int)
         self.net = build_mlp(dims=[state_dim, *net_dims, 1])
