@@ -35,7 +35,7 @@ class AgentBase:
         self.gamma = args.gamma  # discount factor of future rewards
         self.max_step = args.max_step  # limits the maximum number of steps an agent can take in a trajectory.
         self.num_envs = args.num_envs  # the number of sub envs in vectorized env. `num_envs=1` in single env.
-        self.batch_size = args.batch_size  # num of transitions sampled from replay buffer.
+        self.batch_size = args.batch_size  # num of transitions sampled from replay buf.
         self.repeat_times = args.repeat_times  # repeatedly update network using ReplayBuffer
         self.reward_scale = args.reward_scale  # an approximate target reward usually be closed to 256
         self.learning_rate = args.learning_rate  # the learning rate for network updating
@@ -148,7 +148,7 @@ class AgentBase:
         terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
         truncates = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
 
-        state = self.last_state  # last_state.shape == (num_envs, state_dim)
+        state = self.last_state  # temp_observ.shape == (num_envs, state_dim)
         for t in range(horizon_len):
             action = self.explore_action(state)
             # if_discrete == False  action.shape (num_envs, action_dim)
@@ -393,7 +393,7 @@ class ConvNet(nn.Module):  # pixel-level state encoder
     def __init__(self, inp_dim, out_dim, image_size=224):
         super().__init__()
         if image_size == 224:
-            self.net = nn.Sequential(  # size==(batch_size, inp_dim, 224, 224)
+            self.net = nn.Sequential(  # size==(seq_num, inp_dim, 224, 224)
                 nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False),
                 nn.ReLU(inplace=True),  # size=110
                 nn.Conv2d(32, 48, (3, 3), stride=(2, 2)),
@@ -406,11 +406,11 @@ class ConvNet(nn.Module):  # pixel-level state encoder
                 nn.ReLU(inplace=True),  # size=5
                 nn.Conv2d(128, 192, (5, 5), stride=(1, 1)),
                 nn.ReLU(inplace=True),  # size=1
-                NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
-                nn.Linear(192, out_dim),  # size==(batch_size, out_dim)
+                NnReshape(-1),  # size (seq_num, 1024, 1, 1) ==> (seq_num, 1024)
+                nn.Linear(192, out_dim),  # size==(seq_num, out_dim)
             )
         elif image_size == 112:
-            self.net = nn.Sequential(  # size==(batch_size, inp_dim, 112, 112)
+            self.net = nn.Sequential(  # size==(seq_num, inp_dim, 112, 112)
                 nn.Conv2d(inp_dim, 32, (5, 5), stride=(2, 2), bias=False),
                 nn.ReLU(inplace=True),  # size=54
                 nn.Conv2d(32, 48, (3, 3), stride=(2, 2)),
@@ -421,14 +421,14 @@ class ConvNet(nn.Module):  # pixel-level state encoder
                 nn.ReLU(inplace=True),  # size=5
                 nn.Conv2d(96, 128, (5, 5), stride=(1, 1)),
                 nn.ReLU(inplace=True),  # size=1
-                NnReshape(-1),  # size (batch_size, 1024, 1, 1) ==> (batch_size, 1024)
-                nn.Linear(128, out_dim),  # size==(batch_size, out_dim)
+                NnReshape(-1),  # size (seq_num, 1024, 1, 1) ==> (seq_num, 1024)
+                nn.Linear(128, out_dim),  # size==(seq_num, out_dim)
             )
         else:
             assert image_size in {224, 112}
 
     def forward(self, x):
-        # assert x.shape == (batch_size, inp_dim, image_size, image_size)
+        # assert x.shape == (seq_num, inp_dim, image_size, image_size)
         x = x.permute(0, 3, 1, 2)
         x = x / 128.0 - 1.0
         return self.net(x)

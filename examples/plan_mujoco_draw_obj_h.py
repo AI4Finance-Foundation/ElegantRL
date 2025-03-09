@@ -171,14 +171,14 @@ def demo_evaluator_actor_h_term_to_str():
     torch.set_grad_enabled(False)
 
     '''evaluate file'''
-    # buffer = init_buffer(args, gpu_id)
+    # buf = init_buffer(args, gpu_id)
     # agent.act.load_state_dict(th.load(actor_path, map_location=lambda storage, loc: storage))
     # agent.state = env.reset()
     # target_step = args.max_step * 4
     #
     # trajectory = agent.explore_env(env, target_step)
-    # buffer.update_buffer([trajectory, ])
-    # obj_hamilton = agent.update_net(buffer)
+    # buf.update_buffer([trajectory, ])
+    # obj_hamilton = agent.update_net(buf)
     #
     # print(f"Hamilton {obj_hamilton:9.3f}")
 

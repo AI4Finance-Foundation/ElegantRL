@@ -15,7 +15,7 @@ class ConfigGraph:
         self.num_buffers = 4  # 训练图向量需要的数据集个数
         self.buffer_size = 2 ** 12  # 每个数据集里预先生成的图的数量
         self.buffer_repeats = 64  # 数据重复使用的次数
-        self.buffer_dir = './buffer'  # 存放缓存数据的文件夹，里面可以存放为了训练预先生成的随机图邻接bool矩阵
+        self.buffer_dir = './buf'  # 存放缓存数据的文件夹，里面可以存放为了训练预先生成的随机图邻接bool矩阵
 
         self.learning_rate = 2 ** -14  # 优化器的学习率
         self.weight_decay = 0  # 2 ** -16 # 优化器的权重衰减

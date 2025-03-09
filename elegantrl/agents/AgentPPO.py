@@ -138,7 +138,7 @@ class AgentPPO(AgentBase):
         '''get advantages reward_sums'''
         with th.no_grad():
             states, actions, logprobs, rewards, undones, unmasks = buffer
-            bs = max(1, 2 ** 10 // self.num_envs)  # set a smaller 'batch_size' to avoid CUDA OOM
+            bs = max(1, 2 ** 10 // self.num_envs)  # set a smaller 'seq_num' to avoid CUDA OOM
             values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
             values = th.cat(values, dim=0).squeeze(-1)  # values.shape == (buffer_size, )
 
@@ -376,7 +376,7 @@ class ActorDiscretePPO(ActorPPO):
 
     def get_logprob_entropy(self, state: TEN, action: TEN) -> (TEN, TEN):
         state = self.state_norm(state)
-        a_prob = self.soft_max(self.net(state))  # action.shape == (batch_size, 1), action.dtype = th.int
+        a_prob = self.soft_max(self.net(state))  # action.shape == (seq_num, 1), action.dtype = th.int
         dist = self.ActionDist(a_prob)
         logprob = dist.log_prob(action)
         entropy = dist.entropy()

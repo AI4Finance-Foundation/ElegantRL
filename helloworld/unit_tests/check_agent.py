@@ -41,7 +41,7 @@ def check_agent_dqn(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     args = Config()
     args.batch_size = batch_size
     agent = AgentDQN(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-    agent.last_state = env.reset()
+    agent.temp_observ = env.reset()
 
     '''check for agent.explore_env'''
     buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=True)
@@ -77,7 +77,7 @@ def check_agent_dqn(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     assert states.shape == (horizon_len, state_dim)
     assert states.dtype in {torch.float, torch.int}
 
-    logging_tuple = agent.update_net(buffer=buffer)
+    logging_tuple = agent.update_net(buf=buffer)
     assert isinstance(logging_tuple, tuple)
     assert any([isinstance(item, float) for item in logging_tuple])
     assert len(logging_tuple) >= 2
@@ -96,7 +96,7 @@ def check_agent_ddpg(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     args = Config()
     args.batch_size = batch_size
     agent = AgentDDPG(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-    agent.last_state = env.reset()
+    agent.temp_observ = env.reset()
 
     '''check for agent.explore_env'''
     buffer_items = agent.explore_env(env=env, horizon_len=horizon_len, if_random=True)
@@ -130,7 +130,7 @@ def check_agent_ddpg(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     assert states.shape == (horizon_len, state_dim)
     assert states.dtype in {torch.float, torch.int}
 
-    logging_tuple = agent.update_net(buffer=buffer)
+    logging_tuple = agent.update_net(buf=buffer)
     assert isinstance(logging_tuple, tuple)
     assert any([isinstance(item, float) for item in logging_tuple])
     assert len(logging_tuple) >= 2
@@ -147,7 +147,7 @@ def check_agent_ppo(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     args = Config()
     args.batch_size = batch_size
     agent = AgentPPO(net_dims=net_dims, state_dim=state_dim, action_dim=action_dim, gpu_id=gpu_id, args=args)
-    agent.last_state = env.reset()
+    agent.temp_observ = env.reset()
 
     convert = agent.act.convert_action_for_env
     action = torch.rand(size=(batch_size, action_dim), dtype=torch.float32).detach() * 6 - 3
@@ -177,7 +177,7 @@ def check_agent_ppo(batch_size=3, horizon_len=16, net_dims=(64, 32), gpu_id=0):
     assert advantages.shape == (horizon_len,)
     assert advantages.dtype in {torch.float, torch.int}
 
-    logging_tuple = agent.update_net(buffer=buffer_items)
+    logging_tuple = agent.update_net(buf=buffer_items)
     assert isinstance(logging_tuple, tuple)
     assert any([isinstance(item, float) for item in logging_tuple])
     assert len(logging_tuple) >= 2

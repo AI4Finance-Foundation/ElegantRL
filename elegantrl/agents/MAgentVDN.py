@@ -13,7 +13,7 @@ class AgentVDN:
     “Value-Decomposition Networks For Cooperative Multi-Agent Learning”. Peter Sunehag. et al.. 2017.
 
     :param mac: multi agent controller
-    :param scheme: data scheme stored in the buffer
+    :param scheme: data scheme stored in the buf
     :param logger: log object, record training information
     :param args: parameters related to training
     """

@@ -350,7 +350,7 @@ class AgentPPO(AgentBase):
         buffer_size = states.shape[0]
 
         '''get advantages reward_sums'''
-        bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+        bs = 2 ** 10  # set a smaller 'seq_num' when out of GPU memory.
         values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
         values = th.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
 

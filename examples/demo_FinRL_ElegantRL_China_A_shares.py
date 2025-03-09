@@ -205,12 +205,12 @@ class Config:
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
         if self.if_off_policy:  # off-policy
-            self.batch_size = int(64)  # num of transitions sampled from replay buffer.
+            self.batch_size = int(64)  # num of transitions sampled from replay buf.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update network
             self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
             self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
         else:  # on-policy
-            self.batch_size = int(128)  # num of transitions sampled from replay buffer.
+            self.batch_size = int(128)  # num of transitions sampled from replay buf.
             self.horizon_len = int(2048)  # collect horizon_len step while exploring, then update network
             self.buffer_size = None  # ReplayBuffer size. Empty the ReplayBuffer for on-policy.
             self.repeat_times = 8.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
@@ -455,7 +455,7 @@ class AgentPPO:
         buffer_size = states.shape[0]
 
         '''get advantages reward_sums'''
-        bs = 2 ** 10  # set a smaller 'batch_size' when out of GPU memory.
+        bs = 2 ** 10  # set a smaller 'seq_num' when out of GPU memory.
         values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
         values = th.cat(values, dim=0).squeeze(1)  # values.shape == (buffer_size, )
 
@@ -674,7 +674,7 @@ def train_agent(args: Config):
 
     env = build_env(args.env_class, args.env_args)
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.last_state, info_dict = env.reset()
+    agent.temp_observ, info_dict = env.reset()
 
     buffer = []
 

@@ -84,17 +84,20 @@ class TrajBuffer:  # for off-policy
         self.p = p
         self.cur_size = self.max_size if self.if_full else self.p
 
-    def sample_seqs(self, batch_size: int, seq_len: int) -> TEN:  # TODO
+    def sample_seqs(self, seq_num: int, seq_len: int, seq_i: int = -1) -> TEN:  # TODO
         seq_len = min((self.cur_size - 1) // 2, seq_len)
         sample_len = self.cur_size - 1 - seq_len
         assert sample_len > 0
 
-        ids = th.randint(sample_len * self.num_seqs, size=(batch_size,), dtype=self.t_int, device=self.device)
-        self.ids0 = ids0 = th.fmod(ids, sample_len)[:, None].repeat(1, seq_len)  # ids % sample_len
-        self.ids1 = ids1 = (th.div(ids, sample_len, rounding_mode='floor')[:, None] +
-                            th.arange(seq_len, dtype=self.t_int, device=self.device)[None, :])  # ids // sample_len
-        return self.seqs[ids0, ids1]
-
+        if seq_i == -1:
+            ids = th.randint(sample_len * self.num_seqs, size=(seq_num,), dtype=self.t_int, device=self.device)
+            self.ids0 = ids0 = th.fmod(ids, sample_len)[:, None].repeat(1, seq_len)  # ids % sample_len
+            self.ids1 = ids1 = (th.div(ids, sample_len, rounding_mode='floor')[:, None] +
+                                th.arange(seq_len, dtype=self.t_int, device=self.device)[None, :])  # ids // sample_len
+            sample_seqs = self.seqs[ids0, ids1]
+        else:
+            sample_seqs = self.seqs[:, seq_i:seq_i + seq_len]
+        return sample_seqs
 
     def save_or_load_history(self, cwd: str, if_save: bool):
         file_path = f"{cwd}/replay_buffer.pth"

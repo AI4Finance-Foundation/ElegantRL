@@ -51,7 +51,7 @@ def train_agent(args: Config):
     agent.last_state = state.detach().to(agent.device)
     del state
 
-    '''init buffer'''
+    '''init buf'''
     buffer = TrajBuffer(
         gpu_id=args.gpu_id,
         num_seqs=args.num_envs,
@@ -89,9 +89,9 @@ def train_agent(args: Config):
         actions.shape == (horizon_len, num_workers * num_envs, action_dim)  # if_discrete=False
         actions.shape == (horizon_len, num_workers * num_envs)              # if_discrete=True
         """
-        buffer.update_seqs(seqs=th.concat())
+        buffer.update_seqs(seqs=th.concat(buffer_items, dim=2))
 
-        show_str = action_to_dist_ary(action=buffer_items[1].data.cpu())
+        show_str = action_to_dist_ary(action=buffer_items[4].data.cpu())
         exp_r = buffer_items[2].mean().item()
 
         th.set_grad_enabled(True)
@@ -155,10 +155,10 @@ def train_ppo_for_lunar_lander_continuous(agent_class, gpu_id: int):
 def get_logprob_by_dist_normal(action_avg, action_std, action):
     """
     使用 torch.distributions.normal.Normal 计算 logprob
-    :param action_avg: 均值，形状为 (batch_size, action_dim)
-    :param action_std: 标准差，形状为 (batch_size, action_dim)
-    :param action: 采样值，形状为 (batch_size, action_dim)
-    :return: logprob，形状为 (batch_size,)
+    :param action_avg: 均值，形状为 (seq_num, action_dim)
+    :param action_std: 标准差，形状为 (seq_num, action_dim)
+    :param action: 采样值，形状为 (seq_num, action_dim)
+    :return: logprob，形状为 (seq_num,)
     """
     import torch.distributions as dist  # 仅用于代码检查
     dist = dist.normal.Normal(action_avg, action_std)
@@ -169,10 +169,10 @@ def get_logprob_by_dist_normal(action_avg, action_std, action):
 def get_logprob_by_raw(action_avg: TEN, action_std: TEN, action: TEN) -> TEN:
     """
     手动实现正态分布的对数概率密度函数
-    :param action_avg: 均值，形状为 (batch_size, action_dim)
-    :param action_std: 标准差，形状为 (batch_size, action_dim)
-    :param action: 采样值，形状为 (batch_size, action_dim)
-    :return: logprob，形状为 (batch_size,)
+    :param action_avg: 均值，形状为 (seq_num, action_dim)
+    :param action_std: 标准差，形状为 (seq_num, action_dim)
+    :param action: 采样值，形状为 (seq_num, action_dim)
+    :return: logprob，形状为 (seq_num,)
     """
     # log_2pi = th.log(2 * th.tensor(th.pi))  # 常数 log(2π)
     # logprob = (

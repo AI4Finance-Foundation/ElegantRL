@@ -23,7 +23,8 @@ class AgentBase:
         self.gamma = args.gamma  # discount factor of future rewards
         self.max_step = args.max_step  # limits the maximum number of steps an agent can take in a trajectory.
         self.num_envs = args.num_envs  # the number of sub envs in vectorized env. `num_envs=1` in single env.
-        self.batch_size = args.batch_size  # num of transitions sampled from replay buffer.
+        self.sample_len = args.sample_len  # length of sequence sampled from replay buf.
+        self.sample_num = args.sample_num  # num of sequences sampled from replay buf.
         self.repeat_times = args.repeat_times  # repeatedly update network using ReplayBuffer
         self.reward_scale = args.reward_scale  # an approximate target reward usually be closed to 256
         self.learning_rate = args.learning_rate  # the learning rate for network updating
@@ -34,7 +35,10 @@ class AgentBase:
         self.buffer_init_size = args.buffer_init_size  # train after samples over buffer_init_size for off-policy
 
         self.explore_noise_std = getattr(args, 'explore_noise_std', 0.05)  # standard deviation of exploration noise
-        self.last_state: Optional[TEN] = None  # last state of the trajectory. shape == (num_envs, state_dim)
+        self.prev_observ: Optional[TEN] = None  # shape == (num_envs, state_dims)
+        self.prev_hidden: Optional[TEN] = None  # shape == (num_envs, state_dims, num_layers)
+        self.curr_observ: Optional[TEN] = None  # shape == (num_envs, state_dims)
+        self.curr_hidden: Optional[TEN] = None  # shape == (num_envs, state_dims, num_layers)
         self.device = th.device(f"cuda:{gpu_id}" if (th.cuda.is_available() and (gpu_id >= 0)) else "cpu")
 
         '''network'''
@@ -124,62 +128,70 @@ class AgentPPO(AgentBase):
 
         env: RL training environment. env.reset() env.step(). It should be a vector env.
         horizon_len: collect horizon_len step while exploring to update networks
-        return: `(states, rewards, undones, unmasks, actions)`
-            `states.shape == (horizon_len, num_envs, state_dim)`
+        return: `(observs, rewards, undones, unmasks, actions)`
+            `observs.shape == (horizon_len, num_envs, state_dim)`
             `rewards.shape == (horizon_len, num_envs)`
             `undones.shape == (horizon_len, num_envs)`
             `unmasks.shape == (horizon_len, num_envs)`
             `actions.shape == (horizon_len, num_envs, action_dim)`
         """
-        states = th.zeros((horizon_len, self.num_envs, self.state_dim), dtype=th.float32).to(self.device)
+        assert isinstance(if_random, bool)
+        observs = th.zeros((horizon_len, self.num_envs, self.state_dim), dtype=th.float32).to(self.device)
         actions = th.zeros((horizon_len, self.num_envs, self.action_dim), dtype=th.float32).to(self.device) \
             if not self.if_discrete else th.zeros((horizon_len, self.num_envs), dtype=th.int32).to(self.device)
         rewards = th.zeros((horizon_len, self.num_envs), dtype=th.float32).to(self.device)
         terminals = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
         truncates = th.zeros((horizon_len, self.num_envs), dtype=th.bool).to(self.device)
 
-        state = self.last_state  # shape == (num_envs, state_dim) for a vectorized env.
+        observ = self.prev_observ = self.curr_observ  # shape == (num_envs, state_dim)
+        hidden = self.prev_hidden = self.curr_hidden  # shape == (num_envs, state_dim, num_layers)
 
         convert = self.act.convert_action_for_env
         for t in range(horizon_len):
-            action = self.explore_action(state)
+            action, hidden = self.act.get_action(observ, hidden)
 
-            states[t] = state
+            observs[t] = observ
             actions[t] = action
 
-            state, reward, terminal, truncate, _ = env.step(convert(action))  # next_state
+            observ, reward, terminal, truncate, _ = env.step(convert(action))  # next_state
 
             rewards[t] = reward
             terminals[t] = terminal
             truncates[t] = truncate
 
-        self.last_state = state
-        rewards *= self.reward_scale
-        undones = th.logical_not(terminals)
-        unmasks = th.logical_not(truncates)
-        return states, rewards, undones, unmasks, actions
+        self.curr_observ = observ
+        self.curr_hidden = hidden
 
-    def explore_action(self, state: TEN) -> TEN:
-        actions, logprobs = self.act.get_action(state)
-        return actions
+        rewards = rewards.view(horizon_len, self.num_envs, 1) * self.reward_scale
+        undones = th.logical_not(terminals.view(horizon_len, self.num_envs, 1))
+        unmasks = th.logical_not(truncates.view(horizon_len, self.num_envs, 1))
+        return observs, rewards, undones, unmasks, actions
 
-    def update_net(self, buffer: TrajBuffer) -> tuple[float, float, float]:
-        buffer_size = buffer[0].shape[0]
+    def explore_action(self, observ: TEN, hidden: TEN) -> tuple[TEN, TEN]:
+        actions, hidden = self.act.get_action(observ, hidden)
+        return actions, hidden
+
+    def update_net(self, buf: TrajBuffer) -> tuple[float, float, float]:
+        buffer_size = buf.cur_size
 
         '''get advantages reward_sums'''
-        with th.no_grad():
-            states, actions, logprobs, rewards, undones, unmasks = buffer
-            bs = max(1, 2 ** 10 // self.num_envs)  # set a smaller 'batch_size' to avoid CUDA OOM
-            values = [self.cri(states[i:i + bs]) for i in range(0, buffer_size, bs)]
-            values = th.cat(values, dim=0).squeeze(-1)  # values.shape == (buffer_size, )
+        th.set_grad_enabled(False)
+        sample_len = np.ceil(self.sample_num * self.sample_len / buf.num_seqs)
+        num_seqs = buf.num_seqs
 
-            advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
-            reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
-            del rewards, undones, values
+        values = th.empty((buffer_size, num_seqs), dtype=th.float32, device=self.device)
+        for sample_i in range(0, buffer_size, sample_len):
+            seq = buf.sample_seqs(seq_num=self.sample_num, seq_len=sample_len, seq_i=sample_i)
+            state = seq[:, :, buf.observ_i:buf.unmask_j]
+            value = self.cri(state, self.prev_hidden).mean(dim=2)
+            values[sample_i:sample_i + sample_len] = value
 
-            advantages = (advantages - advantages.mean()) / (advantages[::4, ::4].std() + 1e-5)  # avoid CUDA OOM
-            assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size, states.shape[1])
-        buffer = states, actions, unmasks, logprobs, advantages, reward_sums
+        advantages = self.get_advantages(states, rewards, undones, unmasks, values)  # shape == (buffer_size, )
+        reward_sums = advantages + values  # reward_sums.shape == (buffer_size, )
+        del rewards, undones, values
+
+        advantages = (advantages - advantages.mean()) / (advantages[::4, ::4].std() + 1e-5)  # avoid CUDA OOM
+        assert logprobs.shape == advantages.shape == reward_sums.shape == (buffer_size, states.shape[1])
 
         '''update network'''
         obj_entropies = []
@@ -190,7 +202,7 @@ class AgentPPO(AgentBase):
         update_times = int(buffer_size * self.repeat_times / self.batch_size)
         assert update_times >= 1
         for update_t in range(update_times):
-            obj_critic, obj_actor, obj_entropy = self.update_objectives(buffer, update_t)
+            obj_critic, obj_actor, obj_entropy = self.update_objectives(buf, update_t)
             obj_entropies.append(obj_entropy)
             obj_critics.append(obj_critic)
             obj_actors.append(obj_actor)
@@ -231,17 +243,17 @@ class AgentPPO(AgentBase):
 
         obj_surrogate = (surrogate * unmask).mean()  # major actor objective
         obj_entropy = (entropy * unmask).mean()  # minor actor objective
-        obj_actor_full = obj_surrogate + obj_entropy * self.lambda_entropy
+        obj_actor_full = obj_surrogate - obj_entropy * self.lambda_entropy
         self.optimizer_backward(self.act_optimizer, -obj_actor_full)
         return obj_critic.item(), obj_surrogate.item(), obj_entropy.item()
 
-    def get_advantages(self, states: TEN, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
+    def get_advantages(self, rewards: TEN, undones: TEN, unmasks: TEN, values: TEN) -> TEN:
         advantages = th.empty_like(values)  # advantage value
 
         # update undones rewards when truncated
         truncated = th.logical_not(unmasks)
         if th.any(truncated):
-            rewards[truncated] += self.cri(states[truncated]).squeeze(1).detach()
+            rewards[truncated] += values[truncated]
             undones[truncated] = False
 
         masks = undones * self.gamma
@@ -269,33 +281,28 @@ class AgentPPO(AgentBase):
 class ActorPPO(th.nn.Module):
     def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
         super().__init__()
-        self.net = build_mlp(dims=[state_dim, *net_dims, action_dim])
+        self.inp_mlp = build_mlp(dims=[state_dim + 3, net_dims[0]], if_raw_out=False)
+        self.mid_rnn = nn.GRU(input_size=net_dims[0], hidden_size=net_dims[1], num_layers=2, batch_first=True)
+        self.out_mlp = build_mlp(dims=[net_dims[1:], action_dim], if_raw_out=True)
         layer_init_with_orthogonal(self.net[-1], std=0.1)
 
         self.action_std_log = nn.Parameter(th.zeros((1, action_dim)), requires_grad=True)  # trainable parameter
-        self.ActionDist = th.distributions.normal.Normal
 
-    def forward(self, state: TEN) -> TEN:
-        action = self.net(state)
-        return self.convert_action_for_env(action)
+    def forward(self, observ: TEN, hidden: TEN) -> tuple[TEN, TEN]:  # for evaluation
+        observ_enc = self.inp_mlp(observ)
+        observ_enc, hidden = self.mid_rnn(observ_enc, hidden)
+        action_avg = self.out_mlp(observ_enc)
+        return action_avg, hidden
 
-    def get_action(self, state: TEN) -> tuple[TEN, TEN]:  # for exploration
-        action_avg = self.net(state)
+    def get_action(self, observ: TEN, hidden: TEN) -> tuple[TEN, TEN]:  # for exploration
+        observ_enc = self.inp_mlp(observ)
+        observ_enc, hidden = self.mid_rnn(observ_enc, hidden)
+        action_avg = self.out_mlp(observ_enc)
+
         action_std = self.action_std_log.exp()
 
-        dist = self.ActionDist(action_avg, action_std)
-        action = dist.sample()
-        logprob = dist.log_prob(action).sum(1)
-        return action, logprob
-
-    def get_logprob_entropy(self, state: TEN, action: TEN) -> tuple[TEN, TEN]:
-        action_avg = self.net(state)
-        action_std = self.action_std_log.exp()
-
-        dist = self.ActionDist(action_avg, action_std)
-        logprob = dist.log_prob(action).sum(1)
-        entropy = dist.entropy().sum(1)
-        return logprob, entropy
+        action = action_avg + th.randn_like(action_avg) * action_std
+        return action, hidden
 
     @staticmethod
     def convert_action_for_env(action: TEN) -> TEN:
@@ -303,18 +310,25 @@ class ActorPPO(th.nn.Module):
 
 
 class CriticPPO(th.nn.Module):
-    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int):
+    def __init__(self, net_dims: list[int], state_dim: int, action_dim: int, num_ensemble: int = 32):
         super().__init__()
         assert isinstance(action_dim, int)
-        self.net = build_mlp(dims=[state_dim, *net_dims, 1])
-        layer_init_with_orthogonal(self.net[-1], std=0.5)
+        self.inp_mlp = build_mlp(dims=[state_dim + 3, net_dims[0]], if_raw_out=False)
+        self.mid_rnn = nn.GRU(input_size=net_dims[0], hidden_size=net_dims[1], num_layers=2, batch_first=True)
+        self.out_mlp = build_mlp(dims=[net_dims[1:], num_ensemble], if_raw_out=True)
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
 
-        self.state_avg = nn.Parameter(th.zeros((state_dim,)), requires_grad=False)
-        self.state_std = nn.Parameter(th.ones((state_dim,)), requires_grad=False)
+    def forward(self, observ: TEN, hidden: TEN) -> tuple[TEN, TEN]:  # for evaluation
+        observ_enc = self.inp_mlp(observ)
+        observ_enc, hidden = self.mid_rnn(observ_enc, hidden)
+        values_avg = self.out_mlp(observ_enc)
+        return values_avg, hidden
 
-    def forward(self, state: TEN) -> TEN:
-        value = self.net(state)
-        return value  # advantage value
+    def get_values(self, observ: TEN, hidden: TEN) -> tuple[TEN, TEN]:  # for evaluation
+        observ_enc = self.inp_mlp(observ)
+        observ_enc, hidden = self.mid_rnn(observ_enc, hidden)
+        values_avg = self.out_mlp(observ_enc)
+        return values_avg, hidden
 
 
 """utils"""
@@ -329,7 +343,7 @@ def build_mlp(dims: [int], activation: nn = None, if_raw_out: bool = True) -> nn
     if_remove_out_layer: if remove the activation function of the output layer.
     """
     if activation is None:
-        activation = nn.GELU
+        activation = nn.ELU
     net_list = nn.ModuleList()
     for i in range(len(dims) - 1):
         net_list.extend([nn.Linear(dims[i], dims[i + 1]), activation()])

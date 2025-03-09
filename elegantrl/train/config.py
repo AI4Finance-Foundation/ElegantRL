@@ -43,7 +43,7 @@ class Config:
         self.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3. the tau of soft target update `net = (1-tau)*net + tau*net1`
         if self.if_off_policy:  # off-policy
-            self.batch_size = int(64)  # num of transitions sampled from replay buffer.
+            self.batch_size = int(64)  # num of transitions sampled from replay buf.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update networks
             self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
             self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
@@ -51,7 +51,7 @@ class Config:
             self.lambda_fit_cum_r = 0.0  # critic fits the mean of a batch cumulative rewards
             self.buffer_init_size = int(self.batch_size * 8)  # train after samples over buffer_init_size for off-policy
         else:  # on-policy
-            self.batch_size = int(128)  # num of transitions sampled from replay buffer.
+            self.batch_size = int(128)  # num of transitions sampled from replay buf.
             self.horizon_len = int(2048)  # collect horizon_len step while exploring, then update network
             self.buffer_size = None  # ReplayBuffer size. Empty the ReplayBuffer for on-policy.
             self.repeat_times = 8.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
@@ -72,7 +72,7 @@ class Config:
         self.break_score = np.inf  # break training if `cumulative_rewards > break_score`
         self.if_keep_save = True  # keeping save the checkpoint. False means save until stop training.
         self.if_over_write = False  # overwrite the best policy network. `self.cwd/actor.pth`
-        self.if_save_buffer = False  # if save the replay buffer for continuous training after stop training
+        self.if_save_buffer = False  # if save the replay buf for continuous training after stop training
 
         self.save_gap = int(8)  # save actor f"{cwd}/actor_*.pth" for learning curve.
         self.eval_times = int(3)  # number of times that get the average episodic cumulative return

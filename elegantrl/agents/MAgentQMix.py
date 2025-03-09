@@ -18,7 +18,7 @@ class AgentQMix:
     “QMIX: Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning”. Tabish Rashid. et al.. 2018.
 
     :param mac: multi agent controller
-    :param scheme: data scheme stored in the buffer
+    :param scheme: data scheme stored in the buf
     :param logger: log object, record training information
     :param args: parameters related to training
     """

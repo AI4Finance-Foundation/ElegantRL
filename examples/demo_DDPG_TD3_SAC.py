@@ -94,7 +94,7 @@ def train_ddpg_td3_sac_for_pendulum_vec_env(agent_class):
 
     args = Config(agent_class, env_class, env_args)  # see `erl_config.py Arguments()` for hyperparameter explanation
     args.net_dims = [128, 64]  # the middle layer dimension of MultiLayer Perceptron
-    args.batch_size = 256  # vectorized env need a larger batch_size
+    args.batch_size = 256  # vectorized env need a larger seq_num
     args.gamma = 0.97  # discount factor of future rewards
     args.horizon_len = args.max_step // 8
 

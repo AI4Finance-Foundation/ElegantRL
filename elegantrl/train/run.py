@@ -47,7 +47,7 @@ def train_agent_single_process(args: Config):
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
     agent.save_or_load_agent(args.cwd, if_save=False)
 
-    '''init agent.last_state'''
+    '''init agent.temp_observ'''
     state, info_dict = env.reset()
     if args.num_envs == 1:
         assert state.shape == (args.state_dim,)
@@ -57,9 +57,9 @@ def train_agent_single_process(args: Config):
         state = state.to(agent.device)
     assert state.shape == (args.num_envs, args.state_dim)
     assert isinstance(state, th.Tensor)
-    agent.last_state = state.detach()
+    agent.temp_observ = state.detach()
 
-    '''init buffer'''
+    '''init buf'''
     if args.if_off_policy:
         buffer = ReplayBuffer(
             gpu_id=args.gpu_id,
@@ -236,7 +236,7 @@ class Learner(Process):
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
         agent.save_or_load_agent(args.cwd, if_save=False)
 
-        '''Learner init buffer'''
+        '''Learner init buf'''
         if args.if_off_policy:
             buffer = ReplayBuffer(
                 gpu_id=args.gpu_id,
@@ -266,7 +266,7 @@ class Learner(Process):
         cwd = args.cwd
         del args
 
-        agent.last_state = th.empty((num_seqs, state_dim), dtype=th.float32, device=agent.device)
+        agent.temp_observ = th.empty((num_seqs, state_dim), dtype=th.float32, device=agent.device)
 
         states = th.zeros((horizon_len, num_seqs, state_dim), dtype=th.float32, device=agent.device)
         actions = th.zeros((horizon_len, num_seqs, action_dim), dtype=th.float32, device=agent.device) \
@@ -288,7 +288,7 @@ class Learner(Process):
             '''Learner send actor to Workers'''
             for send_pipe in self.send_pipes:
                 send_pipe.send(actor)
-            '''Learner receive (buffer_items, last_state) from Workers'''
+            '''Learner receive (buffer_items, temp_observ) from Workers'''
             for _ in range(num_workers):
                 worker_id, buffer_items, last_state = self.recv_pipe.recv()
 
@@ -296,7 +296,7 @@ class Learner(Process):
                 buf_j = num_envs * (worker_id + 1)
                 for buffer_item, buffer_tensor in zip(buffer_items, buffer_items_tensor):
                     buffer_tensor[:, buf_i:buf_j] = buffer_item.to(agent.device)
-                agent.last_state[buf_i:buf_j] = last_state.to(agent.device)
+                agent.temp_observ[buf_i:buf_j] = last_state.to(agent.device)
             del buffer_items, last_state
 
             '''COMMUNICATE between Learners: Learner send actor to other Learners'''
@@ -305,7 +305,7 @@ class Learner(Process):
             for shift_id in range(num_communications):
                 _learner_pipe = self.learners_pipe[learner_id][0]
                 _learner_pipe.send(_buffer_items_tensor)
-            '''COMMUNICATE between Learners: Learner receive (buffer_items, last_state) from other Learners'''
+            '''COMMUNICATE between Learners: Learner receive (buffer_items, temp_observ) from other Learners'''
             for shift_id in range(num_communications):
                 _learner_id = (learner_id + shift_id + 1) % num_learners  # other_learner_id
                 _learner_pipe = self.learners_pipe[_learner_id][1]
@@ -316,7 +316,7 @@ class Learner(Process):
                 for buffer_item, buffer_tensor in zip(_buffer_items_tensor, buffer_items_tensor):
                     buffer_tensor[:, _buf_i:_buf_j] = buffer_item.to(agent.device)
 
-            '''Learner update training data to (buffer, agent)'''
+            '''Learner update training data to (buf, agent)'''
             if if_off_policy:
                 buffer.update(buffer_items_tensor)
             else:
@@ -375,7 +375,7 @@ class Worker(Process):
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
         agent.save_or_load_agent(args.cwd, if_save=False)
 
-        '''init agent.last_state'''
+        '''init agent.temp_observ'''
         state, info_dict = env.reset()
         if args.num_envs == 1:
             assert state.shape == (args.state_dim,)
@@ -387,9 +387,9 @@ class Worker(Process):
             state = state.to(agent.device)
         assert state.shape == (args.num_envs, args.state_dim)
         assert isinstance(state, th.Tensor)
-        agent.last_state = state.detach()
+        agent.temp_observ = state.detach()
 
-        '''init buffer'''
+        '''init buf'''
         horizon_len = args.horizon_len
 
         '''loop'''
@@ -404,7 +404,7 @@ class Worker(Process):
 
             '''Worker send the training data to Learner'''
             buffer_items = agent.explore_env(env, horizon_len)
-            last_state = agent.last_state
+            last_state = agent.temp_observ
             if os.name == 'nt':  # WindowsNT_OS can only send cpu_tensor
                 buffer_items = [t.cpu() for t in buffer_items]
                 last_state = deepcopy(last_state).cpu()

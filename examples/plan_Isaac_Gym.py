@@ -35,7 +35,7 @@ def demo(seed, config):
 
     args.reward_scale = config['reward_scale']
     args.horizon_len = config['horizon_len']
-    args.batch_size = config['batch_size']
+    args.batch_size = config['seq_num']
     args.repeat_times = 5
     args.gamma = 0.99
     args.lambda_gae_adv = 0.95
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         'max_step': 1000,
         'reward_scale': 0.01,
         'horizon_len': 32,
-        'batch_size': 16384,
+        'seq_num': 16384,
     }
     # config = {
     #     'env_name': 'Humanoid',
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     #     'max_step': 1000,
     #     'reward_scale': 0.01,
     #     'horizon_len': 32,
-    #     'batch_size': 16384,
+    #     'seq_num': 16384,
     # }
     # config = {
     #     'env_name': 'ShadowHand',
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     #     'max_step': 600,
     #     'reward_scale': 0.01,
     #     'horizon_len': 8,
-    #     'batch_size': 32768,
+    #     'seq_num': 32768,
     # }
     # config = {
     #     'env_name': 'Anymal',
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     #     'max_step': 2500,
     #     'reward_scale': 1,
     #     'horizon_len': 32,
-    #     'batch_size': 16384,
+    #     'seq_num': 16384,
     # }
     # config = {
     #     'env_name': 'Ingenuity',
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     #     'max_step': 2000,
     #     'reward_scale': 1,
     #     'horizon_len': 16,
-    #     'batch_size': 16384,
+    #     'seq_num': 16384,
     # }
     cwd = config['env_name'] + '_PPO_' + str(seed)
     wandb.init(

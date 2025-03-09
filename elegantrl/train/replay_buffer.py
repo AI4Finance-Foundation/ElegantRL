@@ -231,7 +231,7 @@ class SumTree:
     """
 
     def __init__(self, buf_len: int):
-        self.buf_len = buf_len  # replay buffer len
+        self.buf_len = buf_len  # replay buf len
         self.max_len = (buf_len - 1) + buf_len  # parent_nodes_num + leaf_nodes_num
         self.depth = math.ceil(math.log2(self.max_len))
 

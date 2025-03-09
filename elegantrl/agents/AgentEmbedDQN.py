@@ -141,8 +141,8 @@ class QEmbedBase(nn.Module):
         device = state.device
 
         action_int = th.arange(self.action_dim, device=device)  # (action_dim, )
-        all_action_int = action_int.unsqueeze(0).repeat((batch_size, 1))  # (batch_size, action_dim)
-        all_action = self.action_emb(all_action_int)  # (batch_size, action_dim, embedding_dim)
+        all_action_int = action_int.unsqueeze(0).repeat((batch_size, 1))  # (seq_num, action_dim)
+        all_action = self.action_emb(all_action_int)  # (seq_num, action_dim, embedding_dim)
 
         all_state = state.unsqueeze(1).repeat((1, self.action_dim, 1))  # (batch, action_dim, state_dim)
         all_state_action = th.concat((all_state, all_action), dim=2)  # (batch, action_dim, state_dim+embedding)
@@ -182,8 +182,8 @@ class QEmbedEnsemble(QEmbedBase):  # ensemble networks
         device = state.device
 
         action_int = th.arange(self.action_dim, device=device)  # (action_dim, )
-        all_action_int = action_int.unsqueeze(0).repeat((batch_size, 1))  # (batch_size, action_dim)
-        all_action = self.action_emb(all_action_int)  # (batch_size, action_dim, embedding_dim)
+        all_action_int = action_int.unsqueeze(0).repeat((batch_size, 1))  # (seq_num, action_dim)
+        all_action = self.action_emb(all_action_int)  # (seq_num, action_dim, embedding_dim)
 
         all_state = state.unsqueeze(1).repeat((1, self.action_dim, 1))  # (batch, action_dim, state_dim)
         all_state_action = th.concat((all_state, all_action), dim=2)  # (batch, action_dim, state_dim+embedding)

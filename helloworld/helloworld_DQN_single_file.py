@@ -35,12 +35,12 @@ class Config:
         self.learning_rate = 6e-5  # 2 ** -14 ~= 6e-5
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3
         if self.if_off_policy:  # off-policy
-            self.batch_size = int(64)  # num of transitions sampled from replay buffer.
+            self.batch_size = int(64)  # num of transitions sampled from replay buf.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update network
             self.buffer_size = int(1e6)  # ReplayBuffer size. First in first out for off-policy.
             self.repeat_times = 1.0  # repeatedly update network using ReplayBuffer to keep critic's loss small
         else:  # on-policy
-            self.batch_size = int(128)  # num of transitions sampled from replay buffer.
+            self.batch_size = int(128)  # num of transitions sampled from replay buf.
             self.horizon_len = int(2048)  # collect horizon_len step while exploring, then update network
             self.buffer_size = None  # ReplayBuffer size. Empty the ReplayBuffer for on-policy.
             self.repeat_times = 8.0  # repeatedly update network using ReplayBuffer to keep critic's loss small

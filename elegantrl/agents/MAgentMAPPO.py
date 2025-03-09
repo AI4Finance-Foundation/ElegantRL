@@ -332,7 +332,7 @@ class AgentMAPPO:
         """
         Perform a training update using minibatch GD.
 
-        :param buffer: (SharedReplayBuffer) buffer containing training data.
+        :param buffer: (SharedReplayBuffer) buf containing training data.
         :param update_actor: (bool) whether to update actor network.
         :return train_info: (dict) contains information regarding training update (e.g. loss, grad norms, etc).
         """

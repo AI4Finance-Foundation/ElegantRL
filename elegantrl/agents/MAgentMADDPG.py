@@ -73,11 +73,11 @@ class AgentMADDPG(AgentBase):
         """
         Update the single agent neural networks, called by update_net.
 
-        :param rewards: reward list of the sampled buffer
-        :param dones: done list of the sampled buffer
-        :param actions: action list of the sampled buffer
-        :param observations: observation list of the sampled buffer
-        :param next_obs: next_observation list of the sampled buffer
+        :param rewards: reward list of the sampled buf
+        :param dones: done list of the sampled buf
+        :param actions: action list of the sampled buf
+        :param observations: observation list of the sampled buf
+        :param next_obs: next_observation list of the sampled buf
         :param index: ID of the agent
         """
         curr_agent = self.agents[index]
@@ -186,8 +186,8 @@ class AgentMADDPG(AgentBase):
         """
         Select continuous actions for exploration
 
-        :param state: states.shape==(n_agents,batch_size, state_dim, )
-        :return: actions.shape==(n_agents,batch_size, action_dim, ),  -1 < action < +1
+        :param state: states.shape==(n_agents,seq_num, state_dim, )
+        :return: actions.shape==(n_agents,seq_num, action_dim, ),  -1 < action < +1
         """
         actions = []
         for i in range(self.n_agents):
