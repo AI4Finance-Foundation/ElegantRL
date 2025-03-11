@@ -42,6 +42,7 @@ class Config:
         self.clip_grad_norm = 3.0  # 0.1 ~ 4.0, clip the gradient after normalization
         self.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3. the tau of soft target update `net = (1-tau)*net + tau*net1`
+        self.continue_train = True  # continue train use last train saave models
         if self.if_off_policy:  # off-policy
             self.batch_size = int(64)  # num of transitions sampled from replay buffer.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update networks
@@ -67,7 +68,7 @@ class Config:
 
         '''Arguments for evaluate'''
         self.cwd = None  # current working directory to save model. None means set automatically
-        self.if_remove = True  # remove the cwd folder? (True, False, None:ask me)
+        self.if_remove = False  # remove the cwd folder? (True, False, None:ask me)
         self.break_step = np.inf  # break training if 'total_step > break_step'
         self.break_score = np.inf  # break training if `cumulative_rewards > break_score`
         self.if_keep_save = True  # keeping save the checkpoint. False means save until stop training.

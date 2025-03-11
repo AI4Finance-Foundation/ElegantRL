@@ -45,7 +45,8 @@ def train_agent_single_process(args: Config):
 
     '''init agent'''
     agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-    agent.save_or_load_agent(args.cwd, if_save=False)
+    if args.continue_train:
+        agent.save_or_load_agent(args.cwd, if_save=False)
 
     '''init agent.last_state'''
     state, info_dict = env.reset()
@@ -234,7 +235,8 @@ class Learner(Process):
 
         '''Learner init agent'''
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-        agent.save_or_load_agent(args.cwd, if_save=False)
+        if args.continue_train:
+            agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''Learner init buffer'''
         if args.if_off_policy:
@@ -373,7 +375,8 @@ class Worker(Process):
 
         '''init agent'''
         agent = args.agent_class(args.net_dims, args.state_dim, args.action_dim, gpu_id=args.gpu_id, args=args)
-        agent.save_or_load_agent(args.cwd, if_save=False)
+        if args.continue_train:
+            agent.save_or_load_agent(args.cwd, if_save=False)
 
         '''init agent.last_state'''
         state, info_dict = env.reset()
