@@ -292,7 +292,7 @@ class AgentBase:
                 continue
 
             if if_save:
-                th.save(getattr(self, attr_name).state_dict(), file_path)
+                th.save(getattr(self, attr_name), file_path)
             elif os.path.isfile(file_path):
                 setattr(self, attr_name, th.load(file_path, map_location=self.device))
 

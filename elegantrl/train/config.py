@@ -42,6 +42,7 @@ class Config:
         self.clip_grad_norm = 3.0  # 0.1 ~ 4.0, clip the gradient after normalization
         self.state_value_tau = 0  # the tau of normalize for value and state `std = (1-std)*std + tau*std`
         self.soft_update_tau = 5e-3  # 2 ** -8 ~= 5e-3. the tau of soft target update `net = (1-tau)*net + tau*net1`
+        self.continue_train = False  # continue train use last train saved models
         if self.if_off_policy:  # off-policy
             self.batch_size = int(64)  # num of transitions sampled from replay buffer.
             self.horizon_len = int(512)  # collect horizon_len step while exploring, then update networks
