@@ -247,6 +247,7 @@ class Learner(Process):
                 state_dim=args.state_dim,
                 action_dim=1 if args.if_discrete else args.action_dim,
                 if_use_per=args.if_use_per,
+                if_discrete=args.if_discrete,
                 args=args,
             )
         else:
@@ -272,7 +273,7 @@ class Learner(Process):
 
         states = th.zeros((horizon_len, num_seqs, state_dim), dtype=th.float32, device=agent.device)
         actions = th.zeros((horizon_len, num_seqs, action_dim), dtype=th.float32, device=agent.device) \
-            if not if_discrete else th.zeros((horizon_len, num_seqs, 1), dtype=th.int32).to(agent.device)
+            if not if_discrete else th.zeros((horizon_len, num_seqs), dtype=th.int32).to(agent.device)
         rewards = th.zeros((horizon_len, num_seqs), dtype=th.float32, device=agent.device)
         undones = th.zeros((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
         unmasks = th.zeros((horizon_len, num_seqs), dtype=th.bool, device=agent.device)
