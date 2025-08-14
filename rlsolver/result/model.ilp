@@ -1,8 +1,0 @@
-\ Model arc_bounding_model_copy
-\ LP format - for model browsing. Use MPS format to capture full model detail.
-Maximize
- 
-Subject To
- duration: <= -1650
-Bounds
-End
