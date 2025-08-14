@@ -1,18 +1,17 @@
 import sys
 import os
 cur_path = os.path.dirname(os.path.abspath(__file__))
-rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
+rlsolver_path = os.path.join(cur_path, '../..')
 sys.path.append(os.path.dirname(rlsolver_path))
 
-import numpy as np
 import networkx as nx
 import copy
-from typing import List, Tuple, Union, Dict
+from typing import List, Union
 import time
 from config import Config
-from rlsolver.methods.VRPTW_algs.util import (read_data_as_nxdigraph2,
-                  write_result,
-                  calc_dists_of_paths)
+from rlsolver.methods_problem_specific.VRPTW.util import (read_data_as_nxdigraph2,
+                                                               write_result,
+                                                               calc_dists_of_paths)
 
 class Label:
     path_denoted_by_name = []
