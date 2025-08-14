@@ -2,19 +2,17 @@ import sys
 import os
 
 cur_path = os.path.dirname(os.path.abspath(__file__))
-rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
+rlsolver_path = os.path.join(cur_path, '../..')
 sys.path.append(os.path.dirname(rlsolver_path))
 
 import copy
-from typing import Dict, List
+from typing import List
 
 import networkx as nx
 
-from rlsolver.methods.VRPTW_algs.Label import Label
-import numpy as np
+from rlsolver.methods_problem_specific.VRPTW.Label import Label
 from typing import Optional
-from rlsolver.methods.VRPTW_algs.config import Config
-import sys
+from rlsolver.methods_problem_specific.VRPTW.config import Config
 
 
 class Customer:
