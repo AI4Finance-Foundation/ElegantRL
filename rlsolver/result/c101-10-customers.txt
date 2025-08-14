@@ -1,8 +1,0 @@
-alg_name: column_generation
-running_duration: 3.254345417022705
-dist: 59
-dists: [59]
-demands: [150]
-durations: [1026]
-paths:
-('0-orig', '5', '3', '7', '8', '10', '9', '6', '4', '2', '1', '11-dest')

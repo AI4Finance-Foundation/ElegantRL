@@ -1,22 +1,20 @@
-import sys
 import os
+import sys
+
 cur_path = os.path.dirname(os.path.abspath(__file__))
 rlsolver_path = os.path.join(cur_path, '../../rlsolver')
 sys.path.append(os.path.dirname(rlsolver_path))
-
-import os
-import sys
-import time
-import torch as th
 
 from rlsolver.methods.util_read_data import (load_graph_list, GraphList,
                                              build_adjacency_bool,
                                              build_adjacency_indies,
                                              obtain_num_nodes,
-                                             update_xs_by_vs,)
+                                             update_xs_by_vs, )
 from rlsolver.methods.util import gpu_info_str, evolutionary_replacement
 from rlsolver.methods.config import *
+
 TEN = th.Tensor
+
 
 class SimulatorMaxcut:
     def __init__(self, sim_name: str = 'max_cut', graph_list: GraphList = [],
@@ -227,6 +225,7 @@ def check_local_search():
           f"\nbest_v {evaluator.best_v}"
           f"\nbest_x_str {evaluator.best_x_str}")
 
+
 import os
 import sys
 import time
@@ -234,7 +233,7 @@ import torch as th
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 
-from rlsolver.methods.util_evaluator import X_G14, X_G15, X_G49, X_G50, X_G22, X_G55, X_G70
+from rlsolver.methods.util_evaluator import X_G14, X_G70
 from rlsolver.methods.util_evaluator import Evaluator, EncoderBase64
 
 # TODO plan to remove
@@ -242,9 +241,6 @@ from rlsolver.methods.util_evaluator import Evaluator, EncoderBase64
 TEN = th.Tensor
 
 '''local search'''
-
-
-
 
 
 def update_xs_by_vs(xs0, vs0, xs1, vs1, if_maximize: bool = True):
@@ -424,6 +420,90 @@ def find_smallest_nth_power_of_2(target):
     return 2 ** n
 
 
+def search_and_evaluate_local_search():
+    gpu_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+
+    num_reset = 2 ** 0
+    num_iter1 = 2 ** 6
+    num_iter1_wait = 2 ** 3
+    num_iter0 = 2 ** 4
+    num_iter0_wait = 2 ** 0
+    num_sims = 2 ** 12
+
+    num_skip = 2 ** 0
+    gap_print = 2 ** 0
+
+    sim_name = 'gset_14'
+
+    if os.name == 'nt':  # windows new type
+        num_sims = 2 ** 4
+        num_reset = 2 ** 1
+        num_iter0 = 2 ** 2
+
+    device = th.device(f'cuda:{gpu_id}' if th.cuda.is_available() and gpu_id >= 0 else 'cpu')
+
+    simulator_class = SimulatorMaxcut
+    local_search_class = LocalSearch
+
+    '''simulator'''
+    sim = simulator_class(sim_name=sim_name, device=device)
+    num_nodes = sim.num_nodes
+
+    '''evaluator'''
+    temp_xs = sim.generate_xs_randomly(num_sims=1)
+    temp_vs = sim.calculate_obj_values(xs=temp_xs)
+    evaluator = Evaluator(save_dir=f"{sim_name}_{gpu_id}", num_bits=num_nodes, x=temp_xs[0], v=temp_vs[0].item())
+
+    '''solver'''
+    solver = local_search_class(simulator=sim, num_nodes=sim.num_nodes)
+
+    """loop"""
+    th.set_grad_enabled(True)
+    print(f"start searching, {sim_name}  num_nodes={num_nodes}")
+    sim_ids = th.arange(num_sims, device=device)
+    for j2 in range(num_reset):
+        print(f"|\n| reset {j2}")
+        best_xs = sim.generate_xs_randomly(num_sims)
+        best_vs = sim.calculate_obj_values(best_xs)
+
+        update_j1 = 0
+        for j1 in range(num_iter1):
+            best_i = best_vs.argmax()
+            best_xs[:] = best_xs[best_i]
+            best_vs[:] = best_vs[best_i]
+
+            '''update xs via probability'''
+            xs = best_xs.clone()
+            for _ in range(num_iter0):
+                sample = th.randint(num_nodes, size=(num_sims,), device=device)
+                xs[sim_ids, sample] = th.logical_not(xs[sim_ids, sample])
+
+            '''update xs via local search'''
+            solver.reset(xs)
+
+            update_j0 = 0
+            for j0 in range(num_iter0):
+                solver.random_search(num_iters=2 ** 6, num_spin=4)
+                if_update0 = update_xs_by_vs(best_xs, best_vs, solver.good_xs, solver.good_vs)
+                if if_update0:
+                    update_j0 = j0
+                elif j0 - update_j0 > num_iter0_wait:
+                    break
+
+            if j1 > num_skip and (j1 + 1) % gap_print == 0:
+                i = j2 * num_iter1 + j1
+
+                good_i = solver.good_vs.argmax()
+                good_x = solver.good_xs[good_i]
+                good_v = solver.good_vs[good_i].item()
+
+                if_update1 = evaluator.record2(i=i, vs=good_v, xs=good_x)
+                evaluator.logging_print(x=good_x, v=good_v, show_str=f"{good_v:6}", if_show_x=if_update1)
+                if if_update1:
+                    update_j1 = j1
+                elif j1 - update_j1 > num_iter1_wait:
+                    break
+        evaluator.save_record_draw_plot()
 
 
 # if __name__ == '__main__':
@@ -431,6 +511,8 @@ def find_smallest_nth_power_of_2(target):
 
 from rlsolver.envs.env_mcpg_maxcut import SimulatorMaxcut
 from rlsolver.methods.util_read_data import read_graphlist
+
+
 def check_solution_x():
     filename = '../data/syn_BA/BA_100_ID0.txt'
     graph = read_graphlist(filename)
@@ -448,3 +530,5 @@ def check_solution_x():
 if __name__ == '__main__':
     check_simulator()
     # check_local_search()
+
+    search_and_evaluate_local_search()
