@@ -2,7 +2,7 @@ import sys
 import os
 
 cur_path = os.path.dirname(os.path.abspath(__file__))
-rlsolver_path = os.path.join(cur_path, '../../../rlsolver')
+rlsolver_path = os.path.join(cur_path, '../..')
 sys.path.append(os.path.dirname(rlsolver_path))
 
 from gurobipy import *
@@ -10,25 +10,16 @@ import copy
 import time
 import networkx as nx
 import operator
-from Customer import Customer
-from Vehicle import Vehicle
-from typing import List, Tuple, Union, Dict
-from rlsolver.methods.VRPTW_algs.config import (Config,
-                                                )
-from typing import Dict, List
-from rlsolver.methods.VRPTW_algs.Customer import (Customer,
-                                                  )
-from rlsolver.methods.VRPTW_algs.Vehicle import Vehicle
-from rlsolver.methods.VRPTW_algs.util import (read_data,
-                                              generate_vehicles,
-                                              generate_customers_including_orig_dest,
-                                              generate_vehicles_and_assign_paths,
-                                              write_result_based_on_vehicles,
-                                              calc_dist_of_path,
-                                              obtain_paths_based_on_vehicles,
-                                              calc_demands_of_paths,
-                                              obtain_var_vals,
-                                              calc_durations_of_paths, )
+from rlsolver.methods_problem_specific.VRPTW.config import (Config,
+                                                                 )
+from typing import List
+from rlsolver.methods_problem_specific.VRPTW.Customer import (Customer,
+                                                                   )
+from rlsolver.methods_problem_specific.VRPTW.util import (generate_vehicles_and_assign_paths,
+                                                               obtain_paths_based_on_vehicles,
+                                                               calc_demands_of_paths,
+                                                               obtain_var_vals,
+                                                               calc_durations_of_paths, )
 from Label import Label
 from util import (read_data_as_nxdigraph,
                   write_result,
