@@ -1,0 +1,10 @@
+// obj: 13199.203240429095
+// running_duration: 0.008060932159423828
+// num_nodes: 5
+// alg_name: Alg.cheapest_insertion
+1 1
+2 3
+3 5
+4 4
+5 2
+6 1

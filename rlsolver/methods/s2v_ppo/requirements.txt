@@ -1,0 +1,6 @@
+numpy==1.26.4
+torch==2.3.1
+tqdm==4.66.5
+torch-scatter==2.1.2
+torch-geometric==2.5.3
+networkx==3.3

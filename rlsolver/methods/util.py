@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(rlsolver_path))
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import copy
+import torch as th
 from torch.autograd import Variable
 import functools
 import time
@@ -13,7 +14,6 @@ import numpy as np
 from typing import Union, Tuple, List
 import networkx as nx
 from torch import Tensor
-import torch as th
 from rlsolver.methods.config import *
 try:
     import matplotlib as mpl
@@ -199,7 +199,11 @@ def calc_result_file_name(file: str, add_tail: str= ''):
     new_file = copy.deepcopy(file)
     if 'data' in new_file:
         new_file = new_file.replace('data', 'result')
-    new_file = new_file.split('result')[0] + 'result/' + new_file.split('/')[-1]
+    # new_file = new_file.split('result')[0] + 'result/' + new_file.split('/')[-1]
+    splits = new_file.split('/')
+    result_dir = new_file.split(splits[-1])[0]
+    if not os.path.exists(result_dir):
+        os.mkdir(result_dir)
     if add_tail is not None:
         new_file = new_file.replace('.txt', '') + add_tail + '.txt'
     return new_file
@@ -460,7 +464,79 @@ def read_solution(filename: str):
             line = file.readline()
     return solution
 
+def gumbel(loc):
+    uniform_sample = th.rand(loc.shape,device=loc.device)  # 生成与 loc 相同形状的均匀分布样本
+    return loc - th.log(-th.log(uniform_sample))  # 计算 Gumbel 分布样本
 
+def log1mexp(x):
+    # 计算 log(1 - exp(-|x|))
+    x = -th.abs(x)
+    return th.where(x > -0.693, th.log(-th.expm1(x)), th.log1p(-th.exp(x)))
+
+def noreplacement_sampling_renormalize(ll_idx, dim=-1):
+    ll_base = th.max(ll_idx, dim=dim, keepdim=True).values
+    prob_idx = th.exp(ll_idx - ll_base)
+    ll_delta = th.log(th.cumsum(prob_idx, dim=dim) - prob_idx) + ll_base
+    ll_idx = th.clamp(ll_idx - log1mexp(ll_delta), max=0.0)
+    return ll_idx
+
+def multinomial(log_prob,path_length):
+    num_classes = log_prob.shape[-1]
+    perturbed_ll = gumbel(log_prob)
+    # 将每个点采样的权重升序排列
+    sorted_ll, _ = th.sort(perturbed_ll)
+    # 提取排序后的权重的倒数 num_classes - num_samples 列，shape=(batchsize, 1)
+    threshold = th.gather(sorted_ll,1,(num_classes - path_length).unsqueeze(1))
+    # threshold = sorted_ll[..., num_classes - path_length].unsqueeze(-1)
+    # 在权重最大的 num_samples 个点处为 1，其余为 0
+    selected_mask = (perturbed_ll >= threshold.expand_as(perturbed_ll)).int()
+    selected = {
+        'selected_mask': selected_mask,
+        'perturbed_ll': perturbed_ll,
+    }
+    sorted_idx = th.argsort(-perturbed_ll, dim=-1)
+
+    # 按照 sorted_idx 的顺序重新排列 log_prob
+    sorted_ll = th.gather(log_prob, dim=-1, index=sorted_idx)
+
+    # 使用 noreplacement_sampling_renormalize 函数对 sorted_ll 进行处理
+    idx_ll = noreplacement_sampling_renormalize(sorted_ll)
+
+    # 将 sorted_idx 和 idx_ll 重新调整形状
+    flat_idx = sorted_idx.view(-1, num_classes)
+    flat_ll = idx_ll.view(-1, num_classes)
+
+    # 初始化 ll_selected 为全零张量
+    ll_selected = th.zeros_like(flat_ll)
+
+    # 根据 flat_idx 的值将 flat_ll 的内容填充到 ll_selected 中
+    ll_selected.scatter_(1, flat_idx, flat_ll)
+
+    # 将 ll_selected 重新调整为 log_prob 的形状
+    ll_selected = ll_selected.view(log_prob.shape)
+
+    # 应用 selected_mask
+    ll_selected = ll_selected * selected_mask
+
+    # selected 是一个字典，其中包含 'selected_mask' 和 'perturbed_ll'
+
+
+    return selected, ll_selected
+
+def bernoulli_logp(log_prob):
+    # 在 PyTorch 中生成形状与 log_prob 相同的均匀分布噪声
+    noise = th.rand(log_prob.shape, device=log_prob.device)
+    return th.log(noise + 1e-24) < log_prob
+
+def mh_step(log_prob, current_sample, new_sample):
+    # 使用 log_prob 计算是否使用新样本
+    use_new_sample = bernoulli_logp(log_prob)
+    # 根据 use_new_sample 决定使用 new_sample 还是 current_sample
+    expanded_use_new_sample = use_new_sample.unsqueeze(-1).expand_as(new_sample)
+    return (
+        th.where(expanded_use_new_sample, new_sample, current_sample),
+        use_new_sample,
+    )
 
 if __name__ == '__main__':
     s = "// time_limit: ('TIME_LIMIT', <class 'float'>, 36.0, 0.0, inf, inf)"

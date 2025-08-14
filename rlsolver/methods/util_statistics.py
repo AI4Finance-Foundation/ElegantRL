@@ -226,7 +226,7 @@ class Config():
     # result_folder_path中，文件夹的名称按照 datasetName_AlgName的方式写，只有一个下划线，否则报错。正确的写法，比如，synBA_GA，表示synBA数据集，GA算法。
     # result_folder_path = r'./result'# 替换为实际路径
     result_folder_path = r'D:\cs\RLSolver_data_result\result_maxcut'  # 替换为实际路径
-    total_result_folder = r'./output'  # 替换为要存放结果的路径
+    total_result_folder = r'D:\cs\RLSolver_data_result\result_maxcut统计excel'  # 替换为要存放结果的路径
     include_time = True  # 设置是否统计时间
     comparison_method = "gurobiQUBO"  # 设置对比的方法名称
     output_order = ["greedy", "SDP", "SA", "GA", "gurobiQUBO", "s2v", "iSCO", "MCPG"]  # 设置表格列的输出顺序

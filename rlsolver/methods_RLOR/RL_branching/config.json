@@ -1,0 +1,36 @@
+{
+  "seed": 0,
+  "gpu": -1,
+  "k": 10,
+
+  "model": "MLP",
+  "num_epochs": 1000,
+
+  "lr_train_il": 5e-3,
+  "batch_size": 32,
+  "batch_valid": 128,
+  "patience": 512,
+
+  "lr_train_rl": 5e-3,
+  "num_agents": 4,
+  "time_limit": 1500,
+  "sample_rate": 0.05,
+  "entropy_bonus": 1e-5,
+
+  "episodes_per_epoch": 10,
+  "num_valid_instances": 50,
+  "num_seeds": 1,
+  "valid_freq": 50,
+
+  "problems": ["indset", "gisp", "cflp", "fcmcnf", "setcover", "mkp", "cauctions"],
+  "num_instances": [["train", 4000], ["valid", 1000], ["test", 50], ["transfer", 50]],
+  "difficulty": {
+    "indset": "500_4",
+    "gisp": "60_0.5",
+    "mkp": "100_6",
+    "cflp": "25_25_3",
+    "fcmcnf": "15_22_0.33",
+    "setcover": "400_750_0.05",
+    "cauctions": "100_500"
+  }
+}

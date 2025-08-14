@@ -5,20 +5,6 @@ from enum import Enum, unique
 import os
 
 @unique
-class Problem(Enum):
-    maxcut = "maxcut"
-    graph_partitioning = "graph_partitioning"
-    minimum_vertex_cover = "minimum_vertex_cover"
-    number_partitioning = "number_partitioning"
-    bilp = "bilp"
-    maximum_independent_set = "maximum_independent_set"
-    knapsack = "knapsack"
-    set_cover = "set_cover"
-    graph_coloring = "graph_coloring"
-    tsp = "tsp"
-PROBLEM = Problem.maxcut
-
-@unique
 class GraphType(Enum):
     BA: str = "BA"  # "barabasi_albert"
     ER: str = "ER"  # "erdos_renyi"
@@ -26,6 +12,23 @@ class GraphType(Enum):
 
 def calc_device(gpu_id: int):
     return th.device(f"cuda:{gpu_id}" if th.cuda.is_available() and gpu_id >= 0 else "cpu")
+
+@unique
+class Problem(Enum):
+    maxcut = "maxcut"
+    graph_partitioning = "graph_partitioning"
+    number_partitioning = "number_partitioning"
+    minimum_vertex_cover = "minimum_vertex_cover"
+    bilp = "bilp"
+    maximum_independent_set = "maximum_independent_set"
+    knapsack = "knapsack"
+    set_cover = "set_cover"
+    graph_coloring = "graph_coloring"
+    portfolio_allocation = "portfolio_allocation"
+    tnco = "tnco"
+    vrp = "vrp"
+    tsp = "tsp"
+PROBLEM = Problem.maxcut
 
 GPU_ID: int = 0  # -1: cpu, >=0: gpu
 

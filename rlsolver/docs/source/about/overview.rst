@@ -1,2 +1,0 @@
-Key Concepts and Features
-=============
