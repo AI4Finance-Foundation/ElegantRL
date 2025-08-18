@@ -45,9 +45,9 @@ ElegantRL ([website](https://elegantrl.readthedocs.io/en/latest/index.html)) is 
 
 - **Stable**: much much much more stable than [Stable Baselines 3](https://github.com/DLR-RM/stable-baselines3) by utilizing various methods such as the Hamiltonian term.
   
-- **Practical**: used in multipe projects ([RLSolver](https://github.com/zhumingpassional/RLSolver), [FinRL](https://github.com/AI4Finance-Foundation/FinRL), [FinRL-Meta](https://github.com/AI4Finance-Foundation/FinRL-Meta), etc.)
+- **Practical**: used in multipe projects ([FinRL](https://github.com/AI4Finance-Foundation/FinRL), [FinRL-Meta](https://github.com/AI4Finance-Foundation/FinRL-Meta), etc.)
 
-- **Massively parallel simulations** are used in multipe projects ([RLSolver](https://github.com/AI4Finance-Foundation/RLSolver), [FinRL](https://github.com/AI4Finance-Foundation/FinRL), etc.); therefore, the sampling speed is high since we can build many many GPU-based environments. 
+- **Massively parallel simulations** are used in multipe projects ([FinRL](https://github.com/AI4Finance-Foundation/FinRL), etc.); therefore, the sampling speed is high since we can build many many GPU-based environments. 
   
 ElegantRL implements the following model-free deep reinforcement learning (DRL) algorithms:
 
@@ -209,4 +209,5 @@ To cite this repository:
   year={2021}
 }
 ```
+
 
