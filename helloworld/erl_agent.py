@@ -6,7 +6,7 @@ from copy import deepcopy
 from typing import List, Tuple, Optional
 
 
-from erl_config import Config
+from .erl_config import Config
 
 ARY = np.ndarray
 TEN = th.Tensor
