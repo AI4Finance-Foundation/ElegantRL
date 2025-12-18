@@ -436,6 +436,7 @@ class AgentPPO:
 
             states[i] = state
             actions[i] = action
+            logprobs[i] = logprob
             rewards[i] = reward
             terminals[i] = terminal
             truncates[i] = truncate
