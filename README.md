@@ -70,11 +70,32 @@ ElegantRL supports the following simulators:
 ## Contents
 
 - [News](#News)
+- [Installation & Running Instructions](#Installation--Running-Instructions)
 - [ElegantRL-Helloworld](#ElegantRL-Helloworld)
 - [File Structure](#File-Structure)
 - [Experimental Demos](#Experimental-Demos)
 - [Requirements](#Requirements)
 - [Citation](#Citation)
+
+## Installation & Running Instructions
+
+📖 **For detailed setup and usage instructions, see [RUNNING_INSTRUCTIONS.md](./RUNNING_INSTRUCTIONS.md)**
+
+Quick start:
+```bash
+# Install from PyPI
+pip install elegantrl
+
+# Or install from source
+git clone https://github.com/AI4Finance-Foundation/ElegantRL.git
+cd ElegantRL
+pip install -r requirements.txt
+pip install -e .
+
+# Run your first training
+cd helloworld
+python erl_tutorial_PPO.py
+```
 
 
 ## Tutorials
@@ -173,22 +194,44 @@ We're actively working on refactoring and trying to make the codebase cleaner an
 
 ## Requirements
 
-    Necessary:
-    | Python 3.6+     |
-    | PyTorch 1.6+    |
+### Core Dependencies (Required)
 
-    Not necessary:
-    | Numpy 1.18+     | For ReplayBuffer. Numpy will be installed along with PyTorch.
-    | gym 0.17.0      | For env. Gym provides tutorial env for DRL training. (env.render() bug in gym==0.18 pyglet==1.6. Change to gym==0.17.0, pyglet==1.5)
-    | pybullet 2.7+   | For env. We use PyBullet (free) as an alternative of MuJoCo (not free).
-    | box2d-py 2.3.8  | For gym. Use pip install Box2D (instead of box2d-py)
-    | matplotlib 3.2  | For plots.
+| Package     | Version     | Purpose                                          |
+|-------------|-------------|--------------------------------------------------|
+| Python      | ≥ 3.8       | Programming language (3.11+ recommended)         |
+| PyTorch     | ≥ 1.13.0    | Deep learning framework                          |
+| NumPy       | ≥ 1.21.0    | Numerical computations and replay buffer         |
+| Gymnasium   | ≥ 0.26.0    | RL environments (modern fork of OpenAI Gym)      |
+| Matplotlib  | ≥ 3.5.0     | Plotting and visualization                       |
 
-    pip3 install gym==0.17.0 pybullet Box2D matplotlib # or pip install -r requirements.txt
-    
-    To install StarCraftII env,
-    bash ./elegantrl/envs/installsc2.sh
-    pip install -r sc2_requirements.txt
+### Optional Dependencies
+
+| Package     | Version     | Purpose                                          |
+|-------------|-------------|--------------------------------------------------|
+| PyBullet    | ≥ 3.2.0     | Free physics simulation (MuJoCo alternative)     |
+| Box2D       | ≥ 2.3.10    | 2D physics (BipedalWalker, LunarLander, etc.)    |
+| wandb       | ≥ 0.13.0    | Experiment tracking and visualization            |
+| Isaac Gym   | -           | Massively parallel GPU-accelerated simulations   |
+
+### Installation
+
+**Quick install (core dependencies):**
+```bash
+pip install -r requirements.txt
+```
+
+**With optional simulation environments:**
+```bash
+pip install pybullet Box2D
+```
+
+**For StarCraft II environment:**
+```bash
+bash ./elegantrl/envs/installsc2.sh
+pip install -r sc2_requirements.txt
+```
+
+**Note**: The old `gym` library has been replaced with `gymnasium`. If you need backward compatibility with old gym environments, you may need to install additional packages.
 
 ## Citation:
 

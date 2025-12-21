@@ -1,12 +1,16 @@
 # ML framework
-torch
+torch>=1.13.0
 
 # data handling
-numpy
+numpy>=1.21.0
 
 # plot/simulation
-matplotlib
-gymnasium
+matplotlib>=3.5.0
+gymnasium>=0.26.0
 
-# profiling (no necessary)
-wandb
+# optional simulation environments
+# pybullet>=3.2.0  # Uncomment for PyBullet environments
+# Box2D>=2.3.10    # Uncomment for Box2D environments (e.g., BipedalWalker)
+
+# profiling (optional)
+wandb>=0.13.0

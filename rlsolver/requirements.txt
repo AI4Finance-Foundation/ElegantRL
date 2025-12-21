@@ -1,8 +1,8 @@
 # ML framework
-torch
+torch>=1.13.0
 
 # data handling
-numpy
+numpy>=1.21.0
 
 # plot/simulation
-matplotlib
+matplotlib>=3.5.0
