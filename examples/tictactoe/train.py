@@ -149,12 +149,18 @@ class SelfPlayTrainer:
 
         # Add to buffer
         if all_transitions:
-            states = torch.FloatTensor([t[0] for t in all_transitions]).unsqueeze(1)
-            actions = torch.FloatTensor([[t[1]] for t in all_transitions]).unsqueeze(1)
-            rewards = torch.FloatTensor([t[2] for t in all_transitions]).unsqueeze(1)
-            undones = torch.ones_like(rewards)  # All non-terminal for simplicity
+            # Convert to numpy first for better performance
+            states_np = np.array([t[0] for t in all_transitions])
+            actions_np = np.array([[t[1]] for t in all_transitions])
+            rewards_np = np.array([t[2] for t in all_transitions])
 
-            self.buffer.update((states, actions, rewards, undones))
+            states = torch.FloatTensor(states_np).unsqueeze(1)
+            actions = torch.FloatTensor(actions_np).unsqueeze(1)
+            rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
+            undones = torch.ones_like(rewards)  # All non-terminal for simplicity
+            unmasks = torch.ones_like(rewards)  # All valid (not truncated)
+
+            self.buffer.update((states, actions, rewards, undones, unmasks))
 
         return stats
 
