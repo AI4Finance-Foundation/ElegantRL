@@ -2,6 +2,7 @@
 Training script for Tic-Tac-Toe agent
 
 Trains agent using self-play with ElegantRL
+FIXED VERSION: Works with PPO's on-policy requirements
 """
 
 import argparse
@@ -9,7 +10,6 @@ import os
 import numpy as np
 import torch
 from typing import Tuple, List
-from elegantrl.train.replay_buffer import ReplayBuffer
 
 from game import TicTacToe, RandomPlayer
 from agent import TicTacToeAgent
@@ -21,23 +21,87 @@ class SelfPlayTrainer:
     def __init__(self, save_dir='./checkpoints', gpu_id=0):
         self.save_dir = save_dir
         self.gpu_id = gpu_id
+        self.device = torch.device(f"cuda:{gpu_id}" if gpu_id >= 0 and torch.cuda.is_available() else "cpu")
         os.makedirs(save_dir, exist_ok=True)
 
-        # Initialize agent and buffer
+        # Initialize agent
         self.agent = TicTacToeAgent(gpu_id=gpu_id)
-        self.buffer = ReplayBuffer(
-            max_size=100_000,
-            state_dim=9,
-            action_dim=1,  # Discrete action (just index)
-            gpu_id=gpu_id
-        )
+
+    def collect_trajectory_data(self, num_games=100, opponent='self', temperature=1.0):
+        """
+        Collect trajectory data for PPO training
+
+        Returns:
+            Tuple of (states, actions, logprobs, rewards, undones, unmasks) for PPO
+        """
+        all_states = []
+        all_actions = []
+        all_logprobs = []
+        all_rewards = []
+        all_undones = []
+        all_unmasks = []
+
+        stats = {'wins': 0, 'losses': 0, 'draws': 0}
+
+        for game_idx in range(num_games):
+            # Play one game
+            if opponent == 'self':
+                game_data, winner = self.play_selfplay_game(temperature)
+            else:
+                agent_player = game_idx % 2
+                game_data, winner = self.play_against_random(agent_player, temperature)
+
+            # Update stats
+            if winner == -1:
+                stats['draws'] += 1
+            elif opponent == 'self':
+                stats['wins'] += 1 if winner == 0 else 0
+                stats['losses'] += 1 if winner == 1 else 0
+            else:
+                agent_player = game_idx % 2
+                if winner == agent_player:
+                    stats['wins'] += 1
+                elif winner != -1:
+                    stats['losses'] += 1
+                else:
+                    stats['draws'] += 1
+
+            # Process game data
+            for i, (state, action, logprob, player) in enumerate(game_data):
+                # Assign reward based on game outcome
+                if winner == -1:  # Draw
+                    reward = 0.0
+                elif winner == player:  # Win
+                    reward = 1.0
+                else:  # Loss
+                    reward = -1.0
+
+                # All positions are terminal (game is over) except intermediate steps
+                is_done = (i == len(game_data) - 1)
+
+                all_states.append(state)
+                all_actions.append(action)
+                all_logprobs.append(logprob)
+                all_rewards.append(reward)
+                all_undones.append(0.0 if is_done else 1.0)
+                all_unmasks.append(1.0)  # No truncation
+
+        # Convert to tensors in PPO format: (horizon_len, num_envs, dim)
+        states = torch.FloatTensor(np.array(all_states)).unsqueeze(1).to(self.device)  # (T, 1, 9)
+        actions = torch.LongTensor(all_actions).unsqueeze(1).to(self.device)  # (T, 1)
+        logprobs = torch.FloatTensor(all_logprobs).unsqueeze(1).to(self.device)  # (T, 1)
+        rewards = torch.FloatTensor(all_rewards).unsqueeze(1).to(self.device)  # (T, 1)
+        undones = torch.FloatTensor(all_undones).unsqueeze(1).to(self.device)  # (T, 1)
+        unmasks = torch.FloatTensor(all_unmasks).unsqueeze(1).to(self.device)  # (T, 1)
+
+        return (states, actions, logprobs, rewards, undones, unmasks), stats
 
     def play_selfplay_game(self, temperature=1.0) -> Tuple[list, int]:
         """
-        Play one self-play game
+        Play one self-play game, storing logprobs
 
         Returns:
-            game_data: List of (state, action, player) tuples
+            game_data: List of (state, action, logprob, player) tuples
             winner: 0, 1, or -1 (draw)
         """
         game = TicTacToe()
@@ -49,11 +113,12 @@ class SelfPlayTrainer:
             current_player = game.current_player
             valid_mask = game.get_valid_actions_mask()
 
-            # Get action from agent
-            action = self.agent.get_action(state, valid_mask, temperature=temperature)
+            # Get action and logprob from agent
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            action, logprob = self._get_action_logprob(state_tensor, valid_mask, temperature)
 
-            # Store (state, action, player)
-            game_data.append((state.copy(), action, current_player))
+            # Store (state, action, logprob, player)
+            game_data.append((state.copy(), action, logprob, current_player))
 
             # Execute action
             next_state, reward, done, info = game.step(action)
@@ -62,15 +127,16 @@ class SelfPlayTrainer:
         winner = info['winner']
         return game_data, winner
 
-    def play_against_random(self, agent_player=0) -> Tuple[list, int]:
+    def play_against_random(self, agent_player=0, temperature=1.0) -> Tuple[list, int]:
         """
         Play agent against random player
 
         Args:
             agent_player: Which player is the agent (0 or 1)
+            temperature: Exploration temperature
 
         Returns:
-            game_data: List of (state, action) tuples for agent moves only
+            game_data: List of (state, action, logprob, player) tuples for agent moves only
             winner: 0, 1, or -1 (draw)
         """
         game = TicTacToe()
@@ -84,9 +150,10 @@ class SelfPlayTrainer:
             valid_mask = game.get_valid_actions_mask()
 
             if current_player == agent_player:
-                # Agent's turn
-                action = self.agent.get_action(state, valid_mask, temperature=1.0)
-                game_data.append((state.copy(), action, current_player))
+                # Agent's turn - get action with logprob
+                state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+                action, logprob = self._get_action_logprob(state_tensor, valid_mask, temperature)
+                game_data.append((state.copy(), action, logprob, current_player))
             else:
                 # Random player's turn
                 action = random_player.get_action(state, valid_mask)
@@ -98,90 +165,43 @@ class SelfPlayTrainer:
         winner = info['winner']
         return game_data, winner
 
-    def collect_data(self, num_games=100, opponent='self', temperature=1.0):
-        """
-        Collect training data from games
+    def _get_action_logprob(self, state_tensor, valid_mask, temperature=1.0):
+        """Get action and its log probability"""
+        with torch.no_grad():
+            # Get action logits
+            action_logits = self.agent.get_agent().act.net(state_tensor)
+            action_logits = action_logits / temperature
 
-        Args:
-            num_games: Number of games to play
-            opponent: 'self' for self-play, 'random' for random opponent
-            temperature: Exploration temperature
-        """
-        all_transitions = []
-        stats = {'wins': 0, 'losses': 0, 'draws': 0}
+            # Mask invalid actions
+            mask_tensor = torch.FloatTensor(valid_mask).unsqueeze(0).to(self.device)
+            action_logits = action_logits.masked_fill(mask_tensor == 0, -1e9)
 
-        for game_idx in range(num_games):
-            # Play game
-            if opponent == 'self':
-                game_data, winner = self.play_selfplay_game(temperature)
-            else:
-                # Alternate which player the agent is
-                agent_player = game_idx % 2
-                game_data, winner = self.play_against_random(agent_player)
+            # Sample action
+            action_probs = torch.softmax(action_logits, dim=-1)
+            action = torch.multinomial(action_probs, 1).item()
 
-            # Update stats (for agent as player 0 in self-play)
-            if winner == -1:
-                stats['draws'] += 1
-            elif opponent == 'self':
-                if winner == 0:
-                    stats['wins'] += 1
-                else:
-                    stats['losses'] += 1
-            else:
-                # Agent vs random
-                agent_player = game_idx % 2
-                if winner == agent_player:
-                    stats['wins'] += 1
-                elif winner != -1:
-                    stats['losses'] += 1
+            # Calculate log probability
+            logprob = torch.log(action_probs[0, action] + 1e-8).item()
 
-            # Convert game data to transitions
-            for state, action, player in game_data:
-                # Assign reward based on game outcome
-                if winner == -1:  # Draw
-                    reward = 0.0
-                elif winner == player:  # Win
-                    reward = 1.0
-                else:  # Loss
-                    reward = -1.0
-
-                all_transitions.append((state, action, reward))
-
-        # Add to buffer
-        if all_transitions:
-            # Convert to numpy first for better performance
-            states_np = np.array([t[0] for t in all_transitions])
-            actions_np = np.array([[t[1]] for t in all_transitions])
-            rewards_np = np.array([t[2] for t in all_transitions])
-
-            states = torch.FloatTensor(states_np).unsqueeze(1)
-            actions = torch.FloatTensor(actions_np).unsqueeze(1)
-            rewards = torch.FloatTensor(rewards_np).unsqueeze(1)
-            undones = torch.ones_like(rewards)  # All non-terminal for simplicity
-            unmasks = torch.ones_like(rewards)  # All valid (not truncated)
-
-            self.buffer.update((states, actions, rewards, undones, unmasks))
-
-        return stats
+        return action, logprob
 
     def train(self, num_iterations=10, games_per_iteration=100,
-              training_updates=500, opponent='self', eval_interval=2):
+              training_updates_per_iteration=None, opponent='self', eval_interval=2):
         """
         Main training loop
 
         Args:
             num_iterations: Number of training iterations
             games_per_iteration: Number of games to play per iteration
-            training_updates: Number of gradient updates per iteration
+            training_updates_per_iteration: Number of PPO updates (None = auto based on data size)
             opponent: 'self' or 'random'
             eval_interval: Evaluate every N iterations
         """
         print(f"\n{'='*60}")
-        print(f"Starting Tic-Tac-Toe Training")
+        print(f"Starting Tic-Tac-Toe Training (PPO)")
         print(f"{'='*60}")
         print(f"Iterations: {num_iterations}")
         print(f"Games per iteration: {games_per_iteration}")
-        print(f"Training updates: {training_updates}")
         print(f"Opponent: {opponent}")
         print(f"{'='*60}\n")
 
@@ -195,21 +215,20 @@ class SelfPlayTrainer:
             # Collect data
             print(f"\nCollecting data from {games_per_iteration} games...")
             temperature = max(0.5, 1.0 - iteration / num_iterations)  # Decay temperature
-            stats = self.collect_data(games_per_iteration, opponent, temperature)
+            buffer_data, stats = self.collect_trajectory_data(games_per_iteration, opponent, temperature)
 
             print(f"Game stats: Wins={stats['wins']}, Losses={stats['losses']}, "
                   f"Draws={stats['draws']}, Win Rate={stats['wins']/games_per_iteration:.2%}")
-            print(f"Buffer size: {self.buffer.cur_size}")
+            print(f"Collected {buffer_data[0].shape[0]} transitions")
 
-            # Train
-            if self.buffer.cur_size > 1000:
-                print(f"\nTraining for {training_updates} updates...")
-                for update in range(training_updates):
-                    obj_critic, obj_actor = self.agent.get_agent().update_net(self.buffer)
+            # Train with PPO
+            print(f"\nTraining with PPO...")
+            # Set last_state for advantage calculation (use a zero state as placeholder)
+            self.agent.get_agent().last_state = torch.zeros((1, 9), device=self.device)
 
-                    if (update + 1) % 100 == 0:
-                        print(f"  Update {update+1}/{training_updates}: "
-                              f"Critic={obj_critic:.4f}, Actor={obj_actor:.4f}")
+            obj_critic, obj_actor, obj_entropy = self.agent.get_agent().update_net(buffer_data)
+
+            print(f"  Critic Loss={obj_critic:.4f}, Actor Loss={obj_actor:.4f}, Entropy={obj_entropy:.4f}")
 
             # Evaluate against random opponent
             if (iteration + 1) % eval_interval == 0:
@@ -284,7 +303,6 @@ def main():
     parser = argparse.ArgumentParser(description='Train Tic-Tac-Toe agent')
     parser.add_argument('--iterations', type=int, default=20, help='Number of training iterations')
     parser.add_argument('--games', type=int, default=100, help='Games per iteration')
-    parser.add_argument('--updates', type=int, default=500, help='Training updates per iteration')
     parser.add_argument('--opponent', type=str, default='self', choices=['self', 'random'],
                         help='Opponent type: self-play or random')
     parser.add_argument('--gpu', type=int, default=0, help='GPU ID (-1 for CPU)')
@@ -299,7 +317,6 @@ def main():
     trainer.train(
         num_iterations=args.iterations,
         games_per_iteration=args.games,
-        training_updates=args.updates,
         opponent=args.opponent
     )
 
