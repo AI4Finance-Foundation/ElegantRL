@@ -6,6 +6,37 @@ Complete example of using ElegantRL for game playing, demonstrating:
 - Multiple evaluation modes
 - Inference during gameplay
 
+## 🆕 Simple User-Friendly Interface
+
+**New!** We now provide a simplified interface for easier integration:
+
+- **`Evaluator`** - Load a model and get actions (simple inference)
+- **`DataSaver`** - Collect gameplay data with automatic saving
+
+See **[SIMPLE_INTERFACE.md](./SIMPLE_INTERFACE.md)** for detailed documentation.
+
+**Quick example:**
+```python
+# Evaluation
+from evaluator import Evaluator
+evaluator = Evaluator('trained_model.pth')
+action = evaluator.get_action(state, valid_mask)
+
+# Data Collection
+from data_saver import DataSaver
+saver = DataSaver(save_dir='./data', save_frequency=10)
+saver.new_episode()
+saver.add_transition(state, action, logprob)
+saver.set_reward(reward=1.0, gamma=0.99)
+saver.flush()
+```
+
+**Scripts:**
+- `simple_train.py` - Simplified training with DataSaver
+- `simple_eval.py` - Simplified evaluation with Evaluator
+
+---
+
 ## Quick Start
 
 ### 1. Train an Agent
@@ -55,11 +86,17 @@ python evaluate.py --model checkpoints/best_model.pth --mode watch --num-games 5
 
 ```
 tictactoe/
-├── game.py          # Tic-Tac-Toe game environment
-├── agent.py         # RL agent wrapper with action masking
-├── train.py         # Training script
-├── evaluate.py      # Evaluation script
-└── README.md        # This file
+├── game.py                  # Tic-Tac-Toe game environment
+├── agent.py                 # RL agent wrapper with action masking
+├── train.py                 # Full-featured training script
+├── evaluate.py              # Evaluation script
+├── evaluator.py             # 🆕 Simple Evaluator class
+├── data_saver.py            # 🆕 Simple DataSaver class
+├── simple_train.py          # 🆕 Simplified training script
+├── simple_eval.py           # 🆕 Simplified evaluation script
+├── SIMPLE_INTERFACE.md      # 🆕 Simple interface documentation
+├── run_example.sh           # Quick start script
+└── README.md                # This file
 ```
 
 ---
