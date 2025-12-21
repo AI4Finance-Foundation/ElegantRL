@@ -4,7 +4,7 @@ RL Agent wrapper for Tic-Tac-Toe
 
 import torch
 import numpy as np
-from elegantrl.agents import AgentPPO
+from elegantrl.agents.AgentPPO import AgentDiscretePPO
 from elegantrl.train.config import Config
 
 
@@ -12,7 +12,7 @@ class TicTacToeAgent:
     """
     Reinforcement Learning agent for Tic-Tac-Toe
 
-    Uses ElegantRL's PPO agent with custom action masking
+    Uses ElegantRL's Discrete PPO agent for discrete action spaces
     """
 
     def __init__(self, state_dim=9, action_dim=9, gpu_id=0, model_path=None):
@@ -20,12 +20,11 @@ class TicTacToeAgent:
         self.action_dim = action_dim
         self.device = torch.device(f"cuda:{gpu_id}" if gpu_id >= 0 and torch.cuda.is_available() else "cpu")
 
-        # Configure for discrete actions
+        # Configure agent
         args = Config()
-        args.if_discrete = True  # Tic-Tac-Toe has discrete actions (0-8)
 
-        # Initialize PPO agent
-        self.agent = AgentPPO(
+        # Initialize Discrete PPO agent (for discrete actions 0-8)
+        self.agent = AgentDiscretePPO(
             net_dims=[128, 128],  # 2-layer network
             state_dim=state_dim,
             action_dim=action_dim,
