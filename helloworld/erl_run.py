@@ -5,8 +5,8 @@ from typing import List, Tuple
 import torch as th
 import numpy as np
 
-from erl_config import Config, build_env
-from erl_agent import ReplayBuffer, AgentBase
+from .erl_config import Config, build_env
+from .erl_agent import ReplayBuffer, AgentBase
 
 
 class Evaluator:
