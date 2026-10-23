@@ -69,7 +69,7 @@ class AgentDQN(AgentBase):
         horizon_len = rewards.shape[0]
 
         last_state = self.last_state
-        next_value = self.act_target(last_state).argmax(dim=1).detach()  # actor is Q Network in DQN style
+        next_value = self.act_target(last_state).max(dim=1)[0].detach()  # actor is Q Network in DQN style
         for t in range(horizon_len - 1, -1, -1):
             returns[t] = next_value = rewards[t] + masks[t] * next_value
         return returns
