@@ -1,4 +1,4 @@
-﻿import torch as th
+import torch as th
 from torch import nn
 from copy import deepcopy
 from typing import Tuple, List
@@ -13,7 +13,7 @@ TEN = th.Tensor
 
 class AgentDQN(AgentBase):
     """Deep Q-Network algorithm.
-    鈥淗uman-Level Control Through Deep Reinforcement Learning鈥? 2015.
+    “Human-Level Control Through Deep Reinforcement Learning”. 2015.
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
@@ -77,7 +77,7 @@ class AgentDQN(AgentBase):
 
 class AgentDoubleDQN(AgentDQN):
     """
-    Double Deep Q-Network algorithm. 鈥淒eep Reinforcement Learning with Double Q-learning鈥? 2015.
+    Double Deep Q-Network algorithm. “Deep Reinforcement Learning with Double Q-learning”. 2015.
     """
 
     def __init__(self, net_dims: [int], state_dim: int, action_dim: int, gpu_id: int = 0, args: Config = Config()):
